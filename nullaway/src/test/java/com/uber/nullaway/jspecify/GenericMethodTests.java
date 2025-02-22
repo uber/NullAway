@@ -226,6 +226,30 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void multipleParametersOneNested() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "    static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<U> create(U u, Foo<U> other) {",
+            "            return new Foo<>(u);",
+            "        }",
+            "        static void test(Foo<@Nullable Object> f1, Foo<Object> f2) {",
+            "            // no error expected",
+            "            Foo<@Nullable Object> result = Foo.create(null, f1);",
+            "            // BUG: Diagnostic contains: XXX",
+            "            Foo<@Nullable Object> result2 = Foo.create(null, f2);",
+            "        }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void genericInferenceOnAssignmentsMultipleParams() {
     makeHelper()
         .addSourceLines(
