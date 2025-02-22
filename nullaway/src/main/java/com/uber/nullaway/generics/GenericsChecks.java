@@ -425,6 +425,9 @@ public final class GenericsChecks {
       return;
     }
     Type lhsType = getTreeType(tree, config);
+    if (lhsType == null) {
+      return;
+    }
     Tree rhsTree;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
@@ -434,11 +437,11 @@ public final class GenericsChecks {
         MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
         // update inferredTypes cache for assignments
-        if (methodSymbol.type instanceof Type.ForAll // generic method call
-            && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
-            && lhsType != null) {
+        // generic method call with no explicit generic arguments
+        if (methodSymbol.type instanceof Type.ForAll
+            && methodInvocationTree.getTypeArguments().isEmpty()) {
           Type returnType = methodSymbol.getReturnType();
-          @Nullable Map<TypeVariable, Type> genericNullness =
+          Map<TypeVariable, Type> genericNullness =
               returnType.accept(new InferTypeVisitor(config), lhsType);
           if (genericNullness != null) {
             inferredTypes.put(methodInvocationTree, genericNullness);
@@ -475,7 +478,7 @@ public final class GenericsChecks {
       }
     }
 
-    if (lhsType != null && rhsType != null) {
+    if (rhsType != null) {
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
