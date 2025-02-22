@@ -38,6 +38,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.stream.Collectors;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
@@ -51,7 +52,7 @@ public final class GenericsChecks {
    * Any generic type parameter that are not explicitly stated are inferred and cached in this
    * field.
    */
-  private final Map<MethodInvocationTree, Map<Type, Type>> inferredTypes = new HashMap<>();
+  private final Map<MethodInvocationTree, Map<TypeVariable, Type>> inferredTypes = new HashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -437,7 +438,7 @@ public final class GenericsChecks {
             && methodInvocationTree.getTypeArguments().isEmpty() // no explicit generic arguments
             && lhsType != null) {
           Type returnType = methodSymbol.getReturnType();
-          @Nullable Map<Type, Type> genericNullness =
+          @Nullable Map<TypeVariable, Type> genericNullness =
               returnType.accept(new InferTypeVisitor(config), lhsType);
           if (genericNullness != null) {
             inferredTypes.put(methodInvocationTree, genericNullness);
@@ -460,9 +461,13 @@ public final class GenericsChecks {
       MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
       if (inferredTypes.containsKey(methodInvocationTree)) {
-        Map<Type, Type> genericNullness = inferredTypes.get(methodInvocationTree);
+        Map<TypeVariable, Type> genericNullness = inferredTypes.get(methodInvocationTree);
+        List<Type> keyTypeList = genericNullness.keySet().stream()
+                .filter(typeVar -> typeVar instanceof Type.TypeVar)
+                .map(typeVar -> (Type) typeVar)
+                .collect(Collectors.toList());
         com.sun.tools.javac.util.List<Type> from =
-            com.sun.tools.javac.util.List.from(genericNullness.keySet());
+            com.sun.tools.javac.util.List.from(keyTypeList);
         com.sun.tools.javac.util.List<Type> to =
             com.sun.tools.javac.util.List.from(genericNullness.values());
         rhsType =
@@ -987,7 +992,7 @@ public final class GenericsChecks {
       }
       // check nullness of inferred types
       if (inferredTypes.containsKey(tree)) {
-        Map<Type, Type> genericNullness = inferredTypes.get(tree);
+        Map<TypeVariable, Type> genericNullness = inferredTypes.get(tree);
         List<Symbol.VarSymbol> parameters = invokedMethodSymbol.getParameters();
         if (genericNullness.containsKey(parameters.get(paramIndex).type)) {
           Type genericType = parameters.get(paramIndex).type;
