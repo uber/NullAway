@@ -199,6 +199,33 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericInferenceOnAssignmentAfterDeclaration() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "    class Test {",
+            "      static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<U> makeNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "        static <U> Foo<U> makeNonNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "      }",
+            "      static void testAssignAfterDeclaration() {",
+            "        // legal",
+            "        Foo<@Nullable Object> f1; f1 = Foo.makeNull(null);",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        Foo<Object> f2; f2 = Foo.makeNull(null);",
+            "      }",
+            "    }")
+        .doTest();
+  }
+
+  @Test
   public void genericInferenceOnAssignmentsMultipleParams() {
     makeHelper()
         .addSourceLines(
