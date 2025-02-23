@@ -228,10 +228,8 @@ public final class AccessPathNullnessAnalysis {
                   && !e.getAnnotationMirrors().stream()
                       .anyMatch(
                           am ->
-                              am.getAnnotationType()
-                                  .asElement()
-                                  .getSimpleName()
-                                  .contentEquals("MonotonicNonNull"))) {
+                              Nullness.isMonotonicNonNullAnnotation(
+                                  am.getAnnotationType().asElement().toString()))) {
                 allAPNonRootElementsAreFinalFields = false;
                 break;
               }
