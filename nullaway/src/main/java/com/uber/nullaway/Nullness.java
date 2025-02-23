@@ -54,6 +54,11 @@ public enum Nullness implements AbstractValue<Nullness> {
     this.displayName = displayName;
   }
 
+  public static boolean isMonotonicNonNullAnnotations(String annotName) {
+    // match from any package
+    return annotName.endsWith(".MonotonicNonNull");
+  }
+
   // The following leastUpperBound and greatestLowerBound methods were created by handwriting a
   // truth table and then encoding the values into these functions. A better approach would be to
   // represent the lattice directly and compute these functions from the lattice.
