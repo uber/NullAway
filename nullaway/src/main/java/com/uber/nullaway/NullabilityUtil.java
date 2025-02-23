@@ -480,7 +480,7 @@ public class NullabilityUtil {
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
             || codeAnnotationInfo.isSymbolUnannotated(symbol, config, null))
-        && Nullness.hasNullableAnnotation(symbol, config);
+        && Nullness.hasNullableFieldAnnotation(symbol, config);
   }
 
   /**

@@ -485,7 +485,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
     return Nullness.isNullableAnnotation(annotationName, this)
-        || Nullness.isMonotonicNonNullAnnotations(annotationName)
+        || Nullness.isMonotonicNonNullAnnotation(annotationName)
         || (fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches());
   }
 

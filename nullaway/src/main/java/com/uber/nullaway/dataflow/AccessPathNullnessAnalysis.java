@@ -21,6 +21,7 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.tree.Tree;
@@ -211,12 +212,29 @@ public final class AccessPathNullnessAnalysis {
     return store.filterAccessPaths(
         (ap) -> {
           boolean allAPNonRootElementsAreFinalFields = true;
-          for (AccessPathElement ape : ap.getElements()) {
+          ImmutableList<AccessPathElement> elements = ap.getElements();
+          for (int i = 0; i < elements.size(); i++) {
+            AccessPathElement ape = elements.get(i);
             Element e = ape.getJavaElement();
-            if (!e.getKind().equals(ElementKind.FIELD)
-                || !e.getModifiers().contains(Modifier.FINAL)) {
-              allAPNonRootElementsAreFinalFields = false;
-              break;
+            if (i != elements.size() - 1) {
+              if (!e.getKind().equals(ElementKind.LOCAL_VARIABLE)
+                  && !e.getKind().equals(ElementKind.PARAMETER)
+                  && !e.getModifiers().contains(Modifier.FINAL)) {
+                allAPNonRootElementsAreFinalFields = false;
+                break;
+              }
+            } else { // last element; can be a final field or @MonotonicNonNull field
+              if (!e.getModifiers().contains(Modifier.FINAL)
+                  && !e.getAnnotationMirrors().stream()
+                      .anyMatch(
+                          am ->
+                              am.getAnnotationType()
+                                  .asElement()
+                                  .getSimpleName()
+                                  .contentEquals("MonotonicNonNull"))) {
+                allAPNonRootElementsAreFinalFields = false;
+                break;
+              }
             }
           }
           if (allAPNonRootElementsAreFinalFields) {

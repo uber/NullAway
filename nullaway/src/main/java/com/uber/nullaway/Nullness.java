@@ -54,9 +54,24 @@ public enum Nullness implements AbstractValue<Nullness> {
     this.displayName = displayName;
   }
 
-  public static boolean isMonotonicNonNullAnnotations(String annotName) {
+  public static boolean isMonotonicNonNullAnnotation(String annotName) {
     // match from any package
     return annotName.endsWith(".MonotonicNonNull");
+  }
+
+  /**
+   * For a field check for either a {@code @Nullable} annotation or a {@code @MonotonicNonNull}
+   * annotation
+   */
+  public static boolean hasNullableFieldAnnotation(Symbol symbol, Config config) {
+    return hasNullableFieldAnnotation(NullabilityUtil.getAllAnnotations(symbol, config), config);
+  }
+
+  private static boolean hasNullableFieldAnnotation(
+      Stream<? extends AnnotationMirror> annotations, Config config) {
+    return annotations
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(anno -> isNullableAnnotation(anno, config) || isMonotonicNonNullAnnotation(anno));
   }
 
   // The following leastUpperBound and greatestLowerBound methods were created by handwriting a
