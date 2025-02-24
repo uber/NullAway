@@ -216,10 +216,8 @@ public final class AccessPathNullnessAnalysis {
           for (int i = 0; i < elements.size(); i++) {
             AccessPathElement ape = elements.get(i);
             Element e = ape.getJavaElement();
-            if (i != elements.size() - 1) {
-              if (!e.getKind().equals(ElementKind.LOCAL_VARIABLE)
-                  && !e.getKind().equals(ElementKind.PARAMETER)
-                  && !e.getModifiers().contains(Modifier.FINAL)) {
+            if (i != elements.size() - 1) { // "inner" elements of the access path, must be fields
+              if (!e.getModifiers().contains(Modifier.FINAL)) {
                 allAPNonRootElementsAreFinalFields = false;
                 break;
               }
@@ -229,7 +227,7 @@ public final class AccessPathNullnessAnalysis {
                       .anyMatch(
                           am ->
                               Nullness.isMonotonicNonNullAnnotation(
-                                  am.getAnnotationType().asElement().toString()))) {
+                                  am.getAnnotationType().toString()))) {
                 allAPNonRootElementsAreFinalFields = false;
                 break;
               }

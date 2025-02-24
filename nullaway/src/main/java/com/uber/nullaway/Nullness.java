@@ -54,8 +54,12 @@ public enum Nullness implements AbstractValue<Nullness> {
     this.displayName = displayName;
   }
 
+  /**
+   * Check whether an annotation should be treated as equivalent to <code>@MonotonicNonNull</code>.
+   * For now checks if the simple name of the annotation is {@code MonotonicNonNull}, from any
+   * package.
+   */
   public static boolean isMonotonicNonNullAnnotation(String annotName) {
-    // match from any package
     return annotName.endsWith(".MonotonicNonNull");
   }
 
