@@ -8,8 +8,8 @@ import java.lang.annotation.Target;
 /**
  * Indicates that once the field becomes non-null, it never becomes null again. Inspired by the
  * identically-named annotation from the Checker Framework. A {@code @MonotonicNonNull} field can
- * only be assigned non-null values. The key reason for this annotation is to allow reasoning about
- * field non-nullness in nested lambdas / anonymous classes, e.g.:
+ * only be assigned non-null values. The key reason to use this annotation with NullAway is to
+ * enable reasoning about field non-nullness in nested lambdas / anonymous classes, e.g.:
  *
  * <pre>
  * class Foo {
