@@ -482,6 +482,10 @@ final class ErrorProneCLIFlagsConfig implements Config {
     return knownInitializers.contains(classAndName);
   }
 
+  /**
+   * NOTE: this checks not only for excluded field annotations according to the config, but also for
+   * a {@code @Nullable} annotation or a {@code @MonotonicNonNull} annotation.
+   */
   @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
     return Nullness.isNullableAnnotation(annotationName, this)
