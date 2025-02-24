@@ -139,4 +139,48 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void accessPathsWithMethodCalls() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  class Foo {",
+            "    @MonotonicNonNull Object x;",
+            "  }",
+            "  Foo f1 = new Foo();",
+            "  final Foo getF1() {",
+            "    return f1;",
+            "  }",
+            "  final @Nullable Foo getOther() {",
+            "    return null;",
+            "  }",
+            "  void testPositive1() {",
+            "    getF1().x = new Object();",
+            "    Runnable r = () -> {",
+            "      // BUG: Diagnostic contains: dereferenced expression",
+            "      getF1().x.toString();",
+            "    };",
+            "  }",
+            "  void testPositive2() {",
+            "    if (getOther() != null) {",
+            "      getOther().x = new Object();",
+            "      Runnable r1 = () -> {",
+            "        // getOther() should be treated as @Nullable in the lambda",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        getOther().toString();",
+            "      };",
+            "      Runnable r2 = () -> {",
+            "        // BUG: Diagnostic contains: dereferenced expression",
+            "        getOther().x.toString();",
+            "      };",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

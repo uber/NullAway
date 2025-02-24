@@ -216,18 +216,21 @@ public final class AccessPathNullnessAnalysis {
           for (int i = 0; i < elements.size(); i++) {
             AccessPathElement ape = elements.get(i);
             Element e = ape.getJavaElement();
-            if (i != elements.size() - 1) { // "inner" elements of the access path, must be fields
-              if (!e.getModifiers().contains(Modifier.FINAL)) {
+            if (i != elements.size() - 1) { // "inner" elements of the access path
+              if (!e.getKind().equals(ElementKind.FIELD)
+                  || !e.getModifiers().contains(Modifier.FINAL)) {
                 allAPNonRootElementsAreFinalFields = false;
                 break;
               }
-            } else { // last element; can be a final field or @MonotonicNonNull field
-              if (!e.getModifiers().contains(Modifier.FINAL)
-                  && !e.getAnnotationMirrors().stream()
-                      .anyMatch(
-                          am ->
-                              Nullness.isMonotonicNonNullAnnotation(
-                                  am.getAnnotationType().toString()))) {
+            } else { // last element
+              // must be a field that is final or annotated with @MonotonicNonNull
+              if (!e.getKind().equals(ElementKind.FIELD)
+                  || (!e.getModifiers().contains(Modifier.FINAL)
+                      && !e.getAnnotationMirrors().stream()
+                          .anyMatch(
+                              am ->
+                                  Nullness.isMonotonicNonNullAnnotation(
+                                      am.getAnnotationType().toString())))) {
                 allAPNonRootElementsAreFinalFields = false;
                 break;
               }
