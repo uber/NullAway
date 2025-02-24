@@ -68,6 +68,37 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void anonymousClasses() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "class Test {",
+            "  @MonotonicNonNull Object f1;",
+            "  void testPositive() {",
+            "    Runnable r = new Runnable() {",
+            "      @Override",
+            "      public void run() {",
+            "        // BUG: Diagnostic contains: dereferenced expression f1",
+            "        f1.toString();",
+            "      }",
+            "    };",
+            "  }",
+            "  void testNegative() {",
+            "    f1 = new Object();",
+            "    Runnable r = new Runnable() {",
+            "      @Override",
+            "      public void run() {",
+            "        f1.toString();",
+            "      }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedObjects() {
     defaultCompilationHelper
         .addSourceLines(
