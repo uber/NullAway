@@ -1,5 +1,19 @@
 Changelog
 =========
+Version 0.12.4
+---------------
+* Better `@MonotonicNonNull` support (#1149) 
+* Add support for local variables for arrays. (#1146)
+* Ignore Spring Framework 6.2 `@MockitoBean`, `@MockitoSpyBean` fields (#1147)
+* JSpecify: preserve explicit nullability annotations on type variables when performing substitutions (#1143)
+* Always acknowledge restrictive annotations in JSpecify mode (#1144)
+* Fix printing of array types in JSpecify errors (#1145)
+* Remove need to use JSpecify's @Nullable annotation (#1142)
+* Handle calls to generic constructors in JSpecify mode (#1141)
+* Properly handle conditional expression within parens as RHS of assignment (#1140)
+* Skip checks involving wildcard generic type arguments (#1137)
+* Update to Gradle 8.12.1 (#1133)
+
 Version 0.12.3
 ---------------
 * Remove InferredJARModelsHandler (#1079)
