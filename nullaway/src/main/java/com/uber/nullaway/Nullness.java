@@ -64,14 +64,15 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   /**
-   * For a field check for either a {@code @Nullable} annotation or a {@code @MonotonicNonNull}
-   * annotation
+   * Check for either a {@code @Nullable} annotation or a {@code @MonotonicNonNull} annotation on
+   * {@code symbol}. Used to reason whether a field may be null.
    */
-  public static boolean hasNullableFieldAnnotation(Symbol symbol, Config config) {
-    return hasNullableFieldAnnotation(NullabilityUtil.getAllAnnotations(symbol, config), config);
+  public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
+    return hasNullableOrMonotonicNonNullAnnotation(
+        NullabilityUtil.getAllAnnotations(symbol, config), config);
   }
 
-  private static boolean hasNullableFieldAnnotation(
+  private static boolean hasNullableOrMonotonicNonNullAnnotation(
       Stream<? extends AnnotationMirror> annotations, Config config) {
     return annotations
         .map(anno -> anno.getAnnotationType().toString())
