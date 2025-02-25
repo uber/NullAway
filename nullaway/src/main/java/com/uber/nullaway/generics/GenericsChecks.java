@@ -26,6 +26,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
@@ -452,23 +453,15 @@ public final class GenericsChecks {
       if (methodSymbol.type instanceof Type.ForAll
           && methodInvocationTree.getTypeArguments().isEmpty()) {
         Type returnType = methodSymbol.getReturnType();
-        Map<TypeVariable, Type> genericNullness =
-            returnType.accept(new InferTypeVisitor(config), lhsType);
+        // make instance of visitor & get map at the end
+        InferTypeVisitor inferVisitor = new InferTypeVisitor(config);
+        returnType.accept(inferVisitor, lhsType);
+        Map<TypeVariable, Type> genericNullness = inferVisitor.getGenericNullnessMap();
         if (genericNullness != null) {
           inferredTypes.put(methodInvocationTree, genericNullness);
           if (rhsType != null) {
             // recreate rhsType using inferredTypes
-            List<Type> keyTypeList =
-                genericNullness.keySet().stream()
-                    .map(typeVar -> (Type) typeVar)
-                    .collect(Collectors.toList());
-            com.sun.tools.javac.util.List<Type> from =
-                com.sun.tools.javac.util.List.from(keyTypeList);
-            com.sun.tools.javac.util.List<Type> to =
-                com.sun.tools.javac.util.List.from(genericNullness.values());
-            rhsType =
-                TypeSubstitutionUtils.subst(
-                    state.getTypes(), methodSymbol.getReturnType(), from, to, config);
+            rhsType = replaceTypeWithInference(state, methodSymbol.getReturnType(), genericNullness, config);
           }
         }
       }
@@ -481,6 +474,23 @@ public final class GenericsChecks {
       }
     }
   }
+
+    private Type replaceTypeWithInference(VisitorState state, Type typeToReplace,
+   Map<TypeVariable, Type> genericNullness, Config config) {
+      ListBuffer<TypeVariable> typeVar = new ListBuffer<>();
+      ListBuffer<Type> inference = new ListBuffer<>();
+      for (Map.Entry<TypeVariable, Type> entry : genericNullness.entrySet()) {
+        typeVar.append(entry.getKey());
+        inference.append(entry.getValue());
+      }
+      List<Type> keyTypeList =
+              typeVar.toList().stream().map(t -> (Type) t).collect(Collectors.toList());
+      com.sun.tools.javac.util.List<Type> from =
+              com.sun.tools.javac.util.List.from(keyTypeList);
+      com.sun.tools.javac.util.List<Type> to = inference.toList();
+
+      return TypeSubstitutionUtils.subst(state.getTypes(), typeToReplace, from, to, config);
+    }
 
   /**
    * Checks that the nullability of type parameters for a returned expression matches that of the
@@ -649,7 +659,7 @@ public final class GenericsChecks {
    * @param analysis the analysis object
    * @param state the visitor state
    */
-  public static void compareGenericTypeParameterNullabilityForCall(
+  public void compareGenericTypeParameterNullabilityForCall(
       Symbol.MethodSymbol methodSymbol,
       Tree tree,
       List<? extends ExpressionTree> actualParams,
@@ -682,15 +692,28 @@ public final class GenericsChecks {
           substituteTypeArgsInGenericMethodType(
               (MethodInvocationTree) tree, methodSymbol, state, config);
     }
-    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
-    int n = formalParamTypes.size();
+    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();                                   // U, Foo<U> -> maybe Object, Foo<Object>
+    List<Type> newFormalParams = new ArrayList<>(formalParamTypes);
+    // replace with inferred types
+    if (tree instanceof MethodInvocationTree) {
+      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
+      if (inferredTypes.containsKey(methodInvocationTree)) {
+        Map<TypeVariable, Type> genericNullness = inferredTypes.get(methodInvocationTree);
+        // replace with inferred types
+        for (int i = 0; i < formalParamTypes.size(); i++) {
+          Type inferred = replaceTypeWithInference(state, formalParamTypes.get(i), genericNullness, config);
+          newFormalParams.set(i, inferred);                                                             // @Nullable Object, Foo<@Nullable Object>
+        }
+      }
+    }
+    int n = newFormalParams.size();
     if (isVarArgs) {
       // If the last argument is var args, don't check it now, it will be checked against
       // all remaining actual arguments in the next loop.
       n = n - 1;
     }
     for (int i = 0; i < n; i++) {
-      Type formalParameter = formalParamTypes.get(i);
+      Type formalParameter = newFormalParams.get(i);
       if (formalParameter.isRaw()) {
         // bail out of any checking involving raw types for now
         return;

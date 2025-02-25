@@ -11,16 +11,17 @@ import org.jspecify.annotations.Nullable;
 
 /** Visitor that uses two types to infer the type of type variables. */
 public class InferTypeVisitor
-    extends Types.DefaultTypeVisitor<@Nullable Map<TypeVariable, Type>, Type> {
+    extends Types.DefaultTypeVisitor<Void, Type> { // Void return type
+
   private final Config config;
+  private final Map<TypeVariable, Type> genericNullness = new HashMap<>();
 
   InferTypeVisitor(Config config) {
     this.config = config;
   }
 
   @Override
-  public @Nullable Map<TypeVariable, Type> visitClassType(Type.ClassType rhsType, Type lhsType) {
-    Map<TypeVariable, Type> genericNullness = new HashMap<>();
+  public Void visitClassType(Type.ClassType rhsType, Type lhsType) {
     com.sun.tools.javac.util.List<Type> rhsTypeArguments = rhsType.getTypeArguments();
     com.sun.tools.javac.util.List<Type> lhsTypeArguments =
         ((Type.ClassType) lhsType).getTypeArguments();
@@ -28,26 +29,22 @@ public class InferTypeVisitor
     for (int i = 0; i < rhsTypeArguments.size(); i++) {
       Type rhsTypeArg = rhsTypeArguments.get(i);
       Type lhsTypeArg = lhsTypeArguments.get(i);
-      Map<TypeVariable, Type> map = rhsTypeArg.accept(this, lhsTypeArg);
-      if (map != null) {
-        genericNullness.putAll(map);
-      }
+      rhsTypeArg.accept(this, lhsTypeArg);
     }
-    return genericNullness.isEmpty() ? null : genericNullness;
+    return null;
   }
 
   @Override
-  public @Nullable Map<TypeVariable, Type> visitArrayType(Type.ArrayType rhsType, Type lhsType) {
+  public Void visitArrayType(Type.ArrayType rhsType, Type lhsType) {
     // unwrap the type of the array and call accept on it
     Type rhsComponentType = rhsType.elemtype;
     Type lhsComponentType = ((Type.ArrayType) lhsType).elemtype;
-    Map<TypeVariable, Type> genericNullness = rhsComponentType.accept(this, lhsComponentType);
-    return genericNullness;
+    rhsComponentType.accept(this, lhsComponentType);
+    return null;
   }
 
   @Override
-  public Map<TypeVariable, Type> visitTypeVar(Type.TypeVar rhsType, Type lhsType) {
-    Map<TypeVariable, Type> genericNullness = new HashMap<>();
+  public Void visitTypeVar(Type.TypeVar rhsType, Type lhsType) {
     Boolean isLhsNullable =
         Nullness.hasNullableAnnotation(lhsType.getAnnotationMirrors().stream(), config);
     Type upperBound = rhsType.getUpperBound();
@@ -60,11 +57,15 @@ public class InferTypeVisitor
     } else { // rhs can't be nullable, use upperbound
       genericNullness.put(rhsType, upperBound);
     }
-    return genericNullness;
+    return null;
   }
 
   @Override
-  public @Nullable Map<TypeVariable, Type> visitType(Type t, Type type) {
+  public Void visitType(Type t, Type type) {
     return null;
+  }
+
+  public Map<TypeVariable, Type> getGenericNullnessMap() {
+    return this.genericNullness;
   }
 }
