@@ -232,7 +232,6 @@ public final class AccessPathNullnessAnalysis {
                                   Nullness.isMonotonicNonNullAnnotation(
                                       am.getAnnotationType().toString())))) {
                 allAPNonRootElementsAreFinalFields = false;
-                break;
               }
             }
           }
