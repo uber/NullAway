@@ -11,7 +11,7 @@ import org.jspecify.annotations.Nullable;
 
 /** Visitor that uses two types to infer the type of type variables. */
 public class InferTypeVisitor
-    extends Types.DefaultTypeVisitor<Void, Type> { // Void return type
+    extends Types.DefaultTypeVisitor<Void, Type> {
 
   private final Config config;
   private final Map<TypeVariable, Type> genericNullness = new HashMap<>();

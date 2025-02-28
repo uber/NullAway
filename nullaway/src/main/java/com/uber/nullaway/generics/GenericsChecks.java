@@ -453,7 +453,6 @@ public final class GenericsChecks {
       if (methodSymbol.type instanceof Type.ForAll
           && methodInvocationTree.getTypeArguments().isEmpty()) {
         Type returnType = methodSymbol.getReturnType();
-        // make instance of visitor & get map at the end
         InferTypeVisitor inferVisitor = new InferTypeVisitor(config);
         returnType.accept(inferVisitor, lhsType);
         Map<TypeVariable, Type> genericNullness = inferVisitor.getGenericNullnessMap();
@@ -686,13 +685,13 @@ public final class GenericsChecks {
             TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
       }
     }
-    // substitute type arguments for generic methods
+    // substitute type arguments for generic methods with explicit type arguments
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
       invokedMethodType =
           substituteTypeArgsInGenericMethodType(
               (MethodInvocationTree) tree, methodSymbol, state, config);
     }
-    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();                                   // U, Foo<U> -> maybe Object, Foo<Object>
+    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     List<Type> newFormalParams = new ArrayList<>(formalParamTypes);
     // replace with inferred types
     if (tree instanceof MethodInvocationTree) {
@@ -702,7 +701,7 @@ public final class GenericsChecks {
         // replace with inferred types
         for (int i = 0; i < formalParamTypes.size(); i++) {
           Type inferred = replaceTypeWithInference(state, formalParamTypes.get(i), genericNullness, config);
-          newFormalParams.set(i, inferred);                                                             // @Nullable Object, Foo<@Nullable Object>
+          newFormalParams.set(i, inferred);
         }
       }
     }
