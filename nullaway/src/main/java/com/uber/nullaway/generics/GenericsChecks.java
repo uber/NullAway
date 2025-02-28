@@ -474,6 +474,15 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Replaces any type variables in a type to their inferred types.
+   *
+   * @param state The visitor state
+   * @param typeToReplace The type with type variables to be replaced
+   * @param genericNullness The cache that maps type variables to its inferred types
+   * @param config Configuration for the analysis
+   * @return The replaced type
+   */
     private Type replaceTypeWithInference(VisitorState state, Type typeToReplace,
    Map<TypeVariable, Type> genericNullness, Config config) {
       ListBuffer<TypeVariable> typeVar = new ListBuffer<>();
