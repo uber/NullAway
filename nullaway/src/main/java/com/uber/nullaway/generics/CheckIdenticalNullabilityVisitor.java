@@ -44,7 +44,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     // bail out of checking raw types for now
-    if (rhsTypeAsSuper.isRaw()) {
+    if (rhsTypeAsSuper.isRaw() || lhsType.isRaw()) {
       return true;
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();

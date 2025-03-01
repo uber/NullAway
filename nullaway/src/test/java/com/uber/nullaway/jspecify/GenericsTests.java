@@ -1023,6 +1023,26 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void rawVarargsParam() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Foo {",
+            "  public interface Supplier<T extends @Nullable Object> extends java.util.function.Supplier<T> {",
+            "  }",
+            "  public static void waitForAll(Runnable callback, Supplier... suppliers) {",
+            "  }",
+            "  public static void test(Supplier<Object> sup2) {",
+            "     waitForAll(() -> {}, sup2);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedGenericTypeAssignment() {
     makeHelper()
         .addSourceLines(
