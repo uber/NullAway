@@ -190,6 +190,58 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1138() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "    <T> Foo(T source) {",
+            "    }",
+            "    static <T> Foo createNoTypeArgs(T in) {",
+            "        return new Foo(in);",
+            "    }",
+            "    static Foo createWithTypeArgNegative(String s) {",
+            "        return new <String>Foo(s);",
+            "    }",
+            "    static Foo createWithTypeArgPositive() {",
+            "        // BUG: Diagnostic contains: Type argument cannot be @Nullable, as method <T>Foo(T)'s type variable T is not @Nullable",
+            "        return new <@Nullable String>Foo(null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAnnotOnMethodTypeVarUse() {
+    makeHelper()
+        .addSourceLines(
+            "GenericMethod.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class GenericMethod {",
+            "    abstract <V> @Nullable V foo(",
+            "            Function<@Nullable V, @Nullable V> f);",
+            "    void testNegative(Function<@Nullable String, @Nullable String> f) {",
+            "        this.<String>foo(f);",
+            "    }",
+            "    void testPositive(Function<String, String> f) {",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<String, String>, as formal parameter has type",
+            "        this.<String>foo(f);",
+            "    }",
+            "    void testPositive2(Function<@Nullable String, @Nullable String> f) {",
+            "        // BUG: Diagnostic contains: dereferenced expression this.<String>foo(f) is @Nullable",
+            "        this.<String>foo(f).hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

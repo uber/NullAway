@@ -54,6 +54,31 @@ public enum Nullness implements AbstractValue<Nullness> {
     this.displayName = displayName;
   }
 
+  /**
+   * Check whether an annotation should be treated as equivalent to <code>@MonotonicNonNull</code>.
+   * For now checks if the simple name of the annotation is {@code MonotonicNonNull}, from any
+   * package.
+   */
+  public static boolean isMonotonicNonNullAnnotation(String annotName) {
+    return annotName.endsWith(".MonotonicNonNull");
+  }
+
+  /**
+   * Check for either a {@code @Nullable} annotation or a {@code @MonotonicNonNull} annotation on
+   * {@code symbol}. Used to reason whether a field may be null.
+   */
+  public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
+    return hasNullableOrMonotonicNonNullAnnotation(
+        NullabilityUtil.getAllAnnotations(symbol, config), config);
+  }
+
+  private static boolean hasNullableOrMonotonicNonNullAnnotation(
+      Stream<? extends AnnotationMirror> annotations, Config config) {
+    return annotations
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(anno -> isNullableAnnotation(anno, config) || isMonotonicNonNullAnnotation(anno));
+  }
+
   // The following leastUpperBound and greatestLowerBound methods were created by handwriting a
   // truth table and then encoding the values into these functions. A better approach would be to
   // represent the lattice directly and compute these functions from the lattice.

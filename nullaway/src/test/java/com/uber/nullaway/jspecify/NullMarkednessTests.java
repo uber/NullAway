@@ -867,6 +867,68 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullUnmarkedMethodWithNonNullParamJSpecifyMode() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                "-XepOpt:NullAway:JSpecifyMode=true"))
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.NonNull;",
+            "@NullMarked",
+            "public class Foo {",
+            "  @NullUnmarked",
+            "  public static void callee(@NonNull Object o) {",
+            "  }",
+            "  @NullUnmarked",
+            "  public static void callee2(Object o) {",
+            "  }",
+            "  public static void caller() {",
+            "    // Error due to explicit @NonNull annotation",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    callee(null);",
+            "    // this is fine",
+            "    callee2(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullUnmarkedMethodWithNullableReturnJSpecifyMode() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                "-XepOpt:NullAway:JSpecifyMode=true"))
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Foo {",
+            "  @NullUnmarked",
+            "  public static @Nullable String callee() {",
+            "    return null;",
+            "  }",
+            "  public static void caller() {",
+            "    // Error due to explicit @Nullable annotation",
+            "    // BUG: Diagnostic contains: dereferenced expression callee() is @Nullable",
+            "    callee().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullUnmarkedOuterMethodLevelWithLocalClass() {
     defaultCompilationHelper
         .addSourceLines(
