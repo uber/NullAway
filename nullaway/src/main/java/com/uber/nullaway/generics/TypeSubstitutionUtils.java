@@ -120,6 +120,18 @@ public class TypeSubstitutionUtils {
       return updated != null ? updated : t;
     }
 
+    @Override
+    public Type visitForAll(Type.ForAll t, Type other) {
+      Type methodType = t.qtype;
+      Type otherMethodType = ((Type.ForAll) other).qtype;
+      Type newMethodType = visit(methodType, otherMethodType);
+      if (methodType == newMethodType) {
+        return t;
+      } else {
+        return new Type.ForAll(t.tvars, newMethodType);
+      }
+    }
+
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
      * on a type variable {@code other}.
