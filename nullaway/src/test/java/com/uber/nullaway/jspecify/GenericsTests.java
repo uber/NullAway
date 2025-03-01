@@ -2258,6 +2258,26 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1129() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Consumer;",
+            "class Test {",
+            "    interface BodySpec<B, S extends BodySpec<B, S>> {",
+            "        <T extends S> T value(Consumer<@Nullable B> consumer);",
+            "    }",
+            "    abstract class DefaultBodySpec<B, S extends BodySpec<B, S>> implements BodySpec<B, S> {",
+            "        @Override",
+            "        public abstract <T extends S> T value(Consumer<@Nullable B> consumer);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
