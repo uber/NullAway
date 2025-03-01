@@ -504,6 +504,9 @@ public final class GenericsChecks {
    */
   private static boolean subtypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state, Config config) {
+    if (lhsType.isRaw()) {
+      return true;
+    }
     if (lhsType.getKind().equals(TypeKind.ARRAY) && rhsType.getKind().equals(TypeKind.ARRAY)) {
       // for array types we must allow covariance, i.e., an array of @NonNull references is a
       // subtype of an array of @Nullable references; see
