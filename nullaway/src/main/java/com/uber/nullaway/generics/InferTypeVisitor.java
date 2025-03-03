@@ -7,11 +7,9 @@ import com.uber.nullaway.Nullness;
 import java.util.HashMap;
 import java.util.Map;
 import javax.lang.model.type.TypeVariable;
-import org.jspecify.annotations.Nullable;
 
 /** Visitor that uses two types to infer the type of type variables. */
-public class InferTypeVisitor
-    extends Types.DefaultTypeVisitor<Void, Type> {
+public class InferTypeVisitor extends Types.DefaultTypeVisitor<Void, Type> {
 
   private final Config config;
   private final Map<TypeVariable, Type> genericNullness = new HashMap<>();
