@@ -1511,7 +1511,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
-      if (!symbol.type.isPrimitive() && !skipDueToFieldAnnotation(symbol)) {
+      if (!symbol.type.isPrimitive() && !skipFieldInitializationCheckingDueToAnnotation(symbol)) {
         if (mayBeNullExpr(state, initializer)) {
           ErrorMessage errorMessage =
               new ErrorMessage(
@@ -2401,7 +2401,8 @@ public class NullAway extends BugChecker
           // field declaration
           VariableTree varTree = (VariableTree) memberTree;
           Symbol fieldSymbol = ASTHelpers.getSymbol(varTree);
-          if (fieldSymbol.type.isPrimitive() || skipDueToFieldAnnotation(fieldSymbol)) {
+          if (fieldSymbol.type.isPrimitive()
+              || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)) {
             continue;
           }
           if (varTree.getInitializer() != null) {
@@ -2465,7 +2466,13 @@ public class NullAway extends BugChecker
     return isInitializerMethod(state, closestOverriddenMethod);
   }
 
-  private boolean skipDueToFieldAnnotation(Symbol fieldSymbol) {
+  /**
+   * Checks if the field has an annotation indicating that we should skip initialization checking
+   *
+   * @param fieldSymbol the field symbol
+   * @return true if the field has an annotation indicating that we should skip initialization
+   */
+  private boolean skipFieldInitializationCheckingDueToAnnotation(Symbol fieldSymbol) {
     return NullabilityUtil.getAllAnnotations(fieldSymbol, config)
         .map(anno -> anno.getAnnotationType().toString())
         .anyMatch(config::isExcludedFieldAnnotation);

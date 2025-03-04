@@ -175,7 +175,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
           "jakarta.inject.Inject", // no explicit initialization when there is dependency injection
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
           "com.google.errorprone.annotations.concurrent.LazyInit",
-          "org.checkerframework.checker.nullness.qual.MonotonicNonNull",
           "org.springframework.beans.factory.annotation.Autowired",
           "org.springframework.boot.test.mock.mockito.MockBean",
           "org.springframework.boot.test.mock.mockito.SpyBean",
@@ -483,9 +482,14 @@ final class ErrorProneCLIFlagsConfig implements Config {
     return knownInitializers.contains(classAndName);
   }
 
+  /**
+   * NOTE: this checks not only for excluded field annotations according to the config, but also for
+   * a {@code @Nullable} annotation or a {@code @MonotonicNonNull} annotation.
+   */
   @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
     return Nullness.isNullableAnnotation(annotationName, this)
+        || Nullness.isMonotonicNonNullAnnotation(annotationName)
         || (fieldAnnotPattern != null && fieldAnnotPattern.matcher(annotationName).matches());
   }
 
