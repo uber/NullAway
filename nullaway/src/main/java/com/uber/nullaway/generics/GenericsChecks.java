@@ -719,6 +719,14 @@ public final class GenericsChecks {
         }
       }
     }
+    // replace type variables that were not replaced
+    for (int i = 0; i < newFormalParams.size(); i++) {
+      Type currType = newFormalParams.get(i);
+      if (currType instanceof Type.TypeVar) {
+        Type upperBound = currType.getUpperBound();
+        newFormalParams.set(i, upperBound);
+      }
+    }
     int n = newFormalParams.size();
     if (isVarArgs) {
       // If the last argument is var args, don't check it now, it will be checked against
