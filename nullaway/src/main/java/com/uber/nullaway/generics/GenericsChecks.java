@@ -515,6 +515,13 @@ public final class GenericsChecks {
       Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
       Type lhsComponentType = lhsArrayType.getComponentType();
       Type rhsComponentType = rhsArrayType.getComponentType();
+      while (lhsComponentType.getKind().equals(TypeKind.ARRAY)
+          && rhsComponentType.getKind().equals(TypeKind.ARRAY)) {
+        lhsArrayType = (Type.ArrayType) lhsComponentType;
+        rhsArrayType = (Type.ArrayType) rhsComponentType;
+        lhsComponentType = lhsArrayType.getComponentType();
+        rhsComponentType = rhsArrayType.getComponentType();
+      }
       boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType, config);
       boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType, config);
       // an array of @Nullable references is _not_ a subtype of an array of @NonNull references

@@ -672,6 +672,43 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1150() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "public class Foo {",
+            "  // nullable array of non-null arrays of non-null objects.",
+            "  Object @Nullable [][] arr1 = new Object[3][4];",
+            "  // nullable array of non-nullable arrays of nullable objects.",
+            "  @Nullable Object @Nullable [][] arr2 = new Object[3][4];",
+            "  @Nullable Object[][] arr3 = new Object[3][4];",
+            "  public void bug() {",
+            ////            "    if (arr1 == null) throw new RuntimeException();",
+            ////            "    for (int i = 0; i < arr1.length; ++i) {",
+            ////            "      for (int j = 0; j < arr1[i].length; j++) {",
+            ////            "        System.out.println(arr1[i][j]);",
+            ////            "      }",
+            ////            "    }",
+            //            "    if (arr2 == null) throw new RuntimeException();",
+            //            "    for (int i = 0; i < arr2.length; ++i) {",
+            //            "      for (int j = 0; j < arr2[i].length; j++) {",
+            //            "        System.out.println(arr2[i][j]);",
+            //            "      }",
+            //            "    }",
+            "    for (int i = 0; i < arr3.length; ++i) {",
+            "      for (int j = 0; j < arr3[i].length; j++) {",
+            "        System.out.println(arr3[i][j]);",
+            "      }",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

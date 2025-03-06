@@ -2565,6 +2565,9 @@ public class NullAway extends BugChecker
         exprMayBeNull = false;
         if (config.isJSpecifyMode()) {
           // In JSpecify mode, we check if the array element type is nullable
+          // TODO need to do something different for multi-dim arrays; recursively go
+          //  through the type structure to find the full array type and then figure
+          //  out nullability at the right dimension
           ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
           ExpressionTree arrayExpr = arrayAccess.getExpression();
           Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
