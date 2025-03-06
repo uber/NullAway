@@ -722,14 +722,14 @@ public final class GenericsChecks {
         }
       }
     }
-    // replace type variables that were not replaced
-    for (int i = 0; i < newFormalParams.size(); i++) {
-      Type currType = newFormalParams.get(i);
-      if (currType instanceof Type.TypeVar) {
-        Type upperBound = currType.getUpperBound();
-        newFormalParams.set(i, upperBound);
-      }
-    }
+//    // replace type variables that were not replaced
+//    for (int i = 0; i < newFormalParams.size(); i++) {
+//      Type currType = newFormalParams.get(i);
+//      if (currType instanceof Type.TypeVar) {
+//        Type upperBound = currType.getUpperBound();
+//        newFormalParams.set(i, upperBound);
+//      }
+//    }
     int n = newFormalParams.size();
     if (isVarArgs) {
       // If the last argument is var args, don't check it now, it will be checked against
@@ -913,7 +913,7 @@ public final class GenericsChecks {
    * @return Nullness of invocation's return type, or {@code NONNULL} if the call does not invoke an
    *     instance method
    */
-  public static Nullness getGenericReturnNullnessAtInvocation(
+  public Nullness getGenericReturnNullnessAtInvocation(
       Symbol.MethodSymbol invokedMethodSymbol,
       MethodInvocationTree tree,
       VisitorState state,
@@ -966,7 +966,7 @@ public final class GenericsChecks {
    * @param config the NullAway config
    * @return the substituted method type for the generic method
    */
-  private static Type substituteTypeArgsInGenericMethodType(
+  private Type substituteTypeArgsInGenericMethodType(
       MethodInvocationTree methodInvocationTree,
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
@@ -977,6 +977,14 @@ public final class GenericsChecks {
 
     Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
     Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
+
+    // if explicityTypeArgs are empty, there are no explicit type arguments
+    // so we need to get implicit types using the inferred types
+    if(explicitTypeArgs.isEmpty()){
+      if(inferredTypes.containsKey(methodInvocationTree)) {
+        return replaceTypeWithInference(state, underlyingMethodType, inferredTypes.get(methodInvocationTree), config);
+      }
+    }
     return TypeSubstitutionUtils.subst(
         state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs, config);
   }

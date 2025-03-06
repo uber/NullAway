@@ -2635,7 +2635,7 @@ public class NullAway extends BugChecker
       return true;
     }
     if (config.isJSpecifyMode()
-        && GenericsChecks.getGenericReturnNullnessAtInvocation(
+        && genericsChecks.getGenericReturnNullnessAtInvocation(
                 exprSymbol, invocationTree, state, config)
             .equals(Nullness.NULLABLE)) {
       return true;
