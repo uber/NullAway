@@ -2298,6 +2298,35 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1156() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.function.Function;",
+            "import java.util.function.Supplier;",
+            "@NullMarked",
+            "public class Foo implements Supplier<Integer> {",
+            "  public Foo(Function<Integer, Integer> func) {",
+            "  }",
+            "  @Override",
+            "  public Integer get() {",
+            "    return 0;",
+            "  }",
+            "  public static void test() {",
+            "    new Supplier<Boolean>() {",
+            "      @Override",
+            "      public Boolean get() {",
+            "        Foo foo = new Foo(x -> 1);",
+            "        return true;",
+            "      }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

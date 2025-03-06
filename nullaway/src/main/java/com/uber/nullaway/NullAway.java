@@ -800,6 +800,10 @@ public class NullAway extends BugChecker
             paramNullness =
                 GenericsChecks.getGenericMethodParameterNullness(
                     i, overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config);
+          } else if (lambdaExpressionTree != null) {
+            paramNullness =
+                GenericsChecks.getGenericMethodParameterNullness(
+                    i, overriddenMethod, ASTHelpers.getType(lambdaExpressionTree), state, config);
           } else {
             // Use the enclosing class of the overriding method to find generic type arguments
             paramNullness =

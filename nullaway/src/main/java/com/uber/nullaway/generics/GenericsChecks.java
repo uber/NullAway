@@ -774,7 +774,11 @@ public final class GenericsChecks {
       }
       Type typeFromTree = getTreeType(newClassTree, config);
       if (typeFromTree != null) {
-        verify(state.getTypes().isAssignable(symbol.type, typeFromTree));
+        verify(
+            state.getTypes().isAssignable(symbol.type, typeFromTree),
+            "%s is not assignable to %s",
+            symbol.type,
+            typeFromTree);
       }
       return typeFromTree;
     } else {
