@@ -263,9 +263,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "            return new Foo<>(u);",
             "        }",
             "        static void test() {",
-            "            String nonNullStr = new String();",
-            "            @Nullable String nullStr = null;",
-            "            Foo<@Nullable Object> result = Foo.create(null, nonNullStr);",
+            "            Foo<@Nullable Object> result = Foo.create(null, new String());",
             "        }",
             "    }",
             "}")

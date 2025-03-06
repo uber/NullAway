@@ -6,6 +6,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.HashMap;
 import java.util.Map;
+import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeVariable;
 
 /** Visitor that uses two types to infer the type of type variables. */
@@ -20,20 +21,31 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<Void, Type> {
 
   @Override
   public Void visitClassType(Type.ClassType rhsType, Type lhsType) {
+    if (rhsType instanceof NullType
+        || rhsType.isPrimitive()
+        || lhsType instanceof NullType
+        || lhsType.isPrimitive()) {
+      return null;
+    }
     com.sun.tools.javac.util.List<Type> rhsTypeArguments = rhsType.getTypeArguments();
     com.sun.tools.javac.util.List<Type> lhsTypeArguments =
         ((Type.ClassType) lhsType).getTypeArguments();
     // get the inferred type for each type arguments and add them to genericNullness
-    for (int i = 0; i < rhsTypeArguments.size(); i++) {
-      Type rhsTypeArg = rhsTypeArguments.get(i);
-      Type lhsTypeArg = lhsTypeArguments.get(i);
-      rhsTypeArg.accept(this, lhsTypeArg);
+    if (!rhsTypeArguments.isEmpty() && !lhsTypeArguments.isEmpty()) {
+      for (int i = 0; i < rhsTypeArguments.size(); i++) {
+        Type rhsTypeArg = rhsTypeArguments.get(i);
+        Type lhsTypeArg = lhsTypeArguments.get(i);
+        rhsTypeArg.accept(this, lhsTypeArg);
+      }
     }
     return null;
   }
 
   @Override
   public Void visitArrayType(Type.ArrayType rhsType, Type lhsType) {
+    if (!(lhsType instanceof Type.ArrayType)) {
+      return null;
+    }
     // unwrap the type of the array and call accept on it
     Type rhsComponentType = rhsType.elemtype;
     Type lhsComponentType = ((Type.ArrayType) lhsType).elemtype;
@@ -43,6 +55,9 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<Void, Type> {
 
   @Override
   public Void visitTypeVar(Type.TypeVar rhsType, Type lhsType) {
+    if (genericNullness.containsKey(rhsType)) {
+      return null; // genericNullness already contains inference for this type
+    }
     Boolean isLhsNullable =
         Nullness.hasNullableAnnotation(lhsType.getAnnotationMirrors().stream(), config);
     Type upperBound = rhsType.getUpperBound();
