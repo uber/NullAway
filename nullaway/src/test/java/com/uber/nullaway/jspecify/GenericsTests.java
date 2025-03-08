@@ -508,6 +508,32 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testForLambdaInAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Supplier;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    String function(T1 o);",
+            "  }",
+            "  static String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "    A<@Nullable Object> p = x -> x.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<Object, Object> p = x -> \"hello\";",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForMethodReferenceForClassFieldAssignment() {
     makeHelper()
         .addSourceLines(
