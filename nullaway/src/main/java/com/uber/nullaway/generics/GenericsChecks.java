@@ -437,7 +437,6 @@ public final class GenericsChecks {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
     }
-
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
