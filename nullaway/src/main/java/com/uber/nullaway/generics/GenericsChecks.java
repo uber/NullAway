@@ -456,19 +456,6 @@ public final class GenericsChecks {
         Type returnType = methodSymbol.getReturnType();
         returnType.accept(inferVisitor, lhsType);
 
-        // then add any inference through parameter types
-        List<Type> argTypes =
-            methodInvocationTree.getArguments().stream()
-                .map(expr -> ASTHelpers.getType(expr))
-                .collect(Collectors.toList());
-        List<Type> paramTypes = methodSymbol.asType().getParameterTypes();
-        ;
-        for (int i = 0; i < argTypes.size(); i++) {
-          if (i < paramTypes.size()) {
-            paramTypes.get(i).accept(inferVisitor, argTypes.get(i));
-          }
-        }
-
         Map<TypeVariable, Type> genericNullness = inferVisitor.getGenericNullnessMap();
         if (genericNullness != null) {
           inferredTypes.put(methodInvocationTree, genericNullness);
@@ -722,29 +709,6 @@ public final class GenericsChecks {
               (MethodInvocationTree) tree, methodSymbol, state, config);
     }
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
-    //    List<Type> newFormalParams = new ArrayList<>(formalParamTypes);
-    //    // replace with inferred types
-    //    if (tree instanceof MethodInvocationTree) {
-    //      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
-    //      if (inferredTypes.containsKey(methodInvocationTree)) {
-    //        Map<TypeVariable, Type> genericNullness = inferredTypes.get(methodInvocationTree);
-    //        // replace with inferred types
-    //        for (int i = 0; i < formalParamTypes.size(); i++) {
-    //          Type inferred =
-    //              replaceTypeWithInference(state, formalParamTypes.get(i), genericNullness,
-    // config);
-    //          newFormalParams.set(i, inferred);
-    //        }
-    //      }
-    //    }
-    //    // replace type variables that were not replaced
-    //    for (int i = 0; i < newFormalParams.size(); i++) {
-    //      Type currType = newFormalParams.get(i);
-    //      if (currType instanceof Type.TypeVar) {
-    //        Type upperBound = currType.getUpperBound();
-    //        newFormalParams.set(i, upperBound);
-    //      }
-    //    }
     int n = formalParamTypes.size();
     if (isVarArgs) {
       // If the last argument is var args, don't check it now, it will be checked against
@@ -993,8 +957,7 @@ public final class GenericsChecks {
     Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
     Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
 
-    // if explicityTypeArgs are empty, there are no explicit type arguments
-    // so we need to get implicit types using the inferred types
+    // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
       if (inferredTypes.containsKey(methodInvocationTree)) {
         return replaceTypeWithInference(

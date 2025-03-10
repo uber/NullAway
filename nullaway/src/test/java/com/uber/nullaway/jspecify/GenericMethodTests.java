@@ -250,27 +250,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void multipleParametersWithSomeInference() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "    static class Foo<T extends @Nullable Object> {",
-            "        Foo(T t) {}",
-            "        static <U extends @Nullable Object, R> Foo<U> create(U u, R r) {",
-            "            return new Foo<>(u);",
-            "        }",
-            "        static void test() {",
-            "            Foo<@Nullable Object> result = Foo.create(null, new String());",
-            "        }",
-            "    }",
-            "}")
-        .doTest();
-  }
-
-  @Test
   public void genericInferenceOnAssignmentsMultipleParams() {
     makeHelper()
         .addSourceLines(
