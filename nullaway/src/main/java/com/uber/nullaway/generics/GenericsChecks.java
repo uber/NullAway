@@ -1003,7 +1003,6 @@ public final class GenericsChecks {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
-      // NOTE: if explicitTypeArgs is empty, this is a noop
       List<Type> substitutedParamTypes =
           substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
               .getParameterTypes();
@@ -1013,21 +1012,6 @@ public final class GenericsChecks {
           && Objects.equals(
               getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
-      }
-      // check nullness of inferred types
-      if (inferredTypes.containsKey(tree)) {
-        Map<TypeVariable, Type> genericNullness = inferredTypes.get(tree);
-        List<Symbol.VarSymbol> parameters = invokedMethodSymbol.getParameters();
-        if (genericNullness.containsKey(parameters.get(paramIndex).type)) {
-          Type genericType = parameters.get(paramIndex).type;
-          Type inferredGenericType = genericNullness.get(genericType);
-          if (inferredGenericType != null
-              && Objects.equals(getTypeNullness(inferredGenericType, config), Nullness.NULLABLE)) {
-            return Nullness.NULLABLE;
-          } else {
-            return Nullness.NONNULL;
-          }
-        }
       }
     }
 
