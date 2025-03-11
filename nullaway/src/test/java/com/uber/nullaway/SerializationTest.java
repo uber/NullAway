@@ -2226,4 +2226,48 @@ public class SerializationTest extends NullAwayTestsBase {
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
   }
+
+  @Test
+  public void checkLocalVariableExtension() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            "   @Nullable Object f;",
+            "   public void foo(Object p) {",
+            "   }",
+            "   public void bar() {",
+            "     Object l = f;",
+            "     // BUG: Diagnostic contains: passing @Nullable parameter",
+            "     foo(l);",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "PASS_NULLABLE",
+                "passing @Nullable parameter 'l' where @NonNull is required",
+                "com.uber.Foo",
+                "bar()",
+                239,
+                "com/uber/Foo.java",
+                "PARAMETER",
+                "com.uber.Foo",
+                "foo(java.lang.Object)",
+                "p",
+                "0",
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
 }
