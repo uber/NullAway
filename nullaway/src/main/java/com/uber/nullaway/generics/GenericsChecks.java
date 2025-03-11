@@ -461,7 +461,7 @@ public final class GenericsChecks {
           if (rhsType != null) {
             // recreate rhsType using inferredTypes
             rhsType =
-                replaceTypeWithInference(
+                substituteInferredTypesForTypeVariables(
                     state, methodSymbol.getReturnType(), genericNullness, config);
           }
         }
@@ -477,29 +477,24 @@ public final class GenericsChecks {
   }
 
   /**
-   * Replaces any type variables in a type to their inferred types.
+   * Substitutes inferred types for type variables within a type.
    *
    * @param state The visitor state
-   * @param typeToReplace The type with type variables to be replaced
+   * @param targetType The type with type variables on which substitutions will be applied
    * @param genericNullness The cache that maps type variables to its inferred types
    * @param config Configuration for the analysis
-   * @return The replaced type
+   * @return {@code targetType} with the substitutions applied
    */
-  private Type replaceTypeWithInference(
-      VisitorState state,
-      Type typeToReplace,
-      Map<TypeVariable, Type> genericNullness,
-      Config config) {
-    ListBuffer<Type> typeVar = new ListBuffer<>();
-    ListBuffer<Type> inference = new ListBuffer<>();
+  private Type substituteInferredTypesForTypeVariables(
+      VisitorState state, Type targetType, Map<TypeVariable, Type> genericNullness, Config config) {
+    ListBuffer<Type> typeVars = new ListBuffer<>();
+    ListBuffer<Type> inferredTypes = new ListBuffer<>();
     for (Map.Entry<TypeVariable, Type> entry : genericNullness.entrySet()) {
-      typeVar.append((Type) entry.getKey());
-      inference.append(entry.getValue());
+      typeVars.append((Type) entry.getKey());
+      inferredTypes.append(entry.getValue());
     }
-    com.sun.tools.javac.util.List<Type> from = typeVar.toList();
-    com.sun.tools.javac.util.List<Type> to = inference.toList();
-
-    return TypeSubstitutionUtils.subst(state.getTypes(), typeToReplace, from, to, config);
+    return TypeSubstitutionUtils.subst(
+        state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);
   }
 
   /**
@@ -957,7 +952,7 @@ public final class GenericsChecks {
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
       if (inferredTypes.containsKey(methodInvocationTree)) {
-        return replaceTypeWithInference(
+        return substituteInferredTypesForTypeVariables(
             state, underlyingMethodType, inferredTypes.get(methodInvocationTree), config);
       }
     }
