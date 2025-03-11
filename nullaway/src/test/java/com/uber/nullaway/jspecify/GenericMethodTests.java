@@ -390,6 +390,24 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferNestedNonNullUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "abstract class TestCase {",
+            "    static class Bar<T extends @Nullable Object> {}",
+            "    abstract <U> Bar<U> make(Bar<U> other);",
+            "    void test(Bar<Bar<String>> other) {",
+            "        // BUG: Diagnostic contains: Cannot assign from type Bar<Bar<String>> to type Bar<Bar<@Nullable String>>",
+            "        Bar<Bar<@Nullable String>> unused = make(other);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1035() {
     makeHelper()
         .addSourceLines(
@@ -439,24 +457,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    static Foo createWithTypeArgPositive() {",
             "        // BUG: Diagnostic contains: Type argument cannot be @Nullable, as method <T>Foo(T)'s type variable T is not @Nullable",
             "        return new <@Nullable String>Foo(null);",
-            "    }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void inferNestedNonNullUpperBound() {
-    makeHelper()
-        .addSourceLines(
-            "TestCase.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "abstract class TestCase {",
-            "    static class Bar<T extends @Nullable Object> {}",
-            "    abstract <U> Bar<U> make(Bar<U> other);",
-            "    void test(Bar<Bar<String>> other) {",
-            "        // BUG: Diagnostic contains: Cannot assign from type Bar<Bar<String>> to type Bar<Bar<@Nullable String>>",
-            "        Bar<Bar<@Nullable String>> unused = make(other);",
             "    }",
             "}")
         .doTest();
