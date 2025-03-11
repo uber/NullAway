@@ -36,6 +36,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -48,11 +49,13 @@ import org.jspecify.annotations.Nullable;
 public final class GenericsChecks {
 
   /**
-   * Maps a MethodInvocationTree to a set of type variables that are mapped to their inferred types.
-   * Any generic type parameter that are not explicitly stated are inferred and cached in this
-   * field.
+   * Maps a MethodInvocationTree representing a call to a generic method to a substitution for its
+   * type arguments. The call must not have any explicit type arguments. The substitution is a map
+   * from type variables for the method to their inferred type arguments (most importantly with
+   * inferred nullability information).
    */
-  private final Map<MethodInvocationTree, Map<TypeVariable, Type>> inferredTypes = new HashMap<>();
+  private final Map<MethodInvocationTree, Map<TypeVariable, Type>>
+      inferredSubstitutionsForGenericMethodCalls = new LinkedHashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -446,24 +449,22 @@ public final class GenericsChecks {
     if (rhsTree instanceof MethodInvocationTree) {
       MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
-      // update inferredTypes cache for assignments
-      // generic method call with no explicit generic arguments
       if (methodSymbol.type instanceof Type.ForAll
           && methodInvocationTree.getTypeArguments().isEmpty()) {
-        InferTypeVisitor inferVisitor = new InferTypeVisitor(config);
-        // first infer through assignments
+        // generic method call with no explicit generic arguments
+        // update inferred type arguments based on the assignment context
+        InferSubstitutionViaAssignmentContextVisitor inferVisitor =
+            new InferSubstitutionViaAssignmentContextVisitor(config);
         Type returnType = methodSymbol.getReturnType();
         returnType.accept(inferVisitor, lhsType);
 
-        Map<TypeVariable, Type> genericNullness = inferVisitor.getGenericNullnessMap();
-        if (genericNullness != null) {
-          inferredTypes.put(methodInvocationTree, genericNullness);
-          if (rhsType != null) {
-            // recreate rhsType using inferredTypes
-            rhsType =
-                substituteInferredTypesForTypeVariables(
-                    state, methodSymbol.getReturnType(), genericNullness, config);
-          }
+        Map<TypeVariable, Type> substitution = inferVisitor.getInferredSubstitution();
+        inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
+        if (rhsType != null) {
+          // update rhsType with inferred substitution
+          rhsType =
+              substituteInferredTypesForTypeVariables(
+                  state, methodSymbol.getReturnType(), substitution, config);
         }
       }
     }
@@ -481,15 +482,15 @@ public final class GenericsChecks {
    *
    * @param state The visitor state
    * @param targetType The type with type variables on which substitutions will be applied
-   * @param genericNullness The cache that maps type variables to its inferred types
+   * @param substitution The cache that maps type variables to its inferred types
    * @param config Configuration for the analysis
    * @return {@code targetType} with the substitutions applied
    */
   private Type substituteInferredTypesForTypeVariables(
-      VisitorState state, Type targetType, Map<TypeVariable, Type> genericNullness, Config config) {
+      VisitorState state, Type targetType, Map<TypeVariable, Type> substitution, Config config) {
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<TypeVariable, Type> entry : genericNullness.entrySet()) {
+    for (Map.Entry<TypeVariable, Type> entry : substitution.entrySet()) {
       typeVars.append((Type) entry.getKey());
       inferredTypes.append(entry.getValue());
     }
@@ -951,9 +952,12 @@ public final class GenericsChecks {
 
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
-      if (inferredTypes.containsKey(methodInvocationTree)) {
+      if (inferredSubstitutionsForGenericMethodCalls.containsKey(methodInvocationTree)) {
         return substituteInferredTypesForTypeVariables(
-            state, underlyingMethodType, inferredTypes.get(methodInvocationTree), config);
+            state,
+            underlyingMethodType,
+            inferredSubstitutionsForGenericMethodCalls.get(methodInvocationTree),
+            config);
       }
     }
     return TypeSubstitutionUtils.subst(
@@ -1221,8 +1225,12 @@ public final class GenericsChecks {
     return callingUnannotated;
   }
 
+  /**
+   * Clears the cache of inferred substitutions for generic method calls. This should be invoked
+   * after each CompilationUnit to avoid memory leaks.
+   */
   public void clearCache() {
-    inferredTypes.clear();
+    inferredSubstitutionsForGenericMethodCalls.clear();
   }
 
   public static boolean isNullableAnnotated(Type type, Config config) {
