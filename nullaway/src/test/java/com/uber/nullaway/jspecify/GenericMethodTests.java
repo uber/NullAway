@@ -310,7 +310,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericsUsedForGenericClasses() {
+  public void genericsInferenceOnAssignmentsWithGenericClasses() {
     makeHelper()
         .addSourceLines(
             "Test.java",
