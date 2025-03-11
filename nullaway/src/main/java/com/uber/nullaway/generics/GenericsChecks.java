@@ -39,7 +39,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.stream.Collectors;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
@@ -491,15 +490,13 @@ public final class GenericsChecks {
       Type typeToReplace,
       Map<TypeVariable, Type> genericNullness,
       Config config) {
-    ListBuffer<TypeVariable> typeVar = new ListBuffer<>();
+    ListBuffer<Type> typeVar = new ListBuffer<>();
     ListBuffer<Type> inference = new ListBuffer<>();
     for (Map.Entry<TypeVariable, Type> entry : genericNullness.entrySet()) {
-      typeVar.append(entry.getKey());
+      typeVar.append((Type) entry.getKey());
       inference.append(entry.getValue());
     }
-    List<Type> keyTypeList =
-        typeVar.toList().stream().map(t -> (Type) t).collect(Collectors.toList());
-    com.sun.tools.javac.util.List<Type> from = com.sun.tools.javac.util.List.from(keyTypeList);
+    com.sun.tools.javac.util.List<Type> from = typeVar.toList();
     com.sun.tools.javac.util.List<Type> to = inference.toList();
 
     return TypeSubstitutionUtils.subst(state.getTypes(), typeToReplace, from, to, config);
