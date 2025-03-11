@@ -1089,9 +1089,8 @@ public class AccessPathNullnessPropagation
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
         Nullness nullness =
-            new GenericsChecks()
-                .getGenericReturnNullnessAtInvocation(
-                    ASTHelpers.getSymbol(tree), tree, state, config);
+            genericsChecks.getGenericReturnNullnessAtInvocation(
+                ASTHelpers.getSymbol(tree), tree, state, config);
         return nullness.equals(NULLABLE);
       }
     }
