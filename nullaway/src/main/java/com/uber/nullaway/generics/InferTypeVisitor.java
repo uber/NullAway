@@ -54,27 +54,18 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<Void, Type> {
   }
 
   @Override
-  public Void visitTypeVar(Type.TypeVar rhsType, Type lhsType) {
-    if (genericNullness.containsKey(rhsType)) {
+  public Void visitTypeVar(Type.TypeVar typeVar, Type lhsType) {
+    if (genericNullness.containsKey(typeVar)) {
       return null; // genericNullness already contains inference for this type
     }
-    // proper logic here:
-    //   1. If rhsType has an explicit @Nullable or @NonNull annotation, that wins
-    //   2. If the type var has a @NonNull upper bound, it must be non-null
-    //   3. otherwise, we can just use the LHS type
-    Boolean isLhsNullable =
-        Nullness.hasNullableAnnotation(lhsType.getAnnotationMirrors().stream(), config);
-    Type upperBound = rhsType.getUpperBound();
-    Boolean rhsHasNullableUpperBound =
+    Type upperBound = typeVar.getUpperBound();
+    boolean typeVarHasNullableUpperBound =
         Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
-    if (!isLhsNullable) { // lhsType is NonNull, we can just use this
-      genericNullness.put(rhsType, lhsType);
-    } else if (rhsHasNullableUpperBound) { // lhsType & rhsType are Nullable, can use lhs for
-      // inference
-      genericNullness.put(rhsType, lhsType);
+    if (typeVarHasNullableUpperBound) { // can just use the lhs type nullability
+      genericNullness.put(typeVar, lhsType);
     } else { // rhs can't be nullable, use upperbound
       // this is a bit weird.  the nullability might be right, but the base type may be wrong?
-      genericNullness.put(rhsType, upperBound);
+      genericNullness.put(typeVar, upperBound);
     }
     return null;
   }
