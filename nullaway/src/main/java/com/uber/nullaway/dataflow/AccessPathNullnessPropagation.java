@@ -37,6 +37,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.GenericsChecks;
@@ -160,6 +161,8 @@ public class AccessPathNullnessPropagation
 
   private final Handler handler;
 
+  private final GenericsChecks genericsChecks;
+
   private final NullnessStoreInitializer nullnessStoreInitializer;
 
   public AccessPathNullnessPropagation(
@@ -167,15 +170,15 @@ public class AccessPathNullnessPropagation
       Predicate<MethodInvocationNode> methodReturnsNonNull,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
-      Config config,
-      Handler handler,
+      NullAway analysis,
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = methodReturnsNonNull;
     this.state = state;
     this.apContext = apContext;
-    this.config = config;
-    this.handler = handler;
+    this.config = analysis.getConfig();
+    this.handler = analysis.getHandler();
+    this.genericsChecks = analysis.getGenericsChecks();
     this.nullnessStoreInitializer = nullnessStoreInitializer;
   }
 

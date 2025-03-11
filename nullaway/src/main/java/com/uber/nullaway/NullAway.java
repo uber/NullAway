@@ -248,6 +248,11 @@ public class NullAway extends BugChecker
    */
   private final Handler handler;
 
+  /** Returns the handler being used for this analysis */
+  public Handler getHandler() {
+    return handler;
+  }
+
   /**
    * entities relevant to field initialization per class. cached for performance. nulled out in
    * {@link #matchClass(ClassTree, VisitorState)}
@@ -277,7 +282,11 @@ public class NullAway extends BugChecker
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
-  private GenericsChecks genericsChecks = new GenericsChecks();
+  private final GenericsChecks genericsChecks = new GenericsChecks();
+
+  public GenericsChecks getGenericsChecks() {
+    return genericsChecks;
+  }
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -2655,7 +2664,7 @@ public class NullAway extends BugChecker
   }
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
-    return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, config, this.handler);
+    return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, this);
   }
 
   private Description matchDereference(
