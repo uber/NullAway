@@ -56,9 +56,8 @@ public class InferTypeVisitor extends Types.DefaultTypeVisitor<Void, Type> {
         Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
     if (typeVarHasNullableUpperBound) { // can just use the lhs type nullability
       genericNullness.put(typeVar, lhsType);
-    } else { // rhs can't be nullable, use upperbound
-      // this is a bit weird.  the nullability might be right, but the base type may be wrong?
-      genericNullness.put(typeVar, upperBound);
+    } else { // rhs can't be nullable.  use lhsType but strip @Nullable annotation
+      genericNullness.put(typeVar, lhsType.stripMetadata());
     }
     return null;
   }

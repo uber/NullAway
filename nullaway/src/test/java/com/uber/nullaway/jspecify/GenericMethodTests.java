@@ -455,7 +455,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    static class Bar<T extends @Nullable Object> {}",
             "    abstract <U> Bar<U> make(Bar<U> other);",
             "    void test(Bar<Bar<String>> other) {",
-            "        // BUG: Diagnostic contains: XXX",
+            "        // BUG: Diagnostic contains: Cannot assign from type Bar<Bar<String>> to type Bar<Bar<@Nullable String>>",
             "        Bar<Bar<@Nullable String>> unused = make(other);",
             "    }",
             "}")
