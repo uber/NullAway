@@ -1857,15 +1857,18 @@ public class NullAway extends BugChecker
     // If argumentPositionNullness[i] == null, parameter i is unannotated
     Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
 
-    if (isMethodAnnotated) {
-      // compute which arguments are @NonNull
-      for (int i = 0; i < formalParams.size(); i++) {
-        VarSymbol param = formalParams.get(i);
-        if (param.type.isPrimitive()) {
-          doUnboxingCheck(state, actualParams.get(i));
+    // compute which arguments are @NonNull
+    for (int i = 0; i < formalParams.size(); i++) {
+      VarSymbol param = formalParams.get(i);
+      if (param.type.isPrimitive()) {
+        // do unboxing check even if we are calling an unannotated method
+        doUnboxingCheck(state, actualParams.get(i));
+        if (isMethodAnnotated) {
           argumentPositionNullness[i] = Nullness.NONNULL;
-        } else if (ASTHelpers.isSameType(
-            param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
+        }
+      }
+      if (isMethodAnnotated) {
+        if (ASTHelpers.isSameType(param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
           // Temporarily treat a Void argument type as if it were @Nullable Void. Handling of Void
           // without special-casing, as recommended by JSpecify might: a) require generics support
           // and, b) require checking that third-party libraries considered annotated adopt
@@ -1884,12 +1887,12 @@ public class NullAway extends BugChecker
                           i, methodSymbol, (MethodInvocationTree) tree, state, config)
                       : Nullness.NONNULL);
         }
-      }
-      if (config.isJSpecifyMode()) {
-        GenericsChecks.compareGenericTypeParameterNullabilityForCall(
-            methodSymbol, tree, actualParams, varArgsMethod, this, state);
-        if (!methodSymbol.getTypeParameters().isEmpty()) {
-          GenericsChecks.checkGenericMethodCallTypeArguments(tree, state, this, config, handler);
+        if (config.isJSpecifyMode()) {
+          GenericsChecks.compareGenericTypeParameterNullabilityForCall(
+              methodSymbol, tree, actualParams, varArgsMethod, this, state);
+          if (!methodSymbol.getTypeParameters().isEmpty()) {
+            GenericsChecks.checkGenericMethodCallTypeArguments(tree, state, this, config, handler);
+          }
         }
       }
     }
