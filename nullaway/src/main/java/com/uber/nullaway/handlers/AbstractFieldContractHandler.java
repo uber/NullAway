@@ -160,6 +160,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   tree,
                   analysis.buildDescription(tree),
                   state,
+                  analysis.mayBeNullInquiry,
                   null,
                   null));
       return false;
@@ -181,6 +182,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      analysis.mayBeNullInquiry,
                       null,
                       null));
           return false;
@@ -209,6 +211,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                         tree,
                         analysis.buildDescription(tree),
                         state,
+                        analysis.mayBeNullInquiry,
                         null,
                         null));
             return false;
@@ -234,6 +237,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      analysis.mayBeNullInquiry,
                       null,
                       null));
           return false;

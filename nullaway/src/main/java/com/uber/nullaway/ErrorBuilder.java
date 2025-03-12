@@ -57,9 +57,12 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.SerializationService;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
+import com.uber.nullaway.fixserialization.scanners.OriginScanner;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -97,6 +100,7 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
@@ -105,6 +109,7 @@ public class ErrorBuilder {
         enclosingSuppressTree,
         descriptionBuilder,
         state,
+        inquiry,
         nonNullTarget,
         nullableExpression,
         new Object[] {});
@@ -124,6 +129,7 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
       Object[] args) {
@@ -133,6 +139,7 @@ public class ErrorBuilder {
         enclosingSuppressTree,
         descriptionBuilder,
         state,
+        inquiry,
         nonNullTarget,
         nullableExpression,
         args);
@@ -154,6 +161,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression) {
     return createErrorDescriptionWithInfo(
@@ -161,6 +169,7 @@ public class ErrorBuilder {
         suggestTree,
         descriptionBuilder,
         state,
+        inquiry,
         nonNullTarget,
         nullableExpression,
         new Object[] {});
@@ -171,6 +180,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
       Object[] args) {
@@ -194,7 +204,22 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder, state);
     }
 
+    Set<SymbolLocation> origins = Set.of();
     if (config.serializationIsActive()) {
+      if (nullableExpression != null) {
+        Symbol nullableExpressionSymbol = ASTHelpers.getSymbol(nullableExpression);
+        if (nullableExpressionSymbol != null
+            && nullableExpressionSymbol.getKind() == ElementKind.LOCAL_VARIABLE) {
+          // locate assignments to this local variable.
+          origins =
+              new OriginScanner(inquiry, state)
+                      .retrieveOrigins(
+                          state.findEnclosing(MethodTree.class), nullableExpressionSymbol)
+                      .stream()
+                      .map(SymbolLocation::createLocationFromSymbol)
+                      .collect(Collectors.toSet());
+        }
+      }
       // For the case of initializer errors, the leaf of state.getPath() may not be the field /
       // method on which the error is being reported (since we do a class-wide analysis to find such
       // errors).  In such cases, the suggestTree is the appropriate field / method tree, so use
@@ -206,7 +231,7 @@ public class ErrorBuilder {
               ? suggestTree
               : state.getPath().getLeaf();
       SerializationService.serializeReportingError(
-          config, state, errorTree, nonNullTarget, errorMessage, args);
+          config, state, errorTree, nonNullTarget, errorMessage, origins, args);
     }
 
     // #letbuildersbuild
@@ -305,6 +330,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
       Object[] args) {
@@ -314,6 +340,7 @@ public class ErrorBuilder {
           suggestTreeIfCastToNonNull,
           descriptionBuilder,
           state,
+          inquiry,
           nonNullTarget,
           nullableExpression,
           args);
@@ -323,6 +350,7 @@ public class ErrorBuilder {
           suppressibleNode(state.getPath()),
           descriptionBuilder,
           state,
+          inquiry,
           nonNullTarget,
           nullableExpression,
           args);
@@ -334,6 +362,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression) {
     return createErrorDescriptionForNullAssignmentWithInfo(
@@ -341,6 +370,7 @@ public class ErrorBuilder {
         suggestTreeIfCastToNonNull,
         descriptionBuilder,
         state,
+        inquiry,
         nonNullTarget,
         nullableExpression,
         new String[] {});
@@ -486,6 +516,7 @@ public class ErrorBuilder {
       Symbol.MethodSymbol methodSymbol,
       String message,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       Description.Builder descriptionBuilder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
@@ -498,7 +529,8 @@ public class ErrorBuilder {
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
-        createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null, null));
+        createErrorDescription(
+            errorMessage, methodTree, descriptionBuilder, state, inquiry, null, null));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -577,7 +609,11 @@ public class ErrorBuilder {
     return message.toString();
   }
 
-  void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
+  void reportInitErrorOnField(
+      Symbol symbol,
+      VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
+      Description.Builder builder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // field itself).
@@ -602,6 +638,7 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
+              inquiry,
               symbol,
               null));
     } else {
@@ -611,6 +648,7 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
+              inquiry,
               symbol,
               null));
     }

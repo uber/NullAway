@@ -25,8 +25,10 @@ package com.uber.nullaway.fixserialization.adapters;
 import static java.util.stream.Collectors.joining;
 
 import com.uber.nullaway.fixserialization.SerializationService;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import java.util.Arrays;
+import java.util.Set;
 
 /**
  * Adapter for serialization version 4.
@@ -52,12 +54,21 @@ public class SerializationV4Adapter extends SerializationV3Adapter {
 
   @Override
   public String serializeError(ErrorInfo errorInfo) {
+    Set<SymbolLocation> origins = errorInfo.getOrigins();
+    String originString =
+        origins.isEmpty()
+            ? ""
+            : origins.stream()
+                .map(
+                    input ->
+                        SerializationService.escapeSpecialCharacters(
+                            input.tabSeparatedToString(this)))
+                .collect(joining("---"));
     String extraInfo =
         Arrays.stream(errorInfo.getInfos())
             .map(input -> SerializationService.escapeSpecialCharacters(input.toString()))
             .collect(joining("---"));
-    return extraInfo.isEmpty()
-        ? super.serializeError(errorInfo)
-        : super.serializeError(errorInfo) + "\t" + extraInfo;
+    String ans = super.serializeError(errorInfo) + "\t|||" + originString + "|||" + extraInfo;
+    return ans;
   }
 }

@@ -119,6 +119,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
                   tree,
                   analysis.buildDescription(tree),
                   state,
+                  analysis.mayBeNullInquiry,
                   null,
                   null));
       return false;

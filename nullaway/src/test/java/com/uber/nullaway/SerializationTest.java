@@ -2246,10 +2246,10 @@ public class SerializationTest extends NullAwayTestsBase {
             "   @Nullable Object f;",
             "   public void foo(Object p) {",
             "   }",
-            "   public void bar() {",
-            "     Object l = f;",
+            "   public void bar(boolean b, Object p) {",
+            "     Object l = b ? f : p;",
             "     // BUG: Diagnostic contains: passing @Nullable parameter",
-            "     foo(l);",
+            "     l.toString();",
             "   }",
             "}")
         .setExpectedOutputs(

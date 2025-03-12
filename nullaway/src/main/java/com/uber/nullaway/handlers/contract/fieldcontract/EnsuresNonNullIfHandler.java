@@ -250,6 +250,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
                 returnTree,
                 analysis.buildDescription(returnTree),
                 state,
+                analysis.mayBeNullInquiry,
                 null,
                 null));
   }

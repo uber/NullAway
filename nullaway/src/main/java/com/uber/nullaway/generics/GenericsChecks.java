@@ -220,7 +220,12 @@ public final class GenericsChecks {
                 methodSymbol.toString(), typeVariable.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null, null));
+            errorMessage,
+            analysis.buildDescription(tree),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   private static void reportInvalidInstantiationError(
@@ -234,7 +239,12 @@ public final class GenericsChecks {
                 baseTypeVariable.tsym.toString(), baseType.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null, null));
+            errorMessage,
+            analysis.buildDescription(tree),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   private static void reportInvalidAssignmentInstantiationError(
@@ -251,7 +261,12 @@ public final class GenericsChecks {
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null, null));
+            errorMessage,
+            analysis.buildDescription(tree),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   private static void reportInvalidReturnTypeError(
@@ -268,7 +283,12 @@ public final class GenericsChecks {
                     + " due to mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null, null));
+            errorMessage,
+            analysis.buildDescription(tree),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   private static void reportMismatchedTypeForTernaryOperator(
@@ -285,7 +305,12 @@ public final class GenericsChecks {
                     + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(tree), state, null, null));
+            errorMessage,
+            analysis.buildDescription(tree),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   private static void reportInvalidParametersNullabilityError(
@@ -305,7 +330,12 @@ public final class GenericsChecks {
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(paramExpression), state, null, null));
+            errorMessage,
+            analysis.buildDescription(paramExpression),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   private static void reportInvalidOverridingMethodReturnTypeError(
@@ -325,7 +355,12 @@ public final class GenericsChecks {
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(methodTree), state, null, null));
+            errorMessage,
+            analysis.buildDescription(methodTree),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   private static void reportInvalidOverridingMethodParamTypeError(
@@ -345,7 +380,12 @@ public final class GenericsChecks {
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage, analysis.buildDescription(formalParameterTree), state, null, null));
+            errorMessage,
+            analysis.buildDescription(formalParameterTree),
+            state,
+            analysis.mayBeNullInquiry,
+            null,
+            null));
   }
 
   /**

@@ -31,7 +31,9 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.nio.file.Path;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
@@ -62,11 +64,14 @@ public class ErrorInfo {
   /** Extra argument regarding the error required to generate a fix automatically. */
   private final Object[] infos;
 
+  private final Set<SymbolLocation> origins;
+
   public ErrorInfo(
       TreePath path,
       Tree errorTree,
       ErrorMessage errorMessage,
       @Nullable Symbol nonnullTarget,
+      Set<SymbolLocation> origins,
       Object[] args) {
     this.classAndMemberInfo =
         (errorMessage.getMessageType().equals(FIELD_NO_INIT)
@@ -79,6 +84,7 @@ public class ErrorInfo {
     this.offset = treePosition.getStartPosition();
     this.path =
         Serializer.pathToSourceFileFromURI(path.getCompilationUnit().getSourceFile().toUri());
+    this.origins = origins;
     this.infos = args;
   }
 
@@ -141,6 +147,15 @@ public class ErrorInfo {
   /** Finds the class and member of program point where the error is reported. */
   public void initEnclosing() {
     classAndMemberInfo.findValues();
+  }
+
+  /**
+   * Returns the origins caused null assignment to this location, it is flow insensitive.
+   *
+   * @return Origins caused null assignment to this location.
+   */
+  public Set<SymbolLocation> getOrigins() {
+    return origins;
   }
 
   /**
