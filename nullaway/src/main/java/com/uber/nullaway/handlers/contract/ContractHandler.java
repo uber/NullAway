@@ -289,6 +289,7 @@ public class ContractHandler extends BaseNoOpHandler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      null,
                       null));
           supported = false;
           break;

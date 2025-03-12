@@ -45,6 +45,7 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
@@ -96,7 +97,8 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      @Nullable Symbol nonNullTarget) {
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
     return createErrorDescriptionWithInfo(
         errorMessage,
@@ -104,6 +106,7 @@ public class ErrorBuilder {
         descriptionBuilder,
         state,
         nonNullTarget,
+        nullableExpression,
         new Object[] {});
   }
 
@@ -122,10 +125,17 @@ public class ErrorBuilder {
       Description.Builder descriptionBuilder,
       VisitorState state,
       @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression,
       Object[] args) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
     return createErrorDescriptionWithInfo(
-        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget, args);
+        errorMessage,
+        enclosingSuppressTree,
+        descriptionBuilder,
+        state,
+        nonNullTarget,
+        nullableExpression,
+        args);
   }
 
   /**
@@ -144,9 +154,16 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      @Nullable Symbol nonNullTarget) {
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression) {
     return createErrorDescriptionWithInfo(
-        errorMessage, suggestTree, descriptionBuilder, state, nonNullTarget, new Object[] {});
+        errorMessage,
+        suggestTree,
+        descriptionBuilder,
+        state,
+        nonNullTarget,
+        nullableExpression,
+        new Object[] {});
   }
 
   public Description createErrorDescriptionWithInfo(
@@ -155,6 +172,7 @@ public class ErrorBuilder {
       Description.Builder descriptionBuilder,
       VisitorState state,
       @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression,
       Object[] args) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
@@ -288,10 +306,17 @@ public class ErrorBuilder {
       Description.Builder descriptionBuilder,
       VisitorState state,
       @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression,
       Object[] args) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescriptionWithInfo(
-          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, nonNullTarget, args);
+          errorMessage,
+          suggestTreeIfCastToNonNull,
+          descriptionBuilder,
+          state,
+          nonNullTarget,
+          nullableExpression,
+          args);
     } else {
       return createErrorDescriptionWithInfo(
           errorMessage,
@@ -299,6 +324,7 @@ public class ErrorBuilder {
           descriptionBuilder,
           state,
           nonNullTarget,
+          nullableExpression,
           args);
     }
   }
@@ -308,13 +334,15 @@ public class ErrorBuilder {
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      @Nullable Symbol nonNullTarget) {
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression) {
     return createErrorDescriptionForNullAssignmentWithInfo(
         errorMessage,
         suggestTreeIfCastToNonNull,
         descriptionBuilder,
         state,
         nonNullTarget,
+        nullableExpression,
         new String[] {});
   }
 
@@ -470,7 +498,7 @@ public class ErrorBuilder {
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
-        createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
+        createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null, null));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -574,7 +602,8 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
-              symbol));
+              symbol,
+              null));
     } else {
       state.reportMatch(
           createErrorDescription(
@@ -582,7 +611,8 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
-              symbol));
+              symbol,
+              null));
     }
   }
 }

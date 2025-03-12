@@ -160,6 +160,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                   tree,
                   analysis.buildDescription(tree),
                   state,
+                  null,
                   null));
       return false;
     } else {
@@ -180,6 +181,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      null,
                       null));
           return false;
         }
@@ -207,6 +209,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                         tree,
                         analysis.buildDescription(tree),
                         state,
+                        null,
                         null));
             return false;
           } else {
@@ -231,6 +234,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      null,
                       null));
           return false;
         }

@@ -1090,33 +1090,4 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
-
-  @Test
-  public void ttt() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.util.List;",
-            "import java.util.Map;",
-            "import java.util.HashMap;",
-            "public class Foo {",
-            "   @Nullable public String exec(String k, String defaultValue){",
-            "     List<String> keys = List.of(\"A\", \"B\");",
-            "     if(keys.contains(k)){",
-            "         return defaultValue;",
-            "     }",
-            "     Map<String, String> map = new HashMap<>();",
-            "     for(String key : keys){",
-            "          map.put(key, \"val:\" + key);",
-            "     }",
-            "     return map.get(k);",
-            "   }",
-            "   public String run(){",
-            "     return exec(\"a\", \"def\").toString();",
-            "   }",
-            "}")
-        .doTest();
-  }
 }

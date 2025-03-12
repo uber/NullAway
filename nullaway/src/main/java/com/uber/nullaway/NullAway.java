@@ -522,7 +522,7 @@ public class NullAway extends BugChecker
           ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
           return errorBuilder.createErrorDescription(
-              errorMessage, buildDescription(tree), state, arraySymbol);
+              errorMessage, buildDescription(tree), state, arraySymbol, expression);
         }
       }
     }
@@ -545,7 +545,8 @@ public class NullAway extends BugChecker
           expression,
           buildDescription(tree),
           state,
-          ASTHelpers.getSymbol(tree.getVariable()));
+          ASTHelpers.getSymbol(tree.getVariable()),
+          expression);
     }
     handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     return Description.NO_MATCH;
@@ -717,7 +718,8 @@ public class NullAway extends BugChecker
           switchSelectorExpression,
           buildDescription(switchSelectorExpression),
           state,
-          null);
+          null,
+          switchSelectorExpression);
     }
 
     return Description.NO_MATCH;
@@ -843,6 +845,7 @@ public class NullAway extends BugChecker
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
           buildDescription(memberReferenceTree),
           state,
+          null,
           null);
     }
 
@@ -891,7 +894,8 @@ public class NullAway extends BugChecker
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
             state,
-            paramSymbol);
+            paramSymbol,
+            null);
       }
     }
     return Description.NO_MATCH;
@@ -979,7 +983,8 @@ public class NullAway extends BugChecker
           retExpr,
           buildDescription(errorTree),
           state,
-          methodSymbol);
+          methodSymbol,
+          retExpr);
     }
     return Description.NO_MATCH;
   }
@@ -1094,7 +1099,8 @@ public class NullAway extends BugChecker
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
           buildDescription(errorTree),
           state,
-          overriddenMethod);
+          overriddenMethod,
+          null);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
@@ -1265,7 +1271,8 @@ public class NullAway extends BugChecker
           new ErrorMessage(
               MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
               "read of @NonNull field " + symbol + " before initialization");
-      return errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null);
+      return errorBuilder.createErrorDescription(
+          errorMessage, buildDescription(tree), state, null, null);
     } else {
       return Description.NO_MATCH;
     }
@@ -1522,7 +1529,7 @@ public class NullAway extends BugChecker
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field");
           return errorBuilder.createErrorDescriptionForNullAssignment(
-              errorMessage, initializer, buildDescription(tree), state, symbol);
+              errorMessage, initializer, buildDescription(tree), state, symbol, initializer);
         }
       }
     }
@@ -1603,7 +1610,8 @@ public class NullAway extends BugChecker
                 "Type-use nullability annotations should be applied on inner class");
 
         state.reportMatch(
-            errorBuilder.createErrorDescription(errorMessage, buildDescription(type), state, null));
+            errorBuilder.createErrorDescription(
+                errorMessage, buildDescription(type), state, null, null));
       }
     }
   }
@@ -1780,19 +1788,21 @@ public class NullAway extends BugChecker
     String type =
         isField ? "field" : isParameter ? "parameter" : isMethod ? "method" : "local_variable";
     Object[] args =
-        new Object[] {
-          state.getSourceForNode(expr),
-          type,
-          Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
-          !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
-          Serializer.serializeSymbol(derefedSymbol, adapter),
-          ((JCTree) expr).pos().getStartPosition()
-        };
+        derefedSymbol == null
+            ? new Object[] {}
+            : new Object[] {
+              state.getSourceForNode(expr),
+              type,
+              Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
+              !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
+              Serializer.serializeSymbol(derefedSymbol, adapter),
+              ((JCTree) expr).pos().getStartPosition()
+            };
     String message = "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable";
     ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescriptionWithInfo(
-          errorMessage, buildDescription(expr), state, null, args);
+          errorMessage, buildDescription(expr), state, null, expr, args);
     }
     return Description.NO_MATCH;
   }
@@ -1813,7 +1823,7 @@ public class NullAway extends BugChecker
                   + state.getSourceForNode(lockExpr)
                   + "\" is @Nullable");
       return errorBuilder.createErrorDescription(
-          errorMessage, buildDescription(lockExpr), state, null);
+          errorMessage, buildDescription(lockExpr), state, null, lockExpr);
     }
     return Description.NO_MATCH;
   }
@@ -1838,7 +1848,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
           state.reportMatch(
               errorBuilder.createErrorDescription(
-                  errorMessage, buildDescription(tree), state, null));
+                  errorMessage, buildDescription(tree), state, null, tree));
         }
       }
     }
@@ -1990,7 +2000,12 @@ public class NullAway extends BugChecker
         ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
         state.reportMatch(
             errorBuilder.createErrorDescriptionForNullAssignment(
-                errorMessage, actual, buildDescription(actual), state, formalParams.get(argPos)));
+                errorMessage,
+                actual,
+                buildDescription(actual),
+                state,
+                formalParams.get(argPos),
+                actual));
       }
     }
     // Check for @NonNull being passed to castToNonNull (if configured)
@@ -2048,7 +2063,8 @@ public class NullAway extends BugChecker
             actual,
             buildDescription(tree),
             state,
-            null);
+            null,
+            actual);
       }
     }
     return Description.NO_MATCH;
@@ -2693,19 +2709,27 @@ public class NullAway extends BugChecker
       String type =
           isField ? "field" : isParameter ? "parameter" : isMethod ? "method" : "local_variable";
       Object[] args =
-          new Object[] {
-            state.getSourceForNode(baseExpression),
-            type,
-            Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
-            !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
-            Serializer.serializeSymbol(derefedSymbol, adapter),
-            ((JCTree) baseExpression).pos().getStartPosition()
-          };
+          derefedSymbol == null
+              ? new Object[] {}
+              : new Object[] {
+                state.getSourceForNode(baseExpression),
+                type,
+                Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
+                !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
+                Serializer.serializeSymbol(derefedSymbol, adapter),
+                ((JCTree) baseExpression).pos().getStartPosition()
+              };
       String message =
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
       return errorBuilder.createErrorDescriptionForNullAssignmentWithInfo(
-          errorMessage, baseExpression, buildDescription(derefExpression), state, null, args);
+          errorMessage,
+          baseExpression,
+          buildDescription(derefExpression),
+          state,
+          null,
+          baseExpression,
+          args);
     }
 
     Optional<ErrorMessage> handlerErrorMessage =
@@ -2716,7 +2740,8 @@ public class NullAway extends BugChecker
           derefExpression,
           buildDescription(derefExpression),
           state,
-          null);
+          null,
+          baseExpression);
     }
 
     return Description.NO_MATCH;

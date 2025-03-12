@@ -60,6 +60,7 @@ public class ContractUtils {
                   tree,
                   analysis.buildDescription(tree),
                   state,
+                  null,
                   null));
     }
     return parts[1].trim();
@@ -108,6 +109,7 @@ public class ContractUtils {
                   tree,
                   analysis.buildDescription(tree),
                   state,
+                  null,
                   null));
     }
     return antecedent;

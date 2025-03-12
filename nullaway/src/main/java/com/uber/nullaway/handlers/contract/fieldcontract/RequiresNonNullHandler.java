@@ -124,6 +124,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
                 tree,
                 analysis.buildDescription(tree),
                 state,
+                null,
                 null));
   }
 
@@ -173,6 +174,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      null,
                       null));
         }
         continue;
@@ -197,6 +199,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
                     tree,
                     analysis.buildDescription(tree),
                     state,
+                    null,
                     null));
       }
     }
