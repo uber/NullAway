@@ -248,6 +248,11 @@ public class NullAway extends BugChecker
    */
   private final Handler handler;
 
+  /** Returns the handler being used for this analysis */
+  public Handler getHandler() {
+    return handler;
+  }
+
   /**
    * entities relevant to field initialization per class. cached for performance. nulled out in
    * {@link #matchClass(ClassTree, VisitorState)}
@@ -276,6 +281,14 @@ public class NullAway extends BugChecker
    * annotations.
    */
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
+
+  /** Logic and state for generics checking */
+  private final GenericsChecks genericsChecks = new GenericsChecks();
+
+  /** Returns the GenericsChecks object for this analysis, used for generics-related checking */
+  public GenericsChecks getGenericsChecks() {
+    return genericsChecks;
+  }
 
   /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
@@ -500,7 +513,7 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
-      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
 
     if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
@@ -1494,7 +1507,7 @@ public class NullAway extends BugChecker
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
-      GenericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
     }
     if (!config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
@@ -1662,6 +1675,7 @@ public class NullAway extends BugChecker
       class2Entities.clear();
       class2ConstructorUninit.clear();
       computedNullnessMap.clear();
+      genericsChecks.clearCache();
       EnclosingEnvironmentNullness.instance(state.context).clear();
     } else if (classAnnotationIntroducesPartialMarking(classSymbol)) {
       // Handle the case where the top-class is unannotated, but there is a @NullMarked annotation
@@ -1885,13 +1899,13 @@ public class NullAway extends BugChecker
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode() && tree instanceof MethodInvocationTree)
-                      ? GenericsChecks.getGenericParameterNullnessAtInvocation(
+                      ? genericsChecks.getGenericParameterNullnessAtInvocation(
                           i, methodSymbol, (MethodInvocationTree) tree, state, config)
                       : Nullness.NONNULL);
         }
       }
       if (config.isJSpecifyMode()) {
-        GenericsChecks.compareGenericTypeParameterNullabilityForCall(
+        genericsChecks.compareGenericTypeParameterNullabilityForCall(
             methodSymbol, tree, actualParams, varArgsMethod, this, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
           GenericsChecks.checkGenericMethodCallTypeArguments(tree, state, this, config, handler);
@@ -2637,8 +2651,8 @@ public class NullAway extends BugChecker
       return true;
     }
     if (config.isJSpecifyMode()
-        && GenericsChecks.getGenericReturnNullnessAtInvocation(
-                exprSymbol, invocationTree, state, config)
+        && genericsChecks
+            .getGenericReturnNullnessAtInvocation(exprSymbol, invocationTree, state, config)
             .equals(Nullness.NULLABLE)) {
       return true;
     }
@@ -2657,7 +2671,7 @@ public class NullAway extends BugChecker
   }
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
-    return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, config, this.handler);
+    return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, this);
   }
 
   private Description matchDereference(
