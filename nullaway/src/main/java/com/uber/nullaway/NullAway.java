@@ -1852,6 +1852,12 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
+    // always do unboxing checks, whether or not the invoked method is annotated
+    for (int i = 0; i < formalParams.size() && i < actualParams.size(); i++) {
+      if (formalParams.get(i).type.isPrimitive()) {
+        doUnboxingCheck(state, actualParams.get(i));
+      }
+    }
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
     // If argumentPositionNullness[i] == null, parameter i is unannotated
@@ -1862,7 +1868,6 @@ public class NullAway extends BugChecker
       for (int i = 0; i < formalParams.size(); i++) {
         VarSymbol param = formalParams.get(i);
         if (param.type.isPrimitive()) {
-          doUnboxingCheck(state, actualParams.get(i));
           argumentPositionNullness[i] = Nullness.NONNULL;
         } else if (ASTHelpers.isSameType(
             param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {

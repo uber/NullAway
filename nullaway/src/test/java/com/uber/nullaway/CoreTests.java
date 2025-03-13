@@ -170,6 +170,25 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboxingWhenCallingUnmarked() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  @NullUnmarked",
+            "  static void foo(int x) {}",
+            "  void bar() {",
+            "    Integer y = null;",
+            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
+            "    foo(y);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void arrayAccessDataflowTest() {
     defaultCompilationHelper
         .addSourceLines(
