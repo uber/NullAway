@@ -825,7 +825,7 @@ public final class GenericsChecks {
       path = ASTHelpers.findPathFromEnclosingNodeToTopLevel(path, NewClassTree.class);
       NewClassTree newClassTree = (NewClassTree) path.getLeaf();
       while (newClassTree.getClassBody() == null) {
-        newClassTree = ASTHelpers.findEnclosingNode(path, NewClassTree.class);
+        newClassTree = castToNonNull(ASTHelpers.findEnclosingNode(path, NewClassTree.class));
       }
       if (newClassTree == null) {
         throw new RuntimeException(
