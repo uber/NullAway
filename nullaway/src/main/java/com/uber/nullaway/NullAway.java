@@ -807,12 +807,17 @@ public class NullAway extends BugChecker
         } else if (config.isJSpecifyMode()) {
           // Check if the parameter type is a type variable and the corresponding generic type
           // argument is @Nullable
-          if (memberReferenceTree != null) {
-            // For a method reference, we get generic type arguments from the javac's inferred type
-            // for the tree, which seems to properly preserve type-use annotations
+          if (memberReferenceTree != null || lambdaExpressionTree != null) {
+            // For a method reference or lambda, we get generic type arguments from the javac's
+            // inferred type for the tree, which seems to properly preserve type-use annotations
             paramNullness =
                 GenericsChecks.getGenericMethodParameterNullness(
-                    i, overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config);
+                    i,
+                    overriddenMethod,
+                    ASTHelpers.getType(
+                        memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree),
+                    state,
+                    config);
           } else {
             // Use the enclosing class of the overriding method to find generic type arguments
             paramNullness =

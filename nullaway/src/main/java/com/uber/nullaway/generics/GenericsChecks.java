@@ -820,16 +820,22 @@ public final class GenericsChecks {
   private static @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state, Config config) {
     if (symbol.isAnonymous()) {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
-      // So, we get a correct type from the enclosing NewClassTree.
+      // So, we get a correct type from the enclosing NewClassTree representing the anonymous class.
       TreePath path = state.getPath();
-      NewClassTree newClassTree = ASTHelpers.findEnclosingNode(path, NewClassTree.class);
-      if (newClassTree == null) {
+      path = ASTHelpers.findPathFromEnclosingNodeToTopLevel(path, NewClassTree.class);
+      NewClassTree newClassTree = (NewClassTree) path.getLeaf();
+      if (newClassTree == null || newClassTree.getClassBody() == null) {
         throw new RuntimeException(
-            "method should be inside a NewClassTree " + state.getSourceForNode(path.getLeaf()));
+            "method should be directly inside an anonymous NewClassTree "
+                + state.getSourceForNode(path.getLeaf()));
       }
       Type typeFromTree = getTreeType(newClassTree, config);
       if (typeFromTree != null) {
-        verify(state.getTypes().isAssignable(symbol.type, typeFromTree));
+        verify(
+            state.getTypes().isAssignable(symbol.type, typeFromTree),
+            "%s is not assignable to %s",
+            symbol.type,
+            typeFromTree);
       }
       return typeFromTree;
     } else {

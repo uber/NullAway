@@ -508,6 +508,32 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testForLambdaInAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Supplier;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    String function(T1 o);",
+            "  }",
+            "  static String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "    A<@Nullable Object> p = x -> x.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<Object> p = x -> \"hello\";",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void testForMethodReferenceForClassFieldAssignment() {
     makeHelper()
         .addSourceLines(
@@ -2294,6 +2320,35 @@ public class GenericsTests extends NullAwayTestsBase {
             "        @Override",
             "        public abstract <T extends S> T value(Consumer<@Nullable B> consumer);",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1156() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.function.Function;",
+            "import java.util.function.Supplier;",
+            "@NullMarked",
+            "public class Foo implements Supplier<Integer> {",
+            "  public Foo(Function<Integer, Integer> func) {",
+            "  }",
+            "  @Override",
+            "  public Integer get() {",
+            "    return 0;",
+            "  }",
+            "  public static void test() {",
+            "    new Supplier<Boolean>() {",
+            "      @Override",
+            "      public Boolean get() {",
+            "        Foo foo = new Foo(x -> 1);",
+            "        return true;",
+            "      }",
+            "    };",
+            "  }",
             "}")
         .doTest();
   }
