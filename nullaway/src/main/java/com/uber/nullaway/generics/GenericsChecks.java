@@ -824,13 +824,10 @@ public final class GenericsChecks {
       TreePath path = state.getPath();
       path = ASTHelpers.findPathFromEnclosingNodeToTopLevel(path, NewClassTree.class);
       NewClassTree newClassTree = (NewClassTree) path.getLeaf();
-      // The NewClassTree for the enclosing anonymous class will have a non-null class body
-      while (newClassTree.getClassBody() == null) {
-        newClassTree = castToNonNull(ASTHelpers.findEnclosingNode(path, NewClassTree.class));
-      }
-      if (newClassTree == null) {
+      if (newClassTree == null || newClassTree.getClassBody() == null) {
         throw new RuntimeException(
-            "method should be inside a NewClassTree " + state.getSourceForNode(path.getLeaf()));
+            "method should be directly inside an anonymous NewClassTree "
+                + state.getSourceForNode(path.getLeaf()));
       }
       Type typeFromTree = getTreeType(newClassTree, config);
       if (typeFromTree != null) {
