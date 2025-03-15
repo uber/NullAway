@@ -28,6 +28,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.contract.ContractNullnessStoreInitializer;
@@ -65,10 +66,9 @@ public final class AccessPathNullnessAnalysis {
 
   // Use #instance to instantiate
   private AccessPathNullnessAnalysis(
-      Predicate<MethodInvocationNode> methodReturnsNonNull,
-      VisitorState state,
-      Config config,
-      Handler handler) {
+      Predicate<MethodInvocationNode> methodReturnsNonNull, VisitorState state, NullAway analysis) {
+    Config config = analysis.getConfig();
+    Handler handler = analysis.getHandler();
     apContext =
         AccessPath.AccessPathContext.builder()
             .setImmutableTypes(handler.onRegisterImmutableTypes())
@@ -79,8 +79,7 @@ public final class AccessPathNullnessAnalysis {
             methodReturnsNonNull,
             state,
             apContext,
-            config,
-            handler,
+            analysis,
             new CoreNullnessStoreInitializer());
     this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
 
@@ -91,8 +90,7 @@ public final class AccessPathNullnessAnalysis {
               methodReturnsNonNull,
               state,
               apContext,
-              config,
-              handler,
+              analysis,
               new ContractNullnessStoreInitializer());
     }
   }
@@ -103,18 +101,15 @@ public final class AccessPathNullnessAnalysis {
    * @param state visitor state for the compilation
    * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
    *     value
-   * @param config analysis config
+   * @param analysis instance of NullAway analysis
    * @return instance of the analysis
    */
   public static AccessPathNullnessAnalysis instance(
-      VisitorState state,
-      Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Config config,
-      Handler handler) {
+      VisitorState state, Predicate<MethodInvocationNode> methodReturnsNonNull, NullAway analysis) {
     Context context = state.context;
     AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
     if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, state, config, handler);
+      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, state, analysis);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
     }
     return instance;
