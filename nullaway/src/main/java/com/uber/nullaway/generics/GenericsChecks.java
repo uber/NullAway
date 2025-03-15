@@ -824,6 +824,7 @@ public final class GenericsChecks {
       TreePath path = state.getPath();
       path = ASTHelpers.findPathFromEnclosingNodeToTopLevel(path, NewClassTree.class);
       NewClassTree newClassTree = (NewClassTree) path.getLeaf();
+      // The NewClassTree for the enclosing anonymous class will have a non-null class body
       while (newClassTree.getClassBody() == null) {
         newClassTree = castToNonNull(ASTHelpers.findEnclosingNode(path, NewClassTree.class));
       }
