@@ -220,12 +220,8 @@ public final class AccessPathNullnessAnalysis {
             } else { // last element
               // must be a field that is final or annotated with @MonotonicNonNull
               if (!e.getKind().equals(ElementKind.FIELD)
-                  || (!e.getModifiers().contains(Modifier.FINAL)
-                      && !e.getAnnotationMirrors().stream()
-                          .anyMatch(
-                              am ->
-                                  Nullness.isMonotonicNonNullAnnotation(
-                                      am.getAnnotationType().toString())))) {
+                  || !(e.getModifiers().contains(Modifier.FINAL)
+                      || hasMonotonicNonNullAnnotation(e))) {
                 allAPNonRootElementsAreFinalFields = false;
               }
             }
@@ -235,12 +231,19 @@ public final class AccessPathNullnessAnalysis {
             return e == null // This is the case for: this(.f)* where each f is a final field.
                 || e.getKind().equals(ElementKind.PARAMETER)
                 || e.getKind().equals(ElementKind.LOCAL_VARIABLE)
+                // rooted at a static field that is either final or annotated with @MonotonicNonNull
                 || (e.getKind().equals(ElementKind.FIELD)
-                    && e.getModifiers().contains(Modifier.FINAL));
+                    && (e.getModifiers().contains(Modifier.FINAL)
+                        || hasMonotonicNonNullAnnotation(e)));
           }
 
           return handlerPredicate.test(ap);
         });
+  }
+
+  private static boolean hasMonotonicNonNullAnnotation(Element e) {
+    return e.getAnnotationMirrors().stream()
+        .anyMatch(am -> Nullness.isMonotonicNonNullAnnotation(am.getAnnotationType().toString()));
   }
 
   /**
