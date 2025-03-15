@@ -527,7 +527,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "    A<@Nullable Object> p = x -> x.toString();",
             "  }",
             "  static void testNegative() {",
-            "    A<Object, Object> p = x -> \"hello\";",
+            "    A<Object> p = x -> \"hello\";",
             "  }",
             "}")
         .doTest();
