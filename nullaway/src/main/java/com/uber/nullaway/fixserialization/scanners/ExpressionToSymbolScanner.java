@@ -31,6 +31,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
 import java.util.HashSet;
@@ -38,12 +39,28 @@ import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /** Scanner that finds the symbols of all identifiers in expressions. */
-public class ExpressionToSymbolScanner extends AccumulatorScanner<NullAway.MayBeNullableInquiry> {
+public class ExpressionToSymbolScanner
+    extends TreeScanner<Set<Symbol>, NullAway.MayBeNullableInquiry> {
 
   private final VisitorState state;
 
   public ExpressionToSymbolScanner(VisitorState state) {
     this.state = state;
+  }
+
+  @Override
+  public Set<Symbol> reduce(Set<Symbol> r1, Set<Symbol> r2) {
+    if (r2 == null && r1 == null) {
+      return Set.of();
+    }
+    Set<Symbol> combined = new HashSet<>();
+    if (r1 != null) {
+      combined.addAll(r1);
+    }
+    if (r2 != null) {
+      combined.addAll(r2);
+    }
+    return combined;
   }
 
   private @Nullable Symbol defaultResult(ExpressionTree node) {

@@ -30,8 +30,8 @@ import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
-import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
+import com.uber.nullaway.fixserialization.scanners.OriginTrace;
 import java.util.Map;
 import java.util.Set;
 import java.util.regex.Matcher;
@@ -90,7 +90,7 @@ public class SerializationService {
       Tree errorTree,
       @Nullable Symbol target,
       ErrorMessage errorMessage,
-      Set<SymbolLocation> origins,
+      Set<OriginTrace> origins,
       JsonObject args) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
     Preconditions.checkNotNull(

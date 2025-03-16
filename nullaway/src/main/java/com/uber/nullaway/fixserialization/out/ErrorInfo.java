@@ -24,18 +24,24 @@ package com.uber.nullaway.fixserialization.out;
 
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.errorprone.util.ASTHelpers;
 import com.google.gson.JsonArray;
 import com.google.gson.JsonObject;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
+import com.uber.nullaway.fixserialization.scanners.OriginTrace;
+import java.net.URI;
 import java.nio.file.Path;
+import java.util.Locale;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
@@ -67,14 +73,14 @@ public class ErrorInfo {
   /** Extra argument regarding the error required to generate a fix automatically. */
   private final JsonObject infos;
 
-  private final Set<SymbolLocation> origins;
+  private final Set<OriginTrace> origins;
 
   public ErrorInfo(
       TreePath path,
       Tree errorTree,
       ErrorMessage errorMessage,
       @Nullable Symbol nonnullTarget,
-      Set<SymbolLocation> origins,
+      Set<OriginTrace> origins,
       JsonObject args) {
     this.classAndMemberInfo =
         (errorMessage.getMessageType().equals(FIELD_NO_INIT)
@@ -174,15 +180,37 @@ public class ErrorInfo {
           SymbolLocation.createLocationFromSymbol(nonnullTarget).toJson(serializationAdapter));
     }
     JsonArray originsJson = new JsonArray();
-    for (SymbolLocation origin : origins) {
-      originsJson.add(origin.toJson(serializationAdapter));
+    for (OriginTrace trace : origins) {
+      Symbol sym = trace.getOrigin();
+      JsonObject origin = new JsonObject();
+      origin.add(
+          "symbol", SymbolLocation.createLocationFromSymbol(sym).toJson(serializationAdapter));
+      origin.addProperty("kind", sym.getKind().toString().toLowerCase(Locale.getDefault()));
+      origin.addProperty(
+          "class", Serializer.serializeSymbol(sym.enclClass(), serializationAdapter));
+      origin.addProperty("isAnnotated", isAnnotated(sym));
+      origin.addProperty("expression", trace.getTrace().toString());
+      origin.addProperty("position", ((JCTree) trace.getTrace()).pos().getStartPosition());
+      originsJson.add(origin);
     }
     if (!originsJson.isEmpty()) {
       json.add("origins", originsJson);
     }
-    if (infos != null) {
-      json.add("infos", infos);
-    }
+    json.add("infos", infos);
     return json;
+  }
+
+  /**
+   * Checks if the symbol is from annotated code.
+   *
+   * @param symbol The symbol to check.
+   * @return True if the symbol is from annotated code, false otherwise.
+   */
+  private static boolean isAnnotated(Symbol symbol) {
+    // TODO for now we follow a very simple heuristic to determine if a symbol is annotated and
+    // check if the path to the symbol exists
+    Symbol.ClassSymbol enclosingClass = castToNonNull(ASTHelpers.enclosingClass(symbol));
+    URI pathInURI = enclosingClass.sourcefile != null ? enclosingClass.sourcefile.toUri() : null;
+    return Serializer.pathToSourceFileFromURI(pathInURI) != null;
   }
 }

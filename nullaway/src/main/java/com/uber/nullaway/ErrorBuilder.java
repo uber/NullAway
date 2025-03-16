@@ -58,12 +58,11 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.SerializationService;
-import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import com.uber.nullaway.fixserialization.scanners.OriginScanner;
+import com.uber.nullaway.fixserialization.scanners.OriginTrace;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Set;
-import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -205,7 +204,7 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder, state);
     }
 
-    Set<SymbolLocation> origins = Set.of();
+    Set<OriginTrace> origins = Set.of();
     if (config.serializationIsActive()) {
       if (nullableExpression != null) {
         Symbol nullableExpressionSymbol = ASTHelpers.getSymbol(nullableExpression);
@@ -214,11 +213,7 @@ public class ErrorBuilder {
           // locate assignments to this local variable.
           origins =
               new OriginScanner(inquiry, state)
-                      .retrieveOrigins(
-                          state.findEnclosing(MethodTree.class), nullableExpressionSymbol)
-                      .stream()
-                      .map(SymbolLocation::createLocationFromSymbol)
-                      .collect(Collectors.toSet());
+                  .retrieveOrigins(state.findEnclosing(MethodTree.class), nullableExpressionSymbol);
         }
       }
       // For the case of initializer errors, the leaf of state.getPath() may not be the field /
