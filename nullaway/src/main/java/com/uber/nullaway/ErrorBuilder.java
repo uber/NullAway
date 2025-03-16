@@ -43,6 +43,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.fixes.SuggestedFix;
 import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
+import com.google.gson.JsonObject;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
@@ -112,7 +113,7 @@ public class ErrorBuilder {
         inquiry,
         nonNullTarget,
         nullableExpression,
-        new Object[] {});
+        new JsonObject());
   }
 
   /**
@@ -132,7 +133,7 @@ public class ErrorBuilder {
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
-      Object[] args) {
+      JsonObject args) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
     return createErrorDescriptionWithInfo(
         errorMessage,
@@ -172,7 +173,7 @@ public class ErrorBuilder {
         inquiry,
         nonNullTarget,
         nullableExpression,
-        new Object[] {});
+        new JsonObject());
   }
 
   public Description createErrorDescriptionWithInfo(
@@ -183,7 +184,7 @@ public class ErrorBuilder {
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
-      Object[] args) {
+      JsonObject args) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -333,7 +334,7 @@ public class ErrorBuilder {
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
-      Object[] args) {
+      JsonObject args) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescriptionWithInfo(
           errorMessage,
@@ -373,7 +374,7 @@ public class ErrorBuilder {
         inquiry,
         nonNullTarget,
         nullableExpression,
-        new String[] {});
+        new JsonObject());
   }
 
   Description.Builder addSuppressWarningsFix(

@@ -26,8 +26,10 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
+import com.google.gson.JsonObject;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import java.net.URI;
 import java.nio.file.Path;
 import javax.lang.model.element.ElementKind;
@@ -57,5 +59,18 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
     this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
     URI pathInURI = enclosingClass.sourcefile != null ? enclosingClass.sourcefile.toUri() : null;
     this.path = Serializer.pathToSourceFileFromURI(pathInURI);
+  }
+
+  @Override
+  public JsonObject toJson(SerializationAdapter adapter) {
+    String[] infos = tabSeparatedToString(adapter).split("\t");
+    JsonObject json = new JsonObject();
+    json.addProperty("target_kind", infos[0]);
+    json.addProperty("target_class", infos[1]);
+    json.addProperty("target_method", infos[2]);
+    json.addProperty("target_param", infos[3]);
+    json.addProperty("target_index", infos[4]);
+    json.addProperty("target_path", infos[5]);
+    return json;
   }
 }

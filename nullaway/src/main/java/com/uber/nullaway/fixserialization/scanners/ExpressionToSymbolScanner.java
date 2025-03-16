@@ -35,6 +35,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
 import java.util.HashSet;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /** Scanner that finds the symbols of all identifiers in expressions. */
 public class ExpressionToSymbolScanner extends AccumulatorScanner<NullAway.MayBeNullableInquiry> {
@@ -45,7 +46,7 @@ public class ExpressionToSymbolScanner extends AccumulatorScanner<NullAway.MayBe
     this.state = state;
   }
 
-  private Symbol defaultResult(ExpressionTree node) {
+  private @Nullable Symbol defaultResult(ExpressionTree node) {
     Symbol symbol = ASTHelpers.getSymbol(node);
     if (symbol != null) {
       switch (symbol.getKind()) {

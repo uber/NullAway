@@ -39,6 +39,7 @@ import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
 import javax.lang.model.element.ElementKind;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Scanner that finds the origin of a variable. An origin is a variable that is either a field, a
@@ -105,7 +106,10 @@ public class OriginScanner extends AccumulatorScanner<Symbol> {
    * @param target the variable to find the origins of.
    * @return a set of symbols that are the origins of the variable.
    */
-  public Set<Symbol> retrieveOrigins(MethodTree tree, Symbol target) {
+  public Set<Symbol> retrieveOrigins(@Nullable MethodTree tree, Symbol target) {
+    if (tree == null) {
+      return Set.of();
+    }
     if (isOriginal(target)) {
       return Set.of(target);
     }

@@ -25,12 +25,15 @@ package com.uber.nullaway.fixserialization.out;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
 
+import com.google.gson.JsonArray;
+import com.google.gson.JsonObject;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.JCDiagnostic;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
 import java.nio.file.Path;
 import java.util.Set;
@@ -62,7 +65,7 @@ public class ErrorInfo {
   private final @Nullable Path path;
 
   /** Extra argument regarding the error required to generate a fix automatically. */
-  private final Object[] infos;
+  private final JsonObject infos;
 
   private final Set<SymbolLocation> origins;
 
@@ -72,7 +75,7 @@ public class ErrorInfo {
       ErrorMessage errorMessage,
       @Nullable Symbol nonnullTarget,
       Set<SymbolLocation> origins,
-      Object[] args) {
+      JsonObject args) {
     this.classAndMemberInfo =
         (errorMessage.getMessageType().equals(FIELD_NO_INIT)
                 || errorMessage.getMessageType().equals(METHOD_NO_INIT))
@@ -150,20 +153,36 @@ public class ErrorInfo {
   }
 
   /**
-   * Returns the origins caused null assignment to this location, it is flow insensitive.
+   * Converts the error information to a JSON object.
    *
-   * @return Origins caused null assignment to this location.
+   * @param serializationAdapter adapter used to serialize symbols.
+   * @return JSON object representation of the error information.
    */
-  public Set<SymbolLocation> getOrigins() {
-    return origins;
-  }
-
-  /**
-   * Returns the extra arguments regarding the error required to generate a fix automatically.
-   *
-   * @return Extra arguments regarding the error required to generate a fix automatically.
-   */
-  public Object[] getInfos() {
-    return infos;
+  public JsonObject toJson(SerializationAdapter serializationAdapter) {
+    JsonObject json = new JsonObject();
+    json.addProperty("message_type", errorMessage.getMessageType().toString());
+    json.addProperty("message", errorMessage.getMessage());
+    json.addProperty(
+        "enc_class", Serializer.serializeSymbol(getRegionClass(), serializationAdapter));
+    json.addProperty(
+        "enc_member", Serializer.serializeSymbol(getRegionMember(), serializationAdapter));
+    json.addProperty("offset", offset);
+    json.addProperty("path", path != null ? path.toString() : "null");
+    if (nonnullTarget != null) {
+      json.add(
+          "nonnull_target",
+          SymbolLocation.createLocationFromSymbol(nonnullTarget).toJson(serializationAdapter));
+    }
+    JsonArray originsJson = new JsonArray();
+    for (SymbolLocation origin : origins) {
+      originsJson.add(origin.toJson(serializationAdapter));
+    }
+    if (!originsJson.isEmpty()) {
+      json.add("origins", originsJson);
+    }
+    if (infos != null) {
+      json.add("infos", infos);
+    }
+    return json;
   }
 }

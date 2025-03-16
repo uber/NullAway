@@ -25,6 +25,7 @@ package com.uber.nullaway.fixserialization;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
+import com.google.gson.JsonObject;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
@@ -80,7 +81,7 @@ public class SerializationService {
    * @param state Visitor state.
    * @param errorTree Tree of the element involved in the reporting error.
    * @param errorMessage Error caused by the target.
-   * @param origins
+   * @param origins Symbol of the elements contributing to the nullability of the expression.
    * @param args Arguments to be passed to the error message to automatically generate a fix.
    */
   public static void serializeReportingError(
@@ -90,7 +91,7 @@ public class SerializationService {
       @Nullable Symbol target,
       ErrorMessage errorMessage,
       Set<SymbolLocation> origins,
-      Object[] args) {
+      JsonObject args) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
     Preconditions.checkNotNull(
         serializer, "Serializer shouldn't be null at this point, error in configuration setting!");

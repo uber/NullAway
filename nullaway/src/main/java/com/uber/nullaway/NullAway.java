@@ -56,6 +56,7 @@ import com.google.errorprone.matchers.Matcher;
 import com.google.errorprone.matchers.Matchers;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.google.gson.JsonObject;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
@@ -112,6 +113,7 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -1802,17 +1804,16 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expr = tree.getExpression();
     Symbol derefedSymbol = ASTHelpers.getSymbol(expr);
-    Object[] args =
-        derefedSymbol == null
-            ? new Object[] {}
-            : new Object[] {
-              state.getSourceForNode(expr),
-              derefedSymbol.getKind().toString().toLowerCase(),
-              Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
-              !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
-              Serializer.serializeSymbol(derefedSymbol, adapter),
-              ((JCTree) expr).pos().getStartPosition()
-            };
+    JsonObject args = new JsonObject();
+    if (derefedSymbol != null) {
+      args.addProperty("expression", state.getSourceForNode(expr));
+      args.addProperty("kind", derefedSymbol.getKind().toString().toLowerCase(Locale.getDefault()));
+      args.addProperty("class", Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter));
+      args.addProperty(
+          "isAnnotated", !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler));
+      args.addProperty("symbol", Serializer.serializeSymbol(derefedSymbol, adapter));
+      args.addProperty("position", ((JCTree) expr).pos().getStartPosition());
+    }
     String message = "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable";
     ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
@@ -2726,17 +2727,17 @@ public class NullAway extends BugChecker
     if (mayBeNullExpr(state, baseExpression)) {
       ExpressionTree stripped = stripParensAndCasts(baseExpression);
       Symbol derefedSymbol = ASTHelpers.getSymbol(stripped);
-      Object[] args =
-          derefedSymbol == null
-              ? new Object[] {}
-              : new Object[] {
-                state.getSourceForNode(baseExpression),
-                derefedSymbol.getKind().toString().toLowerCase(),
-                Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
-                !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
-                Serializer.serializeSymbol(derefedSymbol, adapter),
-                ((JCTree) baseExpression).pos().getStartPosition()
-              };
+      JsonObject args = new JsonObject();
+      if (derefedSymbol != null) {
+        args.addProperty("expression", state.getSourceForNode(baseExpression));
+        args.addProperty(
+            "kind", derefedSymbol.getKind().toString().toLowerCase(Locale.getDefault()));
+        args.addProperty("class", Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter));
+        args.addProperty(
+            "isAnnotated", !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler));
+        args.addProperty("symbol", Serializer.serializeSymbol(derefedSymbol, adapter));
+        args.addProperty("position", ((JCTree) baseExpression).pos().getStartPosition());
+      }
       String message =
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);

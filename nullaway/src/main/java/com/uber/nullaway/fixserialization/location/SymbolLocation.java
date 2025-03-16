@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.fixserialization.location;
 
+import com.google.gson.JsonObject;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 
@@ -37,6 +38,14 @@ public interface SymbolLocation {
    * @return string representation of contents in a line seperated by tabs.
    */
   String tabSeparatedToString(SerializationAdapter adapter);
+
+  /**
+   * Converts the instance to a JSON object.
+   *
+   * @param adapter adapter used to serialize symbols.
+   * @return JSON object representation of the instance.
+   */
+  JsonObject toJson(SerializationAdapter adapter);
 
   /**
    * Creates header of an output file containing all {@link SymbolLocation} written in string which

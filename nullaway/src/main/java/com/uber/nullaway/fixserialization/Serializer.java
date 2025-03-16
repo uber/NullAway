@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.fixserialization;
 
+import com.google.gson.JsonObject;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
@@ -46,6 +47,8 @@ public class Serializer {
   /** Path to write errors. */
   private final Path errorOutputPath;
 
+  private final Path errorOutputJsonPath;
+
   /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
 
@@ -59,6 +62,7 @@ public class Serializer {
   public Serializer(FixSerializationConfig config, SerializationAdapter serializationAdapter) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
+    this.errorOutputJsonPath = Paths.get(outputDirectory, "errors.json");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     this.serializationAdapter = serializationAdapter;
     serializeVersion(outputDirectory);
@@ -73,6 +77,9 @@ public class Serializer {
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
     appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
+    // append to json as well.
+    JsonObject errorJson = errorInfo.toJson(serializationAdapter);
+    appendToFile(errorJson.toString() + ",", errorOutputJsonPath);
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
@@ -128,6 +135,7 @@ public class Serializer {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
       initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
+      initializeFile(errorOutputJsonPath, "");
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer", e);
     }
