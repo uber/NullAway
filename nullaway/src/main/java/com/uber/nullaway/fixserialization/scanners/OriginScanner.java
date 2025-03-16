@@ -97,7 +97,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
         return Set.of();
       }
       ExpressionTree initializer = node.getInitializer();
-      if (!inquiry.maybeNullable(initializer, state)) {
+      if (initializer == null || !inquiry.maybeNullable(initializer, state)) {
         return Set.of();
       }
       return initializer.accept(new ExpressionToSymbolScanner(state), inquiry).stream()

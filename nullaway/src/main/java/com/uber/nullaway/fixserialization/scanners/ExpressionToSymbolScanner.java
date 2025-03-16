@@ -29,6 +29,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.util.TreeScanner;
@@ -77,7 +78,13 @@ public class ExpressionToSymbolScanner
           return null;
       }
     }
+    System.out.println("Returning null: " + node + " " + node.getKind());
     return null;
+  }
+
+  @Override
+  public Set<Symbol> visitLiteral(LiteralTree node, NullAway.MayBeNullableInquiry inquiry) {
+    return Set.of();
   }
 
   @Override

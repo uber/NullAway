@@ -184,13 +184,14 @@ public class ErrorInfo {
       Symbol sym = trace.getOrigin();
       JsonObject origin = new JsonObject();
       origin.add(
-          "symbol", SymbolLocation.createLocationFromSymbol(sym).toJson(serializationAdapter));
+          "location", SymbolLocation.createLocationFromSymbol(sym).toJson(serializationAdapter));
       origin.addProperty("kind", sym.getKind().toString().toLowerCase(Locale.getDefault()));
       origin.addProperty(
           "class", Serializer.serializeSymbol(sym.enclClass(), serializationAdapter));
       origin.addProperty("isAnnotated", isAnnotated(sym));
       origin.addProperty("expression", trace.getTrace().toString());
       origin.addProperty("position", ((JCTree) trace.getTrace()).pos().getStartPosition());
+      origin.addProperty("symbol", Serializer.serializeSymbol(sym, serializationAdapter));
       originsJson.add(origin);
     }
     if (!originsJson.isEmpty()) {
