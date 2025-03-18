@@ -95,4 +95,8 @@ public class Toys {
       System.out.println(e.getMessage());
     }
   }
+
+  public Toys(String s) {
+    System.out.println(s.toString());
+  }
 }

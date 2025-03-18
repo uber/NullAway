@@ -546,10 +546,15 @@ public class DefinitelyDerefedParamsDriver {
         argTypes[i] = getSourceLevelQualifiedTypeName(mtd.getParameterType(argi++));
       }
     }
+    String methodName = mtd.getName().toString();
+    if (methodName.equals("<init>")) {
+      // use simple name of enclosing class
+      methodName = classType.substring(classType.lastIndexOf('.') + 1);
+    }
     return classType
         + ":"
         + (returnType == null ? "void " : returnType + " ")
-        + mtd.getName().toString()
+        + methodName
         + "("
         + String.join(", ", argTypes)
         + ")";
