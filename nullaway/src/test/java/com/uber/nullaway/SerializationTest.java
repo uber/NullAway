@@ -2204,6 +2204,56 @@ public class SerializationTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void checkLocalVariableExtensionEnhancedForLoop() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Bar.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import javax.annotation.Nullable;",
+            "public class Bar {",
+            "   @Nullable public Map<String, String> baz() {",
+            "     return null;",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import java.util.List;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            "   List<Bar> list = List.of();",
+            "   public void bar() {",
+            "     for(Bar b : list){",
+            "       Map<String, String> l = b.baz();",
+            "       // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "       for(String s : l.values()) {}",
+            "     }",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression l is @Nullable",
+                "com.uber.Foo",
+                "bar()",
+                331,
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
   /**
    * Helper method to verify the correct serialization version number is written in
    * "serialization_version.txt". Version number can be configured via Error Prone flags by the

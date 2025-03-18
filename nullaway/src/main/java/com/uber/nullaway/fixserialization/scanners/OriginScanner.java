@@ -86,7 +86,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
           .map(input -> new OriginTrace(input, node))
           .collect(Collectors.toSet());
     }
-    return Set.of();
+    return super.visitAssignment(node, target);
   }
 
   @Override
@@ -104,7 +104,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
           .map(input -> new OriginTrace(input, node))
           .collect(Collectors.toSet());
     }
-    return Set.of();
+    return super.visitVariable(node, target);
   }
 
   @Override
@@ -119,7 +119,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
           .map(input -> new OriginTrace(input, node))
           .collect(Collectors.toSet());
     }
-    return Set.of();
+    return super.visitEnhancedForLoop(node, target);
   }
 
   /**
