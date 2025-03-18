@@ -548,7 +548,7 @@ public class DefinitelyDerefedParamsDriver {
     }
     String methodName = mtd.getName().toString();
     if (methodName.equals("<init>")) {
-      // simple name of classType
+      // use simple name of enclosing class
       methodName = classType.substring(classType.lastIndexOf('.') + 1);
     }
     return classType

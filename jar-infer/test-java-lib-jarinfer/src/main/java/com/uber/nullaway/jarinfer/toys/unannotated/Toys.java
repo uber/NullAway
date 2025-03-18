@@ -98,6 +98,5 @@ public class Toys {
 
   public Toys(String s) {
     System.out.println(s.toString());
-    System.out.println("hello");
   }
 }
