@@ -654,12 +654,11 @@ public class NullAway extends BugChecker
       // If this is a @NullMarked method of a @NullUnmarked local or anonymous class, we need to set
       // its environment mapping, since we skipped it during matchClass.
       TreePath pathToEnclosingClass =
-          castToNonNull(
-              ASTHelpers.findPathFromEnclosingNodeToTopLevel(state.getPath(), ClassTree.class));
-      ClassTree enclosingClass = (ClassTree) pathToEnclosingClass.getLeaf();
-      if (enclosingClass == null) {
+          ASTHelpers.findPathFromEnclosingNodeToTopLevel(state.getPath(), ClassTree.class);
+      if (pathToEnclosingClass == null) {
         return;
       }
+      ClassTree enclosingClass = (ClassTree) pathToEnclosingClass.getLeaf();
       NestingKind nestingKind = ASTHelpers.getSymbol(enclosingClass).getNestingKind();
       if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
         updateEnvironmentMapping(pathToEnclosingClass, state);
