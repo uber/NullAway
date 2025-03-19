@@ -31,16 +31,19 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class CoreTests extends NullAwayTestsBase {
 
+  @SuppressWarnings("deprecation")
   @Test
   public void coreNullabilityPositiveCases() {
     defaultCompilationHelper.addSourceFile("testdata/NullAwayPositiveCases.java").doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void nullabilityAnonymousClass() {
     defaultCompilationHelper.addSourceFile("testdata/NullAwayAnonymousClass.java").doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void coreNullabilityNegativeCases() {
     defaultCompilationHelper
@@ -51,6 +54,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void assertSupportPositiveCases() {
     defaultCompilationHelper
@@ -58,6 +62,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void assertSupportNegativeCases() {
     makeTestHelperWithArgs(
@@ -276,6 +281,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testCastToNonNull() {
     defaultCompilationHelper
@@ -297,6 +303,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testCastToNonNullExtraArgsWarning() {
     defaultCompilationHelper
@@ -403,6 +410,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void testCapturingScopes() {
     defaultCompilationHelper.addSourceFile("testdata/CapturingScopes.java").doTest();
@@ -654,6 +662,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void tryFinallySupport() {
     defaultCompilationHelper.addSourceFile("testdata/NullAwayTryFinallyCases.java").doTest();

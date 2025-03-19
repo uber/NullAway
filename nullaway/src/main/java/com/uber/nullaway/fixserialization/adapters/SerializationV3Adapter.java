@@ -22,6 +22,8 @@
 
 package com.uber.nullaway.fixserialization.adapters;
 
+import static com.google.errorprone.util.ASTHelpers.enclosingClass;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.fixserialization.out.ErrorInfo.EMPTY_NONNULL_TARGET_LOCATION_STRING;
 import static java.util.stream.Collectors.joining;
 
@@ -93,7 +95,7 @@ public class SerializationV3Adapter implements SerializationAdapter {
     if (methodSymbol.isConstructor()) {
       // For constructors, method's simple name is <init> and not the enclosing class, need to
       // locate the enclosing class.
-      Symbol.ClassSymbol encClass = methodSymbol.owner.enclClass();
+      Symbol.ClassSymbol encClass = castToNonNull(enclosingClass(methodSymbol));
       Name name = encClass.getSimpleName();
       if (name.isEmpty()) {
         // An anonymous class cannot declare its own constructor. Based on this assumption and our

@@ -11,6 +11,7 @@ import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
+@SuppressWarnings("deprecation")
 public class AndroidTest {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 

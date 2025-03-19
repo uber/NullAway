@@ -3,6 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
+@SuppressWarnings("deprecation")
 public class FrameworkTests extends NullAwayTestsBase {
   @Test
   public void lombokSupportTesting() {

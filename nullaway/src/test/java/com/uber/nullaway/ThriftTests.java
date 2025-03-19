@@ -3,6 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
+@SuppressWarnings("deprecation")
 public class ThriftTests extends NullAwayTestsBase {
   @Test
   public void testThriftIsSet() {

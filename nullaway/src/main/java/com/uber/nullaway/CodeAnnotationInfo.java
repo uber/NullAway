@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import static com.google.errorprone.util.ASTHelpers.enclosingClass;
 import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
@@ -112,7 +113,7 @@ public final class CodeAnnotationInfo {
    *     {@code @Generated}; false otherwise
    */
   public boolean isGenerated(Symbol symbol, Config config) {
-    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(symbol);
+    Symbol.ClassSymbol classSymbol = enclosingClass(symbol);
     if (classSymbol == null) {
       Preconditions.checkArgument(
           isClassFieldOfPrimitiveType(
@@ -139,7 +140,7 @@ public final class CodeAnnotationInfo {
         && symbol.owner != null
         && symbol.owner.getKind().equals(ElementKind.CLASS)
         && symbol.owner.getQualifiedName().equals(symbol.owner.getSimpleName())
-        && symbol.owner.enclClass() == null;
+        && enclosingClass(symbol) == null;
   }
 
   /**
@@ -163,7 +164,7 @@ public final class CodeAnnotationInfo {
       // have weirder problems than this)
       return true;
     } else {
-      classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
+      classSymbol = castToNonNull(enclosingClass(symbol));
     }
     ClassCacheRecord classCacheRecord = get(classSymbol, config, handler);
     boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
@@ -217,7 +218,7 @@ public final class CodeAnnotationInfo {
           || owner.getKind().equals(ElementKind.CONSTRUCTOR)) {
         enclosingMethod = (Symbol.MethodSymbol) owner;
       }
-      Symbol.ClassSymbol enclosingClass = ASTHelpers.enclosingClass(classSymbol);
+      Symbol.ClassSymbol enclosingClass = enclosingClass(classSymbol);
       // enclosingClass can be null in weird cases like for array methods
       if (enclosingClass != null) {
         ClassCacheRecord recordForEnclosing = get(enclosingClass, config, handler);
