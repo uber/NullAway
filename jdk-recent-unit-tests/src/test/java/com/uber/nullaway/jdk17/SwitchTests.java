@@ -267,4 +267,28 @@ public class SwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void issue1168() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "NullAwayDiscardError.java",
+            "package com.uber;",
+            "",
+            "public class NullAwayDiscardError {",
+            "",
+            "    public sealed interface IntOrBool {}",
+            "    public record WrappedInt(int a) implements IntOrBool {}",
+            "    public record WrappedBoolean(boolean b) implements IntOrBool {}",
+            "",
+            "    public static void unwrap(IntOrBool i) {",
+            "        switch(i) {",
+            "            case WrappedInt(_) -> {}",
+            "            case WrappedBoolean(_) -> {}",
+            "        }",
+            "    }",
+            "",
+            "}")
+        .doTest();
+  }
 }
