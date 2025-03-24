@@ -1,5 +1,7 @@
 package com.uber.nullaway.dataflow;
 
+import static com.google.errorprone.util.ASTHelpers.enclosingClass;
+
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.util.Trees;
@@ -66,15 +68,15 @@ public abstract class NullnessStoreInitializer {
     // we need this while loop since we can have a NestingKind.NESTED class (i.e., a nested
     // class declared at the top-level within its enclosing class) nested (possibly deeply)
     // within a NestingKind.ANONYMOUS or NestingKind.LOCAL class
-    while (symbol.getNestingKind().isNested()) {
+    while (symbol != null && symbol.getNestingKind().isNested()) {
       if (symbol.getNestingKind().equals(NestingKind.ANONYMOUS)
           || symbol.getNestingKind().equals(NestingKind.LOCAL)) {
         return Trees.instance(JavacProcessingEnvironment.instance(context)).getTree(symbol);
       } else {
         // symbol.owner is the enclosing element, which could be a class or a method.
-        // if it's a class, the enclClass() method will (surprisingly) return the class itself,
+        // if it's a class, the enclosingClass() method will (surprisingly) return the class itself,
         // so this works
-        symbol = symbol.owner.enclClass();
+        symbol = enclosingClass(symbol);
       }
     }
     return null;
