@@ -655,10 +655,10 @@ public class NullAway extends BugChecker
       // its environment mapping, since we skipped it during matchClass.
       TreePath pathToEnclosingClass =
           ASTHelpers.findPathFromEnclosingNodeToTopLevel(state.getPath(), ClassTree.class);
-      ClassTree enclosingClass = (ClassTree) pathToEnclosingClass.getLeaf();
-      if (enclosingClass == null) {
+      if (pathToEnclosingClass == null) {
         return;
       }
+      ClassTree enclosingClass = (ClassTree) pathToEnclosingClass.getLeaf();
       NestingKind nestingKind = ASTHelpers.getSymbol(enclosingClass).getNestingKind();
       if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
         updateEnvironmentMapping(pathToEnclosingClass, state);

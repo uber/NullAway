@@ -564,6 +564,21 @@ public class JarInferTest {
   }
 
   @Test
+  public void constructors() throws Exception {
+    testTemplate(
+        "constructors",
+        "toys",
+        "TestConstructor",
+        ImmutableMap.of(
+            "toys.TestConstructor:void TestConstructor(java.lang.String)", Sets.newHashSet(0)),
+        "public class TestConstructor {",
+        "  TestConstructor(String s) {",
+        "    s.toString();",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
