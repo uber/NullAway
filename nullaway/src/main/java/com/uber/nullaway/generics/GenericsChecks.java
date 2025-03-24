@@ -822,9 +822,10 @@ public final class GenericsChecks {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
       // So, we get a correct type from the enclosing NewClassTree representing the anonymous class.
       TreePath path = state.getPath();
-      path = ASTHelpers.findPathFromEnclosingNodeToTopLevel(path, NewClassTree.class);
+      path =
+          castToNonNull(ASTHelpers.findPathFromEnclosingNodeToTopLevel(path, NewClassTree.class));
       NewClassTree newClassTree = (NewClassTree) path.getLeaf();
-      if (newClassTree == null || newClassTree.getClassBody() == null) {
+      if (newClassTree.getClassBody() == null) {
         throw new RuntimeException(
             "method should be directly inside an anonymous NewClassTree "
                 + state.getSourceForNode(path.getLeaf()));
