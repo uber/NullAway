@@ -506,6 +506,26 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1178() {
+    makeHelper()
+        .addSourceLines(
+            "SampleNullUnmarkedCall.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class SampleNullUnmarkedCall {",
+            "  @NullUnmarked",
+            "  static class Foo<T> {",
+            "    Foo(T t) {}",
+            "    static <U> Foo<U> id(U u) { return new Foo<>(u); }",
+            "  }",
+            "  static void test() {",
+            "    Foo<@Nullable Object> x = Foo.id(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
