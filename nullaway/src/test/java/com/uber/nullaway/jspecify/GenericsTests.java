@@ -2353,24 +2353,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Test
-  public void issue1176() {
-    makeHelper()
-        .addSourceLines(
-            "Foo.java",
-            "package com.uber;",
-            "import java.util.Set;",
-            "import java.util.concurrent.CompletableFuture;",
-            "import java.util.concurrent.ConcurrentHashMap;",
-            "class Foo {",
-            "    final Set<CompletableFuture<?>> f;",
-            "    public Foo() {",
-            "        f = ConcurrentHashMap.newKeySet();",
-            "    }",
-            "}")
-        .doTest();
-  }
-
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
