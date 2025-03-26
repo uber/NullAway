@@ -1,5 +1,7 @@
 package com.uber.nullaway.generics;
 
+import com.google.common.base.Verify;
+import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
@@ -15,24 +17,29 @@ import javax.lang.model.type.TypeVariable;
 public class InferSubstitutionViaAssignmentContextVisitor
     extends Types.DefaultTypeVisitor<Void, Type> {
 
+  private final VisitorState state;
   private final Config config;
   private final Map<TypeVariable, Type> inferredSubstitution = new LinkedHashMap<>();
 
-  InferSubstitutionViaAssignmentContextVisitor(Config config) {
+  InferSubstitutionViaAssignmentContextVisitor(VisitorState state, Config config) {
+    this.state = state;
     this.config = config;
   }
 
   @Override
   public Void visitClassType(Type.ClassType rhsType, Type lhsType) {
-    com.sun.tools.javac.util.List<Type> rhsTypeArguments = rhsType.getTypeArguments();
+    Type rhsTypeAsSuper = state.getTypes().asSuper(rhsType, lhsType.tsym);
+    if (rhsTypeAsSuper == null || rhsTypeAsSuper.isRaw() || lhsType.isRaw()) {
+      return null;
+    }
+    com.sun.tools.javac.util.List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
     com.sun.tools.javac.util.List<Type> lhsTypeArguments = lhsType.getTypeArguments();
-    // recursively visit the type arguments
-    if (!rhsTypeArguments.isEmpty() && !lhsTypeArguments.isEmpty()) {
-      for (int i = 0; i < rhsTypeArguments.size(); i++) {
-        Type rhsTypeArg = rhsTypeArguments.get(i);
-        Type lhsTypeArg = lhsTypeArguments.get(i);
-        rhsTypeArg.accept(this, lhsTypeArg);
-      }
+    int numTypeArgs = rhsTypeArguments.size();
+    Verify.verify(numTypeArgs == lhsTypeArguments.size());
+    for (int i = 0; i < numTypeArgs; i++) {
+      Type rhsTypeArg = rhsTypeArguments.get(i);
+      Type lhsTypeArg = lhsTypeArguments.get(i);
+      rhsTypeArg.accept(this, lhsTypeArg);
     }
     return null;
   }
