@@ -454,7 +454,7 @@ public final class GenericsChecks {
         // generic method call with no explicit generic arguments
         // update inferred type arguments based on the assignment context
         InferSubstitutionViaAssignmentContextVisitor inferVisitor =
-            new InferSubstitutionViaAssignmentContextVisitor(config);
+            new InferSubstitutionViaAssignmentContextVisitor(state, config);
         Type returnType = methodSymbol.getReturnType();
         returnType.accept(inferVisitor, lhsType);
 
