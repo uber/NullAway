@@ -1,5 +1,12 @@
 Changelog
 =========
+Version 0.12.6
+---------------
+* JSpecify: view type as super in generic method inference (#1177)
+* Infer @Nullable type arguments for type variables from unmarked code (#1181)
+* Convert android-jar.py to Python 3 (#1175)
+* Suggest castToNonNull fix for unboxing error (#1182)
+
 Version 0.12.5
 ---------------
 * Add missing override to RestoreNullnessAnnotationsVisitor (#1154)
