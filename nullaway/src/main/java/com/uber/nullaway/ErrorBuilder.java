@@ -197,6 +197,7 @@ public class ErrorBuilder {
       case PASS_NULLABLE:
       case ASSIGN_FIELD_NULLABLE:
       case SWITCH_EXPRESSION_NULLABLE:
+      case UNBOX_NULLABLE:
         if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree)) {
           builder = addCastToNonNullFix(suggestTree, builder, state);
         } else {
