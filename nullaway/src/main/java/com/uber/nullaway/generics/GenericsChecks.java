@@ -453,8 +453,12 @@ public final class GenericsChecks {
           && methodInvocationTree.getTypeArguments().isEmpty()) {
         // generic method call with no explicit generic arguments
         // update inferred type arguments based on the assignment context
-        InferSubstitutionViaAssignmentContextVisitor inferVisitor =
-            new InferSubstitutionViaAssignmentContextVisitor(config);
+        boolean invokedMethodIsNullUnmarked =
+            CodeAnnotationInfo.instance(state.context)
+                .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
+        InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
+            new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
+                state, config, invokedMethodIsNullUnmarked);
         Type returnType = methodSymbol.getReturnType();
         returnType.accept(inferVisitor, lhsType);
 
