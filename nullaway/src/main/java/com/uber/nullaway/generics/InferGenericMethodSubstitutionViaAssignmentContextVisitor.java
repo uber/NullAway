@@ -14,16 +14,19 @@ import javax.lang.model.type.TypeVariable;
  * Visitor that infers a substitution for type variables via types appearing at the same position in
  * a type provided via the assignment context.
  */
-public class InferSubstitutionViaAssignmentContextVisitor
+public class InferGenericMethodSubstitutionViaAssignmentContextVisitor
     extends Types.DefaultTypeVisitor<Void, Type> {
 
   private final VisitorState state;
   private final Config config;
+  private final boolean invokedMethodIsNullUnmarked;
   private final Map<TypeVariable, Type> inferredSubstitution = new LinkedHashMap<>();
 
-  InferSubstitutionViaAssignmentContextVisitor(VisitorState state, Config config) {
+  InferGenericMethodSubstitutionViaAssignmentContextVisitor(
+      VisitorState state, Config config, boolean invokedMethodIsNullUnmarked) {
     this.state = state;
     this.config = config;
+    this.invokedMethodIsNullUnmarked = invokedMethodIsNullUnmarked;
   }
 
   @Override
@@ -64,9 +67,12 @@ public class InferSubstitutionViaAssignmentContextVisitor
     Type upperBound = typeVar.getUpperBound();
     boolean typeVarHasNullableUpperBound =
         Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
-    if (typeVarHasNullableUpperBound) { // can just use the lhs type nullability
+    if (typeVarHasNullableUpperBound
+        || invokedMethodIsNullUnmarked) { // can just use the lhs type nullability
       inferredSubstitution.put(typeVar, lhsType);
     } else { // rhs can't be nullable.  use lhsType but strip @Nullable annotation
+      // TODO we should just strip out the top-level @Nullable annotation;
+      //  stripMetadata() also removes nested @Nullable annotations
       inferredSubstitution.put(typeVar, lhsType.stripMetadata());
     }
     return null;
