@@ -1837,7 +1837,7 @@ public class NullAway extends BugChecker
               new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
           state.reportMatch(
               errorBuilder.createErrorDescription(
-                  errorMessage, buildDescription(tree), state, null));
+                  errorMessage, tree, buildDescription(tree), state, null));
         }
       }
     }

@@ -380,4 +380,37 @@ public class AutoSuggestTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void castToNonNullForUnboxing() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable Integer i;",
+            "  int test1() {",
+            "    return i;",
+            "  }",
+            "  void test2() {",
+            "    int x = i;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable Integer i;",
+            "  int test1() {",
+            "    return castToNonNull(i);",
+            "  }",
+            "  void test2() {",
+            "    int x = castToNonNull(i);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
