@@ -57,6 +57,7 @@ import org.checkerframework.nullaway.dataflow.analysis.RegularTransferResult;
 import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.analysis.TransferResult;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.AnyPatternNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ArrayAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ArrayCreationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ArrayTypeNode;
@@ -1151,6 +1152,12 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitDeconstructorPattern(
       DeconstructorPatternNode deconstructorPatternNode,
       TransferInput<Nullness, NullnessStore> input) {
+    return noStoreChanges(NULLABLE, input);
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitAnyPattern(
+      AnyPatternNode anyPatternNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 
