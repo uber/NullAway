@@ -1798,6 +1798,9 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchSynchronized(SynchronizedTree tree, VisitorState state) {
+    if (!withinAnnotatedCode(state)) {
+      return Description.NO_MATCH;
+    }
     ExpressionTree lockExpr = tree.getExpression();
     // For a synchronized block `synchronized (e) { ... }`, javac returns `(e)` as the expression.
     // We strip the outermost parentheses for a nicer-looking error message.

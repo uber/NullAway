@@ -1118,4 +1118,20 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void synchronizedInUnannotatedLambda() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "public class Foo {",
+            "    void foo() {",
+            "        Runnable runnable = () -> {",
+            "            Object lock = new Object();",
+            "            synchronized (lock) {}",
+            "        };",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
