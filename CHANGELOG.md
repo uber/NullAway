@@ -1,8 +1,27 @@
 Changelog
 =========
+Version 0.12.6
+---------------
+* JSpecify: view type as super in generic method inference (#1177)
+* Infer @Nullable type arguments for type variables from unmarked code (#1181)
+* Convert android-jar.py to Python 3 (#1175)
+* Suggest castToNonNull fix for unboxing error (#1182)
+
+Version 0.12.5
+---------------
+* Add missing override to RestoreNullnessAnnotationsVisitor (#1154)
+* Add more bailouts for raw types (#1153)
+* Do unboxing check for invocation parameters even when calling a @NullUnmarked method (#1163)
+* JSpecify: infer generic method type arguments for assignments (#1131)
+* JSpecify: properly handle lambdas in anonymous inner classes (#1165)
+* Support @MonotonicNonNull on static fields (#1166)
+* Update to Error Prone 2.37.0 (#1169)
+* Use proper name for constructors in JarInfer (#1167)
+* Don't treat @ParametricNullness as @Nullable in JSpecify mode (#1174)
+
 Version 0.12.4
 ---------------
-* Better `@MonotonicNonNull` support (#1149) 
+* Better `@MonotonicNonNull` support (#1149)
 * Add support for local variables for arrays. (#1146)
 * Ignore Spring Framework 6.2 `@MockitoBean`, `@MockitoSpyBean` fields (#1147)
 * JSpecify: preserve explicit nullability annotations on type variables when performing substitutions (#1143)
