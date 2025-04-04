@@ -51,7 +51,7 @@ tasks.withType(JavaCompile).configureEach {
 }
 
 tasks.getByName('testJdk24').configure {
-    // not working until we update WALA
+    // Will not work until WALA is updated to support JDK 24; see https://github.com/uber/NullAway/issues/1189
     onlyIf { false }
 }
 
