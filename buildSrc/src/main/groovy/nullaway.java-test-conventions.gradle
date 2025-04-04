@@ -20,7 +20,7 @@ plugins {
 }
 
 jacoco {
-    toolVersion = "0.8.12"
+    toolVersion = "0.8.13"
 }
 
 // Do not generate reports for individual projects
@@ -65,7 +65,7 @@ test {
 }
 
 // Tasks for testing on other JDK versions; see https://jakewharton.com/build-on-latest-java-test-through-lowest-java/
-[21, 23].each { majorVersion ->
+[21, 24].each { majorVersion ->
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
         onlyIf {
             // Only run when using the latest Error Prone version
