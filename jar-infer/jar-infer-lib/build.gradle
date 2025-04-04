@@ -50,4 +50,9 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"
 }
 
+tasks.getByName('testJdk24').configure {
+    // not working until we update WALA
+    onlyIf { false }
+}
+
 apply plugin: 'com.vanniktech.maven.publish'
