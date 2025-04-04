@@ -51,7 +51,17 @@ tasks.withType(Test).configureEach { test ->
     ]
 }
 
+// Disable tasks for specific JDK versions; we only run on the recent JDK version specified above
 tasks.getByName('testJdk21').configure {
-    // We don't need this task since we already run the tests on JDK 21
     onlyIf { false }
+}
+tasks.getByName('testJdk24').configure {
+    onlyIf { false }
+}
+
+tasks.getByName('test').configure {
+    // older EP versions don't work on JDK 24+
+    onlyIf {
+        deps.versions.errorProneApi == deps.versions.errorProneLatest
+    }
 }
