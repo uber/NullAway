@@ -1134,4 +1134,19 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void issue1888() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Outer.java",
+            "package com.uber;",
+            "class Outer {",
+            "    class Inner {}",
+            "    static Inner f(Outer outer) {",
+            "        return outer.new Inner() {};",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
