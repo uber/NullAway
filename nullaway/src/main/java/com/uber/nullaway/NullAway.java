@@ -442,8 +442,8 @@ public class NullAway extends BugChecker
       throw new RuntimeException("not expecting unresolved method here");
     }
     List<? extends ExpressionTree> actualParams = tree.getArguments();
-    if (tree.getClassBody() != null /* && actualParams.size() > 0*/) {
-      // passing parameters to constructor of anonymous class
+    if (tree.getClassBody() != null) {
+      // invoking constructor of anonymous class
       // this constructor just invokes the constructor of the superclass, and
       // in the AST does not have the parameter nullability annotations from the superclass.
       // so, treat as if the superclass constructor is being invoked directly
@@ -1861,18 +1861,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
-
     boolean varArgsMethod = methodSymbol.isVarArgs();
-    if (formalParams.size() != actualParams.size()
-        && !varArgsMethod
-        && !methodSymbol.isStatic()
-        && methodSymbol.isConstructor()
-        && methodSymbol.enclClass().isInner()) {
-      // In special cases like one in issue #366
-      // formal params and actual params do not match while using JDK11+
-      // we bail out in this particular case
-      return Description.NO_MATCH;
-    }
 
     // always do unboxing checks, whether or not the invoked method is annotated
     for (int i = 0; i < formalParams.size() && i < actualParams.size(); i++) {
