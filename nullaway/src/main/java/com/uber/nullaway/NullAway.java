@@ -441,6 +441,15 @@ public class NullAway extends BugChecker
     if (methodSymbol == null) {
       throw new RuntimeException("not expecting unresolved method here");
     }
+    ExpressionTree enclosingExpression = tree.getEnclosingExpression();
+    if (enclosingExpression != null) {
+      // technically this is not a dereference; there is a requireNonull() call in the
+      // bytecode.  but it's close enough for error reporting
+      Description desc = matchDereference(enclosingExpression, tree, state);
+      if (!desc.equals(Description.NO_MATCH)) {
+        state.reportMatch(desc);
+      }
+    }
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     if (tree.getClassBody() != null) {
       // invoking constructor of anonymous class

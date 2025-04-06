@@ -1141,9 +1141,14 @@ public class CoreTests extends NullAwayTestsBase {
         .addSourceLines(
             "Outer.java",
             "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
             "class Outer {",
             "    class Inner {}",
-            "    static Inner f(Outer outer) {",
+            "    static Inner testNegative(Outer outer) {",
+            "        return outer.new Inner() {};",
+            "    }",
+            "    static Inner testPositive(@Nullable Outer outer) {",
+            "        // BUG: Diagnostic contains: dereferenced expression outer is @Nullable",
             "        return outer.new Inner() {};",
             "    }",
             "}")
