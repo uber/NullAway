@@ -443,7 +443,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree enclosingExpression = tree.getEnclosingExpression();
     if (enclosingExpression != null) {
-      // technically this is not a dereference; there is a requireNonull() call in the
+      // technically this is not a dereference; there is a requireNonNull() call in the
       // bytecode.  but it's close enough for error reporting
       Description desc = matchDereference(enclosingExpression, tree, state);
       if (!desc.equals(Description.NO_MATCH)) {
