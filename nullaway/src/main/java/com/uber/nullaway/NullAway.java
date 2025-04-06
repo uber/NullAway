@@ -442,7 +442,7 @@ public class NullAway extends BugChecker
       throw new RuntimeException("not expecting unresolved method here");
     }
     List<? extends ExpressionTree> actualParams = tree.getArguments();
-    if (tree.getClassBody() != null && actualParams.size() > 0) {
+    if (tree.getClassBody() != null /* && actualParams.size() > 0*/) {
       // passing parameters to constructor of anonymous class
       // this constructor just invokes the constructor of the superclass, and
       // in the AST does not have the parameter nullability annotations from the superclass.
