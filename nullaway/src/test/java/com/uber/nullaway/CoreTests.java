@@ -1136,7 +1136,7 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1888() {
+  public void enclosingExpressionForNewClassTree() {
     defaultCompilationHelper
         .addSourceLines(
             "Outer.java",
