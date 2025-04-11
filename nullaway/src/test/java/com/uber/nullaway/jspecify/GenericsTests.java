@@ -2325,6 +2325,45 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void callWithConstructorReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class Inner<T extends @Nullable Object> {",
+            "    Inner<T> identity() { return this; }",
+            "  }",
+            "  Inner<@Nullable Object> mThing = new Inner<@Nullable Object>().identity();",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newNullableWithArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class Wrapper<T extends @Nullable String> {",
+            "    private final T value;",
+            "    Wrapper(T value) {",
+            "      this.value = value;",
+            "    }",
+            "  }",
+            "  Wrapper<@Nullable String> testConstructorCall() {",
+            "    return new Wrapper<@Nullable String>(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1156() {
     makeHelper()
         .addSourceLines(
