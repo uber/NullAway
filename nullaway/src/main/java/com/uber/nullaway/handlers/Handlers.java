@@ -87,12 +87,14 @@ public class Handlers {
     }
     handlerListBuilder.add(new LombokHandler(config));
     handlerListBuilder.add(new FluentFutureHandler(config));
-
     CompositeHandler mainHandler = new CompositeHandler(handlerListBuilder.build());
-    libraryModelsHandler.initMainHandler(mainHandler);
+
+    // Initialize the handlers that need to be aware of the main handler
     if (restrictiveAnnotationHandler != null) {
       restrictiveAnnotationHandler.initMainHandler(mainHandler);
     }
+    libraryModelsHandler.initMainHandler(mainHandler);
+
     return mainHandler;
   }
 
