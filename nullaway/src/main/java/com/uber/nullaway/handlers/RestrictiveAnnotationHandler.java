@@ -33,6 +33,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -42,9 +43,15 @@ import org.jspecify.annotations.Nullable;
 public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
 
   private final Config config;
+  private Handler mainHandler;
 
   RestrictiveAnnotationHandler(Config config) {
     this.config = config;
+  }
+
+  @Initializer
+  public void initMainHandler(Handler mainHandler) {
+    this.mainHandler = mainHandler;
   }
 
   /**
@@ -61,7 +68,7 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
    */
   private boolean isSymbolRestrictivelyNullable(Symbol symbol, Context context) {
     CodeAnnotationInfo codeAnnotationInfo = getCodeAnnotationInfo(context);
-    return (codeAnnotationInfo.isSymbolUnannotated(symbol, config, null)
+    return (codeAnnotationInfo.isSymbolUnannotated(symbol, config, mainHandler)
         // with the generated-as-unannotated option enabled, we want to ignore annotations in
         // generated code no matter what
         && !(config.treatGeneratedAsUnannotated() && codeAnnotationInfo.isGenerated(symbol, config))

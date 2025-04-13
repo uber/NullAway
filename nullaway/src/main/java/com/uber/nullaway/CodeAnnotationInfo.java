@@ -115,9 +115,9 @@ public final class CodeAnnotationInfo {
   public boolean isGenerated(Symbol symbol, Config config) {
     Symbol.ClassSymbol classSymbol = enclosingClass(symbol);
     if (classSymbol == null) {
+      // One known case where this can happen: int.class, void.class, etc.
       Preconditions.checkArgument(
-          isClassFieldOfPrimitiveType(
-              symbol), // One known case where this can happen: int.class, void.class, etc.
+          isClassFieldOfPrimitiveType(symbol),
           String.format(
               "Unexpected symbol passed to CodeAnnotationInfo.isGenerated(...) with null enclosing class: %s",
               symbol));
@@ -152,7 +152,7 @@ public final class CodeAnnotationInfo {
    * @return true if symbol represents an entity contained in a class that is unannotated; false
    *     otherwise
    */
-  public boolean isSymbolUnannotated(Symbol symbol, Config config, @Nullable Handler handler) {
+  public boolean isSymbolUnannotated(Symbol symbol, Config config, Handler handler) {
     Symbol.ClassSymbol classSymbol;
     if (symbol instanceof Symbol.ClassSymbol) {
       classSymbol = (Symbol.ClassSymbol) symbol;
@@ -245,7 +245,11 @@ public final class CodeAnnotationInfo {
       record =
           new ClassCacheRecord(classSymbol, isAnnotatedTopLevelClass(classSymbol, config, handler));
     }
-    classCache.put(classSymbol, record);
+    // Don't update the cache if the handler is null, as we may not have full info about classes
+    // being null-marked via library models
+    if (handler != null) {
+      classCache.put(classSymbol, record);
+    }
     return record;
   }
 
