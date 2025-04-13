@@ -46,6 +46,7 @@ import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
@@ -73,6 +74,7 @@ import org.jspecify.annotations.Nullable;
 public class LibraryModelsHandler extends BaseNoOpHandler {
 
   private final Config config;
+  private Handler mainHandler;
   private final LibraryModels libraryModels;
 
   private @Nullable OptimizedLibraryModels optLibraryModels;
@@ -81,6 +83,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     super();
     this.config = config;
     libraryModels = loadLibraryModels(config);
+  }
+
+  @Initializer
+  public void initMainHandler(Handler mainHandler) {
+    this.mainHandler = mainHandler;
   }
 
   @Override
@@ -169,7 +176,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     // and any of its overriding implementations.
     // see https://github.com/uber/NullAway/issues/445 for why this is needed.
     boolean isMethodUnannotated =
-        getCodeAnnotationInfo(state.context).isSymbolUnannotated(methodSymbol, this.config, null);
+        getCodeAnnotationInfo(state.context)
+            .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
     if (exprMayBeNull) {
       // This is the only case in which we may switch the result from @Nullable to @NonNull:
       return !optLibraryModels.hasNonNullReturn(
@@ -226,7 +234,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       AccessPathNullnessPropagation.Updates elseUpdates,
       AccessPathNullnessPropagation.Updates bothUpdates) {
     boolean isMethodAnnotated =
-        !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config, null);
+        !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config, mainHandler);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(
         thenUpdates, elseUpdates, node.getArguments(), callee, state, apContext);

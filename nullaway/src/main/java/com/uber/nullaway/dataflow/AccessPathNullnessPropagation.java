@@ -751,7 +751,8 @@ public class AccessPathNullnessPropagation
         break;
       case UNKNOWN:
         fieldMayBeNull =
-            NullabilityUtil.mayBeNullFieldFromType(symbol, config, getCodeAnnotationInfo(state));
+            NullabilityUtil.mayBeNullFieldFromType(
+                symbol, config, handler, getCodeAnnotationInfo(state));
         break;
       default:
         // Should be unreachable unless NullnessHint changes, cases above are exhaustive!

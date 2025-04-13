@@ -2602,7 +2602,7 @@ public class NullAway extends BugChecker
               "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
         }
         exprMayBeNull =
-            NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo);
+            NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, handler, codeAnnotationInfo);
         break;
       case IDENTIFIER:
         if (exprSymbol == null) {
@@ -2611,7 +2611,8 @@ public class NullAway extends BugChecker
         }
         if (exprSymbol.getKind() == ElementKind.FIELD) {
           exprMayBeNull =
-              NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, codeAnnotationInfo);
+              NullabilityUtil.mayBeNullFieldFromType(
+                  exprSymbol, config, handler, codeAnnotationInfo);
         } else {
           // rely on dataflow analysis for local variables
           exprMayBeNull = true;
