@@ -2353,6 +2353,31 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void methodReferenceToNullUnmarked() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "public class Test {",
+            "  @NullUnmarked",
+            "  public static Boolean isNull(Object o) { return o == null; }",
+            "  @NullUnmarked",
+            "  public static Boolean isNullRestrictParam(@NonNull Object o) { return o == null; }",
+            "  @NullUnmarked",
+            "  public static @Nullable Boolean isNullRestrictReturn(Object o) { return o == null; }",
+            "  static Function<@Nullable Object, Boolean> filter1 = Test::isNull;",
+            "  // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "  static Function<@Nullable Object, Boolean> filter2 = Test::isNullRestrictParam;",
+            "  // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "  static Function<@Nullable Object, Boolean> filter3 = Test::isNullRestrictReturn;",
+            "  static Function<@Nullable Object, @Nullable Boolean> filter4 = Test::isNullRestrictReturn;",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

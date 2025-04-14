@@ -783,7 +783,8 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overriddenMethod,
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
-      VisitorState state) {
+      VisitorState state,
+      boolean isOverridingMethodAnnotated) {
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
     boolean unboundMemberRef =
         (memberReferenceTree != null)
@@ -862,6 +863,13 @@ public class NullAway extends BugChecker
           buildDescription(memberReferenceTree),
           state,
           null);
+    }
+
+    // no need to check parameter overriding if the overriding method is unannotated
+    if (!isOverridingMethodAnnotated) {
+      // TODO what about restrictive annotations like @NonNull on a parameter or @Nullable on a
+      // return?
+      return Description.NO_MATCH;
     }
 
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
@@ -1023,7 +1031,8 @@ public class NullAway extends BugChecker
             funcInterfaceMethod,
             tree,
             null,
-            state);
+            state,
+            true);
     if (description != Description.NO_MATCH) {
       return description;
     }
@@ -1117,7 +1126,12 @@ public class NullAway extends BugChecker
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
     return checkParamOverriding(
-        overridingMethod.getParameters(), overriddenMethod, null, memberReferenceTree, state);
+        overridingMethod.getParameters(),
+        overriddenMethod,
+        null,
+        memberReferenceTree,
+        state,
+        !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler));
   }
 
   private boolean overriddenMethodReturnsNonNull(
