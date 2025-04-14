@@ -784,13 +784,15 @@ public class NullAway extends BugChecker
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state,
-      boolean isOverridingMethodAnnotated) {
+      Symbol.@Nullable MethodSymbol overridingMethod) {
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
     boolean unboundMemberRef =
         (memberReferenceTree != null)
             && ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
     boolean isOverriddenMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config, handler);
+    boolean isOverridingMethodAnnotated =
+        !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler);
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
     // null, parameter i is treated as unannotated.
@@ -866,11 +868,12 @@ public class NullAway extends BugChecker
     }
 
     // no need to check parameter overriding if the overriding method is unannotated
-    if (!isOverridingMethodAnnotated) {
-      // TODO what about restrictive annotations like @NonNull on a parameter or @Nullable on a
-      // return?
-      return Description.NO_MATCH;
-    }
+    //    if (!isOverridingMethodAnnotated) {
+    //      // TODO what about restrictive annotations like @NonNull on a parameter or @Nullable on
+    // a
+    //      // return?
+    //      return Description.NO_MATCH;
+    //    }
 
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
@@ -893,7 +896,7 @@ public class NullAway extends BugChecker
           lambdaExpressionTree != null
               && NullabilityUtil.lambdaParamIsImplicitlyTyped(
                   lambdaExpressionTree.getParameters().get(methodParamInd));
-      if (!Nullness.hasNullableAnnotation(paramSymbol, config) && !implicitlyTypedLambdaParam) {
+      if (!implicitlyTypedLambdaParam && paramIsNonNull(paramSymbol, isOverridingMethodAnnotated)) {
         String message =
             "parameter "
                 + paramSymbol.name.toString()
@@ -921,6 +924,16 @@ public class NullAway extends BugChecker
       }
     }
     return Description.NO_MATCH;
+  }
+
+  private boolean paramIsNonNull(VarSymbol paramSymbol, boolean isMethodAnnotated) {
+    if (isMethodAnnotated) {
+      return !Nullness.hasNullableAnnotation(paramSymbol, config);
+    } else if (config.acknowledgeRestrictiveAnnotations()) {
+      // can still be @NonNull if there is a restrictive annotation
+      return Nullness.hasNonNullAnnotation(paramSymbol, config);
+    }
+    return false;
   }
 
   static Trees getTreesInstance(VisitorState state) {
@@ -1032,7 +1045,7 @@ public class NullAway extends BugChecker
             tree,
             null,
             state,
-            true);
+            null);
     if (description != Description.NO_MATCH) {
       return description;
     }
@@ -1131,7 +1144,7 @@ public class NullAway extends BugChecker
         null,
         memberReferenceTree,
         state,
-        !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler));
+        overridingMethod);
   }
 
   private boolean overriddenMethodReturnsNonNull(
