@@ -45,8 +45,9 @@ public class NullAwayGuavaParametricNullnessTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
-                    "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"));
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    // make google packages unannotated
+                    "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated,com.google.common"));
     jspecifyCompilationHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass())
             .setArgs(
@@ -238,6 +239,23 @@ public class NullAwayGuavaParametricNullnessTests {
             "             }",
             "        };",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newHashSetPassingNullable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.google.common.collect.Sets;",
+            "import java.util.Set;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public static void test(@Nullable String s) {",
+            "    Set<String> params = Sets.newHashSet(s);",
+            "  }",
             "}")
         .doTest();
   }
