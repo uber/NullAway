@@ -1179,6 +1179,15 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Returns the nullness of a formal parameter type, based on the nullability annotations on the
+   * type.
+   *
+   * @param type The type of the parameter
+   * @param config The analysis config
+   * @param isVarargsParam true if the parameter is a varargs parameter
+   * @return The nullness of the parameter type
+   */
   private static Nullness getParameterTypeNullness(
       Type type, Config config, boolean isVarargsParam) {
     if (isVarargsParam) {
@@ -1187,12 +1196,14 @@ public final class GenericsChecks {
           type.getKind().equals(TypeKind.ARRAY),
           "expected array type for varargs parameter, got %s",
           type);
+      // use the component type to determine nullness
       Type.ArrayType arrayType = (Type.ArrayType) type;
       Type componentType = arrayType.getComponentType();
       return getTypeNullness(componentType, config);
+    } else {
+      // For non-varargs, we just check the type itself
+      return getTypeNullness(type, config);
     }
-    // For non-varargs, we just check the type itself
-    return getTypeNullness(type, config);
   }
 
   /**
