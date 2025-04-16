@@ -1015,6 +1015,9 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
+    boolean isVarargsParam =
+        invokedMethodSymbol.isVarArgs()
+            && paramIndex == invokedMethodSymbol.getParameters().size() - 1;
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
@@ -1023,9 +1026,12 @@ public final class GenericsChecks {
               .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
+      // TODO we need something like com.uber.nullaway.Nullness.paramHasNullableAnnotation
       if (substitutedParamTypes != null
           && Objects.equals(
-              getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
+              getParameterTypeNullness(
+                  substitutedParamTypes.get(paramIndex), config, isVarargsParam),
+              Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
     }
@@ -1169,6 +1175,23 @@ public final class GenericsChecks {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
     }
+  }
+
+  private static Nullness getParameterTypeNullness(
+      Type type, Config config, boolean isVarargsParam) {
+    if (isVarargsParam) {
+      // type better be an array type
+      verify(
+          type.getKind().equals(TypeKind.ARRAY),
+          "expected array type for varargs parameter, got %s",
+          type);
+      // If the type is an array type, we check the component type
+      Type.ArrayType arrayType = (Type.ArrayType) type;
+      Type componentType = arrayType.getComponentType();
+      return getTypeNullness(componentType, config);
+    }
+    // For non-varargs, we just check the type itself
+    return getTypeNullness(type, config);
   }
 
   /**
