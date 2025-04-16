@@ -256,7 +256,7 @@ public class NullAwayGuavaParametricNullnessTests {
             "@NullMarked",
             "class Test {",
             "  public static void test(@Nullable String s) {",
-            "    Set<@Nullable String> params = Sets.<@Nullable String>newHashSet(s);",
+            "    Set<@Nullable String> params = Sets.newHashSet(s);",
             "  }",
             "}")
         .doTest();
