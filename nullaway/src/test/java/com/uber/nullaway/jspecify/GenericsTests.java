@@ -2353,6 +2353,32 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsOfGenericType() {
+    makeHelper()
+        .addSourceLines(
+            "Varargs.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Varargs {",
+            "    static class Foo<T extends @Nullable Object> {",
+            "        void foo(T... args) {",
+            "        }",
+            "    }",
+            "    static void testNegative(@Nullable String s) {",
+            "        Foo<@Nullable String> f = new Foo<>();",
+            "        f.foo(s);",
+            "    }",
+            "    static void testPositive(@Nullable String s) {",
+            "        Foo<String> f = new Foo<>();",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter",
+            "        f.foo(s);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

@@ -526,6 +526,28 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsOfGenericType() {
+    makeHelper()
+        .addSourceLines(
+            "Varargs.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Varargs {",
+            "    static <T extends @Nullable Object> void foo(T... args) {",
+            "    }",
+            "    static void testNegative(@Nullable String s) {",
+            "        Varargs.<@Nullable String>foo(s);",
+            "    }",
+            "    static void testPositive(@Nullable String s) {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter",
+            "        Varargs.<String>foo(s);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

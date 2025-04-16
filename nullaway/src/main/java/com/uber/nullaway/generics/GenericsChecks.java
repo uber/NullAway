@@ -1026,7 +1026,6 @@ public final class GenericsChecks {
               .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
-      // TODO we need something like com.uber.nullaway.Nullness.paramHasNullableAnnotation
       if (substitutedParamTypes != null
           && Objects.equals(
               getParameterTypeNullness(
@@ -1111,10 +1110,13 @@ public final class GenericsChecks {
       // @Nullable annotation is handled elsewhere)
       return Nullness.NONNULL;
     }
+    boolean isVarargsParam =
+        method.isVarArgs() && parameterIndex == method.getParameters().size() - 1;
+
     Type methodType =
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
-    return getTypeNullness(paramType, config);
+    return getParameterTypeNullness(paramType, config, isVarargsParam);
   }
 
   /**
@@ -1185,7 +1187,6 @@ public final class GenericsChecks {
           type.getKind().equals(TypeKind.ARRAY),
           "expected array type for varargs parameter, got %s",
           type);
-      // If the type is an array type, we check the component type
       Type.ArrayType arrayType = (Type.ArrayType) type;
       Type componentType = arrayType.getComponentType();
       return getTypeNullness(componentType, config);
