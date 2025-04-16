@@ -45,7 +45,7 @@ public class NullAwayGuavaParametricNullnessTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
                     // make google packages unannotated
                     "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"));
     jspecifyCompilationHelper =
