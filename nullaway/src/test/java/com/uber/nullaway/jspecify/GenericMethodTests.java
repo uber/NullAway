@@ -559,6 +559,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "class Test {",
             "    <T extends Object> void varargsTest(T @Nullable... args) {}",
             "    void f() {",
+            "        String[] x = null;",
+            "        this.<String>varargsTest(x);",
             "        this.<String>varargsTest((String[])null);",
             "    }",
             "}")

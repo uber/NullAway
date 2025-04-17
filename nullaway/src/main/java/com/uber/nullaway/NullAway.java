@@ -124,7 +124,9 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.NestingKind;
+import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.javacutil.ElementUtils;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
@@ -1940,9 +1942,20 @@ public class NullAway extends BugChecker
           continue;
         }
         actual = actualParams.get(argPos);
-        // check if the varargs arguments are being passed as an array
         VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
-        Type.ArrayType varargsArrayType = (Type.ArrayType) formalParamSymbol.type;
+        Type.ArrayType varargsArrayType = null;
+        // check if the varargs arguments are being passed as an array
+        if (tree instanceof MethodInvocationTree) { // TODO handle NewClassTree
+          MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
+          Type type = ASTHelpers.getType(methodInvocationTree.getMethodSelect());
+          if (type != null) {
+            List<? extends TypeMirror> parameterTypes = ((ExecutableType) type).getParameterTypes();
+            varargsArrayType = (Type.ArrayType) parameterTypes.get(parameterTypes.size() - 1);
+          }
+        }
+        if (varargsArrayType == null) {
+          varargsArrayType = (Type.ArrayType) formalParamSymbol.type;
+        }
         Type actualParameterType = ASTHelpers.getType(actual);
         if (actualParameterType != null
             && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
