@@ -1950,7 +1950,11 @@ public class NullAway extends BugChecker
           Type type = ASTHelpers.getType(methodInvocationTree.getMethodSelect());
           if (type != null) {
             List<? extends TypeMirror> parameterTypes = ((ExecutableType) type).getParameterTypes();
-            varargsArrayType = (Type.ArrayType) parameterTypes.get(parameterTypes.size() - 1);
+            TypeMirror lastParameterType = parameterTypes.get(parameterTypes.size() - 1);
+            // For some JDK reflective APIs sometimes the type at the call site is not an ArrayType
+            if (lastParameterType instanceof Type.ArrayType) {
+              varargsArrayType = (Type.ArrayType) lastParameterType;
+            }
           }
         }
         if (varargsArrayType == null) {
