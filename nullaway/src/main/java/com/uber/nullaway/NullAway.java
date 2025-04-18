@@ -2004,6 +2004,7 @@ public class NullAway extends BugChecker
    * @return true if the method invocation is a varargs call, false otherwise
    */
   private boolean isVarArgsCall(Tree tree) {
+    // javac sets the varargsElement field to a non-null value if the invocation is a varargs call
     Type varargsElement =
         tree instanceof JCTree.JCMethodInvocation
             ? ((JCTree.JCMethodInvocation) tree).varargsElement
