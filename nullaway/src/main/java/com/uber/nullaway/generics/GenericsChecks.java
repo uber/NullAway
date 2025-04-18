@@ -1015,6 +1015,9 @@ public final class GenericsChecks {
       MethodInvocationTree tree,
       VisitorState state,
       Config config) {
+    boolean isVarargsParam =
+        invokedMethodSymbol.isVarArgs()
+            && paramIndex == invokedMethodSymbol.getParameters().size() - 1;
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
@@ -1025,7 +1028,9 @@ public final class GenericsChecks {
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
           && Objects.equals(
-              getTypeNullness(substitutedParamTypes.get(paramIndex), config), Nullness.NULLABLE)) {
+              getParameterTypeNullness(
+                  substitutedParamTypes.get(paramIndex), config, isVarargsParam),
+              Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
     }
@@ -1105,10 +1110,13 @@ public final class GenericsChecks {
       // @Nullable annotation is handled elsewhere)
       return Nullness.NONNULL;
     }
+    boolean isVarargsParam =
+        method.isVarArgs() && parameterIndex == method.getParameters().size() - 1;
+
     Type methodType =
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
-    return getTypeNullness(paramType, config);
+    return getParameterTypeNullness(paramType, config, isVarargsParam);
   }
 
   /**
@@ -1168,6 +1176,33 @@ public final class GenericsChecks {
         overriddenMethodReturnType, overridingMethodReturnType, state, analysis.getConfig())) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
+    }
+  }
+
+  /**
+   * Returns the nullness of a formal parameter type, based on the nullability annotations on the
+   * type.
+   *
+   * @param type The type of the parameter
+   * @param config The analysis config
+   * @param isVarargsParam true if the parameter is a varargs parameter
+   * @return The nullness of the parameter type
+   */
+  private static Nullness getParameterTypeNullness(
+      Type type, Config config, boolean isVarargsParam) {
+    if (isVarargsParam) {
+      // type better be an array type
+      verify(
+          type.getKind().equals(TypeKind.ARRAY),
+          "expected array type for varargs parameter, got %s",
+          type);
+      // use the component type to determine nullness
+      Type.ArrayType arrayType = (Type.ArrayType) type;
+      Type componentType = arrayType.getComponentType();
+      return getTypeNullness(componentType, config);
+    } else {
+      // For non-varargs, we just check the type itself
+      return getTypeNullness(type, config);
     }
   }
 
