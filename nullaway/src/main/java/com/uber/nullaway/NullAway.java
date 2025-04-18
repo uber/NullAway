@@ -124,9 +124,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.NestingKind;
-import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.javacutil.ElementUtils;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
@@ -1943,27 +1941,24 @@ public class NullAway extends BugChecker
         }
         actual = actualParams.get(argPos);
         VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
-        Type.ArrayType varargsArrayType = null;
-        // check if the varargs arguments are being passed as an array
-        if (tree instanceof MethodInvocationTree) { // TODO handle NewClassTree
-          MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
-          Type type = ASTHelpers.getType(methodInvocationTree.getMethodSelect());
-          if (type != null) {
-            List<? extends TypeMirror> parameterTypes = ((ExecutableType) type).getParameterTypes();
-            TypeMirror lastParameterType = parameterTypes.get(parameterTypes.size() - 1);
-            // For some JDK reflective APIs sometimes the type at the call site is not an ArrayType
-            if (lastParameterType instanceof Type.ArrayType) {
-              varargsArrayType = (Type.ArrayType) lastParameterType;
+        boolean isVarArgsCall = isVarArgsCall(tree);
+        if (isVarArgsCall) {
+          // This is the case were varargs are being passed individually, as 1 or more actual
+          // arguments starting at the position of the var args formal.
+          // If the formal var args accepts `@Nullable`, then there is nothing for us to check.
+          if (!argIsNonNull) {
+            continue;
+          }
+          // TODO report all varargs errors in a single build; this code only reports the first
+          //  error
+          for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
+            actual = arg;
+            mayActualBeNull = mayBeNullExpr(state, actual);
+            if (mayActualBeNull) {
+              break;
             }
           }
-        }
-        if (varargsArrayType == null) {
-          varargsArrayType = (Type.ArrayType) formalParamSymbol.type;
-        }
-        Type actualParameterType = ASTHelpers.getType(actual);
-        if (actualParameterType != null
-            && state.getTypes().isAssignable(actualParameterType, varargsArrayType)
-            && actualParams.size() == argPos + 1) {
+        } else {
           // This is the case where an array is explicitly passed in the position of the var args
           // parameter
           // Only check for a nullable varargs array if the method is annotated, or a @NonNull
@@ -1978,22 +1973,6 @@ public class NullAway extends BugChecker
             // If varargs array itself is not @Nullable, cannot pass @Nullable array
             if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
               mayActualBeNull = mayBeNullExpr(state, actual);
-            }
-          }
-        } else {
-          // This is the case were varargs are being passed individually, as 1 or more actual
-          // arguments starting at the position of the var args formal.
-          // If the formal var args accepts `@Nullable`, then there is nothing for us to check.
-          if (!argIsNonNull) {
-            continue;
-          }
-          // TODO report all varargs errors in a single build; this code only reports the first
-          //  error
-          for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
-            actual = arg;
-            mayActualBeNull = mayBeNullExpr(state, actual);
-            if (mayActualBeNull) {
-              break;
             }
           }
         }
@@ -2014,6 +1993,14 @@ public class NullAway extends BugChecker
     }
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
+  }
+
+  private boolean isVarArgsCall(Tree tree) {
+    Type varargsElement =
+        tree instanceof JCTree.JCMethodInvocation
+            ? ((JCTree.JCMethodInvocation) tree).varargsElement
+            : ((JCTree.JCNewClass) tree).varargsElement;
+    return varargsElement != null;
   }
 
   private Description checkCastToNonNullTakesNullable(
