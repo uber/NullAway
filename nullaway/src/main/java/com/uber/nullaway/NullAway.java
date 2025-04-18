@@ -1995,6 +1995,14 @@ public class NullAway extends BugChecker
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
   }
 
+  /**
+   * Checks if the method invocation is a varargs call, i.e., if individual arguments are being
+   * passed in the varargs position. If false, it means that an array is being passed in the varargs
+   * position.
+   *
+   * @param tree the method invocation tree (MethodInvocationTree or NewClassTree)
+   * @return true if the method invocation is a varargs call, false otherwise
+   */
   private boolean isVarArgsCall(Tree tree) {
     Type varargsElement =
         tree instanceof JCTree.JCMethodInvocation
