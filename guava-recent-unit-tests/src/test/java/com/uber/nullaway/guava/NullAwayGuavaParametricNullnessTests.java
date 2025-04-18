@@ -45,6 +45,13 @@ public class NullAwayGuavaParametricNullnessTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
+                    // Since Guava is now @NullMarked we shouldn't need com.google.common in the
+                    // annotated packages list.
+                    // We still need it here since we are still trying to support
+                    // Error Prone 2.14.0, on which reading @NullMarked from the package-info.java
+                    // file isn't working using ASTHelpers for some reason.
+                    // TODO Once we bump our minimum Error Prone version, remove com.google.common
+                    //  from this list.
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
                     "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"));
     jspecifyCompilationHelper =
@@ -238,6 +245,25 @@ public class NullAwayGuavaParametricNullnessTests {
             "             }",
             "        };",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newHashSetPassingNullable() {
+    // to ensure javac reads proper generic types from the Guava jar
+    Assume.assumeTrue(Runtime.version().feature() >= 23);
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import com.google.common.collect.Sets;",
+            "import java.util.Set;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  public static void test(@Nullable String s) {",
+            "    Set<@Nullable String> params = Sets.newHashSet(s);",
+            "  }",
             "}")
         .doTest();
   }
