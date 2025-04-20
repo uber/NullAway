@@ -792,7 +792,8 @@ public class NullAway extends BugChecker
     boolean isOverriddenMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config, handler);
     boolean isOverridingMethodAnnotated =
-        !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler);
+        memberReferenceTree == null
+            || !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler);
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
     // null, parameter i is treated as unannotated.
