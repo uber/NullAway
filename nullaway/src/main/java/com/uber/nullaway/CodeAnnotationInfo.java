@@ -118,9 +118,8 @@ public final class CodeAnnotationInfo {
       // One known case where this can happen: int.class, void.class, etc.
       Preconditions.checkArgument(
           isClassFieldOfPrimitiveType(symbol),
-          String.format(
-              "Unexpected symbol passed to CodeAnnotationInfo.isGenerated(...) with null enclosing class: %s",
-              symbol));
+          "Unexpected symbol passed to CodeAnnotationInfo.isGenerated(...) with null enclosing class: %s",
+          symbol);
       return false;
     }
     Symbol.ClassSymbol outermostClassSymbol = get(classSymbol, config, null).outermostClassSymbol;

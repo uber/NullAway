@@ -256,7 +256,13 @@ public interface LibraryModels {
      * produced by {@link Symbol.MethodSymbol#toString()} and will not work for arbitrary strings.
      */
     private static String stripAnnotationsFromMethodSymbolString(String str) {
-      return str.replaceAll("@[^ ]+ ", "");
+      String annotationWithSpace = "@[\\w.]+\\s";
+      // annotations within a varargs array can look like:
+      // java.lang.@org.jspecify.annotations.Nullable Object@org.jspecify.annotations.Nullable...
+      // we want to match the annotation without consuming the ellipsis, so we use a lookahead
+      String annotationOfVarargsArray = "@[\\w.]+(?=\\.\\.\\.)";
+      String annotationRegex = annotationWithSpace + "|" + annotationOfVarargsArray;
+      return str.replaceAll(annotationRegex, "");
     }
 
     @Override
