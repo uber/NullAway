@@ -251,18 +251,23 @@ public interface LibraryModels {
           symbol.owner.getQualifiedName().toString(), symbol.name.toString(), methodStr);
     }
 
-    /**
-     * Strip annotations from a method symbol string. The logic is specialized to work for strings
-     * produced by {@link Symbol.MethodSymbol#toString()} and will not work for arbitrary strings.
-     */
-    private static String stripAnnotationsFromMethodSymbolString(String str) {
+    private static final Pattern ANNOTATION_STRIPPING_PATTERN = buildAnnotationStrippingPattern();
+
+    private static Pattern buildAnnotationStrippingPattern() {
       String annotationWithSpace = "@[\\w.]+\\s";
       // annotations within a varargs array can look like:
       // java.lang.@org.jspecify.annotations.Nullable Object@org.jspecify.annotations.Nullable...
       // we want to match the annotation without consuming the ellipsis, so we use a lookahead
       String annotationOfVarargsArray = "@[\\w.]+(?=\\.\\.\\.)";
-      String annotationRegex = annotationWithSpace + "|" + annotationOfVarargsArray;
-      return str.replaceAll(annotationRegex, "");
+      return Pattern.compile(annotationWithSpace + "|" + annotationOfVarargsArray);
+    }
+
+    /**
+     * Strip annotations from a method symbol string. The logic is specialized to work for strings
+     * produced by {@link Symbol.MethodSymbol#toString()} and will not work for arbitrary strings.
+     */
+    private static String stripAnnotationsFromMethodSymbolString(String str) {
+      return ANNOTATION_STRIPPING_PATTERN.matcher(str).replaceAll("");
     }
 
     @Override
