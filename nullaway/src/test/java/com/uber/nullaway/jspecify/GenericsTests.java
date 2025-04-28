@@ -2369,7 +2369,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "  @NullUnmarked",
             "  public static @Nullable Boolean isNullRestrictReturn(Object o) { return o == null; }",
             "  static Function<@Nullable Object, Boolean> filter1 = Test::isNull;",
-            "  // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "  // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional",
             "  static Function<@Nullable Object, Boolean> filter2 = Test::isNullRestrictParam;",
             "  // BUG: Diagnostic contains: referenced method returns @Nullable",
             "  static Function<@Nullable Object, Boolean> filter3 = Test::isNullRestrictReturn;",

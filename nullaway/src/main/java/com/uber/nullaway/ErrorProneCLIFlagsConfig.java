@@ -500,7 +500,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
   @Override
   public boolean acknowledgeRestrictiveAnnotations() {
-    return isAcknowledgeRestrictive;
+    return isAcknowledgeRestrictive || jspecifyMode;
   }
 
   @Override

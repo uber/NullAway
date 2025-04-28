@@ -776,6 +776,8 @@ public class NullAway extends BugChecker
    *     LambdaExpressionTree}; otherwise {@code null}
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
+   * @param state visitor state
+   * @param overridingMethod if available, the symbol for the overriding method
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
   private Description checkParamOverriding(
@@ -792,11 +794,13 @@ public class NullAway extends BugChecker
     boolean isOverriddenMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config, handler);
     boolean isOverridingMethodAnnotated =
-        memberReferenceTree == null
-            || !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler);
+        (overridingMethod != null
+                && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
+            || lambdaExpressionTree != null;
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
     // null, parameter i is treated as unannotated.
+    // TODO add task to correct type to @Nullable Nullness[]
     Nullness[] overriddenMethodArgNullnessMap = new Nullness[superParamSymbols.size()];
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
@@ -877,6 +881,10 @@ public class NullAway extends BugChecker
     //    }
 
     // TODO test overriding with varargs, bunch of other tests
+    //  specific tests to write: (1) lambda for varargs FI with explicit type on argument, (2)
+    //  method ref to varargs method with explicit @NonNull annotation on varargs array, (3) method
+    //  ref to varargs method with explicit @NonNull on array contents in JSpecify mode, (4) method
+    //  ref to varargs method with explicit @Nullable on array contents in JSpecify mode,
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
