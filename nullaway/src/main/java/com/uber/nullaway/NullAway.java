@@ -800,7 +800,6 @@ public class NullAway extends BugChecker
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
     // null, parameter i is treated as unannotated.
-    // TODO add task to correct type to @Nullable Nullness[]
     Nullness[] overriddenMethodArgNullnessMap = new Nullness[superParamSymbols.size()];
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
