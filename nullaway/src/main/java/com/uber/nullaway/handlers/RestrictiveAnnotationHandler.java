@@ -104,11 +104,11 @@ public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public Nullness[] onOverrideMethodInvocationParametersNullability(
+  public @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Nullness[] argumentPositionNullness) {
+      @Nullable Nullness[] argumentPositionNullness) {
     if (isAnnotated) {
       // We ignore isAnnotated code here, since annotations in code considered isAnnotated are
       // already handled by NullAway's core algorithm.
