@@ -117,11 +117,11 @@ public abstract class BaseNoOpHandler implements Handler {
   }
 
   @Override
-  public Nullness[] onOverrideMethodInvocationParametersNullability(
+  public @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Nullness[] argumentPositionNullness) {
+      @Nullable Nullness[] argumentPositionNullness) {
     // NoOp
     return argumentPositionNullness;
   }
