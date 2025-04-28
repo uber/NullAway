@@ -188,11 +188,11 @@ public interface Handler {
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */
-  Nullness[] onOverrideMethodInvocationParametersNullability(
+  @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Nullness[] argumentPositionNullness);
+      @Nullable Nullness[] argumentPositionNullness);
 
   /**
    * Called when the Dataflow analysis generates the initial NullnessStore for a method or lambda.

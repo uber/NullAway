@@ -110,7 +110,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
                 types, castToNonNull(ASTHelpers.getType(code)), fiMethodSymbol, config)
             .getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
-    Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
+    @Nullable Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
     boolean isFIAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config, handler);
     if (isFIAnnotated) {
