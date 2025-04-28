@@ -872,19 +872,6 @@ public class NullAway extends BugChecker
           null);
     }
 
-    // no need to check parameter overriding if the overriding method is unannotated
-    //    if (!isOverridingMethodAnnotated) {
-    //      // TODO what about restrictive annotations like @NonNull on a parameter or @Nullable on
-    // a
-    //      // return?
-    //      return Description.NO_MATCH;
-    //    }
-
-    // TODO test overriding with varargs, bunch of other tests
-    //  specific tests to write: (1) lambda for varargs FI with explicit type on argument, (2)
-    //  method ref to varargs method with explicit @NonNull annotation on varargs array, (3) method
-    //  ref to varargs method with explicit @NonNull on array contents in JSpecify mode, (4) method
-    //  ref to varargs method with explicit @Nullable on array contents in JSpecify mode,
     // for unbound member references, we need to adjust parameter indices by 1 when matching with
     // overridden method
     int startParam = unboundMemberRef ? 1 : 0;
