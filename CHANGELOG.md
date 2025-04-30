@@ -1,5 +1,18 @@
 Changelog
 =========
+Version 0.12.7
+---------------
+* Update to Checker Framework 3.49.2 (#1183)
+* Don't check synchronized blocks within unannotated code (#1185)
+* Test on JDK 24 (#1187)
+* Fix multiple issues with NewClassTrees that have enclosing expressions (#1191)
+* Ensure classes null-marked by library model detected in all places (#1197)
+* JSpecify: handle varargs whose element type is a type variable (#1200)
+* Update to Error Prone 2.38.0 (#1203)
+* Optimization to annotation stripping in library model matching (#1204)
+* Make arg position nullness array contents nullable (#1207)
+* Properly handle method references to null-unmarked methods (#1205)
+
 Version 0.12.6
 ---------------
 * JSpecify: view type as super in generic method inference (#1177)
