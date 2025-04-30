@@ -68,6 +68,10 @@ Some annotation processors like [Dagger](https://google.github.io/dagger/) and [
 
 **Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to fix the problem.
 
+#### JSpecify Mode / Guava
+
+As of version 33.4.1, [Guava](https://github.com/google/guava) uses [JSpecify](https://jspecify.dev) `@NullMarked` annotations for most of its packages, and hence NullAway will treat those packages as annotated by default.  This treatment may lead to some false positives (due to handling of type variables), which can be mitigated by running NullAway in its (under-development) JSpecify mode.  See [the wiki docs on JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support) for more details.
+
 #### Lombok
 
 Unlike other annotation processors above, Lombok modifies the in-memory AST of the code it processes, which is the source of numerous incompatibilities with Error Prone and, consequently, NullAway. 
