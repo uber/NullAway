@@ -70,7 +70,7 @@ Some annotation processors like [Dagger](https://google.github.io/dagger/) and [
 
 #### JSpecify Mode / Guava
 
-As of version 33.4.1, [Guava](https://github.com/google/guava) uses [JSpecify](https://jspecify.dev) `@NullMarked` annotations for most of its packages, and hence NullAway will treat those packages as annotated by default.  This treatment may lead to some false positives, which can be mitigated by running NullAway in its (under-development) JSpecify mode.  See [the wiki docs on JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support) for more details.
+As of version 33.4.1, [Guava](https://github.com/google/guava) uses [JSpecify](https://jspecify.dev) `@NullMarked` annotations for most of its packages, and hence NullAway will treat those packages as annotated by default.  This treatment may lead to some false positives (due to handling of type variables), which can be mitigated by running NullAway in its (under-development) JSpecify mode.  See [the wiki docs on JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support) for more details.
 
 #### Lombok
 
