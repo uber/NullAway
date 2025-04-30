@@ -1256,4 +1256,32 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void methodRefToNullUnmarkedNoAcknowledgeRestrictive() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  interface I {",
+            "    void m(@Nullable Object o);",
+            "  }",
+            "  @NullUnmarked",
+            "  void unmarkedParam(Object o) {}",
+            "  @NullUnmarked",
+            "  void nonNullParam(@NonNull Object o) {}",
+            "  void test() {",
+            "    I i = this::unmarkedParam;",
+            "    // no error since we don't acknowledge restrictive annotations",
+            "    I i2 = this::nonNullParam;",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
