@@ -943,19 +943,19 @@ public final class GenericsChecks {
   /**
    * Substitutes the type arguments from a generic method invocation into the method's type.
    *
-   * @param methodInvocationTree the method invocation tree
+   * @param tree the method invocation tree
    * @param methodSymbol symbol for the invoked generic method
    * @param state the visitor state
    * @param config the NullAway config
    * @return the substituted method type for the generic method
    */
   private Type substituteTypeArgsInGenericMethodType(
-      MethodInvocationTree methodInvocationTree,
-      Symbol.MethodSymbol methodSymbol,
-      VisitorState state,
-      Config config) {
+      Tree tree, Symbol.MethodSymbol methodSymbol, VisitorState state, Config config) {
 
-    List<? extends Tree> typeArgumentTrees = methodInvocationTree.getTypeArguments();
+    List<? extends Tree> typeArgumentTrees =
+        (tree instanceof MethodInvocationTree)
+            ? ((MethodInvocationTree) tree).getTypeArguments()
+            : ((NewClassTree) tree).getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
 
     Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
@@ -963,11 +963,11 @@ public final class GenericsChecks {
 
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
-      if (inferredSubstitutionsForGenericMethodCalls.containsKey(methodInvocationTree)) {
+      if (inferredSubstitutionsForGenericMethodCalls.containsKey(tree)) {
         return substituteInferredTypesForTypeVariables(
             state,
             underlyingMethodType,
-            inferredSubstitutionsForGenericMethodCalls.get(methodInvocationTree),
+            inferredSubstitutionsForGenericMethodCalls.get(tree),
             config);
       }
     }
@@ -1012,7 +1012,7 @@ public final class GenericsChecks {
   public Nullness getGenericParameterNullnessAtInvocation(
       int paramIndex,
       Symbol.MethodSymbol invokedMethodSymbol,
-      MethodInvocationTree tree,
+      Tree tree,
       VisitorState state,
       Config config) {
     // If generic method invocation
@@ -1030,11 +1030,27 @@ public final class GenericsChecks {
       }
     }
 
-    if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
+    if (tree instanceof MethodInvocationTree) {
+      if (!(((MethodInvocationTree) tree).getMethodSelect() instanceof MemberSelectTree)
+          || invokedMethodSymbol.isStatic()) {
+        return Nullness.NONNULL;
+      }
+    } else if (!(tree instanceof NewClassTree) || invokedMethodSymbol.isStatic()) {
       return Nullness.NONNULL;
     }
-    Type enclosingType =
-        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), config);
+
+    Type enclosingType = null;
+    if (tree instanceof MethodInvocationTree) {
+      enclosingType =
+          getTreeType(
+              ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression(),
+              config);
+
+    } else if (tree instanceof NewClassTree) {
+      NewClassTree newClassTree = (NewClassTree) tree;
+      enclosingType = getTreeType(newClassTree, config);
+    }
+
     return getGenericMethodParameterNullness(
         paramIndex, invokedMethodSymbol, enclosingType, state, config);
   }

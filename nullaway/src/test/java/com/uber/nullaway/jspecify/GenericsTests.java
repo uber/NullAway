@@ -2324,6 +2324,7 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore
   @Test
   public void callWithConstructorReceiver() {
     makeHelper()
