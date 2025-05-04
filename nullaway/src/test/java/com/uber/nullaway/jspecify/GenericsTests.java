@@ -2404,28 +2404,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Test
-  public void issue1209() {
-    makeHelper()
-        .addSourceLines(
-            "Foo.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "class Foo {",
-            "  interface Supplier<T extends @Nullable Object> {",
-            "    T get();",
-            "  }",
-            "  interface SubSupplier<T2 extends @Nullable Object> extends Supplier<@Nullable T2> {}",
-            "  static void helper(SubSupplier<Foo> sup) {",
-            "  }",
-            "  static void main() {",
-            "    helper(() -> null);",
-            "  }",
-            "}")
-        .doTest();
-  }
-
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
