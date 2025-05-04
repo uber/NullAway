@@ -12,6 +12,7 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
+import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
 
 /** Utility method related to substituting type arguments for type variables. */
@@ -29,6 +30,16 @@ public class TypeSubstitutionUtils {
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
+    // TODO need to handle issue 1209 somewhere around here.  memberType accounts for type arguments
+    // but not for explicit nullability annotations on them.  Need to find inheritance chain and
+    // collect any @Nullable annotation?  What if there are contradictory annotations?
+    // Write a method like isTypeArgumentNullable that looks through the inheritance chain, or
+    // something like that
+
+    java.util.List<DeclaredType> path =
+        InheritancePathFinder.inheritancePathKeepingFormals(
+            (DeclaredType) t, (Symbol.MethodSymbol) sym, types);
+    System.err.println(path);
     return restoreExplicitNullabilityAnnotations(origType, memberType, config);
   }
 
