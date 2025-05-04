@@ -49,7 +49,7 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
-   * @param annotsOnTypeVarsFromSubtypes
+   * @param annotsOnTypeVarsFromSubtypes annotations on type variables added by subtypes
    * @return the new type with explicit nullability annotations restored
    */
   private static Type restoreExplicitNullabilityAnnotations(

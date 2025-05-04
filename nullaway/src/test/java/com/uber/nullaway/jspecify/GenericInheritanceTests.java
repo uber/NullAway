@@ -95,7 +95,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("TODO file a separate issue on this one")
+  @Ignore("https://github.com/uber/NullAway/issues/1212")
   @Test
   public void withClasses() {
     makeHelper()
