@@ -181,6 +181,32 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void methodInvocationTypeVarReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  public static abstract class AbstractLinkedDeque<E> {",
+            "    public abstract @Nullable E getPrevious(E e);",
+            "  }",
+            "  public static final class WriteOrderDeque<",
+            "          E extends WriteOrderDeque.WriteOrder<E>>",
+            "      extends AbstractLinkedDeque<E> {",
+            "    @Override",
+            "    public @Nullable E getPrevious(E e) {",
+            "      return e.getPreviousInWriteOrder();",
+            "    }",
+            "    public interface WriteOrder<T extends WriteOrder<T>> {",
+            "      @Nullable T getPreviousInWriteOrder();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

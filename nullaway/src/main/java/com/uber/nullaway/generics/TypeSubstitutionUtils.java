@@ -34,7 +34,10 @@ public class TypeSubstitutionUtils {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        getAnnotsOnTypeVarsFromSubtypes((DeclaredType) t, (Symbol.MethodSymbol) sym, types, config);
+        t instanceof DeclaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(
+                (DeclaredType) t, (Symbol.MethodSymbol) sym, types, config)
+            : Map.of();
     return restoreExplicitNullabilityAnnotations(
         origType, memberType, config, annotsOnTypeVarsFromSubtypes);
   }
