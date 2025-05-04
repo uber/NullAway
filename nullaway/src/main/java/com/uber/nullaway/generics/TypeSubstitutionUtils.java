@@ -49,15 +49,15 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
-   * @param nullableTypeVarsViaTypeArgs some stuff
+   * @param annotsOnTypeVarsFromSubtypes
    * @return the new type with explicit nullability annotations restored
    */
   private static Type restoreExplicitNullabilityAnnotations(
       Type origType,
       Type newType,
       Config config,
-      Map<Symbol.TypeVariableSymbol, AnnotationMirror> nullableTypeVarsViaTypeArgs) {
-    return new RestoreNullnessAnnotationsVisitor(config, nullableTypeVarsViaTypeArgs)
+      Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
+    return new RestoreNullnessAnnotationsVisitor(config, annotsOnTypeVarsFromSubtypes)
         .visit(newType, origType);
   }
 
@@ -70,13 +70,13 @@ public class TypeSubstitutionUtils {
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
     private final Config config;
-    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> nullableTypeVarsViaTypeArgs;
+    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes;
 
     RestoreNullnessAnnotationsVisitor(
         Config config,
-        Map<Symbol.TypeVariableSymbol, AnnotationMirror> nullableTypeVarsViaTypeArgs) {
+        Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
       this.config = config;
-      this.nullableTypeVarsViaTypeArgs = nullableTypeVarsViaTypeArgs;
+      this.annotsOnTypeVarsFromSubtypes = annotsOnTypeVarsFromSubtypes;
     }
 
     @Override
@@ -153,7 +153,7 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type variable {@code other}.
+     * on a type variable {@code other} (either direct or from subtypes).
      *
      * @param t the type to update
      * @param other the type variable to update from
@@ -168,29 +168,25 @@ public class TypeSubstitutionUtils {
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
         if (Nullness.isNullableAnnotation(qualifiedName, config)
             || Nullness.isNonNullAnnotation(qualifiedName, config)) {
-          // Construct and return an updated version of t with annotation annot.
-          List<Attribute.TypeCompound> annotationCompound =
-              List.from(
-                  Collections.singletonList(
-                      new Attribute.TypeCompound(annot.type, List.nil(), null)));
-          TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
-          return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
+          return typeWithAnnot(t, annot);
         }
       }
       // then see if any annotations were added from the type arguments
       Attribute.TypeCompound typeArgAnnot =
-          (Attribute.TypeCompound) nullableTypeVarsViaTypeArgs.get(other.tsym);
+          (Attribute.TypeCompound) annotsOnTypeVarsFromSubtypes.get(other.tsym);
       if (typeArgAnnot != null) {
-        // Construct and return an updated version of t with annotation annot.
-        // TODO remove copy paste
-        List<Attribute.TypeCompound> annotationCompound =
-            List.from(
-                Collections.singletonList(
-                    new Attribute.TypeCompound(typeArgAnnot.type, List.nil(), null)));
-        TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
-        return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
+        return typeWithAnnot(t, typeArgAnnot);
       }
       return null;
+    }
+
+    private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
+      // Construct and return an updated version of t with annotation annot.
+      List<Attribute.TypeCompound> annotationCompound =
+          List.from(
+              Collections.singletonList(new Attribute.TypeCompound(annot.type, List.nil(), null)));
+      TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
+      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
     }
 
     @Override
