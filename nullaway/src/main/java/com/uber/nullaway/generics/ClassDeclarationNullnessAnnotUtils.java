@@ -20,18 +20,29 @@ import javax.lang.model.type.TypeMirror;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Utility to deal with nullability annotations within class declarations, e.g., {@code class Foo
- * extends Supplier<@Nullable T2>}.
+ * Utility to deal with nullability annotations within {@code extends} or {@code implements} clauses
+ * in class declarations, e.g., {@code class Foo extends Supplier<@Nullable T2>}.
  */
 public class ClassDeclarationNullnessAnnotUtils {
 
+  /**
+   * Given a type {@code t} and a method symbol {@code method}, let {@code t'} be the supertype of
+   * {@code t} that declares {@code method}. This method returns a map from each type variable
+   * {@code X} of {@code t'} to the nullness annotation for {@code X} implied by the inheritance
+   * path from {@code t} to {@code t'}, accounting for nullness annotations in {@code extends} /
+   * {@code implements} clauses. If there is no entry for {@code X}, the inheritance path adds no
+   * annotation to {@code X}.
+   *
+   * @param t the type to start from
+   * @param method the method symbol
+   * @param types the types instance
+   * @param config the NullAway config
+   * @return the map from type variable symbols to their nullness annotations
+   */
   public static Map<Symbol.TypeVariableSymbol, AnnotationMirror> getAnnotsOnTypeVarsFromSubtypes(
-      DeclaredType start, // SubSupplier<Foo>
-      Symbol.MethodSymbol targetMethod,
-      Types types,
-      Config config) {
-    List<DeclaredType> path = inheritancePathKeepingFormals(start, targetMethod, types);
-    return ofDeclaringType(path, config);
+      DeclaredType t, Symbol.MethodSymbol method, Types types, Config config) {
+    List<DeclaredType> path = inheritancePath(t, method, types);
+    return annotsFromSubtypesForInheritancePath(path, config);
   }
 
   private static boolean dfsWithFormals(
@@ -42,11 +53,11 @@ public class ClassDeclarationNullnessAnnotUtils {
       Set<Symbol.ClassSymbol> seen) {
 
     if (!seen.add((Symbol.ClassSymbol) currentFormal.tsym)) {
-      return false; // avoid cycles
+      return false; // avoid visiting paths redundantly
     }
 
     for (Type supFormal : types.directSupertypes(currentFormal)) {
-      DeclaredType dt = (DeclaredType) supFormal; // still has T‑vars + annos
+      DeclaredType dt = (DeclaredType) supFormal; // version from the extends / implements clause
       if (dt.asElement().equals(targetOwner)) {
         out.add(dt);
         return true;
@@ -59,58 +70,48 @@ public class ClassDeclarationNullnessAnnotUtils {
     return false;
   }
 
-  private static List<DeclaredType> inheritancePathKeepingFormals(
-      DeclaredType start, // SubSupplier<Foo>
-      Symbol.MethodSymbol targetMethod,
-      Types types) {
+  /**
+   * Computes the inheritance path from {@code t} to the class that declares {@code method}. Each
+   * {@link DeclaredType} in the list is the type as it appears in the relevant {@code extends} or
+   * {@code implements} clause along the path, including any annotations on type arguments in the
+   * clauses.
+   *
+   * @param t the type to start from
+   * @param method the method symbol
+   * @param types the types instance
+   * @return the inheritance path from {@code t} to the class that declares {@code method}
+   */
+  private static List<DeclaredType> inheritancePath(
+      DeclaredType t, Symbol.MethodSymbol method, Types types) {
 
     List<DeclaredType> reversed = new ArrayList<>();
     if (dfsWithFormals(
-        (Type.ClassType) ((Type) start).tsym.type, // !! symbol.type
-        (Symbol.ClassSymbol) targetMethod.owner,
+        (Type.ClassType) ((Type) t).tsym.type,
+        (Symbol.ClassSymbol) method.owner,
         types,
         reversed,
         new HashSet<>())) {
 
       Collections.reverse(reversed);
-      // prepend the concrete start‑type so you still know the actual instantiation
+      // prepend the concrete start‑type
       List<DeclaredType> res = new ArrayList<>(reversed.size() + 1);
-      res.add(start); // SubSupplier<Foo>
-      res.addAll(reversed); // Supplier<@Nullable T2>
+      res.add(t);
+      res.addAll(reversed);
       return Collections.unmodifiableList(res);
     }
     return Collections.emptyList();
   }
 
-  private static Map<Symbol.TypeVariableSymbol, AnnotationMirror> ofDeclaringType(
-      List<DeclaredType> path, Config config) {
+  private static Map<Symbol.TypeVariableSymbol, AnnotationMirror>
+      annotsFromSubtypesForInheritancePath(List<DeclaredType> path, Config config) {
 
     if (path.isEmpty()) {
       return Collections.emptyMap();
     }
 
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> typeVarToAnnotations = new LinkedHashMap<>();
-    /* ------------------------------------------------------------------
-     * STEP 0 – handle the concrete type itself (index 0)                */
-    DeclaredType concrete = path.get(0);
-    Symbol.ClassSymbol concreteSym = (Symbol.ClassSymbol) ((Type.ClassType) concrete).tsym;
-
-    List<? extends Symbol.TypeVariableSymbol> concreteFormals = concreteSym.getTypeParameters();
-    List<? extends TypeMirror> concreteActuals = concrete.getTypeArguments();
-
-    for (int i = 0; i < concreteActuals.size(); i++) {
-      TypeMirror actual = concreteActuals.get(i);
-      AnnotationMirror nullableAnnotation =
-          getNullnessAnnotation(actual.getAnnotationMirrors(), config);
-      if (nullableAnnotation != null) {
-        typeVarToAnnotations.put(concreteFormals.get(i), nullableAnnotation);
-      }
-    }
-
-    /* ------------------------------------------------------------------
-     * STEP 1 … N – walk the supertypes, propagating upward              */
-    for (int idx = 1; idx < path.size(); idx++) {
-      DeclaredType dt = path.get(idx); // current super‑type
+    for (int idx = 0; idx < path.size(); idx++) {
+      DeclaredType dt = path.get(idx);
       Type.ClassType ct = (Type.ClassType) dt;
       Symbol.ClassSymbol cls = (Symbol.ClassSymbol) ct.tsym;
 
