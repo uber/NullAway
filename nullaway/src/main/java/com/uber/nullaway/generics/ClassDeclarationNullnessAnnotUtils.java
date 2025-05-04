@@ -1,5 +1,6 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.Nullness.isNonNullAnnotation;
 import static com.uber.nullaway.Nullness.isNullableAnnotation;
 
 import com.sun.tools.javac.code.Symbol;
@@ -23,6 +24,15 @@ import org.jspecify.annotations.Nullable;
  * extends Supplier<@Nullable T2>}.
  */
 public class ClassDeclarationNullnessAnnotUtils {
+
+  public static Map<Symbol.TypeVariableSymbol, AnnotationMirror> getAnnotsOnTypeVarsFromSubtypes(
+      DeclaredType start, // SubSupplier<Foo>
+      Symbol.MethodSymbol targetMethod,
+      Types types,
+      Config config) {
+    List<DeclaredType> path = inheritancePathKeepingFormals(start, targetMethod, types);
+    return ofDeclaringType(path, config);
+  }
 
   private static boolean dfsWithFormals(
       Type.ClassType currentFormal,
@@ -49,7 +59,7 @@ public class ClassDeclarationNullnessAnnotUtils {
     return false;
   }
 
-  public static List<DeclaredType> inheritancePathKeepingFormals(
+  private static List<DeclaredType> inheritancePathKeepingFormals(
       DeclaredType start, // SubSupplier<Foo>
       Symbol.MethodSymbol targetMethod,
       Types types) {
@@ -72,30 +82,28 @@ public class ClassDeclarationNullnessAnnotUtils {
     return Collections.emptyList();
   }
 
-  public static Map<Symbol.TypeVariableSymbol, AnnotationMirror> ofDeclaringType(
+  private static Map<Symbol.TypeVariableSymbol, AnnotationMirror> ofDeclaringType(
       List<DeclaredType> path, Config config) {
 
     if (path.isEmpty()) {
       return Collections.emptyMap();
     }
 
+    Map<Symbol.TypeVariableSymbol, AnnotationMirror> typeVarToAnnotations = new LinkedHashMap<>();
     /* ------------------------------------------------------------------
      * STEP 0 – handle the concrete type itself (index 0)                */
     DeclaredType concrete = path.get(0);
-    Type.ClassType concreteCt = (Type.ClassType) concrete;
-    Symbol.ClassSymbol concreteSym = (Symbol.ClassSymbol) concreteCt.tsym;
+    Symbol.ClassSymbol concreteSym = (Symbol.ClassSymbol) ((Type.ClassType) concrete).tsym;
 
     List<? extends Symbol.TypeVariableSymbol> concreteFormals = concreteSym.getTypeParameters();
     List<? extends TypeMirror> concreteActuals = concrete.getTypeArguments();
 
-    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotationsSoFar = new LinkedHashMap<>();
-
     for (int i = 0; i < concreteActuals.size(); i++) {
       TypeMirror actual = concreteActuals.get(i);
       AnnotationMirror nullableAnnotation =
-          getNullableAnnotation(actual.getAnnotationMirrors(), config);
+          getNullnessAnnotation(actual.getAnnotationMirrors(), config);
       if (nullableAnnotation != null) {
-        annotationsSoFar.put(concreteFormals.get(i), nullableAnnotation);
+        typeVarToAnnotations.put(concreteFormals.get(i), nullableAnnotation);
       }
     }
 
@@ -109,32 +117,36 @@ public class ClassDeclarationNullnessAnnotUtils {
       List<? extends Symbol.TypeVariableSymbol> formals = cls.getTypeParameters();
       List<? extends TypeMirror> actuals = dt.getTypeArguments();
 
-      Map<Symbol.TypeVariableSymbol, AnnotationMirror> nullableHere = new LinkedHashMap<>();
+      Map<Symbol.TypeVariableSymbol, AnnotationMirror> curNullnessAnnotations =
+          new LinkedHashMap<>();
 
       for (int j = 0; j < actuals.size(); j++) {
         TypeMirror arg = actuals.get(j);
-        AnnotationMirror nullableAnnotation = null;
-        Symbol.TypeSymbol argtsym = ((Type) arg).tsym;
-        if (argtsym instanceof Symbol.TypeVariableSymbol) {
-          nullableAnnotation = annotationsSoFar.get(argtsym);
+        // if there is a direct nullness annotation, that wins
+        AnnotationMirror nullnessAnnotation =
+            getNullnessAnnotation(arg.getAnnotationMirrors(), config);
+        // otherwise, see if we have a type variable argument with a previous nullness annotation
+        if (nullnessAnnotation == null) {
+          Symbol.TypeSymbol argtsym = ((Type) arg).tsym;
+          if (argtsym instanceof Symbol.TypeVariableSymbol) {
+            nullnessAnnotation = typeVarToAnnotations.get(argtsym);
+          }
         }
-        if (nullableAnnotation == null) {
-          nullableAnnotation = getNullableAnnotation(arg.getAnnotationMirrors(), config);
-        }
-        if (nullableAnnotation != null) {
-          nullableHere.put(formals.get(j), nullableAnnotation);
+        if (nullnessAnnotation != null) {
+          curNullnessAnnotations.put(formals.get(j), nullnessAnnotation);
         }
       }
       /* Push info upward. */
-      annotationsSoFar = nullableHere;
+      typeVarToAnnotations = curNullnessAnnotations;
     }
-    return Collections.unmodifiableMap(annotationsSoFar);
+    return Collections.unmodifiableMap(typeVarToAnnotations);
   }
 
-  private static @Nullable AnnotationMirror getNullableAnnotation(
+  private static @Nullable AnnotationMirror getNullnessAnnotation(
       List<? extends AnnotationMirror> annotations, Config config) {
     for (AnnotationMirror annotation : annotations) {
-      if (isNullableAnnotation(annotation.getAnnotationType().toString(), config)) {
+      String annotTypeStr = annotation.getAnnotationType().toString();
+      if (isNullableAnnotation(annotTypeStr, config) || isNonNullAnnotation(annotTypeStr, config)) {
         return annotation;
       }
     }
