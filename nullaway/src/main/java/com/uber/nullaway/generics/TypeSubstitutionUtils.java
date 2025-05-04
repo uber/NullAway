@@ -171,7 +171,7 @@ public class TypeSubstitutionUtils {
           return typeWithAnnot(t, annot);
         }
       }
-      // then see if any annotations were added from the type arguments
+      // then see if any annotations were added from subtypes
       Attribute.TypeCompound typeArgAnnot =
           (Attribute.TypeCompound) annotsOnTypeVarsFromSubtypes.get(other.tsym);
       if (typeArgAnnot != null) {
