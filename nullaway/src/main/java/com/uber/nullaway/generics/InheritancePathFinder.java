@@ -1,6 +1,6 @@
 package com.uber.nullaway.generics;
 
-import static com.uber.nullaway.Nullness.hasNullableAnnotation;
+import static com.uber.nullaway.Nullness.isNullableAnnotation;
 
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -9,11 +9,14 @@ import com.uber.nullaway.Config;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.type.DeclaredType;
-import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeMirror;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Find the chain of supertypes (with type arguments) by which 'start' inherits the method
@@ -70,11 +73,11 @@ public class InheritancePathFinder {
     return Collections.emptyList();
   }
 
-  public static Set<Symbol.TypeVariableSymbol> ofDeclaringType(
+  public static Map<Symbol.TypeVariableSymbol, AnnotationMirror> ofDeclaringType(
       List<DeclaredType> path, Types types, Config config) {
 
     if (path.isEmpty()) {
-      return Collections.emptySet();
+      return Collections.emptyMap();
     }
 
     /* ------------------------------------------------------------------
@@ -86,11 +89,14 @@ public class InheritancePathFinder {
     List<? extends Symbol.TypeVariableSymbol> concreteFormals = concreteSym.getTypeParameters();
     List<? extends TypeMirror> concreteActuals = concrete.getTypeArguments();
 
-    Set<Symbol.TypeVariableSymbol> nullableSoFar = new HashSet<>();
+    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotationsSoFar = new LinkedHashMap<>();
 
     for (int i = 0; i < concreteActuals.size(); i++) {
-      if (hasNullableAnnotation(concreteActuals.get(i).getAnnotationMirrors().stream(), config)) {
-        nullableSoFar.add(concreteFormals.get(i));
+      TypeMirror actual = concreteActuals.get(i);
+      AnnotationMirror nullableAnnotation =
+          getNullableAnnotation(actual.getAnnotationMirrors(), config);
+      if (nullableAnnotation != null) {
+        annotationsSoFar.put(concreteFormals.get(i), nullableAnnotation);
       }
     }
 
@@ -104,31 +110,39 @@ public class InheritancePathFinder {
       List<? extends Symbol.TypeVariableSymbol> formals = cls.getTypeParameters();
       List<? extends TypeMirror> actuals = dt.getTypeArguments();
 
-      Set<Symbol.TypeVariableSymbol> nullableHere = new HashSet<>();
+      Map<Symbol.TypeVariableSymbol, AnnotationMirror> nullableHere = new LinkedHashMap<>();
 
       for (int j = 0; j < actuals.size(); j++) {
         TypeMirror arg = actuals.get(j);
-
-        boolean nullable =
-            hasNullableAnnotation(arg.getAnnotationMirrors().stream(), config) // rule (1)
-                || (arg.getKind() == TypeKind.TYPEVAR // rule (2)
-                    && nullableSoFar.contains(((Type.TypeVar) arg).tsym));
-
-        if (nullable) {
-          nullableHere.add(formals.get(j));
+        AnnotationMirror nullableAnnotation = annotationsSoFar.get(((Type) arg).tsym);
+        if (nullableAnnotation == null) {
+          nullableAnnotation = getNullableAnnotation(arg.getAnnotationMirrors(), config);
+        }
+        if (nullableAnnotation != null) {
+          nullableHere.put(formals.get(j), nullableAnnotation);
         }
       }
 
       /* If this is the declaring type, we’re done. */
       if (idx == path.size() - 1) {
-        return Collections.unmodifiableSet(nullableHere);
+        return Collections.unmodifiableMap(nullableHere);
       }
 
       /* Otherwise push info upward. */
-      nullableSoFar = nullableHere;
+      annotationsSoFar = nullableHere;
     }
 
     // unreachable
-    return Collections.emptySet();
+    return Collections.emptyMap();
+  }
+
+  private static @Nullable AnnotationMirror getNullableAnnotation(
+      List<? extends AnnotationMirror> annotations, Config config) {
+    for (AnnotationMirror annotation : annotations) {
+      if (isNullableAnnotation(annotation.getAnnotationType().toString(), config)) {
+        return annotation;
+      }
+    }
+    return null;
   }
 }
