@@ -12,6 +12,7 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
+import java.util.Set;
 import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
 
@@ -35,12 +36,16 @@ public class TypeSubstitutionUtils {
     // collect any @Nullable annotation?  What if there are contradictory annotations?
     // Write a method like isTypeArgumentNullable that looks through the inheritance chain, or
     // something like that
-
     java.util.List<DeclaredType> path =
         InheritancePathFinder.inheritancePathKeepingFormals(
             (DeclaredType) t, (Symbol.MethodSymbol) sym, types);
     System.err.println(path);
-    return restoreExplicitNullabilityAnnotations(origType, memberType, config);
+    Set<Symbol.TypeVariableSymbol> nullableTypeVarsViaTypeArgs =
+        InheritancePathFinder.ofDeclaringType(path, types, config);
+    // need to keep track of which type arguments are nullable at each stage in the path and then
+    // pass that along?
+    return restoreExplicitNullabilityAnnotations(
+        origType, memberType, config, nullableTypeVarsViaTypeArgs);
   }
 
   /**
@@ -50,11 +55,16 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
+   * @param nullableTypeVarsViaTypeArgs some stuff
    * @return the new type with explicit nullability annotations restored
    */
   private static Type restoreExplicitNullabilityAnnotations(
-      Type origType, Type newType, Config config) {
-    return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
+      Type origType,
+      Type newType,
+      Config config,
+      Set<Symbol.TypeVariableSymbol> nullableTypeVarsViaTypeArgs) {
+    return new RestoreNullnessAnnotationsVisitor(config, nullableTypeVarsViaTypeArgs)
+        .visit(newType, origType);
   }
 
   /**
@@ -66,9 +76,12 @@ public class TypeSubstitutionUtils {
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
     private final Config config;
+    private final Set<Symbol.TypeVariableSymbol> nullableTypeVarsViaTypeArgs;
 
-    RestoreNullnessAnnotationsVisitor(Config config) {
+    RestoreNullnessAnnotationsVisitor(
+        Config config, Set<Symbol.TypeVariableSymbol> nullableTypeVarsViaTypeArgs) {
       this.config = config;
+      this.nullableTypeVarsViaTypeArgs = nullableTypeVarsViaTypeArgs;
     }
 
     @Override
@@ -152,6 +165,12 @@ public class TypeSubstitutionUtils {
      * @return the updated type, or {@code null} if no updates were made
      */
     private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
+      boolean viaTypeArgs = nullableTypeVarsViaTypeArgs.contains(other.tsym);
+      if (viaTypeArgs) {
+        // TODO should probably detect @NonNull also??  And, we should probably keep the actual
+        // annotation so we can use it...
+        System.err.println("do it!");
+      }
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
           continue;
@@ -228,6 +247,6 @@ public class TypeSubstitutionUtils {
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
     Type substResult = types.subst(t, from, to);
-    return restoreExplicitNullabilityAnnotations(t, substResult, config);
+    return restoreExplicitNullabilityAnnotations(t, substResult, config, Collections.emptySet());
   }
 }
