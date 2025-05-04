@@ -19,10 +19,10 @@ import javax.lang.model.type.TypeMirror;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Find the chain of supertypes (with type arguments) by which 'start' inherits the method
- * 'targetMethod'.
+ * Utility to deal with nullability annotations within class declarations, e.g., {@code class Foo
+ * extends Supplier<@Nullable T2>}.
  */
-public class InheritancePathFinder {
+public class ClassDeclarationNullnessAnnotUtils {
 
   private static boolean dfsWithFormals(
       Type.ClassType currentFormal,
@@ -49,7 +49,6 @@ public class InheritancePathFinder {
     return false;
   }
 
-  @SuppressWarnings("MixedMutabilityReturnType")
   public static List<DeclaredType> inheritancePathKeepingFormals(
       DeclaredType start, // SubSupplier<Foo>
       Symbol.MethodSymbol targetMethod,
@@ -68,13 +67,13 @@ public class InheritancePathFinder {
       List<DeclaredType> res = new ArrayList<>(reversed.size() + 1);
       res.add(start); // SubSupplier<Foo>
       res.addAll(reversed); // Supplier<@Nullable T2>
-      return res;
+      return Collections.unmodifiableList(res);
     }
     return Collections.emptyList();
   }
 
   public static Map<Symbol.TypeVariableSymbol, AnnotationMirror> ofDeclaringType(
-      List<DeclaredType> path, Types types, Config config) {
+      List<DeclaredType> path, Config config) {
 
     if (path.isEmpty()) {
       return Collections.emptyMap();
@@ -114,7 +113,11 @@ public class InheritancePathFinder {
 
       for (int j = 0; j < actuals.size(); j++) {
         TypeMirror arg = actuals.get(j);
-        AnnotationMirror nullableAnnotation = annotationsSoFar.get(((Type) arg).tsym);
+        AnnotationMirror nullableAnnotation = null;
+        Symbol.TypeSymbol argtsym = ((Type) arg).tsym;
+        if (argtsym instanceof Symbol.TypeVariableSymbol) {
+          nullableAnnotation = annotationsSoFar.get(argtsym);
+        }
         if (nullableAnnotation == null) {
           nullableAnnotation = getNullableAnnotation(arg.getAnnotationMirrors(), config);
         }
@@ -122,18 +125,10 @@ public class InheritancePathFinder {
           nullableHere.put(formals.get(j), nullableAnnotation);
         }
       }
-
-      /* If this is the declaring type, we’re done. */
-      if (idx == path.size() - 1) {
-        return Collections.unmodifiableMap(nullableHere);
-      }
-
-      /* Otherwise push info upward. */
+      /* Push info upward. */
       annotationsSoFar = nullableHere;
     }
-
-    // unreachable
-    return Collections.emptyMap();
+    return Collections.unmodifiableMap(annotationsSoFar);
   }
 
   private static @Nullable AnnotationMirror getNullableAnnotation(

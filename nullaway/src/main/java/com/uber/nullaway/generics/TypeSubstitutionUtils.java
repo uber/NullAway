@@ -38,12 +38,10 @@ public class TypeSubstitutionUtils {
     // Write a method like isTypeArgumentNullable that looks through the inheritance chain, or
     // something like that
     java.util.List<DeclaredType> path =
-        InheritancePathFinder.inheritancePathKeepingFormals(
+        ClassDeclarationNullnessAnnotUtils.inheritancePathKeepingFormals(
             (DeclaredType) t, (Symbol.MethodSymbol) sym, types);
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> nullableTypeVarsViaTypeArgs =
-        InheritancePathFinder.ofDeclaringType(path, types, config);
-    // need to keep track of which type arguments are nullable at each stage in the path and then
-    // pass that along?
+        ClassDeclarationNullnessAnnotUtils.ofDeclaringType(path, config);
     return restoreExplicitNullabilityAnnotations(
         origType, memberType, config, nullableTypeVarsViaTypeArgs);
   }

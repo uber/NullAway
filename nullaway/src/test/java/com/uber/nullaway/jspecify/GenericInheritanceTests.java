@@ -95,7 +95,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore
+  @Ignore("TODO file a separate issue on this one")
   @Test
   public void withClasses() {
     makeHelper()
