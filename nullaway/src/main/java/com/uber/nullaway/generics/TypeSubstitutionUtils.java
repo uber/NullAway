@@ -157,18 +157,7 @@ public class TypeSubstitutionUtils {
      * @return the updated type, or {@code null} if no updates were made
      */
     private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
-      Attribute.TypeCompound typeArgAnnot =
-          (Attribute.TypeCompound) nullableTypeVarsViaTypeArgs.get(other.tsym);
-      if (typeArgAnnot != null) {
-        // TODO should probably detect @NonNull also??
-        // Construct and return an updated version of t with annotation annot.
-        List<Attribute.TypeCompound> annotationCompound =
-            List.from(
-                Collections.singletonList(
-                    new Attribute.TypeCompound(typeArgAnnot.type, List.nil(), null)));
-        TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
-        return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
-      }
+      // first check for annotations directly on the type variable
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
           continue;
@@ -184,6 +173,19 @@ public class TypeSubstitutionUtils {
           TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
           return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
         }
+      }
+      // then see if any annotations were added from the type arguments
+      Attribute.TypeCompound typeArgAnnot =
+          (Attribute.TypeCompound) nullableTypeVarsViaTypeArgs.get(other.tsym);
+      if (typeArgAnnot != null) {
+        // Construct and return an updated version of t with annotation annot.
+        // TODO remove copy paste
+        List<Attribute.TypeCompound> annotationCompound =
+            List.from(
+                Collections.singletonList(
+                    new Attribute.TypeCompound(typeArgAnnot.type, List.nil(), null)));
+        TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
+        return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
       }
       return null;
     }

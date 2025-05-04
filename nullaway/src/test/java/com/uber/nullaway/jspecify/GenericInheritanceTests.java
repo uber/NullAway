@@ -154,6 +154,33 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void annotOnTypeVarStillWins() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NonNull;",
+            "",
+            "@NullMarked",
+            "class Foo {",
+            "  interface Supplier<T extends @Nullable Object> {",
+            "    @NonNull T get();",
+            "  }",
+            "",
+            "  interface SubSupplier<T2 extends @Nullable Object> extends Supplier<@Nullable T2> {}",
+            "",
+            "  static void helper(SubSupplier<Foo> sup) {}",
+            "",
+            "  static void main() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    helper(() -> null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
