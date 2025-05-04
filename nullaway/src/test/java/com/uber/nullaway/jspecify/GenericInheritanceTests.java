@@ -3,6 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class GenericInheritanceTests extends NullAwayTestsBase {
@@ -58,6 +59,95 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
             "      extends BiSupplier<@Nullable V2, K2> {}",
             "  static void helper(FlippedSupplier<String, String> sup) {}",
             "  static void main() {",
+            "    helper(() -> null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void multiLevel() {
+    makeHelper()
+        .addSourceLines(
+            "Chain.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Chain {",
+            "  interface Base<T extends @Nullable Object> {",
+            "    T get();",
+            "  }",
+            "  interface Level1<U extends @Nullable Object>",
+            "      extends Base<U> {}",
+            "  interface Level2<V extends @Nullable Object>",
+            "      extends Level1<V> {}",
+            "  interface Level3<W extends @Nullable Object>",
+            "      extends Level2<@Nullable W> {}",
+            "  static void helperNegative(Level3<Foo> sup) {}",
+            "  static void helperPositive(Level2<Foo> sup) {}",
+            "  static final class Foo {}",
+            "  public static void main(String[] args) {",
+            "    helperNegative(() -> null);",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    helperPositive(() -> null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore
+  @Test
+  public void withClasses() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "  interface Supplier<T extends @Nullable Object> {",
+            "    T get();",
+            "  }",
+            "  static class SupplierImpl<T2 extends @Nullable Object> implements Supplier<T2> {",
+            "    Supplier<T2> impl;",
+            "    SupplierImpl(Supplier<T2> delegate) {",
+            "      impl = delegate;",
+            "    }",
+            "    @Override",
+            "    public T2 get() {",
+            "      return impl.get();",
+            "    }",
+            "  }",
+            "  static class ConcreteImpl extends SupplierImpl<@Nullable Foo> {",
+            "    ConcreteImpl(Supplier<@Nullable Foo> delegate) {",
+            "      super(delegate);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nonnullInExtends() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NonNull;",
+            "",
+            "@NullMarked",
+            "class Foo {",
+            "  interface Supplier<T extends @Nullable Object> {",
+            "    T get();",
+            "  }",
+            "",
+            "  interface SubSupplier<T2 extends @Nullable Object> extends Supplier<@NonNull T2> {}",
+            "",
+            "  static void helper(SubSupplier<@Nullable Foo> sup) {}",
+            "",
+            "  static void main() {",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    helper(() -> null);",
             "  }",
             "}")
