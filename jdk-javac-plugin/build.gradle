@@ -1,0 +1,18 @@
+plugins {
+    // use java-library if you plan to publish this as a library
+    id 'java'
+}
+
+//jar {
+//    manifest {
+//        attributes(
+//                'Implementation-Title': 'HelloPlugin',
+//                'Implementation-Version': version,
+//                'Built-By': System.getProperty('user.name')
+//        )
+//    }
+//    // Ensure the service file is packaged:
+//    from(sourceSets.main.resources) {
+//        include 'META-INF/services/com.sun.source.util.Plugin'
+//    }
+//}
