@@ -54,8 +54,8 @@ public final class GenericsChecks {
    * from type variables for the method to their inferred type arguments (most importantly with
    * inferred nullability information).
    */
-  private final Map<MethodInvocationTree, Map<TypeVariable, Type>>
-      inferredSubstitutionsForGenericMethodCalls = new LinkedHashMap<>();
+  private final Map<Tree, Map<TypeVariable, Type>> inferredSubstitutionsForGenericMethodCalls =
+      new LinkedHashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -1040,10 +1040,9 @@ public final class GenericsChecks {
           || invokedMethodSymbol.isStatic()) {
         return Nullness.NONNULL;
       }
-    } else if (!(tree instanceof NewClassTree) || invokedMethodSymbol.isStatic()) {
-      return Nullness.NONNULL;
     }
 
+    // get type arguments based on if it's a an instance method or constructor
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree) {
       enclosingType =

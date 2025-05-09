@@ -2365,6 +2365,26 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void newNullableWithArgAndConstructorType() {
+    makeHelper()
+        .addSourceLines(
+            "Holder.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Holder {",
+            "  String s;",
+            "  public <U extends @Nullable Object> Holder(U value) {",
+            "    s = String.valueOf(value);",
+            "  }",
+            "  static Holder make() {",
+            "    return new <@Nullable String>Holder(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1156() {
     makeHelper()
         .addSourceLines(
