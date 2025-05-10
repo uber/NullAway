@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
@@ -1042,7 +1043,6 @@ public final class GenericsChecks {
       }
     }
 
-    // get type arguments based on if it's a an instance method or constructor
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree) {
       enclosingType =
@@ -1050,9 +1050,11 @@ public final class GenericsChecks {
               ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression(),
               config);
 
-    } else if (tree instanceof NewClassTree) {
-      NewClassTree newClassTree = (NewClassTree) tree;
-      enclosingType = getTreeType(newClassTree, config);
+    } else {
+      Verify.verify(tree instanceof NewClassTree);
+      // for a constructor invocation, the type from the invocation itself is the "enclosing type"
+      // for the purposes of determining type arguments
+      enclosingType = getTreeType(tree, config);
     }
 
     return getGenericMethodParameterNullness(

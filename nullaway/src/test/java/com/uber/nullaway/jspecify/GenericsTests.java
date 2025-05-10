@@ -2324,7 +2324,7 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore
+  @Ignore("https://github.com/uber/NullAway/issues/1155")
   @Test
   public void callWithConstructorReceiver() {
     makeHelper()
@@ -2377,8 +2377,12 @@ public class GenericsTests extends NullAwayTestsBase {
             "  public <U extends @Nullable Object> Holder(U value) {",
             "    s = String.valueOf(value);",
             "  }",
-            "  static Holder make() {",
+            "  static Holder testNegative() {",
             "    return new <@Nullable String>Holder(null);",
+            "  }",
+            "  static Holder testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    return new <String>Holder(null);",
             "  }",
             "}")
         .doTest();
