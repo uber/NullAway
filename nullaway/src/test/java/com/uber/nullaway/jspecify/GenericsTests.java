@@ -2389,6 +2389,36 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void lambdaToNewNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "    interface Supplier<T extends @Nullable Object> {",
+            "        T get();",
+            "    }",
+            "    static class SupplierImpl<T2 extends @Nullable Object> implements Supplier<T2> {",
+            "        Supplier<T2> impl;",
+            "        SupplierImpl(Supplier<T2> delegate) {",
+            "            impl = delegate;",
+            "        }",
+            "        @Override",
+            "        public T2 get() {",
+            "            return impl.get();",
+            "        }",
+            "    }",
+            "    static void main() {",
+            "        Supplier<@Nullable Foo> sup = () -> null;",
+            "        new SupplierImpl<@Nullable Foo>(sup);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1156() {
     makeHelper()
         .addSourceLines(
