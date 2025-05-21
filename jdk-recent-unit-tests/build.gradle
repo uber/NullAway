@@ -42,6 +42,7 @@ dependencies {
     testImplementation deps.test.jsr305Annotations
     testModulePath deps.test.cfQual
     testModulePath deps.build.jspecify
+    testModulePath project(":test-java-module")
 }
 
 tasks.withType(Test).configureEach { test ->
@@ -65,4 +66,5 @@ tasks.getByName('test').configure {
     onlyIf {
         deps.versions.errorProneApi == deps.versions.errorProneLatest
     }
+    dependsOn ':test-java-module:jar'
 }

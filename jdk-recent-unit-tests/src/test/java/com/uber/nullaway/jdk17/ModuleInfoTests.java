@@ -98,4 +98,34 @@ public class ModuleInfoTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void fromBytecode() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "module-info.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "module com.example.myapp {",
+            "    requires java.base;",
+            "    requires org.jspecify;",
+            "    requires com.uber.test.java.module;",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import com.example.nullmarked.NullMarkedFromModule;",
+            "import com.example.nullunmarked.NullUnmarkedFromPackage;",
+            "@NullMarked",
+            "class Test {",
+            "  void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    NullMarkedFromModule.takesNonNull(null);",
+            "  }",
+            "  void testNegative() {",
+            "    NullUnmarkedFromPackage.takesAny(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
