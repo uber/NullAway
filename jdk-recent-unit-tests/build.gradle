@@ -41,6 +41,7 @@ dependencies {
     }
     testImplementation deps.test.jsr305Annotations
     testModulePath deps.test.cfQual
+    testModulePath deps.build.jspecify
 }
 
 tasks.withType(Test).configureEach { test ->

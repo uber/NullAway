@@ -44,4 +44,58 @@ public class ModuleInfoTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void nullmarkedModule() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "module-info.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "module com.example.myapp {",
+            "    exports com.example.myapp;",
+            "    requires java.base;",
+            "    requires org.jspecify;",
+            "}")
+        .addSourceLines(
+            "com/example/myapp/Test.java",
+            "package com.example.myapp;",
+            "public class Test {",
+            "  public static void main(String[] args) {",
+            "    String s = null;",
+            "    // BUG: Diagnostic contains: dereferenced expression s is @Nullable",
+            "    s.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullUnmarkedPackageInNullMarkedModule() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "module-info.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "module com.example.myapp {",
+            "    exports com.example.myapp;",
+            "    requires java.base;",
+            "    requires org.jspecify;",
+            "}")
+        .addSourceLines(
+            "com/example/myapp/package-info.java",
+            "@NullUnmarked package com.example.myapp;",
+            "import org.jspecify.annotations.NullUnmarked;")
+        .addSourceLines(
+            "com/example/myapp/Test.java",
+            "package com.example.myapp;",
+            "public class Test {",
+            "  public static void main(String[] args) {",
+            "    String s = null;",
+            "    // no error since @NullUnmarked is in effect",
+            "    s.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
