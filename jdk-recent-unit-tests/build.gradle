@@ -66,5 +66,6 @@ tasks.getByName('test').configure {
     onlyIf {
         deps.versions.errorProneApi == deps.versions.errorProneLatest
     }
+    // we need this since we don't have an implementation / api dependence on test-java-module
     dependsOn ':test-java-module:jar'
 }
