@@ -71,7 +71,7 @@ public final class CodeAnnotationInfo {
   /**
    * Checks if a symbol comes from an annotated package, as determined by either configuration flags
    * (e.g. {@code -XepOpt:NullAway::AnnotatedPackages}) or package level annotations (e.g. {@code
-   * org.jspecify.annotations.NullMarked}).
+   * org.jspecify.annotations.NullMarked}) or module level annotations.
    *
    * @param outermostClassSymbol symbol for class (must be an outermost class)
    * @param config NullAway config
@@ -84,9 +84,7 @@ public final class CodeAnnotationInfo {
     String className = outermostClassSymbol.getQualifiedName().toString();
     Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && !(enclosingPackage != null
-            && hasDirectAnnotationWithSimpleName(
-                enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME))) {
+        && !(enclosingPackage != null && explicitlyNullMarkedPackageOrModule(enclosingPackage))) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
@@ -103,6 +101,18 @@ public final class CodeAnnotationInfo {
     // Finally, if we are here, the code was marked as annotated (either by configuration or
     // @NullMarked) and nothing overrides it.
     return true;
+  }
+
+  private static boolean explicitlyNullMarkedPackageOrModule(
+      Symbol.PackageSymbol enclosingPackage) {
+    if (hasDirectAnnotationWithSimpleName(
+        enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+      return true;
+    }
+    Symbol enclosingModule = enclosingPackage.getEnclosingElement();
+    return enclosingModule != null
+        && hasDirectAnnotationWithSimpleName(
+            enclosingModule, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
   }
 
   /**
