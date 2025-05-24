@@ -2324,6 +2324,70 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("https://github.com/uber/NullAway/issues/1155")
+  @Test
+  public void callWithConstructorReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class Inner<T extends @Nullable Object> {",
+            "    Inner<T> identity() { return this; }",
+            "  }",
+            "  Inner<@Nullable Object> mThing = new Inner<@Nullable Object>().identity();",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newNullableWithArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class Wrapper<T extends @Nullable String> {",
+            "    private final T value;",
+            "    Wrapper(T value) {",
+            "      this.value = value;",
+            "    }",
+            "  }",
+            "  Wrapper<@Nullable String> testConstructorCall() {",
+            "    return new Wrapper<@Nullable String>(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newNullableWithArgAndConstructorType() {
+    makeHelper()
+        .addSourceLines(
+            "Holder.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Holder {",
+            "  String s;",
+            "  public <U extends @Nullable Object> Holder(U value) {",
+            "    s = String.valueOf(value);",
+            "  }",
+            "  static Holder testNegative() {",
+            "    return new <@Nullable String>Holder(null);",
+            "  }",
+            "  static Holder testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    return new <String>Holder(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void issue1156() {
     makeHelper()
