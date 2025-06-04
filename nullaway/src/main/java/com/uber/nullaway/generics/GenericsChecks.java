@@ -703,6 +703,7 @@ public final class GenericsChecks {
 
     // substitute type arguments for constructor call
     if (tree instanceof NewClassTree) {
+      // get the type arguments from the NewClassTree itself
       Type enclosingType = getTreeType(tree, config);
       if (enclosingType != null) {
         invokedMethodType =
