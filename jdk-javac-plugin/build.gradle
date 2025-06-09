@@ -1,6 +1,7 @@
 plugins {
     // use java-library if you plan to publish this as a library
     id 'java'
+    id 'com.github.johnrengelman.shadow'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -19,16 +20,6 @@ tasks.withType(JavaCompile).configureEach {
     ]
 }
 
-//jar {
-//    manifest {
-//        attributes(
-//                'Implementation-Title': 'HelloPlugin',
-//                'Implementation-Version': version,
-//                'Built-By': System.getProperty('user.name')
-//        )
-//    }
-//    // Ensure the service file is packaged:
-//    from(sourceSets.main.resources) {
-//        include 'META-INF/services/com.sun.source.util.Plugin'
-//    }
-//}
+dependencies {
+    implementation 'com.google.code.gson:gson:2.10.1'
+}

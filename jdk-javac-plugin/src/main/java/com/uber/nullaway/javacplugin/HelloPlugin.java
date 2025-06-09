@@ -1,5 +1,7 @@
 package com.uber.nullaway.javacplugin;
 
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
@@ -10,13 +12,39 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
-import java.util.stream.Collectors;
+import java.util.ArrayList;
+import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 
 public class HelloPlugin implements Plugin {
+
+  // Data classes for JSON output
+  static class TypeParamInfo {
+    String name;
+    List<String> annotations;
+    List<String> bounds;
+  }
+
+  static class MethodInfo {
+    String name;
+    boolean nullMarked;
+    boolean nullUnmarked;
+    List<TypeParamInfo> typeParams = new ArrayList<>();
+  }
+
+  static class ClassInfo {
+    String name;
+    String type;
+    boolean nullMarked;
+    boolean nullUnmarked;
+    List<TypeParamInfo> typeParams = new ArrayList<>();
+    List<MethodInfo> methods = new ArrayList<>();
+  }
+
+  private final List<ClassInfo> classes = new ArrayList<>();
 
   @Override
   public String getName() {
@@ -29,99 +57,94 @@ public class HelloPlugin implements Plugin {
     task.addTaskListener(
         new com.sun.source.util.TaskListener() {
           @Override
-          public void started(com.sun.source.util.TaskEvent e) {}
+          public void started(com.sun.source.util.TaskEvent e) {
+            // No need to count compilation units
+          }
 
           @Override
           public void finished(com.sun.source.util.TaskEvent e) {
-            if (e.getKind() != com.sun.source.util.TaskEvent.Kind.ANALYZE) {
-              return;
+            if (e.getKind() == com.sun.source.util.TaskEvent.Kind.ANALYZE) {
+              CompilationUnitTree cu = e.getCompilationUnit();
+              new TreePathScanner<Void, Void>() {
+                ClassInfo currentClass = null;
+
+                @Override
+                public Void visitClass(ClassTree classTree, Void unused) {
+                  Name simpleName = classTree.getSimpleName();
+                  if (simpleName.contentEquals("")) {
+                    return null; // skip anonymous
+                  }
+                  ClassSymbol classSym = (ClassSymbol) trees.getElement(getCurrentPath());
+                  if (classSym.getModifiers().contains(Modifier.PRIVATE)) {
+                    return null; // skip private classes
+                  }
+                  TypeMirror classType = trees.getTypeMirror(getCurrentPath());
+                  boolean hasNullMarked =
+                      hasAnnotation(classSym, "org.jspecify.annotations.NullMarked");
+                  boolean hasNullUnmarked =
+                      hasAnnotation(classSym, "org.jspecify.annotations.NullUnmarked");
+                  currentClass = new ClassInfo();
+                  currentClass.name = simpleName.toString();
+                  currentClass.type = classType.toString();
+                  currentClass.nullMarked = hasNullMarked;
+                  currentClass.nullUnmarked = hasNullUnmarked;
+                  for (TypeParameterTree tp : classTree.getTypeParameters()) {
+                    currentClass.typeParams.add(typeParamInfo(tp));
+                  }
+                  classes.add(currentClass);
+                  super.visitClass(classTree, null);
+                  currentClass = null;
+                  return null;
+                }
+
+                @Override
+                public Void visitMethod(MethodTree methodTree, Void unused) {
+                  MethodSymbol mSym = (MethodSymbol) trees.getElement(getCurrentPath());
+                  if (mSym == null || mSym.getModifiers().contains(Modifier.PRIVATE)) {
+                    return null; // skip private methods
+                  }
+                  boolean hasNullMarked =
+                      hasAnnotation(mSym, "org.jspecify.annotations.NullMarked");
+                  boolean hasNullUnmarked =
+                      hasAnnotation(mSym, "org.jspecify.annotations.NullUnmarked");
+                  MethodInfo methodInfo = new MethodInfo();
+                  methodInfo.name = mSym.toString();
+                  methodInfo.nullMarked = hasNullMarked;
+                  methodInfo.nullUnmarked = hasNullUnmarked;
+                  for (TypeParameterTree tp : methodTree.getTypeParameters()) {
+                    methodInfo.typeParams.add(typeParamInfo(tp));
+                  }
+                  if (currentClass != null) {
+                    currentClass.methods.add(methodInfo);
+                  }
+                  return null;
+                }
+
+                private TypeParamInfo typeParamInfo(TypeParameterTree tp) {
+                  TypeParamInfo info = new TypeParamInfo();
+                  info.name = tp.getName().toString();
+                  info.annotations = new ArrayList<>();
+                  for (var ann : tp.getAnnotations()) {
+                    info.annotations.add(ann.toString());
+                  }
+                  info.bounds = new ArrayList<>();
+                  for (var b : tp.getBounds()) {
+                    info.bounds.add(b.toString());
+                  }
+                  return info;
+                }
+
+                private boolean hasAnnotation(com.sun.tools.javac.code.Symbol sym, String fqn) {
+                  return sym.getAnnotationMirrors().stream()
+                      .map(AnnotationMirror::getAnnotationType)
+                      .map(Object::toString)
+                      .anyMatch(fqn::equals);
+                }
+              }.scan(cu, null);
+            } else if (e.getKind() == com.sun.source.util.TaskEvent.Kind.COMPILATION) {
+              Gson gson = new GsonBuilder().setPrettyPrinting().create();
+              System.out.println(gson.toJson(classes));
             }
-            CompilationUnitTree cu = e.getCompilationUnit();
-            new TreePathScanner<Void, Void>() {
-
-              @Override
-              public Void visitClass(ClassTree classTree, Void unused) {
-                Name simpleName = classTree.getSimpleName();
-                if (simpleName.contentEquals("")) {
-                  return null; // skip anonymous
-                }
-
-                ClassSymbol classSym = (ClassSymbol) trees.getElement(getCurrentPath());
-                if (classSym.getModifiers().contains(Modifier.PRIVATE)) {
-                  return null; // skip private classes
-                }
-
-                TypeMirror classType = trees.getTypeMirror(getCurrentPath());
-                boolean hasNullMarked =
-                    hasAnnotation(classSym, "org.jspecify.annotations.NullMarked");
-                boolean hasNullUnmarked =
-                    hasAnnotation(classSym, "org.jspecify.annotations.NullUnmarked");
-
-                System.out.println(
-                    "Class: "
-                        + simpleName
-                        + "  Type: "
-                        + classType
-                        + "  @NullMarked="
-                        + hasNullMarked
-                        + "  @NullUnmarked="
-                        + hasNullUnmarked);
-
-                // class type‐parameters
-                for (TypeParameterTree tp : classTree.getTypeParameters()) {
-                  System.out.println(formatTypeParam(tp));
-                }
-
-                return super.visitClass(classTree, null);
-              }
-
-              @Override
-              public Void visitMethod(MethodTree methodTree, Void unused) {
-                MethodSymbol mSym = (MethodSymbol) trees.getElement(getCurrentPath());
-                if (mSym == null || mSym.getModifiers().contains(Modifier.PRIVATE)) {
-                  return null; // skip private methods
-                }
-
-                boolean hasNullMarked = hasAnnotation(mSym, "org.jspecify.annotations.NullMarked");
-                boolean hasNullUnmarked =
-                    hasAnnotation(mSym, "org.jspecify.annotations.NullUnmarked");
-
-                System.out.println("  Method: " + mSym);
-                System.out.println(
-                    "    @NullMarked=" + hasNullMarked + "  @NullUnmarked=" + hasNullUnmarked);
-
-                // method type‐parameters (for generic methods)
-                for (TypeParameterTree tp : methodTree.getTypeParameters()) {
-                  System.out.println("    " + formatTypeParam(tp));
-                }
-
-                return null;
-              }
-
-              /** Helper to format a TypeParameterTree with annotations and bounds */
-              private String formatTypeParam(TypeParameterTree tp) {
-                String anns =
-                    tp.getAnnotations().stream()
-                        .map(Object::toString)
-                        .collect(Collectors.joining(" "));
-                String bounds =
-                    tp.getBounds().stream()
-                        .map(Object::toString)
-                        .collect(Collectors.joining(" & "));
-                return "  TypeParameter: <"
-                    + (anns.isEmpty() ? "" : anns + " ")
-                    + tp.getName()
-                    + (bounds.isEmpty() ? "" : " extends " + bounds)
-                    + ">";
-              }
-
-              private boolean hasAnnotation(com.sun.tools.javac.code.Symbol sym, String fqn) {
-                return sym.getAnnotationMirrors().stream()
-                    .map(AnnotationMirror::getAnnotationType)
-                    .map(Object::toString)
-                    .anyMatch(fqn::equals);
-              }
-            }.scan(cu, null);
           }
         });
   }
