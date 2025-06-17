@@ -81,9 +81,8 @@ class MethodNameUtil {
   private static final String NULL_VALUE_MATCHER = "nullValue";
   private static final String INSTANCE_OF_MATCHER = "instanceOf";
 
-  private static final String ASSERTJ_ASSERT_INTERFACE = "org.assertj.core.api.Assert";
   private static final Supplier<Type> ASSERTJ_ASSERT_TYPE_SUPPLIER =
-      Suppliers.typeFromString(ASSERTJ_ASSERT_INTERFACE);
+      Suppliers.typeFromString("org.assertj.core.api.Assert");
 
   // Names of the methods (and their owners) used to identify assertions in this handler. Name used
   // here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
@@ -307,6 +306,15 @@ class MethodNameUtil {
         && methodSymbol.owner.getQualifiedName().equals(toMatchOwnerName);
   }
 
+  /**
+   * Checks if the method is an AssertJ assert method, i.e., it has the same name as
+   * toMatchMethodName and its owner is a subtype of AssertJ's Assert class.
+   *
+   * @param methodSymbol the method symbol to check
+   * @param toMatchMethodName the method name to match
+   * @param state the visitor state
+   * @return {@code true} if the method matches, {@code false} otherwise
+   */
   private boolean matchesAssertJAssertMethod(
       Symbol.MethodSymbol methodSymbol, Name toMatchMethodName, VisitorState state) {
     if (!methodSymbol.name.equals(toMatchMethodName)) {
