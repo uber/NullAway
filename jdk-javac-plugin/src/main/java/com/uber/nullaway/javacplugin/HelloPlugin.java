@@ -12,6 +12,10 @@ import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
 import javax.lang.model.element.AnnotationMirror;
@@ -143,7 +147,14 @@ public class HelloPlugin implements Plugin {
               }.scan(cu, null);
             } else if (e.getKind() == com.sun.source.util.TaskEvent.Kind.COMPILATION) {
               Gson gson = new GsonBuilder().setPrettyPrinting().create();
-              System.out.println(gson.toJson(classes));
+              // write string to file
+              Path p = Paths.get("foo.json");
+              System.out.println(p.toAbsolutePath());
+              try {
+                Files.writeString(p, gson.toJson(classes));
+              } catch (IOException ex) {
+                throw new RuntimeException(ex);
+              }
             }
           }
         });

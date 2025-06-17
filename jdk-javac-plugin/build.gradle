@@ -2,6 +2,7 @@ plugins {
     // use java-library if you plan to publish this as a library
     id 'java'
     id 'com.github.johnrengelman.shadow'
+    id 'nullaway.java-test-conventions'
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -22,4 +23,11 @@ tasks.withType(JavaCompile).configureEach {
 
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
+
+    testImplementation deps.test.junit4
+    testImplementation(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    testImplementation deps.build.jspecify
+
 }
