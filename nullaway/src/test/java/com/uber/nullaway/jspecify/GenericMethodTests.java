@@ -598,6 +598,27 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void firstWithDefaultInference() {
+    makeHelper()
+        .addSourceLines(
+            "Methods.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "@NullMarked",
+            "public class Methods {",
+            "  public static <T extends @Nullable Object> T",
+            "      firstOrDefault(List<T> list, T defaultValue) {",
+            "    return list.isEmpty() ? defaultValue : list.get(0);",
+            "  }",
+            "  static void use(List<@Nullable String> l) {",
+            "      String unused = firstOrDefault(l, \"hi\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
