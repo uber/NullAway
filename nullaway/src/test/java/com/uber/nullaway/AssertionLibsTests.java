@@ -539,7 +539,7 @@ public class AssertionLibsTests extends NullAwayTestsBase {
             "Test.java",
             "import org.jspecify.annotations.*;",
             "import java.util.Collection;",
-            "import static org.assertj.core.api.AssertionsForInterfaceTypes.assertThat;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
             "@NullMarked",
             "class Test {",
             "  void test(@Nullable Collection<String> c) {",
