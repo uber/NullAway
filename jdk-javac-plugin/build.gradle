@@ -29,5 +29,4 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testImplementation deps.build.jspecify
-
 }
