@@ -35,15 +35,14 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testImplementation deps.build.jspecify
+    testImplementation 'com.google.code.gson:gson:2.10.1'
 
     testModulePath deps.build.jspecify
-
 }
 
 tasks.withType(Test).configureEach { test ->
     test.jvmArgs += [
-            // Expose a module path for tests as a JVM property.
-            "-Dtest.module.path=${configurations.testModulePath.asPath}"
+        // Expose a module path for tests as a JVM property.
+        "-Dtest.module.path=${configurations.testModulePath.asPath}"
     ]
 }
-

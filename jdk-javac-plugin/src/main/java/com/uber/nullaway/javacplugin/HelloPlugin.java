@@ -84,7 +84,8 @@ public class HelloPlugin implements Plugin {
                   @SuppressWarnings("ASTHelpersSuggestions")
                   com.sun.tools.javac.code.Symbol s = classSym.packge().getEnclosingElement();
                   String moduleName =
-                      (s instanceof com.sun.tools.javac.code.Symbol.ModuleSymbol)
+                      (s instanceof com.sun.tools.javac.code.Symbol.ModuleSymbol
+                              && !s.getQualifiedName().isEmpty())
                           ? s.getQualifiedName().toString()
                           : "unnamed";
                   if (classSym.getModifiers().contains(Modifier.PRIVATE)) {

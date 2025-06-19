@@ -5,7 +5,13 @@ import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.bugpatterns.BugChecker;
+import java.io.IOException;
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.stream.Stream;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -28,15 +34,16 @@ public class HelloPluginTest {
 
   @Before
   public void setup() {
+    String tempPath = temporaryFolder.getRoot().getAbsolutePath();
     compilationTestHelper =
         CompilationTestHelper.newInstance(DummyChecker.class, getClass())
             .setArgs(
                 Arrays.asList(
                     "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
+                    tempPath,
                     "--module-path",
                     System.getProperty("test.module.path"),
-                    "-Xplugin:HelloPlugin /tmp"));
+                    "-Xplugin:HelloPlugin " + tempPath));
   }
 
   @Test
@@ -48,6 +55,29 @@ public class HelloPluginTest {
             "@NullMarked",
             "class Foo {}")
         .doTest();
+    parseJSONFromTempPath();
+  }
+
+  private void parseJSONFromTempPath() {
+    String tempPath = temporaryFolder.getRoot().getAbsolutePath();
+    // list all json files in the  tempPath
+    try (Stream<Path> stream = Files.list(Paths.get(tempPath))) {
+      stream
+          .filter(path -> path.toString().endsWith(".json"))
+          .forEach(
+              path -> {
+                try {
+                  String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
+                  //                  Gson gson = new GsonBuilder().setPrettyPrinting().create();
+                  //                  System.out.println(gson.toJson(content));
+                  System.out.println(content);
+                } catch (IOException e) {
+                  throw new RuntimeException(e);
+                }
+              });
+    } catch (IOException e) {
+      throw new RuntimeException(e);
+    }
   }
 
   @Test
