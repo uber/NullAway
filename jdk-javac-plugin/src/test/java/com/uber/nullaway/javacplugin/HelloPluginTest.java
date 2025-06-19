@@ -59,43 +59,39 @@ public class HelloPluginTest {
             "@NullMarked",
             "class Foo {}")
         .doTest();
-    parseJSONFromTempPath();
+    Map<String, List<HelloPlugin.ClassInfo>> moduleClasses = getParsedJSON();
+    moduleClasses.forEach(
+        (moduleName, classes) -> {
+          System.out.println("Module: " + moduleName);
+          classes.forEach(
+              classInfo -> {
+                System.out.println("  Class: " + classInfo.name);
+                System.out.println("    NullMarked: " + classInfo.nullMarked);
+                System.out.println("    NullUnmarked: " + classInfo.nullUnmarked);
+              });
+        });
   }
 
-  private void parseJSONFromTempPath() {
+  private Map<String, List<HelloPlugin.ClassInfo>> getParsedJSON() {
     String tempPath = temporaryFolder.getRoot().getAbsolutePath();
     // list all json files in the  tempPath
     try (Stream<Path> stream = Files.list(Paths.get(tempPath))) {
-      stream
+      return stream
           .filter(path -> path.toString().endsWith(".json"))
-          .forEach(
+          .findFirst()
+          .<Map<String, List<HelloPlugin.ClassInfo>>>map(
               path -> {
                 try {
-                  String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-                  // parse content to a Map<String, List<ClassInfo>> using gson
-                  GsonBuilder gsonBuilder = new GsonBuilder();
-                  Map<String, List<HelloPlugin.ClassInfo>> moduleClasses =
-                      gsonBuilder
-                          .create()
-                          .fromJson(
-                              content,
-                              new TypeToken<
-                                  Map<String, List<HelloPlugin.ClassInfo>>>() {}.getType());
-                  // print the moduleClasses
-                  moduleClasses.forEach(
-                      (moduleName, classes) -> {
-                        System.out.println("Module: " + moduleName);
-                        classes.forEach(
-                            classInfo -> {
-                              System.out.println("  Class: " + classInfo.name);
-                              System.out.println("    NullMarked: " + classInfo.nullMarked);
-                              System.out.println("    NullUnmarked: " + classInfo.nullUnmarked);
-                            });
-                      });
+                  return new GsonBuilder()
+                      .create()
+                      .fromJson(
+                          new String(Files.readAllBytes(path), StandardCharsets.UTF_8),
+                          new TypeToken<Map<String, List<HelloPlugin.ClassInfo>>>() {}.getType());
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
-              });
+              })
+          .orElseThrow();
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
