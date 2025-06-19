@@ -32,12 +32,33 @@ public class HelloPluginTest {
         CompilationTestHelper.newInstance(DummyChecker.class, getClass())
             .setArgs(
                 Arrays.asList(
-                    "-d", temporaryFolder.getRoot().getAbsolutePath(), "-Xplugin:HelloPlugin"));
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "--module-path",
+                    System.getProperty("test.module.path"),
+                    "-Xplugin:HelloPlugin /tmp"));
   }
 
   @Test
-  public void test1() {
+  public void nullMarkedClassNoModule() {
     compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "class Foo {}")
+        .doTest();
+  }
+
+  @Test
+  public void nullMarkedClassWithModule() {
+    compilationTestHelper
+        .addSourceLines(
+            "module-info.java",
+            "module com.example {",
+            "    requires java.base;",
+            "    requires org.jspecify;",
+            "}")
         .addSourceLines(
             "Foo.java",
             "import org.jspecify.annotations.NullMarked;",

@@ -21,6 +21,12 @@ tasks.withType(JavaCompile).configureEach {
     ]
 }
 
+configurations {
+    // We use this configuration to expose a module path that can be
+    // used to test analysis of module-info.java files.
+    testModulePath
+}
+
 dependencies {
     implementation 'com.google.code.gson:gson:2.10.1'
 
@@ -29,4 +35,15 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     testImplementation deps.build.jspecify
+
+    testModulePath deps.build.jspecify
+
 }
+
+tasks.withType(Test).configureEach { test ->
+    test.jvmArgs += [
+            // Expose a module path for tests as a JVM property.
+            "-Dtest.module.path=${configurations.testModulePath.asPath}"
+    ]
+}
+

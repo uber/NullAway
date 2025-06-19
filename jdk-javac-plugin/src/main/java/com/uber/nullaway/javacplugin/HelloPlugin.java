@@ -17,7 +17,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.UUID;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
@@ -48,7 +51,8 @@ public class HelloPlugin implements Plugin {
     List<MethodInfo> methods = new ArrayList<>();
   }
 
-  private final List<ClassInfo> classes = new ArrayList<>();
+  // Map from module name to list of classes
+  private final Map<String, List<ClassInfo>> moduleClasses = new HashMap<>();
 
   @Override
   public String getName() {
@@ -57,13 +61,10 @@ public class HelloPlugin implements Plugin {
 
   @Override
   public void init(JavacTask task, String... args) {
+    String outputDir = args[0];
     Trees trees = Trees.instance(task);
     task.addTaskListener(
         new com.sun.source.util.TaskListener() {
-          @Override
-          public void started(com.sun.source.util.TaskEvent e) {
-            // No need to count compilation units
-          }
 
           @Override
           public void finished(com.sun.source.util.TaskEvent e) {
@@ -79,6 +80,13 @@ public class HelloPlugin implements Plugin {
                     return null; // skip anonymous
                   }
                   ClassSymbol classSym = (ClassSymbol) trees.getElement(getCurrentPath());
+                  // Determine module containing this class by walking owner chain
+                  @SuppressWarnings("ASTHelpersSuggestions")
+                  com.sun.tools.javac.code.Symbol s = classSym.packge().getEnclosingElement();
+                  String moduleName =
+                      (s instanceof com.sun.tools.javac.code.Symbol.ModuleSymbol)
+                          ? s.getQualifiedName().toString()
+                          : "unnamed";
                   if (classSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return null; // skip private classes
                   }
@@ -95,7 +103,10 @@ public class HelloPlugin implements Plugin {
                   for (TypeParameterTree tp : classTree.getTypeParameters()) {
                     currentClass.typeParams.add(typeParamInfo(tp));
                   }
-                  classes.add(currentClass);
+                  // Add to moduleClasses map
+                  moduleClasses
+                      .computeIfAbsent(moduleName, k -> new ArrayList<>())
+                      .add(currentClass);
                   super.visitClass(classTree, null);
                   currentClass = null;
                   return null;
@@ -147,11 +158,13 @@ public class HelloPlugin implements Plugin {
               }.scan(cu, null);
             } else if (e.getKind() == com.sun.source.util.TaskEvent.Kind.COMPILATION) {
               Gson gson = new GsonBuilder().setPrettyPrinting().create();
+              // generate unique file name with UUID
+              String jsonFileName = "classes-" + UUID.randomUUID() + ".json";
               // write string to file
-              Path p = Paths.get("foo.json");
+              Path p = Paths.get(outputDir, jsonFileName);
               System.out.println(p.toAbsolutePath());
               try {
-                Files.writeString(p, gson.toJson(classes));
+                Files.writeString(p, gson.toJson(moduleClasses));
               } catch (IOException ex) {
                 throw new RuntimeException(ex);
               }
