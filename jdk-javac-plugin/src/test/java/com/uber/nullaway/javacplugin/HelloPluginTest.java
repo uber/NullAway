@@ -2,15 +2,19 @@ package com.uber.nullaway.javacplugin;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 
+import com.google.common.reflect.TypeToken;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.gson.GsonBuilder;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 import org.junit.Before;
 import org.junit.Rule;
@@ -68,9 +72,26 @@ public class HelloPluginTest {
               path -> {
                 try {
                   String content = new String(Files.readAllBytes(path), StandardCharsets.UTF_8);
-                  //                  Gson gson = new GsonBuilder().setPrettyPrinting().create();
-                  //                  System.out.println(gson.toJson(content));
-                  System.out.println(content);
+                  // parse content to a Map<String, List<ClassInfo>> using gson
+                  GsonBuilder gsonBuilder = new GsonBuilder();
+                  Map<String, List<HelloPlugin.ClassInfo>> moduleClasses =
+                      gsonBuilder
+                          .create()
+                          .fromJson(
+                              content,
+                              new TypeToken<
+                                  Map<String, List<HelloPlugin.ClassInfo>>>() {}.getType());
+                  // print the moduleClasses
+                  moduleClasses.forEach(
+                      (moduleName, classes) -> {
+                        System.out.println("Module: " + moduleName);
+                        classes.forEach(
+                            classInfo -> {
+                              System.out.println("  Class: " + classInfo.name);
+                              System.out.println("    NullMarked: " + classInfo.nullMarked);
+                              System.out.println("    NullUnmarked: " + classInfo.nullUnmarked);
+                            });
+                      });
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }
