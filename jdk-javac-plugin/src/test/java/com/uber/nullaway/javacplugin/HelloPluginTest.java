@@ -1,6 +1,7 @@
 package com.uber.nullaway.javacplugin;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
+import static org.assertj.core.api.Assertions.assertThat;
 
 import com.google.common.reflect.TypeToken;
 import com.google.errorprone.BugPattern;
@@ -60,16 +61,48 @@ public class HelloPluginTest {
             "class Foo {}")
         .doTest();
     Map<String, List<HelloPlugin.ClassInfo>> moduleClasses = getParsedJSON();
-    moduleClasses.forEach(
-        (moduleName, classes) -> {
-          System.out.println("Module: " + moduleName);
-          classes.forEach(
-              classInfo -> {
-                System.out.println("  Class: " + classInfo.name);
-                System.out.println("    NullMarked: " + classInfo.nullMarked);
-                System.out.println("    NullUnmarked: " + classInfo.nullUnmarked);
-              });
-        });
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new HelloPlugin.ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(new HelloPlugin.MethodInfo("Foo()", false, false, List.of()))))));
+  }
+
+  @Test
+  public void nullMarkedClassWithModule() {
+    compilationTestHelper
+        .addSourceLines(
+            "module-info.java",
+            "module com.example {",
+            "    requires java.base;",
+            "    requires org.jspecify;",
+            "}")
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "class Foo {}")
+        .doTest();
+    Map<String, List<HelloPlugin.ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "com.example",
+                List.of(
+                    new HelloPlugin.ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(new HelloPlugin.MethodInfo("Foo()", false, false, List.of()))))));
   }
 
   private Map<String, List<HelloPlugin.ClassInfo>> getParsedJSON() {
@@ -95,22 +128,5 @@ public class HelloPluginTest {
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
-  }
-
-  @Test
-  public void nullMarkedClassWithModule() {
-    compilationTestHelper
-        .addSourceLines(
-            "module-info.java",
-            "module com.example {",
-            "    requires java.base;",
-            "    requires org.jspecify;",
-            "}")
-        .addSourceLines(
-            "Foo.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "@NullMarked",
-            "class Foo {}")
-        .doTest();
   }
 }

@@ -5,6 +5,12 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+// Use JDK 21 for this module, via a toolchain
+// We must null out sourceCompatibility and targetCompatibility to use toolchains.
+java.sourceCompatibility = null
+java.targetCompatibility = null
+java.toolchain.languageVersion.set JavaLanguageVersion.of(21)
+
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += [
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
@@ -36,6 +42,7 @@ dependencies {
     }
     testImplementation deps.build.jspecify
     testImplementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation deps.test.assertJ
 
     testModulePath deps.build.jspecify
 }

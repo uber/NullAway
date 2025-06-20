@@ -29,27 +29,18 @@ import javax.lang.model.type.TypeMirror;
 public class HelloPlugin implements Plugin {
 
   // Data classes for JSON output
-  static class TypeParamInfo {
-    String name;
-    List<String> annotations;
-    List<String> bounds;
-  }
+  static record TypeParamInfo(String name, List<String> annotations, List<String> bounds) {}
 
-  static class MethodInfo {
-    String name;
-    boolean nullMarked;
-    boolean nullUnmarked;
-    List<TypeParamInfo> typeParams = new ArrayList<>();
-  }
+  static record MethodInfo(
+      String name, boolean nullMarked, boolean nullUnmarked, List<TypeParamInfo> typeParams) {}
 
-  static class ClassInfo {
-    String name;
-    String type;
-    boolean nullMarked;
-    boolean nullUnmarked;
-    List<TypeParamInfo> typeParams = new ArrayList<>();
-    List<MethodInfo> methods = new ArrayList<>();
-  }
+  static record ClassInfo(
+      String name,
+      String type,
+      boolean nullMarked,
+      boolean nullUnmarked,
+      List<TypeParamInfo> typeParams,
+      List<MethodInfo> methods) {}
 
   // Map from module name to list of classes
   private final Map<String, List<ClassInfo>> moduleClasses = new HashMap<>();
@@ -96,15 +87,22 @@ public class HelloPlugin implements Plugin {
                       hasAnnotation(classSym, "org.jspecify.annotations.NullMarked");
                   boolean hasNullUnmarked =
                       hasAnnotation(classSym, "org.jspecify.annotations.NullUnmarked");
-                  currentClass = new ClassInfo();
-                  currentClass.name = simpleName.toString();
-                  currentClass.type = classType.toString();
-                  currentClass.nullMarked = hasNullMarked;
-                  currentClass.nullUnmarked = hasNullUnmarked;
+                  // build type parameters list
+                  List<TypeParamInfo> classTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : classTree.getTypeParameters()) {
-                    currentClass.typeParams.add(typeParamInfo(tp));
+                    classTypeParams.add(typeParamInfo(tp));
                   }
-                  // Add to moduleClasses map
+                  // prepare methods list
+                  List<MethodInfo> classMethods = new ArrayList<>();
+                  // create immutable ClassInfo record
+                  currentClass =
+                      new ClassInfo(
+                          simpleName.toString(),
+                          classType.toString(),
+                          hasNullMarked,
+                          hasNullUnmarked,
+                          classTypeParams,
+                          classMethods);
                   moduleClasses
                       .computeIfAbsent(moduleName, k -> new ArrayList<>())
                       .add(currentClass);
@@ -123,31 +121,31 @@ public class HelloPlugin implements Plugin {
                       hasAnnotation(mSym, "org.jspecify.annotations.NullMarked");
                   boolean hasNullUnmarked =
                       hasAnnotation(mSym, "org.jspecify.annotations.NullUnmarked");
-                  MethodInfo methodInfo = new MethodInfo();
-                  methodInfo.name = mSym.toString();
-                  methodInfo.nullMarked = hasNullMarked;
-                  methodInfo.nullUnmarked = hasNullUnmarked;
+                  // build method type parameters list
+                  List<TypeParamInfo> methodTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : methodTree.getTypeParameters()) {
-                    methodInfo.typeParams.add(typeParamInfo(tp));
+                    methodTypeParams.add(typeParamInfo(tp));
                   }
+                  MethodInfo methodInfo =
+                      new MethodInfo(
+                          mSym.toString(), hasNullMarked, hasNullUnmarked, methodTypeParams);
                   if (currentClass != null) {
-                    currentClass.methods.add(methodInfo);
+                    currentClass.methods().add(methodInfo);
                   }
                   return null;
                 }
 
                 private TypeParamInfo typeParamInfo(TypeParameterTree tp) {
-                  TypeParamInfo info = new TypeParamInfo();
-                  info.name = tp.getName().toString();
-                  info.annotations = new ArrayList<>();
+                  String name = tp.getName().toString();
+                  List<String> annotations = new ArrayList<>();
                   for (var ann : tp.getAnnotations()) {
-                    info.annotations.add(ann.toString());
+                    annotations.add(ann.toString());
                   }
-                  info.bounds = new ArrayList<>();
+                  List<String> bounds = new ArrayList<>();
                   for (var b : tp.getBounds()) {
-                    info.bounds.add(b.toString());
+                    bounds.add(b.toString());
                   }
-                  return info;
+                  return new TypeParamInfo(name, annotations, bounds);
                 }
 
                 private boolean hasAnnotation(com.sun.tools.javac.code.Symbol sym, String fqn) {
