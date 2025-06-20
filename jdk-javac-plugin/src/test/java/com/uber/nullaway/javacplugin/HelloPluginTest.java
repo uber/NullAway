@@ -8,6 +8,8 @@ import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.gson.GsonBuilder;
+import com.uber.nullaway.javacplugin.HelloPlugin.ClassInfo;
+import com.uber.nullaway.javacplugin.HelloPlugin.MethodInfo;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -60,19 +62,19 @@ public class HelloPluginTest {
             "@NullMarked",
             "class Foo {}")
         .doTest();
-    Map<String, List<HelloPlugin.ClassInfo>> moduleClasses = getParsedJSON();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
         .containsExactlyEntriesOf(
             Map.of(
                 "unnamed",
                 List.of(
-                    new HelloPlugin.ClassInfo(
+                    new ClassInfo(
                         "Foo",
                         "Foo",
                         true,
                         false,
                         List.of(),
-                        List.of(new HelloPlugin.MethodInfo("Foo()", false, false, List.of()))))));
+                        List.of(new MethodInfo("Foo()", false, false, List.of()))))));
   }
 
   @Test
@@ -90,36 +92,104 @@ public class HelloPluginTest {
             "@NullMarked",
             "class Foo {}")
         .doTest();
-    Map<String, List<HelloPlugin.ClassInfo>> moduleClasses = getParsedJSON();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
         .containsExactlyEntriesOf(
             Map.of(
                 "com.example",
                 List.of(
-                    new HelloPlugin.ClassInfo(
+                    new ClassInfo(
                         "Foo",
                         "Foo",
                         true,
                         false,
                         List.of(),
-                        List.of(new HelloPlugin.MethodInfo("Foo()", false, false, List.of()))))));
+                        List.of(new MethodInfo("Foo()", false, false, List.of()))))));
   }
 
-  private Map<String, List<HelloPlugin.ClassInfo>> getParsedJSON() {
+  @Test
+  public void privateMethodsExcluded() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "class Foo {",
+            "  void publicMethod() {}",
+            "  private void privateMethod() {}",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo("Foo()", false, false, List.of()),
+                            new MethodInfo("publicMethod()", false, false, List.of()))))));
+  }
+
+  @Test
+  public void innerAndAnonymousClasses() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Foo {",
+            "  @NullUnmarked",
+            "  class Inner { }",
+            "  void method() {",
+            "    Runnable r = new Runnable() { public void run() {} };",
+            "  }",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo("Foo()", false, false, List.of()),
+                            new MethodInfo("method()", false, false, List.of()))),
+                    new ClassInfo(
+                        "Inner",
+                        "Foo.Inner",
+                        false,
+                        true,
+                        List.of(),
+                        List.of(new MethodInfo("Inner()", false, false, List.of()))))));
+  }
+
+  private Map<String, List<ClassInfo>> getParsedJSON() {
     String tempPath = temporaryFolder.getRoot().getAbsolutePath();
     // list all json files in the  tempPath
     try (Stream<Path> stream = Files.list(Paths.get(tempPath))) {
       return stream
           .filter(path -> path.toString().endsWith(".json"))
           .findFirst()
-          .<Map<String, List<HelloPlugin.ClassInfo>>>map(
+          .<Map<String, List<ClassInfo>>>map(
               path -> {
                 try {
                   return new GsonBuilder()
                       .create()
                       .fromJson(
                           new String(Files.readAllBytes(path), StandardCharsets.UTF_8),
-                          new TypeToken<Map<String, List<HelloPlugin.ClassInfo>>>() {}.getType());
+                          new TypeToken<Map<String, List<ClassInfo>>>() {}.getType());
                 } catch (IOException e) {
                   throw new RuntimeException(e);
                 }

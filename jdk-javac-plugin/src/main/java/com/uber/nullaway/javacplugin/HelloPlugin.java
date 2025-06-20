@@ -16,7 +16,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -29,12 +31,12 @@ import javax.lang.model.type.TypeMirror;
 public class HelloPlugin implements Plugin {
 
   // Data classes for JSON output
-  static record TypeParamInfo(String name, List<String> annotations, List<String> bounds) {}
+  record TypeParamInfo(String name, List<String> annotations, List<String> bounds) {}
 
-  static record MethodInfo(
+  record MethodInfo(
       String name, boolean nullMarked, boolean nullUnmarked, List<TypeParamInfo> typeParams) {}
 
-  static record ClassInfo(
+  record ClassInfo(
       String name,
       String type,
       boolean nullMarked,
@@ -62,6 +64,7 @@ public class HelloPlugin implements Plugin {
             if (e.getKind() == com.sun.source.util.TaskEvent.Kind.ANALYZE) {
               CompilationUnitTree cu = e.getCompilationUnit();
               new TreePathScanner<Void, Void>() {
+                Deque<ClassInfo> classStack = new ArrayDeque<>();
                 ClassInfo currentClass = null;
 
                 @Override
@@ -87,14 +90,17 @@ public class HelloPlugin implements Plugin {
                       hasAnnotation(classSym, "org.jspecify.annotations.NullMarked");
                   boolean hasNullUnmarked =
                       hasAnnotation(classSym, "org.jspecify.annotations.NullUnmarked");
-                  // build type parameters list
+                  // push previous class context
+                  if (currentClass != null) {
+                    // save current class context
+                    classStack.push(currentClass);
+                  }
+                  // build new class context
                   List<TypeParamInfo> classTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : classTree.getTypeParameters()) {
                     classTypeParams.add(typeParamInfo(tp));
                   }
-                  // prepare methods list
                   List<MethodInfo> classMethods = new ArrayList<>();
-                  // create immutable ClassInfo record
                   currentClass =
                       new ClassInfo(
                           simpleName.toString(),
@@ -107,15 +113,16 @@ public class HelloPlugin implements Plugin {
                       .computeIfAbsent(moduleName, k -> new ArrayList<>())
                       .add(currentClass);
                   super.visitClass(classTree, null);
-                  currentClass = null;
+                  // restore previous class context
+                  currentClass = !classStack.isEmpty() ? classStack.pop() : null;
                   return null;
                 }
 
                 @Override
                 public Void visitMethod(MethodTree methodTree, Void unused) {
                   MethodSymbol mSym = (MethodSymbol) trees.getElement(getCurrentPath());
-                  if (mSym == null || mSym.getModifiers().contains(Modifier.PRIVATE)) {
-                    return null; // skip private methods
+                  if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
+                    return super.visitMethod(methodTree, null);
                   }
                   boolean hasNullMarked =
                       hasAnnotation(mSym, "org.jspecify.annotations.NullMarked");
@@ -132,7 +139,7 @@ public class HelloPlugin implements Plugin {
                   if (currentClass != null) {
                     currentClass.methods().add(methodInfo);
                   }
-                  return null;
+                  return super.visitMethod(methodTree, null);
                 }
 
                 private TypeParamInfo typeParamInfo(TypeParameterTree tp) {
