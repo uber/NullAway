@@ -146,6 +146,7 @@ public class HelloPluginTest {
             "class Foo {",
             "  @NullUnmarked",
             "  class Inner { }",
+            "  private class PrivateInner { }",
             "  void method() {",
             "    Runnable r = new Runnable() { public void run() {} };",
             "  }",

@@ -74,14 +74,12 @@ public class HelloPlugin implements Plugin {
                     return null; // skip anonymous
                   }
                   ClassSymbol classSym = (ClassSymbol) trees.getElement(getCurrentPath());
-                  // Determine module containing this class by walking owner chain
                   @SuppressWarnings("ASTHelpersSuggestions")
-                  com.sun.tools.javac.code.Symbol s = classSym.packge().getEnclosingElement();
                   String moduleName =
-                      (s instanceof com.sun.tools.javac.code.Symbol.ModuleSymbol
-                              && !s.getQualifiedName().isEmpty())
-                          ? s.getQualifiedName().toString()
-                          : "unnamed";
+                      classSym.packge().getEnclosingElement().getQualifiedName().toString();
+                  if (moduleName.isEmpty()) { // unnamed module
+                    moduleName = "unnamed";
+                  }
                   if (classSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return null; // skip private classes
                   }
