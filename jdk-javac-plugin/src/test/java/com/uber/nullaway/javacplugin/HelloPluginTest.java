@@ -10,6 +10,7 @@ import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.gson.GsonBuilder;
 import com.uber.nullaway.javacplugin.HelloPlugin.ClassInfo;
 import com.uber.nullaway.javacplugin.HelloPlugin.MethodInfo;
+import com.uber.nullaway.javacplugin.HelloPlugin.TypeParamInfo;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -174,6 +175,40 @@ public class HelloPluginTest {
                         true,
                         List.of(),
                         List.of(new MethodInfo("Inner()", false, false, List.of()))))));
+  }
+
+  @Test
+  public void typeParameters() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Foo<T extends @Nullable Object> {",
+            "  public <U extends @Nullable Object> U make(U u) { throw new RuntimeException(); }",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo<T>",
+                        true,
+                        false,
+                        List.of(new TypeParamInfo("T", List.of(), List.of("@Nullable Object"))),
+                        List.of(
+                            new MethodInfo("Foo()", false, false, List.of()),
+                            new MethodInfo(
+                                "<U>make(U)",
+                                false,
+                                false,
+                                List.of(
+                                    new TypeParamInfo(
+                                        "U", List.of(), List.of("@Nullable Object")))))))));
   }
 
   private Map<String, List<ClassInfo>> getParsedJSON() {
