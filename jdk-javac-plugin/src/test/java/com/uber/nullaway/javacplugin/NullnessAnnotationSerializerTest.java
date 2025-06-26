@@ -199,16 +199,14 @@ public class NullnessAnnotationSerializerTest {
                         "Foo<T>",
                         true,
                         false,
-                        List.of(new TypeParamInfo("T", List.of(), List.of("@Nullable Object"))),
+                        List.of(new TypeParamInfo("T", List.of("@Nullable Object"))),
                         List.of(
                             new MethodInfo("Foo()", false, false, List.of()),
                             new MethodInfo(
                                 "<U>make(U)",
                                 false,
                                 false,
-                                List.of(
-                                    new TypeParamInfo(
-                                        "U", List.of(), List.of("@Nullable Object")))))))));
+                                List.of(new TypeParamInfo("U", List.of("@Nullable Object")))))))));
   }
 
   private Map<String, List<ClassInfo>> getParsedJSON() {

@@ -28,10 +28,17 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 
+/**
+ * A Javac plugin that serializes nullness annotations from Java source files into a JSON file.
+ * Primarily intended for serializing annotations from the JSpecify JDK models.
+ */
 public class NullnessAnnotationSerializer implements Plugin {
 
+  private static final String NULLMARKED_NAME = "org.jspecify.annotations.NullMarked";
+  private static final String NULLUNMARKED_NAME = "org.jspecify.annotations.NullUnmarked";
+
   // Data classes for JSON output
-  record TypeParamInfo(String name, List<String> annotations, List<String> bounds) {}
+  record TypeParamInfo(String name, List<String> bounds) {}
 
   record MethodInfo(
       String name, boolean nullMarked, boolean nullUnmarked, List<TypeParamInfo> typeParams) {}
@@ -44,7 +51,7 @@ public class NullnessAnnotationSerializer implements Plugin {
       List<TypeParamInfo> typeParams,
       List<MethodInfo> methods) {}
 
-  // Map from module name to list of classes
+  /** Map from module name to information for classes in that module. */
   private final Map<String, List<ClassInfo>> moduleClasses = new HashMap<>();
 
   @Override
@@ -84,10 +91,8 @@ public class NullnessAnnotationSerializer implements Plugin {
                     return null; // skip private classes
                   }
                   TypeMirror classType = trees.getTypeMirror(getCurrentPath());
-                  boolean hasNullMarked =
-                      hasAnnotation(classSym, "org.jspecify.annotations.NullMarked");
-                  boolean hasNullUnmarked =
-                      hasAnnotation(classSym, "org.jspecify.annotations.NullUnmarked");
+                  boolean hasNullMarked = hasAnnotation(classSym, NULLMARKED_NAME);
+                  boolean hasNullUnmarked = hasAnnotation(classSym, NULLUNMARKED_NAME);
                   // push previous class context
                   if (currentClass != null) {
                     // save current class context
@@ -122,10 +127,8 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return super.visitMethod(methodTree, null);
                   }
-                  boolean hasNullMarked =
-                      hasAnnotation(mSym, "org.jspecify.annotations.NullMarked");
-                  boolean hasNullUnmarked =
-                      hasAnnotation(mSym, "org.jspecify.annotations.NullUnmarked");
+                  boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
+                  boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
                   // build method type parameters list
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : methodTree.getTypeParameters()) {
@@ -142,15 +145,11 @@ public class NullnessAnnotationSerializer implements Plugin {
 
                 private TypeParamInfo typeParamInfo(TypeParameterTree tp) {
                   String name = tp.getName().toString();
-                  List<String> annotations = new ArrayList<>();
-                  for (var ann : tp.getAnnotations()) {
-                    annotations.add(ann.toString());
-                  }
                   List<String> bounds = new ArrayList<>();
                   for (var b : tp.getBounds()) {
                     bounds.add(b.toString());
                   }
-                  return new TypeParamInfo(name, annotations, bounds);
+                  return new TypeParamInfo(name, bounds);
                 }
 
                 private boolean hasAnnotation(com.sun.tools.javac.code.Symbol sym, String fqn) {
@@ -162,11 +161,8 @@ public class NullnessAnnotationSerializer implements Plugin {
               }.scan(cu, null);
             } else if (e.getKind() == com.sun.source.util.TaskEvent.Kind.COMPILATION) {
               Gson gson = new GsonBuilder().setPrettyPrinting().create();
-              // generate unique file name with UUID
               String jsonFileName = "classes-" + UUID.randomUUID() + ".json";
-              // write string to file
               Path p = Paths.get(outputDir, jsonFileName);
-              System.out.println(p.toAbsolutePath());
               try {
                 Files.writeString(p, gson.toJson(moduleClasses));
               } catch (IOException ex) {
