@@ -71,7 +71,9 @@ public class NullnessAnnotationSerializer implements Plugin {
             if (e.getKind() == com.sun.source.util.TaskEvent.Kind.ANALYZE) {
               CompilationUnitTree cu = e.getCompilationUnit();
               new TreePathScanner<Void, Void>() {
+                /** keep a stack of class contexts to handle nested classes */
                 Deque<ClassInfo> classStack = new ArrayDeque<>();
+
                 ClassInfo currentClass = null;
 
                 @Override
@@ -129,7 +131,6 @@ public class NullnessAnnotationSerializer implements Plugin {
                   }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
-                  // build method type parameters list
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : methodTree.getTypeParameters()) {
                     methodTypeParams.add(typeParamInfo(tp));
