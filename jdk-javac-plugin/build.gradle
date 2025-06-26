@@ -1,5 +1,4 @@
 plugins {
-    // use java-library if you plan to publish this as a library
     id 'java'
     id 'com.github.johnrengelman.shadow'
     id 'nullaway.java-test-conventions'
@@ -34,14 +33,14 @@ configurations {
 }
 
 dependencies {
-    implementation 'com.google.code.gson:gson:2.10.1'
+    implementation deps.build.gson
 
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
         exclude group: "junit", module: "junit"
     }
     testImplementation deps.build.jspecify
-    testImplementation 'com.google.code.gson:gson:2.10.1'
+    testImplementation deps.build.gson
     testImplementation deps.test.assertJ
 
     testModulePath deps.build.jspecify
