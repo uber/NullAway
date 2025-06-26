@@ -8,9 +8,9 @@ import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.gson.GsonBuilder;
-import com.uber.nullaway.javacplugin.HelloPlugin.ClassInfo;
-import com.uber.nullaway.javacplugin.HelloPlugin.MethodInfo;
-import com.uber.nullaway.javacplugin.HelloPlugin.TypeParamInfo;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.ClassInfo;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.MethodInfo;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.TypeParamInfo;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
@@ -25,7 +25,7 @@ import org.junit.Rule;
 import org.junit.Test;
 import org.junit.rules.TemporaryFolder;
 
-public class HelloPluginTest {
+public class NullnessAnnotationSerializerTest {
 
   private CompilationTestHelper compilationTestHelper;
 
@@ -51,7 +51,7 @@ public class HelloPluginTest {
                     tempPath,
                     "--module-path",
                     System.getProperty("test.module.path"),
-                    "-Xplugin:HelloPlugin " + tempPath));
+                    "-Xplugin:NullnessAnnotationSerializer " + tempPath));
   }
 
   @Test

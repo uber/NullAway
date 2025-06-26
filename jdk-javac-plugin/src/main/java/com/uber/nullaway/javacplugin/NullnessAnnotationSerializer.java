@@ -28,7 +28,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 
-public class HelloPlugin implements Plugin {
+public class NullnessAnnotationSerializer implements Plugin {
 
   // Data classes for JSON output
   record TypeParamInfo(String name, List<String> annotations, List<String> bounds) {}
@@ -49,7 +49,7 @@ public class HelloPlugin implements Plugin {
 
   @Override
   public String getName() {
-    return "HelloPlugin";
+    return "NullnessAnnotationSerializer";
   }
 
   @Override
