@@ -700,6 +700,17 @@ public final class GenericsChecks {
             TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
       }
     }
+
+    // substitute type arguments for constructor call
+    if (tree instanceof NewClassTree) {
+      // get the type arguments from the NewClassTree itself
+      Type enclosingType = getTreeType(tree, config);
+      if (enclosingType != null) {
+        invokedMethodType =
+            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+      }
+    }
+
     // substitute type arguments for generic methods with explicit type arguments
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
       invokedMethodType =
