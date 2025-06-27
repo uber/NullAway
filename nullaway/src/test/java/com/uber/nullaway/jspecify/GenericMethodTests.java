@@ -672,6 +672,23 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        handleFooNullable(Foo.makeNonNull(new Object()));",
             "        handleFooNonNull(Foo.makeNonNull(new Object()));",
             "      }",
+            "      static void handleFooNullableVarargs(Foo<@Nullable Object>... args) {}",
+            "      static void handleFooNonNullVarargs(Foo<Object>... f) {}",
+            "      static void testVarargsCalls() {",
+            "        // legal",
+            "        handleFooNullableVarargs(Foo.makeNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNullVarargs(Foo.makeNull(null));",
+            "        handleFooNullableVarargs(Foo.makeNull(new Object()));",
+            "        handleFooNonNullVarargs(Foo.makeNull(new Object()));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNullableVarargs(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNullVarargs(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Foo<Object>",
+            "        handleFooNullableVarargs(Foo.makeNonNull(new Object()));",
+            "        handleFooNonNullVarargs(Foo.makeNonNull(new Object()));",
+            "      }",
             "    }")
         .doTest();
   }

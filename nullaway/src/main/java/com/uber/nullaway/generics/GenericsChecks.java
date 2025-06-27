@@ -33,6 +33,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
@@ -787,21 +788,27 @@ public final class GenericsChecks {
         }
       }
     }
-    if (isVarArgs && !formalParamTypes.isEmpty()) {
-      Type.ArrayType varargsArrayType =
-          (Type.ArrayType) formalParamTypes.get(formalParamTypes.size() - 1);
-      Type varargsElementType = varargsArrayType.elemtype;
+    if (isVarArgs && !formalParamTypes.isEmpty() && NullabilityUtil.isVarArgsCall(tree)) {
+      Type varargsElementType =
+          ((Type.ArrayType) formalParamTypes.get(formalParamTypes.size() - 1)).elemtype;
       for (int i = formalParamTypes.size() - 1; i < actualParams.size(); i++) {
-        Type actualParameterType = getTreeType(actualParams.get(i), config);
-        // If the actual parameter type is assignable to the varargs array type, then the call site
-        // is passing the varargs directly in an array, and we should skip our check.
-        // TODO update this logic to use the proper varargs trick
-        if (actualParameterType != null
-            && !state.getTypes().isAssignable(actualParameterType, varargsArrayType)) {
+        ExpressionTree actualParamExpr = actualParams.get(i);
+        Type actualParameterType = getTreeType(actualParamExpr, config);
+        if (actualParameterType != null) {
+          if (actualParamExpr instanceof MethodInvocationTree) {
+            actualParameterType =
+                inferGenericMethodCallType(
+                    analysis,
+                    state,
+                    (MethodInvocationTree) actualParamExpr,
+                    config,
+                    varargsElementType,
+                    actualParameterType);
+          }
           if (!subtypeParameterNullability(
               varargsElementType, actualParameterType, state, config)) {
             reportInvalidParametersNullabilityError(
-                varargsElementType, actualParameterType, actualParams.get(i), state, analysis);
+                varargsElementType, actualParameterType, actualParamExpr, state, analysis);
           }
         }
       }
