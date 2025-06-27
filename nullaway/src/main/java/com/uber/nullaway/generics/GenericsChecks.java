@@ -461,14 +461,29 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Infers the type of a generic method call based on the assignment context. Side-effects the
+   * #inferredSubstitutionsForGenericMethodCalls map with the inferred type.
+   *
+   * @param analysis the analysis
+   * @param state the visitor state
+   * @param invocationTree the method invocation tree representing the call to a generic method
+   * @param config the analysis config
+   * @param typeFromAssignmentContext the type being "assigned to" in the assignment context
+   * @param exprType the type of the right-hand side of the pseudo-assignment, which may be null
+   * @return the type of the method call after inference
+   */
   private @Nullable Type inferGenericMethodCallType(
       NullAway analysis,
       VisitorState state,
-      MethodInvocationTree rhsTree,
+      MethodInvocationTree invocationTree,
       Config config,
-      Type lhsType,
-      @Nullable Type rhsType) {
-    MethodInvocationTree methodInvocationTree = rhsTree;
+      Type typeFromAssignmentContext,
+      @Nullable Type exprType) {
+    if (exprType == null) {
+      return null;
+    }
+    MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
     if (methodSymbol.type instanceof Type.ForAll
         && methodInvocationTree.getTypeArguments().isEmpty()) {
@@ -481,18 +496,16 @@ public final class GenericsChecks {
           new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
               state, config, invokedMethodIsNullUnmarked);
       Type returnType = methodSymbol.getReturnType();
-      returnType.accept(inferVisitor, lhsType);
+      returnType.accept(inferVisitor, typeFromAssignmentContext);
 
       Map<TypeVariable, Type> substitution = inferVisitor.getInferredSubstitution();
       inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
-      if (rhsType != null) {
-        // update rhsType with inferred substitution
-        rhsType =
-            substituteInferredTypesForTypeVariables(
-                state, methodSymbol.getReturnType(), substitution, config);
-      }
+      // update rhsType with inferred substitution
+      exprType =
+          substituteInferredTypesForTypeVariables(
+              state, methodSymbol.getReturnType(), substitution, config);
     }
-    return rhsType;
+    return exprType;
   }
 
   /**
