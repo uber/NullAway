@@ -1,5 +1,6 @@
 plugins {
     id 'java'
+    // we use the shadow jar when building the JDK
     id 'com.github.johnrengelman.shadow'
     id 'nullaway.java-test-conventions'
 }
@@ -28,7 +29,7 @@ tasks.withType(JavaCompile).configureEach {
 
 configurations {
     // We use this configuration to expose a module path that can be
-    // used to test analysis of module-info.java files.
+    // used to test handling of modules
     testModulePath
 }
 

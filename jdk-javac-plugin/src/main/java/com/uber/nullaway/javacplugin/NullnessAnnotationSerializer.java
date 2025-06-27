@@ -95,7 +95,6 @@ public class NullnessAnnotationSerializer implements Plugin {
                   TypeMirror classType = trees.getTypeMirror(getCurrentPath());
                   boolean hasNullMarked = hasAnnotation(classSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(classSym, NULLUNMARKED_NAME);
-                  // push previous class context
                   if (currentClass != null) {
                     // save current class context
                     classStack.push(currentClass);
