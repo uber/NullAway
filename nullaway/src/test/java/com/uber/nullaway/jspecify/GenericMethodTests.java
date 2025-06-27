@@ -598,6 +598,46 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericInferenceOnReturn() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "    class Test {",
+            "      static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<U> makeNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "        static <U> Foo<U> makeNonNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "      }",
+            "      static Foo<@Nullable Object> makeNull() {",
+            "        // legal",
+            "        return Foo.makeNull(null);",
+            "      }",
+            "      static Foo<Object> makeNullInvalid() {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        return Foo.makeNull(null);",
+            "      }",
+            "      static Foo<@Nullable Object> makeNonNullInvalid() {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        return Foo.makeNonNull(null);",
+            "      }",
+            "      static Foo<@Nullable Object> makeNonNullInvalid2() {",
+            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        return Foo.makeNonNull(new Object());",
+            "      }",
+            "      static Foo<Object> makeNonNullValid() {",
+            "        return Foo.makeNonNull(new Object());",
+            "      }",
+            "    }")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

@@ -448,30 +448,9 @@ public final class GenericsChecks {
     Type rhsType = getTreeType(rhsTree, config);
 
     if (rhsTree instanceof MethodInvocationTree) {
-      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) rhsTree;
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
-      if (methodSymbol.type instanceof Type.ForAll
-          && methodInvocationTree.getTypeArguments().isEmpty()) {
-        // generic method call with no explicit generic arguments
-        // update inferred type arguments based on the assignment context
-        boolean invokedMethodIsNullUnmarked =
-            CodeAnnotationInfo.instance(state.context)
-                .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
-        InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
-            new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
-                state, config, invokedMethodIsNullUnmarked);
-        Type returnType = methodSymbol.getReturnType();
-        returnType.accept(inferVisitor, lhsType);
-
-        Map<TypeVariable, Type> substitution = inferVisitor.getInferredSubstitution();
-        inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
-        if (rhsType != null) {
-          // update rhsType with inferred substitution
-          rhsType =
-              substituteInferredTypesForTypeVariables(
-                  state, methodSymbol.getReturnType(), substitution, config);
-        }
-      }
+      rhsType =
+          inferGenericMethodCallType(
+              analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, rhsType);
     }
 
     if (rhsType != null) {
@@ -480,6 +459,40 @@ public final class GenericsChecks {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
       }
     }
+  }
+
+  private @Nullable Type inferGenericMethodCallType(
+      NullAway analysis,
+      VisitorState state,
+      MethodInvocationTree rhsTree,
+      Config config,
+      Type lhsType,
+      @Nullable Type rhsType) {
+    MethodInvocationTree methodInvocationTree = rhsTree;
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
+    if (methodSymbol.type instanceof Type.ForAll
+        && methodInvocationTree.getTypeArguments().isEmpty()) {
+      // generic method call with no explicit generic arguments
+      // update inferred type arguments based on the assignment context
+      boolean invokedMethodIsNullUnmarked =
+          CodeAnnotationInfo.instance(state.context)
+              .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
+      InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
+          new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
+              state, config, invokedMethodIsNullUnmarked);
+      Type returnType = methodSymbol.getReturnType();
+      returnType.accept(inferVisitor, lhsType);
+
+      Map<TypeVariable, Type> substitution = inferVisitor.getInferredSubstitution();
+      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
+      if (rhsType != null) {
+        // update rhsType with inferred substitution
+        rhsType =
+            substituteInferredTypesForTypeVariables(
+                state, methodSymbol.getReturnType(), substitution, config);
+      }
+    }
+    return rhsType;
   }
 
   /**
@@ -512,7 +525,7 @@ public final class GenericsChecks {
    * @param analysis the analysis object
    * @param state the visitor state
    */
-  public static void checkTypeParameterNullnessForFunctionReturnType(
+  public void checkTypeParameterNullnessForFunctionReturnType(
       ExpressionTree retExpr,
       Symbol.MethodSymbol methodSymbol,
       NullAway analysis,
@@ -529,6 +542,16 @@ public final class GenericsChecks {
     }
     Type returnExpressionType = getTreeType(retExpr, config);
     if (formalReturnType != null && returnExpressionType != null) {
+      if (retExpr instanceof MethodInvocationTree) {
+        returnExpressionType =
+            inferGenericMethodCallType(
+                analysis,
+                state,
+                (MethodInvocationTree) retExpr,
+                config,
+                formalReturnType,
+                returnExpressionType);
+      }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
       if (!isReturnTypeValid) {

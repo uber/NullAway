@@ -987,7 +987,7 @@ public class NullAway extends BugChecker
 
     // Check generic type arguments for returned expression here, since we need to check the type
     // arguments regardless of the top-level nullability of the return type
-    GenericsChecks.checkTypeParameterNullnessForFunctionReturnType(
+    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(
         retExpr, methodSymbol, this, state);
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
