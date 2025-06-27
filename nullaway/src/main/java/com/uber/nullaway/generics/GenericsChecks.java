@@ -766,11 +766,24 @@ public final class GenericsChecks {
         // bail out of any checking involving raw types for now
         return;
       }
-      Type actualParameter = getTreeType(actualParams.get(i), config);
-      if (actualParameter != null) {
-        if (!subtypeParameterNullability(formalParameter, actualParameter, state, config)) {
+      ExpressionTree currentActualParam = actualParams.get(i);
+      Type actualParameterType = getTreeType(currentActualParam, config);
+      if (actualParameterType != null) {
+        if (currentActualParam instanceof MethodInvocationTree) {
+          // infer the type of the method call based on the assignment context
+          // and the formal parameter type
+          actualParameterType =
+              inferGenericMethodCallType(
+                  analysis,
+                  state,
+                  (MethodInvocationTree) currentActualParam,
+                  config,
+                  formalParameter,
+                  actualParameterType);
+        }
+        if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
           reportInvalidParametersNullabilityError(
-              formalParameter, actualParameter, actualParams.get(i), state, analysis);
+              formalParameter, actualParameterType, currentActualParam, state, analysis);
         }
       }
     }
@@ -782,6 +795,7 @@ public final class GenericsChecks {
         Type actualParameterType = getTreeType(actualParams.get(i), config);
         // If the actual parameter type is assignable to the varargs array type, then the call site
         // is passing the varargs directly in an array, and we should skip our check.
+        // TODO update this logic to use the proper varargs trick
         if (actualParameterType != null
             && !state.getTypes().isAssignable(actualParameterType, varargsArrayType)) {
           if (!subtypeParameterNullability(

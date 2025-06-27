@@ -638,6 +638,44 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericInferenceOnParameterPassing() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "    class Test {",
+            "      static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<U> makeNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "        static <U> Foo<U> makeNonNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "      }",
+            "      static void handleFooNullable(Foo<@Nullable Object> f) {}",
+            "      static void handleFooNonNull(Foo<Object> f) {}",
+            "      static void testCalls() {",
+            "        // legal",
+            "        handleFooNullable(Foo.makeNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNull(Foo.makeNull(null));",
+            "        handleFooNullable(Foo.makeNull(new Object()));",
+            "        handleFooNonNull(Foo.makeNull(new Object()));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNullable(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNull(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Foo<Object>",
+            "        handleFooNullable(Foo.makeNonNull(new Object()));",
+            "        handleFooNonNull(Foo.makeNonNull(new Object()));",
+            "      }",
+            "    }")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
