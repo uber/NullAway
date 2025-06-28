@@ -44,6 +44,7 @@ class MethodNameUtil {
   // Strings corresponding to the names of the methods (and their owners) used to identify
   // assertions in this handler.
   private static final String IS_NOT_NULL_METHOD = "isNotNull";
+  private static final String IS_HAS_SIZE_METHOD = "hasSize";
   private static final String IS_OWNER_TRUTH_SUBJECT = "com.google.common.truth.Subject";
   private static final String IS_INSTANCE_OF_METHOD = "isInstanceOf";
   private static final String IS_INSTANCE_OF_ANY_METHOD = "isInstanceOfAny";
@@ -88,6 +89,7 @@ class MethodNameUtil {
   // here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
   // comparing using strings.
   private Name isNotNull;
+  private Name hasSize;
 
   private Name isInstanceOf;
   private Name isInstanceOfAny;
@@ -133,6 +135,7 @@ class MethodNameUtil {
   @Initializer
   void initializeMethodNames(Name.Table table) {
     isNotNull = table.fromString(IS_NOT_NULL_METHOD);
+    hasSize = table.fromString(IS_HAS_SIZE_METHOD);
     isOwnerTruthSubject = table.fromString(IS_OWNER_TRUTH_SUBJECT);
 
     isInstanceOf = table.fromString(IS_INSTANCE_OF_METHOD);
@@ -178,6 +181,10 @@ class MethodNameUtil {
   boolean isMethodIsNotNull(Symbol.MethodSymbol methodSymbol, VisitorState state) {
     return matchesMethod(methodSymbol, isNotNull, isOwnerTruthSubject)
         || matchesAssertJAssertMethod(methodSymbol, isNotNull, state);
+  }
+
+  boolean isMethodHasSize(Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return matchesAssertJAssertMethod(methodSymbol, hasSize, state);
   }
 
   boolean isMethodIsInstanceOf(Symbol.MethodSymbol methodSymbol, VisitorState state) {
