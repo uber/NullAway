@@ -23,11 +23,8 @@
 package com.uber.nullaway;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
-import static com.sun.source.tree.Tree.Kind.EXPRESSION_STATEMENT;
 import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
 import static com.sun.source.tree.Tree.Kind.OTHER;
-import static com.sun.source.tree.Tree.Kind.PARENTHESIZED;
-import static com.sun.source.tree.Tree.Kind.TYPE_CAST;
 import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
@@ -59,6 +56,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ArrayAccessTree;
+import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
@@ -1197,8 +1195,7 @@ public class NullAway extends BugChecker
       // is this possible?
       return Description.NO_MATCH;
     }
-    if (!config.assertsEnabled()
-        && enclosingBlockPath.getLeaf().getKind().equals(Tree.Kind.ASSERT)) {
+    if (!config.assertsEnabled() && enclosingBlockPath.getLeaf() instanceof AssertTree) {
       return Description.NO_MATCH;
     }
     if (!relevantInitializerMethodOrBlock(enclosingBlockPath, state)) {
@@ -1375,7 +1372,7 @@ public class NullAway extends BugChecker
           safeInitMethods.add(privMethodElem);
         }
         // Hack: Handling try{...}finally{...} statement, see getSafeInitMethods
-        if (curStmt.getKind().equals(Tree.Kind.TRY)) {
+        if (curStmt instanceof TryTree) {
           TryTree tryTree = (TryTree) curStmt;
           // ToDo: Should we check initialization inside tryTree.getResources ? What is the scope of
           // that initialization?
@@ -2339,7 +2336,7 @@ public class NullAway extends BugChecker
       // as "top level" for the purposes of finding initialization methods. Any exception happening
       // there is also an
       // exception of the full method.
-      if (stmt.getKind().equals(Tree.Kind.TRY)) {
+      if (stmt instanceof TryTree) {
         TryTree tryTree = (TryTree) stmt;
         if (tryTree.getCatches().size() == 0) {
           if (tryTree.getBlock() != null) {
@@ -2388,7 +2385,7 @@ public class NullAway extends BugChecker
           }
           return false;
         };
-    if (stmt.getKind().equals(EXPRESSION_STATEMENT)) {
+    if (stmt instanceof ExpressionStatementTree) {
       ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
       if (invokeMatcher.matches(expression, state)) {
         return ASTHelpers.getSymbol(expression);
@@ -2398,7 +2395,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean isThisCall(StatementTree statementTree, VisitorState state) {
-    if (statementTree.getKind().equals(EXPRESSION_STATEMENT)) {
+    if (statementTree instanceof ExpressionStatementTree) {
       ExpressionTree expression = ((ExpressionStatementTree) statementTree).getExpression();
       return Matchers.methodInvocation(THIS_MATCHER).matches(expression, state);
     }
@@ -2737,7 +2734,7 @@ public class NullAway extends BugChecker
   }
 
   private static boolean isThisIdentifier(ExpressionTree expressionTree) {
-    return expressionTree.getKind().equals(IDENTIFIER)
+    return expressionTree instanceof IdentifierTree
         && ((IdentifierTree) expressionTree).getName().toString().equals("this");
   }
 
@@ -2760,11 +2757,11 @@ public class NullAway extends BugChecker
     boolean someChange = true;
     while (someChange) {
       someChange = false;
-      if (expr.getKind().equals(PARENTHESIZED)) {
+      if (expr instanceof ParenthesizedTree) {
         expr = ((ParenthesizedTree) expr).getExpression();
         someChange = true;
       }
-      if (expr.getKind().equals(TYPE_CAST)) {
+      if (expr instanceof TypeCastTree) {
         expr = ((TypeCastTree) expr).getExpression();
         someChange = true;
       }

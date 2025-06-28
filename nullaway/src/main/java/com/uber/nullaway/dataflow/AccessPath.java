@@ -455,7 +455,7 @@ public final class AccessPath implements MapKey {
           Tree tree = argumentNode.getTree();
           if (tree == null) {
             return null; // Not an AP
-          } else if (tree.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
+          } else if (tree instanceof MethodInvocationTree) {
             // Check for boxing call
             MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
             if (methodInvocationTree.getArguments().size() == 1
