@@ -493,13 +493,33 @@ public final class GenericsChecks {
       boolean invokedMethodIsNullUnmarked =
           CodeAnnotationInfo.instance(state.context)
               .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
-      InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
-          new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
-              state, config, invokedMethodIsNullUnmarked);
+      Map<TypeVariable, Type> substitution;
       Type returnType = methodSymbol.getReturnType();
-      returnType.accept(inferVisitor, typeFromAssignmentContext);
+      // check if returnType is a type variable
+      if (returnType instanceof Type.TypeVar) {
+        Type.TypeVar typeVar = (Type.TypeVar) returnType;
+        substitution = new LinkedHashMap<>();
+        Type upperBound = typeVar.getUpperBound();
+        boolean typeVarHasNullableUpperBound =
+            Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+        if ((typeVarHasNullableUpperBound || invokedMethodIsNullUnmarked)
+            && !Nullness.hasNullableAnnotation(
+                typeFromAssignmentContext.getAnnotationMirrors().stream(),
+                config)) { // can just use the lhs type nullability
+          substitution.put(typeVar, typeFromAssignmentContext);
+        } else { // rhs can't be nullable.  use lhsType but strip @Nullable annotation
+          // TODO we should just strip out the top-level @Nullable annotation;
+          //  stripMetadata() also removes nested @Nullable annotations
+          substitution.put(typeVar, typeFromAssignmentContext.stripMetadata());
+        }
 
-      Map<TypeVariable, Type> substitution = inferVisitor.getInferredSubstitution();
+      } else {
+        InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
+            new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
+                state, config, invokedMethodIsNullUnmarked);
+        returnType.accept(inferVisitor, typeFromAssignmentContext);
+        substitution = inferVisitor.getInferredSubstitution();
+      }
       inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
       // update rhsType with inferred substitution
       exprType =

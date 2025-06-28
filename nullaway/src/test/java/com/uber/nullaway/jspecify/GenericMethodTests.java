@@ -693,6 +693,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericMethodReturningTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class Foo<T extends @Nullable Object> {}",
+            "  static <T extends @Nullable Object> T returnTypeVariable(Foo<T> t) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static void takesNullable(@Nullable String s) {}",
+            "  static void test() {",
+            "    // legal, but we can't infer the type yet",
+            "    takesNullable(Test.<@Nullable String>returnTypeVariable(new Foo<@Nullable String>()));",
+            "    // also legal",
+            "    takesNullable(returnTypeVariable(new Foo<String>()));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
