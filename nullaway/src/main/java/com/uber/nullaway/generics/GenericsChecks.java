@@ -495,22 +495,30 @@ public final class GenericsChecks {
               .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
       Map<TypeVariable, Type> substitution;
       Type returnType = methodSymbol.getReturnType();
-      // check if returnType is a type variable
       if (returnType instanceof Type.TypeVar) {
+        // we need different logic if the return type is a type variable
+        // if the assignment context type is @Nullable, we shouldn't infer anything, since that
+        // accommodates the type argument being either @Nullable or @NonNull
         Type.TypeVar typeVar = (Type.TypeVar) returnType;
         substitution = new LinkedHashMap<>();
-        Type upperBound = typeVar.getUpperBound();
-        boolean typeVarHasNullableUpperBound =
-            Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
-        if ((typeVarHasNullableUpperBound || invokedMethodIsNullUnmarked)
-            && !Nullness.hasNullableAnnotation(
-                typeFromAssignmentContext.getAnnotationMirrors().stream(),
-                config)) { // can just use the lhs type nullability
+        boolean nonNullAssignmentContextType =
+            !Nullness.hasNullableAnnotation(
+                typeFromAssignmentContext.getAnnotationMirrors().stream(), config);
+        if (nonNullAssignmentContextType) {
+          // if the assignment context type is @NonNull, we can just use it
           substitution.put(typeVar, typeFromAssignmentContext);
-        } else { // rhs can't be nullable.  use lhsType but strip @Nullable annotation
-          // TODO we should just strip out the top-level @Nullable annotation;
-          //  stripMetadata() also removes nested @Nullable annotations
-          substitution.put(typeVar, typeFromAssignmentContext.stripMetadata());
+        } else {
+          Type upperBound = typeVar.getUpperBound();
+          boolean typeVarHasNullableUpperBound =
+              Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+          // if the type variable cannot be @Nullable, we can use the lhsType with any @Nullable
+          // annotation stripped
+          if (!typeVarHasNullableUpperBound && !invokedMethodIsNullUnmarked) {
+            // we can use the lhsType with any @Nullable annotation stripped
+            // TODO we should just strip out the top-level @Nullable annotation;
+            //  stripMetadata() also removes nested @Nullable annotations
+            substitution.put(typeVar, typeFromAssignmentContext.stripMetadata());
+          }
         }
 
       } else {
