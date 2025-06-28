@@ -378,7 +378,7 @@ public class ErrorBuilder {
     // should be currently pointing at said call.
     Tree currTree = state.getPath().getLeaf();
     Preconditions.checkArgument(
-        currTree.getKind() == Tree.Kind.METHOD_INVOCATION,
+        currTree instanceof MethodInvocationTree,
         "Expected castToNonNull invocation expression, found:\n%s",
         currTree);
     MethodInvocationTree invTree = (MethodInvocationTree) currTree;
