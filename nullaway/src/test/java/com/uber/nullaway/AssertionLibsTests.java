@@ -549,4 +549,27 @@ public class AssertionLibsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void collectionAssertHasSize() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.Collection;",
+            "import static org.assertj.core.api.Assertions.assertThat;",
+            "@NullMarked",
+            "class Test {",
+            "  void test(@Nullable Collection<String> c) {",
+            "    assertThat(c).hasSize(1);",
+            "    c.size();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
