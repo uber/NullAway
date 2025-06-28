@@ -34,7 +34,7 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.Tree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
@@ -164,8 +164,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     if (isNullableFieldInLibraryModels(exprSymbol)) {
       return true;
     }
-    if (!(expr.getKind() == Tree.Kind.METHOD_INVOCATION
-        && exprSymbol instanceof Symbol.MethodSymbol)) {
+    if (!(expr instanceof MethodInvocationTree && exprSymbol instanceof Symbol.MethodSymbol)) {
       return exprMayBeNull;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);

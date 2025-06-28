@@ -24,7 +24,7 @@ package com.uber.nullaway.handlers;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.Tree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullabilityUtil;
@@ -65,7 +65,7 @@ public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
     // state parameter
     TreePath pathToMethod =
         NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(state.getPath());
-    if (pathToMethod == null || pathToMethod.getLeaf().getKind() != Tree.Kind.METHOD) {
+    if (pathToMethod == null || !(pathToMethod.getLeaf() instanceof MethodTree)) {
       return;
     }
     Symbol symbol = ASTHelpers.getSymbol(pathToMethod.getLeaf());
