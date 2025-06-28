@@ -61,6 +61,7 @@ public class AssertionHandler extends BaseNoOpHandler {
     // assertThat(A).isInstanceOf(Foo.class)
     // A will not be NULL after this statement.
     if (methodNameUtil.isMethodIsNotNull(callee, state)
+        || methodNameUtil.isMethodHasSize(callee, state)
         || methodNameUtil.isMethodIsInstanceOf(callee, state)) {
       AccessPath ap = getAccessPathForNotNullAssertThatExpr(node, state, apContext);
       if (ap != null) {
