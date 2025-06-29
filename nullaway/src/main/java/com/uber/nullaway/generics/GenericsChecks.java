@@ -525,7 +525,7 @@ public final class GenericsChecks {
         substitution = inferVisitor.getInferredSubstitution();
       }
       inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
-      // update rhsType with inferred substitution
+      // update with inferred substitution
       result =
           substituteInferredTypesForTypeVariables(
               state, methodSymbol.getReturnType(), substitution, config);
