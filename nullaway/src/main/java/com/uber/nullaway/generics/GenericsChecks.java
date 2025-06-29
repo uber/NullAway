@@ -590,13 +590,11 @@ public final class GenericsChecks {
                 formalReturnType,
                 returnExpressionType);
       }
-      if (returnExpressionType != null) {
-        boolean isReturnTypeValid =
-            subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
-        if (!isReturnTypeValid) {
-          reportInvalidReturnTypeError(
-              retExpr, formalReturnType, returnExpressionType, state, analysis);
-        }
+      boolean isReturnTypeValid =
+          subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
+      if (!isReturnTypeValid) {
+        reportInvalidReturnTypeError(
+            retExpr, formalReturnType, returnExpressionType, state, analysis);
       }
     }
   }
@@ -808,11 +806,9 @@ public final class GenericsChecks {
                   formalParameter,
                   actualParameterType);
         }
-        if (actualParameterType != null) {
-          if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
-            reportInvalidParametersNullabilityError(
-                formalParameter, actualParameterType, currentActualParam, state, analysis);
-          }
+        if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
+          reportInvalidParametersNullabilityError(
+              formalParameter, actualParameterType, currentActualParam, state, analysis);
         }
       }
     }
@@ -833,12 +829,10 @@ public final class GenericsChecks {
                     varargsElementType,
                     actualParameterType);
           }
-          if (actualParameterType != null) {
-            if (!subtypeParameterNullability(
-                varargsElementType, actualParameterType, state, config)) {
-              reportInvalidParametersNullabilityError(
-                  varargsElementType, actualParameterType, actualParamExpr, state, analysis);
-            }
+          if (!subtypeParameterNullability(
+              varargsElementType, actualParameterType, state, config)) {
+            reportInvalidParametersNullabilityError(
+                varargsElementType, actualParameterType, actualParamExpr, state, analysis);
           }
         }
       }
