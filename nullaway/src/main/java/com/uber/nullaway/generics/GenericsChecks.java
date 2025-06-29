@@ -447,14 +447,12 @@ public final class GenericsChecks {
       return;
     }
     Type rhsType = getTreeType(rhsTree, config);
-
-    if (rhsTree instanceof MethodInvocationTree) {
-      rhsType =
-          inferGenericMethodCallType(
-              analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, rhsType);
-    }
-
     if (rhsType != null) {
+      if (rhsTree instanceof MethodInvocationTree) {
+        rhsType =
+            inferGenericMethodCallType(
+                analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, rhsType);
+      }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
@@ -474,16 +472,14 @@ public final class GenericsChecks {
    * @param exprType the type of the right-hand side of the pseudo-assignment, which may be null
    * @return the type of the method call after inference
    */
-  private @Nullable Type inferGenericMethodCallType(
+  private Type inferGenericMethodCallType(
       NullAway analysis,
       VisitorState state,
       MethodInvocationTree invocationTree,
       Config config,
       Type typeFromAssignmentContext,
-      @Nullable Type exprType) {
-    if (exprType == null) {
-      return null;
-    }
+      Type exprType) {
+    Type result = exprType;
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
     if (methodSymbol.type instanceof Type.ForAll
@@ -530,11 +526,11 @@ public final class GenericsChecks {
       }
       inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
       // update rhsType with inferred substitution
-      exprType =
+      result =
           substituteInferredTypesForTypeVariables(
               state, methodSymbol.getReturnType(), substitution, config);
     }
-    return exprType;
+    return result;
   }
 
   /**
