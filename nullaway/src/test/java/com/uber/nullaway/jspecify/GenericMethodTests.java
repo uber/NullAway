@@ -716,6 +716,28 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void typeVarReturnNonNullUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static <T> T id(T t) {",
+            "    return t;",
+            "  }",
+            "  static void takesNullable(@Nullable String s) {}",
+            "  static void test() {",
+            "    // legal",
+            "    takesNullable(id(\"hi\"));",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    takesNullable(id(null));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
