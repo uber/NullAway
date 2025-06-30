@@ -598,6 +598,146 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericInferenceOnReturn() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "    class Test {",
+            "      static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<U> makeNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "        static <U> Foo<U> makeNonNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "      }",
+            "      static Foo<@Nullable Object> makeNull() {",
+            "        // legal",
+            "        return Foo.makeNull(null);",
+            "      }",
+            "      static Foo<Object> makeNullInvalid() {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        return Foo.makeNull(null);",
+            "      }",
+            "      static Foo<@Nullable Object> makeNonNullInvalid() {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        return Foo.makeNonNull(null);",
+            "      }",
+            "      static Foo<@Nullable Object> makeNonNullInvalid2() {",
+            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        return Foo.makeNonNull(new Object());",
+            "      }",
+            "      static Foo<Object> makeNonNullValid() {",
+            "        return Foo.makeNonNull(new Object());",
+            "      }",
+            "    }")
+        .doTest();
+  }
+
+  @Test
+  public void genericInferenceOnParameterPassing() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "    class Test {",
+            "      static class Foo<T extends @Nullable Object> {",
+            "        Foo(T t) {}",
+            "        static <U extends @Nullable Object> Foo<U> makeNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "        static <U> Foo<U> makeNonNull(U u) {",
+            "          return new Foo<>(u);",
+            "        }",
+            "      }",
+            "      static void handleFooNullable(Foo<@Nullable Object> f) {}",
+            "      static void handleFooNonNull(Foo<Object> f) {}",
+            "      static void testCalls() {",
+            "        // legal",
+            "        handleFooNullable(Foo.makeNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNull(Foo.makeNull(null));",
+            "        handleFooNullable(Foo.makeNull(new Object()));",
+            "        handleFooNonNull(Foo.makeNull(new Object()));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNullable(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNull(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Foo<Object>",
+            "        handleFooNullable(Foo.makeNonNull(new Object()));",
+            "        handleFooNonNull(Foo.makeNonNull(new Object()));",
+            "      }",
+            "      static void handleFooNullableVarargs(Foo<@Nullable Object>... args) {}",
+            "      static void handleFooNonNullVarargs(Foo<Object>... f) {}",
+            "      static void testVarargsCalls() {",
+            "        // legal",
+            "        handleFooNullableVarargs(Foo.makeNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNullVarargs(Foo.makeNull(null));",
+            "        handleFooNullableVarargs(Foo.makeNull(new Object()));",
+            "        handleFooNonNullVarargs(Foo.makeNull(new Object()));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNullableVarargs(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "        handleFooNonNullVarargs(Foo.makeNonNull(null));",
+            "        // BUG: Diagnostic contains: Cannot pass parameter of type Foo<Object>",
+            "        handleFooNullableVarargs(Foo.makeNonNull(new Object()));",
+            "        handleFooNonNullVarargs(Foo.makeNonNull(new Object()));",
+            "      }",
+            "    }")
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodReturningTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class Foo<T extends @Nullable Object> {}",
+            "  static <T extends @Nullable Object> T returnTypeVariable(Foo<T> t) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static void takesNullable(@Nullable String s) {}",
+            "  static void test() {",
+            "    // legal, but we can't infer the type yet",
+            "    takesNullable(Test.<@Nullable String>returnTypeVariable(new Foo<@Nullable String>()));",
+            "    // also legal",
+            "    takesNullable(returnTypeVariable(new Foo<String>()));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeVarReturnNonNullUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static <T> T id(T t) {",
+            "    return t;",
+            "  }",
+            "  static void takesNullable(@Nullable String s) {}",
+            "  static void test() {",
+            "    // legal",
+            "    takesNullable(id(\"hi\"));",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    takesNullable(id(null));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

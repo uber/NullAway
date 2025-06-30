@@ -985,7 +985,7 @@ public class NullAway extends BugChecker
 
     // Check generic type arguments for returned expression here, since we need to check the type
     // arguments regardless of the top-level nullability of the return type
-    GenericsChecks.checkTypeParameterNullnessForFunctionReturnType(
+    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(
         retExpr, methodSymbol, this, state);
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
@@ -1962,7 +1962,7 @@ public class NullAway extends BugChecker
         }
         actual = actualParams.get(argPos);
         VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
-        boolean isVarArgsCall = isVarArgsCall(tree);
+        boolean isVarArgsCall = NullabilityUtil.isVarArgsCall(tree);
         if (isVarArgsCall) {
           // This is the case were varargs are being passed individually, as 1 or more actual
           // arguments starting at the position of the var args formal.
@@ -2014,23 +2014,6 @@ public class NullAway extends BugChecker
     }
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
-  }
-
-  /**
-   * Checks if the method invocation is a varargs call, i.e., if individual arguments are being
-   * passed in the varargs position. If false, it means that an array is being passed in the varargs
-   * position.
-   *
-   * @param tree the method invocation tree (MethodInvocationTree or NewClassTree)
-   * @return true if the method invocation is a varargs call, false otherwise
-   */
-  private boolean isVarArgsCall(Tree tree) {
-    // javac sets the varargsElement field to a non-null value if the invocation is a varargs call
-    Type varargsElement =
-        tree instanceof JCTree.JCMethodInvocation
-            ? ((JCTree.JCMethodInvocation) tree).varargsElement
-            : ((JCTree.JCNewClass) tree).varargsElement;
-    return varargsElement != null;
   }
 
   private Description checkCastToNonNullTakesNullable(
