@@ -645,4 +645,21 @@ public class NullabilityUtil {
         .map(a -> a.getAnnotationType().toString())
         .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
   }
+
+  /**
+   * Checks if the method invocation is a varargs call, i.e., if individual arguments are being
+   * passed in the varargs position. If false, it means that an array is being passed in the varargs
+   * position.
+   *
+   * @param tree the method invocation tree (MethodInvocationTree or NewClassTree)
+   * @return true if the method invocation is a varargs call, false otherwise
+   */
+  public static boolean isVarArgsCall(Tree tree) {
+    // javac sets the varargsElement field to a non-null value if the invocation is a varargs call
+    Type varargsElement =
+        tree instanceof JCTree.JCMethodInvocation
+            ? ((JCTree.JCMethodInvocation) tree).varargsElement
+            : ((JCTree.JCNewClass) tree).varargsElement;
+    return varargsElement != null;
+  }
 }
