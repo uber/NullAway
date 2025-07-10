@@ -1861,7 +1861,9 @@ public class NullAway extends BugChecker
       if (!type.isPrimitive()) {
         if (mayBeNullExpr(state, tree)) {
           ErrorMessage errorMessage =
-              new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
+              new ErrorMessage(
+                  MessageTypes.UNBOX_NULLABLE,
+                  "unboxing of a @Nullable value - " + state.getSourceForNode(tree));
           state.reportMatch(
               errorBuilder.createErrorDescription(
                   errorMessage, buildDescription(tree), state, mayBeNullInquiry, null, tree));
