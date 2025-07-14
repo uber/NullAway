@@ -306,7 +306,12 @@ public class NullAway extends BugChecker
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
-    errorBuilder = new ErrorBuilder(config, canonicalName(), allNames());
+    ImmutableSet<String> allSuppressionNames =
+        ImmutableSet.<String>builder()
+            .addAll(allNames())
+            .addAll(config.getAdditionalSuppressionNames())
+            .build();
+    errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames);
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
