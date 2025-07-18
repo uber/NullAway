@@ -306,11 +306,13 @@ public class NullAway extends BugChecker
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
-    ImmutableSet<String> allSuppressionNames =
-        ImmutableSet.<String>builder()
-            .addAll(allNames())
-            .addAll(config.getAdditionalSuppressionNames())
-            .build();
+    Set<String> allSuppressionNames =
+        config.getAdditionalSuppressionNames().isEmpty()
+            ? allNames()
+            : ImmutableSet.<String>builder()
+                .addAll(allNames())
+                .addAll(config.getAdditionalSuppressionNames())
+                .build();
     errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames);
   }
 
