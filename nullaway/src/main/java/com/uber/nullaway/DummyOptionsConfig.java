@@ -180,7 +180,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public Set<String> getAdditionalSuppressionNames() {
+  public Set<String> getSuppressionNameAliases() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 

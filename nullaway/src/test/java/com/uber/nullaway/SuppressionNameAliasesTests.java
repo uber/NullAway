@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class AdditionalSuppressionNamesTests extends NullAwayTestsBase {
+public class SuppressionNameAliasesTests extends NullAwayTestsBase {
 
   @Test
   public void additionalSuppressionNamesTest() {
@@ -12,7 +12,7 @@ public class AdditionalSuppressionNamesTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AdditionalSuppressionNames=Foo,Bar"))
+                "-XepOpt:NullAway:SuppressionNameAliases=Foo,Bar"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",

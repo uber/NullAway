@@ -79,7 +79,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_OPTIONAL_CLASS_PATHS =
       EP_FL_NAMESPACE + ":CheckOptionalEmptinessCustomClasses";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
-  static final String FL_SUPPRESS_NAMES = EP_FL_NAMESPACE + ":AdditionalSuppressionNames";
+  static final String FL_SUPPRESS_NAMES = EP_FL_NAMESPACE + ":SuppressionNameAliases";
 
   static final String FL_SKIP_LIBRARY_MODELS = EP_FL_NAMESPACE + ":IgnoreLibraryModelsFor";
 
@@ -229,7 +229,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final ImmutableSet<String> contractAnnotations;
   private final @Nullable String castToNonNullMethod;
   private final String autofixSuppressionComment;
-  private final ImmutableSet<String> additionalSuppressionNames;
+  private final ImmutableSet<String> suppressionNameAliases;
   private final ImmutableSet<String> skippedLibraryModels;
   private final ImmutableSet<String> extraFuturesClasses;
 
@@ -315,7 +315,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
       throw new IllegalStateException(
           "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
-    additionalSuppressionNames = getFlagStringSet(flags, FL_SUPPRESS_NAMES);
+    suppressionNameAliases = getFlagStringSet(flags, FL_SUPPRESS_NAMES);
     skippedLibraryModels = getFlagStringSet(flags, FL_SKIP_LIBRARY_MODELS);
     extraFuturesClasses = getFlagStringSet(flags, FL_EXTRA_FUTURES);
 
@@ -538,8 +538,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   }
 
   @Override
-  public ImmutableSet<String> getAdditionalSuppressionNames() {
-    return additionalSuppressionNames;
+  public ImmutableSet<String> getSuppressionNameAliases() {
+    return suppressionNameAliases;
   }
 
   @Override

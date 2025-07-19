@@ -23,7 +23,6 @@
 package com.uber.nullaway;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
-import static com.sun.source.tree.Tree.Kind.IDENTIFIER;
 import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
@@ -307,11 +306,11 @@ public class NullAway extends BugChecker
     handler = Handlers.buildDefault(config);
     nonAnnotatedMethod = this::isMethodUnannotated;
     Set<String> allSuppressionNames =
-        config.getAdditionalSuppressionNames().isEmpty()
+        config.getSuppressionNameAliases().isEmpty()
             ? allNames()
             : ImmutableSet.<String>builder()
                 .addAll(allNames())
-                .addAll(config.getAdditionalSuppressionNames())
+                .addAll(config.getSuppressionNameAliases())
                 .build();
     errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames);
   }

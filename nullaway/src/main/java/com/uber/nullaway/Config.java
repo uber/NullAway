@@ -241,11 +241,11 @@ public interface Config {
   @Nullable String getCastToNonNullMethod();
 
   /**
-   * Gets the additional suppression names.
+   * Gets the suppression name aliases.
    *
-   * @return the additional names that should be honored as part of a @SuppressWarnings annotation.
+   * @return the name aliases that should be honored as part of a @SuppressWarnings annotation.
    */
-  Set<String> getAdditionalSuppressionNames();
+  Set<String> getSuppressionNameAliases();
 
   /**
    * Gets an optional comment to add to auto-fix suppressions.
