@@ -1,7 +1,7 @@
 plugins {
     id "java-library"
     id "com.vanniktech.maven.publish"
-    id "com.github.johnrengelman.shadow"
+    id "com.gradleup.shadow"
 }
 
 repositories {
