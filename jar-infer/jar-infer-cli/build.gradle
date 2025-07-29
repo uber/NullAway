@@ -112,12 +112,12 @@ publishing {
         // (rather than just signShadowPublication)
         project.tasks.named('generateMetadataFileForMavenPublication').configure {
             dependsOn 'sourcesJar'
-            dependsOn 'simpleJavadocJar'
+            dependsOn 'plainJavadocJar'
         }
         if (project.tasks.findByName('signShadowPublication')) {
             project.tasks.named('signShadowPublication').configure {
                 dependsOn 'sourcesJar'
-                dependsOn 'simpleJavadocJar'
+                dependsOn 'plainJavadocJar'
             }
         }
         project.tasks.named('publishShadowPublicationToMavenCentralRepository').configure {
@@ -127,7 +127,7 @@ publishing {
         }
         project.tasks.named('publishShadowPublicationToMavenLocal').configure {
             dependsOn 'sourcesJar'
-            dependsOn 'simpleJavadocJar'
+            dependsOn 'plainJavadocJar'
             if (project.tasks.findByName('signMavenPublication')) {
                 dependsOn 'signMavenPublication'
             }
