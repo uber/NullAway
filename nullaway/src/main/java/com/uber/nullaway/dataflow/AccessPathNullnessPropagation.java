@@ -411,14 +411,14 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitEqualTo(
       EqualToNode equalToNode, TransferInput<Nullness, NullnessStore> input) {
     return handleEqualityComparison(
-        input, equalToNode.getLeftOperand(), equalToNode.getRightOperand(), true);
+        input, equalToNode.getLeftOperand(), null, equalToNode.getRightOperand(), true);
   }
 
   @Override
   public TransferResult<Nullness, NullnessStore> visitNotEqual(
       NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
     return handleEqualityComparison(
-        input, notEqualNode.getLeftOperand(), notEqualNode.getRightOperand(), false);
+        input, notEqualNode.getLeftOperand(), null, notEqualNode.getRightOperand(), false);
   }
 
   /**
@@ -426,6 +426,8 @@ public class AccessPathNullnessPropagation
    *
    * @param input transfer input for the operation
    * @param leftOperand left operand of the comparison
+   * @param leftOperandNullness nullness of left operand if it is not a sub node of {@code
+   *     input.getNode()}, {@code null} otherwise
    * @param rightOperand right operand of the comparison
    * @param equalTo if {@code true}, the comparison is an equality comparison, otherwise it is a
    *     dis-equality ({@code !=}) comparison
@@ -434,12 +436,14 @@ public class AccessPathNullnessPropagation
   private TransferResult<Nullness, NullnessStore> handleEqualityComparison(
       TransferInput<Nullness, NullnessStore> input,
       Node leftOperand,
+      @Nullable Nullness leftOperandNullness,
       Node rightOperand,
       boolean equalTo) {
     ReadableUpdates thenUpdates = new ReadableUpdates();
     ReadableUpdates elseUpdates = new ReadableUpdates();
     SubNodeValues inputs = values(input);
-    Nullness leftVal = inputs.valueOfSubNode(leftOperand);
+    Nullness leftVal =
+        leftOperandNullness != null ? leftOperandNullness : inputs.valueOfSubNode(leftOperand);
     Nullness rightVal = inputs.valueOfSubNode(rightOperand);
     Nullness equalBranchValue = leftVal.greatestLowerBound(rightVal);
     Updates equalBranchUpdates = equalTo ? thenUpdates : elseUpdates;
@@ -965,7 +969,14 @@ public class AccessPathNullnessPropagation
       // between the switch expression and the case operand.
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
-      return handleEqualityComparison(input, switchOperand, caseOperand, true);
+      AccessPath switchOperandAccessPath =
+          AccessPath.getAccessPathForNode(switchOperand, state, apContext);
+      Nullness switchOperandNullness =
+          switchOperandAccessPath == null
+              ? null
+              : input.getRegularStore().getNullnessOfAccessPath(switchOperandAccessPath);
+      return handleEqualityComparison(
+          input, switchOperand, switchOperandNullness, caseOperand, true);
     }
   }
 
