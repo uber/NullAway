@@ -965,7 +965,11 @@ public class AccessPathNullnessPropagation
       // between the switch expression and the case operand.
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
-      return handleEqualityComparison(input, switchOperand, caseOperand, true);
+      if (caseOperand instanceof NullLiteralNode) {
+        return handleEqualityComparison(input, switchOperand, caseOperand, true);
+      } else {
+        return noStoreChanges(NULLABLE, input);
+      }
     }
   }
 
