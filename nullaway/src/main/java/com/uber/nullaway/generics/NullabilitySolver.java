@@ -147,10 +147,14 @@ public final class NullabilitySolver {
       VarInfo v = work.removeFirst();
       switch (v.value) {
         case NONNULL:
-          for (VarInfo w : v.up) enqueueIfStronger(w, Nullab.NONNULL, work);
+          for (VarInfo w : v.up) {
+            enqueueIfStronger(w, Nullab.NONNULL, work);
+          }
           break;
         case NULLABLE:
-          for (VarInfo w : v.down) enqueueIfStronger(w, Nullab.NULLABLE, work);
+          for (VarInfo w : v.down) {
+            enqueueIfStronger(w, Nullab.NULLABLE, work);
+          }
           break;
         default:
           break; // UNKNOWN never sits in the queue
@@ -160,7 +164,9 @@ public final class NullabilitySolver {
     /* 2. choose ⊥ for remaining unknowns (least-nullable solution) */
     Map<TypeVariableSymbol, Boolean> out = new HashMap<>();
     for (VarInfo v : varMap.values()) {
-      if (v.value == Nullab.UNKNOWN) v.value = Nullab.NONNULL;
+      if (v.value == Nullab.UNKNOWN) {
+        v.value = Nullab.NONNULL;
+      }
       out.put(v.sym, v.value == Nullab.NULLABLE);
     }
     return out;
@@ -172,7 +178,7 @@ public final class NullabilitySolver {
 
   /** per-variable record */
   private static final class VarInfo {
-    final @Nullable TypeVariableSymbol sym; // real symbol or null for the two constants
+    @Nullable final TypeVariableSymbol sym; // real symbol or null for the two constants
     final String debugName; // for helpful errors
     final boolean mayBeNullable; // upper-bound permission
     Nullab value = Nullab.UNKNOWN;
@@ -204,7 +210,7 @@ public final class NullabilitySolver {
   private final VarInfo constNullable;
 
   /* lookup table – identity semantics are vital for javac symbols */
-  private final Map<TypeVariableSymbol, VarInfo> varMap = new IdentityHashMap<>();
+  private final IdentityHashMap<TypeVariableSymbol, VarInfo> varMap = new IdentityHashMap<>();
 
   /* ------ Graph-building helpers ------ */
 
@@ -214,7 +220,9 @@ public final class NullabilitySolver {
   }
 
   private void addEdge(VarInfo sub, VarInfo sup) {
-    if (sub == sup) return; // avoid trivial self-loops
+    if (sub == sup) {
+      return; // avoid trivial self-loops
+    }
     sub.up.add(sup);
     sup.down.add(sub);
   }
@@ -238,10 +246,14 @@ public final class NullabilitySolver {
         work.add(v);
         return;
       case NONNULL:
-        if (newVal == Nullab.NULLABLE) conflict(v);
+        if (newVal == Nullab.NULLABLE) {
+          conflict(v);
+        }
         return;
       case NULLABLE:
-        if (newVal == Nullab.NONNULL) conflict(v);
+        if (newVal == Nullab.NONNULL) {
+          conflict(v);
+        }
         return;
     }
   }
@@ -250,12 +262,12 @@ public final class NullabilitySolver {
     throw new UnsatException(v.debugName);
   }
 
-  /* ------  Type-inspection helpers  ------
+  /**
+   * ------ Type-inspection helpers ------
    *
-   * These are <strong>intentionally thin wrappers</strong> so that you can swap them
-   * out for whatever NullAway/NullnessUtil offers in your build.
+   * <p>These are <strong>intentionally thin wrappers</strong> so that you can swap them out for
+   * whatever NullAway/NullnessUtil offers in your build.
    */
-
   private boolean isTypeVar(Type t) {
     return t.hasTag(TypeTag.TYPEVAR);
   }

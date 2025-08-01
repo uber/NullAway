@@ -738,6 +738,31 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void firstOrDefaultSelfContained() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  public interface List<E extends @Nullable Object> { boolean isEmpty(); E get(int index); }",
+            "  public static class Collections {",
+            "    public static <T extends @Nullable Object> List<T> singletonList(T element) {",
+            "      throw new UnsupportedOperationException();",
+            "    }",
+            "  }",
+            "  public static <T extends @Nullable Object> T firstOrDefault(List<T> list, T defaultValue) {",
+            "    return list.isEmpty() ? defaultValue : list.get(0);",
+            "  }",
+            "  static void use() {",
+            "    // should infer T -> @Nullable String",
+            "    String result = firstOrDefault(Collections.singletonList(null), \"hello\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
