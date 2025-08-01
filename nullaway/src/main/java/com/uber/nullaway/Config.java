@@ -241,6 +241,13 @@ public interface Config {
   @Nullable String getCastToNonNullMethod();
 
   /**
+   * Gets the suppression name aliases.
+   *
+   * @return the name aliases that should be honored as part of a @SuppressWarnings annotation.
+   */
+  Set<String> getSuppressionNameAliases();
+
+  /**
    * Gets an optional comment to add to auto-fix suppressions.
    *
    * @return the comment to add to @SuppressWarnings annotations inserted into fix suggestions

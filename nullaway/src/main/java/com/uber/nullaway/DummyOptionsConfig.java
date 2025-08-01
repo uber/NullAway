@@ -180,6 +180,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public Set<String> getSuppressionNameAliases() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
   public String getAutofixSuppressionComment() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
