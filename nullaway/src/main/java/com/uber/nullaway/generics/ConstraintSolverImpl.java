@@ -1,9 +1,12 @@
 package com.uber.nullaway.generics;
 
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
 import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -12,12 +15,17 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeVariable;
 
 /** JSpecify-style nullability constraint solver for NullAway. */
 @SuppressWarnings("UnusedVariable")
 public final class ConstraintSolverImpl implements ConstraintSolver {
-  public ConstraintSolverImpl(Types types) {}
+  private final Config config; // for nullability annotations
+
+  public ConstraintSolverImpl(Config config, Types types) {
+    this.config = config;
+  }
 
   /* ───────────────────── internal enums & data ───────────────────── */
 
@@ -198,8 +206,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Replace with NullAway logic to detect a direct @Nullable annotation. */
   private static boolean isKnownNullable(Type t) {
-    // TODO implement
-    return false;
+    // TODO handle nullable annotations
+    return t instanceof NullType;
+    // throw new UnsupportedOperationException("need to implement this guy for " + t);
   }
 
   /** Everything non-nullable *and* non-variable counts as @NonNull. */
@@ -208,9 +217,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /** Replace with NullAway logic to check if the type variable’s upper bound is @Nullable. */
-  private static boolean upperBoundIsNullable(TypeVariable tv) {
+  private boolean upperBoundIsNullable(TypeVariable tv) {
     // TODO implement
-    return false;
+    Type upperBound = (Type) tv.getUpperBound();
+    com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
+        upperBound.getAnnotationMirrors();
+    return com.uber.nullaway.Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
   }
 
   /** True if both declared types erase to the same class/interface symbol. */

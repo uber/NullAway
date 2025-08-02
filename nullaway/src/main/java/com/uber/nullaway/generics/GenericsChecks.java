@@ -470,8 +470,8 @@ public final class GenericsChecks {
     }
   }
 
-  static ConstraintSolver makeSolver(Types types) {
-    return new ConstraintSolverImpl(types);
+  static ConstraintSolver makeSolver(Types types, Config config) {
+    return new ConstraintSolverImpl(config, types);
   }
 
   /**
@@ -496,7 +496,7 @@ public final class GenericsChecks {
       Type typeFromAssignmentContext,
       boolean assignedToLocal,
       Type exprType) {
-    ConstraintSolver solver = makeSolver(state.getTypes());
+    ConstraintSolver solver = makeSolver(state.getTypes(), analysis.getConfig());
     Type result = exprType;
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
@@ -583,13 +583,41 @@ public final class GenericsChecks {
       ExpressionTree argument = arguments.get(i);
       Symbol.VarSymbol formalParam = formalParams.get(i);
       Type formalParamType = formalParam.type;
-      Type argumentType = getTreeType(argument, config);
-      if (argumentType == null) {
-        // bail out of any checking involving raw types for now
-        continue;
+      if (isGenericCallNeedingInference(argument)) {
+        MethodInvocationTree invTree = (MethodInvocationTree) argument;
+        Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
+        boolean nestedMethodNullUnmarked = false; // TODO
+        generateConstraintsForCall(
+            config, formalParamType, false, solver, symbol, invTree, nestedMethodNullUnmarked);
+      } else {
+        Type argumentType = getTreeType(argument, config);
+        if (argumentType == null) {
+          // bail out of any checking involving raw types for now
+          continue;
+        }
+        solver.addSubtypeConstraint(argumentType, formalParamType);
       }
-      solver.addSubtypeConstraint(argumentType, formalParamType);
     }
+  }
+
+  private static boolean isGenericCallNeedingInference(ExpressionTree argument) {
+    if (argument instanceof MethodInvocationTree) {
+      MethodInvocationTree methodInvocation = (MethodInvocationTree) argument;
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
+      if (methodSymbol != null
+          && methodSymbol.type instanceof Type.ForAll
+          && methodInvocation.getTypeArguments().isEmpty()) {
+        // this is a generic method call with no explicit type arguments
+        return true;
+      }
+    } /*else if (argument instanceof NewClassTree) {
+        NewClassTree newClass = (NewClassTree) argument;
+        if (newClass.getIdentifier() instanceof ParameterizedTypeTree) {
+          // this is a generic constructor call with no explicit type arguments
+          return true;
+        }
+      }*/
+    return false;
   }
 
   /**
