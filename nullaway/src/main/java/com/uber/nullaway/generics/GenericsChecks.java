@@ -26,6 +26,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -42,6 +43,7 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
@@ -434,9 +436,11 @@ public final class GenericsChecks {
       return;
     }
     Tree rhsTree;
+    boolean assignedToLocal = false;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
+      assignedToLocal = ASTHelpers.getSymbol(tree).getKind().equals(ElementKind.LOCAL_VARIABLE);
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
@@ -451,13 +455,30 @@ public final class GenericsChecks {
       if (rhsTree instanceof MethodInvocationTree) {
         rhsType =
             inferGenericMethodCallType(
-                analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, rhsType);
+                analysis,
+                state,
+                (MethodInvocationTree) rhsTree,
+                config,
+                lhsType,
+                assignedToLocal,
+                rhsType);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
       }
     }
+  }
+
+  public interface ConstraintSolver {
+
+    void addSubtypeConstraint(Type subtype, Type supertype);
+
+    Map<TypeVariable, Type> solve();
+  }
+
+  static ConstraintSolver makeSolver(Types types) {
+    return new NullabilitySolver(types);
   }
 
   /**
@@ -469,6 +490,8 @@ public final class GenericsChecks {
    * @param invocationTree the method invocation tree representing the call to a generic method
    * @param config the analysis config
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context
+   * @param assignedToLocal true if the method call result is assigned to a local variable, false
+   *     otherwise
    * @param exprType the type of the right-hand side of the pseudo-assignment, which may be null
    * @return the type of the method call after inference
    */
@@ -478,7 +501,9 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Config config,
       Type typeFromAssignmentContext,
+      boolean assignedToLocal,
       Type exprType) {
+    ConstraintSolver solver = makeSolver(state.getTypes());
     Type result = exprType;
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
@@ -489,41 +514,55 @@ public final class GenericsChecks {
       boolean invokedMethodIsNullUnmarked =
           CodeAnnotationInfo.instance(state.context)
               .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
-      Map<TypeVariable, Type> substitution;
-      Type returnType = methodSymbol.getReturnType();
-      if (returnType instanceof Type.TypeVar) {
-        // we need different logic if the return type is a type variable
-        // if the assignment context type is @Nullable, we shouldn't infer anything, since that
-        // accommodates the type argument being either @Nullable or @NonNull
-        Type.TypeVar typeVar = (Type.TypeVar) returnType;
-        substitution = new LinkedHashMap<>();
-        boolean nonNullAssignmentContextType =
-            !Nullness.hasNullableAnnotation(
-                typeFromAssignmentContext.getAnnotationMirrors().stream(), config);
-        if (nonNullAssignmentContextType) {
-          // if the assignment context type is @NonNull, we can just use it
-          substitution.put(typeVar, typeFromAssignmentContext);
-        } else {
-          Type upperBound = typeVar.getUpperBound();
-          boolean typeVarHasNullableUpperBound =
-              Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
-          // if the type variable cannot be @Nullable, we can use the lhsType with any @Nullable
-          // annotation stripped
-          if (!typeVarHasNullableUpperBound && !invokedMethodIsNullUnmarked) {
-            // we can use the lhsType with any @Nullable annotation stripped
-            // TODO we should just strip out the top-level @Nullable annotation;
-            //  stripMetadata() also removes nested @Nullable annotations
-            substitution.put(typeVar, typeFromAssignmentContext.stripMetadata());
-          }
-        }
-
-      } else {
-        InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
-            new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
-                state, config, invokedMethodIsNullUnmarked);
-        returnType.accept(inferVisitor, typeFromAssignmentContext);
-        substitution = inferVisitor.getInferredSubstitution();
-      }
+      // generate constraints
+      // for return type, subtype of type from assignment context, unless we are assigning to a
+      // local, in which case ignore
+      generateConstraintsForCall(
+          config,
+          typeFromAssignmentContext,
+          assignedToLocal,
+          solver,
+          methodSymbol,
+          methodInvocationTree,
+          invokedMethodIsNullUnmarked);
+      Map<TypeVariable, Type> substitution = solver.solve();
+      //      Type returnType = methodSymbol.getReturnType();
+      //      if (returnType instanceof Type.TypeVar) {
+      //        // we need different logic if the return type is a type variable
+      //        // if the assignment context type is @Nullable, we shouldn't infer anything, since
+      // that
+      //        // accommodates the type argument being either @Nullable or @NonNull
+      //        Type.TypeVar typeVar = (Type.TypeVar) returnType;
+      //        substitution = new LinkedHashMap<>();
+      //        boolean nonNullAssignmentContextType =
+      //            !Nullness.hasNullableAnnotation(
+      //                typeFromAssignmentContext.getAnnotationMirrors().stream(), config);
+      //        if (nonNullAssignmentContextType) {
+      //          // if the assignment context type is @NonNull, we can just use it
+      //          substitution.put(typeVar, typeFromAssignmentContext);
+      //        } else {
+      //          Type upperBound = typeVar.getUpperBound();
+      //          boolean typeVarHasNullableUpperBound =
+      //              Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(),
+      // config);
+      //          // if the type variable cannot be @Nullable, we can use the lhsType with any
+      // @Nullable
+      //          // annotation stripped
+      //          if (!typeVarHasNullableUpperBound && !invokedMethodIsNullUnmarked) {
+      //            // we can use the lhsType with any @Nullable annotation stripped
+      //            // TODO we should just strip out the top-level @Nullable annotation;
+      //            //  stripMetadata() also removes nested @Nullable annotations
+      //            substitution.put(typeVar, typeFromAssignmentContext.stripMetadata());
+      //          }
+      //        }
+      //
+      //      } else {
+      //        InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
+      //            new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
+      //                state, config, invokedMethodIsNullUnmarked);
+      //        returnType.accept(inferVisitor, typeFromAssignmentContext);
+      //        substitution = inferVisitor.getInferredSubstitution();
+      //      }
       inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
       // update with inferred substitution
       result =
@@ -531,6 +570,33 @@ public final class GenericsChecks {
               state, methodSymbol.getReturnType(), substitution, config);
     }
     return result;
+  }
+
+  private static void generateConstraintsForCall(
+      Config config,
+      Type typeFromAssignmentContext,
+      boolean assignedToLocal,
+      ConstraintSolver solver,
+      Symbol.MethodSymbol methodSymbol,
+      MethodInvocationTree methodInvocationTree,
+      boolean invokedMethodIsNullUnmarked) {
+    var ignored = invokedMethodIsNullUnmarked;
+    if (!assignedToLocal) {
+      solver.addSubtypeConstraint(methodSymbol.getReturnType(), typeFromAssignmentContext);
+    }
+    List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
+    List<Symbol.VarSymbol> formalParams = methodSymbol.getParameters();
+    for (int i = 0; i < arguments.size(); i++) {
+      ExpressionTree argument = arguments.get(i);
+      Symbol.VarSymbol formalParam = formalParams.get(i);
+      Type formalParamType = formalParam.type;
+      Type argumentType = getTreeType(argument, config);
+      if (argumentType == null) {
+        // bail out of any checking involving raw types for now
+        continue;
+      }
+      solver.addSubtypeConstraint(argumentType, formalParamType);
+    }
   }
 
   /**
@@ -588,6 +654,7 @@ public final class GenericsChecks {
                 (MethodInvocationTree) retExpr,
                 config,
                 formalReturnType,
+                false,
                 returnExpressionType);
       }
       boolean isReturnTypeValid =
@@ -804,6 +871,7 @@ public final class GenericsChecks {
                   (MethodInvocationTree) currentActualParam,
                   config,
                   formalParameter,
+                  false,
                   actualParameterType);
         }
         if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
@@ -827,6 +895,7 @@ public final class GenericsChecks {
                     (MethodInvocationTree) actualParamExpr,
                     config,
                     varargsElementType,
+                    false,
                     actualParameterType);
           }
           if (!subtypeParameterNullability(

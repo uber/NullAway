@@ -46,7 +46,7 @@ import javax.annotation.Nullable;
  * <p>Lattice: {@code @NonNull ⊑ @Nullable}. The result is the <em>least-nullable</em> assignment
  * that satisfies all constraints, or an {@link UnsatException} if none exists.
  */
-public final class NullabilitySolver {
+public final class NullabilitySolver implements GenericsChecks.ConstraintSolver {
 
   /* ------ Enums and exceptions ------ */
 
