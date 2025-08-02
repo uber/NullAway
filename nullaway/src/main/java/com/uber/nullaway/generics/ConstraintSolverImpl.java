@@ -1,10 +1,10 @@
 package com.uber.nullaway.generics;
 
+import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
-import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.ArrayDeque;
@@ -22,9 +22,11 @@ import javax.lang.model.type.TypeVariable;
 @SuppressWarnings("UnusedVariable")
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config; // for nullability annotations
+  private final VisitorState state;
 
-  public ConstraintSolverImpl(Config config, Types types) {
+  public ConstraintSolverImpl(Config config, VisitorState state) {
     this.config = config;
+    this.state = state;
   }
 
   /* ───────────────────── internal enums & data ───────────────────── */
@@ -244,9 +246,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /** Produce a copy of {@code t} with a @Nullable annotation. */
-  private static Type makeNullable(Type t) {
-    // TODO implement
-    throw new UnsupportedOperationException("makeNullable stub");
+  private Type makeNullable(Type t) {
+    return TypeSubstitutionUtils.typeWithAnnot(t, GenericsChecks.getSyntheticNullAnnotType(state));
   }
 
   /* ───────────────────── tiny immutable pair helper ───────────────────── */
