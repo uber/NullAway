@@ -62,8 +62,8 @@ public final class GenericsChecks {
    * from type variables for the method to their inferred type arguments (most importantly with
    * inferred nullability information).
    */
-  private final Map<Tree, Map<TypeVariable, Type>> inferredSubstitutionsForGenericMethodCalls =
-      new LinkedHashMap<>();
+  private final Map<MethodInvocationTree, Map<TypeVariable, Boolean>>
+      inferredSubstitutionsForGenericMethodCalls = new LinkedHashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -561,7 +561,7 @@ public final class GenericsChecks {
       //        substitution = inferVisitor.getInferredSubstitution();
       //      }
 
-      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
+      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, typeVarNullability);
 
       // how to do this?  First, in the return type of the generic method, substitute type variables
       // with type variables that have the inferred nullability, _unless_ they have an explicit
@@ -569,26 +569,26 @@ public final class GenericsChecks {
       // something like that.
       // Then, in the actual return type, match the nullability of the type arguments with the
       // nullability of the type variables, again with a restore.
-      Type genericReturnType = methodSymbol.getReturnType();
-      Type withInferredNullability =
-          substituteInferredNullabilityForTypeVariables(
-              state, genericReturnType, typeVarNullability, config);
-      Type explicitRestored =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              genericReturnType, withInferredNullability, config, Collections.emptyMap());
+      result = getTypeWithInferredNullability(state, config, methodSymbol.type, typeVarNullability);
       result =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              explicitRestored,
-              ASTHelpers.getType(methodInvocationTree),
-              config,
-              Collections.emptyMap());
-      System.err.println(result);
-      //      // update with inferred substitution
-      //      result =
-      //          substituteInferredTypesForTypeVariables(
-      //              state, methodSymbol.getReturnType(), substitution, config);
+              result, ASTHelpers.getType(methodInvocationTree), config, Collections.emptyMap());
     }
     return result;
+  }
+
+  private Type getTypeWithInferredNullability(
+      VisitorState state,
+      Config config,
+      Type genericMethodType,
+      Map<TypeVariable, Boolean> typeVarNullability) {
+    Type withInferredNullability =
+        substituteInferredNullabilityForTypeVariables(
+            state, genericMethodType, typeVarNullability, config);
+    Type explicitRestored =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            genericMethodType, withInferredNullability, config, Collections.emptyMap());
+    return explicitRestored;
   }
 
   private static void generateConstraintsForCall(
@@ -647,26 +647,18 @@ public final class GenericsChecks {
     return false;
   }
 
-  /**
-   * Substitutes inferred types for type variables within a type.
-   *
-   * @param state The visitor state
-   * @param targetType The type with type variables on which substitutions will be applied
-   * @param substitution The cache that maps type variables to its inferred types
-   * @param config Configuration for the analysis
-   * @return {@code targetType} with the substitutions applied
-   */
-  private Type substituteInferredTypesForTypeVariables(
-      VisitorState state, Type targetType, Map<TypeVariable, Type> substitution, Config config) {
-    ListBuffer<Type> typeVars = new ListBuffer<>();
-    ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<TypeVariable, Type> entry : substitution.entrySet()) {
-      typeVars.append((Type) entry.getKey());
-      inferredTypes.append(entry.getValue());
-    }
-    return TypeSubstitutionUtils.subst(
-        state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);
-  }
+  //  private Type substituteInferredTypesForTypeVariables(
+  //      VisitorState state, Type targetType, Map<TypeVariable, Type> substitution, Config config)
+  // {
+  //    ListBuffer<Type> typeVars = new ListBuffer<>();
+  //    ListBuffer<Type> inferredTypes = new ListBuffer<>();
+  //    for (Map.Entry<TypeVariable, Type> entry : substitution.entrySet()) {
+  //      typeVars.append((Type) entry.getKey());
+  //      inferredTypes.append(entry.getValue());
+  //    }
+  //    return TypeSubstitutionUtils.subst(
+  //        state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);
+  //  }
 
   private Type substituteInferredNullabilityForTypeVariables(
       VisitorState state,
@@ -1193,12 +1185,13 @@ public final class GenericsChecks {
 
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
-      if (inferredSubstitutionsForGenericMethodCalls.containsKey(tree)) {
-        return substituteInferredTypesForTypeVariables(
+      if (inferredSubstitutionsForGenericMethodCalls.containsKey(tree)
+          && tree instanceof MethodInvocationTree) {
+        return getTypeWithInferredNullability(
             state,
+            config,
             underlyingMethodType,
-            inferredSubstitutionsForGenericMethodCalls.get(tree),
-            config);
+            inferredSubstitutionsForGenericMethodCalls.get(tree));
       }
     }
     return TypeSubstitutionUtils.subst(
@@ -1251,9 +1244,9 @@ public final class GenericsChecks {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
-      List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
-              .getParameterTypes();
+      Type substituted =
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config);
+      List<Type> substitutedParamTypes = substituted.getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
