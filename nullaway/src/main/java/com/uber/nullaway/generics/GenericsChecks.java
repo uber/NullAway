@@ -41,6 +41,7 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -521,7 +522,7 @@ public final class GenericsChecks {
           methodSymbol,
           methodInvocationTree,
           invokedMethodIsNullUnmarked);
-      Map<TypeVariable, Boolean> ignored = solver.solve();
+      Map<TypeVariable, Boolean> typeVarNullability = solver.solve();
       //      Type returnType = methodSymbol.getReturnType();
       //      if (returnType instanceof Type.TypeVar) {
       //        // we need different logic if the return type is a type variable
@@ -561,6 +562,27 @@ public final class GenericsChecks {
       //      }
 
       // TODO uncomment and fix this!!
+
+      // how to do this?  First, in the return type of the generic method, substitute type variables
+      // with type variables that have the inferred nullability, _unless_ they have an explicit
+      // nullness annotation already.  We can do this with a substitution followed by a restore?  Or
+      // something like that.
+      // Then, in the actual return type, match the nullability of the type arguments with the
+      // nullability of the type variables, again with a restore.
+      Type genericReturnType = methodSymbol.getReturnType();
+      Type withInferredNullability =
+          substituteInferredNullabilityForTypeVariables(
+              state, genericReturnType, typeVarNullability, config);
+      Type explicitRestored =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              genericReturnType, withInferredNullability, config, Collections.emptyMap());
+      result =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              explicitRestored,
+              ASTHelpers.getType(methodInvocationTree),
+              config,
+              Collections.emptyMap());
+      System.err.println(result);
       //      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
       //      // update with inferred substitution
       //      result =
@@ -642,6 +664,26 @@ public final class GenericsChecks {
     for (Map.Entry<TypeVariable, Type> entry : substitution.entrySet()) {
       typeVars.append((Type) entry.getKey());
       inferredTypes.append(entry.getValue());
+    }
+    return TypeSubstitutionUtils.subst(
+        state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);
+  }
+
+  private Type substituteInferredNullabilityForTypeVariables(
+      VisitorState state,
+      Type targetType,
+      Map<TypeVariable, Boolean> typeVarNullability,
+      Config config) {
+    ListBuffer<Type> typeVars = new ListBuffer<>();
+    ListBuffer<Type> inferredTypes = new ListBuffer<>();
+    for (Map.Entry<TypeVariable, Boolean> entry : typeVarNullability.entrySet()) {
+      if (entry.getValue()) {
+        Type curTypeVar = (Type) entry.getKey();
+        typeVars.append(curTypeVar);
+        inferredTypes.append(
+            TypeSubstitutionUtils.typeWithAnnot(
+                curTypeVar, GenericsChecks.getSyntheticNullAnnotType(state)));
+      }
     }
     return TypeSubstitutionUtils.subst(
         state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);

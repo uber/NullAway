@@ -52,7 +52,7 @@ public class TypeSubstitutionUtils {
    * @param annotsOnTypeVarsFromSubtypes annotations on type variables added by subtypes
    * @return the new type with explicit nullability annotations restored
    */
-  private static Type restoreExplicitNullabilityAnnotations(
+  public static Type restoreExplicitNullabilityAnnotations(
       Type origType,
       Type newType,
       Config config,
