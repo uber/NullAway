@@ -36,17 +36,15 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     NULLABLE
   }
 
-  /** Per-variable state (nullability, sub-/supertype edges, base type). */
+  /** Per-variable state (nullability, sub-/supertype edges). */
   private static final class VarState {
     final boolean nullableAllowed; // upper-bound annotated @Nullable ?
     NullnessState nullness = NullnessState.UNKNOWN;
     final Set<TypeVariable> supertypes = new HashSet<>();
     final Set<TypeVariable> subtypes = new HashSet<>();
-    Type baseType; // structural type to return
 
-    VarState(boolean nullableAllowed, Type baseType) {
+    VarState(boolean nullableAllowed) {
       this.nullableAllowed = nullableAllowed;
-      this.baseType = baseType;
     }
   }
 
@@ -61,7 +59,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   @Override
-  public Map<TypeVariable, Type> solve() {
+  public Map<TypeVariable, Boolean> solve() {
     /* ---------- work-list propagation of nullability ---------- */
     Deque<TypeVariable> work = new ArrayDeque<>();
     vars.forEach(
@@ -99,13 +97,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /* ---------- build final solution map ---------- */
-    Map<TypeVariable, Type> result = new HashMap<>();
+    Map<TypeVariable, Boolean> result = new HashMap<>();
     vars.forEach(
         (tv, st) -> {
           NullnessState n =
               (st.nullness == NullnessState.UNKNOWN) ? NullnessState.NONNULL : st.nullness;
-          Type base = (st.baseType != null) ? st.baseType : defaultUpperBound(tv);
-          result.put(tv, n == NullnessState.NULLABLE ? makeNullable(base) : base);
+          result.put(tv, n == NullnessState.NULLABLE);
         });
     return result;
   }
@@ -134,14 +131,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       requireNullable(t);
     }
 
-    /* 3️⃣  remember base-type when variable meets concrete type */
-    if (isTypeVariable(s) && !isTypeVariable(t)) {
-      rememberBaseType((TypeVariable) s, t);
-    } else if (!isTypeVariable(s) && isTypeVariable(t)) {
-      rememberBaseType((TypeVariable) t, s);
-    }
-
-    /* 4️⃣  invariance of type arguments – recurse both directions */
+    /* 3️⃣  invariance of type arguments – recurse both directions */
     if (sameErasure(s, t)) {
       List<Type> sArgs = s.getTypeArguments();
       List<Type> tArgs = t.getTypeArguments();
@@ -191,15 +181,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── helpers & stubs ───────────────────── */
 
   private VarState getState(TypeVariable tv) {
-    return vars.computeIfAbsent(
-        tv, v -> new VarState(upperBoundIsNullable(v), /* baseType= */ null));
-  }
-
-  private void rememberBaseType(TypeVariable tv, Type candidate) {
-    VarState st = getState(tv);
-    if (st.baseType == null) {
-      st.baseType = stripNullability(candidate);
-    }
+    return vars.computeIfAbsent(tv, v -> new VarState(upperBoundIsNullable(v)));
   }
 
   private static boolean isTypeVariable(Type t) {
@@ -232,22 +214,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return a instanceof ClassType
         && b instanceof ClassType
         && ((ClassType) a).tsym.equals(((ClassType) b).tsym);
-  }
-
-  /** Remove any top-level nullability annotation so we can re-apply later. */
-  private static Type stripNullability(Type t) {
-    // TODO implement
-    return t;
-  }
-
-  /** Fallback base type = upper bound of the variable. */
-  private static Type defaultUpperBound(TypeVariable tv) {
-    return ((TypeVar) tv).getUpperBound();
-  }
-
-  /** Produce a copy of {@code t} with a @Nullable annotation. */
-  private Type makeNullable(Type t) {
-    return TypeSubstitutionUtils.typeWithAnnot(t, GenericsChecks.getSyntheticNullAnnotType(state));
   }
 
   /* ───────────────────── tiny immutable pair helper ───────────────────── */

@@ -521,7 +521,7 @@ public final class GenericsChecks {
           methodSymbol,
           methodInvocationTree,
           invokedMethodIsNullUnmarked);
-      Map<TypeVariable, Boolean> substitution = solver.solve();
+      Map<TypeVariable, Boolean> ignored = solver.solve();
       //      Type returnType = methodSymbol.getReturnType();
       //      if (returnType instanceof Type.TypeVar) {
       //        // we need different logic if the return type is a type variable
