@@ -521,7 +521,7 @@ public final class GenericsChecks {
           methodSymbol,
           methodInvocationTree,
           invokedMethodIsNullUnmarked);
-      Map<TypeVariable, Type> substitution = solver.solve();
+      Map<TypeVariable, Boolean> substitution = solver.solve();
       //      Type returnType = methodSymbol.getReturnType();
       //      if (returnType instanceof Type.TypeVar) {
       //        // we need different logic if the return type is a type variable
@@ -559,11 +559,13 @@ public final class GenericsChecks {
       //        returnType.accept(inferVisitor, typeFromAssignmentContext);
       //        substitution = inferVisitor.getInferredSubstitution();
       //      }
-      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
-      // update with inferred substitution
-      result =
-          substituteInferredTypesForTypeVariables(
-              state, methodSymbol.getReturnType(), substitution, config);
+
+      // TODO uncomment and fix this!!
+      //      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
+      //      // update with inferred substitution
+      //      result =
+      //          substituteInferredTypesForTypeVariables(
+      //              state, methodSymbol.getReturnType(), substitution, config);
     }
     return result;
   }

@@ -6,7 +6,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.Nullness;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -31,7 +30,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /* ───────────────────── internal enums & data ───────────────────── */
 
-  private enum Nullness {
+  private enum NullnessState {
     UNKNOWN,
     NONNULL,
     NULLABLE
@@ -40,7 +39,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Per-variable state (nullability, sub-/supertype edges, base type). */
   private static final class VarState {
     final boolean nullableAllowed; // upper-bound annotated @Nullable ?
-    Nullness nullness = Nullness.UNKNOWN;
+    NullnessState nullness = NullnessState.UNKNOWN;
     final Set<TypeVariable> supertypes = new HashSet<>();
     final Set<TypeVariable> subtypes = new HashSet<>();
     Type baseType; // structural type to return
@@ -67,7 +66,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     Deque<TypeVariable> work = new ArrayDeque<>();
     vars.forEach(
         (tv, st) -> {
-          if (st.nullness != Nullness.UNKNOWN) {
+          if (st.nullness != NullnessState.UNKNOWN) {
             work.add(tv);
           }
         });
@@ -80,7 +79,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         case NONNULL:
           /* S <: tv  &  tv NONNULL  ⇒  S NONNULL */
           for (TypeVariable sub : st.subtypes) {
-            if (updateNullness(sub, Nullness.NONNULL)) {
+            if (updateNullness(sub, NullnessState.NONNULL)) {
               work.add(sub);
             }
           }
@@ -89,7 +88,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         case NULLABLE:
           /* tv <: T  &  tv NULLABLE  ⇒  T NULLABLE */
           for (TypeVariable sup : st.supertypes) {
-            if (updateNullness(sup, Nullness.NULLABLE)) {
+            if (updateNullness(sup, NullnessState.NULLABLE)) {
               work.add(sup);
             }
           }
@@ -103,9 +102,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     Map<TypeVariable, Type> result = new HashMap<>();
     vars.forEach(
         (tv, st) -> {
-          Nullness n = (st.nullness == Nullness.UNKNOWN) ? Nullness.NONNULL : st.nullness;
+          NullnessState n =
+              (st.nullness == NullnessState.UNKNOWN) ? NullnessState.NONNULL : st.nullness;
           Type base = (st.baseType != null) ? st.baseType : defaultUpperBound(tv);
-          result.put(tv, n == Nullness.NULLABLE ? makeNullable(base) : base);
+          result.put(tv, n == NullnessState.NULLABLE ? makeNullable(base) : base);
         });
     return result;
   }
@@ -155,17 +155,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── nullability bookkeeping ───────────────────── */
 
   /** Force {@code tv} to {@code n}. Returns true if state changed. */
-  private boolean updateNullness(TypeVariable tv, Nullness n) {
+  private boolean updateNullness(TypeVariable tv, NullnessState n) {
     VarState st = getState(tv);
 
     if (st.nullness == n) {
       return false;
     }
-    if (st.nullness != Nullness.UNKNOWN) {
+    if (st.nullness != NullnessState.UNKNOWN) {
       throw new IllegalStateException(
           "Contradictory nullability for " + tv + ": " + st.nullness + " vs. " + n);
     }
-    if (n == Nullness.NULLABLE && !st.nullableAllowed) {
+    if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
       throw new IllegalStateException(tv + " cannot be @Nullable (upper bound is @NonNull)");
     }
     st.nullness = n;
@@ -174,7 +174,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   private void requireNullable(Type t) {
     if (isTypeVariable(t)) {
-      updateNullness((TypeVariable) t, Nullness.NULLABLE);
+      updateNullness((TypeVariable) t, NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
       throw new IllegalStateException("Cannot treat @NonNull type as @Nullable: " + t);
     }
@@ -182,7 +182,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   private void requireNonNull(Type t) {
     if (isTypeVariable(t)) {
-      updateNullness((TypeVariable) t, Nullness.NONNULL);
+      updateNullness((TypeVariable) t, NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
       throw new IllegalStateException("Cannot treat @Nullable type as @NonNull: " + t);
     }

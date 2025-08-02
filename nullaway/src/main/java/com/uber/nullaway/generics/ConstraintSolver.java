@@ -8,5 +8,14 @@ public interface ConstraintSolver {
 
   void addSubtypeConstraint(Type subtype, Type supertype);
 
-  Map<TypeVariable, Type> solve();
+  /**
+   * Solve the constraints, returning a map from type variables to booleans indicating whether the
+   * type variable is {@code @Nullable} or not. Throws an exception if the constraints are
+   * unsatisfiable.
+   *
+   * @return a map from type variables to booleans indicating whether the type variable is
+   *     {@code @Nullable} or not. If the boolean is {@code true}, the type variable is
+   *     {@code @Nullable}; if it is {@code false}, the type variable is {@code @NonNull}.
+   */
+  Map<TypeVariable, Boolean> solve();
 }
