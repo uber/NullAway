@@ -23,7 +23,6 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
-import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TargetType;
@@ -1538,10 +1537,9 @@ public final class GenericsChecks {
   public static Type getSyntheticNullAnnotType(VisitorState state) {
     Names names = Names.instance(state.context);
     Symtab symtab = Symtab.instance(state.context);
-    Name name = names.fromString("com.uber.nullaway.synthetic.Nullable");
-    Symbol.ClassSymbol symbol =
-        new Symbol.ClassSymbol(Flags.PUBLIC | Flags.ANNOTATION, name, symtab.noSymbol);
-    Name simpleName = name.subName(name.lastIndexOf((byte) '.') + 1, name.length());
-    return new Type.ErrorType(simpleName, symbol, Type.noType);
+    Name name = names.fromString("com.uber.nullaway.synthetic");
+    Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
+    Name simpleName = names.fromString("Nullable");
+    return new Type.ErrorType(simpleName, packageSymbol, Type.noType);
   }
 }
