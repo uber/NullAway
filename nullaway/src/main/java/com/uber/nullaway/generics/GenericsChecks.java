@@ -23,12 +23,15 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.ListBuffer;
+import com.sun.tools.javac.util.Name;
+import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
@@ -470,8 +473,8 @@ public final class GenericsChecks {
     }
   }
 
-  static ConstraintSolver makeSolver(Types types, Config config) {
-    return new ConstraintSolverImpl(config, types);
+  static ConstraintSolver makeSolver(VisitorState state, Config config) {
+    return new ConstraintSolverImpl(config, state);
   }
 
   /**
@@ -496,7 +499,7 @@ public final class GenericsChecks {
       Type typeFromAssignmentContext,
       boolean assignedToLocal,
       Type exprType) {
-    ConstraintSolver solver = makeSolver(state.getTypes(), analysis.getConfig());
+    ConstraintSolver solver = makeSolver(state, analysis.getConfig());
     Type result = exprType;
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
@@ -575,6 +578,7 @@ public final class GenericsChecks {
       boolean invokedMethodIsNullUnmarked) {
     var ignored = invokedMethodIsNullUnmarked;
     if (!assignedToLocal) {
+      // TODO this is wrong, we just need to not constrain the top-level type if it's a local
       solver.addSubtypeConstraint(methodSymbol.getReturnType(), typeFromAssignmentContext);
     }
     List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
@@ -1480,5 +1484,27 @@ public final class GenericsChecks {
 
   public static boolean isNullableAnnotated(Type type, Config config) {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+  }
+
+  /**
+   * Returns a "fake" {@link Type} object representing a synthetic {@code @Nullable} annotation.
+   *
+   * <p>This is needed for cases where we need to treat a type as nullable, but there is no actual
+   * {@code @Nullable} annotation in the code. The returned type is an {@link Type.ErrorType}. We
+   * cannot create a proper {@link Type.ClassType} from outside the {@code com.sun.tools.javac.code}
+   * package, so this is the best we can do. Given this is a "fake" type, {@code ErrorType} seems
+   * appropriate.
+   *
+   * @param state the visitor state, used to access javac internals like {@link Names} and {@link
+   *     Symtab}.
+   * @return a fake {@code Type} for a synthetic {@code @Nullable} annotation.
+   */
+  public static Type getSyntheticNullAnnotType(VisitorState state) {
+    Names names = Names.instance(state.context);
+    Symtab symtab = Symtab.instance(state.context);
+    Name name = names.fromString("com.uber.nullaway.synthetic.Nullable");
+    Symbol.ClassSymbol symbol =
+        new Symbol.ClassSymbol(Flags.PUBLIC | Flags.ANNOTATION, name, symtab.noSymbol);
+    return new Type.ErrorType(name, symbol, Type.noType);
   }
 }
