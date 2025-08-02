@@ -470,15 +470,8 @@ public final class GenericsChecks {
     }
   }
 
-  public interface ConstraintSolver {
-
-    void addSubtypeConstraint(Type subtype, Type supertype);
-
-    Map<TypeVariable, Type> solve();
-  }
-
   static ConstraintSolver makeSolver(Types types) {
-    return new NullabilitySolver(types);
+    return new ConstraintSolverImpl(types);
   }
 
   /**
