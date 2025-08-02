@@ -561,7 +561,7 @@ public final class GenericsChecks {
       //        substitution = inferVisitor.getInferredSubstitution();
       //      }
 
-      // TODO uncomment and fix this!!
+      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
 
       // how to do this?  First, in the return type of the generic method, substitute type variables
       // with type variables that have the inferred nullability, _unless_ they have an explicit
@@ -583,7 +583,6 @@ public final class GenericsChecks {
               config,
               Collections.emptyMap());
       System.err.println(result);
-      //      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, substitution);
       //      // update with inferred substitution
       //      result =
       //          substituteInferredTypesForTypeVariables(
@@ -1549,6 +1548,7 @@ public final class GenericsChecks {
     Name name = names.fromString("com.uber.nullaway.synthetic.Nullable");
     Symbol.ClassSymbol symbol =
         new Symbol.ClassSymbol(Flags.PUBLIC | Flags.ANNOTATION, name, symtab.noSymbol);
-    return new Type.ErrorType(name, symbol, Type.noType);
+    Name simpleName = name.subName(name.lastIndexOf((byte) '.') + 1, name.length());
+    return new Type.ErrorType(simpleName, symbol, Type.noType);
   }
 }
