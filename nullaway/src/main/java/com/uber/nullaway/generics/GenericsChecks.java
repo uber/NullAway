@@ -460,13 +460,7 @@ public final class GenericsChecks {
       if (rhsTree instanceof MethodInvocationTree) {
         rhsType =
             inferGenericMethodCallType(
-                analysis,
-                state,
-                (MethodInvocationTree) rhsTree,
-                config,
-                lhsType,
-                assignedToLocal,
-                rhsType);
+                analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, assignedToLocal);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
@@ -490,7 +484,6 @@ public final class GenericsChecks {
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context
    * @param assignedToLocal true if the method call result is assigned to a local variable, false
    *     otherwise
-   * @param exprType the type of the right-hand side of the pseudo-assignment, which may be null
    * @return the type of the method call after inference
    */
   private Type inferGenericMethodCallType(
@@ -499,8 +492,7 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Config config,
       Type typeFromAssignmentContext,
-      boolean assignedToLocal,
-      @SuppressWarnings("UnusedVariable") Type exprType) {
+      boolean assignedToLocal) {
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
     Map<TypeVariable, Boolean> typeVarNullability =
@@ -689,13 +681,7 @@ public final class GenericsChecks {
       if (retExpr instanceof MethodInvocationTree) {
         returnExpressionType =
             inferGenericMethodCallType(
-                analysis,
-                state,
-                (MethodInvocationTree) retExpr,
-                config,
-                formalReturnType,
-                false,
-                returnExpressionType);
+                analysis, state, (MethodInvocationTree) retExpr, config, formalReturnType, false);
       }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
@@ -911,8 +897,7 @@ public final class GenericsChecks {
                   (MethodInvocationTree) currentActualParam,
                   config,
                   formalParameter,
-                  false,
-                  actualParameterType);
+                  false);
         }
         if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
           reportInvalidParametersNullabilityError(
@@ -935,8 +920,7 @@ public final class GenericsChecks {
                     (MethodInvocationTree) actualParamExpr,
                     config,
                     varargsElementType,
-                    false,
-                    actualParameterType);
+                    false);
           }
           if (!subtypeParameterNullability(
               varargsElementType, actualParameterType, state, config)) {
