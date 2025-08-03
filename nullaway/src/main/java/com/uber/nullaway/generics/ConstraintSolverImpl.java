@@ -1,6 +1,5 @@
 package com.uber.nullaway.generics;
 
-import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
@@ -18,14 +17,11 @@ import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeVariable;
 
 /** JSpecify-style nullability constraint solver for NullAway. */
-@SuppressWarnings("UnusedVariable")
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config; // for nullability annotations
-  private final VisitorState state;
 
-  public ConstraintSolverImpl(Config config, VisitorState state) {
+  public ConstraintSolverImpl(Config config) {
     this.config = config;
-    this.state = state;
   }
 
   /* ───────────────────── internal enums & data ───────────────────── */

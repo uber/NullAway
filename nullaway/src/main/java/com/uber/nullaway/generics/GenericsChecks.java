@@ -58,13 +58,13 @@ import org.jspecify.annotations.Nullable;
 public final class GenericsChecks {
 
   /**
-   * Maps a MethodInvocationTree representing a call to a generic method to a substitution for its
+   * Maps a Tree representing a call to a generic method / constructor to a substitution for its
    * type arguments. The call must not have any explicit type arguments. The substitution is a map
    * from type variables for the method to their inferred type arguments (most importantly with
    * inferred nullability information).
    */
-  private final Map<MethodInvocationTree, Map<TypeVariable, Boolean>>
-      inferredSubstitutionsForGenericMethodCalls = new LinkedHashMap<>();
+  private final Map<Tree, Map<TypeVariable, Boolean>> inferredSubstitutionsForGenericMethodCalls =
+      new LinkedHashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -469,8 +469,8 @@ public final class GenericsChecks {
     }
   }
 
-  static ConstraintSolver makeSolver(VisitorState state, Config config) {
-    return new ConstraintSolverImpl(config, state);
+  static ConstraintSolver makeSolver(Config config) {
+    return new ConstraintSolverImpl(config);
   }
 
   /**
@@ -499,7 +499,7 @@ public final class GenericsChecks {
         inferredSubstitutionsForGenericMethodCalls.get(invocationTree);
     Type type = methodSymbol.type;
     if (typeVarNullability == null) {
-      ConstraintSolver solver = makeSolver(state, analysis.getConfig());
+      ConstraintSolver solver = makeSolver(analysis.getConfig());
       if (type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty()) {
         // generic method call with no explicit generic arguments
         // update inferred type arguments based on the assignment context
