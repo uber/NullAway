@@ -752,7 +752,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "      throw new UnsupportedOperationException();",
             "    }",
             "  }",
-            "  public static <T extends @Nullable Object> T firstOrDefault(List<T> list, T defaultValue) {",
+            "  public static <U extends @Nullable Object> U firstOrDefault(List<U> list, U defaultValue) {",
             "    return list.isEmpty() ? defaultValue : list.get(0);",
             "  }",
             "  static void use() {",
