@@ -50,12 +50,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── public API ───────────────────── */
 
   @Override
-  public void addSubtypeConstraint(Type subtype, Type supertype) {
+  public void addSubtypeConstraint(Type subtype, Type supertype) throws UnsatConstraintsException {
     addSubtypeInternal(subtype, supertype, new HashSet<>()); // avoid cycles
   }
 
   @Override
-  public Map<TypeVariable, Boolean> solve() {
+  public Map<TypeVariable, Boolean> solve() throws UnsatConstraintsException {
     /* ---------- work-list propagation of nullability ---------- */
     Deque<TypeVariable> work = new ArrayDeque<>();
     vars.forEach(
@@ -105,7 +105,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /* ───────────────────── core recursive routine ───────────────────── */
 
-  private void addSubtypeInternal(Type s, Type t, Set<Pair<Type, Type>> seen) {
+  private void addSubtypeInternal(Type s, Type t, Set<Pair<Type, Type>> seen)
+      throws UnsatConstraintsException {
     Pair<Type, Type> p = Pair.of(s, t);
     if (!seen.add(p)) {
       return; // already processed
@@ -141,36 +142,37 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── nullability bookkeeping ───────────────────── */
 
   /** Force {@code tv} to {@code n}. Returns true if state changed. */
-  private boolean updateNullness(TypeVariable tv, NullnessState n) {
+  private boolean updateNullness(TypeVariable tv, NullnessState n)
+      throws UnsatConstraintsException {
     VarState st = getState(tv);
 
     if (st.nullness == n) {
       return false;
     }
     if (st.nullness != NullnessState.UNKNOWN) {
-      throw new IllegalStateException(
+      throw new UnsatConstraintsException(
           "Contradictory nullability for " + tv + ": " + st.nullness + " vs. " + n);
     }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
-      throw new IllegalStateException(tv + " cannot be @Nullable (upper bound is @NonNull)");
+      throw new UnsatConstraintsException(tv + " cannot be @Nullable (upper bound is @NonNull)");
     }
     st.nullness = n;
     return true;
   }
 
-  private void requireNullable(Type t) {
+  private void requireNullable(Type t) throws UnsatConstraintsException {
     if (isTypeVariable(t)) {
       updateNullness((TypeVariable) t, NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
-      throw new IllegalStateException("Cannot treat @NonNull type as @Nullable: " + t);
+      throw new UnsatConstraintsException("Cannot treat @NonNull type as @Nullable: " + t);
     }
   }
 
-  private void requireNonNull(Type t) {
+  private void requireNonNull(Type t) throws UnsatConstraintsException {
     if (isTypeVariable(t)) {
       updateNullness((TypeVariable) t, NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
-      throw new IllegalStateException("Cannot treat @Nullable type as @NonNull: " + t);
+      throw new UnsatConstraintsException("Cannot treat @Nullable type as @NonNull: " + t);
     }
   }
 

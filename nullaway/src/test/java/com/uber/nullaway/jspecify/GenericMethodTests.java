@@ -763,6 +763,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  // TODO add test with Function to ensure its nullable upper bounds are still observed during
+  // inference?
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

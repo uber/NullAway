@@ -6,7 +6,13 @@ import javax.lang.model.type.TypeVariable;
 
 public interface ConstraintSolver {
 
-  void addSubtypeConstraint(Type subtype, Type supertype);
+  class UnsatConstraintsException extends Exception {
+    public UnsatConstraintsException(String message) {
+      super(message);
+    }
+  }
+
+  void addSubtypeConstraint(Type subtype, Type supertype) throws UnsatConstraintsException;
 
   /**
    * Solve the constraints, returning a map from type variables to booleans indicating whether the
@@ -17,5 +23,5 @@ public interface ConstraintSolver {
    *     {@code @Nullable} or not. If the boolean is {@code true}, the type variable is
    *     {@code @Nullable}; if it is {@code false}, the type variable is {@code @NonNull}.
    */
-  Map<TypeVariable, Boolean> solve();
+  Map<TypeVariable, Boolean> solve() throws UnsatConstraintsException;
 }

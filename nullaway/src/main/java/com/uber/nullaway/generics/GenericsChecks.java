@@ -38,6 +38,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.generics.ConstraintSolver.UnsatConstraintsException;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -518,7 +519,12 @@ public final class GenericsChecks {
             methodInvocationTree,
             invokedMethodIsNullUnmarked,
             allInvocations);
-        typeVarNullability = solver.solve();
+        try {
+          typeVarNullability = solver.solve();
+        } catch (UnsatConstraintsException e) {
+          // TODO: once we can get a tree for the type argument, we should report the error there
+          throw new RuntimeException(e);
+        }
         for (MethodInvocationTree invTree : allInvocations) {
           inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
         }
@@ -566,7 +572,12 @@ public final class GenericsChecks {
     var ignored = invokedMethodIsNullUnmarked;
     if (!assignedToLocal) {
       // TODO this is wrong, we just need to not constrain the top-level type if it's a local
-      solver.addSubtypeConstraint(methodSymbol.getReturnType(), typeFromAssignmentContext);
+      try {
+        solver.addSubtypeConstraint(methodSymbol.getReturnType(), typeFromAssignmentContext);
+      } catch (UnsatConstraintsException e) {
+        // TODO: once we can get a tree for the type argument, we should report the error there
+        throw new RuntimeException(e);
+      }
     }
     List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
     List<Symbol.VarSymbol> formalParams = methodSymbol.getParameters();
@@ -594,7 +605,12 @@ public final class GenericsChecks {
           // bail out of any checking involving raw types for now
           continue;
         }
-        solver.addSubtypeConstraint(argumentType, formalParamType);
+        try {
+          solver.addSubtypeConstraint(argumentType, formalParamType);
+        } catch (UnsatConstraintsException e) {
+          // TODO: once we can get a tree for the type argument, we should report the error there
+          throw new RuntimeException(e);
+        }
       }
     }
   }
