@@ -43,9 +43,11 @@ import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
@@ -498,81 +500,51 @@ public final class GenericsChecks {
       Config config,
       Type typeFromAssignmentContext,
       boolean assignedToLocal,
-      Type exprType) {
-    ConstraintSolver solver = makeSolver(state, analysis.getConfig());
-    Type result = exprType;
+      @SuppressWarnings("UnusedVariable") Type exprType) {
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
-    if (methodSymbol.type instanceof Type.ForAll
-        && methodInvocationTree.getTypeArguments().isEmpty()) {
-      // generic method call with no explicit generic arguments
-      // update inferred type arguments based on the assignment context
-      boolean invokedMethodIsNullUnmarked =
-          CodeAnnotationInfo.instance(state.context)
-              .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
-      // generate constraints
-      // for return type, subtype of type from assignment context, unless we are assigning to a
-      // local, in which case ignore
-      generateConstraintsForCall(
-          config,
-          typeFromAssignmentContext,
-          assignedToLocal,
-          solver,
-          methodSymbol,
-          methodInvocationTree,
-          invokedMethodIsNullUnmarked);
-      Map<TypeVariable, Boolean> typeVarNullability = solver.solve();
-      //      Type returnType = methodSymbol.getReturnType();
-      //      if (returnType instanceof Type.TypeVar) {
-      //        // we need different logic if the return type is a type variable
-      //        // if the assignment context type is @Nullable, we shouldn't infer anything, since
-      // that
-      //        // accommodates the type argument being either @Nullable or @NonNull
-      //        Type.TypeVar typeVar = (Type.TypeVar) returnType;
-      //        substitution = new LinkedHashMap<>();
-      //        boolean nonNullAssignmentContextType =
-      //            !Nullness.hasNullableAnnotation(
-      //                typeFromAssignmentContext.getAnnotationMirrors().stream(), config);
-      //        if (nonNullAssignmentContextType) {
-      //          // if the assignment context type is @NonNull, we can just use it
-      //          substitution.put(typeVar, typeFromAssignmentContext);
-      //        } else {
-      //          Type upperBound = typeVar.getUpperBound();
-      //          boolean typeVarHasNullableUpperBound =
-      //              Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(),
-      // config);
-      //          // if the type variable cannot be @Nullable, we can use the lhsType with any
-      // @Nullable
-      //          // annotation stripped
-      //          if (!typeVarHasNullableUpperBound && !invokedMethodIsNullUnmarked) {
-      //            // we can use the lhsType with any @Nullable annotation stripped
-      //            // TODO we should just strip out the top-level @Nullable annotation;
-      //            //  stripMetadata() also removes nested @Nullable annotations
-      //            substitution.put(typeVar, typeFromAssignmentContext.stripMetadata());
-      //          }
-      //        }
-      //
-      //      } else {
-      //        InferGenericMethodSubstitutionViaAssignmentContextVisitor inferVisitor =
-      //            new InferGenericMethodSubstitutionViaAssignmentContextVisitor(
-      //                state, config, invokedMethodIsNullUnmarked);
-      //        returnType.accept(inferVisitor, typeFromAssignmentContext);
-      //        substitution = inferVisitor.getInferredSubstitution();
-      //      }
-
-      inferredSubstitutionsForGenericMethodCalls.put(methodInvocationTree, typeVarNullability);
-
-      // how to do this?  First, in the return type of the generic method, substitute type variables
-      // with type variables that have the inferred nullability, _unless_ they have an explicit
-      // nullness annotation already.  We can do this with a substitution followed by a restore?  Or
-      // something like that.
-      // Then, in the actual return type, match the nullability of the type arguments with the
-      // nullability of the type variables, again with a restore.
-      result = getTypeWithInferredNullability(state, config, methodSymbol.type, typeVarNullability);
-      result =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              result, ASTHelpers.getType(methodInvocationTree), config, Collections.emptyMap());
+    Map<TypeVariable, Boolean> typeVarNullability =
+        inferredSubstitutionsForGenericMethodCalls.get(invocationTree);
+    Type type = methodSymbol.type;
+    if (typeVarNullability == null) {
+      ConstraintSolver solver = makeSolver(state, analysis.getConfig());
+      if (type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty()) {
+        // generic method call with no explicit generic arguments
+        // update inferred type arguments based on the assignment context
+        boolean invokedMethodIsNullUnmarked =
+            CodeAnnotationInfo.instance(state.context)
+                .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
+        // generate constraints
+        Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
+        allInvocations.add(methodInvocationTree);
+        generateConstraintsForCall(
+            config,
+            typeFromAssignmentContext,
+            assignedToLocal,
+            solver,
+            methodSymbol,
+            methodInvocationTree,
+            invokedMethodIsNullUnmarked,
+            allInvocations);
+        typeVarNullability = solver.solve();
+        for (MethodInvocationTree invTree : allInvocations) {
+          inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
+        }
+      }
     }
+    // how to do this?  First, in the return type of the generic method, substitute type variables
+    // with type variables that have the inferred nullability, _unless_ they have an explicit
+    // nullness annotation already.  We can do this with a substitution followed by a restore?  Or
+    // something like that.
+    // Then, in the actual return type, match the nullability of the type arguments with the
+    // nullability of the type variables, again with a restore.
+    Type result =
+        getTypeWithInferredNullability(
+                state, config, ((Type.ForAll) type).qtype, typeVarNullability)
+            .getReturnType();
+    result =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            result, ASTHelpers.getType(methodInvocationTree), config, Collections.emptyMap());
     return result;
   }
 
@@ -597,7 +569,8 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
-      boolean invokedMethodIsNullUnmarked) {
+      boolean invokedMethodIsNullUnmarked,
+      Set<MethodInvocationTree> allInvocations) {
     var ignored = invokedMethodIsNullUnmarked;
     if (!assignedToLocal) {
       // TODO this is wrong, we just need to not constrain the top-level type if it's a local
@@ -613,8 +586,16 @@ public final class GenericsChecks {
         MethodInvocationTree invTree = (MethodInvocationTree) argument;
         Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
         boolean nestedMethodNullUnmarked = false; // TODO
+        allInvocations.add(invTree);
         generateConstraintsForCall(
-            config, formalParamType, false, solver, symbol, invTree, nestedMethodNullUnmarked);
+            config,
+            formalParamType,
+            false,
+            solver,
+            symbol,
+            invTree,
+            nestedMethodNullUnmarked,
+            allInvocations);
       } else {
         Type argumentType = getTreeType(argument, config);
         if (argumentType == null) {
