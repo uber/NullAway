@@ -510,23 +510,23 @@ public final class GenericsChecks {
         // generate constraints
         Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
         allInvocations.add(methodInvocationTree);
-        generateConstraintsForCall(
-            config,
-            typeFromAssignmentContext,
-            assignedToLocal,
-            solver,
-            methodSymbol,
-            methodInvocationTree,
-            invokedMethodIsNullUnmarked,
-            allInvocations);
         try {
+          generateConstraintsForCall(
+              config,
+              typeFromAssignmentContext,
+              assignedToLocal,
+              solver,
+              methodSymbol,
+              methodInvocationTree,
+              invokedMethodIsNullUnmarked,
+              allInvocations);
           typeVarNullability = solver.solve();
+          for (MethodInvocationTree invTree : allInvocations) {
+            inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
+          }
         } catch (UnsatConstraintsException e) {
           // TODO: once we can get a tree for the type argument, we should report the error there
           throw new RuntimeException(e);
-        }
-        for (MethodInvocationTree invTree : allInvocations) {
-          inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
         }
       }
     }
@@ -568,7 +568,8 @@ public final class GenericsChecks {
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
       boolean invokedMethodIsNullUnmarked,
-      Set<MethodInvocationTree> allInvocations) {
+      Set<MethodInvocationTree> allInvocations)
+      throws UnsatConstraintsException {
     var ignored = invokedMethodIsNullUnmarked;
     if (!assignedToLocal) {
       // TODO this is wrong, we just need to not constrain the top-level type if it's a local
@@ -605,12 +606,7 @@ public final class GenericsChecks {
           // bail out of any checking involving raw types for now
           continue;
         }
-        try {
-          solver.addSubtypeConstraint(argumentType, formalParamType);
-        } catch (UnsatConstraintsException e) {
-          // TODO: once we can get a tree for the type argument, we should report the error there
-          throw new RuntimeException(e);
-        }
+        solver.addSubtypeConstraint(argumentType, formalParamType);
       }
     }
   }
