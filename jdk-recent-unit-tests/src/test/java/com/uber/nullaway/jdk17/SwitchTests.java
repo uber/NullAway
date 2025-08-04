@@ -269,6 +269,29 @@ public class SwitchTests {
   }
 
   @Test
+  public void caseNullTypeRefinement() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "import java.io.IOException;",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "public class TestCase {",
+            "    boolean hasRelevantMessage(IOException ioException)",
+            "    {",
+            "        String message = ioException.getMessage();",
+            "        return switch (message)",
+            "        {",
+            "            case null -> false;",
+            "            case \"Operation timed out\", \"Connection reset by peer\", \"Premature EOF\", \"Error writing to server\" -> true;",
+            "            default -> message.contains(\"GOAWAY received\");",
+            "        };",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1168() {
     defaultCompilationHelper
         .addSourceLines(
