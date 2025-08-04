@@ -1,7 +1,7 @@
 plugins {
     id 'java'
     // we use the shadow jar when building the JDK
-    id 'com.github.johnrengelman.shadow'
+    id 'com.gradleup.shadow'
     id 'nullaway.java-test-conventions'
 }
 
