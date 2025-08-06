@@ -9,6 +9,7 @@ import com.sun.tools.javac.code.Type.TypeVar;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
 import java.util.Deque;
@@ -196,14 +197,15 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /** Replace with NullAway logic to detect a direct @Nullable annotation. */
-  private static boolean isKnownNullable(Type t) {
-    // TODO handle nullable annotations
-    return t instanceof NullType;
-    // throw new UnsupportedOperationException("need to implement this guy for " + t);
+  private boolean isKnownNullable(Type t) {
+    if (t instanceof NullType) {
+      return true;
+    }
+    return Nullness.hasNullableAnnotation(t.getAnnotationMirrors().stream(), config);
   }
 
   /** Everything non-nullable *and* non-variable counts as @NonNull. */
-  private static boolean isKnownNonNull(Type t) {
+  private boolean isKnownNonNull(Type t) {
     return !isKnownNullable(t) && !isTypeVariable(t);
   }
 
