@@ -547,7 +547,10 @@ public final class GenericsChecks {
       VisitorState state,
       Config config,
       Type genericMethodType,
-      Map<TypeVariable, Boolean> typeVarNullability) {
+      @Nullable Map<TypeVariable, Boolean> typeVarNullability) {
+    if (typeVarNullability == null) {
+      return genericMethodType;
+    }
     Type withInferredNullability =
         substituteInferredNullabilityForTypeVariables(
             state, genericMethodType, typeVarNullability, config);
