@@ -521,9 +521,9 @@ public final class GenericsChecks {
             inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
           }
         } catch (UnsatConstraintsException e) {
-          // TODO: once we can get a tree for the type argument, we should report the error there
-          throw new RuntimeException(
-              "failed to infer types for call " + state.getSourceForNode(methodInvocationTree), e);
+          // for now, do nothing.  we'll just end up using whatever nullability gets attached by
+          // javac.
+          // TODO report an error here, optionally?
         }
       }
     }

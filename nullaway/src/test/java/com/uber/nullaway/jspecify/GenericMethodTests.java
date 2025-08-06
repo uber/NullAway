@@ -707,7 +707,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "  }",
             "  static void takesNullable(@Nullable String s) {}",
             "  static void test() {",
-            "    // legal, but we can't infer the type yet",
+            "    // legal, with explicit types",
             "    takesNullable(Test.<@Nullable String>returnTypeVariable(new Foo<@Nullable String>()));",
             "    // legal, with inference",
             "    takesNullable(returnTypeVariable(new Foo<@Nullable String>()));",
