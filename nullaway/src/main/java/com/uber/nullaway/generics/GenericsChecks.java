@@ -470,8 +470,8 @@ public final class GenericsChecks {
     }
   }
 
-  static ConstraintSolver makeSolver(Config config) {
-    return new ConstraintSolverImpl(config);
+  static ConstraintSolver makeSolver(Config config, VisitorState state, NullAway analysis) {
+    return new ConstraintSolverImpl(config, state, analysis);
   }
 
   /**
@@ -503,7 +503,7 @@ public final class GenericsChecks {
       if (type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty()) {
         // generic method call with no explicit generic arguments
         // update inferred type arguments based on the assignment context
-        ConstraintSolver solver = makeSolver(analysis.getConfig());
+        ConstraintSolver solver = makeSolver(analysis.getConfig(), state, analysis);
         // generate constraints
         Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
         allInvocations.add(methodInvocationTree);

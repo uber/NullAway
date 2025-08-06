@@ -1,10 +1,15 @@
 package com.uber.nullaway.generics;
 
+import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.NullAway;
+import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
@@ -19,9 +24,13 @@ import javax.lang.model.type.TypeVariable;
 /** JSpecify-style nullability constraint solver for NullAway. */
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config; // for nullability annotations
+  private final CodeAnnotationInfo codeAnnotationInfo;
+  private final Handler handler;
 
-  public ConstraintSolverImpl(Config config) {
+  public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
+    this.codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
+    this.handler = analysis.getHandler();
   }
 
   /* ───────────────────── internal enums & data ───────────────────── */
@@ -201,10 +210,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Replace with NullAway logic to check if the type variable’s upper bound is @Nullable. */
   private boolean upperBoundIsNullable(TypeVariable tv) {
 
+    if (fromUnannotatedMethod(tv)) {
+      return true;
+    }
     Type upperBound = (Type) tv.getUpperBound();
     com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
         upperBound.getAnnotationMirrors();
     return com.uber.nullaway.Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
+  }
+
+  private boolean fromUnannotatedMethod(TypeVariable tv) {
+    Symbol enclosingElement = (Symbol) tv.asElement().getEnclosingElement();
+    return codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
   }
 
   /** True if both declared types erase to the same class/interface symbol. */
