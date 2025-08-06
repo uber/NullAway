@@ -35,5 +35,5 @@ Releasing
  6. Update the `gradle.properties` to the next SNAPSHOT version.
  7. `git commit -am "Prepare next development version."`
  8. `git push && git push --tags`
- 9. Visit [Sonatype Nexus](https://oss.sonatype.org/) and promote the artifact.
+ 9. Visit [Maven Central Repository](https://central.sonatype.com/publishing/deployments) and publish the artifact.
  10. Go to [this page](https://github.com/uber/NullAway/releases/new) to create a new release on GitHub, using the release notes from `CHANGELOG.md`.
