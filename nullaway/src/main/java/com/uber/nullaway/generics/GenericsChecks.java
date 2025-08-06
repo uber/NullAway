@@ -500,13 +500,10 @@ public final class GenericsChecks {
         inferredSubstitutionsForGenericMethodCalls.get(invocationTree);
     Type type = methodSymbol.type;
     if (typeVarNullability == null) {
-      ConstraintSolver solver = makeSolver(analysis.getConfig());
       if (type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty()) {
         // generic method call with no explicit generic arguments
         // update inferred type arguments based on the assignment context
-        boolean invokedMethodIsNullUnmarked =
-            CodeAnnotationInfo.instance(state.context)
-                .isSymbolUnannotated(methodSymbol, config, analysis.getHandler());
+        ConstraintSolver solver = makeSolver(analysis.getConfig());
         // generate constraints
         Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
         allInvocations.add(methodInvocationTree);
@@ -518,7 +515,6 @@ public final class GenericsChecks {
               solver,
               methodSymbol,
               methodInvocationTree,
-              invokedMethodIsNullUnmarked,
               allInvocations);
           typeVarNullability = solver.solve();
           for (MethodInvocationTree invTree : allInvocations) {
@@ -526,7 +522,8 @@ public final class GenericsChecks {
           }
         } catch (UnsatConstraintsException e) {
           // TODO: once we can get a tree for the type argument, we should report the error there
-          throw new RuntimeException(e);
+          throw new RuntimeException(
+              "failed to infer types for call " + state.getSourceForNode(methodInvocationTree), e);
         }
       }
     }
@@ -567,10 +564,8 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
-      boolean invokedMethodIsNullUnmarked,
       Set<MethodInvocationTree> allInvocations)
       throws UnsatConstraintsException {
-    var ignored = invokedMethodIsNullUnmarked;
     if (!assignedToLocal) {
       // TODO this is wrong, we just need to not constrain the top-level type if it's a local
       try {
@@ -589,17 +584,8 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(argument)) {
         MethodInvocationTree invTree = (MethodInvocationTree) argument;
         Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
-        boolean nestedMethodNullUnmarked = false; // TODO
-        allInvocations.add(invTree);
         generateConstraintsForCall(
-            config,
-            formalParamType,
-            false,
-            solver,
-            symbol,
-            invTree,
-            nestedMethodNullUnmarked,
-            allInvocations);
+            config, formalParamType, false, solver, symbol, invTree, allInvocations);
       } else {
         Type argumentType = getTreeType(argument, config);
         if (argumentType == null) {

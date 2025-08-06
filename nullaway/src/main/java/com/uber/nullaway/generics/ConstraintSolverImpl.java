@@ -200,7 +200,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Replace with NullAway logic to check if the type variable’s upper bound is @Nullable. */
   private boolean upperBoundIsNullable(TypeVariable tv) {
-    // TODO implement
+
     Type upperBound = (Type) tv.getUpperBound();
     com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
         upperBound.getAnnotationMirrors();
