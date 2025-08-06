@@ -1,5 +1,24 @@
 Changelog
 =========
+Version 0.12.8
+---------------
+* Document interactions between Guava and JSpecify mode in README (#1208)
+* JSpecify: handle nullness annotations from extends / inherits clauses (#1211)
+* Allowing NewClassTree to be passed into getGenericParameterNullnessAtInvocation (#1210)
+* Support @NullMarked on modules (#1216)
+* Handle NewClassTree in compareGenericTypeParameterNullabilityForCall(#1212) (#1217)
+* More flexible handling of AssertJ isNotNull methods (#1221)
+* Support AssertJ hasSize() (#1229)
+* Inference of generic method type arguments based on returns and parameter passing (#1226)
+* Prototype implementation of javac plugin to serialize nullness annotations (#1225)
+* Add AdditionalSuppressionNames configuration option (#1231)
+* Updates to deploy releases to Central Portal (#1234)
+* Fix to handling of case null (#1235)
+* Maintenance
+  - Update to Gradle 8.14 (#1213)
+  - Update to Error Prone 2.39.0 (#1228)
+  - Fix broken link to Eradicate in README.md (#1227)
+
 Version 0.12.7
 ---------------
 * Update to Checker Framework 3.49.2 (#1183)
