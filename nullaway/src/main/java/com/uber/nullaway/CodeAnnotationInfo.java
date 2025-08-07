@@ -319,17 +319,17 @@ public final class CodeAnnotationInfo {
    * key used to retrieve it.
    */
   private static final class ClassCacheRecord {
-    public final Symbol.ClassSymbol outermostClassSymbol;
-    public final boolean isNullnessAnnotated;
-    public final Map<Symbol.MethodSymbol, Boolean> methodNullnessCache;
+    final Symbol.ClassSymbol outermostClassSymbol;
+    final boolean isNullnessAnnotated;
+    final Map<Symbol.MethodSymbol, Boolean> methodNullnessCache;
 
-    public ClassCacheRecord(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
+    ClassCacheRecord(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
       this.outermostClassSymbol = outermostClassSymbol;
       this.isNullnessAnnotated = isAnnotated;
       this.methodNullnessCache = new HashMap<>();
     }
 
-    public boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol) {
+    boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol) {
       return methodNullnessCache.computeIfAbsent(
           methodSymbol,
           m -> {

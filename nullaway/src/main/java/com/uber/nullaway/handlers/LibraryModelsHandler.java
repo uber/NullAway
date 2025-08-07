@@ -967,7 +967,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs;
 
-    public CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
+    CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
       this.config = config;
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
@@ -1168,7 +1168,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         this.state = state;
       }
 
-      public @Nullable T get(Symbol.MethodSymbol symbol) {
+      @Nullable T get(Symbol.MethodSymbol symbol) {
         Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
         if (methodRefTMap == null) {
           return null;
@@ -1177,7 +1177,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         return methodRefTMap.get(ref);
       }
 
-      public boolean nameNotPresent(Symbol.MethodSymbol symbol) {
+      boolean nameNotPresent(Symbol.MethodSymbol symbol) {
         return state.get(symbol.name) == null;
       }
     }
@@ -1192,7 +1192,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final NameIndexedMap<Boolean> nonNullRet;
     private final NameIndexedMap<ImmutableSet<Integer>> castToNonNullMethods;
 
-    public OptimizedLibraryModels(LibraryModels models, Context context) {
+    OptimizedLibraryModels(LibraryModels models, Context context) {
       Names names = Names.instance(context);
       failIfNullParams = makeOptimizedIntSetLookup(names, models.failIfNullParameters());
       explicitlyNullableParams =
@@ -1207,11 +1207,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       castToNonNullMethods = makeOptimizedIntSetLookup(names, models.castToNonNullMethods());
     }
 
-    public boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
+    boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
       return lookupHandlingOverrides(symbol, types, nonNullRet, checkSuper) != null;
     }
 
-    public boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
+    boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
       return lookupHandlingOverrides(symbol, types, nullableRet, checkSuper) != null;
     }
 

@@ -647,7 +647,7 @@ public final class AccessPath implements MapKey {
 
     private final String key;
 
-    public StringMapKey(String key) {
+    StringMapKey(String key) {
       this.key = key;
     }
 
@@ -669,7 +669,7 @@ public final class AccessPath implements MapKey {
 
     private final long key;
 
-    public NumericMapKey(long key) {
+    NumericMapKey(long key) {
       this.key = key;
     }
 
