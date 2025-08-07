@@ -318,7 +318,8 @@ public class AutoSuggestTest {
         .doTest(TEXT_MATCH);
   }
 
-  public void suggestInitSuppressionOnConstructor() throws IOException {
+  @Test
+  public void suggestInitSuppressionOnConstructor() {
     makeTestHelper()
         .addInputLines(
             "Test.java",
