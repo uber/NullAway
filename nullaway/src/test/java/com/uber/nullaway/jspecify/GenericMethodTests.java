@@ -738,6 +738,42 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1238() {
+    makeHelper()
+        .addSourceLines(
+            "CreatorMediator.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class CreatorMediator {",
+            "    private final PropertyModel mCreatorModel = new PropertyModel();",
+            "    private void followClickHandler() {",
+            "        WebFeedBridge.followFromId(",
+            "                mCreatorModel.get(CreatorProperties.WEB_FEED_ID_KEY));",
+            "    }",
+            "    private static class PropertyModel {",
+            "        <T extends @Nullable Object> T get(Key<T> key) {",
+            "            throw new RuntimeException();",
+            "        }",
+            "    }",
+            "    private static class CreatorProperties {",
+            "        static final Key<byte[]> WEB_FEED_ID_KEY = makeKey();",
+            "        private static Key<byte[]> makeKey() {",
+            "            throw new RuntimeException();",
+            "        }",
+            "    }",
+            "    private static class WebFeedBridge {",
+            "        static void followFromId(",
+            "                byte @Nullable [] webFeedId) {",
+            "        }",
+            "    }",
+            "    interface Key<T> {",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
