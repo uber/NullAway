@@ -115,7 +115,7 @@ public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
 
     final @Nullable Element getterElem;
 
-    public FieldAndGetterElements(@Nullable Element fieldElem, @Nullable Element getterElem) {
+    FieldAndGetterElements(@Nullable Element fieldElem, @Nullable Element getterElem) {
       this.fieldElem = fieldElem;
       this.getterElem = getterElem;
     }

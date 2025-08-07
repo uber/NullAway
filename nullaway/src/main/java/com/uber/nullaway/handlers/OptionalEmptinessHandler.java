@@ -308,8 +308,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
    * directly.
    */
   private static final class OptionalContentVariableElement implements VariableElement {
-    public static final Context.Key<OptionalContentVariableElement> contextKey =
-        new Context.Key<>();
+    static final Context.Key<OptionalContentVariableElement> contextKey = new Context.Key<>();
 
     private static final ImmutableSet<Modifier> MODIFIERS =
         ImmutableSet.of(Modifier.PUBLIC, Modifier.FINAL);
