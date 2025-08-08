@@ -514,6 +514,10 @@ public final class GenericsChecks {
             // TODO we should just strip out the top-level @Nullable annotation;
             //  stripMetadata() also removes nested @Nullable annotations
             substitution.put(typeVar, typeFromAssignmentContext.stripMetadata());
+          } else {
+            // Just stick with the original javac type of the expression.  As we improve inference
+            // we will do better.
+            substitution.put(typeVar, exprType);
           }
         }
 
