@@ -1069,6 +1069,66 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void apacheCollectionsCollectionUtilsIsEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.collections.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isEmpty(s)) {",
+            "      return;",
+            "    }",
+            "    s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheCollections4CollectionUtilsIsEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.collections4.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isEmpty(s)) {",
+            "      return;",
+            "    }",
+            "    s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void amazonAwsUtilCollectionUtilsIsNullOrEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import com.amazonaws.util.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isNullOrEmpty(s)) {",
+            "      return;",
+            "    }",
+            "    s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void filesIsDirectory() {
     defaultCompilationHelper
         .addSourceLines(
