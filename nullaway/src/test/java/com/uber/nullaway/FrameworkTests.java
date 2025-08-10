@@ -1114,7 +1114,7 @@ public class FrameworkTests extends NullAwayTestsBase {
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
-            "import com.amazonaws.util.CollectionUtils;",
+            "import software.amazon.awssdk.utils.CollectionUtils;",
             "import org.jetbrains.annotations.Nullable;",
             "import java.util.List;",
             "public class Foo {",
