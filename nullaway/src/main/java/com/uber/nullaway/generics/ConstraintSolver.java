@@ -12,7 +12,8 @@ public interface ConstraintSolver {
     }
   }
 
-  void addSubtypeConstraint(Type subtype, Type supertype) throws UnsatConstraintsException;
+  void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
+      throws UnsatConstraintsException;
 
   /**
    * Solve the constraints, returning a map from type variables to booleans indicating whether the

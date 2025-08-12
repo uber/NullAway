@@ -571,10 +571,8 @@ public final class GenericsChecks {
       MethodInvocationTree methodInvocationTree,
       Set<MethodInvocationTree> allInvocations)
       throws UnsatConstraintsException {
-    if (!assignedToLocal) {
-      // TODO this is wrong, we just need to not constrain the top-level type if it's a local
-      solver.addSubtypeConstraint(methodSymbol.getReturnType(), typeFromAssignmentContext);
-    }
+    solver.addSubtypeConstraint(
+        methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
     List<Symbol.VarSymbol> formalParams = methodSymbol.getParameters();
     for (int i = 0; i < arguments.size(); i++) {
@@ -592,7 +590,7 @@ public final class GenericsChecks {
           // bail out of any checking involving raw types for now
           continue;
         }
-        solver.addSubtypeConstraint(argumentType, formalParamType);
+        solver.addSubtypeConstraint(argumentType, formalParamType, false);
       }
     }
   }

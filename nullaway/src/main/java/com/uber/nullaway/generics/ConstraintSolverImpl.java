@@ -60,8 +60,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── public API ───────────────────── */
 
   @Override
-  public void addSubtypeConstraint(Type subtype, Type supertype) throws UnsatConstraintsException {
-    addSubtypeInternal(subtype, supertype, new HashSet<>()); // avoid cycles
+  public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
+      throws UnsatConstraintsException {
+    addSubtypeInternal(subtype, supertype, localVariableType, new HashSet<>()); // avoid cycles
   }
 
   @Override
@@ -115,13 +116,28 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /* ───────────────────── core recursive routine ───────────────────── */
 
-  private void addSubtypeInternal(Type s, Type t, Set<Pair<Type, Type>> seen)
+  private void addSubtypeInternal(
+      Type s, Type t, boolean localVariableType, Set<Pair<Type, Type>> seen)
       throws UnsatConstraintsException {
-    Pair<Type, Type> p = Pair.of(s, t);
-    if (!seen.add(p)) {
-      return; // already processed
+    if (!localVariableType) {
+      Pair<Type, Type> p = Pair.of(s, t);
+      if (!seen.add(p)) {
+        return; // already processed
+      }
+      directlyConstrainTypePair(s, t);
     }
+    /* 3️⃣  invariance of type arguments – recurse both directions */
+    if (sameErasure(s, t)) {
+      List<Type> sArgs = s.getTypeArguments();
+      List<Type> tArgs = t.getTypeArguments();
+      for (int i = 0; i < sArgs.size(); i++) {
+        addSubtypeInternal(sArgs.get(i), tArgs.get(i), false, seen);
+        addSubtypeInternal(tArgs.get(i), sArgs.get(i), false, seen);
+      }
+    }
+  }
 
+  private void directlyConstrainTypePair(Type s, Type t) throws UnsatConstraintsException {
     /* 1️⃣  variable-to-variable edge */
     if (isTypeVariable(s) && isTypeVariable(t)) {
       TypeVariable sv = (TypeVariable) s;
@@ -136,16 +152,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     if (isKnownNullable(s)) {
       requireNullable(t);
-    }
-
-    /* 3️⃣  invariance of type arguments – recurse both directions */
-    if (sameErasure(s, t)) {
-      List<Type> sArgs = s.getTypeArguments();
-      List<Type> tArgs = t.getTypeArguments();
-      for (int i = 0; i < sArgs.size(); i++) {
-        addSubtypeInternal(sArgs.get(i), tArgs.get(i), seen);
-        addSubtypeInternal(tArgs.get(i), sArgs.get(i), seen);
-      }
     }
   }
 
