@@ -496,35 +496,37 @@ public final class GenericsChecks {
       boolean assignedToLocal) {
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
+    Type type = methodSymbol.type;
+    if (!(type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty())) {
+      // inference doesn't apply
+      return type.getReturnType();
+    }
     Map<TypeVariable, Boolean> typeVarNullability =
         inferredSubstitutionsForGenericMethodCalls.get(invocationTree);
-    Type type = methodSymbol.type;
     if (typeVarNullability == null) {
-      if (type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty()) {
-        // generic method call with no explicit generic arguments
-        // update inferred type arguments based on the assignment context
-        ConstraintSolver solver = makeSolver(analysis.getConfig(), state, analysis);
-        // generate constraints
-        Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
-        allInvocations.add(methodInvocationTree);
-        try {
-          generateConstraintsForCall(
-              config,
-              typeFromAssignmentContext,
-              assignedToLocal,
-              solver,
-              methodSymbol,
-              methodInvocationTree,
-              allInvocations);
-          typeVarNullability = solver.solve();
-          for (MethodInvocationTree invTree : allInvocations) {
-            inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
-          }
-        } catch (UnsatConstraintsException e) {
-          // for now, do nothing.  we'll just end up using whatever nullability gets attached by
-          // javac.
-          // TODO report an error here, optionally?
+      // generic method call with no explicit generic arguments
+      // update inferred type arguments based on the assignment context
+      ConstraintSolver solver = makeSolver(analysis.getConfig(), state, analysis);
+      // generate constraints
+      Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
+      allInvocations.add(methodInvocationTree);
+      try {
+        generateConstraintsForCall(
+            config,
+            typeFromAssignmentContext,
+            assignedToLocal,
+            solver,
+            methodSymbol,
+            methodInvocationTree,
+            allInvocations);
+        typeVarNullability = solver.solve();
+        for (MethodInvocationTree invTree : allInvocations) {
+          inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
         }
+      } catch (UnsatConstraintsException e) {
+        // for now, do nothing.  we'll just end up using whatever nullability gets attached by
+        // javac.
+        // TODO report an error here, optionally?
       }
     }
     // how to do this?  First, in the return type of the generic method, substitute type variables
