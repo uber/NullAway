@@ -725,7 +725,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 0)
             .put(
                 methodRef(
-                    "com.amazonaws.util.CollectionUtils", "isNullOrEmpty(java.util.Collection<?>)"),
+                    "software.amazon.awssdk.utils.CollectionUtils", "isNullOrEmpty(java.util.Collection<?>)"),
                 0)
             .put(methodRef("com.amazonaws.util.StringUtils", "isNullOrEmpty(java.lang.String)"), 0)
             .put(methodRef("org.springframework.util.StringUtils", "isEmpty(java.lang.Object)"), 0)
