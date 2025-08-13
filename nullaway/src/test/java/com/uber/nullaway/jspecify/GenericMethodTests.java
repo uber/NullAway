@@ -820,6 +820,25 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("need better handling of lambdas")
+  @Test
+  public void supplierLambdaInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Supplier;",
+            "@NullMarked",
+            "class Test {",
+            "    static <R> void invoke(Supplier<@Nullable R> supplier) {}",
+            "    static void test() {",
+            "        // legal, infers R -> @Nullable String",
+            "        invoke(() -> null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   // TODO add test with Function to ensure its nullable upper bounds are still observed during
   // inference?
 
