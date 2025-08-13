@@ -800,18 +800,22 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void varargsPassMultiple() {
+  public void varargsInference() {
     makeHelper()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "class Test {",
-            "    static class Foo<T> {}",
-            "    public static <T> Foo<T> make(T... args) {",
+            "    static class Foo<T extends @Nullable Object> {}",
+            "    public static <U extends @Nullable Object> Foo<U> make(U... args) {",
             "      throw new RuntimeException();",
             "    }",
-            "    Foo<String> foo = make(\"hello\", \"world\");",
+            "    Foo<String> foo1 = make(\"hello\", \"world\");",
+            "    Foo<@Nullable String> foo2 = make(\"hello\", null, \"world\");",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    Foo<String> foo3 = make(\"hello\", null, \"world\");",
+            "    Foo<@Nullable String> foo4 = make(\"hello\", \"world\");",
             "}")
         .doTest();
   }

@@ -580,7 +580,9 @@ public final class GenericsChecks {
         methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
     List<Symbol.VarSymbol> formalParams = methodSymbol.getParameters();
-    for (int i = 0; i < arguments.size(); i++) {
+    boolean isVarArgs = methodSymbol.isVarArgs();
+    int n = isVarArgs ? formalParams.size() - 1 : formalParams.size();
+    for (int i = 0; i < n; i++) {
       ExpressionTree argument = arguments.get(i);
       Symbol.VarSymbol formalParam = formalParams.get(i);
       Type formalParamType = formalParam.type;
@@ -596,6 +598,29 @@ public final class GenericsChecks {
           continue;
         }
         solver.addSubtypeConstraint(argumentType, formalParamType, false);
+      }
+    }
+    if (isVarArgs
+        && formalParams.size() > 0
+        && NullabilityUtil.isVarArgsCall(methodInvocationTree)) {
+      Symbol.VarSymbol varargsParam = formalParams.get(formalParams.size() - 1);
+      Type.ArrayType varargsArrayType = (Type.ArrayType) varargsParam.type;
+      Type varargsElementType = varargsArrayType.elemtype;
+      for (int i = formalParams.size() - 1; i < arguments.size(); i++) {
+        ExpressionTree argument = arguments.get(i);
+        if (isGenericCallNeedingInference(argument)) {
+          MethodInvocationTree invTree = (MethodInvocationTree) argument;
+          Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
+          generateConstraintsForCall(
+              config, varargsElementType, false, solver, symbol, invTree, allInvocations);
+        } else {
+          Type argumentType = getTreeType(argument, config);
+          if (argumentType == null) {
+            // bail out of any checking involving raw types for now
+            continue;
+          }
+          solver.addSubtypeConstraint(argumentType, varargsElementType, false);
+        }
       }
     }
   }
