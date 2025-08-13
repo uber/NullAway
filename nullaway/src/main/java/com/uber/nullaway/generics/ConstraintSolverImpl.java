@@ -90,7 +90,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (supertype instanceof ClassType) {
         Type subtypeAsSuper = state.getTypes().asSuper(subtype, supertype.tsym);
         if (subtypeAsSuper == null || subtypeAsSuper.isRaw() || supertype.isRaw()) {
-          return super.visitClassType(subtype, supertype);
+          return visitType(subtype, supertype);
         }
         // recursing, so set localVariableType to false
         localVariableType = false;
@@ -107,7 +107,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           rhsTypeArg.accept(this, lhsTypeArg);
         }
       }
-      return super.visitClassType(subtype, supertype);
+      return visitType(subtype, supertype);
     }
 
     @Override
@@ -122,7 +122,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         subtypeComponentType.accept(this, superComponentType);
         superComponentType.accept(this, subtypeComponentType);
       }
-      return super.visitArrayType(subtype, supertype);
+      return visitType(subtype, supertype);
     }
 
     @Override
@@ -130,7 +130,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (!localVariableType) {
         directlyConstrainTypePair(subtype, supertype);
       }
-      return super.visitTypeVar(subtype, supertype);
+      return visitType(subtype, supertype);
     }
   }
 
