@@ -241,7 +241,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        static void test(Foo<@Nullable Object> f1, Foo<Object> f2) {",
             "            // no error expected",
             "            Foo<@Nullable Object> result = Foo.create(null, f1);",
-            "            // BUG: Diagnostic contains: has mismatched type parameter nullability",
+            "            // BUG: Diagnostic contains: Cannot assign from type Foo<Object> to type Foo<@Nullable Object>",
             "            Foo<@Nullable Object> result2 = Foo.create(null, f2);",
             "        }",
             "    }",
