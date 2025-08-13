@@ -6,7 +6,7 @@ import javax.lang.model.type.TypeVariable;
 
 public interface ConstraintSolver {
 
-  class UnsatConstraintsException extends Exception {
+  class UnsatConstraintsException extends RuntimeException {
     public UnsatConstraintsException(String message) {
       super(message);
     }

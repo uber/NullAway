@@ -1,11 +1,13 @@
 package com.uber.nullaway.generics;
 
+import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
+import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
@@ -27,11 +29,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config; // for nullability annotations
   private final CodeAnnotationInfo codeAnnotationInfo;
   private final Handler handler;
+  private final VisitorState state;
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     this.handler = analysis.getHandler();
+    this.state = state;
   }
 
   /* ───────────────────── internal enums & data ───────────────────── */
@@ -62,7 +66,73 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatConstraintsException {
-    addSubtypeInternal(subtype, supertype, localVariableType, new HashSet<>()); // avoid cycles
+    // addSubtypeInternal(subtype, supertype, localVariableType, new HashSet<>()); // avoid cycles
+    subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+  }
+
+  class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<Void, Type> {
+    private boolean localVariableType;
+
+    AddSubtypeConstraintsVisitor(boolean localVariableType) {
+      this.localVariableType = localVariableType;
+    }
+
+    @Override
+    public Void visitType(Type subtype, Type supertype) {
+      return null;
+    }
+
+    @Override
+    public Void visitClassType(ClassType subtype, Type supertype) {
+      if (supertype instanceof TypeVar) {
+        directlyConstrainTypePair(subtype, supertype);
+      } else if (supertype instanceof ClassType) {
+        Type subtypeAsSuper = state.getTypes().asSuper(subtype, supertype.tsym);
+        if (subtypeAsSuper == null || subtypeAsSuper.isRaw() || supertype.isRaw()) {
+          return super.visitClassType(subtype, supertype);
+        }
+        // recursing, so set localVariableType to false
+        localVariableType = false;
+        com.sun.tools.javac.util.List<Type> subtypeTypeArguments =
+            subtypeAsSuper.getTypeArguments();
+        com.sun.tools.javac.util.List<Type> supertypeTypeArguments = supertype.getTypeArguments();
+        int numTypeArgs = supertypeTypeArguments.size();
+        Verify.verify(numTypeArgs == subtypeTypeArguments.size());
+        for (int i = 0; i < numTypeArgs; i++) {
+          Type rhsTypeArg = supertypeTypeArguments.get(i);
+          Type lhsTypeArg = subtypeTypeArguments.get(i);
+          // constrain in both directions
+          lhsTypeArg.accept(this, rhsTypeArg);
+          rhsTypeArg.accept(this, lhsTypeArg);
+        }
+      }
+      return super.visitClassType(subtype, supertype);
+    }
+
+    @Override
+    public Void visitArrayType(Type.ArrayType subtype, Type supertype) {
+      if (supertype instanceof TypeVar) {
+        directlyConstrainTypePair(subtype, supertype);
+      } else if (supertype instanceof Type.ArrayType) {
+        Type.ArrayType superArrayType = (Type.ArrayType) supertype;
+        // recursing, so set localVariableType to false
+        localVariableType = false;
+        Type subtypeComponentType = subtype.elemtype;
+        Type superComponentType = superArrayType.elemtype;
+        // constrain in both directions
+        subtypeComponentType.accept(this, superComponentType);
+        superComponentType.accept(this, subtypeComponentType);
+      }
+      return super.visitArrayType(subtype, supertype);
+    }
+
+    @Override
+    public Void visitTypeVar(TypeVar subtype, Type supertype) {
+      if (!localVariableType) {
+        directlyConstrainTypePair(subtype, supertype);
+      }
+      return super.visitTypeVar(subtype, supertype);
+    }
   }
 
   @Override
