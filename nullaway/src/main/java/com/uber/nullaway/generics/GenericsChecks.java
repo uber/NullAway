@@ -463,7 +463,13 @@ public final class GenericsChecks {
       if (rhsTree instanceof MethodInvocationTree) {
         rhsType =
             inferGenericMethodCallType(
-                analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, assignedToLocal);
+                analysis,
+                state,
+                (MethodInvocationTree) rhsTree,
+                config,
+                lhsType,
+                rhsType,
+                assignedToLocal);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
@@ -495,13 +501,14 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Config config,
       Type typeFromAssignmentContext,
+      Type javacTypeOfInvocation,
       boolean assignedToLocal) {
     MethodInvocationTree methodInvocationTree = invocationTree;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
     Type type = methodSymbol.type;
     if (!(type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty())) {
       // inference doesn't apply
-      return type.getReturnType();
+      return javacTypeOfInvocation;
     }
     Map<TypeVariable, Boolean> typeVarNullability =
         inferredSubstitutionsForGenericMethodCalls.get(invocationTree);
@@ -707,7 +714,13 @@ public final class GenericsChecks {
       if (retExpr instanceof MethodInvocationTree) {
         returnExpressionType =
             inferGenericMethodCallType(
-                analysis, state, (MethodInvocationTree) retExpr, config, formalReturnType, false);
+                analysis,
+                state,
+                (MethodInvocationTree) retExpr,
+                config,
+                formalReturnType,
+                returnExpressionType,
+                false);
       }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
@@ -923,6 +936,7 @@ public final class GenericsChecks {
                   (MethodInvocationTree) currentActualParam,
                   config,
                   formalParameter,
+                  actualParameterType,
                   false);
         }
         if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
@@ -946,6 +960,7 @@ public final class GenericsChecks {
                     (MethodInvocationTree) actualParamExpr,
                     config,
                     varargsElementType,
+                    actualParameterType,
                     false);
           }
           if (!subtypeParameterNullability(

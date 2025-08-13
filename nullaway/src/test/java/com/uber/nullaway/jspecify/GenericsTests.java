@@ -2498,6 +2498,29 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void iteratorOverObjArrays() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import java.util.Iterator;",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "public class Test {",
+            "  public static void test() {",
+            "    Iterator<Object[]> it = makeIter();",
+            "    while (it.hasNext()) {",
+            "      Object[] arr = it.next();",
+            "    }",
+            "  }",
+            "",
+            "  private static Iterator<Object[]> makeIter() {",
+            "    throw new RuntimeException();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
