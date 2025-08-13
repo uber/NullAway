@@ -760,6 +760,40 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "  static void use() {",
             "    // should infer T -> @Nullable String",
             "    String result = firstOrDefault(Collections.singletonList(null), \"hello\");",
+            "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
+            "    result.hashCode();",
+            "    // should infer T -> @NonNull String",
+            "    String result2 = firstOrDefault(Collections.singletonList(\"bye\"), \"hello\");",
+            "    result2.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("need better support for generics inference combined with local vars")
+  @Test
+  public void firstOrDefaultLocalVarParam() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  public interface List<E extends @Nullable Object> { boolean isEmpty(); E get(int index); }",
+            "  public static class Collections {",
+            "    public static <T extends @Nullable Object> List<T> singletonList(T element) {",
+            "      throw new UnsupportedOperationException();",
+            "    }",
+            "  }",
+            "  public static <U extends @Nullable Object> U firstOrDefault(List<U> list, U defaultValue) {",
+            "    return list.isEmpty() ? defaultValue : list.get(0);",
+            "  }",
+            "  static void use() {",
+            "    String x = null;",
+            "    // should infer T -> @Nullable String",
+            "    String result = firstOrDefault(Collections.singletonList(x), \"hello\");",
+            "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
+            "    result.hashCode();",
             "  }",
             "}")
         .doTest();
