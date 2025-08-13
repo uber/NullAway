@@ -79,14 +79,15 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public Void visitType(Type subtype, Type supertype) {
+      if (!localVariableType && (supertype instanceof TypeVar)) {
+        directlyConstrainTypePair(subtype, supertype);
+      }
       return null;
     }
 
     @Override
     public Void visitClassType(ClassType subtype, Type supertype) {
-      if (supertype instanceof TypeVar) {
-        directlyConstrainTypePair(subtype, supertype);
-      } else if (supertype instanceof ClassType) {
+      if (supertype instanceof ClassType) {
         Type subtypeAsSuper = state.getTypes().asSuper(subtype, supertype.tsym);
         if (subtypeAsSuper == null || subtypeAsSuper.isRaw() || supertype.isRaw()) {
           return super.visitClassType(subtype, supertype);
@@ -111,9 +112,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public Void visitArrayType(Type.ArrayType subtype, Type supertype) {
-      if (supertype instanceof TypeVar) {
-        directlyConstrainTypePair(subtype, supertype);
-      } else if (supertype instanceof Type.ArrayType) {
+      if (supertype instanceof Type.ArrayType) {
         Type.ArrayType superArrayType = (Type.ArrayType) supertype;
         // recursing, so set localVariableType to false
         localVariableType = false;
