@@ -799,6 +799,23 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsPassMultiple() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static class Foo<T> {}",
+            "    public static <T> Foo<T> make(T... args) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "    Foo<String> foo = make(\"hello\", \"world\");",
+            "}")
+        .doTest();
+  }
+
   // TODO add test with Function to ensure its nullable upper bounds are still observed during
   // inference?
 
