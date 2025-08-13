@@ -1,5 +1,7 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
@@ -147,7 +149,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     while (!work.isEmpty()) {
       TypeVariable tv = work.removeFirst();
-      VarState st = vars.get(tv);
+      VarState st = castToNonNull(vars.get(tv));
 
       switch (st.nullness) {
         case NONNULL:
@@ -268,7 +270,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private static boolean isTypeVariable(Type t) {
-    return t instanceof TypeVar;
+    // for now ignore captures
+    return t instanceof TypeVar && !((TypeVar) t).isCaptured();
   }
 
   /** Replace with NullAway logic to detect a direct @Nullable annotation. */
@@ -297,8 +300,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private boolean fromUnannotatedMethod(TypeVariable tv) {
+    System.err.println("Checking if " + tv + " is from an unannotated method");
     Symbol enclosingElement = (Symbol) tv.asElement().getEnclosingElement();
-    return codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
+    return enclosingElement != null
+        && codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
   }
 
   /** True if both declared types erase to the same class/interface symbol. */

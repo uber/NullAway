@@ -446,7 +446,9 @@ public final class GenericsChecks {
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
-      assignedToLocal = ASTHelpers.getSymbol(tree).getKind().equals(ElementKind.LOCAL_VARIABLE);
+      Symbol treeSymbol = ASTHelpers.getSymbol(tree);
+      assignedToLocal =
+          treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
@@ -541,7 +543,10 @@ public final class GenericsChecks {
             .getReturnType();
     result =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            result, ASTHelpers.getType(methodInvocationTree), config, Collections.emptyMap());
+            result,
+            castToNonNull(ASTHelpers.getType(methodInvocationTree)),
+            config,
+            Collections.emptyMap());
     return result;
   }
 
