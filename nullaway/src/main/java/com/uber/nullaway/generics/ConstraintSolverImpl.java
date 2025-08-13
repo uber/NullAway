@@ -300,7 +300,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private boolean fromUnannotatedMethod(TypeVariable tv) {
-    System.err.println("Checking if " + tv + " is from an unannotated method");
     Symbol enclosingElement = (Symbol) tv.asElement().getEnclosingElement();
     return enclosingElement != null
         && codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
