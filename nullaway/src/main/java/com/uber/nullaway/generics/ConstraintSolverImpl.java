@@ -79,7 +79,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public Void visitType(Type subtype, Type supertype) {
-      if (!localVariableType && (supertype instanceof TypeVar)) {
+      if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
         directlyConstrainTypePair(subtype, supertype);
       }
       return null;
