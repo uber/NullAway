@@ -831,9 +831,17 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "@NullMarked",
             "class Test {",
             "    static <R> void invoke(Supplier<@Nullable R> supplier) {}",
+            "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
+            "        return supplier.get();",
+            "    }",
             "    static void test() {",
-            "        // legal, infers R -> @Nullable String",
+            "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
+            "        // BUG: Diagnostic contains: Cannot pass parameter",
             "        invoke(() -> null);",
+            "        // legal, infers R -> @Nullable Object",
+            "        Object x = invokeWithReturn(() -> null);",
+            "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "        x.hashCode();",
             "    }",
             "}")
         .doTest();
