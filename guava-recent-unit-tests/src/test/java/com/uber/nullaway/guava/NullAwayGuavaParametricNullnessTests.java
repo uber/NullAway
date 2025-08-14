@@ -24,6 +24,7 @@ package com.uber.nullaway.guava;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -57,11 +58,12 @@ public class NullAwayGuavaParametricNullnessTests {
     jspecifyCompilationHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass())
             .setArgs(
-                Arrays.asList(
+                List.of(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:OnlyNullMarked=true",
-                    "-XepOpt:NullAway:JSpecifyMode=true"));
+                    "-XepOpt:NullAway:JSpecifyMode=true",
+                    "-XDaddTypeAnnotationsToSymbol=true"));
   }
 
   @Test
@@ -92,7 +94,7 @@ public class NullAwayGuavaParametricNullnessTests {
   @Test
   public void jspecifyFutureCallback() {
     // to ensure javac reads proper generic types from the Guava jar
-    Assume.assumeTrue(Runtime.version().feature() >= 23);
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -140,7 +142,7 @@ public class NullAwayGuavaParametricNullnessTests {
   @Test
   public void jspecifyIterables() {
     // to ensure javac reads proper generic types from the Guava jar
-    Assume.assumeTrue(Runtime.version().feature() >= 23);
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -170,7 +172,7 @@ public class NullAwayGuavaParametricNullnessTests {
   @Test
   public void jspecifyComparators() {
     // to ensure javac reads proper generic types from the Guava jar
-    Assume.assumeTrue(Runtime.version().feature() >= 23);
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -252,7 +254,7 @@ public class NullAwayGuavaParametricNullnessTests {
   @Test
   public void newHashSetPassingNullable() {
     // to ensure javac reads proper generic types from the Guava jar
-    Assume.assumeTrue(Runtime.version().feature() >= 23);
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
