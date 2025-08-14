@@ -1,9 +1,8 @@
 package com.uber.nullaway.jspecify;
 
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
-import com.uber.nullaway.NullabilityUtil;
+import java.util.List;
 import org.junit.Assume;
 import org.junit.Test;
 
@@ -248,14 +247,10 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   private CompilationTestHelper makeHelper() {
-    ImmutableList.Builder<String> args =
-        ImmutableList.<String>builder()
-            .add(
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true");
-    if (NullabilityUtil.isJDK21Update8OrHigher()) {
-      args.add("-XDaddTypeAnnotationsToSymbol=true");
-    }
-    return makeTestHelperWithArgs(args.build());
+    return makeTestHelperWithArgs(
+        List.of(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true"));
   }
 }

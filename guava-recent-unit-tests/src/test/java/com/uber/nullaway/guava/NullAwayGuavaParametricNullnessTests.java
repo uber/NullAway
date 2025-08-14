@@ -21,11 +21,10 @@
  */
 package com.uber.nullaway.guava;
 
-import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
@@ -56,18 +55,15 @@ public class NullAwayGuavaParametricNullnessTests {
                     //  from this list.
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
                     "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"));
-    ImmutableList.Builder<String> jspecifyArgsBuilder =
-        ImmutableList.<String>builder()
-            .add("-d", temporaryFolder.getRoot().getAbsolutePath())
-            .add("-XepOpt:NullAway:OnlyNullMarked=true")
-            .add("-XepOpt:NullAway:JSpecifyMode=true");
-    if (NullabilityUtil.isJDK21Update8OrHigher()) {
-      jspecifyArgsBuilder.add("-XDaddTypeAnnotationsToSymbol=true");
-    }
-
     jspecifyCompilationHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass())
-            .setArgs(jspecifyArgsBuilder.build());
+            .setArgs(
+                List.of(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:JSpecifyMode=true",
+                    "-XDaddTypeAnnotationsToSymbol=true"));
   }
 
   @Test
