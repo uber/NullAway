@@ -1,9 +1,10 @@
 package com.uber.nullaway.jspecify;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
-import java.util.Arrays;
-import org.junit.Ignore;
+import com.uber.nullaway.NullabilityUtil;
+import org.junit.Assume;
 import org.junit.Test;
 
 public class BytecodeGenericsTests extends NullAwayTestsBase {
@@ -76,6 +77,8 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void genericsChecksForFieldAssignments() {
+    // to read annotations properly from bytecode
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -99,6 +102,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void genericsChecksForParamPassingAndReturns() {
+    // to read annotations properly from bytecode
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -224,10 +230,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("Failing due to https://bugs.openjdk.org/browse/JDK-8337795")
-  // TODO Re-enable this test once the JDK bug is fixed, on appropriate JDK versions
-  //  See https://github.com/uber/NullAway/issues/1011
   public void callMethodTakingJavaUtilFunction() {
+    // to read annotations properly from bytecode
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -243,8 +248,14 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   private CompilationTestHelper makeHelper() {
-    return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+    ImmutableList.Builder<String> args =
+        ImmutableList.<String>builder()
+            .add(
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true");
+    if (NullabilityUtil.isJDK21Update8OrHigher()) {
+      args.add("-XDaddTypeAnnotationsToSymbol=true");
+    }
+    return makeTestHelperWithArgs(args.build());
   }
 }

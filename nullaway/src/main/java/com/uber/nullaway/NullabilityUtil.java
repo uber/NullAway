@@ -662,4 +662,10 @@ public class NullabilityUtil {
             : ((JCTree.JCNewClass) tree).varargsElement;
     return varargsElement != null;
   }
+
+  /** Checks if the JDK version is 21, update 8 or higher (i.e., 21.0.8, 21.0.9, etc.). */
+  public static boolean isJDK21Update8OrHigher() {
+    Runtime.Version version = Runtime.version();
+    return version.feature() == 21 && version.interim() == 0 && version.update() >= 8;
+  }
 }
