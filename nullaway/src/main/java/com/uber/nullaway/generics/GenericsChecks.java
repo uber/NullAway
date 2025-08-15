@@ -59,13 +59,11 @@ import org.jspecify.annotations.Nullable;
 public final class GenericsChecks {
 
   /**
-   * Maps a Tree representing a call to a generic method / constructor to a substitution for its
-   * type arguments. The call must not have any explicit type arguments. The substitution is a map
-   * from type variables for the method to their inferred type arguments (most importantly with
-   * inferred nullability information).
+   * Maps a Tree representing a call to a generic method or constructor to the inferred nullability
+   * of its type arguments. The call must not have any explicit type arguments.
    */
-  private final Map<Tree, Map<TypeVariable, Boolean>> inferredSubstitutionsForGenericMethodCalls =
-      new LinkedHashMap<>();
+  private final Map<MethodInvocationTree, Map<TypeVariable, ConstraintSolver.InferredNullability>>
+      inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
@@ -499,13 +497,14 @@ public final class GenericsChecks {
     Verify.verify(isGenericCallNeedingInference(invocationTree));
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     Type type = methodSymbol.type;
-    Map<TypeVariable, Boolean> typeVarNullability =
-        inferredSubstitutionsForGenericMethodCalls.get(invocationTree);
+    Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability =
+        inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
     if (typeVarNullability == null) {
       // generic method call with no explicit generic arguments
       // update inferred type arguments based on the assignment context
       ConstraintSolver solver = makeSolver(analysis.getConfig(), state, analysis);
-      // generate constraints
+      // allInvocations tracks the top-level invocations and any nested invocations that also
+      // require inference
       Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
       allInvocations.add(invocationTree);
       try {
@@ -519,7 +518,7 @@ public final class GenericsChecks {
             allInvocations);
         typeVarNullability = solver.solve();
         for (MethodInvocationTree invTree : allInvocations) {
-          inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
+          inferredTypeVarNullabilityForGenericCalls.put(invTree, typeVarNullability);
         }
       } catch (UnsatisfiableConstraintsException e) {
         // for now, do nothing.  we'll just end up using whatever nullability gets attached by
@@ -527,12 +526,6 @@ public final class GenericsChecks {
         // TODO report an error here, optionally?
       }
     }
-    // how to do this?  First, in the return type of the generic method, substitute type variables
-    // with type variables that have the inferred nullability, _unless_ they have an explicit
-    // nullness annotation already.  We can do this with a substitution followed by a restore?  Or
-    // something like that.
-    // Then, in the actual return type, match the nullability of the type arguments with the
-    // nullability of the type variables, again with a restore.
     Type result =
         getTypeWithInferredNullability(
                 state, config, ((Type.ForAll) type).qtype, typeVarNullability)
@@ -546,19 +539,29 @@ public final class GenericsChecks {
     return result;
   }
 
+  /**
+   * Updates type so that nullability of type variable occurrences match those indicated in
+   * typeVarNullability, while preserving explicit nullability annotations on type variable
+   * occurrences.
+   *
+   * @param state the visitor state
+   * @param config the analysis config
+   * @param type the type to update
+   * @param typeVarNullability a map from type variables their nullability
+   * @return the type with nullability of type variable occurrences updated
+   */
   private Type getTypeWithInferredNullability(
       VisitorState state,
       Config config,
-      Type genericMethodType,
-      @Nullable Map<TypeVariable, Boolean> typeVarNullability) {
+      Type type,
+      Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability) {
     if (typeVarNullability == null) {
-      return genericMethodType;
+      return type;
     }
     Type withInferredNullability =
-        substituteInferredNullabilityForTypeVariables(
-            state, genericMethodType, typeVarNullability, config);
+        substituteInferredNullabilityForTypeVariables(state, type, typeVarNullability, config);
     return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-        genericMethodType, withInferredNullability, config, Collections.emptyMap());
+        type, withInferredNullability, config, Collections.emptyMap());
   }
 
   private static void generateConstraintsForCall(
@@ -637,28 +640,16 @@ public final class GenericsChecks {
     return false;
   }
 
-  //  private Type substituteInferredTypesForTypeVariables(
-  //      VisitorState state, Type targetType, Map<TypeVariable, Type> substitution, Config config)
-  // {
-  //    ListBuffer<Type> typeVars = new ListBuffer<>();
-  //    ListBuffer<Type> inferredTypes = new ListBuffer<>();
-  //    for (Map.Entry<TypeVariable, Type> entry : substitution.entrySet()) {
-  //      typeVars.append((Type) entry.getKey());
-  //      inferredTypes.append(entry.getValue());
-  //    }
-  //    return TypeSubstitutionUtils.subst(
-  //        state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);
-  //  }
-
   private Type substituteInferredNullabilityForTypeVariables(
       VisitorState state,
       Type targetType,
-      Map<TypeVariable, Boolean> typeVarNullability,
+      Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability,
       Config config) {
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<TypeVariable, Boolean> entry : typeVarNullability.entrySet()) {
-      if (entry.getValue()) {
+    for (Map.Entry<TypeVariable, ConstraintSolver.InferredNullability> entry :
+        typeVarNullability.entrySet()) {
+      if (entry.getValue() == ConstraintSolver.InferredNullability.NULLABLE) {
         Type curTypeVar = (Type) entry.getKey();
         typeVars.append(curTypeVar);
         inferredTypes.append(
@@ -1145,7 +1136,7 @@ public final class GenericsChecks {
   /**
    * Substitutes the type arguments from a generic method invocation into the method's type.
    *
-   * @param tree the method invocation tree
+   * @param tree the method invocation or new class tree
    * @param methodSymbol symbol for the invoked generic method
    * @param state the visitor state
    * @param config the NullAway config
@@ -1165,13 +1156,13 @@ public final class GenericsChecks {
 
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
-      if (inferredSubstitutionsForGenericMethodCalls.containsKey(tree)
+      if (inferredTypeVarNullabilityForGenericCalls.containsKey(tree)
           && tree instanceof MethodInvocationTree) {
         return getTypeWithInferredNullability(
             state,
             config,
             underlyingMethodType,
-            inferredSubstitutionsForGenericMethodCalls.get(tree));
+            inferredTypeVarNullabilityForGenericCalls.get(tree));
       }
     }
     return TypeSubstitutionUtils.subst(
@@ -1495,7 +1486,7 @@ public final class GenericsChecks {
    * after each CompilationUnit to avoid memory leaks.
    */
   public void clearCache() {
-    inferredSubstitutionsForGenericMethodCalls.clear();
+    inferredTypeVarNullabilityForGenericCalls.clear();
   }
 
   public static boolean isNullableAnnotated(Type type, Config config) {

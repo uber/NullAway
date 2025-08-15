@@ -153,7 +153,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   @Override
-  public Map<TypeVariable, Boolean> solve() throws UnsatisfiableConstraintsException {
+  public Map<TypeVariable, InferredNullability> solve() throws UnsatisfiableConstraintsException {
     /* ---------- work-list propagation of nullability ---------- */
     Deque<TypeVariable> work = new ArrayDeque<>();
     vars.forEach(
@@ -192,14 +192,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /* ---------- build final solution map ---------- */
-    Map<TypeVariable, Boolean> result = new HashMap<>();
+    Map<TypeVariable, InferredNullability> result = new HashMap<>();
     vars.forEach(
         (tv, st) -> {
           // if the nullness state is UNKNOWN, set it to NONNULL arbitrarily
           // TODO does this matter?  should we use NULLABLE instead?
           NullnessState n =
               (st.nullness == NullnessState.UNKNOWN) ? NullnessState.NONNULL : st.nullness;
-          result.put(tv, n == NullnessState.NULLABLE);
+          result.put(
+              tv,
+              n == NullnessState.NULLABLE
+                  ? InferredNullability.NULLABLE
+                  : InferredNullability.NONNULL);
         });
     return result;
   }

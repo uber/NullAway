@@ -34,14 +34,16 @@ public interface ConstraintSolver {
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException;
 
+  enum InferredNullability {
+    NONNULL,
+    NULLABLE
+  }
+
   /**
-   * Solve the constraints, returning a map from type variables to booleans indicating whether the
-   * type variable is {@code @Nullable} or not.
+   * Solve the constraints, returning a map from type variables to their inferred nullability.
    *
-   * @return a map from type variables to booleans indicating whether the type variable is
-   *     {@code @Nullable} or not. If the boolean is {@code true}, the type variable is
-   *     {@code @Nullable}; if it is {@code false}, the type variable is {@code @NonNull}.
+   * @return a map from type variables to their inferred nullability
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
-  Map<TypeVariable, Boolean> solve() throws UnsatisfiableConstraintsException;
+  Map<TypeVariable, InferredNullability> solve() throws UnsatisfiableConstraintsException;
 }
