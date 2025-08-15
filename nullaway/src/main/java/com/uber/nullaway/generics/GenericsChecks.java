@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
@@ -526,17 +527,19 @@ public final class GenericsChecks {
         // TODO report an error here, optionally?
       }
     }
-    Type result =
+    // we get the return type of the method call with inferred nullability of type variables
+    // substituted in.
+    // then, we apply those nullability annotations to the return type at the call site
+    Type methodReturnTypeWithInferredNullability =
         getTypeWithInferredNullability(
                 state, config, ((Type.ForAll) type).qtype, typeVarNullability)
             .getReturnType();
-    result =
-        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            result,
-            castToNonNull(ASTHelpers.getType(invocationTree)),
-            config,
-            Collections.emptyMap());
-    return result;
+    Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
+    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+        methodReturnTypeWithInferredNullability,
+        returnTypeAtCallSite,
+        config,
+        Collections.emptyMap());
   }
 
   /**
@@ -649,7 +652,7 @@ public final class GenericsChecks {
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
     for (Map.Entry<TypeVariable, ConstraintSolver.InferredNullability> entry :
         typeVarNullability.entrySet()) {
-      if (entry.getValue() == ConstraintSolver.InferredNullability.NULLABLE) {
+      if (entry.getValue() == NULLABLE) {
         Type curTypeVar = (Type) entry.getKey();
         typeVars.append(curTypeVar);
         inferredTypes.append(
