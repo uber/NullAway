@@ -811,11 +811,17 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    public static <U extends @Nullable Object> Foo<U> make(U... args) {",
             "      throw new RuntimeException();",
             "    }",
+            "    static <V extends @Nullable String> V makeStr(V v) {",
+            "      return v;",
+            "    }",
             "    Foo<String> foo1 = make(\"hello\", \"world\");",
             "    Foo<@Nullable String> foo2 = make(\"hello\", null, \"world\");",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "    Foo<String> foo3 = make(\"hello\", null, \"world\");",
             "    Foo<@Nullable String> foo4 = make(\"hello\", \"world\");",
+            "    Foo<@Nullable String> foo5 = make(\"hello\", \"world\", makeStr(null));",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'makeStr(null)' where @NonNull is required",
+            "    Foo<String> foo6 = make(\"hello\", \"world\", makeStr(null));",
             "}")
         .doTest();
   }
@@ -843,6 +849,26 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
             "        x.hashCode();",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void inferenceWithFieldAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    String field = id(\"hello\");",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    String field2 = id(null);",
+            "    @Nullable String field3 = id(null);",
+            "    @Nullable String field4 = id(\"hello\");",
             "}")
         .doTest();
   }
