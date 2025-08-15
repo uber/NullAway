@@ -24,9 +24,12 @@ import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeVariable;
 
-/** JSpecify-style nullability constraint solver for NullAway. */
+/**
+ * An implementation of {@link ConstraintSolver} that uses a work-list algorithm to propagate
+ * nullability constraints over a graph of type variables and their sub-/supertype relationships.
+ */
 public final class ConstraintSolverImpl implements ConstraintSolver {
-  private final Config config; // for nullability annotations
+  private final Config config;
   private final CodeAnnotationInfo codeAnnotationInfo;
   private final Handler handler;
   private final VisitorState state;
@@ -73,7 +76,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException {
-    // addSubtypeInternal(subtype, supertype, localVariableType, new HashSet<>()); // avoid cycles
     subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
   }
 
@@ -86,6 +88,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public Void visitType(Type subtype, Type supertype) {
+      // handle flow into a type variable.  the check for !(subtype instanceof TypeVar) is a
+      // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
         directlyConstrainTypePair(subtype, supertype);
       }
@@ -101,6 +105,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         }
         // recursing, so set localVariableType to false
         localVariableType = false;
+        // constrain type arguments to have identical nullability
         com.sun.tools.javac.util.List<Type> subtypeTypeArguments =
             subtypeAsSuper.getTypeArguments();
         com.sun.tools.javac.util.List<Type> supertypeTypeArguments = supertype.getTypeArguments();
@@ -110,10 +115,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           Type rhsTypeArg = supertypeTypeArguments.get(i);
           Type lhsTypeArg = subtypeTypeArguments.get(i);
           // constrain in both directions
+          // TODO should we have a more optimized way to equate two types?  this just makes each
+          //  type a subtype of the other
           lhsTypeArg.accept(this, rhsTypeArg);
           rhsTypeArg.accept(this, lhsTypeArg);
         }
       }
+      // if supertype is not a ClassType, we still call visitType to handle the case where
+      // supertype is a TypeVar
       return visitType(subtype, supertype);
     }
 
@@ -129,6 +138,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         subtypeComponentType.accept(this, superComponentType);
         superComponentType.accept(this, subtypeComponentType);
       }
+      // if supertype is not an ArrayType, we still call visitType to handle the case where
+      // supertype is a TypeVar
       return visitType(subtype, supertype);
     }
 
@@ -176,6 +187,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           break;
 
         default: // UNKNOWN
+          throw new RuntimeException("Unexpected nullness state: " + st.nullness + " for " + tv);
       }
     }
 
@@ -183,6 +195,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     Map<TypeVariable, Boolean> result = new HashMap<>();
     vars.forEach(
         (tv, st) -> {
+          // if the nullness state is UNKNOWN, set it to NONNULL arbitrarily
+          // TODO does this matter?  should we use NULLABLE instead?
           NullnessState n =
               (st.nullness == NullnessState.UNKNOWN) ? NullnessState.NONNULL : st.nullness;
           result.put(tv, n == NullnessState.NULLABLE);
@@ -191,7 +205,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
-    /* 1️⃣  variable-to-variable edge */
+    /* variable-to-variable edge */
     if (isTypeVariable(s) && isTypeVariable(t)) {
       TypeVariable sv = (TypeVariable) s;
       TypeVariable tv = (TypeVariable) t;
@@ -199,7 +213,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       getState(tv).subtypes.add(sv);
     }
 
-    /* 2️⃣  top-level nullability rules */
+    /* top-level nullability rules */
     if (isKnownNonNull(t)) {
       requireNonNull(s);
     }
@@ -257,12 +271,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return t instanceof TypeVar && !((TypeVar) t).isCaptured();
   }
 
-  /** Replace with NullAway logic to detect a direct @Nullable annotation. */
   private boolean isKnownNullable(Type t) {
-    if (t instanceof NullType) {
-      return true;
-    }
-    return Nullness.hasNullableAnnotation(t.getAnnotationMirrors().stream(), config);
+    return t instanceof NullType
+        || Nullness.hasNullableAnnotation(t.getAnnotationMirrors().stream(), config);
   }
 
   /** Everything non-nullable *and* non-variable counts as @NonNull. */
@@ -270,9 +281,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return !isKnownNullable(t) && !isTypeVariable(t);
   }
 
-  /** Replace with NullAway logic to check if the type variable’s upper bound is @Nullable. */
   private boolean upperBoundIsNullable(TypeVariable tv) {
-
     if (fromUnannotatedMethod(tv)) {
       return true;
     }
