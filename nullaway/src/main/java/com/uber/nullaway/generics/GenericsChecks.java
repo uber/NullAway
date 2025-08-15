@@ -1133,21 +1133,18 @@ public final class GenericsChecks {
       }
     }
 
-    if (tree instanceof MethodInvocationTree) {
-      if (
-      /*!(((MethodInvocationTree) tree).getMethodSelect() instanceof MemberSelectTree)
-      || */ invokedMethodSymbol.isStatic()) {
-        return Nullness.NONNULL;
-      }
-    }
-
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree) {
+      if (invokedMethodSymbol.isStatic()) {
+        // in this case, must be a generic method.  if it wasn't handled above, nothing else we can
+        // do.
+        return Nullness.NONNULL;
+      }
       ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
       if (methodSelect instanceof MemberSelectTree) {
         enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), config);
       } else {
-        // implicit this parameter
+        // implicit this parameter; use the type of the enclosing class of the call itself
         ClassTree enclosingClassTree =
             ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
         if (enclosingClassTree != null) {
