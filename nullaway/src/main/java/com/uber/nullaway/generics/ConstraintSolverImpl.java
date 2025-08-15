@@ -48,7 +48,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Per-variable state (nullability, sub-/supertype edges). */
   private static final class VarState {
-    final boolean nullableAllowed; // upper-bound annotated @Nullable ?
+    /**
+     * Indicates whether the type variable has a @Nullable upper bound, and thus can be @Nullable
+     * itself. Not strictly necessary for constraint solving, but allows us to give a more useful
+     * diagnostic if we get a contradiction due to the @NonNull upper bound, which could be helpful
+     * in the future.
+     */
+    final boolean nullableAllowed;
+
     NullnessState nullness = NullnessState.UNKNOWN;
     final Set<TypeVariable> supertypes = new HashSet<>();
     final Set<TypeVariable> subtypes = new HashSet<>();
