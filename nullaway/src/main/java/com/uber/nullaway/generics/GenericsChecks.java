@@ -9,6 +9,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
@@ -1133,19 +1134,26 @@ public final class GenericsChecks {
     }
 
     if (tree instanceof MethodInvocationTree) {
-      if (!(((MethodInvocationTree) tree).getMethodSelect() instanceof MemberSelectTree)
-          || invokedMethodSymbol.isStatic()) {
+      if (
+      /*!(((MethodInvocationTree) tree).getMethodSelect() instanceof MemberSelectTree)
+      || */ invokedMethodSymbol.isStatic()) {
         return Nullness.NONNULL;
       }
     }
 
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree) {
-      enclosingType =
-          getTreeType(
-              ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression(),
-              config);
-
+      ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
+      if (methodSelect instanceof MemberSelectTree) {
+        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), config);
+      } else {
+        // implicit this parameter
+        ClassTree enclosingClassTree =
+            ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+        if (enclosingClassTree != null) {
+          enclosingType = ((JCTree.JCClassDecl) enclosingClassTree).type;
+        }
+      }
     } else {
       Verify.verify(tree instanceof NewClassTree);
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"

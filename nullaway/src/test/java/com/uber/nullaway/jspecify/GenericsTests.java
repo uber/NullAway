@@ -2364,7 +2364,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1246")
   @Test
   public void nullableSuperMethodArg() {
     makeHelper()
