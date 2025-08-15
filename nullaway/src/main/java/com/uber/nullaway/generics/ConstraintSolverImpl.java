@@ -19,9 +19,7 @@ import java.util.ArrayDeque;
 import java.util.Deque;
 import java.util.HashMap;
 import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeVariable;
@@ -185,29 +183,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return result;
   }
 
-  /* ───────────────────── core recursive routine ───────────────────── */
-
-  private void addSubtypeInternal(
-      Type s, Type t, boolean localVariableType, Set<Pair<Type, Type>> seen)
-      throws UnsatisfiableConstraintsException {
-    if (!localVariableType) {
-      Pair<Type, Type> p = Pair.of(s, t);
-      if (!seen.add(p)) {
-        return; // already processed
-      }
-      directlyConstrainTypePair(s, t);
-    }
-    /* 3️⃣  invariance of type arguments – recurse both directions */
-    if (sameErasure(s, t)) {
-      List<Type> sArgs = s.getTypeArguments();
-      List<Type> tArgs = t.getTypeArguments();
-      for (int i = 0; i < sArgs.size(); i++) {
-        addSubtypeInternal(sArgs.get(i), tArgs.get(i), false, seen);
-        addSubtypeInternal(tArgs.get(i), sArgs.get(i), false, seen);
-      }
-    }
-  }
-
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
     /* 1️⃣  variable-to-variable edge */
     if (isTypeVariable(s) && isTypeVariable(t)) {
@@ -304,42 +279,5 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     Symbol enclosingElement = (Symbol) tv.asElement().getEnclosingElement();
     return enclosingElement != null
         && codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
-  }
-
-  /** True if both declared types erase to the same class/interface symbol. */
-  private static boolean sameErasure(Type a, Type b) {
-    return a instanceof ClassType
-        && b instanceof ClassType
-        && ((ClassType) a).tsym.equals(((ClassType) b).tsym);
-  }
-
-  /* ───────────────────── tiny immutable pair helper ───────────────────── */
-
-  private static final class Pair<A, B> {
-    final A first;
-    final B second;
-
-    private Pair(A first, B second) {
-      this.first = first;
-      this.second = second;
-    }
-
-    static <A, B> Pair<A, B> of(A a, B b) {
-      return new Pair<>(a, b);
-    }
-
-    @Override
-    public boolean equals(Object o) {
-      if (!(o instanceof Pair)) {
-        return false;
-      }
-      Pair<?, ?> p = (Pair<?, ?>) o;
-      return Objects.equals(first, p.first) && Objects.equals(second, p.second);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(first, second);
-    }
   }
 }
