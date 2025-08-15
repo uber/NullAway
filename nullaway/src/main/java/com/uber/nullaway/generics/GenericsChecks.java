@@ -568,6 +568,20 @@ public final class GenericsChecks {
         type, withInferredNullability, config, Collections.emptyMap());
   }
 
+  /**
+   * Generates inference constraints for a generic method call, including nested calls.
+   *
+   * @param config the analysis config
+   * @param typeFromAssignmentContext the type being "assigned to" in the assignment context of the
+   *     call
+   * @param assignedToLocal whether the method call result is assigned to a local variable
+   * @param solver the constraint solver
+   * @param methodSymbol the symbol for the method being called
+   * @param methodInvocationTree the method invocation tree representing the call
+   * @param allInvocations a set of all method invocations that require inference, including nested
+   *     ones
+   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
+   */
   private static void generateConstraintsForCall(
       Config config,
       Type typeFromAssignmentContext,
@@ -577,52 +591,54 @@ public final class GenericsChecks {
       MethodInvocationTree methodInvocationTree,
       Set<MethodInvocationTree> allInvocations)
       throws UnsatisfiableConstraintsException {
+    // first, handle the return type flow
     solver.addSubtypeConstraint(
         methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
+    // then, handle parameters
     List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
     List<Symbol.VarSymbol> formalParams = methodSymbol.getParameters();
     boolean isVarArgs = methodSymbol.isVarArgs();
-    int n = isVarArgs ? formalParams.size() - 1 : formalParams.size();
-    for (int i = 0; i < n; i++) {
+    int numNonVarargsParams = isVarArgs ? formalParams.size() - 1 : formalParams.size();
+    for (int i = 0; i < numNonVarargsParams; i++) {
       ExpressionTree argument = arguments.get(i);
       Symbol.VarSymbol formalParam = formalParams.get(i);
       Type formalParamType = formalParam.type;
-      if (isGenericCallNeedingInference(argument)) {
-        MethodInvocationTree invTree = (MethodInvocationTree) argument;
-        Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
-        generateConstraintsForCall(
-            config, formalParamType, false, solver, symbol, invTree, allInvocations);
-      } else {
-        Type argumentType = getTreeType(argument, config);
-        if (argumentType == null) {
-          // bail out of any checking involving raw types for now
-          continue;
-        }
-        solver.addSubtypeConstraint(argumentType, formalParamType, false);
-      }
+      generateConstraintsForParam(config, solver, allInvocations, argument, formalParamType);
     }
     if (isVarArgs
         && !formalParams.isEmpty()
         && NullabilityUtil.isVarArgsCall(methodInvocationTree)) {
-      Symbol.VarSymbol varargsParam = formalParams.get(formalParams.size() - 1);
-      Type.ArrayType varargsArrayType = (Type.ArrayType) varargsParam.type;
+      Symbol.VarSymbol varargsFormalParam = formalParams.get(formalParams.size() - 1);
+      Type.ArrayType varargsArrayType = (Type.ArrayType) varargsFormalParam.type;
       Type varargsElementType = varargsArrayType.elemtype;
       for (int i = formalParams.size() - 1; i < arguments.size(); i++) {
         ExpressionTree argument = arguments.get(i);
-        if (isGenericCallNeedingInference(argument)) {
-          MethodInvocationTree invTree = (MethodInvocationTree) argument;
-          Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
-          generateConstraintsForCall(
-              config, varargsElementType, false, solver, symbol, invTree, allInvocations);
-        } else {
-          Type argumentType = getTreeType(argument, config);
-          if (argumentType == null) {
-            // bail out of any checking involving raw types for now
-            continue;
-          }
-          solver.addSubtypeConstraint(argumentType, varargsElementType, false);
-        }
+        generateConstraintsForParam(config, solver, allInvocations, argument, varargsElementType);
       }
+    }
+  }
+
+  private static void generateConstraintsForParam(
+      Config config,
+      ConstraintSolver solver,
+      Set<MethodInvocationTree> allInvocations,
+      ExpressionTree argument,
+      Type formalParamType) {
+    // if the parameter is itself a generic call requiring inference, generate constraints for
+    // that call
+    if (isGenericCallNeedingInference(argument)) {
+      MethodInvocationTree invTree = (MethodInvocationTree) argument;
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
+      allInvocations.add(invTree);
+      generateConstraintsForCall(
+          config, formalParamType, false, solver, symbol, invTree, allInvocations);
+    } else {
+      Type argumentType = getTreeType(argument, config);
+      if (argumentType == null) {
+        // bail out of any checking involving raw types for now
+        return;
+      }
+      solver.addSubtypeConstraint(argumentType, formalParamType, false);
     }
   }
 
