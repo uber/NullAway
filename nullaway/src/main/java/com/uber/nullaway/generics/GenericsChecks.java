@@ -530,6 +530,7 @@ public final class GenericsChecks {
     // we get the return type of the method call with inferred nullability of type variables
     // substituted in.
     // then, we apply those nullability annotations to the return type at the call site
+    // TODO optimize this to avoid doing so many substitutions in the future, if needed
     Type methodReturnTypeWithInferredNullability =
         getTypeWithInferredNullability(
                 state, config, ((Type.ForAll) type).qtype, typeVarNullability)
