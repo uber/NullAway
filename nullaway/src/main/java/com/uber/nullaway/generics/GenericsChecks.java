@@ -460,16 +460,10 @@ public final class GenericsChecks {
     }
     Type rhsType = getTreeType(rhsTree, config);
     if (rhsType != null) {
-      if (rhsTree instanceof MethodInvocationTree) {
+      if (isGenericCallNeedingInference((ExpressionTree) rhsTree)) {
         rhsType =
             inferGenericMethodCallType(
-                analysis,
-                state,
-                (MethodInvocationTree) rhsTree,
-                config,
-                lhsType,
-                rhsType,
-                assignedToLocal);
+                analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, assignedToLocal);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
       if (!isAssignmentValid) {
@@ -501,15 +495,10 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Config config,
       Type typeFromAssignmentContext,
-      Type javacTypeOfInvocation,
       boolean assignedToLocal) {
-    MethodInvocationTree methodInvocationTree = invocationTree;
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
+    Verify.verify(isGenericCallNeedingInference(invocationTree));
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     Type type = methodSymbol.type;
-    if (!(type instanceof Type.ForAll && methodInvocationTree.getTypeArguments().isEmpty())) {
-      // inference doesn't apply
-      return javacTypeOfInvocation;
-    }
     Map<TypeVariable, Boolean> typeVarNullability =
         inferredSubstitutionsForGenericMethodCalls.get(invocationTree);
     if (typeVarNullability == null) {
@@ -518,7 +507,7 @@ public final class GenericsChecks {
       ConstraintSolver solver = makeSolver(analysis.getConfig(), state, analysis);
       // generate constraints
       Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
-      allInvocations.add(methodInvocationTree);
+      allInvocations.add(invocationTree);
       try {
         generateConstraintsForCall(
             config,
@@ -526,7 +515,7 @@ public final class GenericsChecks {
             assignedToLocal,
             solver,
             methodSymbol,
-            methodInvocationTree,
+            invocationTree,
             allInvocations);
         typeVarNullability = solver.solve();
         for (MethodInvocationTree invTree : allInvocations) {
@@ -551,7 +540,7 @@ public final class GenericsChecks {
     result =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
             result,
-            castToNonNull(ASTHelpers.getType(methodInvocationTree)),
+            castToNonNull(ASTHelpers.getType(invocationTree)),
             config,
             Collections.emptyMap());
     return result;
@@ -568,10 +557,8 @@ public final class GenericsChecks {
     Type withInferredNullability =
         substituteInferredNullabilityForTypeVariables(
             state, genericMethodType, typeVarNullability, config);
-    Type explicitRestored =
-        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            genericMethodType, withInferredNullability, config, Collections.emptyMap());
-    return explicitRestored;
+    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+        genericMethodType, withInferredNullability, config, Collections.emptyMap());
   }
 
   private static void generateConstraintsForCall(
@@ -711,16 +698,10 @@ public final class GenericsChecks {
     }
     Type returnExpressionType = getTreeType(retExpr, config);
     if (formalReturnType != null && returnExpressionType != null) {
-      if (retExpr instanceof MethodInvocationTree) {
+      if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
             inferGenericMethodCallType(
-                analysis,
-                state,
-                (MethodInvocationTree) retExpr,
-                config,
-                formalReturnType,
-                returnExpressionType,
-                false);
+                analysis, state, (MethodInvocationTree) retExpr, config, formalReturnType, false);
       }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
@@ -926,7 +907,7 @@ public final class GenericsChecks {
       ExpressionTree currentActualParam = actualParams.get(i);
       Type actualParameterType = getTreeType(currentActualParam, config);
       if (actualParameterType != null) {
-        if (currentActualParam instanceof MethodInvocationTree) {
+        if (isGenericCallNeedingInference(currentActualParam)) {
           // infer the type of the method call based on the assignment context
           // and the formal parameter type
           actualParameterType =
@@ -936,7 +917,6 @@ public final class GenericsChecks {
                   (MethodInvocationTree) currentActualParam,
                   config,
                   formalParameter,
-                  actualParameterType,
                   false);
         }
         if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
@@ -952,7 +932,7 @@ public final class GenericsChecks {
         ExpressionTree actualParamExpr = actualParams.get(i);
         Type actualParameterType = getTreeType(actualParamExpr, config);
         if (actualParameterType != null) {
-          if (actualParamExpr instanceof MethodInvocationTree) {
+          if (isGenericCallNeedingInference(actualParamExpr)) {
             actualParameterType =
                 inferGenericMethodCallType(
                     analysis,
@@ -960,7 +940,6 @@ public final class GenericsChecks {
                     (MethodInvocationTree) actualParamExpr,
                     config,
                     varargsElementType,
-                    actualParameterType,
                     false);
           }
           if (!subtypeParameterNullability(
