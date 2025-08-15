@@ -441,7 +441,7 @@ public final class GenericsChecks {
     if (lhsType == null) {
       return;
     }
-    Tree rhsTree;
+    ExpressionTree rhsTree;
     boolean assignedToLocal = false;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
@@ -460,7 +460,7 @@ public final class GenericsChecks {
     }
     Type rhsType = getTreeType(rhsTree, config);
     if (rhsType != null) {
-      if (isGenericCallNeedingInference((ExpressionTree) rhsTree)) {
+      if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
             inferGenericMethodCallType(
                 analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, assignedToLocal);
@@ -595,7 +595,7 @@ public final class GenericsChecks {
       }
     }
     if (isVarArgs
-        && formalParams.size() > 0
+        && !formalParams.isEmpty()
         && NullabilityUtil.isVarArgsCall(methodInvocationTree)) {
       Symbol.VarSymbol varargsParam = formalParams.get(formalParams.size() - 1);
       Type.ArrayType varargsArrayType = (Type.ArrayType) varargsParam.type;
@@ -623,12 +623,10 @@ public final class GenericsChecks {
     if (argument instanceof MethodInvocationTree) {
       MethodInvocationTree methodInvocation = (MethodInvocationTree) argument;
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
-      if (methodSymbol != null
+      // true for generic method calls with no explicit type arguments
+      return methodSymbol != null
           && methodSymbol.type instanceof Type.ForAll
-          && methodInvocation.getTypeArguments().isEmpty()) {
-        // this is a generic method call with no explicit type arguments
-        return true;
-      }
+          && methodInvocation.getTypeArguments().isEmpty();
     } /*else if (argument instanceof NewClassTree) {
         NewClassTree newClass = (NewClassTree) argument;
         if (newClass.getIdentifier() instanceof ParameterizedTypeTree) {
@@ -697,7 +695,7 @@ public final class GenericsChecks {
       return;
     }
     Type returnExpressionType = getTreeType(retExpr, config);
-    if (formalReturnType != null && returnExpressionType != null) {
+    if (returnExpressionType != null) {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
             inferGenericMethodCallType(
@@ -887,9 +885,7 @@ public final class GenericsChecks {
 
     // substitute type arguments for generic methods with explicit type arguments
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
-      invokedMethodType =
-          substituteTypeArgsInGenericMethodType(
-              (MethodInvocationTree) tree, methodSymbol, state, config);
+      invokedMethodType = substituteTypeArgsInGenericMethodType(tree, methodSymbol, state, config);
     }
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
