@@ -558,7 +558,7 @@ public final class GenericsChecks {
       VisitorState state,
       Config config,
       Type type,
-      Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability) {
+      @Nullable Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability) {
     if (typeVarNullability == null) {
       return type;
     }
