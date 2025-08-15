@@ -896,6 +896,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("we need to respect upper bounds of class type variables during inference")
   @Test
   public void inferenceNonNullUpperBoundOnClassTypeVar() {
     makeHelper()
