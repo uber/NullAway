@@ -873,8 +873,50 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // TODO add test with Function to ensure its nullable upper bounds are still observed during
-  // inference?
+  @Test
+  public void functionBoundRespectedDuringInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  static <T extends @Nullable Object> T applyId(Function<T, T> f, T x) {",
+            "    return f.apply(x);",
+            "  }",
+            "  static void ok(Function<@Nullable String, @Nullable String> f) {",
+            "    String s = applyId(f, null);",
+            "  }",
+            "  static void bad(Function<String, String> f) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    String s = applyId(f, null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void inferenceNonNullUpperBoundOnClassTypeVar() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test<T> {",
+            "  static <U extends @Nullable Object> Test<U> make(U u) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static <V extends @Nullable Object> V unmake(Test<V> v) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static void test() {",
+            "    // BUG: Diagnostic contains:",
+            "    String s = unmake(make(null));",
+            "  }",
+            "}")
+        .doTest();
+  }
 
   @Test
   public void issue1238() {
