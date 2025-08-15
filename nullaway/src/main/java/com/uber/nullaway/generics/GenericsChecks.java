@@ -544,9 +544,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Updates type so that nullability of type variable occurrences match those indicated in
-   * typeVarNullability, while preserving explicit nullability annotations on type variable
-   * occurrences.
+   * Creates an updated version of type with nullability of type variable occurrences matching those
+   * indicated in typeVarNullability, while preserving explicit nullability annotations on type
+   * variable occurrences.
    *
    * @param state the visitor state
    * @param config the analysis config
@@ -1529,7 +1529,7 @@ public final class GenericsChecks {
   public static Type getSyntheticNullAnnotType(VisitorState state) {
     Names names = Names.instance(state.context);
     Symtab symtab = Symtab.instance(state.context);
-    Name name = names.fromString("com.uber.nullaway.synthetic");
+    Name name = names.fromString("nullaway.synthetic");
     Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
     Name simpleName = names.fromString("Nullable");
     return new Type.ErrorType(simpleName, packageSymbol, Type.noType);
