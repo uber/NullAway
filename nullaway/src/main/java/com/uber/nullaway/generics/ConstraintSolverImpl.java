@@ -67,7 +67,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatConstraintsException {
+      throws UnsatisfiableConstraintsException {
     // addSubtypeInternal(subtype, supertype, localVariableType, new HashSet<>()); // avoid cycles
     subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
   }
@@ -137,7 +137,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   @Override
-  public Map<TypeVariable, Boolean> solve() throws UnsatConstraintsException {
+  public Map<TypeVariable, Boolean> solve() throws UnsatisfiableConstraintsException {
     /* ---------- work-list propagation of nullability ---------- */
     Deque<TypeVariable> work = new ArrayDeque<>();
     vars.forEach(
@@ -189,7 +189,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   private void addSubtypeInternal(
       Type s, Type t, boolean localVariableType, Set<Pair<Type, Type>> seen)
-      throws UnsatConstraintsException {
+      throws UnsatisfiableConstraintsException {
     if (!localVariableType) {
       Pair<Type, Type> p = Pair.of(s, t);
       if (!seen.add(p)) {
@@ -208,7 +208,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
   }
 
-  private void directlyConstrainTypePair(Type s, Type t) throws UnsatConstraintsException {
+  private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
     /* 1️⃣  variable-to-variable edge */
     if (isTypeVariable(s) && isTypeVariable(t)) {
       TypeVariable sv = (TypeVariable) s;
@@ -230,36 +230,37 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Force {@code tv} to {@code n}. Returns true if state changed. */
   private boolean updateNullness(TypeVariable tv, NullnessState n)
-      throws UnsatConstraintsException {
+      throws UnsatisfiableConstraintsException {
     VarState st = getState(tv);
 
     if (st.nullness == n) {
       return false;
     }
     if (st.nullness != NullnessState.UNKNOWN) {
-      throw new UnsatConstraintsException(
+      throw new UnsatisfiableConstraintsException(
           "Contradictory nullability for " + tv + ": " + st.nullness + " vs. " + n);
     }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
-      throw new UnsatConstraintsException(tv + " cannot be @Nullable (upper bound is @NonNull)");
+      throw new UnsatisfiableConstraintsException(
+          tv + " cannot be @Nullable (upper bound is @NonNull)");
     }
     st.nullness = n;
     return true;
   }
 
-  private void requireNullable(Type t) throws UnsatConstraintsException {
+  private void requireNullable(Type t) throws UnsatisfiableConstraintsException {
     if (isTypeVariable(t)) {
       updateNullness((TypeVariable) t, NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
-      throw new UnsatConstraintsException("Cannot treat @NonNull type as @Nullable: " + t);
+      throw new UnsatisfiableConstraintsException("Cannot treat @NonNull type as @Nullable: " + t);
     }
   }
 
-  private void requireNonNull(Type t) throws UnsatConstraintsException {
+  private void requireNonNull(Type t) throws UnsatisfiableConstraintsException {
     if (isTypeVariable(t)) {
       updateNullness((TypeVariable) t, NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
-      throw new UnsatConstraintsException("Cannot treat @Nullable type as @NonNull: " + t);
+      throw new UnsatisfiableConstraintsException("Cannot treat @Nullable type as @NonNull: " + t);
     }
   }
 

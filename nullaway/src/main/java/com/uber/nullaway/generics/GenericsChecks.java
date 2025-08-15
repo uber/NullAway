@@ -38,7 +38,7 @@ import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.generics.ConstraintSolver.UnsatConstraintsException;
+import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -521,7 +521,7 @@ public final class GenericsChecks {
         for (MethodInvocationTree invTree : allInvocations) {
           inferredSubstitutionsForGenericMethodCalls.put(invTree, typeVarNullability);
         }
-      } catch (UnsatConstraintsException e) {
+      } catch (UnsatisfiableConstraintsException e) {
         // for now, do nothing.  we'll just end up using whatever nullability gets attached by
         // javac.
         // TODO report an error here, optionally?
@@ -569,7 +569,7 @@ public final class GenericsChecks {
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
       Set<MethodInvocationTree> allInvocations)
-      throws UnsatConstraintsException {
+      throws UnsatisfiableConstraintsException {
     solver.addSubtypeConstraint(
         methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();

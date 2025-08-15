@@ -4,25 +4,44 @@ import com.sun.tools.javac.code.Type;
 import java.util.Map;
 import javax.lang.model.type.TypeVariable;
 
+/**
+ * An interface for solving constraints on type variables, such as subtype relationships between
+ * types. This is used to determine the nullability of inferred type arguments at generic method
+ * calls, constructor calls using the diamond operator, etc.
+ */
 public interface ConstraintSolver {
 
-  class UnsatConstraintsException extends RuntimeException {
-    public UnsatConstraintsException(String message) {
+  /**
+   * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
+   */
+  class UnsatisfiableConstraintsException extends RuntimeException {
+    public UnsatisfiableConstraintsException(String message) {
       super(message);
     }
   }
 
+  /**
+   * Add a subtype constraint between two types. Also constrains nested types appropriately (e.g.,
+   * generic type parameters of the two types must have identical nullability).
+   *
+   * @param subtype the subtype
+   * @param supertype the supertype
+   * @param localVariableType whether this constraint arises from assigning to a local variable. In
+   *     such a case, the top-level types are not constrained to be subtypes (as local variable
+   *     types are separately inferred), but the nested types are still constrained.
+   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
+   */
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
-      throws UnsatConstraintsException;
+      throws UnsatisfiableConstraintsException;
 
   /**
    * Solve the constraints, returning a map from type variables to booleans indicating whether the
-   * type variable is {@code @Nullable} or not. Throws an exception if the constraints are
-   * unsatisfiable.
+   * type variable is {@code @Nullable} or not.
    *
    * @return a map from type variables to booleans indicating whether the type variable is
    *     {@code @Nullable} or not. If the boolean is {@code true}, the type variable is
    *     {@code @Nullable}; if it is {@code false}, the type variable is {@code @NonNull}.
+   * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
-  Map<TypeVariable, Boolean> solve() throws UnsatConstraintsException;
+  Map<TypeVariable, Boolean> solve() throws UnsatisfiableConstraintsException;
 }
