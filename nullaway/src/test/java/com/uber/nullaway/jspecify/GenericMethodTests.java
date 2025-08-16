@@ -241,7 +241,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        static void test(Foo<@Nullable Object> f1, Foo<Object> f2) {",
             "            // no error expected",
             "            Foo<@Nullable Object> result = Foo.create(null, f1);",
-            "            // BUG: Diagnostic contains: has mismatched type parameter nullability",
+            "            // BUG: Diagnostic contains: Cannot assign from type Foo<Object> to type Foo<@Nullable Object>",
             "            Foo<@Nullable Object> result2 = Foo.create(null, f2);",
             "        }",
             "    }",
@@ -707,8 +707,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "  }",
             "  static void takesNullable(@Nullable String s) {}",
             "  static void test() {",
-            "    // legal, but we can't infer the type yet",
+            "    // legal, with explicit types",
             "    takesNullable(Test.<@Nullable String>returnTypeVariable(new Foo<@Nullable String>()));",
+            "    // legal, with inference",
+            "    takesNullable(returnTypeVariable(new Foo<@Nullable String>()));",
             "    // also legal",
             "    takesNullable(returnTypeVariable(new Foo<String>()));",
             "  }",
@@ -733,6 +735,185 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    takesNullable(id(\"hi\"));",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "    takesNullable(id(null));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void firstOrDefaultSelfContained() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  public interface List<E extends @Nullable Object> { boolean isEmpty(); E get(int index); }",
+            "  public static class Collections {",
+            "    public static <T extends @Nullable Object> List<T> singletonList(T element) {",
+            "      throw new UnsupportedOperationException();",
+            "    }",
+            "  }",
+            "  public static <U extends @Nullable Object> U firstOrDefault(List<U> list, U defaultValue) {",
+            "    return list.isEmpty() ? defaultValue : list.get(0);",
+            "  }",
+            "  static void use() {",
+            "    // should infer T -> @Nullable String",
+            "    String result = firstOrDefault(Collections.singletonList(null), \"hello\");",
+            "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
+            "    result.hashCode();",
+            "    // should infer T -> @NonNull String",
+            "    String result2 = firstOrDefault(Collections.singletonList(\"bye\"), \"hello\");",
+            "    result2.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("need better support for generics inference combined with local vars")
+  @Test
+  public void firstOrDefaultLocalVarParam() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  public interface List<E extends @Nullable Object> { boolean isEmpty(); E get(int index); }",
+            "  public static class Collections {",
+            "    public static <T extends @Nullable Object> List<T> singletonList(T element) {",
+            "      throw new UnsupportedOperationException();",
+            "    }",
+            "  }",
+            "  public static <U extends @Nullable Object> U firstOrDefault(List<U> list, U defaultValue) {",
+            "    return list.isEmpty() ? defaultValue : list.get(0);",
+            "  }",
+            "  static void use() {",
+            "    String x = null;",
+            "    // should infer T -> @Nullable String",
+            "    String result = firstOrDefault(Collections.singletonList(x), \"hello\");",
+            "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
+            "    result.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static class Foo<T extends @Nullable Object> {}",
+            "    public static <U extends @Nullable Object> Foo<U> make(U... args) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "    static <V extends @Nullable String> V makeStr(V v) {",
+            "      return v;",
+            "    }",
+            "    Foo<String> foo1 = make(\"hello\", \"world\");",
+            "    Foo<@Nullable String> foo2 = make(\"hello\", null, \"world\");",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    Foo<String> foo3 = make(\"hello\", null, \"world\");",
+            "    Foo<@Nullable String> foo4 = make(\"hello\", \"world\");",
+            "    Foo<@Nullable String> foo5 = make(\"hello\", \"world\", makeStr(null));",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'makeStr(null)' where @NonNull is required",
+            "    Foo<String> foo6 = make(\"hello\", \"world\", makeStr(null));",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("need better handling of lambdas")
+  @Test
+  public void supplierLambdaInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Supplier;",
+            "@NullMarked",
+            "class Test {",
+            "    static <R> void invoke(Supplier<@Nullable R> supplier) {}",
+            "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
+            "        return supplier.get();",
+            "    }",
+            "    static void test() {",
+            "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
+            "        // BUG: Diagnostic contains: Cannot pass parameter",
+            "        invoke(() -> null);",
+            "        // legal, infers R -> @Nullable Object",
+            "        Object x = invokeWithReturn(() -> null);",
+            "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "        x.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void inferenceWithFieldAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    String field = id(\"hello\");",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    String field2 = id(null);",
+            "    @Nullable String field3 = id(null);",
+            "    @Nullable String field4 = id(\"hello\");",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void functionBoundRespectedDuringInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  static <T extends @Nullable Object> T applyId(Function<T, T> f, T x) {",
+            "    return f.apply(x);",
+            "  }",
+            "  static void ok(Function<@Nullable String, @Nullable String> f) {",
+            "    String s = applyId(f, null);",
+            "  }",
+            "  static void bad(Function<String, String> f) {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    String s = applyId(f, null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("we need to respect upper bounds of class type variables during inference")
+  @Test
+  public void inferenceNonNullUpperBoundOnClassTypeVar() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test<T> {",
+            "  static <U extends @Nullable Object> Test<U> make(U u) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static <V extends @Nullable Object> V unmake(Test<V> v) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static void test() {",
+            "    // BUG: Diagnostic contains:",
+            "    String s = unmake(make(null));",
             "  }",
             "}")
         .doTest();
