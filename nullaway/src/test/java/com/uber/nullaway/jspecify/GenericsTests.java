@@ -2342,6 +2342,50 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("https://github.com/uber/NullAway/issues/1246")
+  @Test
+  public void nullableSuperConstructorArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(T t) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B() {",
+            "      super(null);",
+            "  }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1246")
+  @Test
+  public void nullableSuperMethodArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    void m(T t) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    void test() {",
+            "      m(null);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void newNullableWithArg() {
     makeHelper()
