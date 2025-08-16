@@ -373,6 +373,7 @@ public final class GenericsChecks {
    * @return Type of the tree with preserved annotations.
    */
   private static @Nullable Type getTreeType(Tree tree, Config config) {
+    tree = ASTHelpers.stripParentheses(tree);
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
@@ -1148,7 +1149,7 @@ public final class GenericsChecks {
         ClassTree enclosingClassTree =
             ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
         if (enclosingClassTree != null) {
-          enclosingType = ((JCTree.JCClassDecl) enclosingClassTree).type;
+          enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
         }
       } else if (methodSelect instanceof MemberSelectTree) {
         enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), config);
