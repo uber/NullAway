@@ -1140,16 +1140,18 @@ public final class GenericsChecks {
         // do.
         return Nullness.NONNULL;
       }
-      ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
-      if (methodSelect instanceof MemberSelectTree) {
-        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), config);
-      } else {
-        // implicit this parameter; use the type of the enclosing class of the call itself
+      ExpressionTree methodSelect =
+          ASTHelpers.stripParentheses(((MethodInvocationTree) tree).getMethodSelect());
+      if (methodSelect instanceof IdentifierTree) {
+        // implicit this parameter, or a super call.  in either case, use the type of the enclosing
+        // class.
         ClassTree enclosingClassTree =
             ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
         if (enclosingClassTree != null) {
           enclosingType = ((JCTree.JCClassDecl) enclosingClassTree).type;
         }
+      } else if (methodSelect instanceof MemberSelectTree) {
+        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), config);
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
