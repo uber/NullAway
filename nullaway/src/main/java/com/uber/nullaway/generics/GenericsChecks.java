@@ -760,7 +760,13 @@ public final class GenericsChecks {
 
     // substitute type arguments for generic methods with explicit type arguments
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
-      invokedMethodType = substituteTypeArgsInGenericMethodType(tree, methodSymbol, state, config);
+      invokedMethodType =
+          substituteTypeArgsInGenericMethodType(
+              tree,
+              invokedMethodType.asMethodType(),
+              ((Type.ForAll) methodSymbol.type).tvars,
+              state,
+              config);
     }
 
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
@@ -982,8 +988,10 @@ public final class GenericsChecks {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       Type substitutedReturnType =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
+          substituteTypeArgsInGenericMethodType(
+                  tree, forAllType.qtype.asMethodType(), forAllType.tvars, state, config)
               .getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
@@ -1018,13 +1026,18 @@ public final class GenericsChecks {
    * Substitutes the type arguments from a generic method invocation into the method's type.
    *
    * @param tree the method invocation tree
-   * @param methodSymbol symbol for the invoked generic method
+   * @param methodType generic type for the invoked method
+   * @param tvars type variables for the generic method
    * @param state the visitor state
    * @param config the NullAway config
    * @return the substituted method type for the generic method
    */
   private Type substituteTypeArgsInGenericMethodType(
-      Tree tree, Symbol.MethodSymbol methodSymbol, VisitorState state, Config config) {
+      Tree tree,
+      Type.MethodType methodType,
+      com.sun.tools.javac.util.List<Type> tvars,
+      VisitorState state,
+      Config config) {
 
     List<? extends Tree> typeArgumentTrees =
         (tree instanceof MethodInvocationTree)
@@ -1032,21 +1045,15 @@ public final class GenericsChecks {
             : ((NewClassTree) tree).getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
 
-    Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
-    Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
-
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
       if (inferredSubstitutionsForGenericMethodCalls.containsKey(tree)) {
         return substituteInferredTypesForTypeVariables(
-            state,
-            underlyingMethodType,
-            inferredSubstitutionsForGenericMethodCalls.get(tree),
-            config);
+            state, methodType, inferredSubstitutionsForGenericMethodCalls.get(tree), config);
       }
     }
     return TypeSubstitutionUtils.subst(
-        state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs, config);
+        state.getTypes(), methodType, tvars, explicitTypeArgs, config);
   }
 
   /**
@@ -1095,8 +1102,10 @@ public final class GenericsChecks {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
+          substituteTypeArgsInGenericMethodType(
+                  tree, forAllType.qtype.asMethodType(), forAllType.tvars, state, config)
               .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
