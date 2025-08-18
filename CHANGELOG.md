@@ -1,5 +1,15 @@
 Changelog
 =========
+Version 0.12.9
+---------------
+* Add a case in our inference for generic method calls (#1240)
+* Add library model for Apache Commons CollectionUtils.isNotEmpty, Amazon CollectionUtils.IsNullOrEmpty, and a couple Amazon StringUtils methods (#1242)
+* Maintenance
+  - Fix maven central link in RELEASING.md (#1237)
+  - Update to Error Prone 2.41.0 (#1239)
+  - Add tests for gh-1246 (#1247)
+  - Test reading JSpecify annotations from bytecodes on JDK 21 (#1245)
+
 Version 0.12.8
 ---------------
 * Document interactions between Guava and JSpecify mode in README (#1208)
