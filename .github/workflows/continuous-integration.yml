@@ -76,10 +76,19 @@ jobs:
         if: matrix.java == '17'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
-  caffeine-gradle-task:
-    name: "Build Caffeine with snapshot"
+  compile-other-projects:
+    name: "Build ${{ matrix.project }} with snapshot"
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - project: caffeine
+            url: https://github.com/ben-manes/caffeine.git
+          - project: spring-framework
+            url: https://github.com/spring-projects/spring-framework.git
+    permissions:
+      contents: read
     runs-on: ubuntu-latest
-
     steps:
       - name: Checkout this repository
         uses: actions/checkout@v4
@@ -94,12 +103,12 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
         run: ./gradlew publishToMavenLocal
-      - name: Create a temporary directory for Caffeine
-        run: mkdir -p /tmp/caffeine
-      - name: Clone Caffeine repository
-        run: git clone --depth 1 https://github.com/ben-manes/caffeine.git /tmp/caffeine
-      - name: Run caffeine build
+      - name: Create a temporary directory for ${{ matrix.project }}
+        run: mkdir -p /tmp/${{ matrix.project }}
+      - name: Clone ${{ matrix.project }} repository
+        run: git clone --depth 1 ${{ matrix.url }} /tmp/${{ matrix.project }}
+      - name: Run ${{ matrix.project }} build
         run: |
-          cp .github/workflows/caffeine-use-snapshot.gradle.kts /tmp/caffeine
-          cd /tmp/caffeine
-          ./gradlew --init-script caffeine-use-snapshot.gradle.kts build -x test -x javadoc
+          cp .github/workflows/use-snapshot.gradle.kts /tmp/${{ matrix.project }}
+          cd /tmp/${{ matrix.project }}
+          ./gradlew --init-script use-snapshot.gradle.kts build -x test -x javadoc
