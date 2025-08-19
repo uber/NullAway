@@ -1,6 +1,10 @@
 // An init script to override a build configuration to use a snapshot version of NullAway
 allprojects {
-  repositories.add(mavenLocal())
+  repositories {
+    mavenCentral()
+    mavenLocal()
+    gradlePluginPortal()
+  }
 }
 
 gradle.projectsLoaded {
