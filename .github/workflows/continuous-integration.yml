@@ -79,6 +79,7 @@ jobs:
   compile-other-projects:
     name: "Build ${{ matrix.project }} with snapshot"
     strategy:
+      fail-fast: false
       matrix:
         include:
           - project: caffeine
