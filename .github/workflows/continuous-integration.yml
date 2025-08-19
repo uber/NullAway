@@ -107,6 +107,6 @@ jobs:
         run: git clone --depth 1 ${{ matrix.url }} /tmp/${{ matrix.project }}
       - name: Run ${{ matrix.project }} build
         run: |
-          cp .github/workflows/caffeine-use-snapshot.gradle.kts /tmp/${{ matrix.project }}
+          cp .github/workflows/use-snapshot.gradle.kts /tmp/${{ matrix.project }}
           cd /tmp/${{ matrix.project }}
-          ./gradlew --init-script caffeine-use-snapshot.gradle.kts build -x test -x javadoc
+          ./gradlew --init-script use-snapshot.gradle.kts build -x test -x javadoc
