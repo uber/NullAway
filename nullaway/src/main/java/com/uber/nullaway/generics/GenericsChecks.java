@@ -528,14 +528,17 @@ public final class GenericsChecks {
       }
     }
     // we get the return type of the method call with inferred nullability of type variables
-    // substituted in.
-    // then, we apply those nullability annotations to the return type at the call site
-    // TODO optimize this to avoid doing so many substitutions in the future, if needed
+    // substituted in.  So, if the method returns List<T>, and we inferred T to be nullable, then
+    // methodReturnTypeWithInferredNullability will be List<@Nullable T>.
     Type methodReturnTypeWithInferredNullability =
         getTypeWithInferredNullability(
                 state, config, ((Type.ForAll) type).qtype, typeVarNullability)
             .getReturnType();
     Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
+    // then, we apply those nullability annotations to the return type at the call site.
+    // So, continuing the above example, if javac inferred the type of the call to be List<String>,
+    // we will return List<@Nullable String>, correcting its nullability based on our own inference.
+    // TODO optimize the above steps to avoid doing so many substitutions in the future, if needed
     return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
         methodReturnTypeWithInferredNullability,
         returnTypeAtCallSite,
