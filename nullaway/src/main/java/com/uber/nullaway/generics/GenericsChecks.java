@@ -643,6 +643,8 @@ public final class GenericsChecks {
   }
 
   private static boolean isGenericCallNeedingInference(ExpressionTree argument) {
+    // For now, we only support calls to generic methods.
+    // TODO also support calls to generic constructors that use the diamond operator
     if (argument instanceof MethodInvocationTree) {
       MethodInvocationTree methodInvocation = (MethodInvocationTree) argument;
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
@@ -650,13 +652,7 @@ public final class GenericsChecks {
       return methodSymbol != null
           && methodSymbol.type instanceof Type.ForAll
           && methodInvocation.getTypeArguments().isEmpty();
-    } /*else if (argument instanceof NewClassTree) {
-        NewClassTree newClass = (NewClassTree) argument;
-        if (newClass.getIdentifier() instanceof ParameterizedTypeTree) {
-          // this is a generic constructor call with no explicit type arguments
-          return true;
-        }
-      }*/
+    }
     return false;
   }
 
