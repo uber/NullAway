@@ -194,13 +194,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     Map<TypeVariable, InferredNullability> result = new HashMap<>();
     vars.forEach(
         (tv, st) -> {
-          // if the nullness state is UNKNOWN, set it to NONNULL arbitrarily
+          // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily
           // TODO does this matter?  should we use NULLABLE instead?
-          NullnessState n =
-              (st.nullness == NullnessState.UNKNOWN) ? NullnessState.NONNULL : st.nullness;
           result.put(
               tv,
-              n == NullnessState.NULLABLE
+              st.nullness == NullnessState.NULLABLE
                   ? InferredNullability.NULLABLE
                   : InferredNullability.NONNULL);
         });
