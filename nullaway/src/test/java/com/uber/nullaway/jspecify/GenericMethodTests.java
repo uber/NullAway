@@ -920,6 +920,34 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void arrayCovariantSubtyping() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  static <T extends @Nullable Object> T f(T[] vals, T other) {",
+            "    return other;",
+            "  }",
+            "  String stringField = \"hi\";",
+            "  void test(String[] arr, @Nullable String[] arr2) {",
+            "    // legal, should infer T -> @Nullable String",
+            "    // we can pass String[] due to covariant subtyping",
+            "    String s1 = f(arr, null);",
+            "    // BUG: Diagnostic contains: dereferenced expression s1 is @Nullable",
+            "    s1.hashCode();",
+            "    String s2 = f(arr, \"hi\");",
+            "    // legal",
+            "    s2.hashCode();",
+            "    // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable String []",
+            "    stringField = f(arr2, \"hi\");",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1238() {
     makeHelper()
         .addSourceLines(

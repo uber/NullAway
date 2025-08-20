@@ -134,9 +134,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         localVariableType = false;
         Type subtypeComponentType = subtype.elemtype;
         Type superComponentType = superArrayType.elemtype;
-        // constrain in both directions
+        // arrays have covariant subtyping; so only constrain in one direction
         subtypeComponentType.accept(this, superComponentType);
-        superComponentType.accept(this, subtypeComponentType);
       }
       // if supertype is not an ArrayType, we still call visitType to handle the case where
       // supertype is a TypeVar
