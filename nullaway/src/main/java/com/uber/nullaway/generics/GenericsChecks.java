@@ -579,7 +579,8 @@ public final class GenericsChecks {
    * @param methodSymbol the symbol for the method being called
    * @param methodInvocationTree the method invocation tree representing the call
    * @param allInvocations a set of all method invocations that require inference, including nested
-   *     ones
+   *     ones. This is an output parameter that gets mutated while generating the constraints to add
+   *     nested invocations.
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private static void generateConstraintsForCall(
