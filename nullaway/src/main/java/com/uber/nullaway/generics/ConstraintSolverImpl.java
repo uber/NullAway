@@ -268,7 +268,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private static boolean isTypeVariable(Type t) {
-    // for now ignore captures
+    // for now ignore capture variables, like "capture#1 of ? extends X"
     return t instanceof TypeVar && !((TypeVar) t).isCaptured();
   }
 
