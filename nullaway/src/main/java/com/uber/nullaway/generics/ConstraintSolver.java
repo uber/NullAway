@@ -13,6 +13,10 @@ public interface ConstraintSolver {
 
   /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
+   *
+   * <p>This is an unchecked exception since in our current solver implementation it needs to be
+   * thrown from an implementation of javac's TypeVisitor interface, which does not allow checked
+   * exceptions.
    */
   class UnsatisfiableConstraintsException extends RuntimeException {
     public UnsatisfiableConstraintsException(String message) {
