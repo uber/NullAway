@@ -979,6 +979,30 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void selfContainedOptional() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "",
+            "@NullMarked",
+            "public class Test {",
+            "",
+            "    static class Optional<T> {",
+            "        public static <T> Optional<T> ofNullable(@Nullable T value) {",
+            "            return new Optional<>();",
+            "        }",
+            "    }",
+            "",
+            "    public static <U extends @Nullable Object> Optional<U> optionalResult(@Nullable U value) {",
+            "        return Optional.ofNullable(value);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1238() {
     makeHelper()
         .addSourceLines(
