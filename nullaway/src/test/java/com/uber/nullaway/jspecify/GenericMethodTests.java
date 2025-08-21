@@ -948,6 +948,37 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void rowMapperTest() {
+    makeHelper()
+        .addSourceLines(
+            "TestRowMapper.java",
+            "import java.util.List;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class TestRowMapper {",
+            "",
+            "  interface RowMapper<T extends @Nullable Object> {}",
+            "",
+            "  static class SingleColumnRowMapper<T> implements RowMapper<@Nullable T> {",
+            "    public SingleColumnRowMapper(Class<T> requiredType) {}",
+            "  }",
+            "",
+            "  protected <U> RowMapper<@Nullable U> getSingleColumnRowMapper(Class<U> requiredType) {",
+            "    return new SingleColumnRowMapper<>(requiredType);",
+            "  }  ",
+            "  ",
+            "  public <V extends @Nullable Object> List<V> query(RowMapper<V> rowMapper) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  ",
+            "  public <W> List<@Nullable W> queryForList(Class<W> elementType) {",
+            "    return query(getSingleColumnRowMapper(elementType));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1238() {
     makeHelper()
         .addSourceLines(
