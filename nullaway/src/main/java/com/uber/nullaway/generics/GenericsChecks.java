@@ -522,9 +522,18 @@ public final class GenericsChecks {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, typeVarNullability);
         }
       } catch (UnsatisfiableConstraintsException e) {
-        // for now, do nothing.  we'll just end up using whatever nullability gets attached by
-        // javac.
-        // TODO report an error here, optionally?
+        if (config.warnOnGenericInferenceFailure()) {
+          ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+          ErrorMessage errorMessage =
+              new ErrorMessage(
+                  ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
+                  String.format(
+                      "Failured to infer type argument nullability for call %s",
+                      state.getSourceForNode(invocationTree)));
+          state.reportMatch(
+              errorBuilder.createErrorDescription(
+                  errorMessage, analysis.buildDescription(invocationTree), state, null));
+        }
       }
     }
     // we get the return type of the method call with inferred nullability of type variables

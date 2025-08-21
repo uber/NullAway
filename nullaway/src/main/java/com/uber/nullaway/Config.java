@@ -310,4 +310,12 @@ public interface Config {
    * @return true if both type use and declaration annotation locations should be honored
    */
   boolean isLegacyAnnotationLocation();
+
+  /**
+   * Checks if a warning should be issued when generic type inference fails to infer a type
+   * argument's nullability.
+   *
+   * @return true if a warning should be issued when generic type inference fails
+   */
+  boolean warnOnGenericInferenceFailure();
 }

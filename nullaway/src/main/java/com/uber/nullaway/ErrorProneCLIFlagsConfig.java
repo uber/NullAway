@@ -102,6 +102,9 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_LEGACY_ANNOTATION_LOCATION =
       EP_FL_NAMESPACE + ":LegacyAnnotationLocations";
 
+  static final String FL_WARN_ON_GENERIC_INFERENCE_FAILURE =
+      EP_FL_NAMESPACE + ":WarnOnGenericInferenceFailure";
+
   static final String ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG =
       "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
           + "incorrect.  "
@@ -221,6 +224,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
   private final boolean legacyAnnotationLocation;
+  private final boolean warnOnInferenceFailure;
   private final ImmutableSet<MethodClassAndName> knownInitializers;
   private final ImmutableSet<String> excludedClassAnnotations;
   private final ImmutableSet<String> generatedCodeAnnotations;
@@ -305,6 +309,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
               + FL_JSPECIFY_MODE
               + " is set ");
     }
+    warnOnInferenceFailure = flags.getBoolean(FL_WARN_ON_GENERIC_INFERENCE_FAILURE).orElse(false);
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
     optionalClassPaths =
         new ImmutableSet.Builder<String>()
@@ -595,6 +600,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isLegacyAnnotationLocation() {
     return legacyAnnotationLocation;
+  }
+
+  @Override
+  public boolean warnOnGenericInferenceFailure() {
+    return warnOnInferenceFailure;
   }
 
   @AutoValue

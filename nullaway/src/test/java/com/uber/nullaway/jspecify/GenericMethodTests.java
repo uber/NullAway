@@ -949,7 +949,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void rowMapperTest() {
-    makeHelper()
+    makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "TestRowMapper.java",
             "import java.util.List;",
@@ -980,7 +980,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void selfContainedOptional() {
-    makeHelper()
+    makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.NullMarked;",
@@ -1043,5 +1043,13 @@ public class GenericMethodTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+  }
+
+  private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
+    return makeTestHelperWithArgs(
+        Arrays.asList(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true"));
   }
 }
