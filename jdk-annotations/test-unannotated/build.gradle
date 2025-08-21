@@ -1,0 +1,62 @@
+plugins {
+    id "java-library"
+}
+
+dependencies {
+    compileOnly deps.apt.autoService
+    annotationProcessor deps.apt.autoService
+    compileOnly project(":nullaway")
+    api deps.build.jspecify
+    implementation project(":jdk-annotations:astubx-generator-cli")
+
+    // Add the jdk-javac-plugin as annotation processor
+    annotationProcessor files("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar")
+}
+
+//def pluginJar = "${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar"
+//def testInputsPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/src"
+
+def jsonOutputDir = file("${buildDir}/generated/json")
+def astubxOutputDir = file("${buildDir}/generated/astubx")
+
+tasks.withType(JavaCompile).configureEach { compileTask ->
+    if(name == "compileJava") {
+        dependsOn(":jdk-javac-plugin:shadowJar")
+
+        options.fork = true
+
+        doFirst {
+            jsonOutputDir.mkdirs()
+
+            def pluginJar = file("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar").absolutePath
+            options.compilerArgs += [
+                "-Xplugin:NullnessAnnotationSerializer ${jsonOutputDir.absolutePath}"
+            ]
+        }
+
+        finalizedBy("generateAstubx")
+    }
+}
+
+// generate .astubx files from JSON
+task generateAstubx(type: JavaExec) {
+    group = "build"
+    description = "Generate .astubx files from JSON using AstubxGeneratorCLI"
+
+    doFirst {
+        if (!jsonOutputDir.exists()) {
+            throw new GradleException("JSON directory does not exist: $jsonOutputDir")
+        }
+        astubxOutputDir.mkdirs()
+    }
+
+    mainClass = "com.uber.nullaway.jdkannotations.AstubxGeneratorCLI"
+    classpath = sourceSets.main.runtimeClasspath +
+            project(":jdk-annotations:astubx-generator-cli").sourceSets.main.runtimeClasspath
+    args = [
+        jsonOutputDir.absolutePath,
+        astubxOutputDir.absolutePath
+    ]
+}
+
+build.dependsOn tasks.named("generateAstubx")
