@@ -54,10 +54,9 @@ task generateAstubx(type: JavaExec) {
     classpath = sourceSets.main.runtimeClasspath +
             project(":jdk-annotations:astubx-generator-cli").sourceSets.main.runtimeClasspath
     args = [
-            jsonOutputDir.absolutePath,
-            astubxOutputDir.absolutePath
+        jsonOutputDir.absolutePath,
+        astubxOutputDir.absolutePath
     ]
 }
 
 build.dependsOn tasks.named("generateAstubx")
-
