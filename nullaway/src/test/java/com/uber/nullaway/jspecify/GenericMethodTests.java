@@ -1015,6 +1015,26 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void reassignLocal() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "    private <R> @Nullable R make() {",
+            "        return null;",
+            "    }",
+            "    void test() {",
+            "        Object result = null;",
+            "        result = make();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1238() {
     makeHelper()
         .addSourceLines(

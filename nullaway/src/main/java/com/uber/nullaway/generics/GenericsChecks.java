@@ -452,6 +452,8 @@ public final class GenericsChecks {
     } else {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
+      Symbol varSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
+      assignedToLocal = varSymbol != null && varSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
     }
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
