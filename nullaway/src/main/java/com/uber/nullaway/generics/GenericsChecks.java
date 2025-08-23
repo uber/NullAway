@@ -529,7 +529,7 @@ public final class GenericsChecks {
               new ErrorMessage(
                   ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
                   String.format(
-                      "Failured to infer type argument nullability for call %s: %s",
+                      "Failed to infer type argument nullability for call %s: %s",
                       state.getSourceForNode(invocationTree), e.getMessage()));
           state.reportMatch(
               errorBuilder.createErrorDescription(
