@@ -268,10 +268,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return vars.computeIfAbsent(tv, v -> new VarState(upperBoundIsNullable(v)));
   }
 
-  private static boolean isTypeVariable(Type t) {
-    // for now ignore capture variables, like "capture#1 of ? extends X"
-    // TODO should also not have any nullness annotations!
-    return t instanceof TypeVar && !((TypeVar) t).isCaptured();
+  private boolean isTypeVariable(Type t) {
+    if (t instanceof TypeVar) {
+      TypeVar tv = (TypeVar) t;
+      // For now ignore capture variables, like "capture#1 of ? extends X".  Also, only treat as a
+      // type variable if it _doesn't_ have an explicit @Nullable or @NonNull annotation.
+      return !tv.isCaptured()
+          && !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
+          && !Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors().stream(), config);
+    } else {
+      return false;
+    }
   }
 
   private boolean isKnownNullable(Type t) {
