@@ -995,8 +995,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        }",
             "    }",
             "",
-            // TODO think about constraints to add when we see @Nullable U <: T.  I don't think we
-            // add U <: T.
             "    public static <U extends @Nullable Object> Optional<U> optionalResult(@Nullable U value) {",
             "        return Optional.ofNullable(value);",
             "    }",
