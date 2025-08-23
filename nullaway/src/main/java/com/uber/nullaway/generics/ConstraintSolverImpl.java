@@ -164,8 +164,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         });
 
     while (!work.isEmpty()) {
-      Element tv = work.removeFirst();
-      VarState st = castToNonNull(vars.get(tv));
+      Element typeVarElement = work.removeFirst();
+      VarState st = castToNonNull(vars.get(typeVarElement));
 
       switch (st.nullness) {
         case NONNULL:
@@ -187,7 +187,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           break;
 
         default: // UNKNOWN
-          throw new RuntimeException("Unexpected nullness state: " + st.nullness + " for " + tv);
+          throw new RuntimeException(
+              "Unexpected nullness state: " + st.nullness + " for " + typeVarElement);
       }
     }
 
@@ -227,20 +228,20 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── nullability bookkeeping ───────────────────── */
 
   /** Force {@code tv} to {@code n}. Returns true if state changed. */
-  private boolean updateNullness(Element tv, NullnessState n)
+  private boolean updateNullness(Element typeVarElement, NullnessState n)
       throws UnsatisfiableConstraintsException {
-    VarState st = getState(tv);
+    VarState st = getState(typeVarElement);
 
     if (st.nullness == n) {
       return false;
     }
     if (st.nullness != NullnessState.UNKNOWN) {
       throw new UnsatisfiableConstraintsException(
-          "Contradictory nullability for " + tv + ": " + st.nullness + " vs. " + n);
+          "Contradictory nullability for " + typeVarElement + ": " + st.nullness + " vs. " + n);
     }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
       throw new UnsatisfiableConstraintsException(
-          tv + " cannot be @Nullable (upper bound is @NonNull)");
+          typeVarElement + " cannot be @Nullable (upper bound is @NonNull)");
     }
     st.nullness = n;
     return true;
@@ -264,8 +265,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /* ───────────────────── helpers & stubs ───────────────────── */
 
-  private VarState getState(Element tv) {
-    return vars.computeIfAbsent(tv, v -> new VarState(upperBoundIsNullable(v)));
+  private VarState getState(Element typeVarElement) {
+    return vars.computeIfAbsent(typeVarElement, v -> new VarState(upperBoundIsNullable(v)));
   }
 
   private boolean isTypeVariable(Type t) {
@@ -291,18 +292,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return !isKnownNullable(t) && !isTypeVariable(t);
   }
 
-  private boolean upperBoundIsNullable(Element tv) {
-    if (fromUnannotatedMethod(tv)) {
+  private boolean upperBoundIsNullable(Element typeVarElement) {
+    if (fromUnannotatedMethod(typeVarElement)) {
       return true;
     }
-    Type upperBound = (Type) ((TypeVariable) tv.asType()).getUpperBound();
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
     com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
         upperBound.getAnnotationMirrors();
     return com.uber.nullaway.Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
   }
 
-  private boolean fromUnannotatedMethod(Element tv) {
-    Symbol enclosingElement = (Symbol) tv.getEnclosingElement();
+  private boolean fromUnannotatedMethod(Element typeVarElement) {
+    Symbol enclosingElement = (Symbol) typeVarElement.getEnclosingElement();
     return enclosingElement != null
         && codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
   }
