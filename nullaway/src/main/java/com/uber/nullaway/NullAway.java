@@ -280,7 +280,7 @@ public class NullAway extends BugChecker
   private final Map<ExpressionTree, Nullness> computedNullnessMap = new LinkedHashMap<>();
 
   /** Logic and state for generics checking */
-  private final GenericsChecks genericsChecks = new GenericsChecks();
+  private final GenericsChecks genericsChecks;
 
   /** Returns the GenericsChecks object for this analysis, used for generics-related checking */
   public GenericsChecks getGenericsChecks() {
@@ -298,6 +298,8 @@ public class NullAway extends BugChecker
     handler = Handlers.buildEmpty();
     nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    // annoying to leak `this` here; we assign the field last to make it as safe as possible
+    genericsChecks = new GenericsChecks(this, config, handler);
   }
 
   @Inject // For future Error Prone versions in which checkers are loaded using Guice
@@ -313,6 +315,8 @@ public class NullAway extends BugChecker
                 .addAll(config.getSuppressionNameAliases())
                 .build();
     errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames);
+    // annoying to leak `this` here; we assign the field last to make it as safe as possible
+    genericsChecks = new GenericsChecks(this, config, handler);
   }
 
   private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
@@ -1938,7 +1942,7 @@ public class NullAway extends BugChecker
         genericsChecks.compareGenericTypeParameterNullabilityForCall(
             methodSymbol, tree, actualParams, varArgsMethod, this, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
-          GenericsChecks.checkGenericMethodCallTypeArguments(tree, state, this, config, handler);
+          genericsChecks.checkGenericMethodCallTypeArguments(tree, state);
         }
       }
     }
