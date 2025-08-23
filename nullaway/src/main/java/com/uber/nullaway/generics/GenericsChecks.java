@@ -112,7 +112,7 @@ public final class GenericsChecks {
         // if base type variable does not have @Nullable upper bound then the instantiation is
         // invalid
         reportInvalidInstantiationError(
-            nullableTypeArguments.get(i), baseType, baseTypeArgs.get(i), state, analysis);
+            nullableTypeArguments.get(i), baseType, baseTypeArgs.get(i), state);
       }
     }
   }
@@ -207,7 +207,7 @@ public final class GenericsChecks {
         // is invalid
         if (!hasNullableAnnotation) {
           reportInvalidTypeArgumentError(
-              nullableTypeArguments.get(i), methodSymbol, typeVariable, state, analysis);
+              nullableTypeArguments.get(i), methodSymbol, typeVariable, state);
         }
       }
     }
@@ -367,10 +367,10 @@ public final class GenericsChecks {
         // TODO: support diamond operators
         return null;
       }
-      return typeWithPreservedAnnotations(paramTypedTree, config);
+      return typeWithPreservedAnnotations(paramTypedTree);
     } else if (tree instanceof NewArrayTree
         && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
-      return typeWithPreservedAnnotations(tree, config);
+      return typeWithPreservedAnnotations(tree);
     } else {
       Type result;
       if (tree instanceof VariableTree || tree instanceof IdentifierTree) {
@@ -430,16 +430,15 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    Type rhsType = getTreeType(rhsTree, config);
+    Type rhsType = getTreeType(rhsTree);
     if (rhsType != null) {
       if (rhsTree instanceof MethodInvocationTree) {
         rhsType =
-            inferGenericMethodCallType(
-                analysis, state, (MethodInvocationTree) rhsTree, config, lhsType, rhsType);
+            inferGenericMethodCallType(state, (MethodInvocationTree) rhsTree, lhsType, rhsType);
       }
-      boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state, config);
+      boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
-        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state, analysis);
+        reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state);
       }
     }
   }
@@ -514,7 +513,7 @@ public final class GenericsChecks {
       // update with inferred substitution
       result =
           substituteInferredTypesForTypeVariables(
-              state, methodSymbol.getReturnType(), substitution, config);
+              state, methodSymbol.getReturnType(), substitution);
     }
     return result;
   }
@@ -559,23 +558,17 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
-    Type returnExpressionType = getTreeType(retExpr, config);
+    Type returnExpressionType = getTreeType(retExpr);
     if (formalReturnType != null && returnExpressionType != null) {
       if (retExpr instanceof MethodInvocationTree) {
         returnExpressionType =
             inferGenericMethodCallType(
-                analysis,
-                state,
-                (MethodInvocationTree) retExpr,
-                config,
-                formalReturnType,
-                returnExpressionType);
+                state, (MethodInvocationTree) retExpr, formalReturnType, returnExpressionType);
       }
       boolean isReturnTypeValid =
-          subtypeParameterNullability(formalReturnType, returnExpressionType, state, config);
+          subtypeParameterNullability(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
-        reportInvalidReturnTypeError(
-            retExpr, formalReturnType, returnExpressionType, state, analysis);
+        reportInvalidReturnTypeError(retExpr, formalReturnType, returnExpressionType, state);
       }
     }
   }
@@ -616,8 +609,8 @@ public final class GenericsChecks {
       Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
       Type lhsComponentType = lhsArrayType.getComponentType();
       Type rhsComponentType = rhsArrayType.getComponentType();
-      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType, config);
-      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType, config);
+      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
+      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
       // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
       if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
         return false;
@@ -665,29 +658,27 @@ public final class GenericsChecks {
     Tree truePartTree = tree.getTrueExpression();
     Tree falsePartTree = tree.getFalseExpression();
 
-    Type condExprType = getConditionalExpressionType(tree, state, config);
-    Type truePartType = getTreeType(truePartTree, config);
-    Type falsePartType = getTreeType(falsePartTree, config);
+    Type condExprType = getConditionalExpressionType(tree, state);
+    Type truePartType = getTreeType(truePartTree);
+    Type falsePartType = getTreeType(falsePartTree);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
     if (condExprType != null) {
       if (truePartType != null) {
-        if (!subtypeParameterNullability(condExprType, truePartType, state, config)) {
-          reportMismatchedTypeForTernaryOperator(
-              truePartTree, condExprType, truePartType, state, analysis);
+        if (!subtypeParameterNullability(condExprType, truePartType, state)) {
+          reportMismatchedTypeForTernaryOperator(truePartTree, condExprType, truePartType, state);
         }
       }
       if (falsePartType != null) {
-        if (!subtypeParameterNullability(condExprType, falsePartType, state, config)) {
-          reportMismatchedTypeForTernaryOperator(
-              falsePartTree, condExprType, falsePartType, state, analysis);
+        if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
+          reportMismatchedTypeForTernaryOperator(falsePartTree, condExprType, falsePartType, state);
         }
       }
     }
   }
 
-  private static @Nullable Type getConditionalExpressionType(
+  private @Nullable Type getConditionalExpressionType(
       ConditionalExpressionTree tree, VisitorState state) {
     // hack: sometimes array nullability doesn't get computed correctly for a conditional expression
     // on the RHS of an assignment.  So, look at the type of the assignment tree.
@@ -698,9 +689,9 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getTreeType(parent, config);
+      return getTreeType(parent);
     }
-    return getTreeType(tree, config);
+    return getTreeType(tree);
   }
 
   /**

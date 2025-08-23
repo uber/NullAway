@@ -527,7 +527,7 @@ public class NullAway extends BugChecker
     }
     // generics check
     if (lhsType != null && config.isJSpecifyMode()) {
-      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, state);
     }
 
     if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
@@ -705,8 +705,8 @@ public class NullAway extends BugChecker
         if (config.isJSpecifyMode()) {
           // Check that any generic type parameters in the return type and parameter types are
           // identical (invariant) across the overriding and overridden methods
-          GenericsChecks.checkTypeParameterNullnessForMethodOverriding(
-              tree, methodSymbol, closestOverriddenMethod, this, state);
+          genericsChecks.checkTypeParameterNullnessForMethodOverriding(
+              tree, methodSymbol, closestOverriddenMethod, state);
         }
         return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
       }
@@ -767,8 +767,7 @@ public class NullAway extends BugChecker
       boolean isNullUnmarked =
           baseClass != null && codeAnnotationInfo.isSymbolUnannotated(baseClass, config, handler);
       if (!isNullUnmarked) {
-        GenericsChecks.checkInstantiationForParameterizedTypedTree(
-            tree, state, this, config, handler);
+        genericsChecks.checkInstantiationForParameterizedTypedTree(tree, state);
       }
     }
     return Description.NO_MATCH;
@@ -832,18 +831,17 @@ public class NullAway extends BugChecker
             // For a method reference or lambda, we get generic type arguments from the javac's
             // inferred type for the tree, which seems to properly preserve type-use annotations
             paramNullness =
-                GenericsChecks.getGenericMethodParameterNullness(
+                genericsChecks.getGenericMethodParameterNullness(
                     i,
                     overriddenMethod,
                     ASTHelpers.getType(
                         memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree),
-                    state,
-                    config);
+                    state);
           } else {
             // Use the enclosing class of the overriding method to find generic type arguments
             paramNullness =
-                GenericsChecks.getGenericMethodParameterNullness(
-                    i, overriddenMethod, overridingParamSymbols.get(i).owner.owner, state, config);
+                genericsChecks.getGenericMethodParameterNullness(
+                    i, overriddenMethod, overridingParamSymbols.get(i).owner.owner, state);
           }
         } else {
           paramNullness = Nullness.NONNULL;
@@ -995,19 +993,19 @@ public class NullAway extends BugChecker
 
     // Check generic type arguments for returned expression here, since we need to check the type
     // arguments regardless of the top-level nullability of the return type
-    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(
-        retExpr, methodSymbol, this, state);
+    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
     // type is @Nullable, and if so, bail out.
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
-      if (GenericsChecks.getGenericMethodReturnTypeNullness(
-                  methodSymbol, ASTHelpers.getType(lambdaTree), state, config)
+      if (genericsChecks
+              .getGenericMethodReturnTypeNullness(
+                  methodSymbol, ASTHelpers.getType(lambdaTree), state)
               .equals(Nullness.NULLABLE)
-          || GenericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
-              methodSymbol, lambdaTree, state, config, codeAnnotationInfo, handler)) {
+          || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
+              methodSymbol, lambdaTree, state, codeAnnotationInfo)) {
         // In JSpecify mode, the return type of a lambda may be @Nullable via a type argument
         return Description.NO_MATCH;
       }
@@ -1167,15 +1165,16 @@ public class NullAway extends BugChecker
       if (memberReferenceTree != null) {
         // For a method reference, we get generic type arguments from javac's inferred type for the
         // tree, which properly preserves type-use annotations
-        return GenericsChecks.getGenericMethodReturnTypeNullness(
-                    overriddenMethod, ASTHelpers.getType(memberReferenceTree), state, config)
+        return genericsChecks
+                .getGenericMethodReturnTypeNullness(
+                    overriddenMethod, ASTHelpers.getType(memberReferenceTree), state)
                 .equals(Nullness.NONNULL)
-            && !GenericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
-                overriddenMethod, memberReferenceTree, state, config, codeAnnotationInfo, handler);
+            && !genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
+                overriddenMethod, memberReferenceTree, state, codeAnnotationInfo);
       } else {
         // Use the enclosing class of the overriding method to find generic type arguments
-        return GenericsChecks.getGenericMethodReturnTypeNullness(
-                overriddenMethod, enclosingSymbol, state, config)
+        return genericsChecks
+            .getGenericMethodReturnTypeNullness(overriddenMethod, enclosingSymbol, state)
             .equals(Nullness.NONNULL);
       }
     }
@@ -1548,7 +1547,7 @@ public class NullAway extends BugChecker
     }
     VarSymbol symbol = ASTHelpers.getSymbol(tree);
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
-      genericsChecks.checkTypeParameterNullnessForAssignability(tree, this, state);
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, state);
     }
     if (!config.isLegacyAnnotationLocation()) {
       checkNullableAnnotationPositionInType(
@@ -1785,7 +1784,7 @@ public class NullAway extends BugChecker
       ConditionalExpressionTree tree, VisitorState state) {
     if (withinAnnotatedCode(state)) {
       if (config.isJSpecifyMode()) {
-        GenericsChecks.checkTypeParameterNullnessForConditionalExpression(tree, this, state);
+        genericsChecks.checkTypeParameterNullnessForConditionalExpression(tree, state);
       }
       doUnboxingCheck(state, tree.getCondition());
     }
@@ -1934,13 +1933,13 @@ public class NullAway extends BugChecker
                   : ((config.isJSpecifyMode()
                           && (tree instanceof MethodInvocationTree || tree instanceof NewClassTree))
                       ? genericsChecks.getGenericParameterNullnessAtInvocation(
-                          i, methodSymbol, tree, state, config)
+                          i, methodSymbol, tree, state)
                       : Nullness.NONNULL);
         }
       }
       if (config.isJSpecifyMode()) {
         genericsChecks.compareGenericTypeParameterNullabilityForCall(
-            methodSymbol, tree, actualParams, varArgsMethod, this, state);
+            methodSymbol, tree, actualParams, varArgsMethod, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
           genericsChecks.checkGenericMethodCallTypeArguments(tree, state);
         }
