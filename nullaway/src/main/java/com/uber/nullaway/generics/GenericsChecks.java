@@ -433,11 +433,13 @@ public final class GenericsChecks {
       Symbol treeSymbol = ASTHelpers.getSymbol(tree);
       assignedToLocal =
           treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
-    } else {
+    } else if (tree instanceof AssignmentTree) {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
       Symbol varSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
       assignedToLocal = varSymbol != null && varSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
+    } else {
+      throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
