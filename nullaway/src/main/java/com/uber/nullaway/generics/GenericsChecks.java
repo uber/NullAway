@@ -447,10 +447,9 @@ public final class GenericsChecks {
    * Infers the type of a generic method call based on the assignment context. Side-effects the
    * #inferredSubstitutionsForGenericMethodCalls map with the inferred type.
    *
-   * @param analysis the analysis
+   * @param state the visitor state
    * @param state the visitor state
    * @param invocationTree the method invocation tree representing the call to a generic method
-   * @param config the analysis config
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context
    * @param exprType the type of the right-hand side of the pseudo-assignment, which may be null
    * @return the type of the method call after inference
@@ -645,7 +644,6 @@ public final class GenericsChecks {
    * somewhat confusing; we may want to improve this in the future.
    *
    * @param tree A conditional expression tree to check
-   * @param analysis the analysis object
    * @param state the visitor state
    */
   public void checkTypeParameterNullnessForConditionalExpression(
@@ -720,7 +718,7 @@ public final class GenericsChecks {
       ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
       Type enclosingType;
       if (methodSelect instanceof MemberSelectTree) {
-        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression(), config);
+        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression());
       } else {
         // implicit this parameter
         enclosingType = methodSymbol.owner.type;
@@ -734,7 +732,7 @@ public final class GenericsChecks {
     // substitute type arguments for constructor call
     if (tree instanceof NewClassTree) {
       // get the type arguments from the NewClassTree itself
-      Type enclosingType = getTreeType(tree, config);
+      Type enclosingType = getTreeType(tree);
       if (enclosingType != null) {
         invokedMethodType =
             TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
@@ -744,8 +742,7 @@ public final class GenericsChecks {
     // substitute type arguments for generic methods with explicit type arguments
     if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
       invokedMethodType =
-          substituteTypeArgsInGenericMethodType(
-              (MethodInvocationTree) tree, methodSymbol, state, config);
+          substituteTypeArgsInGenericMethodType((MethodInvocationTree) tree, methodSymbol, state);
     }
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
@@ -761,23 +758,21 @@ public final class GenericsChecks {
         return;
       }
       ExpressionTree currentActualParam = actualParams.get(i);
-      Type actualParameterType = getTreeType(currentActualParam, config);
+      Type actualParameterType = getTreeType(currentActualParam);
       if (actualParameterType != null) {
         if (currentActualParam instanceof MethodInvocationTree) {
           // infer the type of the method call based on the assignment context
           // and the formal parameter type
           actualParameterType =
               inferGenericMethodCallType(
-                  analysis,
                   state,
                   (MethodInvocationTree) currentActualParam,
-                  config,
                   formalParameter,
                   actualParameterType);
         }
-        if (!subtypeParameterNullability(formalParameter, actualParameterType, state, config)) {
+        if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
           reportInvalidParametersNullabilityError(
-              formalParameter, actualParameterType, currentActualParam, state, analysis);
+              formalParameter, actualParameterType, currentActualParam, state);
         }
       }
     }
@@ -786,22 +781,19 @@ public final class GenericsChecks {
           ((Type.ArrayType) formalParamTypes.get(formalParamTypes.size() - 1)).elemtype;
       for (int i = formalParamTypes.size() - 1; i < actualParams.size(); i++) {
         ExpressionTree actualParamExpr = actualParams.get(i);
-        Type actualParameterType = getTreeType(actualParamExpr, config);
+        Type actualParameterType = getTreeType(actualParamExpr);
         if (actualParameterType != null) {
           if (actualParamExpr instanceof MethodInvocationTree) {
             actualParameterType =
                 inferGenericMethodCallType(
-                    analysis,
                     state,
                     (MethodInvocationTree) actualParamExpr,
-                    config,
                     varargsElementType,
                     actualParameterType);
           }
-          if (!subtypeParameterNullability(
-              varargsElementType, actualParameterType, state, config)) {
+          if (!subtypeParameterNullability(varargsElementType, actualParameterType, state)) {
             reportInvalidParametersNullabilityError(
-                varargsElementType, actualParameterType, actualParamExpr, state, analysis);
+                varargsElementType, actualParameterType, actualParamExpr, state);
           }
         }
       }
@@ -815,7 +807,6 @@ public final class GenericsChecks {
    * @param tree A method tree to check
    * @param overridingMethod A symbol of the overriding method
    * @param overriddenMethod A symbol of the overridden method
-   * @param analysis the analysis object
    * @param state the visitor state
    */
   public void checkTypeParameterNullnessForMethodOverriding(
@@ -832,10 +823,8 @@ public final class GenericsChecks {
         TypeSubstitutionUtils.memberType(
             state.getTypes(), overridingMethod.owner.type, overriddenMethod, analysis.getConfig());
 
-    checkTypeParameterNullnessForOverridingMethodReturnType(
-        tree, methodWithTypeParams, analysis, state);
-    checkTypeParameterNullnessForOverridingMethodParameterType(
-        tree, methodWithTypeParams, analysis, state);
+    checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams, state);
+    checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams, state);
   }
 
   /**
@@ -864,14 +853,13 @@ public final class GenericsChecks {
    * @param enclosingSymbol the enclosing class in which we want to know {@code method}'s return
    *     type nullability
    * @param state Visitor state
-   * @param config The analysis config
    * @return nullability of the return type of {@code method} in the context of {@code
    *     enclosingType}
    */
   public Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state) {
-    Type enclosingType = getTypeForSymbol(enclosingSymbol, state, config);
-    return getGenericMethodReturnTypeNullness(method, enclosingType, state, config);
+    Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    return getGenericMethodReturnTypeNullness(method, enclosingType, state);
   }
 
   /**
@@ -879,10 +867,9 @@ public final class GenericsChecks {
    *
    * @param symbol the symbol
    * @param state the visitor state
-   * @param config the analysis config
    * @return the type for {@code symbol}
    */
-  private static @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state) {
+  private @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state) {
     if (symbol.isAnonymous()) {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
       // So, we get a correct type from the enclosing NewClassTree representing the anonymous class.
@@ -895,7 +882,7 @@ public final class GenericsChecks {
             "method should be directly inside an anonymous NewClassTree "
                 + state.getSourceForNode(path.getLeaf()));
       }
-      Type typeFromTree = getTreeType(newClassTree, config);
+      Type typeFromTree = getTreeType(newClassTree);
       if (typeFromTree != null) {
         verify(
             state.getTypes().isAssignable(symbol.type, typeFromTree),
@@ -922,7 +909,7 @@ public final class GenericsChecks {
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
         overriddenMethodType.getClass());
-    return getTypeNullness(overriddenMethodType.getReturnType(), config);
+    return getTypeNullness(overriddenMethodType.getReturnType());
   }
 
   /**
@@ -963,12 +950,11 @@ public final class GenericsChecks {
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
       Type substitutedReturnType =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
-              .getReturnType();
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
-          && Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
+          && Objects.equals(getTypeNullness(substitutedReturnType), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
     }
@@ -977,12 +963,11 @@ public final class GenericsChecks {
       return Nullness.NONNULL;
     }
     Type methodReceiverType =
-        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression(), config);
+        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression());
     if (methodReceiverType == null) {
       return Nullness.NONNULL;
     } else {
-      return getGenericMethodReturnTypeNullness(
-          invokedMethodSymbol, methodReceiverType, state, config);
+      return getGenericMethodReturnTypeNullness(invokedMethodSymbol, methodReceiverType, state);
     }
   }
 
@@ -1022,10 +1007,7 @@ public final class GenericsChecks {
     if (explicitTypeArgs.isEmpty()) {
       if (inferredSubstitutionsForGenericMethodCalls.containsKey(tree)) {
         return substituteInferredTypesForTypeVariables(
-            state,
-            underlyingMethodType,
-            inferredSubstitutionsForGenericMethodCalls.get(tree),
-            config);
+            state, underlyingMethodType, inferredSubstitutionsForGenericMethodCalls.get(tree));
       }
     }
     return TypeSubstitutionUtils.subst(
@@ -1074,14 +1056,13 @@ public final class GenericsChecks {
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
       List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state, config)
+          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state)
               .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
           && Objects.equals(
-              getParameterTypeNullness(
-                  substitutedParamTypes.get(paramIndex), config, isVarargsParam),
+              getParameterTypeNullness(substitutedParamTypes.get(paramIndex), isVarargsParam),
               Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
@@ -1098,18 +1079,16 @@ public final class GenericsChecks {
     if (tree instanceof MethodInvocationTree) {
       enclosingType =
           getTreeType(
-              ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression(),
-              config);
+              ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression());
 
     } else {
       Verify.verify(tree instanceof NewClassTree);
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
-      enclosingType = getTreeType(tree, config);
+      enclosingType = getTreeType(tree);
     }
 
-    return getGenericMethodParameterNullness(
-        paramIndex, invokedMethodSymbol, enclosingType, state, config);
+    return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, enclosingType, state);
   }
 
   /**
@@ -1139,27 +1118,24 @@ public final class GenericsChecks {
    * @param enclosingSymbol the enclosing symbol in which we want to know {@code method}'s parameter
    *     type nullability
    * @param state the visitor state
-   * @param config the config
    * @return nullability of the relevant parameter type of {@code method} in the context of {@code
    *     enclosingSymbol}
    */
   public Nullness getGenericMethodParameterNullness(
       int parameterIndex, Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state) {
-    Type enclosingType = getTypeForSymbol(enclosingSymbol, state, config);
-    return getGenericMethodParameterNullness(parameterIndex, method, enclosingType, state, config);
+    Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    return getGenericMethodParameterNullness(parameterIndex, method, enclosingType, state);
   }
 
   /**
    * Just like {@link #getGenericMethodParameterNullness(int, Symbol.MethodSymbol, Symbol,
-   * VisitorState, Config)}, but takes the enclosing {@code Type} rather than the enclosing {@code
-   * Symbol}.
+   * VisitorState)}, but takes the enclosing {@code Type} rather than the enclosing {@code Symbol}.
    *
    * @param parameterIndex index of the parameter
    * @param method the generic method
    * @param enclosingType the enclosing type in which we want to know {@code method}'s parameter
    *     type nullability
    * @param state the visitor state
-   * @param config the analysis config
    * @return nullability of the relevant parameter type of {@code method} in the context of {@code
    *     enclosingType}
    */
@@ -1179,7 +1155,7 @@ public final class GenericsChecks {
     Type methodType =
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
-    return getParameterTypeNullness(paramType, config, isVarargsParam);
+    return getParameterTypeNullness(paramType, isVarargsParam);
   }
 
   /**
@@ -1189,7 +1165,6 @@ public final class GenericsChecks {
    *
    * @param tree tree for overriding method
    * @param overriddenMethodType type of the overridden method
-   * @param analysis the analysis object
    * @param state the visitor state
    */
   private void checkTypeParameterNullnessForOverridingMethodParameterType(
@@ -1197,18 +1172,16 @@ public final class GenericsChecks {
     List<? extends VariableTree> methodParameters = tree.getParameters();
     List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
     for (int i = 0; i < methodParameters.size(); i++) {
-      Config config = analysis.getConfig();
-      Type overridingMethodParameterType = getTreeType(methodParameters.get(i), config);
+      Type overridingMethodParameterType = getTreeType(methodParameters.get(i));
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
         // allow contravariant subtyping
         if (!subtypeParameterNullability(
-            overridingMethodParameterType, overriddenMethodParameterType, state, config)) {
+            overridingMethodParameterType, overriddenMethodParameterType, state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
               overridingMethodParameterType,
-              analysis,
               state);
         }
       }
@@ -1222,7 +1195,6 @@ public final class GenericsChecks {
    *
    * @param tree tree for overriding method
    * @param overriddenMethodType type of the overridden method
-   * @param analysis the analysis object
    * @param state the visitor state
    */
   private void checkTypeParameterNullnessForOverridingMethodReturnType(
@@ -1236,9 +1208,9 @@ public final class GenericsChecks {
     }
     // allow covariant subtyping
     if (!subtypeParameterNullability(
-        overriddenMethodReturnType, overridingMethodReturnType, state, analysis.getConfig())) {
+        overriddenMethodReturnType, overridingMethodReturnType, state)) {
       reportInvalidOverridingMethodReturnTypeError(
-          tree, overriddenMethodReturnType, overridingMethodReturnType, analysis, state);
+          tree, overriddenMethodReturnType, overridingMethodReturnType, state);
     }
   }
 
@@ -1247,7 +1219,6 @@ public final class GenericsChecks {
    * type.
    *
    * @param type The type of the parameter
-   * @param config The analysis config
    * @param isVarargsParam true if the parameter is a varargs parameter
    * @return The nullness of the parameter type
    */
@@ -1261,16 +1232,15 @@ public final class GenericsChecks {
       // use the component type to determine nullness
       Type.ArrayType arrayType = (Type.ArrayType) type;
       Type componentType = arrayType.getComponentType();
-      return getTypeNullness(componentType, config);
+      return getTypeNullness(componentType);
     } else {
       // For non-varargs, we just check the type itself
-      return getTypeNullness(type, config);
+      return getTypeNullness(type);
     }
   }
 
   /**
    * @param type A type for which we need the Nullness.
-   * @param config The analysis config
    * @return Returns the Nullness of the type based on the Nullability annotation.
    */
   private Nullness getTypeNullness(Type type) {
@@ -1301,8 +1271,6 @@ public final class GenericsChecks {
    * @param methodSymbol the symbol for the method corresponding to <em>e</em>
    * @param expressionTree the expression <em>e</em>
    * @param state visitor state
-   * @param config NullAway configuration
-   * @param handler NullAway handler
    * @param codeAnnotationInfo information on which code is annotated
    */
   public boolean passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
@@ -1337,6 +1305,14 @@ public final class GenericsChecks {
    */
   public void clearCache() {
     inferredSubstitutionsForGenericMethodCalls.clear();
+  }
+
+  /**
+   * Static helper to check if a type is explicitly annotated as nullable. Note: prefer the instance
+   * method when a GenericsChecks instance is available.
+   */
+  public static boolean isNullableAnnotated(Type type, Config config) {
+    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
   public boolean isNullableAnnotated(Type type) {
