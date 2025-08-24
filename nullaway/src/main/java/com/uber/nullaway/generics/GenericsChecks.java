@@ -482,6 +482,33 @@ public final class GenericsChecks {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     Type type = methodSymbol.type;
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
+        inferTypeVarNullabilityForCall(
+            state, invocationTree, typeFromAssignmentContext, assignedToLocal);
+    // we get the return type of the method call with inferred nullability of type variables
+    // substituted in.  So, if the method returns List<T>, and we inferred T to be nullable, then
+    // methodReturnTypeWithInferredNullability will be List<@Nullable T>.
+    Type methodReturnTypeWithInferredNullability =
+        getTypeWithInferredNullability(state, ((Type.ForAll) type).qtype, typeVarNullability)
+            .getReturnType();
+    Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
+    // then, we apply those nullability annotations to the return type at the call site.
+    // So, continuing the above example, if javac inferred the type of the call to be List<String>,
+    // we will return List<@Nullable String>, correcting its nullability based on our own inference.
+    // TODO optimize the above steps to avoid doing so many substitutions in the future, if needed
+    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+        methodReturnTypeWithInferredNullability,
+        returnTypeAtCallSite,
+        config,
+        Collections.emptyMap());
+  }
+
+  private @Nullable Map<Element, ConstraintSolver.InferredNullability>
+      inferTypeVarNullabilityForCall(
+          VisitorState state,
+          MethodInvocationTree invocationTree,
+          Type typeFromAssignmentContext,
+          boolean assignedToLocal) {
+    Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
         inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
     if (typeVarNullability == null) {
       // generic method call with no explicit generic arguments
@@ -492,6 +519,7 @@ public final class GenericsChecks {
       Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
       allInvocations.add(invocationTree);
       try {
+        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
         generateConstraintsForCall(
             typeFromAssignmentContext,
             assignedToLocal,
@@ -518,22 +546,7 @@ public final class GenericsChecks {
         }
       }
     }
-    // we get the return type of the method call with inferred nullability of type variables
-    // substituted in.  So, if the method returns List<T>, and we inferred T to be nullable, then
-    // methodReturnTypeWithInferredNullability will be List<@Nullable T>.
-    Type methodReturnTypeWithInferredNullability =
-        getTypeWithInferredNullability(state, ((Type.ForAll) type).qtype, typeVarNullability)
-            .getReturnType();
-    Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
-    // then, we apply those nullability annotations to the return type at the call site.
-    // So, continuing the above example, if javac inferred the type of the call to be List<String>,
-    // we will return List<@Nullable String>, correcting its nullability based on our own inference.
-    // TODO optimize the above steps to avoid doing so many substitutions in the future, if needed
-    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-        methodReturnTypeWithInferredNullability,
-        returnTypeAtCallSite,
-        config,
-        Collections.emptyMap());
+    return typeVarNullability;
   }
 
   /**
@@ -1129,6 +1142,8 @@ public final class GenericsChecks {
           && tree instanceof MethodInvocationTree) {
         return getTypeWithInferredNullability(
             state, underlyingMethodType, inferredTypeVarNullabilityForGenericCalls.get(tree));
+      } else {
+        inferTypeVarNullabilityForCall(state, (MethodInvocationTree) tree, null, false);
       }
     }
     return TypeSubstitutionUtils.subst(
