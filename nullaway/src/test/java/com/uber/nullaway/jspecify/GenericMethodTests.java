@@ -1022,6 +1022,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Tests that we properly handle an {@code AssignmentTree} that re-assigns a local variable (not
+   * just {@code VariableTree} initializers).
+   */
   @Test
   public void reassignLocal() {
     makeHelperWithInferenceFailureWarning()
