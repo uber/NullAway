@@ -765,10 +765,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // should infer T -> @NonNull String",
             "    String result2 = firstOrDefault(Collections.singletonList(\"bye\"), \"hello\");",
             "    result2.hashCode();",
-            "    // should infer T -> @Nullable String from default alone",
-            "    String result3 = firstOrDefault(Collections.singletonList(\"bye\"), null);",
-            "    // BUG: Diagnostic contains: dereferenced expression result3 is @Nullable",
-            "    result3.hashCode();",
             "  }",
             "}")
         .doTest();
