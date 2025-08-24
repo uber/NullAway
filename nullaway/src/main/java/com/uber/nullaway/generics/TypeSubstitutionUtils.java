@@ -52,7 +52,7 @@ public class TypeSubstitutionUtils {
    * @param annotsOnTypeVarsFromSubtypes annotations on type variables added by subtypes
    * @return the new type with explicit nullability annotations restored
    */
-  private static Type restoreExplicitNullabilityAnnotations(
+  public static Type restoreExplicitNullabilityAnnotations(
       Type origType,
       Type newType,
       Config config,
@@ -182,11 +182,8 @@ public class TypeSubstitutionUtils {
 
     private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
       // Construct and return an updated version of t with annotation annot.
-      List<Attribute.TypeCompound> annotationCompound =
-          List.from(
-              Collections.singletonList(new Attribute.TypeCompound(annot.type, List.nil(), null)));
-      TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
-      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
+      Type annotType = annot.type;
+      return TypeSubstitutionUtils.typeWithAnnot(t, annotType);
     }
 
     @Override
@@ -232,6 +229,14 @@ public class TypeSubstitutionUtils {
       }
       return changed ? buf.toList() : newtypes;
     }
+  }
+
+  public static Type typeWithAnnot(Type t, Type annotType) {
+    List<Attribute.TypeCompound> annotationCompound =
+        List.from(
+            Collections.singletonList(new Attribute.TypeCompound(annotType, List.nil(), null)));
+    TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
+    return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
   }
 
   /**
