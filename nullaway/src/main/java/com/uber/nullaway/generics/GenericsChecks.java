@@ -448,7 +448,6 @@ public final class GenericsChecks {
    * #inferredSubstitutionsForGenericMethodCalls map with the inferred type.
    *
    * @param state the visitor state
-   * @param state the visitor state
    * @param invocationTree the method invocation tree representing the call to a generic method
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context
    * @param exprType the type of the right-hand side of the pseudo-assignment, which may be null
@@ -585,7 +584,7 @@ public final class GenericsChecks {
    */
   private boolean identicalTypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
-    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, config), rhsType);
+    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this), rhsType);
   }
 
   /**
@@ -1305,14 +1304,6 @@ public final class GenericsChecks {
    */
   public void clearCache() {
     inferredSubstitutionsForGenericMethodCalls.clear();
-  }
-
-  /**
-   * Static helper to check if a type is explicitly annotated as nullable. Note: prefer the instance
-   * method when a GenericsChecks instance is available.
-   */
-  public static boolean isNullableAnnotated(Type type, Config config) {
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
   public boolean isNullableAnnotated(Type type) {
