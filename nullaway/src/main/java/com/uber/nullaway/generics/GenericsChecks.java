@@ -50,6 +50,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
@@ -63,7 +64,7 @@ public final class GenericsChecks {
    * Maps a Tree representing a call to a generic method or constructor to the inferred nullability
    * of its type arguments. The call must not have any explicit type arguments.
    */
-  private final Map<MethodInvocationTree, Map<TypeVariable, ConstraintSolver.InferredNullability>>
+  private final Map<MethodInvocationTree, Map<Element, ConstraintSolver.InferredNullability>>
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
   private final NullAway analysis;
@@ -432,9 +433,13 @@ public final class GenericsChecks {
       Symbol treeSymbol = ASTHelpers.getSymbol(tree);
       assignedToLocal =
           treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
-    } else {
+    } else if (tree instanceof AssignmentTree) {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
+      Symbol varSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
+      assignedToLocal = varSymbol != null && varSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
+    } else {
+      throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
     // rhsTree can be null for a VariableTree.  Also, we don't need to do a check
     // if rhsTree is the null literal
@@ -478,7 +483,7 @@ public final class GenericsChecks {
     Verify.verify(isGenericCallNeedingInference(invocationTree));
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     Type type = methodSymbol.type;
-    Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability =
+    Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
         inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
     if (typeVarNullability == null) {
       // generic method call with no explicit generic arguments
@@ -501,9 +506,18 @@ public final class GenericsChecks {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, typeVarNullability);
         }
       } catch (UnsatisfiableConstraintsException e) {
-        // for now, do nothing.  we'll just end up using whatever nullability gets attached by
-        // javac.
-        // TODO report an error here, optionally?
+        if (config.warnOnGenericInferenceFailure()) {
+          ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+          ErrorMessage errorMessage =
+              new ErrorMessage(
+                  ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
+                  String.format(
+                      "Failed to infer type argument nullability for call %s: %s",
+                      state.getSourceForNode(invocationTree), e.getMessage()));
+          state.reportMatch(
+              errorBuilder.createErrorDescription(
+                  errorMessage, analysis.buildDescription(invocationTree), state, null));
+        }
       }
     }
     // we get the return type of the method call with inferred nullability of type variables
@@ -537,7 +551,7 @@ public final class GenericsChecks {
   private Type getTypeWithInferredNullability(
       VisitorState state,
       Type type,
-      @Nullable Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability) {
+      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability) {
     if (typeVarNullability == null) {
       return type;
     }
@@ -635,13 +649,13 @@ public final class GenericsChecks {
   private Type substituteInferredNullabilityForTypeVariables(
       VisitorState state,
       Type targetType,
-      Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability) {
+      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability) {
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<TypeVariable, ConstraintSolver.InferredNullability> entry :
+    for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
         typeVarNullability.entrySet()) {
       if (entry.getValue() == NULLABLE) {
-        Type curTypeVar = (Type) entry.getKey();
+        Type curTypeVar = (Type) entry.getKey().asType();
         typeVars.append(curTypeVar);
         inferredTypes.append(
             TypeSubstitutionUtils.typeWithAnnot(

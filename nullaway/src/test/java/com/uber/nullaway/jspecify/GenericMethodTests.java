@@ -822,6 +822,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    Foo<@Nullable String> foo5 = make(\"hello\", \"world\", makeStr(null));",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'makeStr(null)' where @NonNull is required",
             "    Foo<String> foo6 = make(\"hello\", \"world\", makeStr(null));",
+            "    // Inference from assignment context only (no args)",
+            "    Foo<String> foo7 = make();",
+            "    // And the nullable variant",
+            "    Foo<@Nullable String> foo8 = make();",
             "}")
         .doTest();
   }
@@ -947,6 +951,101 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A more complex example inspired by code from Spring. Testing that we properly distinguish
+   * {@code T} from {@code @Nullable T}.
+   */
+  @Test
+  public void rowMapperTest() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "TestRowMapper.java",
+            "import java.util.List;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class TestRowMapper {",
+            "",
+            "  interface RowMapper<T extends @Nullable Object> {}",
+            "",
+            "  static class SingleColumnRowMapper<T> implements RowMapper<@Nullable T> {",
+            "    public SingleColumnRowMapper(Class<T> requiredType) {}",
+            "  }",
+            "",
+            "  protected <U> RowMapper<@Nullable U> getSingleColumnRowMapper(Class<U> requiredType) {",
+            "    return new SingleColumnRowMapper<>(requiredType);",
+            "  }  ",
+            "  ",
+            "  public <V extends @Nullable Object> List<V> query(RowMapper<V> rowMapper) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  ",
+            "  public <W> List<@Nullable W> queryForList(Class<W> elementType) {",
+            "    return query(getSingleColumnRowMapper(elementType));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void selfContainedOptional() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "    static class Optional<T> {",
+            "        public static <T> Optional<T> ofNullable(@Nullable T value) {",
+            "            return new Optional<>();",
+            "        }",
+            "        public static <T> Optional<T> of(T value) {",
+            "            throw new RuntimeException();",
+            "        }",
+            "    }",
+            "    public static <U extends @Nullable Object> Optional<U> optionalResultNegative1(@Nullable U value) {",
+            "        return Optional.ofNullable(value);",
+            "    }",
+            "    public static <U> Optional<U> optionalResultNegative2(@Nullable U value) {",
+            "        return Optional.ofNullable(value);",
+            "    }",
+            "    public static <U extends @Nullable Object> Optional<U> optionalResultPositive1(@Nullable U value) {",
+            "        // BUG: Diagnostic contains: Failed to infer type argument nullability",
+            "        return Optional.of(value);",
+            "    }",
+            "    // identical to above, testing the other error message",
+            "    public static <U extends @Nullable Object> Optional<U> optionalResultPositive2(@Nullable U value) {",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 'value'",
+            "        return Optional.of(value);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  /**
+   * Tests that we properly handle an {@code AssignmentTree} that re-assigns a local variable (not
+   * just {@code VariableTree} initializers).
+   */
+  @Test
+  public void reassignLocal() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "    private <R> @Nullable R make() {",
+            "        return null;",
+            "    }",
+            "    void test() {",
+            "        Object result = null;",
+            "        result = make();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void issue1238() {
     makeHelper()
@@ -988,5 +1087,13 @@ public class GenericMethodTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+  }
+
+  private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
+    return makeTestHelperWithArgs(
+        Arrays.asList(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true"));
   }
 }

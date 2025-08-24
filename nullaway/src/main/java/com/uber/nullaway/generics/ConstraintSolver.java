@@ -2,7 +2,7 @@ package com.uber.nullaway.generics;
 
 import com.sun.tools.javac.code.Type;
 import java.util.Map;
-import javax.lang.model.type.TypeVariable;
+import javax.lang.model.element.Element;
 
 /**
  * An interface for solving constraints on type variables, such as subtype relationships between
@@ -49,5 +49,5 @@ public interface ConstraintSolver {
    * @return a map from type variables to their inferred nullability
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
-  Map<TypeVariable, InferredNullability> solve() throws UnsatisfiableConstraintsException;
+  Map<Element, InferredNullability> solve() throws UnsatisfiableConstraintsException;
 }
