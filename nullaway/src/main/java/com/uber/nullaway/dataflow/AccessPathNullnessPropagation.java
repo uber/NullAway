@@ -987,8 +987,6 @@ public class AccessPathNullnessPropagation
     ReadableUpdates elseUpdates = new ReadableUpdates();
     ReadableUpdates bothUpdates = new ReadableUpdates();
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
-    Preconditions.checkNotNull(
-        callee); // this could be null before https://github.com/google/error-prone/pull/2902
     setReceiverNonnull(bothUpdates, node.getTarget().getReceiver(), callee);
     setNullnessForMapCalls(
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
