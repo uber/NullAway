@@ -951,6 +951,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A more complex example inspired by code from Spring. Testing that we properly distinguish
+   * {@code T} from {@code @Nullable T}.
+   */
   @Test
   public void rowMapperTest() {
     makeHelperWithInferenceFailureWarning()
