@@ -455,7 +455,7 @@ public final class GenericsChecks {
     }
   }
 
-  static ConstraintSolver makeSolver(Config config, VisitorState state, NullAway analysis) {
+  private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
     return new ConstraintSolverImpl(config, state, analysis);
   }
 
@@ -483,7 +483,7 @@ public final class GenericsChecks {
     if (typeVarNullability == null) {
       // generic method call with no explicit generic arguments
       // update inferred type arguments based on the assignment context
-      ConstraintSolver solver = makeSolver(analysis.getConfig(), state, analysis);
+      ConstraintSolver solver = makeSolver(state, analysis);
       // allInvocations tracks the top-level invocations and any nested invocations that also
       // require inference
       Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
@@ -542,7 +542,7 @@ public final class GenericsChecks {
       return type;
     }
     Type withInferredNullability =
-        substituteInferredNullabilityForTypeVariables(state, type, typeVarNullability, config);
+        substituteInferredNullabilityForTypeVariables(state, type, typeVarNullability);
     return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
         type, withInferredNullability, config, Collections.emptyMap());
   }
@@ -635,8 +635,7 @@ public final class GenericsChecks {
   private Type substituteInferredNullabilityForTypeVariables(
       VisitorState state,
       Type targetType,
-      Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability,
-      Config config) {
+      Map<TypeVariable, ConstraintSolver.InferredNullability> typeVarNullability) {
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
     for (Map.Entry<TypeVariable, ConstraintSolver.InferredNullability> entry :
