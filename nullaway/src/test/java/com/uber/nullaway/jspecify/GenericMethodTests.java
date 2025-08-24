@@ -826,6 +826,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    Foo<@Nullable String> foo5 = make(\"hello\", \"world\", makeStr(null));",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'makeStr(null)' where @NonNull is required",
             "    Foo<String> foo6 = make(\"hello\", \"world\", makeStr(null));",
+            "    // Inference from assignment context only (no args)",
+            "    Foo<String> foo7 = make();",
+            "    // And the nullable variant",
+            "    Foo<@Nullable String> foo8 = make();",
             "}")
         .doTest();
   }
