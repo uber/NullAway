@@ -321,6 +321,29 @@ public class NullAway extends BugChecker
             ASTHelpers.getSymbol(invocationNode.getTree()), config, handler);
   }
 
+  /**
+   * Checks if the given expression is a direct call to a method from an unmarked (@NullUnmarked)
+   * context. This is used to suppress CastToNonNull warnings when the parameter comes from unmarked
+   * code.
+   *
+   * @param expr the expression to check
+   * @return true if the expression is a call to an unmarked method, false otherwise
+   */
+  private boolean isCallToUnmarkedMethod(ExpressionTree expr) {
+    if (!(expr instanceof MethodInvocationTree)) {
+      return false;
+    }
+
+    MethodInvocationTree methodInvoke = (MethodInvocationTree) expr;
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
+
+    if (methodSymbol == null) {
+      return false;
+    }
+
+    return codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
+  }
+
   private boolean withinAnnotatedCode(VisitorState state) {
     switch (nullMarkingForTopLevelClass) {
       case FULLY_MARKED:
@@ -2056,7 +2079,7 @@ public class NullAway extends BugChecker
         // Initializer block
         isInitializer = true;
       }
-      if (!isInitializer && !mayBeNullExpr(state, actual)) {
+      if (!isInitializer && !mayBeNullExpr(state, actual) && !isCallToUnmarkedMethod(actual)) {
         String message =
             "passing known @NonNull parameter '"
                 + state.getSourceForNode(actual)
