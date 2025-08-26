@@ -330,12 +330,13 @@ public class NullAway extends BugChecker
    * @return true if the expression is a call to an unmarked method, false otherwise
    */
   private boolean isCallToUnmarkedMethod(ExpressionTree expr) {
-    if (!(expr instanceof MethodInvocationTree)) {
+    ExpressionTree exprTree = stripParensAndCasts(expr);
+    if (!(exprTree instanceof MethodInvocationTree)) {
       return false;
     }
 
-    MethodInvocationTree methodInvoke = (MethodInvocationTree) expr;
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
+    MethodInvocationTree methodInvoke = (MethodInvocationTree) exprTree;
+    Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(methodInvoke);
 
     if (methodSymbol == null) {
       return false;
@@ -2079,7 +2080,7 @@ public class NullAway extends BugChecker
         // Initializer block
         isInitializer = true;
       }
-      if (!isInitializer && !mayBeNullExpr(state, actual) && !isCallToUnmarkedMethod(actual)) {
+      if (!isInitializer && !isCallToUnmarkedMethod(actual) && !mayBeNullExpr(state, actual)) {
         String message =
             "passing known @NonNull parameter '"
                 + state.getSourceForNode(actual)
