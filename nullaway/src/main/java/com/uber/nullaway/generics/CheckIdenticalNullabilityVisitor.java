@@ -3,7 +3,6 @@ package com.uber.nullaway.generics;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
-import com.uber.nullaway.Config;
 import java.util.List;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -15,11 +14,11 @@ import javax.lang.model.type.TypeKind;
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
-  private final Config config;
+  private final GenericsChecks genericsChecks;
 
-  CheckIdenticalNullabilityVisitor(VisitorState state, Config config) {
+  CheckIdenticalNullabilityVisitor(VisitorState state, GenericsChecks genericsChecks) {
     this.state = state;
-    this.config = config;
+    this.genericsChecks = genericsChecks;
   }
 
   @Override
@@ -63,8 +62,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         // TODO Handle wildcard types
         continue;
       }
-      boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsTypeArgument, config);
-      boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsTypeArgument, config);
+      boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
+      boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         return false;
       }
@@ -94,8 +93,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
     Type lhsComponentType = lhsType.getComponentType();
     Type rhsComponentType = arrRhsType.getComponentType();
-    boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsComponentType, config);
-    boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsComponentType, config);
+    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
+    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
       return false;
     }
