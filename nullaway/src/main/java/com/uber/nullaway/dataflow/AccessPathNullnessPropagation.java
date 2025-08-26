@@ -30,11 +30,8 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.Tree;
-import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
@@ -134,7 +131,6 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.UnsignedRightShiftNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
-import org.checkerframework.nullaway.javacutil.TreeUtilsAfterJava11;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -963,62 +959,24 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitCase(
       CaseNode caseNode, TransferInput<Nullness, NullnessStore> input) {
-    // In modern JDKs, a 'case' can be a pattern match. We must handle this specially.
-    // We use reflection via TreeUtilsAfterJava11 since NullAway is compiled against JDK 11.
-    CaseTree caseTree = caseNode.getTree();
-    List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
-    boolean isPatternMatch = false;
-    // We use string matching for Kind since the specific Kind enum is not available in JDK 11 ASTs.
-    for (Tree label : labels) {
-      if (label.getKind().name().equals("BINDING_PATTERN")) {
-        isPatternMatch = true;
-        break;
-      }
-    }
-
-    if (isPatternMatch) {
-      ReadableUpdates thenUpdates = new ReadableUpdates();
-      // 1. In the 'then' branch of a pattern match, the switch operand is guaranteed non-null.
-      Node switchOperand = caseNode.getSwitchOperand().getExpression();
-      setNonnullIfAnalyzeable(thenUpdates, switchOperand);
-
-      // 2. The newly declared pattern variable is also guaranteed non-null.
-      for (Tree label : labels) {
-        if (label.getKind().name().equals("BINDING_PATTERN")) {
-          VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
-          // Create a temporary CFG node to get the AccessPath for the pattern variable declaration.
-          // The constructor only takes the VariableTree.
-          VariableDeclarationNode patternVarDeclNode = new VariableDeclarationNode(varTree);
-          thenUpdates.set(patternVarDeclNode, NONNULL);
-        }
-      }
-      ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
-
-      // 3. For the 'else' branch (subsequent cases), we must not alter the nullness info
-      // for the switch operand. This was the source of the bug. We use the original,
-      // unmodified elseStore.
-      NullnessStore elseStore = input.getElseStore();
-      return conditionalResult(thenStore.store, elseStore, thenStore.storeChanged);
+    List<Node> caseOperands = caseNode.getCaseOperands();
+    if (caseOperands.isEmpty()) {
+      return noStoreChanges(NULLABLE, input);
     } else {
-      // This is a constant case (e.g., `case "foo":`, `case 1:`, `case null:`) or a default case.
-      // Handle it with equality comparison logic.
-      List<Node> caseOperands = caseNode.getCaseOperands();
-      if (caseOperands.isEmpty()) {
-        // default case has no operands.
-        return noStoreChanges(NULLABLE, input);
-      } else {
-        // Treat `case C:` as `switchOperand == C`.
-        Node switchOperand = caseNode.getSwitchOperand().getExpression();
-        Node caseOperand = caseOperands.get(0);
-        AccessPath switchOperandAccessPath =
-            AccessPath.getAccessPathForNode(switchOperand, state, apContext);
-        Nullness switchOperandNullness =
-            switchOperandAccessPath == null
-                ? null
-                : input.getRegularStore().getNullnessOfAccessPath(switchOperandAccessPath);
-        return handleEqualityComparison(
-            input, switchOperand, switchOperandNullness, caseOperand, true);
-      }
+      // `null` can only appear on its own as a case operand, or together with the default case
+      // (i.e., `case null, default:`).  So, it is safe to only look at the first case operand, and
+      // update the stores based on that.  We treat the case operation as an equality comparison
+      // between the switch expression and the case operand.
+      Node switchOperand = caseNode.getSwitchOperand().getExpression();
+      Node caseOperand = caseOperands.get(0);
+      AccessPath switchOperandAccessPath =
+          AccessPath.getAccessPathForNode(switchOperand, state, apContext);
+      Nullness switchOperandNullness =
+          switchOperandAccessPath == null
+              ? null
+              : input.getRegularStore().getNullnessOfAccessPath(switchOperandAccessPath);
+      return handleEqualityComparison(
+          input, switchOperand, switchOperandNullness, caseOperand, true);
     }
   }
 
