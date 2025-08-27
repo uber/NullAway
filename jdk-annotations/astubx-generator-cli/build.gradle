@@ -23,7 +23,9 @@ jar{
 
 shadowJar {
     mergeServiceFiles()
-    configurations = [project.configurations.runtimeClasspath]
+    configurations = [
+        project.configurations.runtimeClasspath
+    ]
     archiveClassifier = ""
 }
 shadowJar.dependsOn jar
