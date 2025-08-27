@@ -42,6 +42,15 @@ repositories {
 
 apply from: "gradle/dependencies.gradle"
 
+if (JavaVersion.current() == JavaVersion.VERSION_21) {
+    def runtimeVersion = Runtime.version()
+    if (runtimeVersion.feature() == 21 && runtimeVersion.update() < 8) {
+        throw new GradleException(
+                "Building NullAway on JDK 21 requires at least 21.0.8, but found ${runtimeVersion}.  Please upgrade to 21.0.8 or later, or to the most recent JDK release."
+        )
+    }
+}
+
 subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
     project.dependencies {
