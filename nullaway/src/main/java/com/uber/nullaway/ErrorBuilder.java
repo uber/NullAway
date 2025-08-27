@@ -129,9 +129,10 @@ public class ErrorBuilder {
       checkName = INITIALIZATION_CHECK_NAME;
     }
 
-    // Mildly expensive state.getPath() traversal, occurs only once per potentially
-    // reported error.
-    if (hasPathSuppression(state.getPath(), checkName)) {
+    // Mildly expensive state.getPath() traversal, occurs twice per potentially reported error.  We
+    // can get rid of the check for "all" once we require Error Prone 2.22.0 or higher.
+    TreePath path = state.getPath();
+    if (hasPathSuppression(path, checkName) || hasPathSuppression(path, "all")) {
       return Description.NO_MATCH;
     }
 

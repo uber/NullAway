@@ -42,10 +42,30 @@ repositories {
 
 apply from: "gradle/dependencies.gradle"
 
+// Returns true if the project's purpose is to test a NullAway build outside of unit tests or is a sample project
+boolean isTestProject(Project p) {
+    def testProjs = [
+        "test-java-lib",
+        "test-java-lib-lombok",
+        "test-library-models",
+        "sample",
+        "sample-app"
+    ]
+    return testProjs.contains(p.name)
+}
+
 subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
-    project.dependencies {
-        errorprone deps.build.errorProneCore
+    if (isTestProject(project)) {
+        // Compile the project using the same Error Prone version as the API dependence.  This way, we test that we can
+        // still compile the project with old Error Prone versions.
+        project.dependencies {
+            errorprone deps.build.errorProneCoreForApi
+        }
+    } else {
+        project.dependencies {
+            errorprone deps.build.errorProneCore
+        }
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
@@ -69,8 +89,6 @@ subprojects { project ->
             disableWarningsInGeneratedCode = true
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
-            // https://github.com/google/error-prone/issues/3366
-            check("CanIgnoreReturnValueSuggester", CheckSeverity.OFF)
             // turn up various checks
             check("WildcardImport", CheckSeverity.ERROR)
             check("MissingBraces", CheckSeverity.ERROR)
