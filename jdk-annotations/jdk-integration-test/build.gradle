@@ -1,0 +1,18 @@
+plugins {
+    id "java-library"
+    id "nullaway.java-test-conventions"
+}
+
+dependencies {
+    testImplementation project(":nullaway")
+    testImplementation project(":jdk-annotations:test-unannotated")
+    testImplementation deps.test.junit4
+    testImplementation deps.build.jspecify
+    testImplementation(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+    implementation deps.build.guava
+    implementation deps.build.javaparser
+    compileOnly deps.apt.autoValueAnnot
+    annotationProcessor deps.apt.autoValue
+}
