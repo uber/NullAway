@@ -21,6 +21,7 @@ def astubxOutputDir = file("${buildDir}/generated/astubx")
 
 tasks.withType(JavaCompile).configureEach { compileTask ->
     if(name == "compileJava") {
+        outputs.dir(jsonOutputDir)
         dependsOn(":jdk-javac-plugin:shadowJar")
 
         options.fork = true
@@ -43,10 +44,9 @@ task generateAstubx(type: JavaExec) {
     group = "build"
     description = "Generate .astubx files from JSON using AstubxGeneratorCLI"
 
+    inputs.dir(jsonOutputDir)
+
     doFirst {
-        if (!jsonOutputDir.exists()) {
-            throw new GradleException("JSON directory does not exist: $jsonOutputDir")
-        }
         astubxOutputDir.mkdirs()
     }
 
