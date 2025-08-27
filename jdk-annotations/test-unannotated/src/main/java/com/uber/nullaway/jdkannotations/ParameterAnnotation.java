@@ -1,7 +1,6 @@
-package com.test;
+package com.uber.nullaway.jdkannotations;
 
-public class ParameterAnnotated {
-
+public class ParameterAnnotation {
   public static Integer add(Integer a, Integer b) {
     return a + b;
   }

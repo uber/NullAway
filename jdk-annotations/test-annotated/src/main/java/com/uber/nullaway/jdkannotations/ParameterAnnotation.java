@@ -1,11 +1,11 @@
-package com.test;
+package com.uber.nullaway.jdkannotations;
 
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 @NullMarked
-public class ParameterAnnotated {
+public class ParameterAnnotation {
 
   public static Integer add(Integer a, Integer b) {
     return a + b;

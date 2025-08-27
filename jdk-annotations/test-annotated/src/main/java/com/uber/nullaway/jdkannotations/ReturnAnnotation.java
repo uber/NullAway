@@ -1,23 +1,14 @@
-package com.test;
+package com.uber.nullaway.jdkannotations;
 
 import java.util.Locale;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 @NullMarked
-public class ReturnAnnotated {
+public class ReturnAnnotation {
 
   // return type : null, nullable, nonnull && type parameter, predefined types
   // type parameter: nada, exists && nullable, nonnull
-
-  public @NonNull String nonNullString() {
-    return new String();
-  }
-
-  public <T extends @Nullable Object> @Nullable T getTypePar(@Nullable T t) {
-    return t;
-  }
 
   public @Nullable String makeUpperCase(String inputString) {
     if (inputString == null || inputString.isEmpty()) {
@@ -39,7 +30,12 @@ public class ReturnAnnotated {
     }
   }
 
-  public @Nullable String nullReturn() {
+  /**
+   * This method exists to test that we do not process this annotation. Since for the purposes of
+   * this tool, we are only considering the jspecify annotation.
+   */
+  @javax.annotation.Nullable
+  public String nullReturn() {
     return null;
   }
 

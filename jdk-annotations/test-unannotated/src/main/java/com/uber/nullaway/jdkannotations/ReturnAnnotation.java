@@ -1,23 +1,11 @@
-package com.test;
+package com.uber.nullaway.jdkannotations;
 
 import java.util.Locale;
 
-public class ReturnAnnotated {
+public class ReturnAnnotation {
 
   // return type : null, nullable, nonnull && type parameter, predefined types
   // type parameter: nada, exists && nullable, nonnull
-
-  public String nullReturn() {
-    return null;
-  }
-
-  public String nonNullString() {
-    return new String();
-  }
-
-  public <T> T getTypePar(T t) {
-    return t;
-  }
 
   public String makeUpperCase(String inputString) {
     if (inputString == null || inputString.isEmpty()) {
