@@ -3,6 +3,14 @@ plugins {
     id "com.gradleup.shadow"
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+    sourceCompatibility = JavaVersion.VERSION_17
+    targetCompatibility = JavaVersion.VERSION_17
+}
+
 jar{
     manifest {
         attributes('Main-Class':'com.uber.nullaway.jdkannotations.AstubxGeneratorCLI')
@@ -15,16 +23,19 @@ jar{
 
 shadowJar {
     mergeServiceFiles()
-    configurations = [
-        project.configurations.runtimeClasspath
-    ]
+    configurations = [project.configurations.runtimeClasspath]
     archiveClassifier = ""
 }
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
 
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(17) // ensures proper bytecode
+}
+
 dependencies {
     implementation project(":library-model:library-model-generator")
+    implementation deps.build.gson
 
     implementation deps.build.guava
     implementation deps.build.javaparser
@@ -33,8 +44,4 @@ dependencies {
     annotationProcessor deps.apt.autoValue
 
     testImplementation deps.test.junit4
-
-    implementation 'com.fasterxml.jackson.core:jackson-databind:2.16.1'
-    implementation 'com.fasterxml.jackson.core:jackson-core:2.16.1'
-    implementation 'com.fasterxml.jackson.core:jackson-annotations:2.16.1'
 }

@@ -1,15 +1,16 @@
 package com.uber.nullaway.jdkannotations;
 
-import com.fasterxml.jackson.core.type.TypeReference;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.gson.Gson;
+import com.google.gson.reflect.TypeToken;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
 import com.uber.nullaway.libmodel.StubxWriter;
 import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
@@ -20,26 +21,18 @@ import java.util.Set;
 
 public class AstubxGeneratorCLI {
   // For JSON parsing
-  public static class TypeParam {
-    public String name;
-    public List<String> bounds; // assuming bounds is a list of strings, could be empty list
-  }
+  public static record TypeParam(String name, List<String> bounds) {}
 
-  public static class MethodJson {
-    public String name;
-    public boolean nullMarked;
-    public boolean nullUnmarked;
-    public List<TypeParam> typeParams;
-  }
+  public static record MethodJson(
+      String name, boolean nullMarked, boolean nullUnmarked, List<TypeParam> typeParams) {}
 
-  public static class ClassJson {
-    public String name;
-    public String type;
-    public boolean nullMarked;
-    public boolean nullUnmarked;
-    public List<TypeParam> typeParams;
-    public List<MethodJson> methods;
-  }
+  public static record ClassJson(
+      String name,
+      String type,
+      boolean nullMarked,
+      boolean nullUnmarked,
+      List<TypeParam> typeParams,
+      List<MethodJson> methods) {}
 
   public static void main(String[] args) {
     String jsonDirPath = args[0];
@@ -58,7 +51,9 @@ public class AstubxGeneratorCLI {
       System.exit(1);
     }
 
-    ObjectMapper mapper = new ObjectMapper();
+    //    ObjectMapper mapper = new ObjectMapper();
+    Gson gson = new Gson();
+    Type parsedType = new TypeToken<Map<String, List<ClassJson>>>() {}.getType();
 
     // for each JSON file
     for (File jsonFile : jsonFiles) {
@@ -66,13 +61,16 @@ public class AstubxGeneratorCLI {
       String baseName = name.substring(0, name.length() - ".json".length());
       File outputFile = new File(astubxDirPath, baseName + ".astubx");
 
-      System.out.println("Processing: " + jsonFile.getAbsolutePath());
+      //      System.out.println("Processing: " + jsonFile.getAbsolutePath());
 
       // parse JSON file
-      Map<String, List<ClassJson>> parsed = null;
+      Map<String, List<ClassJson>> parsed;
       try {
-        parsed =
-            mapper.readValue(Files.newInputStream(jsonFile.toPath()), new TypeReference<>() {});
+        String jsonContent = Files.readString(jsonFile.toPath());
+        parsed = gson.fromJson(jsonContent, parsedType);
+        //        parsed =
+        //            mapper.readValue(Files.newInputStream(jsonFile.toPath()), new
+        // TypeReference<>() {});
       } catch (IOException e) {
         System.err.println("Error reading JSON file: " + jsonFile.getAbsolutePath());
         throw new RuntimeException(e);
@@ -92,12 +90,12 @@ public class AstubxGeneratorCLI {
       for (Map.Entry<String, List<ClassJson>> entry : parsed.entrySet()) {
         // for each class
         for (ClassJson clazz : entry.getValue()) {
-          if (clazz.nullMarked) {
-            nullMarkedClasses.add(clazz.name);
+          if (clazz.nullMarked()) {
+            nullMarkedClasses.add(clazz.name());
           }
 
-          for (MethodJson method : clazz.methods) {
-            String signature = method.name;
+          for (MethodJson method : clazz.methods()) {
+            String signature = method.name();
             Set<String> methodAnns = new LinkedHashSet<>();
             Map<Integer, ImmutableSet<String>> argAnnotation = new LinkedHashMap<>();
 
@@ -137,10 +135,10 @@ public class AstubxGeneratorCLI {
             nullMarkedClasses,
             nullableUpperBounds);
       } catch (IOException e) {
-        System.out.println("Error writing JSON file: " + outputFile.getAbsolutePath());
+        System.err.println("Error writing JSON file: " + outputFile.getAbsolutePath());
         throw new RuntimeException(e);
       }
-      System.out.println("Wrote output to " + outputFile.getAbsolutePath());
+      //      System.out.println("Wrote output to " + outputFile.getAbsolutePath());
     }
   }
 }
