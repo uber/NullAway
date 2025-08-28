@@ -975,11 +975,11 @@ public class AccessPathNullnessPropagation
 
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
-      LocalVariableNode lvn = isTypePattern(caseNode);
-      if (lvn != null) {
+      LocalVariableNode localVariableNode = isTypePattern(caseNode);
+      if (localVariableNode != null) {
         ReadableUpdates thenUpdates = new ReadableUpdates();
         // Pattern variable is non-null in the matching branch
-        thenUpdates.set(lvn, NONNULL);
+        thenUpdates.set(localVariableNode, NONNULL);
 
         ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
         // Else branch: no extra facts, just propagate
