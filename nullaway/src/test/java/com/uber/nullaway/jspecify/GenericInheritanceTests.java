@@ -207,6 +207,30 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void overrideWithRawTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "public class Test {",
+            "  static class A<T> {}",
+            "  static class B<T> {",
+            "    public <X> X accept(A<X> a) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "  }",
+            "  static class Raw extends B {",
+            "    @Override",
+            "    public Object accept(A a) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
