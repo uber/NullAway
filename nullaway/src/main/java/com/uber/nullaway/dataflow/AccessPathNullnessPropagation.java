@@ -975,15 +975,11 @@ public class AccessPathNullnessPropagation
 
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
-
-      if (isTypePattern(caseNode)) {
-        // Get the pattern variable from the case operand
-        LocalVariableNode patternVar = getPatternVariable(caseNode);
+      LocalVariableNode lvn = isTypePattern(caseNode);
+      if (lvn != null) {
         ReadableUpdates thenUpdates = new ReadableUpdates();
         // Pattern variable is non-null in the matching branch
-        thenUpdates.set(patternVar, NONNULL);
-
-        // Optionally, can also refine switchOperand type info here
+        thenUpdates.set(lvn, NONNULL);
 
         ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
         // Else branch: no extra facts, just propagate
@@ -1003,44 +999,17 @@ public class AccessPathNullnessPropagation
     }
   }
 
-  private boolean isTypePattern(CaseNode caseNode) {
-    // If modeling directly from Tree
+  private @Nullable LocalVariableNode isTypePattern(CaseNode caseNode) {
     CaseTree caseTree = caseNode.getTree();
     List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
-    boolean isPatternMatch = false;
-    // We use string matching for Kind since the specific Kind enum is not available in JDK 11 ASTs.
     for (Tree label : labels) {
       String kindName = label.getKind().name();
       if (kindName.equals("BINDING_PATTERN") || kindName.equals("PATTERN_CASE_LABEL")) {
-        isPatternMatch = true;
-        break;
-      }
-    }
-    return isPatternMatch;
-  }
 
-  private LocalVariableNode getPatternVariable(CaseNode caseNode) {
-    // If your CFG wraps the Tree, unwrap and use:
-    CaseTree caseTree = caseNode.getTree();
-    List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
-
-    for (Tree label : labels) {
-      String kindName = label.getKind().name();
-      if (kindName.equals("BINDING_PATTERN")) {
         VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
-        // Create a temporary CFG node to get the AccessPath for the pattern variable
-        // declaration.
         return new LocalVariableNode(varTree);
       }
     }
-
-    //    if (TreeUtilsAfterJava11.PatternCaseLabelUtils.isPatternCaseLabelTree(tree)) {
-    //      Tree patternTree = TreeUtilsAfterJava11.PatternCaseLabelUtils.getPattern(tree);
-    //      VariableTree varTree =
-    // TreeUtilsAfterJava11.BindingPatternUtils.getVariable(patternTree);
-    //      // Construct LocalVariableNode from varTree info
-    //      return new LocalVariableNode(varTree);
-    //    }
     return null;
   }
 
