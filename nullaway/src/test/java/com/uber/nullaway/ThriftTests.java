@@ -180,7 +180,6 @@ public class ThriftTests extends NullAwayTestsBase {
             "public class Client {",
             "  public void testPos(GeneratedClass g) {",
             "    // g.getId() is @NonNull because it's treated as unannotated code and RestrictiveAnnotationHandler exempts it",
-            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'g.getId()' to CastToNonNullMethod",
             "    Object o = castToNonNull(g.getId());",
             "    o.toString();",
             "  }",

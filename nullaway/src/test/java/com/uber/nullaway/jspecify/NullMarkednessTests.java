@@ -1284,4 +1284,178 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void castToNonNullWithNullUnmarkedPackage() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines(
+            "package-info.java",
+            "@NullUnmarked package com.example.thirdparty;",
+            "import org.jspecify.annotations.NullUnmarked;")
+        .addSourceLines(
+            "ThirdPartyUtils.java",
+            "package com.example.thirdparty;",
+            "public class ThirdPartyUtils {",
+            "  public static String getStringValue() {",
+            "    return \"some value\";",
+            "  }",
+            "  public static String maybeNull() {",
+            "    return Math.random() > 0.5 ? \"value\" : null;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "import com.example.thirdparty.ThirdPartyUtils;",
+            "public class Test {",
+            "  public static void test() {",
+            "    // This should NOT produce a warning since the return value from",
+            "    // @NullUnmarked code has unknown nullness",
+            "    String val1 = castToNonNull(ThirdPartyUtils.getStringValue());",
+            "    String val2 = castToNonNull(ThirdPartyUtils.maybeNull());",
+            "    System.out.println(val1 + val2);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void indirectCastToNonNullFromNullUnmarkedPackageWarns() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines(
+            "package-info.java",
+            "@NullUnmarked package com.example.thirdparty;",
+            "import org.jspecify.annotations.NullUnmarked;")
+        .addSourceLines(
+            "ThirdPartyUtils.java",
+            "package com.example.thirdparty;",
+            "public class ThirdPartyUtils {",
+            "  public static String getStringValue() {",
+            "    return \"some value\";",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "import com.example.thirdparty.ThirdPartyUtils;",
+            "public class Test {",
+            "  public static void test() {",
+            "    String s = ThirdPartyUtils.getStringValue();",
+            "    // Now not an immediate wrapper around the unmarked call; should warn:",
+            "    // BUG: Diagnostic contains: passing known @NonNull parameter",
+            "    String val = castToNonNull(s);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void castToNonNullWithNullUnmarkedClass() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines(
+            "ThirdPartyUtils.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "@NullUnmarked",
+            "public class ThirdPartyUtils {",
+            "  public static String getStringValue() {",
+            "    return \"some value\";",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "public class Test {",
+            "  public static void test() {",
+            "    // This should NOT produce a warning since the return value from",
+            "    // @NullUnmarked code has unknown nullness",
+            "    String val = castToNonNull(ThirdPartyUtils.getStringValue());",
+            "    System.out.println(val);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void castToNonNullWithParenthesizedNullUnmarkedExpressions() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines(
+            "ThirdPartyUtils.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "@NullUnmarked",
+            "public class ThirdPartyUtils {",
+            "  public static String getStringValue() {",
+            "    return \"x\";",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "public class Test {",
+            "  public static void test() {",
+            "    String a = castToNonNull((ThirdPartyUtils.getStringValue()));",
+            "    String b = castToNonNull((String) (ThirdPartyUtils.getStringValue()));",
+            "    System.out.println(a + b);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void castToNonNullWithNullUnmarkedMethod() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines(
+            "ThirdPartyUtils.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullUnmarked;",
+            "public class ThirdPartyUtils {",
+            "  @NullUnmarked",
+            "  public static String getStringValue() {",
+            "    return \"some value\";",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "public class Test {",
+            "  public static void test() {",
+            "    // This should NOT produce a warning since the return value from",
+            "    // @NullUnmarked code has unknown nullness",
+            "    String val = castToNonNull(ThirdPartyUtils.getStringValue());",
+            "    System.out.println(val);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
