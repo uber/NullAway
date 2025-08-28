@@ -853,11 +853,7 @@ public final class GenericsChecks {
     // substitute type arguments for generic methods with explicit type arguments
     if (tree instanceof MethodInvocationTree && invokedMethodType instanceof Type.ForAll) {
       invokedMethodType =
-          substituteTypeArgsInGenericMethodType(
-              tree,
-              invokedMethodType.asMethodType(),
-              ((Type.ForAll) invokedMethodType).tvars,
-              state);
+          substituteTypeArgsInGenericMethodType(tree, (Type.ForAll) invokedMethodType, state);
     }
 
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
@@ -1061,9 +1057,7 @@ public final class GenericsChecks {
       // Substitute type arguments inside the return type
       Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       Type substitutedReturnType =
-          substituteTypeArgsInGenericMethodType(
-                  tree, forAllType.qtype.asMethodType(), forAllType.tvars, state)
-              .getReturnType();
+          substituteTypeArgsInGenericMethodType(tree, forAllType, state).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -1096,16 +1090,14 @@ public final class GenericsChecks {
    * Substitutes the type arguments from a generic method invocation into the method's type.
    *
    * @param tree the method invocation tree
-   * @param methodType generic type for the invoked method
-   * @param tvars type variables for the generic method
+   * @param forAllType the generic method type
    * @param state the visitor state
    * @return the substituted method type for the generic method
    */
   private Type substituteTypeArgsInGenericMethodType(
-      Tree tree,
-      Type.MethodType methodType,
-      com.sun.tools.javac.util.List<Type> tvars,
-      VisitorState state) {
+      Tree tree, Type.ForAll forAllType, VisitorState state) {
+    Type.MethodType methodType = forAllType.asMethodType();
+
     List<? extends Tree> typeArgumentTrees =
         (tree instanceof MethodInvocationTree)
             ? ((MethodInvocationTree) tree).getTypeArguments()
@@ -1121,7 +1113,7 @@ public final class GenericsChecks {
       }
     }
     return TypeSubstitutionUtils.subst(
-        state.getTypes(), methodType, tvars, explicitTypeArgs, config);
+        state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
   }
 
   /**
@@ -1167,9 +1159,7 @@ public final class GenericsChecks {
       // Substitute the argument types within the MethodType
       Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(
-                  tree, forAllType.qtype.asMethodType(), forAllType.tvars, state)
-              .getParameterTypes();
+          substituteTypeArgsInGenericMethodType(tree, forAllType, state).getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
