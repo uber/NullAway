@@ -81,7 +81,7 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitMethodType(Type.MethodType t, Type other) {
-      Type.MethodType otherMethodType = (Type.MethodType) other;
+      Type.MethodType otherMethodType = other.asMethodType();
       List<Type> argtypes = t.argtypes;
       Type restype = t.restype;
       List<Type> thrown = t.thrown;

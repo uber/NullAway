@@ -207,6 +207,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** For issue 1250. Checks that we don't crash when overriding with raw types. */
   @Test
   public void overrideWithRawTypes() {
     makeHelper()
