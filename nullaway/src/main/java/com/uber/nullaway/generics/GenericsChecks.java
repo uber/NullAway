@@ -851,12 +851,12 @@ public final class GenericsChecks {
     }
 
     // substitute type arguments for generic methods with explicit type arguments
-    if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
+    if (tree instanceof MethodInvocationTree && invokedMethodType instanceof Type.ForAll) {
       invokedMethodType =
           substituteTypeArgsInGenericMethodType(
               tree,
               invokedMethodType.asMethodType(),
-              ((Type.ForAll) methodSymbol.type).tvars,
+              ((Type.ForAll) invokedMethodType).tvars,
               state);
     }
 
