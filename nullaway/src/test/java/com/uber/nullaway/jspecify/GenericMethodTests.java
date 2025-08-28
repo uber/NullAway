@@ -1083,6 +1083,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Extracted from Caffeine; exposed some subtle bugs in substitutions involving identity of {@code
+   * Type} objects
+   */
   @Test
   public void nullableWildcardFromCaffeine() {
     makeHelperWithInferenceFailureWarning()
