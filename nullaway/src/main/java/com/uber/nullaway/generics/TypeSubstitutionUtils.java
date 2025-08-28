@@ -81,7 +81,8 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitMethodType(Type.MethodType t, Type other) {
-      Type.MethodType otherMethodType = (Type.MethodType) other;
+      // other can be a ForAll whose qtype is a MethodType; asMethodType() safely unwraps it.
+      Type.MethodType otherMethodType = other.asMethodType();
       List<Type> argtypes = t.argtypes;
       Type restype = t.restype;
       List<Type> thrown = t.thrown;
