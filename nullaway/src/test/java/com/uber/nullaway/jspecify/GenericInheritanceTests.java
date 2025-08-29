@@ -232,6 +232,26 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void interfaceInheritance() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "  static interface Base<T extends @Nullable Object> {}",
+            "  static interface Sub<T> extends Base<@Nullable T> {}",
+            "",
+            "  static void foo(Base<@Nullable Object> arg) {}",
+            "  static void bar(Sub<Object> arg) {",
+            "    foo(arg);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
