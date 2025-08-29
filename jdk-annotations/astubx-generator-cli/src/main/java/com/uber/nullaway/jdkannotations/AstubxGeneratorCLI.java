@@ -19,14 +19,19 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
+/**
+ * This class utilizes jdk-javac-plugin module to generate JSON files from Java source files. Using
+ * the JSON files, it generates astubx files that contains the required annotation information that
+ * NullAway needs.
+ */
 public class AstubxGeneratorCLI {
   // For JSON parsing
-  public static record TypeParam(String name, List<String> bounds) {}
+  private static record TypeParam(String name, List<String> bounds) {}
 
-  public static record MethodJson(
+  private static record MethodJson(
       String name, boolean nullMarked, boolean nullUnmarked, List<TypeParam> typeParams) {}
 
-  public static record ClassJson(
+  private static record ClassJson(
       String name,
       String type,
       boolean nullMarked,
@@ -51,7 +56,6 @@ public class AstubxGeneratorCLI {
       System.exit(1);
     }
 
-    //    ObjectMapper mapper = new ObjectMapper();
     Gson gson = new Gson();
     Type parsedType = new TypeToken<Map<String, List<ClassJson>>>() {}.getType();
 
@@ -68,9 +72,6 @@ public class AstubxGeneratorCLI {
       try {
         String jsonContent = Files.readString(jsonFile.toPath());
         parsed = gson.fromJson(jsonContent, parsedType);
-        //        parsed =
-        //            mapper.readValue(Files.newInputStream(jsonFile.toPath()), new
-        // TypeReference<>() {});
       } catch (IOException e) {
         System.err.println("Error reading JSON file: " + jsonFile.getAbsolutePath());
         throw new RuntimeException(e);
@@ -102,11 +103,8 @@ public class AstubxGeneratorCLI {
             // get the arguments
             String argsOnly = signature.replaceAll(".*\\((.*)\\)", "$1").trim();
             String[] arguments =
-                argsOnly.isEmpty()
-                    ? new String[0]
-                    : argsOnly.split(
-                        ",(?=(?:[^<]*<[^>]*>)*[^>]*$)"); // split using comma but not the commas
-            // separating the generics
+                argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?=(?:[^<]*<[^>]*>)*[^>]*$)");
+            // split using comma but not the commas separating the generics
 
             for (int i = 0; i < arguments.length; i++) {
               String arg = arguments[i].trim();
