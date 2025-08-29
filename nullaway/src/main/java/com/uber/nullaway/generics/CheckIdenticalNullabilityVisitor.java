@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import com.uber.nullaway.Config;
 import java.util.List;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -15,10 +16,13 @@ import javax.lang.model.type.TypeKind;
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
   private final GenericsChecks genericsChecks;
+  private final Config config;
 
-  CheckIdenticalNullabilityVisitor(VisitorState state, GenericsChecks genericsChecks) {
+  CheckIdenticalNullabilityVisitor(
+      VisitorState state, GenericsChecks genericsChecks, Config config) {
     this.state = state;
     this.genericsChecks = genericsChecks;
+    this.config = config;
   }
 
   @Override
@@ -36,7 +40,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
-    Type rhsTypeAsSuper = types.asSuper(rhsType, lhsType.tsym);
+    // TODO this doesn't collect annotations from subtypes!
+    Type rhsTypeAsSuper =
+        TypeSubstitutionUtils.asSuper(
+            types, rhsType, lhsType.tsym, config); // types.asSuper(rhsType, lhsType.tsym);
     if (rhsTypeAsSuper == null) {
       // Surprisingly, this can in fact occur, in cases involving raw types.  See, e.g.,
       // GenericsTests#issue1082 and https://github.com/uber/NullAway/pull/1086. Bail out.

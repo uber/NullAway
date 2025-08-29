@@ -45,6 +45,12 @@ public class ClassDeclarationNullnessAnnotUtils {
     return annotsFromSubtypesForInheritancePath(path, config);
   }
 
+  public static Map<Symbol.TypeVariableSymbol, AnnotationMirror> getAnnotsOnTypeVarsFromSubtypes(
+      DeclaredType t, Symbol.ClassSymbol supertypeSymbol, Types types, Config config) {
+    List<DeclaredType> path = inheritancePath(t, supertypeSymbol, types);
+    return annotsFromSubtypesForInheritancePath(path, config);
+  }
+
   private static boolean dfsWithFormals(
       Type.ClassType currentFormal,
       Symbol.ClassSymbol targetOwner,
@@ -84,13 +90,14 @@ public class ClassDeclarationNullnessAnnotUtils {
   private static List<DeclaredType> inheritancePath(
       DeclaredType t, Symbol.MethodSymbol method, Types types) {
 
+    return inheritancePath(t, (Symbol.ClassSymbol) method.owner, types);
+  }
+
+  private static List<DeclaredType> inheritancePath(
+      DeclaredType t, Symbol.ClassSymbol supertypeSymbol, Types types) {
     List<DeclaredType> reversed = new ArrayList<>();
     if (dfsWithFormals(
-        (Type.ClassType) ((Type) t).tsym.type,
-        (Symbol.ClassSymbol) method.owner,
-        types,
-        reversed,
-        new HashSet<>())) {
+        (Type.ClassType) ((Type) t).tsym.type, supertypeSymbol, types, reversed, new HashSet<>())) {
 
       Collections.reverse(reversed);
       // prepend the concrete start‑type

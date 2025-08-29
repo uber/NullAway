@@ -21,6 +21,22 @@ import org.jspecify.annotations.Nullable;
 /** Utility method related to substituting type arguments for type variables. */
 public class TypeSubstitutionUtils {
 
+  public static @Nullable Type asSuper(
+      Types types, Type subtype, Symbol superTypeSymbol, Config config) {
+    Type origType = subtype;
+    Type asSuper = types.asSuper(subtype, superTypeSymbol);
+    if (asSuper == null) {
+      return null;
+    }
+    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
+        subtype instanceof DeclaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(
+                (DeclaredType) subtype, (Symbol.ClassSymbol) superTypeSymbol, types, config)
+            : Map.of();
+    return restoreExplicitNullabilityAnnotations(
+        origType, asSuper, config, annotsOnTypeVarsFromSubtypes);
+  }
+
   /**
    * Returns the type of {@code sym} as a member of {@code t}.
    *
