@@ -310,4 +310,63 @@ public class SwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void issue1250() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "ExceptionUtil.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class ExceptionUtil {",
+            "   static class BusinessException extends Exception {",
+            "       public BusinessException(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   static class BusinessExceptionUnauthenticated extends BusinessException {",
+            "       public BusinessExceptionUnauthenticated(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   private static @Nullable String test(Throwable t) {",
+            "       if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {",
+            "           return \"\"; ",
+            "       }",
+            "       return switch (bException) {",
+            "           case BusinessExceptionUnauthenticated e -> \"\"; ",
+            "           default -> bException.getMessage();",
+            "       };",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1250_1() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "ExceptionUtil.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class ExceptionUtil {",
+            "   static class BusinessException extends Exception {",
+            "       public BusinessException(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   static class BusinessExceptionUnauthenticated extends BusinessException {",
+            "       public BusinessExceptionUnauthenticated(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   private static @Nullable String test(Throwable t) {",
+            "       if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {",
+            "           return \"\"; ",
+            "       }",
+            "       return bException.getMessage();",
+            "   };",
+            "}")
+        .doTest();
+  }
 }
