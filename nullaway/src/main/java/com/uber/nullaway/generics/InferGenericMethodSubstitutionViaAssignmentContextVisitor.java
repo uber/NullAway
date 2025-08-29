@@ -31,7 +31,8 @@ public class InferGenericMethodSubstitutionViaAssignmentContextVisitor
 
   @Override
   public Void visitClassType(Type.ClassType rhsType, Type lhsType) {
-    Type rhsTypeAsSuper = state.getTypes().asSuper(rhsType, lhsType.tsym);
+    Type rhsTypeAsSuper =
+        TypeSubstitutionUtils.asSuper(state.getTypes(), rhsType, lhsType.tsym, config);
     if (rhsTypeAsSuper == null || rhsTypeAsSuper.isRaw() || lhsType.isRaw()) {
       return null;
     }

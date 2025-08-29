@@ -40,7 +40,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
-    // TODO this doesn't collect annotations from subtypes!
     Type rhsTypeAsSuper =
         TypeSubstitutionUtils.asSuper(
             types, rhsType, lhsType.tsym, config); // types.asSuper(rhsType, lhsType.tsym);

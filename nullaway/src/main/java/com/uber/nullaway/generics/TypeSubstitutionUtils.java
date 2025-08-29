@@ -23,7 +23,6 @@ public class TypeSubstitutionUtils {
 
   public static @Nullable Type asSuper(
       Types types, Type subtype, Symbol superTypeSymbol, Config config) {
-    Type origType = subtype;
     Type asSuper = types.asSuper(subtype, superTypeSymbol);
     if (asSuper == null) {
       return null;
@@ -34,7 +33,7 @@ public class TypeSubstitutionUtils {
                 (DeclaredType) subtype, (Symbol.ClassSymbol) superTypeSymbol, types, config)
             : Map.of();
     return restoreExplicitNullabilityAnnotations(
-        origType, asSuper, config, annotsOnTypeVarsFromSubtypes);
+        superTypeSymbol.asType(), asSuper, config, annotsOnTypeVarsFromSubtypes);
   }
 
   /**
