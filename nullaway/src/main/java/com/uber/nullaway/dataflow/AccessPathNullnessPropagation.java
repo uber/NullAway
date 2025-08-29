@@ -975,7 +975,7 @@ public class AccessPathNullnessPropagation
 
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
-      LocalVariableNode localVariableNode = isTypePattern(caseNode);
+      LocalVariableNode localVariableNode = getVariableNodeForTypePattern(caseNode);
       if (localVariableNode != null) {
         ReadableUpdates thenUpdates = new ReadableUpdates();
         // Pattern variable is non-null in the matching branch
@@ -983,9 +983,8 @@ public class AccessPathNullnessPropagation
 
         ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
         // Else branch: no extra facts, just propagate
-        ResultingStore elseStore = updateStore(input.getElseStore(), new ReadableUpdates());
-        return conditionalResult(
-            thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
+        NullnessStore elseStore = input.getElseStore();
+        return conditionalResult(thenStore.store, elseStore, thenStore.storeChanged);
       } else {
         AccessPath switchOperandAccessPath =
             AccessPath.getAccessPathForNode(switchOperand, state, apContext);
@@ -999,15 +998,33 @@ public class AccessPathNullnessPropagation
     }
   }
 
-  private @Nullable LocalVariableNode isTypePattern(CaseNode caseNode) {
+  /**
+   * Returns the {@link LocalVariableNode} corresponding to a binding variable in a type pattern
+   * case label, or null if not present.
+   *
+   * <p>This method inspects the labels of the given {@link CaseNode} and checks for a binding
+   * pattern (e.g., {@code case Type var:}) or pattern case label. If such a label is found, it
+   * extracts the binding variable from the label and searches the case operands for a matching
+   * {@link LocalVariableNode}.
+   *
+   * <p>
+   *
+   * @param caseNode the case node to inspect
+   * @return the {@link LocalVariableNode} for the binding variable, or {@code null} if none found
+   */
+  private @Nullable LocalVariableNode getVariableNodeForTypePattern(CaseNode caseNode) {
     CaseTree caseTree = caseNode.getTree();
     List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
     for (Tree label : labels) {
       String kindName = label.getKind().name();
       if (kindName.equals("BINDING_PATTERN") || kindName.equals("PATTERN_CASE_LABEL")) {
-
         VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
-        return new LocalVariableNode(varTree);
+        for (Node operand : caseNode.getCaseOperands()) {
+          LocalVariableNode localVarNode = (LocalVariableNode) operand;
+          if (localVarNode.getTree().equals(varTree)) {
+            return localVarNode;
+          }
+        }
       }
     }
     return null;
