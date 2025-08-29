@@ -253,15 +253,21 @@ public final class GenericsChecks {
   private void reportInvalidAssignmentInstantiationError(
       Tree tree, Type lhsType, Type rhsType, VisitorState state) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    StringBuilder sb = new StringBuilder();
+    sb.append(
+        String.format(
+            "Cannot assign from type %s to type %s",
+            prettyTypeForError(rhsType, state), prettyTypeForError(lhsType, state)));
+    if (!ASTHelpers.isSameType(lhsType, rhsType, state)) {
+      Type asSuper =
+          TypeSubstitutionUtils.asSuper(state.getTypes(), rhsType, lhsType.asElement(), config);
+      if (asSuper != null) {
+        sb.append(String.format(" (%s as supertype)", prettyTypeForError(asSuper, state)));
+      }
+    }
+    sb.append(" due to mismatched nullability of type parameters");
     ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
-            String.format(
-                "Cannot assign from type "
-                    + prettyTypeForError(rhsType, state)
-                    + " to type "
-                    + prettyTypeForError(lhsType, state)
-                    + " due to mismatched nullability of type parameters"));
+        new ErrorMessage(ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, sb.toString());
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
