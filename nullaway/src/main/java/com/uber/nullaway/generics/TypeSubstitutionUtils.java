@@ -32,6 +32,7 @@ public class TypeSubstitutionUtils {
             ? getAnnotsOnTypeVarsFromSubtypes(
                 (DeclaredType) subtype, (Symbol.ClassSymbol) superTypeSymbol, types, config)
             : Map.of();
+    // TODO document why we do superTypeSymbol.asType() instead of subtype here
     return restoreExplicitNullabilityAnnotations(
         superTypeSymbol.asType(), asSuper, config, annotsOnTypeVarsFromSubtypes);
   }
