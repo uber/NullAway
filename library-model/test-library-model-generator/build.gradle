@@ -31,19 +31,28 @@ jar {
     }
 }
 
-jar.doLast {
-    javaexec {
-        classpath = files("${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar")
-        args = [
-            testInputsPath,
-            "${jar.destinationDirectory.get()}/${astubxPath}"
-        ]
+def generateLibModelsAstubx = tasks.register('generateLibModelsAstubx', Exec) {
+    dependsOn ":library-model:library-model-generator-cli:assemble"
+    dependsOn jar
+    doFirst {
+        commandLine "java",
+                "-jar",
+                "${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar",
+                testInputsPath,
+                "${jar.destinationDirectory.get()}/${astubxPath}"
     }
-    exec {
-        workingDir "./build/libs"
+}
+
+def embedLibModelsAstubxIntoJar = tasks.register('embedLibModelsAstubxIntoJar', Exec) {
+    dependsOn generateLibModelsAstubx
+    workingDir "${buildDir}/libs"
+    doFirst {
         commandLine "jar", "uf", "test-library-model-generator.jar", astubxPath
     }
 }
+
+jar.finalizedBy generateLibModelsAstubx
+generateLibModelsAstubx.configure { finalizedBy embedLibModelsAstubxIntoJar }
 
 dependencies {
     compileOnly deps.apt.autoService

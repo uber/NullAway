@@ -22,7 +22,10 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
+        // Use AGP compatible with Gradle 9 for Android modules
+        if (!gradle.startParameter.taskNames.any { it.toLowerCase().contains('wrapper') }) {
+            classpath 'com.android.tools.build:gradle:8.7.2'
+        }
         classpath 'com.vanniktech:gradle-maven-publish-plugin:0.34.0'
     }
 }

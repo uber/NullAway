@@ -32,22 +32,30 @@ jar {
     }
 }
 
-jar.doLast {
-    javaexec {
-        classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli.jar")
-        main = "com.uber.nullaway.jarinfer.JarInfer"
-        args = [
-            "-i",
-            jar.archiveFile.get(),
-            "-o",
-            "${jar.destinationDirectory.get()}/${astubxPath}"
-        ]
+def generateJarInferAstubx = tasks.register('generateJarInferAstubx', Exec) {
+    dependsOn ":jar-infer:jar-infer-cli:assemble"
+    dependsOn jar
+    doFirst {
+        commandLine "java",
+                "-jar",
+                "${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli.jar",
+                "-i",
+                jar.archiveFile.get().asFile.absolutePath,
+                "-o",
+                "${jar.destinationDirectory.get()}/${astubxPath}"
     }
-    exec {
-        workingDir "./build/libs"
+}
+
+def embedAstubxIntoJar = tasks.register('embedAstubxIntoJar', Exec) {
+    dependsOn generateJarInferAstubx
+    workingDir "${buildDir}/libs"
+    doFirst {
         commandLine "jar", "uf", "test-java-lib-jarinfer.jar", astubxPath
     }
 }
+
+jar.finalizedBy generateJarInferAstubx
+generateJarInferAstubx.configure { finalizedBy embedAstubxIntoJar }
 
 dependencies {
     compileOnly deps.apt.autoService

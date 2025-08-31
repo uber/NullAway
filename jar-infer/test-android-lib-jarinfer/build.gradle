@@ -18,6 +18,7 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion deps.build.compileSdkVersion
+    namespace "com.uber.testandroidlibjarinfer"
 
     defaultConfig {
         minSdkVersion deps.build.minSdkVersion
