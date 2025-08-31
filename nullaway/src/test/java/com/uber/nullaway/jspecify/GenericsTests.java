@@ -2308,7 +2308,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1246")
   @Test
   public void nullableSuperConstructorArg() {
     makeHelper()
@@ -2330,7 +2329,50 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1246")
+  @Test
+  public void passNonNullToNullableSuperConstructorArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(T t) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B(Object o) {",
+            "      super(o);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void mismatchedTypeArgNullabilityForSuperConstructor() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(List<T> l) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B(List<Object> l) {",
+            "      // BUG: Diagnostic contains: Cannot pass parameter",
+            "      super(l);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void nullableSuperMethodArg() {
     makeHelper()
