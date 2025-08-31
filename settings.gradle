@@ -8,10 +8,8 @@ pluginManagement {
 
 plugins {
     // to automatically pull in relevant JDK toolchains when not present on the local machine
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
-
-// All modules are always included; AGP is upgraded for Gradle 9 compatibility.
 
 include ':annotations'
 include ':nullaway'
