@@ -185,14 +185,3 @@ tasks.register('buildWithNullAway', JavaCompile) {
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
 }
-
-tasks.withType(Test).configureEach { test ->
-    // hack: for some reasons the ErrorProneCLIFlagsConfigTest does not pass on EP 2.31.0,
-    // though it passes on both older and newer Error Prone versions (???).  Not worth tracking
-    // down
-    if (deps.versions.errorProneApi == "2.31.0") {
-        test.filter {
-            excludeTestsMatching "com.uber.nullaway.ErrorProneCLIFlagsConfigTest"
-        }
-    }
-}
