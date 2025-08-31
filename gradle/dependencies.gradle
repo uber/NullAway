@@ -14,6 +14,13 @@
  * limitations under the License.
  */
 
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath 'com.vdurmont:semver4j:3.1.0' }
+}
+
+import com.vdurmont.semver4j.Semver
+
 // The oldest version of Error Prone that we support running on
 def oldestErrorProneVersion = "2.14.0"
 // Latest released Error Prone version that we've tested with
@@ -22,27 +29,15 @@ def latestErrorProneVersion = "2.41.0"
 def defaultErrorProneVersion =  latestErrorProneVersion
 def errorProneVersionToCompileAgainst = defaultErrorProneVersion
 
-// Simple semantic version comparator: supports dotted numeric versions like 1.2.3
-def isValidNumericVersion = { String v -> v ==~ /\d+(?:\.\d+)*/ }
-def parseNumericVersion = { String v -> v.tokenize('.')*.toInteger() }
-def compareVersions = { String a, String b ->
-    def pa = parseNumericVersion(a)
-    def pb = parseNumericVersion(b)
-    def max = Math.max(pa.size(), pb.size())
-    while (pa.size() < max) pa << 0
-    while (pb.size() < max) pb << 0
-    for (int i = 0; i < max; i++) {
-        if (pa[i] != pb[i]) return pa[i] <=> pb[i]
-    }
-    return 0
-}
+// Use semver4j for semantic version parsing/comparison
+def parseSemver = { String v -> new Semver(v, Semver.SemverType.LOOSE) }
 
 // If the epApiVersion project property is set, compile and test against that version of Error Prone
 if (project.hasProperty("epApiVersion")) {
-    if (!isValidNumericVersion(epApiVersion)) {
-        throw new IllegalArgumentException("Invalid Error Prone API version " + epApiVersion)
-    }
-    if (compareVersions(epApiVersion, oldestErrorProneVersion) < 0) {
+    // Validate and compare using semver4j
+    def requested = parseSemver(epApiVersion)
+    def oldest = parseSemver(oldestErrorProneVersion)
+    if (requested.compareTo(oldest) < 0) {
         throw new IllegalArgumentException(
         "Error Prone API version " + epApiVersion + " is too old; " + oldestErrorProneVersion + " is the oldest supported version")
     }
