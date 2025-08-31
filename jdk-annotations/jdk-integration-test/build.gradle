@@ -5,7 +5,7 @@ plugins {
 
 dependencies {
     testImplementation project(":nullaway")
-    testImplementation project(":jdk-annotations:test-annotated")
+    testImplementation project(":jdk-annotations:test-unannotated")
     testImplementation deps.test.junit4
     testImplementation deps.build.jspecify
     testImplementation(deps.build.errorProneTestHelpers) {

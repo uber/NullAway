@@ -7,56 +7,24 @@ dependencies {
     annotationProcessor deps.apt.autoService
     compileOnly project(":nullaway")
     api deps.build.jspecify
-    implementation project(":jdk-annotations:astubx-generator-cli")
-
-    // Add the jdk-javac-plugin as annotation processor
-    annotationProcessor files("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar")
+    implementation project(":jdk-annotations:test-annotated")
 }
 
-//def pluginJar = "${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar"
-//def testInputsPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/src"
+def astubxPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/build/generated/astubx"
 
-def jsonOutputDir = file("${buildDir}/generated/json")
-def astubxOutputDir = file("${buildDir}/generated/astubx")
-
-tasks.withType(JavaCompile).configureEach { compileTask ->
-    if(name == "compileJava") {
-        outputs.dir(jsonOutputDir)
-        dependsOn(":jdk-javac-plugin:shadowJar")
-
-        options.fork = true
-
-        doFirst {
-            jsonOutputDir.mkdirs()
-
-            def pluginJar = file("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar").absolutePath
-            options.compilerArgs += [
-                "-Xplugin:NullnessAnnotationSerializer ${jsonOutputDir.absolutePath}"
-            ]
-        }
-
-        finalizedBy("generateAstubx")
+jar {
+    manifest {
+        attributes(
+                'Created-By'     : "Gradle ${gradle.gradleVersion}",
+                'Build-Jdk'      : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
+                'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
+        )
     }
 }
 
-// generate .astubx files from JSON
-task generateAstubx(type: JavaExec) {
-    group = "build"
-    description = "Generate .astubx files from JSON using AstubxGeneratorCLI"
-
-    inputs.dir(jsonOutputDir)
-
-    doFirst {
-        astubxOutputDir.mkdirs()
+jar.doLast {
+    exec {
+        workingDir "${buildDir}"
+        commandLine "jar", "uf", jar.archiveFile.get(), "-C", file(astubxPath), "."
     }
-
-    mainClass = "com.uber.nullaway.jdkannotations.AstubxGeneratorCLI"
-    classpath = sourceSets.main.runtimeClasspath +
-            project(":jdk-annotations:astubx-generator-cli").sourceSets.main.runtimeClasspath
-    args = [
-        jsonOutputDir.absolutePath,
-        astubxOutputDir.absolutePath
-    ]
 }
-
-build.dependsOn tasks.named("generateAstubx")
