@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
@@ -40,7 +41,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
-    Type rhsTypeAsSuper = TypeSubstitutionUtils.asSuper(types, rhsType, lhsType.tsym, config);
+    Type rhsTypeAsSuper =
+        TypeSubstitutionUtils.asSuper(types, rhsType, (Symbol.ClassSymbol) lhsType.tsym, config);
     if (rhsTypeAsSuper == null) {
       // Surprisingly, this can in fact occur, in cases involving raw types.  See, e.g.,
       // GenericsTests#issue1082 and https://github.com/uber/NullAway/pull/1086. Bail out.
@@ -79,7 +81,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // If there is an enclosing type (for non-static inner classes), its type argument nullability
     // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
     // object, which gets handled by the fallback visitType() method
-    return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
+    return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType());
   }
 
   /** Check identical nullability for every type in the intersection */

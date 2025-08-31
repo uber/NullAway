@@ -114,7 +114,7 @@ public class ClassDeclarationNullnessAnnotUtils {
    * @param t the type to start from
    * @param supertypeSymbol the supertype symbol
    * @param types the types instance
-   * @return the inheritance path from {@code t} to the class that declares {@code method}
+   * @return the inheritance path from {@code t} to {@code supertypeSymbol}
    */
   private static List<DeclaredType> inheritancePath(
       DeclaredType t, Symbol.ClassSymbol supertypeSymbol, Types types) {

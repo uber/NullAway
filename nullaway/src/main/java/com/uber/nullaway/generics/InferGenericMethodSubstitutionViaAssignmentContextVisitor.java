@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
@@ -32,7 +33,8 @@ public class InferGenericMethodSubstitutionViaAssignmentContextVisitor
   @Override
   public Void visitClassType(Type.ClassType rhsType, Type lhsType) {
     Type rhsTypeAsSuper =
-        TypeSubstitutionUtils.asSuper(state.getTypes(), rhsType, lhsType.tsym, config);
+        TypeSubstitutionUtils.asSuper(
+            state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsType.tsym, config);
     if (rhsTypeAsSuper == null || rhsTypeAsSuper.isRaw() || lhsType.isRaw()) {
       return null;
     }

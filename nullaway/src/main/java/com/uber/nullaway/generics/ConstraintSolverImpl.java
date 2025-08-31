@@ -101,7 +101,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     public Void visitClassType(ClassType subtype, Type supertype) {
       if (supertype instanceof ClassType) {
         Type subtypeAsSuper =
-            TypeSubstitutionUtils.asSuper(state.getTypes(), subtype, supertype.tsym, config);
+            TypeSubstitutionUtils.asSuper(
+                state.getTypes(), subtype, (Symbol.ClassSymbol) supertype.tsym, config);
         if (subtypeAsSuper == null || subtypeAsSuper.isRaw() || supertype.isRaw()) {
           return visitType(subtype, supertype);
         }

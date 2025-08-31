@@ -33,7 +33,7 @@ public class TypeSubstitutionUtils {
    *     view cannot be computed
    */
   public static @Nullable Type asSuper(
-      Types types, Type subtype, Symbol superTypeSymbol, Config config) {
+      Types types, Type subtype, Symbol.ClassSymbol superTypeSymbol, Config config) {
     Type asSuper = types.asSuper(subtype, superTypeSymbol);
     if (asSuper == null) {
       return null;
@@ -41,7 +41,7 @@ public class TypeSubstitutionUtils {
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
         subtype instanceof DeclaredType
             ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) subtype, (Symbol.ClassSymbol) superTypeSymbol, types, config)
+                (DeclaredType) subtype, superTypeSymbol, types, config)
             : Map.of();
     // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
     // same type variables as asSuper; we use it to find the positions corresponding to type
