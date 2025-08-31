@@ -54,7 +54,7 @@ tasks.withType(Test).configureEach { test ->
 }
 
 // Disable tasks for specific JDK versions; we only run on the recent JDK version specified above
-tasks.getByName('testJdk21').configure {
+tasks.getByName('testJdk17').configure {
     onlyIf { false }
 }
 tasks.getByName('testJdk24').configure {
