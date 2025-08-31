@@ -9,7 +9,7 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    name: "Test on ${{ matrix.os }}"
+    name: "Build and test on ${{ matrix.os }}"
     strategy:
       matrix:
         include:
