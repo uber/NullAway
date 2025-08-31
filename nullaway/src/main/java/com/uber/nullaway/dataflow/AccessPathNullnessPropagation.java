@@ -1020,11 +1020,15 @@ public class AccessPathNullnessPropagation
       if (kindName.equals("BINDING_PATTERN") || kindName.equals("PATTERN_CASE_LABEL")) {
         VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
         for (Node operand : caseNode.getCaseOperands()) {
-          LocalVariableNode localVarNode = (LocalVariableNode) operand;
-          if (localVarNode.getTree().equals(varTree)) {
-            return localVarNode;
+          Symbol operandSymbol = ASTHelpers.getSymbol(operand.getTree());
+          Symbol varSymbol = ASTHelpers.getSymbol(varTree);
+          if (operand instanceof LocalVariableNode) {
+            if (operandSymbol != null && operandSymbol.equals(varSymbol)) {
+              return (LocalVariableNode) operand;
+            }
           }
         }
+        throw new RuntimeException("Unexpectedly did not find the pattern variable");
       }
     }
     return null;
