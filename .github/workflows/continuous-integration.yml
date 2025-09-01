@@ -78,9 +78,9 @@ jobs:
         run: ./.buildscript/check_git_clean.sh
   compile-other-projects:
     name: "Build ${{ matrix.project }} with snapshot"
+    continue-on-error: true
     strategy:
       fail-fast: false
-      continue-on-error: true
       matrix:
         include:
           - project: caffeine
