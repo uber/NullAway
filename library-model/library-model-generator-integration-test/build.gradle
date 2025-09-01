@@ -32,6 +32,6 @@ dependencies {
     annotationProcessor deps.apt.autoValue
 }
 
-tasks.named("test") {
+tasks.withType(Test).configureEach {
     dependsOn(":library-model:test-library-model-generator:embedLibModelsAstubxIntoJar")
 }

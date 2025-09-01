@@ -34,6 +34,6 @@ dependencies {
     testImplementation project(":jar-infer:android-jarinfer-models-sdk31")
 }
 
-tasks.named("test") {
-    dependsOn(":library-model:test-library-model-generator:embedLibModelsAstubxIntoJar")
+tasks.withType(Test).configureEach {
+    dependsOn(":jar-infer:test-java-lib-jarinfer:embedAstubxIntoJar")
 }
