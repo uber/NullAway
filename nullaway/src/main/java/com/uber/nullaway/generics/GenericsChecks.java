@@ -716,7 +716,7 @@ public final class GenericsChecks {
    */
   private boolean identicalTypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
-    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this), rhsType);
+    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this, config), rhsType);
   }
 
   /**
