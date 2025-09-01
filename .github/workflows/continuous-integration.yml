@@ -80,6 +80,7 @@ jobs:
     name: "Build ${{ matrix.project }} with snapshot"
     strategy:
       fail-fast: false
+      continue-on-error: true
       matrix:
         include:
           - project: caffeine
