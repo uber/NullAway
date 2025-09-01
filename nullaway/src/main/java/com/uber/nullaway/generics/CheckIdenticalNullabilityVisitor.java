@@ -81,7 +81,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // If there is an enclosing type (for non-static inner classes), its type argument nullability
     // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
     // object, which gets handled by the fallback visitType() method
-    return lhsType.getEnclosingType().accept(this, rhsTypeAsSuper.getEnclosingType());
+    // NOTE: I don't think we need to use rhsTypeAsSuper here, since the enclosing type of rhsType
+    // should be converted properly via another call to asSuper when we recurse.
+    return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
   }
 
   /** Check identical nullability for every type in the intersection */
