@@ -334,7 +334,7 @@ public class SwitchTests {
             "           return \"\"; ",
             "       }",
             "       return switch (bException) {",
-            "           case BusinessExceptionUnauthenticated e -> { e.toString(); yield \"\"; } ",
+            "           case BusinessExceptionUnauthenticated e -> { e.toString(); bException.toString(); yield \"\"; } ",
             "           default -> bException.getMessage();",
             "       };",
             "   }",
@@ -365,36 +365,6 @@ public class SwitchTests {
             "           return \"\"; ",
             "       }",
             "       return bException.getMessage();",
-            "   };",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void issue1250_2() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "ExceptionUtil.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class ExceptionUtil {",
-            "   static class BusinessException extends Exception {",
-            "       public BusinessException(String message) {",
-            "           super(message);",
-            "       }",
-            "   }",
-            "   static class BusinessExceptionUnauthenticated extends BusinessException {",
-            "       public BusinessExceptionUnauthenticated(String message) {",
-            "           super(message);",
-            "       }",
-            "   }",
-            "   private static @Nullable String test(Throwable t) {",
-            "       if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {",
-            "           return \"\"; ",
-            "       }",
-            "       return switch (bException) {",
-            "           default -> bException.getMessage();",
-            "       };",
             "   };",
             "}")
         .doTest();
