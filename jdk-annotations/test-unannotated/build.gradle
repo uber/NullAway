@@ -10,7 +10,7 @@ dependencies {
     implementation project(":jdk-annotations:test-annotated")
 }
 
-def astubxPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/build/generated/astubx"
+def astubxPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/build/generated/astubx/output.astubx"
 
 jar {
     manifest {
@@ -23,8 +23,9 @@ jar {
 }
 
 jar.doLast {
+
     exec {
-        workingDir "${buildDir}"
+        workingDir "./build/libs"
         commandLine "jar", "uf", jar.archiveFile.get(), "-C", file(astubxPath), "."
     }
 }

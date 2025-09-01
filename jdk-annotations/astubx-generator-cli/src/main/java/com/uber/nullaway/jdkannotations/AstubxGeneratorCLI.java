@@ -61,9 +61,9 @@ public class AstubxGeneratorCLI {
 
     // for each JSON file
     for (File jsonFile : jsonFiles) {
-      String name = jsonFile.getName();
-      String baseName = name.substring(0, name.length() - ".json".length());
-      File outputFile = new File(astubxDirPath, baseName + ".astubx");
+      //      String name = jsonFile.getName();
+      //      String baseName = name.substring(0, name.length() - ".json".length());
+      File outputFile = new File(astubxDirPath, "output.astubx");
 
       //      System.out.println("Processing: " + jsonFile.getAbsolutePath());
 
