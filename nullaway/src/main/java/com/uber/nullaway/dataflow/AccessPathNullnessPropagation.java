@@ -30,8 +30,11 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
@@ -131,6 +134,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.UnsignedRightShiftNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
+import org.checkerframework.nullaway.javacutil.TreeUtilsAfterJava11;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -960,6 +964,7 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitCase(
       CaseNode caseNode, TransferInput<Nullness, NullnessStore> input) {
     List<Node> caseOperands = caseNode.getCaseOperands();
+
     if (caseOperands.isEmpty()) {
       return noStoreChanges(NULLABLE, input);
     } else {
@@ -967,17 +972,66 @@ public class AccessPathNullnessPropagation
       // (i.e., `case null, default:`).  So, it is safe to only look at the first case operand, and
       // update the stores based on that.  We treat the case operation as an equality comparison
       // between the switch expression and the case operand.
+
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
-      AccessPath switchOperandAccessPath =
-          AccessPath.getAccessPathForNode(switchOperand, state, apContext);
-      Nullness switchOperandNullness =
-          switchOperandAccessPath == null
-              ? null
-              : input.getRegularStore().getNullnessOfAccessPath(switchOperandAccessPath);
-      return handleEqualityComparison(
-          input, switchOperand, switchOperandNullness, caseOperand, true);
+      LocalVariableNode localVariableNode = getVariableNodeForTypePattern(caseNode);
+      if (localVariableNode != null) {
+        ReadableUpdates thenUpdates = new ReadableUpdates();
+        // Pattern variable is non-null in the matching branch
+        thenUpdates.set(localVariableNode, NONNULL);
+
+        ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
+        // Else branch: no extra facts, just propagate
+        NullnessStore elseStore = input.getElseStore();
+        return conditionalResult(thenStore.store, elseStore, thenStore.storeChanged);
+      } else {
+        AccessPath switchOperandAccessPath =
+            AccessPath.getAccessPathForNode(switchOperand, state, apContext);
+        Nullness switchOperandNullness =
+            switchOperandAccessPath == null
+                ? null
+                : input.getRegularStore().getNullnessOfAccessPath(switchOperandAccessPath);
+        return handleEqualityComparison(
+            input, switchOperand, switchOperandNullness, caseOperand, true);
+      }
     }
+  }
+
+  /**
+   * Returns the {@link LocalVariableNode} corresponding to a binding variable in a type pattern
+   * case label, or null if not present.
+   *
+   * <p>This method inspects the labels of the given {@link CaseNode} and checks for a binding
+   * pattern (e.g., {@code case Type var:}) or pattern case label. If such a label is found, it
+   * extracts the binding variable from the label and searches the case operands for a matching
+   * {@link LocalVariableNode}.
+   *
+   * <p>
+   *
+   * @param caseNode the case node to inspect
+   * @return the {@link LocalVariableNode} for the binding variable, or {@code null} if none found
+   */
+  private @Nullable LocalVariableNode getVariableNodeForTypePattern(CaseNode caseNode) {
+    CaseTree caseTree = caseNode.getTree();
+    List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
+    for (Tree label : labels) {
+      String kindName = label.getKind().name();
+      if (kindName.equals("BINDING_PATTERN") || kindName.equals("PATTERN_CASE_LABEL")) {
+        VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
+        for (Node operand : caseNode.getCaseOperands()) {
+          Symbol operandSymbol = ASTHelpers.getSymbol(operand.getTree());
+          Symbol varSymbol = ASTHelpers.getSymbol(varTree);
+          if (operand instanceof LocalVariableNode) {
+            if (operandSymbol != null && operandSymbol.equals(varSymbol)) {
+              return (LocalVariableNode) operand;
+            }
+          }
+        }
+        throw new RuntimeException("Unexpectedly did not find the pattern variable");
+      }
+    }
+    return null;
   }
 
   @Override
