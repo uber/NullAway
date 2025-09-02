@@ -9,29 +9,13 @@ concurrency:
   cancel-in-progress: true
 jobs:
   build:
-    name: "JDK ${{ matrix.java }} on ${{ matrix.os }} with Error Prone ${{ matrix.epVersion }}"
+    name: "Build and test on ${{ matrix.os }}"
     strategy:
       matrix:
         include:
-          - os: ubuntu-latest
-            java: 11
-            epVersion: 2.14.0
-          - os: ubuntu-latest
-            java: 17
-            epVersion: 2.14.0
-          # last version of Error Prone that supports Java 11
-          - os: ubuntu-latest
-            java: 11
-            epVersion: 2.31.0
           - os: macos-latest
-            java: 17
-            epVersion: 2.41.0
           - os: windows-latest
-            java: 17
-            epVersion: 2.41.0
           - os: ubuntu-latest
-            java: 17
-            epVersion: 2.41.0
       fail-fast: false
     runs-on: ${{ matrix.os }}
     steps:
@@ -42,25 +26,19 @@ jobs:
         with:
           java-version: |
             21
-            17
-            ${{ matrix.java }}
           distribution: 'temurin'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
-      - name: Build and test using Java ${{ matrix.java }} and Error Prone ${{ matrix.epVersion }}
-        env:
-          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
+      - name: Build and test
         run: ./gradlew build
       - name: Run shellcheck
         run: ./gradlew shellcheck
         if: runner.os == 'Linux'
       - name: Aggregate jacoco coverage
         id: jacoco_report
-        env:
-          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
         run: ./gradlew codeCoverageReport
         continue-on-error: true
-        if: runner.os == 'Linux' && matrix.java == '17' && matrix.epVersion == '2.41.0' && github.repository == 'uber/NullAway'
+        if: runner.os == 'Linux' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@v4
         with:
@@ -69,11 +47,9 @@ jobs:
         if: steps.jacoco_report.outcome == 'success'
       - name: Test publishToMavenLocal flow
         env:
-          ORG_GRADLE_PROJECT_epApiVersion: ${{ matrix.epVersion }}
           ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
         run: ./gradlew publishToMavenLocal
-        if: matrix.java == '17'
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
   compile-other-projects:
