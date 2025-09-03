@@ -70,8 +70,8 @@ public interface TypeMetadataBuilder {
     }
 
     private static MethodHandle createTypeMetadataCtorHandle() {
-      // get the constructor that takes a TypeMetadata.Annotations object as a parameter
       try {
+        // try to get the constructor that takes a TypeMetadata.Annotations object as a parameter
         MethodHandles.Lookup lookup = privLookup(TypeMetadata.class);
         MethodType mt =
             MethodType.methodType(
@@ -79,7 +79,19 @@ public interface TypeMetadataBuilder {
                 TypeMetadata.Annotations.class);
         return lookup.findConstructor(TypeMetadata.class, mt);
       } catch (NoSuchMethodException | IllegalAccessException e) {
-        throw new RuntimeException(e);
+        // on JDK 11 the parameter type was TypeMetadata.Entry, try that as a fallback
+        try {
+          MethodHandles.Lookup lookup = privLookup(TypeMetadata.class);
+          // need to get the TypeMetadata.Entry class via reflection since it was deleted by JDK 17
+          Class<?> entryClass = Class.forName("com.sun.tools.javac.code.TypeMetadata$Entry");
+          MethodType mt =
+              MethodType.methodType(
+                  void.class, // constructor
+                  entryClass);
+          return lookup.findConstructor(TypeMetadata.class, mt);
+        } catch (NoSuchMethodException | IllegalAccessException | ClassNotFoundException ex) {
+          throw new RuntimeException(ex);
+        }
       }
     }
 
@@ -159,7 +171,6 @@ public interface TypeMetadataBuilder {
 
     @Override
     public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
-
       try {
         TypeMetadata.Annotations annotations =
             (TypeMetadata.Annotations) annotationsCtorHandle.invoke(attrs);
@@ -167,42 +178,6 @@ public interface TypeMetadataBuilder {
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
-      // Resolve constructors lazily here to avoid initializing them when not needed
-      //      try {
-      //        MethodHandle annCtor;
-      //        try {
-      //          annCtor = createAnnotationsCtorHandle();
-      //        } catch (RuntimeException ex) {
-      //          // Fallback: some JDKs require ListBuffer for Annotations ctor
-      //          MethodHandles.Lookup lookup = privLookup(TypeMetadata.Annotations.class);
-      //          MethodType mt = MethodType.methodType(void.class, ListBuffer.class);
-      //          annCtor = lookup.findConstructor(TypeMetadata.Annotations.class, mt);
-      //        }
-      //
-      //        Object annotations = annCtor.invoke(attrs);
-      //        if (annotations instanceof TypeMetadata) {
-      //          return (TypeMetadata) annotations;
-      //        }
-      //        // As a last resort, try to find any matching constructor on TypeMetadata
-      //        Constructor<?> match =
-      //            Arrays.stream(TypeMetadata.class.getDeclaredConstructors())
-      //                .filter(
-      //                    c -> {
-      //                      Class<?>[] p = c.getParameterTypes();
-      //                      return p.length == 1 && p[0].isAssignableFrom(annotations.getClass());
-      //                    })
-      //                .findFirst()
-      //                .orElse(null);
-      //        if (match != null) {
-      //          match.setAccessible(true);
-      //          MethodHandle tmCtor = MethodHandles.lookup().unreflectConstructor(match);
-      //          return (TypeMetadata) tmCtor.invoke(annotations);
-      //        }
-      //        throw new NoSuchMethodException(
-      //            "No TypeMetadata constructor compatible with " + annotations.getClass());
-      //      } catch (Throwable e) {
-      //        throw new RuntimeException(e);
-      //      }
     }
 
     @Override
