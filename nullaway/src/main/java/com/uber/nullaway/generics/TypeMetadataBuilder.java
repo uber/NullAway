@@ -9,7 +9,10 @@ import com.sun.tools.javac.util.ListBuffer;
 import java.lang.invoke.MethodHandle;
 import java.lang.invoke.MethodHandles;
 import java.lang.invoke.MethodType;
+import java.lang.reflect.Constructor;
+import java.util.Arrays;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Abstracts over the different APIs for building {@link TypeMetadata} objects in different JDK
@@ -34,132 +37,89 @@ public interface TypeMetadataBuilder {
 
   /**
    * Provides implementations for methods under TypeMetadataBuilder compatible with JDK 17 and
-   * earlier versions.
+   * earlier versions. Uses reflection (MethodHandles) to avoid directly referencing JDK 17-only
+   * APIs so the code compiles on newer JDKs.
    */
   class JDK17AndEarlierTypeMetadataBuilder implements TypeMetadataBuilder {
+    // Lazily initialized handles, each resolved on first use only
+    private static volatile @Nullable MethodHandle cloneWithMetadataHandle;
+    private static volatile @Nullable MethodHandle getMetadataHandleV17;
+    private static volatile @Nullable MethodHandle classTypeCtorHandleV17;
+    private static volatile @Nullable MethodHandle arrayTypeCtorHandleV17;
+    private static volatile @Nullable MethodHandle wildcardTypeCtorHandleV17;
 
-    @Override
-    public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
-      return new TypeMetadata(new TypeMetadata.Annotations(attrs));
-    }
-
-    /**
-     * Clones the given type with the specified Metadata for getting the right nullability
-     * annotations.
-     *
-     * @param typeToBeCloned The Type we want to clone with the required Nullability Metadata
-     * @param metadata The required Nullability metadata which is lost from the type
-     * @return Type after it has been cloned by applying the required Nullability metadata
-     */
-    @Override
-    public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
-      return typeToBeCloned.cloneWithMetadata(metadata);
-    }
-
-    @Override
-    public Type.ClassType createClassType(Type baseType, Type enclosingType, List<Type> typeArgs) {
-      return new Type.ClassType(
-          enclosingType,
-          com.sun.tools.javac.util.List.from(typeArgs),
-          baseType.tsym,
-          baseType.getMetadata());
-    }
-
-    @Override
-    public Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType) {
-      return new Type.ArrayType(elementType, baseType.tsym, baseType.getMetadata());
-    }
-
-    @Override
-    public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
-      return new Type.WildcardType(boundType, baseType.kind, baseType.tsym, baseType.getMetadata());
-    }
-  }
-
-  /**
-   * Provides implementations for methods under TypeMetadataBuilder compatible with the updates made
-   * to the library methods for Jdk 21. The implementation calls the logic specific to JDK 21
-   * indirectly using MethodHandles since we still need the code to compile on earlier versions.
-   */
-  class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
-
-    private static final MethodHandle typeMetadataConstructorHandle = createHandle();
-    private static final MethodHandle addMetadataHandle =
-        createVirtualMethodHandle(Type.class, TypeMetadata.class, Type.class, "addMetadata");
-    private static final MethodHandle dropMetadataHandle =
-        createVirtualMethodHandle(Type.class, Class.class, Type.class, "dropMetadata");
-    private static final MethodHandle getMetadataHandler = createGetMetadataHandle();
-    private static final MethodHandle classTypeConstructorHandle =
-        createClassTypeConstructorHandle();
-    private static final MethodHandle arrayTypeConstructorHandle =
-        createArrayTypeConstructorHandle();
-    private static final MethodHandle wildcardTypeConstructorHandle =
-        createWildcardTypeConstructorHandle();
-
-    private static MethodHandle createHandle() {
-      MethodHandles.Lookup lookup = MethodHandles.lookup();
-      MethodType mt = MethodType.methodType(void.class, com.sun.tools.javac.util.ListBuffer.class);
+    private static MethodHandles.Lookup privLookup(Class<?> cls) {
       try {
-        return lookup.findConstructor(TypeMetadata.Annotations.class, mt);
-      } catch (NoSuchMethodException e) {
-        throw new RuntimeException(e);
+        return MethodHandles.privateLookupIn(cls, MethodHandles.lookup());
       } catch (IllegalAccessException e) {
         throw new RuntimeException(e);
       }
     }
 
-    private static MethodHandle createGetMetadataHandle() {
-      MethodHandles.Lookup lookup = MethodHandles.lookup();
-      MethodType mt = MethodType.methodType(com.sun.tools.javac.util.List.class);
+    private static MethodHandle createAnnotationsCtorHandle() {
       try {
+        MethodHandles.Lookup lookup = privLookup(TypeMetadata.Annotations.class);
+        MethodType mt =
+            MethodType.methodType(
+                void.class, // constructor
+                com.sun.tools.javac.util.List.class);
+        return lookup.findConstructor(TypeMetadata.Annotations.class, mt);
+      } catch (NoSuchMethodException | IllegalAccessException e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    // Intentionally deleted: older JDKs may not expose this constructor uniformly
+
+    private static MethodHandle createGetMetadataHandleV17() {
+      try {
+        MethodHandles.Lookup lookup = privLookup(Type.class);
+        MethodType mt = MethodType.methodType(TypeMetadata.class);
         return lookup.findVirtual(Type.class, "getMetadata", mt);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
     }
 
-    private static MethodHandle createClassTypeConstructorHandle() {
+    private static MethodHandle createClassTypeCtorHandleV17() {
       try {
-        MethodHandles.Lookup lookup = MethodHandles.lookup();
-        MethodType methodType =
+        MethodHandles.Lookup lookup = privLookup(Type.ClassType.class);
+        MethodType mt =
             MethodType.methodType(
-                void.class, // return type for a constructor is void
+                void.class,
                 Type.class,
                 com.sun.tools.javac.util.List.class,
                 Symbol.TypeSymbol.class,
-                com.sun.tools.javac.util.List.class);
-        return lookup.findConstructor(Type.ClassType.class, methodType);
+                TypeMetadata.class);
+        return lookup.findConstructor(Type.ClassType.class, mt);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
     }
 
-    private static MethodHandle createArrayTypeConstructorHandle() {
+    private static MethodHandle createArrayTypeCtorHandleV17() {
       try {
-        MethodHandles.Lookup lookup = MethodHandles.lookup();
-        MethodType methodType =
+        MethodHandles.Lookup lookup = privLookup(Type.ArrayType.class);
+        MethodType mt =
             MethodType.methodType(
-                void.class, // return type for a constructor is void
-                Type.class,
-                Symbol.TypeSymbol.class,
-                com.sun.tools.javac.util.List.class);
-        return lookup.findConstructor(Type.ArrayType.class, methodType);
+                void.class, Type.class, Symbol.TypeSymbol.class, TypeMetadata.class);
+        return lookup.findConstructor(Type.ArrayType.class, mt);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
     }
 
-    private static MethodHandle createWildcardTypeConstructorHandle() {
+    private static MethodHandle createWildcardTypeCtorHandleV17() {
       try {
-        MethodHandles.Lookup lookup = MethodHandles.lookup();
-        MethodType methodType =
+        MethodHandles.Lookup lookup = privLookup(Type.WildcardType.class);
+        MethodType mt =
             MethodType.methodType(
-                void.class, // return type for a constructor is void
+                void.class,
                 Type.class,
                 BoundKind.class,
                 Symbol.TypeSymbol.class,
-                com.sun.tools.javac.util.List.class);
-        return lookup.findConstructor(Type.WildcardType.class, methodType);
+                TypeMetadata.class);
+        return lookup.findConstructor(Type.WildcardType.class, mt);
       } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
@@ -176,44 +136,66 @@ public interface TypeMetadataBuilder {
      */
     private static MethodHandle createVirtualMethodHandle(
         Class<?> retTypeClass, Class<?> paramTypeClass, Class<?> refClass, String methodName) {
-      MethodHandles.Lookup lookup = MethodHandles.lookup();
+      MethodHandles.Lookup lookup = privLookup(refClass);
       MethodType mt = MethodType.methodType(retTypeClass, paramTypeClass);
       try {
         return lookup.findVirtual(refClass, methodName, mt);
-      } catch (NoSuchMethodException e) {
-        throw new RuntimeException(e);
-      } catch (IllegalAccessException e) {
+      } catch (NoSuchMethodException | IllegalAccessException e) {
         throw new RuntimeException(e);
       }
     }
 
     @Override
     public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
-      ListBuffer<Attribute.TypeCompound> b = new ListBuffer<>();
-      b.appendList(attrs);
+      // Resolve constructors lazily here to avoid initializing them when not needed
       try {
-        return (TypeMetadata) typeMetadataConstructorHandle.invoke(b);
+        MethodHandle annCtor;
+        try {
+          annCtor = createAnnotationsCtorHandle();
+        } catch (RuntimeException ex) {
+          // Fallback: some JDKs require ListBuffer for Annotations ctor
+          MethodHandles.Lookup lookup = privLookup(TypeMetadata.Annotations.class);
+          MethodType mt = MethodType.methodType(void.class, ListBuffer.class);
+          annCtor = lookup.findConstructor(TypeMetadata.Annotations.class, mt);
+        }
+
+        Object annotations = annCtor.invoke(attrs);
+        if (annotations instanceof TypeMetadata) {
+          return (TypeMetadata) annotations;
+        }
+        // As a last resort, try to find any matching constructor on TypeMetadata
+        Constructor<?> match =
+            Arrays.stream(TypeMetadata.class.getDeclaredConstructors())
+                .filter(
+                    c -> {
+                      Class<?>[] p = c.getParameterTypes();
+                      return p.length == 1 && p[0].isAssignableFrom(annotations.getClass());
+                    })
+                .findFirst()
+                .orElse(null);
+        if (match != null) {
+          match.setAccessible(true);
+          MethodHandle tmCtor = MethodHandles.lookup().unreflectConstructor(match);
+          return (TypeMetadata) tmCtor.invoke(annotations);
+        }
+        throw new NoSuchMethodException(
+            "No TypeMetadata constructor compatible with " + annotations.getClass());
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
     }
 
-    /**
-     * Calls dropMetadata and addMetadata using MethodHandles for JDK 21, which removed the previous
-     * cloneWithMetadata method.
-     *
-     * @param typeToBeCloned The Type we want to clone with the required Nullability metadata
-     * @param metadata The required Nullability metadata
-     * @return Cloned Type with the necessary Nullability metadata
-     */
     @Override
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       try {
-        // In JDK 21 addMetadata works if there is no metadata associated with the type, so we
-        // create a copy without the existing metadata first and then add it
-        Type clonedTypeWithoutMetadata =
-            (Type) dropMetadataHandle.invoke(typeToBeCloned, metadata.getClass());
-        return (Type) addMetadataHandle.invoke(clonedTypeWithoutMetadata, metadata);
+        MethodHandle mh = cloneWithMetadataHandle;
+        if (mh == null) {
+          mh =
+              createVirtualMethodHandle(
+                  Type.class, TypeMetadata.class, Type.class, "cloneWithMetadata");
+          cloneWithMetadataHandle = mh;
+        }
+        return (Type) mh.invoke(typeToBeCloned, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -222,10 +204,19 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.ClassType createClassType(Type baseType, Type enclosingType, List<Type> typeArgs) {
       try {
-        com.sun.tools.javac.util.List<TypeMetadata> metadata =
-            (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
+        MethodHandle getMd = getMetadataHandleV17;
+        if (getMd == null) {
+          getMd = createGetMetadataHandleV17();
+          getMetadataHandleV17 = getMd;
+        }
+        TypeMetadata metadata = (TypeMetadata) getMd.invoke(baseType);
+        MethodHandle ctor = classTypeCtorHandleV17;
+        if (ctor == null) {
+          ctor = createClassTypeCtorHandleV17();
+          classTypeCtorHandleV17 = ctor;
+        }
         return (Type.ClassType)
-            classTypeConstructorHandle.invoke(
+            ctor.invoke(
                 enclosingType,
                 com.sun.tools.javac.util.List.from(typeArgs),
                 baseType.tsym,
@@ -238,10 +229,18 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType) {
       try {
-        com.sun.tools.javac.util.List<TypeMetadata> metadata =
-            (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
-        return (Type.ArrayType)
-            arrayTypeConstructorHandle.invoke(elementType, baseType.tsym, metadata);
+        MethodHandle getMd = getMetadataHandleV17;
+        if (getMd == null) {
+          getMd = createGetMetadataHandleV17();
+          getMetadataHandleV17 = getMd;
+        }
+        TypeMetadata metadata = (TypeMetadata) getMd.invoke(baseType);
+        MethodHandle ctor = arrayTypeCtorHandleV17;
+        if (ctor == null) {
+          ctor = createArrayTypeCtorHandleV17();
+          arrayTypeCtorHandleV17 = ctor;
+        }
+        return (Type.ArrayType) ctor.invoke(elementType, baseType.tsym, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -250,13 +249,61 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
       try {
-        com.sun.tools.javac.util.List<TypeMetadata> metadata =
-            (com.sun.tools.javac.util.List<TypeMetadata>) getMetadataHandler.invoke(baseType);
-        return (Type.WildcardType)
-            wildcardTypeConstructorHandle.invoke(boundType, baseType.kind, baseType.tsym, metadata);
+        MethodHandle getMd = getMetadataHandleV17;
+        if (getMd == null) {
+          getMd = createGetMetadataHandleV17();
+          getMetadataHandleV17 = getMd;
+        }
+        TypeMetadata metadata = (TypeMetadata) getMd.invoke(baseType);
+        MethodHandle ctor = wildcardTypeCtorHandleV17;
+        if (ctor == null) {
+          ctor = createWildcardTypeCtorHandleV17();
+          wildcardTypeCtorHandleV17 = ctor;
+        }
+        return (Type.WildcardType) ctor.invoke(boundType, baseType.kind, baseType.tsym, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
+    }
+  }
+
+  /**
+   * Provides implementations for methods under TypeMetadataBuilder compatible with the updates made
+   * to the library methods for JDK 21+. Calls the APIs directly since we compile on a recent JDK.
+   */
+  class JDK21TypeMetadataBuilder implements TypeMetadataBuilder {
+
+    @Override
+    public TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs) {
+      ListBuffer<Attribute.TypeCompound> b = new ListBuffer<>();
+      b.appendList(attrs);
+      return new TypeMetadata.Annotations(b);
+    }
+
+    /** In JDK 21+ cloneWithMetadata was removed; use dropMetadata/addMetadata. */
+    @Override
+    public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
+      Type without = typeToBeCloned.dropMetadata(metadata.getClass());
+      return without.addMetadata(metadata);
+    }
+
+    @Override
+    public Type.ClassType createClassType(Type baseType, Type enclosingType, List<Type> typeArgs) {
+      com.sun.tools.javac.util.List<TypeMetadata> metadata = baseType.getMetadata();
+      return new Type.ClassType(
+          enclosingType, com.sun.tools.javac.util.List.from(typeArgs), baseType.tsym, metadata);
+    }
+
+    @Override
+    public Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType) {
+      com.sun.tools.javac.util.List<TypeMetadata> metadata = baseType.getMetadata();
+      return new Type.ArrayType(elementType, baseType.tsym, metadata);
+    }
+
+    @Override
+    public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
+      com.sun.tools.javac.util.List<TypeMetadata> metadata = baseType.getMetadata();
+      return new Type.WildcardType(boundType, baseType.kind, baseType.tsym, metadata);
     }
   }
 }
