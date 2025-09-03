@@ -1981,12 +1981,9 @@ public class GenericsTests extends NullAwayTestsBase {
 
   @Test
   public void intersectionTypeInvalidAssign() {
-    String[] source;
-    // javac behavior differs between versions before and after 23, so we have two versions of the
-    // test source code
-    if (Runtime.version().feature() >= 23) {
-      source =
-          new String[] {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "import java.io.Serializable;",
@@ -2007,39 +2004,8 @@ public class GenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: Cannot assign from type C to type A<@Nullable String> & Serializable",
             "    x = new C();",
             "  }",
-            "}"
-          };
-    } else {
-      // Before JDK 23, javac does not compute types with annotations for cast expressions, so the
-      // test assertions do not work as expected.
-      source =
-          new String[] {
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import java.io.Serializable;",
-            "public class Test {",
-            "  interface A<T extends @Nullable Object> {}",
-            "  static class B implements A<@Nullable String>, Serializable {}",
-            "  static class C implements A<String>, Serializable {}",
-            "  static void test1(Object o) {",
-            "    var x = (A<String> & Serializable) o;",
-            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
-            "    x = new B();",
-            "    // ok",
-            "    x = new C();",
-            "  }",
-            "  static void test2(Object o) {",
-            "    var x = (A<@Nullable String> & Serializable) o;",
-            // TODO: should _not_ be an error, see https://github.com/uber/NullAway/issues/1022
-            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
-            "    x = new B();",
-            // TODO: _should_ be an error, see https://github.com/uber/NullAway/issues/1022
-            "    x = new C();",
-            "  }",
-            "}"
-          };
-    }
-    makeHelper().addSourceLines("Test.java", source).doTest();
+            "}")
+        .doTest();
   }
 
   @Test
@@ -2342,7 +2308,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1246")
   @Test
   public void nullableSuperConstructorArg() {
     makeHelper()
@@ -2364,7 +2329,50 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1246")
+  @Test
+  public void passNonNullToNullableSuperConstructorArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(T t) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B(Object o) {",
+            "      super(o);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void mismatchedTypeArgNullabilityForSuperConstructor() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(List<T> l) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B(List<Object> l) {",
+            "      // BUG: Diagnostic contains: Cannot pass parameter",
+            "      super(l);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void nullableSuperMethodArg() {
     makeHelper()

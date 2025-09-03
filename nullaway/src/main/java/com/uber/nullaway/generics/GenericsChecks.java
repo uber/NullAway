@@ -10,6 +10,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
@@ -366,6 +367,7 @@ public final class GenericsChecks {
    * @return Type of the tree with preserved annotations.
    */
   private @Nullable Type getTreeType(Tree tree) {
+    tree = ASTHelpers.stripParentheses(tree);
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
       ParameterizedTypeTree paramTypedTree =
@@ -714,7 +716,7 @@ public final class GenericsChecks {
    */
   private boolean identicalTypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
-    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this), rhsType);
+    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this, config), rhsType);
   }
 
   /**
@@ -842,36 +844,18 @@ public final class GenericsChecks {
       return;
     }
     Type invokedMethodType = methodSymbol.type;
-    // substitute class-level type arguments for instance methods
-    if (!methodSymbol.isStatic() && tree instanceof MethodInvocationTree) {
-      ExpressionTree methodSelect = ((MethodInvocationTree) tree).getMethodSelect();
-      Type enclosingType;
-      if (methodSelect instanceof MemberSelectTree) {
-        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression());
-      } else {
-        // implicit this parameter
-        enclosingType = methodSymbol.owner.type;
-      }
-      if (enclosingType != null) {
-        invokedMethodType =
-            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
-      }
-    }
-
-    // substitute type arguments for constructor call
-    if (tree instanceof NewClassTree) {
-      // get the type arguments from the NewClassTree itself
-      Type enclosingType = getTreeType(tree);
-      if (enclosingType != null) {
-        invokedMethodType =
-            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
-      }
+    Type enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, state);
+    if (enclosingType != null) {
+      invokedMethodType =
+          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
     }
 
     // substitute type arguments for generic methods with explicit type arguments
-    if (tree instanceof MethodInvocationTree && methodSymbol.type instanceof Type.ForAll) {
-      invokedMethodType = substituteTypeArgsInGenericMethodType(tree, methodSymbol, state);
+    if (tree instanceof MethodInvocationTree && invokedMethodType instanceof Type.ForAll) {
+      invokedMethodType =
+          substituteTypeArgsInGenericMethodType(tree, (Type.ForAll) invokedMethodType, state);
     }
+
     List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
     int n = formalParamTypes.size();
     if (isVarArgs) {
@@ -1071,8 +1055,9 @@ public final class GenericsChecks {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       Type substitutedReturnType =
-          substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state).getReturnType();
+          substituteTypeArgsInGenericMethodType(tree, forAllType, state).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -1081,15 +1066,11 @@ public final class GenericsChecks {
       }
     }
 
-    if (!(tree.getMethodSelect() instanceof MemberSelectTree) || invokedMethodSymbol.isStatic()) {
-      return Nullness.NONNULL;
-    }
-    Type methodReceiverType =
-        getTreeType(((MemberSelectTree) tree.getMethodSelect()).getExpression());
-    if (methodReceiverType == null) {
+    Type enclosingType = getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state);
+    if (enclosingType == null) {
       return Nullness.NONNULL;
     } else {
-      return getGenericMethodReturnTypeNullness(invokedMethodSymbol, methodReceiverType, state);
+      return getGenericMethodReturnTypeNullness(invokedMethodSymbol, enclosingType, state);
     }
   }
 
@@ -1108,13 +1089,14 @@ public final class GenericsChecks {
   /**
    * Substitutes the type arguments from a generic method invocation into the method's type.
    *
-   * @param tree the method invocation or new class tree
-   * @param methodSymbol symbol for the invoked generic method
+   * @param tree the method invocation tree
+   * @param forAllType the generic method type
    * @param state the visitor state
    * @return the substituted method type for the generic method
    */
   private Type substituteTypeArgsInGenericMethodType(
-      Tree tree, Symbol.MethodSymbol methodSymbol, VisitorState state) {
+      Tree tree, Type.ForAll forAllType, VisitorState state) {
+    Type.MethodType methodType = forAllType.asMethodType();
 
     List<? extends Tree> typeArgumentTrees =
         (tree instanceof MethodInvocationTree)
@@ -1122,19 +1104,16 @@ public final class GenericsChecks {
             : ((NewClassTree) tree).getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
 
-    Type.ForAll forAllType = (Type.ForAll) methodSymbol.type;
-    Type.MethodType underlyingMethodType = (Type.MethodType) forAllType.qtype;
-
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()) {
       if (inferredTypeVarNullabilityForGenericCalls.containsKey(tree)
           && tree instanceof MethodInvocationTree) {
         return getTypeWithInferredNullability(
-            state, underlyingMethodType, inferredTypeVarNullabilityForGenericCalls.get(tree));
+            state, methodType, inferredTypeVarNullabilityForGenericCalls.get(tree));
       }
     }
     return TypeSubstitutionUtils.subst(
-        state.getTypes(), underlyingMethodType, forAllType.tvars, explicitTypeArgs, config);
+        state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
   }
 
   /**
@@ -1178,8 +1157,9 @@ public final class GenericsChecks {
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute the argument types within the MethodType
-      Type substituted = substituteTypeArgsInGenericMethodType(tree, invokedMethodSymbol, state);
-      List<Type> substitutedParamTypes = substituted.getParameterTypes();
+      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
+      List<Type> substitutedParamTypes =
+          substituteTypeArgsInGenericMethodType(tree, forAllType, state).getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
@@ -1190,27 +1170,51 @@ public final class GenericsChecks {
       }
     }
 
-    if (tree instanceof MethodInvocationTree) {
-      if (!(((MethodInvocationTree) tree).getMethodSelect() instanceof MemberSelectTree)
-          || invokedMethodSymbol.isStatic()) {
-        return Nullness.NONNULL;
-      }
+    Type enclosingType = getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state);
+    if (enclosingType == null) {
+      return Nullness.NONNULL;
     }
 
+    return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, enclosingType, state);
+  }
+
+  /**
+   * Gets the enclosing type for a non-static method call expression, which is either the type of
+   * the enclosing class (for implicit this calls) or the type of the receiver expression. For a
+   * constructor call, we treat the type being allocated as the enclosing type.
+   *
+   * @param invokedMethodSymbol symbol for the invoked method
+   * @param tree the tree for the invocation
+   * @param state the visitor state
+   * @return the enclosing type for the method call, or null if it cannot be determined
+   */
+  private @Nullable Type getEnclosingTypeForCallExpression(
+      Symbol.MethodSymbol invokedMethodSymbol, Tree tree, VisitorState state) {
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree) {
-      enclosingType =
-          getTreeType(
-              ((MemberSelectTree) ((MethodInvocationTree) tree).getMethodSelect()).getExpression());
-
+      if (invokedMethodSymbol.isStatic()) {
+        return null;
+      }
+      ExpressionTree methodSelect =
+          ASTHelpers.stripParentheses(((MethodInvocationTree) tree).getMethodSelect());
+      if (methodSelect instanceof IdentifierTree) {
+        // implicit this parameter, or a super call.  in either case, use the type of the enclosing
+        // class.
+        ClassTree enclosingClassTree =
+            ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+        if (enclosingClassTree != null) {
+          enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
+        }
+      } else if (methodSelect instanceof MemberSelectTree) {
+        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression());
+      }
     } else {
       Verify.verify(tree instanceof NewClassTree);
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
       enclosingType = getTreeType(tree);
     }
-
-    return getGenericMethodParameterNullness(paramIndex, invokedMethodSymbol, enclosingType, state);
+    return enclosingType;
   }
 
   /**

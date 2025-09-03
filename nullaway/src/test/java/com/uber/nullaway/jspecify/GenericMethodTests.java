@@ -1083,6 +1083,43 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Extracted from Caffeine; exposed some subtle bugs in substitutions involving identity of {@code
+   * Type} objects
+   */
+  @Test
+  public void nullableWildcardFromCaffeine() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "    public interface CacheLoader<K, V extends @Nullable Object> {}",
+            "    static class JCacheLoaderAdapter<K, V> implements CacheLoader<K, @Nullable Expirable<V>> {}",
+            "    static class Expirable<V> {}",
+            "    static class Caffeine<K, V> {",
+            "        public <K1 extends K, V1 extends @Nullable V> Object build(",
+            "                CacheLoader<? super K1, V1> loader) {",
+            "            throw new RuntimeException();",
+            "        }",
+            "    }",
+            "    class Builder<K, V> {",
+            "        Caffeine<Object, Object> caffeine = new Caffeine<>();",
+            "        void test() {",
+            "            JCacheLoaderAdapter<K, V> adapter = new JCacheLoaderAdapter<>();",
+            "            caffeine.<K, @Nullable Expirable<V>>build(adapter);",
+            "            // TODO inference is buggy for this case; doesn't substitute inferred types properly",
+            "            // See https://github.com/uber/NullAway/issues/1267",
+            "            @SuppressWarnings(\"NullAway\")",
+            "            Object o = caffeine.build(adapter);",
+            "        }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
