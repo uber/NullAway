@@ -28,8 +28,8 @@ jar.doLast {
     def jarFile = jar.archiveFile.get().asFile
     def astubxFile = file(astubxPath)
 
-        exec {
-            workingDir "./build/libs"
-            commandLine "jar", "uf", jar.archiveFile.get(), astubxFile.absolutePath
-        }
+    exec {
+        workingDir "./build/libs"
+        commandLine "jar", "uf", jar.archiveFile.get(), astubxFile.absolutePath
+    }
 }
