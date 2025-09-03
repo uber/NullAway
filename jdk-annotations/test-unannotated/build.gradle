@@ -10,6 +10,8 @@ dependencies {
     implementation project(":jdk-annotations:test-annotated")
 }
 
+jar.dependsOn(project(':jdk-annotations:test-annotated').tasks.named('generateAstubx'))
+
 def astubxPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/build/generated/astubx/output.astubx"
 
 jar {
@@ -18,14 +20,16 @@ jar {
                 'Created-By'     : "Gradle ${gradle.gradleVersion}",
                 'Build-Jdk'      : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
                 'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
-        )
+                )
     }
 }
 
 jar.doLast {
+    def jarFile = jar.archiveFile.get().asFile
+    def astubxFile = file(astubxPath)
 
-    exec {
-        workingDir "./build/libs"
-        commandLine "jar", "uf", jar.archiveFile.get(), "-C", file(astubxPath), "."
-    }
+        exec {
+            workingDir "./build/libs"
+            commandLine "jar", "uf", jar.archiveFile.get(), astubxFile.absolutePath
+        }
 }
