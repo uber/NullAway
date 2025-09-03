@@ -12,7 +12,6 @@ import java.lang.invoke.MethodType;
 import java.lang.reflect.Constructor;
 import java.util.Arrays;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Abstracts over the different APIs for building {@link TypeMetadata} objects in different JDK
@@ -41,12 +40,13 @@ public interface TypeMetadataBuilder {
    * APIs so the code compiles on newer JDKs.
    */
   class JDK17AndEarlierTypeMetadataBuilder implements TypeMetadataBuilder {
-    // Lazily initialized handles, each resolved on first use only
-    private static volatile @Nullable MethodHandle cloneWithMetadataHandle;
-    private static volatile @Nullable MethodHandle getMetadataHandleV17;
-    private static volatile @Nullable MethodHandle classTypeCtorHandleV17;
-    private static volatile @Nullable MethodHandle arrayTypeCtorHandleV17;
-    private static volatile @Nullable MethodHandle wildcardTypeCtorHandleV17;
+    // Eagerly initialized handles at class-load time
+    private static final MethodHandle cloneWithMetadataHandle =
+        createVirtualMethodHandle(Type.class, TypeMetadata.class, Type.class, "cloneWithMetadata");
+    private static final MethodHandle getMetadataHandleV17 = createGetMetadataHandleV17();
+    private static final MethodHandle classTypeCtorHandleV17 = createClassTypeCtorHandleV17();
+    private static final MethodHandle arrayTypeCtorHandleV17 = createArrayTypeCtorHandleV17();
+    private static final MethodHandle wildcardTypeCtorHandleV17 = createWildcardTypeCtorHandleV17();
 
     private static MethodHandles.Lookup privLookup(Class<?> cls) {
       try {
@@ -188,14 +188,7 @@ public interface TypeMetadataBuilder {
     @Override
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       try {
-        MethodHandle mh = cloneWithMetadataHandle;
-        if (mh == null) {
-          mh =
-              createVirtualMethodHandle(
-                  Type.class, TypeMetadata.class, Type.class, "cloneWithMetadata");
-          cloneWithMetadataHandle = mh;
-        }
-        return (Type) mh.invoke(typeToBeCloned, metadata);
+        return (Type) cloneWithMetadataHandle.invoke(typeToBeCloned, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -204,19 +197,9 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.ClassType createClassType(Type baseType, Type enclosingType, List<Type> typeArgs) {
       try {
-        MethodHandle getMd = getMetadataHandleV17;
-        if (getMd == null) {
-          getMd = createGetMetadataHandleV17();
-          getMetadataHandleV17 = getMd;
-        }
-        TypeMetadata metadata = (TypeMetadata) getMd.invoke(baseType);
-        MethodHandle ctor = classTypeCtorHandleV17;
-        if (ctor == null) {
-          ctor = createClassTypeCtorHandleV17();
-          classTypeCtorHandleV17 = ctor;
-        }
+        TypeMetadata metadata = (TypeMetadata) getMetadataHandleV17.invoke(baseType);
         return (Type.ClassType)
-            ctor.invoke(
+            classTypeCtorHandleV17.invoke(
                 enclosingType,
                 com.sun.tools.javac.util.List.from(typeArgs),
                 baseType.tsym,
@@ -229,18 +212,8 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType) {
       try {
-        MethodHandle getMd = getMetadataHandleV17;
-        if (getMd == null) {
-          getMd = createGetMetadataHandleV17();
-          getMetadataHandleV17 = getMd;
-        }
-        TypeMetadata metadata = (TypeMetadata) getMd.invoke(baseType);
-        MethodHandle ctor = arrayTypeCtorHandleV17;
-        if (ctor == null) {
-          ctor = createArrayTypeCtorHandleV17();
-          arrayTypeCtorHandleV17 = ctor;
-        }
-        return (Type.ArrayType) ctor.invoke(elementType, baseType.tsym, metadata);
+        TypeMetadata metadata = (TypeMetadata) getMetadataHandleV17.invoke(baseType);
+        return (Type.ArrayType) arrayTypeCtorHandleV17.invoke(elementType, baseType.tsym, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -249,18 +222,9 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
       try {
-        MethodHandle getMd = getMetadataHandleV17;
-        if (getMd == null) {
-          getMd = createGetMetadataHandleV17();
-          getMetadataHandleV17 = getMd;
-        }
-        TypeMetadata metadata = (TypeMetadata) getMd.invoke(baseType);
-        MethodHandle ctor = wildcardTypeCtorHandleV17;
-        if (ctor == null) {
-          ctor = createWildcardTypeCtorHandleV17();
-          wildcardTypeCtorHandleV17 = ctor;
-        }
-        return (Type.WildcardType) ctor.invoke(boundType, baseType.kind, baseType.tsym, metadata);
+        TypeMetadata metadata = (TypeMetadata) getMetadataHandleV17.invoke(baseType);
+        return (Type.WildcardType)
+            wildcardTypeCtorHandleV17.invoke(boundType, baseType.kind, baseType.tsym, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
