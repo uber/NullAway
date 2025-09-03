@@ -29,7 +29,7 @@ def cliProj = project(":jar-infer:jar-infer-cli")
 def shadowJarTask = cliProj.tasks.named(
         "shadowJar",
         com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
-)
+        )
 def jarInferCliJar = shadowJarTask.flatMap { it.archiveFile }
 
 def generateJarInferAstubx = tasks.register('generateJarInferAstubx', Exec) {
@@ -57,7 +57,7 @@ jar {
                 'Created-By' : "Gradle ${gradle.gradleVersion}",
                 'Build-Jdk'  : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
                 'Build-OS'   : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
-        )
+                )
     }
     dependsOn(generateJarInferAstubx)
     from(outputAstubxFile) {
