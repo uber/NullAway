@@ -33,7 +33,7 @@ public class MainActivity extends AppCompatActivity {
     mOnCreateInitialiedField = new Object();
     // uncomment to show that NullAway is actually running
     // Object x = null;
-    // x.hashCode();
+    // Object unused = x.hashCode();
   }
 
   static int checkModel(@Nullable String s) {
