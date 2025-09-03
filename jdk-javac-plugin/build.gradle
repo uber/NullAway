@@ -5,10 +5,7 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
-// Use JDK 21 toolchain but emit Java 17 bytecode so tests run on JDK 17/21
-//java.toolchain.languageVersion.set JavaLanguageVersion.of(21)
-
-// Allow Java 17 features here
+// Allow Java 17 features for this module
 tasks.withType(JavaCompile).configureEach {
     sourceCompatibility = JavaVersion.VERSION_17
     targetCompatibility = JavaVersion.VERSION_17
