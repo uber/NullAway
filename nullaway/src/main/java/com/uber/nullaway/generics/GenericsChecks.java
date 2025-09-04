@@ -671,8 +671,11 @@ public final class GenericsChecks {
         }
       }
     }
-    return TypeSubstitutionUtils.subst(
-        state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);
+    com.sun.tools.javac.util.List<Type> typeVarsToReplace = typeVars.toList();
+    if (!typeVarsToReplace.isEmpty()) {
+      return TypeSubstitutionUtils.subst(
+          state.getTypes(), targetType, typeVarsToReplace, inferredTypes.toList(), config);
+    }
   }
 
   /**
