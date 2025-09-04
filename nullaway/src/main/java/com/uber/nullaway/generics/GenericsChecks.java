@@ -675,6 +675,8 @@ public final class GenericsChecks {
     if (!typeVarsToReplace.isEmpty()) {
       return TypeSubstitutionUtils.subst(
           state.getTypes(), targetType, typeVarsToReplace, inferredTypes.toList(), config);
+    } else {
+      return targetType;
     }
   }
 
