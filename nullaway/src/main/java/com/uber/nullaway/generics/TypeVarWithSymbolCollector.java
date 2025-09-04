@@ -30,9 +30,12 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
     this.symbol = symbol;
   }
 
+  private final Set<Type> seen =
+      java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+
   /** Walk a (possibly null) type. Safe to call multiple times on different roots. */
   private void scan(@Nullable Type t) {
-    if (t != null) {
+    if (t != null && seen.add(t)) {
       t.accept(this, null);
     }
   }

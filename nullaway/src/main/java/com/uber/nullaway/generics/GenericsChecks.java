@@ -666,8 +666,7 @@ public final class GenericsChecks {
         for (Type.TypeVar tv : tvc.getMatches()) {
           typeVars.append(tv);
           inferredTypes.append(
-              TypeSubstitutionUtils.typeWithAnnot(
-                  tv, GenericsChecks.getSyntheticNullAnnotType(state)));
+              TypeSubstitutionUtils.typeWithAnnot(tv, getSyntheticNullAnnotType(state)));
         }
       }
     }
@@ -1449,6 +1448,8 @@ public final class GenericsChecks {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
+  private @Nullable Type syntheticNullAnnotType;
+
   /**
    * Returns a "fake" {@link Type} object representing a synthetic {@code @Nullable} annotation.
    *
@@ -1462,12 +1463,15 @@ public final class GenericsChecks {
    *     Symtab}.
    * @return a fake {@code Type} for a synthetic {@code @Nullable} annotation.
    */
-  public static Type getSyntheticNullAnnotType(VisitorState state) {
-    Names names = Names.instance(state.context);
-    Symtab symtab = Symtab.instance(state.context);
-    Name name = names.fromString("nullaway.synthetic");
-    Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
-    Name simpleName = names.fromString("Nullable");
-    return new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+  public Type getSyntheticNullAnnotType(VisitorState state) {
+    if (syntheticNullAnnotType == null) {
+      Names names = Names.instance(state.context);
+      Symtab symtab = Symtab.instance(state.context);
+      Name name = names.fromString("nullaway.synthetic");
+      Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
+      Name simpleName = names.fromString("Nullable");
+      syntheticNullAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+    }
+    return syntheticNullAnnotType;
   }
 }
