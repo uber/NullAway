@@ -10,8 +10,6 @@ dependencies {
     implementation project(":jdk-annotations:test-annotated")
 }
 
-jar.dependsOn(project(':jdk-annotations:test-annotated').tasks.named('generateAstubx'))
-
 def astubxPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/build/generated/astubx/output.astubx"
 
 jar {
@@ -22,14 +20,8 @@ jar {
                 'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
                 )
     }
-}
-
-jar.doLast {
-    def jarFile = jar.archiveFile.get().asFile
-    def astubxFile = file(astubxPath)
-
-    exec {
-        workingDir "./build/libs"
-        commandLine "jar", "uf", jar.archiveFile.get(), astubxFile.absolutePath
+    dependsOn(project(':jdk-annotations:test-annotated').tasks.named('generateAstubx'))
+    from(astubxPath) {
+        into "com/uber/nullaway/jdkannotations/provider"
     }
 }
