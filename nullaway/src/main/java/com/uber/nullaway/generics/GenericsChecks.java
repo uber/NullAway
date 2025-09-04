@@ -657,11 +657,18 @@ public final class GenericsChecks {
     for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
         typeVarNullability.entrySet()) {
       if (entry.getValue() == NULLABLE) {
-        Type curTypeVar = (Type) entry.getKey().asType();
-        typeVars.append(curTypeVar);
-        inferredTypes.append(
-            TypeSubstitutionUtils.typeWithAnnot(
-                curTypeVar, GenericsChecks.getSyntheticNullAnnotType(state)));
+        // find all TypeVars occurring in targetType with the same symbol and substitute for those.
+        // we can have multiple such TypeVars due to previous substitutions that modified the type
+        // in some way, e.g., by changing its bounds
+        Element symbol = entry.getKey();
+        TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
+        targetType.accept(tvc, null);
+        for (Type.TypeVar tv : tvc.getMatches()) {
+          typeVars.append(tv);
+          inferredTypes.append(
+              TypeSubstitutionUtils.typeWithAnnot(
+                  tv, GenericsChecks.getSyntheticNullAnnotType(state)));
+        }
       }
     }
     return TypeSubstitutionUtils.subst(
