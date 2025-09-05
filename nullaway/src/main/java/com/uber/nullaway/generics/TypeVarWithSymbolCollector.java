@@ -10,6 +10,7 @@ import com.sun.tools.javac.code.Type.TypeVar;
 import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.lang.model.element.Element;
@@ -20,6 +21,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Usage: TypeVarWithSymbolCollector v = new TypeVarWithSymbolCollector(elem);
  * rootType.accept(v,null); Set<TypeVar> matches = v.getMatches();
+ *
+ * <p>Not safe to run multiple times; create a fresh visitor for each root type to scan.
  */
 public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<Void, Void> {
 
@@ -30,10 +33,9 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
     this.symbol = symbol;
   }
 
-  private final Set<Type> seen =
-      java.util.Collections.newSetFromMap(new java.util.IdentityHashMap<>());
+  private final Set<Type> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
 
-  /** Walk a (possibly null) type. Safe to call multiple times on different roots. */
+  /** Walk a (possibly null) type. */
   private void scan(@Nullable Type t) {
     if (t != null && seen.add(t)) {
       t.accept(this, null);
