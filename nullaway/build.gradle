@@ -157,7 +157,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
     // Configure compilation to run with Error Prone and NullAway
     source = sourceSets.main.java
     classpath = sourceSets.main.compileClasspath
-    destinationDirectory = file("$buildDir/ignoredClasses")
+    destinationDirectory.set(layout.buildDirectory.dir('ignoredClasses'))
     options.annotationProcessorPath = files(
             configurations.errorproneExtended.asCollection(),
             sourceSets.main.annotationProcessorPath,
