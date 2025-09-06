@@ -657,15 +657,26 @@ public final class GenericsChecks {
     for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
         typeVarNullability.entrySet()) {
       if (entry.getValue() == NULLABLE) {
-        Type curTypeVar = (Type) entry.getKey().asType();
-        typeVars.append(curTypeVar);
-        inferredTypes.append(
-            TypeSubstitutionUtils.typeWithAnnot(
-                curTypeVar, GenericsChecks.getSyntheticNullAnnotType(state)));
+        // find all TypeVars occurring in targetType with the same symbol and substitute for those.
+        // we can have multiple such TypeVars due to previous substitutions that modified the type
+        // in some way, e.g., by changing its bounds
+        Element symbol = entry.getKey();
+        TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
+        targetType.accept(tvc, null);
+        for (Type.TypeVar tv : tvc.getMatches()) {
+          typeVars.append(tv);
+          inferredTypes.append(
+              TypeSubstitutionUtils.typeWithAnnot(tv, getSyntheticNullAnnotType(state)));
+        }
       }
     }
-    return TypeSubstitutionUtils.subst(
-        state.getTypes(), targetType, typeVars.toList(), inferredTypes.toList(), config);
+    com.sun.tools.javac.util.List<Type> typeVarsToReplace = typeVars.toList();
+    if (!typeVarsToReplace.isEmpty()) {
+      return TypeSubstitutionUtils.subst(
+          state.getTypes(), targetType, typeVarsToReplace, inferredTypes.toList(), config);
+    } else {
+      return targetType;
+    }
   }
 
   /**
@@ -1437,6 +1448,8 @@ public final class GenericsChecks {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
+  private @Nullable Type syntheticNullAnnotType;
+
   /**
    * Returns a "fake" {@link Type} object representing a synthetic {@code @Nullable} annotation.
    *
@@ -1450,12 +1463,15 @@ public final class GenericsChecks {
    *     Symtab}.
    * @return a fake {@code Type} for a synthetic {@code @Nullable} annotation.
    */
-  public static Type getSyntheticNullAnnotType(VisitorState state) {
-    Names names = Names.instance(state.context);
-    Symtab symtab = Symtab.instance(state.context);
-    Name name = names.fromString("nullaway.synthetic");
-    Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
-    Name simpleName = names.fromString("Nullable");
-    return new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+  private Type getSyntheticNullAnnotType(VisitorState state) {
+    if (syntheticNullAnnotType == null) {
+      Names names = Names.instance(state.context);
+      Symtab symtab = Symtab.instance(state.context);
+      Name name = names.fromString("nullaway.synthetic");
+      Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
+      Name simpleName = names.fromString("Nullable");
+      syntheticNullAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+    }
+    return syntheticNullAnnotType;
   }
 }
