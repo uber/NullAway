@@ -268,14 +268,19 @@ public final class GenericsChecks {
         String.format(
             "incompatible types: %s cannot be converted to %s",
             prettyRhsType, prettyTypeForError(lhsType, state));
-    if (!ASTHelpers.isSameType(lhsType, rhsType, state)) {
-      Type asSuper =
-          TypeSubstitutionUtils.asSuper(
-              state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsType.asElement(), config);
-      if (asSuper != null) {
-        result +=
-            String.format(
-                " (%s is a subtype of %s)", prettyRhsType, prettyTypeForError(asSuper, state));
+    if (!ASTHelpers.isSameType(lhsType, rhsType, state)
+        && lhsType.getKind() == TypeKind.DECLARED
+        && rhsType.getKind() == TypeKind.DECLARED) {
+      Symbol.TypeSymbol lhsSym = lhsType.asElement();
+      if (lhsSym instanceof Symbol.ClassSymbol) {
+        Type asSuper =
+            TypeSubstitutionUtils.asSuper(
+                state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsSym, config);
+        if (asSuper != null) {
+          result +=
+              String.format(
+                  " (%s is a subtype of %s)", prettyRhsType, prettyTypeForError(asSuper, state));
+        }
       }
     }
     return result;
