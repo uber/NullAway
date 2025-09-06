@@ -524,47 +524,12 @@ public final class GenericsChecks {
     Type type = methodSymbol.type;
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
     MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
+    if (result == null) { // have not yet attempted inference for this call
+      result =
+          runInferenceForCall(state, invocationTree, typeFromAssignmentContext, assignedToLocal);
+    }
     if (result instanceof InferenceSuccess) {
       typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
-    } else if (result == null) { // have not yet attempted inference for this call
-      // generic method call with no explicit generic arguments
-      // update inferred type arguments based on the assignment context
-      ConstraintSolver solver = makeSolver(state, analysis);
-      // allInvocations tracks the top-level invocations and any nested invocations that also
-      // require inference
-      Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
-      allInvocations.add(invocationTree);
-      try {
-        generateConstraintsForCall(
-            typeFromAssignmentContext,
-            assignedToLocal,
-            solver,
-            methodSymbol,
-            invocationTree,
-            allInvocations);
-        typeVarNullability = solver.solve();
-        for (MethodInvocationTree invTree : allInvocations) {
-          inferredTypeVarNullabilityForGenericCalls.put(
-              invTree, new InferenceSuccess(typeVarNullability));
-        }
-      } catch (UnsatisfiableConstraintsException e) {
-        if (config.warnOnGenericInferenceFailure()) {
-          ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-          ErrorMessage errorMessage =
-              new ErrorMessage(
-                  ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
-                  String.format(
-                      "Failed to infer type argument nullability for call %s: %s",
-                      state.getSourceForNode(invocationTree), e.getMessage()));
-          state.reportMatch(
-              errorBuilder.createErrorDescription(
-                  errorMessage, analysis.buildDescription(invocationTree), state, null));
-        }
-        for (MethodInvocationTree invTree : allInvocations) {
-          inferredTypeVarNullabilityForGenericCalls.put(
-              invTree, new InferenceFailure(e.getMessage()));
-        }
-      }
     }
     // we get the return type of the method call with inferred nullability of type variables
     // substituted in.  So, if the method returns List<T>, and we inferred T to be nullable, then
@@ -582,6 +547,53 @@ public final class GenericsChecks {
         returnTypeAtCallSite,
         config,
         Collections.emptyMap());
+  }
+
+  private MethodInferenceResult runInferenceForCall(
+      VisitorState state,
+      MethodInvocationTree invocationTree,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal) {
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    ConstraintSolver solver = makeSolver(state, analysis);
+    // allInvocations tracks the top-level invocations and any nested invocations that also
+    // require inference
+    Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
+    allInvocations.add(invocationTree);
+    Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
+    try {
+      generateConstraintsForCall(
+          typeFromAssignmentContext,
+          assignedToLocal,
+          solver,
+          methodSymbol,
+          invocationTree,
+          allInvocations);
+      typeVarNullability = solver.solve();
+      InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
+      for (MethodInvocationTree invTree : allInvocations) {
+        inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
+      }
+      return successResult;
+    } catch (UnsatisfiableConstraintsException e) {
+      if (config.warnOnGenericInferenceFailure()) {
+        ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+        ErrorMessage errorMessage =
+            new ErrorMessage(
+                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
+                String.format(
+                    "Failed to infer type argument nullability for call %s: %s",
+                    state.getSourceForNode(invocationTree), e.getMessage()));
+        state.reportMatch(
+            errorBuilder.createErrorDescription(
+                errorMessage, analysis.buildDescription(invocationTree), state, null));
+      }
+      InferenceFailure failureResult = new InferenceFailure(e.getMessage());
+      for (MethodInvocationTree invTree : allInvocations) {
+        inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
+      }
+      return failureResult;
+    }
   }
 
   /**
@@ -622,7 +634,7 @@ public final class GenericsChecks {
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private void generateConstraintsForCall(
-      Type typeFromAssignmentContext,
+      @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       ConstraintSolver solver,
       Symbol.MethodSymbol methodSymbol,
@@ -630,8 +642,10 @@ public final class GenericsChecks {
       Set<MethodInvocationTree> allInvocations)
       throws UnsatisfiableConstraintsException {
     // first, handle the return type flow
-    solver.addSubtypeConstraint(
-        methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
+    if (typeFromAssignmentContext != null) {
+      solver.addSubtypeConstraint(
+          methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
+    }
     // then, handle parameters
     new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
         .forEach(
@@ -1059,6 +1073,11 @@ public final class GenericsChecks {
    */
   public Nullness getGenericReturnNullnessAtInvocation(
       Symbol.MethodSymbol invokedMethodSymbol, MethodInvocationTree tree, VisitorState state) {
+    // If the return type is not a type variable, just return NONNULL (explicit @Nullable should
+    // have been handled by the caller)
+    if (!invokedMethodSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
+      return Nullness.NONNULL;
+    }
     // If generic method invocation
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
@@ -1114,9 +1133,21 @@ public final class GenericsChecks {
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty() && tree instanceof MethodInvocationTree) {
       MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
+      if (result == null) {
+        // have not yet attempted inference for this call.  this should only happen for methods with
+        // a void return type.
+        verify(
+            methodType.getReturnType().getKind() == TypeKind.VOID,
+            "expected void return type but got %s for %s",
+            methodType.getReturnType(),
+            state.getSourceForNode(tree));
+        MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
+        result = runInferenceForCall(state, invocationTree, null, false);
+      }
       if (result instanceof InferenceSuccess) {
-        return getTypeWithInferredNullability(
-            state, methodType, ((InferenceSuccess) result).typeVarNullability);
+        Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
+            ((InferenceSuccess) result).typeVarNullability;
+        return getTypeWithInferredNullability(state, methodType, typeVarNullability);
       }
     }
     return TypeSubstitutionUtils.subst(
