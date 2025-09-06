@@ -2573,6 +2573,27 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void assignmentIncompatibilityViaExtendsErrorMessage() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  class A<T extends @Nullable Object> {}",
+            "  class B<T extends @Nullable Object> extends A<@Nullable T> {}",
+            "  class C<T extends @Nullable Object> extends A<@NonNull T> {}",
+            "  void test() {",
+            "    // BUG: Diagnostic contains: incompatible types: Test.B<Object> cannot be converted to Test.A<Object> (Test.B<Object> is a subtype of Test.A<@Nullable Object>)",
+            "    A<Object> a = new B<Object>();",
+            "    // BUG: Diagnostic contains: incompatible types: Test.C<@Nullable Object> cannot be converted to Test.A<@Nullable Object> (Test.C<@Nullable Object> is a subtype of Test.A<@NonNull Object>)",
+            "    A<@Nullable Object> a2 = new C<@Nullable Object>();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
