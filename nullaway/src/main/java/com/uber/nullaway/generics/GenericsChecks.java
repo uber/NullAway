@@ -253,18 +253,37 @@ public final class GenericsChecks {
   private void reportInvalidAssignmentInstantiationError(
       Tree tree, Type lhsType, Type rhsType, VisitorState state) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    String msg = errorMessageForIncompatibleTypesAtPseudoAssignment(lhsType, rhsType, state);
     ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE,
-            String.format(
-                "Cannot assign from type "
-                    + prettyTypeForError(rhsType, state)
-                    + " to type "
-                    + prettyTypeForError(lhsType, state)
-                    + " due to mismatched nullability of type parameters"));
+        new ErrorMessage(ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, msg);
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
+  }
+
+  private String errorMessageForIncompatibleTypesAtPseudoAssignment(
+      Type lhsType, Type rhsType, VisitorState state) {
+    String prettyRhsType = prettyTypeForError(rhsType, state);
+    String result =
+        String.format(
+            "incompatible types: %s cannot be converted to %s",
+            prettyRhsType, prettyTypeForError(lhsType, state));
+    if (!ASTHelpers.isSameType(lhsType, rhsType, state)
+        && lhsType.getKind() == TypeKind.DECLARED
+        && rhsType.getKind() == TypeKind.DECLARED) {
+      Symbol.TypeSymbol lhsSym = lhsType.asElement();
+      if (lhsSym instanceof Symbol.ClassSymbol) {
+        Type asSuper =
+            TypeSubstitutionUtils.asSuper(
+                state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsSym, config);
+        if (asSuper != null) {
+          result +=
+              String.format(
+                  " (%s is a subtype of %s)", prettyRhsType, prettyTypeForError(asSuper, state));
+        }
+      }
+    }
+    return result;
   }
 
   private void reportInvalidReturnTypeError(
@@ -273,12 +292,7 @@ public final class GenericsChecks {
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
-            String.format(
-                "Cannot return expression of type "
-                    + prettyTypeForError(returnType, state)
-                    + " from method with return type "
-                    + prettyTypeForError(methodType, state)
-                    + " due to mismatched nullability of type parameters"));
+            errorMessageForIncompatibleTypesAtPseudoAssignment(methodType, returnType, state));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
@@ -310,11 +324,8 @@ public final class GenericsChecks {
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            "Cannot pass parameter of type "
-                + prettyTypeForError(actualParameterType, state)
-                + ", as formal parameter has type "
-                + prettyTypeForError(formalParameterType, state)
-                + ", which has mismatched type parameter nullability");
+            errorMessageForIncompatibleTypesAtPseudoAssignment(
+                formalParameterType, actualParameterType, state));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(paramExpression), state, null));
