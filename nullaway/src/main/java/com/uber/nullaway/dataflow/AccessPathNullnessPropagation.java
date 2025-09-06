@@ -1151,6 +1151,9 @@ public class AccessPathNullnessPropagation
    */
   private boolean genericReturnIsNullable(MethodInvocationNode node) {
     if (node != null && config.isJSpecifyMode()) {
+      // TODO the MethodInvocationNode has a treePath.  In general, we need to use that to find the
+      //  assignment context to do proper inference.  Even if it's assigned to a local variable, the
+      //  top-level nullability doesn't matter but we may need nullability of type arguments.
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
         Nullness nullness =
