@@ -79,9 +79,9 @@ public final class GenericsChecks {
   /** Indicates failed inference of nullability of type variables at a call */
   private static final class InferenceFailure implements MethodInferenceResult {
     @SuppressWarnings("UnusedVariable") // keep this as it may be useful in the future
-    final String errorMessage;
+    final @Nullable String errorMessage;
 
-    InferenceFailure(String errorMessage) {
+    InferenceFailure(@Nullable String errorMessage) {
       this.errorMessage = errorMessage;
     }
   }
