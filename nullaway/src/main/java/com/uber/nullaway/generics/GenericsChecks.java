@@ -61,11 +61,37 @@ import org.jspecify.annotations.Nullable;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
+  /** Marker interface for results of attempting to infer nullability of type variables at a call */
+  private interface MethodInferenceResult {}
+
   /**
-   * Maps a Tree representing a call to a generic method or constructor to the inferred nullability
-   * of its type arguments. The call must not have any explicit type arguments.
+   * Indicates successful inference of nullability of type variables at a call. Stores the inferred
+   * type variable nullability.
    */
-  private final Map<MethodInvocationTree, Map<Element, ConstraintSolver.InferredNullability>>
+  private static final class InferenceSuccess implements MethodInferenceResult {
+    final Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
+
+    InferenceSuccess(Map<Element, ConstraintSolver.InferredNullability> typeVarNullability) {
+      this.typeVarNullability = typeVarNullability;
+    }
+  }
+
+  /** Indicates failed inference of nullability of type variables at a call */
+  private static final class InferenceFailure implements MethodInferenceResult {
+    @SuppressWarnings("UnusedVariable") // keep this as it may be useful in the future
+    final String errorMessage;
+
+    InferenceFailure(String errorMessage) {
+      this.errorMessage = errorMessage;
+    }
+  }
+
+  /**
+   * Maps a Tree representing a call to a generic method or constructor to the result of inferring
+   * its type argument nullability. The call must not have any explicit type arguments. If a tree is
+   * not present as a key in this map, it means inference has not yet been attempted for that call.
+   */
+  private final Map<MethodInvocationTree, MethodInferenceResult>
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
   private final NullAway analysis;
@@ -496,9 +522,11 @@ public final class GenericsChecks {
     Verify.verify(isGenericCallNeedingInference(invocationTree));
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     Type type = methodSymbol.type;
-    Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
-        inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
-    if (typeVarNullability == null) {
+    Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
+    MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
+    if (result instanceof InferenceSuccess) {
+      typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
+    } else if (result == null) { // have not yet attempted inference for this call
       // generic method call with no explicit generic arguments
       // update inferred type arguments based on the assignment context
       ConstraintSolver solver = makeSolver(state, analysis);
@@ -516,7 +544,8 @@ public final class GenericsChecks {
             allInvocations);
         typeVarNullability = solver.solve();
         for (MethodInvocationTree invTree : allInvocations) {
-          inferredTypeVarNullabilityForGenericCalls.put(invTree, typeVarNullability);
+          inferredTypeVarNullabilityForGenericCalls.put(
+              invTree, new InferenceSuccess(typeVarNullability));
         }
       } catch (UnsatisfiableConstraintsException e) {
         if (config.warnOnGenericInferenceFailure()) {
@@ -530,6 +559,10 @@ public final class GenericsChecks {
           state.reportMatch(
               errorBuilder.createErrorDescription(
                   errorMessage, analysis.buildDescription(invocationTree), state, null));
+        }
+        for (MethodInvocationTree invTree : allInvocations) {
+          inferredTypeVarNullabilityForGenericCalls.put(
+              invTree, new InferenceFailure(e.getMessage()));
         }
       }
     }
@@ -1127,11 +1160,11 @@ public final class GenericsChecks {
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
 
     // There are no explicit type arguments, so use the inferred types
-    if (explicitTypeArgs.isEmpty()) {
-      if (inferredTypeVarNullabilityForGenericCalls.containsKey(tree)
-          && tree instanceof MethodInvocationTree) {
+    if (explicitTypeArgs.isEmpty() && tree instanceof MethodInvocationTree) {
+      MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
+      if (result instanceof InferenceSuccess) {
         return getTypeWithInferredNullability(
-            state, methodType, inferredTypeVarNullabilityForGenericCalls.get(tree));
+            state, methodType, ((InferenceSuccess) result).typeVarNullability);
       }
     }
     return TypeSubstitutionUtils.subst(
