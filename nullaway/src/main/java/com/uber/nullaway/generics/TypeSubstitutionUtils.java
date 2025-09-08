@@ -22,6 +22,36 @@ import org.jspecify.annotations.Nullable;
 public class TypeSubstitutionUtils {
 
   /**
+   * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
+   * variables from the subtype to the resulting supertype.
+   *
+   * @param types the {@link Types} instance
+   * @param subtype the subtype
+   * @param superTypeSymbol the symbol of the supertype
+   * @param config the NullAway config
+   * @return the type of {@code subtype} viewed as a {@code superTypeSymbol}, or {@code null} if the
+   *     view cannot be computed
+   */
+  public static @Nullable Type asSuper(
+      Types types, Type subtype, Symbol.ClassSymbol superTypeSymbol, Config config) {
+    Type asSuper = types.asSuper(subtype, superTypeSymbol);
+    if (asSuper == null) {
+      return null;
+    }
+    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
+        subtype instanceof DeclaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(
+                (DeclaredType) subtype, superTypeSymbol, types, config)
+            : Map.of();
+    // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
+    // same type variables as asSuper; we use it to find the positions corresponding to type
+    // variables in asSuper to substitute nullability annotations based on
+    // annotsOnTypeVarsFromSubtypes.
+    return restoreExplicitNullabilityAnnotations(
+        superTypeSymbol.asType(), asSuper, config, annotsOnTypeVarsFromSubtypes);
+  }
+
+  /**
    * Returns the type of {@code sym} as a member of {@code t}.
    *
    * @param types the {@link Types} instance

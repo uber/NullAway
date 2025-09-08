@@ -157,7 +157,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
     // Configure compilation to run with Error Prone and NullAway
     source = sourceSets.main.java
     classpath = sourceSets.main.compileClasspath
-    destinationDirectory = file("$buildDir/ignoredClasses")
+    destinationDirectory.set(layout.buildDirectory.dir('ignoredClasses'))
     options.annotationProcessorPath = files(
             configurations.errorproneExtended.asCollection(),
             sourceSets.main.annotationProcessorPath,
@@ -184,15 +184,4 @@ tasks.register('buildWithNullAway', JavaCompile) {
 
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
-}
-
-tasks.withType(Test).configureEach { test ->
-    // hack: for some reasons the ErrorProneCLIFlagsConfigTest does not pass on EP 2.31.0,
-    // though it passes on both older and newer Error Prone versions (???).  Not worth tracking
-    // down
-    if (deps.versions.errorProneApi == "2.31.0") {
-        test.filter {
-            excludeTestsMatching "com.uber.nullaway.ErrorProneCLIFlagsConfigTest"
-        }
-    }
 }
