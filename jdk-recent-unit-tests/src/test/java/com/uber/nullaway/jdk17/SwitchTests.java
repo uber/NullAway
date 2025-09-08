@@ -343,7 +343,7 @@ public class SwitchTests {
   }
 
   @Test
-  public void issue1250_1() {
+  public void patternMatchingInstanceOfNegation() {
     defaultCompilationHelper
         .addSourceLines(
             "ExceptionUtil.java",
