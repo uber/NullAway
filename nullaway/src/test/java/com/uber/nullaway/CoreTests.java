@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -1155,6 +1156,7 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  //  @Ignore
   @Test
   public void unboxForEachLoop() {
     defaultCompilationHelper
@@ -1164,7 +1166,25 @@ public class CoreTests extends NullAwayTestsBase {
             "@NullMarked",
             "class Test {",
             "   void f(@Nullable Integer[] array) {",
+            "   // BUG: Diagnostic contains:unboxing of a @Nullable value",
             "     for (int x : array) {}",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore
+  @Test
+  public void unboxForEachLoopIterable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.List;",
+            "@NullMarked",
+            "class Test {",
+            "   void f(List<@Nullable Integer> numbers) {",
+            "     for (int x : numbers) {}",
             "   }",
             "}")
         .doTest();

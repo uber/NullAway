@@ -93,7 +93,6 @@ import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ArrayType;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
@@ -123,9 +122,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.ModuleElement;
 import javax.lang.model.element.NestingKind;
-import javax.lang.model.type.DeclaredType;
 import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.javacutil.ElementUtils;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
@@ -1878,35 +1875,16 @@ public class NullAway extends BugChecker
       if (arraySymbol != null && NullabilityUtil.isArrayElementNullable(arraySymbol, getConfig())) {
         isElementNullable = true;
       }
-    } else if (expressionType != null && expressionType.getKind() == TypeKind.DECLARED) {
-      // Case 2: Iterating over an Iterable
-      Types types = state.getTypes();
-      Symbol iterableSymbol = state.getSymbolFromString(Iterable.class.getName());
-      if (iterableSymbol != null) {
-        Type iterableType = types.asSuper(expressionType, iterableSymbol);
-        if (iterableType instanceof DeclaredType) {
-          DeclaredType declaredIterableType = (DeclaredType) iterableType;
-          List<? extends TypeMirror> typeArguments = declaredIterableType.getTypeArguments();
-          if (typeArguments.size() == 1) {
-            elementType = (Type) typeArguments.get(0);
-            // For generic type arguments, we must inspect the type-use annotations.
-            // We iterate through the annotations on the type and check if any of them
-            // is a configured @Nullable annotation.
-            for (AnnotationMirror mirror : elementType.getAnnotationMirrors()) {
-              Symbol annotSym = (Symbol) mirror.getAnnotationType().asElement();
-              if (isNullableAnnotation(annotSym.getSimpleName().toString(), getConfig())) {
-                isElementNullable = true;
-                break;
-              }
-            }
-          }
-        }
-      }
     }
 
     if (isElementNullable && elementType != null) {
       // A nullable element is being unboxed to a primitive. This is unsafe.
-      doUnboxingCheck(state, expr);
+      //      doUnboxingCheck(state, expr);
+      ErrorMessage errorMessageUnbox =
+          new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
+      state.reportMatch(
+          errorBuilder.createErrorDescription(
+              errorMessageUnbox, tree, buildDescription(tree), state, null));
     }
 
     return Description.NO_MATCH;
