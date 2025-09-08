@@ -1154,4 +1154,19 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void unboxForEachLoop() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Outer.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "   void f(@Nullable Integer[] array) {",
+            "     for (int x : array) {}",
+            "   }",
+            "}")
+        .doTest();
+  }
 }
