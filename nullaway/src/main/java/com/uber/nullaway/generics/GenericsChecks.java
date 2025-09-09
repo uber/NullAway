@@ -21,6 +21,7 @@ import com.sun.source.tree.NewArrayTree;
 import com.sun.source.tree.NewClassTree;
 import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
+import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
@@ -900,7 +901,7 @@ public final class GenericsChecks {
     // substitute type arguments for generic methods with explicit type arguments
     if (tree instanceof MethodInvocationTree && invokedMethodType instanceof Type.ForAll) {
       invokedMethodType =
-          substituteTypeArgsInGenericMethodType(tree, (Type.ForAll) invokedMethodType, state);
+          substituteTypeArgsInGenericMethodType(tree, (Type.ForAll) invokedMethodType, null, state);
     }
 
     new InvocationArguments(tree, invokedMethodType.asMethodType())
@@ -1068,11 +1069,15 @@ public final class GenericsChecks {
    *
    * @param invokedMethodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
+   * @param path the path to the invocation tree, or null if not available
    * @return Nullness of invocation's return type, or {@code NONNULL} if the call does not invoke an
    *     instance method
    */
   public Nullness getGenericReturnNullnessAtInvocation(
-      Symbol.MethodSymbol invokedMethodSymbol, MethodInvocationTree tree, VisitorState state) {
+      Symbol.MethodSymbol invokedMethodSymbol,
+      MethodInvocationTree tree,
+      @Nullable TreePath path,
+      VisitorState state) {
     // If the return type is not a type variable, just return NONNULL (explicit @Nullable should
     // have been handled by the caller)
     if (!invokedMethodSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
@@ -1083,7 +1088,7 @@ public final class GenericsChecks {
       // Substitute type arguments inside the return type
       Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       Type substitutedReturnType =
-          substituteTypeArgsInGenericMethodType(tree, forAllType, state).getReturnType();
+          substituteTypeArgsInGenericMethodType(tree, forAllType, path, state).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -1121,7 +1126,7 @@ public final class GenericsChecks {
    * @return the substituted method type for the generic method
    */
   private Type substituteTypeArgsInGenericMethodType(
-      Tree tree, Type.ForAll forAllType, VisitorState state) {
+      Tree tree, Type.ForAll forAllType, @Nullable TreePath path, VisitorState state) {
     Type.MethodType methodType = forAllType.asMethodType();
 
     List<? extends Tree> typeArgumentTrees =
@@ -1136,13 +1141,15 @@ public final class GenericsChecks {
       if (result == null) {
         // have not yet attempted inference for this call.  this should only happen for methods with
         // a void return type.
-        verify(
-            methodType.getReturnType().getKind() == TypeKind.VOID,
-            "expected void return type but got %s for %s",
-            methodType.getReturnType(),
-            state.getSourceForNode(tree));
+        //        verify(
+        //            methodType.getReturnType().getKind() == TypeKind.VOID,
+        //            "expected void return type but got %s for %s",
+        //            methodType.getReturnType(),
+        //            state.getSourceForNode(tree));
         MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
-        result = runInferenceForCall(state, invocationTree, null, false);
+        Type typeFromAssignmentContext =
+            path == null ? null : getTypeFromAssignmentContext(path, state);
+        result = runInferenceForCall(state, invocationTree, typeFromAssignmentContext, false);
       }
       if (result instanceof InferenceSuccess) {
         Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
@@ -1152,6 +1159,54 @@ public final class GenericsChecks {
     }
     return TypeSubstitutionUtils.subst(
         state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
+  }
+
+  private Type getTypeFromAssignmentContext(@Nullable TreePath path, VisitorState state) {
+    MethodInvocationTree invocation = (MethodInvocationTree) path.getLeaf();
+    TreePath parentPath = path.getParentPath();
+    while (parentPath != null) {
+      Tree parent = parentPath.getLeaf();
+      if (parent instanceof AssignmentTree) {
+        AssignmentTree assignment = (AssignmentTree) parent;
+        if (assignment.getExpression() == invocation) {
+          return getTreeType(assignment.getVariable());
+        }
+      } else if (parent instanceof VariableTree) {
+        VariableTree variable = (VariableTree) parent;
+        if (variable.getInitializer() == invocation) {
+          return variable.getType() == null ? null : typeWithPreservedAnnotations(variable);
+        }
+      } else if (parent instanceof ReturnTree) {
+        // find the enclosing method and return its return type
+        MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(parentPath, MethodTree.class);
+        if (enclosingMethod != null) {
+          Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
+          if (methodSymbol != null) {
+            return methodSymbol.getReturnType();
+          }
+        }
+      } else if (parent instanceof ExpressionTree) {
+        // could be a parameter to another method call, or part of a conditional expression, etc.
+        // in any case, just return the type of the parent expression
+        ExpressionTree exprParent = (ExpressionTree) parent;
+        if (exprParent instanceof MethodInvocationTree) {
+          MethodInvocationTree parentInvocation = (MethodInvocationTree) exprParent;
+          for (ExpressionTree arg : parentInvocation.getArguments()) {
+            if (arg == invocation) {
+              return getTreeType(parentInvocation);
+            }
+          }
+        } else if (exprParent instanceof ConditionalExpressionTree) {
+          ConditionalExpressionTree condExpr = (ConditionalExpressionTree) exprParent;
+          if (condExpr.getTrueExpression() == invocation
+              || condExpr.getFalseExpression() == invocation) {
+            return getConditionalExpressionType(condExpr, state);
+          }
+        }
+      }
+      parentPath = parentPath.getParentPath();
+    }
+    return null;
   }
 
   /**
@@ -1197,7 +1252,7 @@ public final class GenericsChecks {
       // Substitute the argument types within the MethodType
       Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       List<Type> substitutedParamTypes =
-          substituteTypeArgsInGenericMethodType(tree, forAllType, state).getParameterTypes();
+          substituteTypeArgsInGenericMethodType(tree, forAllType, null, state).getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
