@@ -1853,38 +1853,29 @@ public class NullAway extends BugChecker
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
     }
-
     // auto-unboxing check
-    ExpressionTree expression = tree.getExpression();
     VariableTree loopVariable = tree.getVariable();
     Type loopVariableType = ASTHelpers.getType(loopVariable);
-
-    // An unboxing operation only happens if the loop variable is a primitive type.
-    if (loopVariableType != null && !loopVariableType.isPrimitive()) {
+    // Only relevant when the loop variable is a primitive (implies unboxing of elements).
+    if (loopVariableType == null || !loopVariableType.isPrimitive()) {
       return Description.NO_MATCH;
     }
-    Type expressionType = ASTHelpers.getType(expression);
+    Type expressionType = ASTHelpers.getType(expr);
     boolean isElementNullable = false;
-    Type elementType = null;
-
     if (expressionType != null && expressionType.getKind() == TypeKind.ARRAY) {
-      // Case 1: Iterating over an array
       ArrayType arrayType = (ArrayType) expressionType;
-      elementType = arrayType.getComponentType();
-      Symbol arraySymbol = ASTHelpers.getSymbol(expression);
-      if (arraySymbol != null && NullabilityUtil.isArrayElementNullable(arraySymbol, getConfig())) {
+      Symbol arraySymbol = ASTHelpers.getSymbol(expr);
+      if (arraySymbol != null && isArrayElementNullable(arraySymbol, getConfig())) {
         isElementNullable = true;
       }
     }
-
-    if (isElementNullable && elementType != null) {
+    if (isElementNullable) {
       // A nullable element is being unboxed to a primitive. This is unsafe.
-      //      doUnboxingCheck(state, expr);
       ErrorMessage errorMessageUnbox =
           new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
       state.reportMatch(
           errorBuilder.createErrorDescription(
-              errorMessageUnbox, tree, buildDescription(tree), state, null));
+              errorMessageUnbox, buildDescription(loopVariable), state, null));
     }
 
     return Description.NO_MATCH;
