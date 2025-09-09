@@ -92,7 +92,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Type.ArrayType;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
@@ -1863,9 +1862,8 @@ public class NullAway extends BugChecker
     Type expressionType = ASTHelpers.getType(expr);
     boolean isElementNullable = false;
     if (expressionType != null && expressionType.getKind() == TypeKind.ARRAY) {
-      ArrayType arrayType = (ArrayType) expressionType;
       Symbol arraySymbol = ASTHelpers.getSymbol(expr);
-      if (arraySymbol != null && isArrayElementNullable(arraySymbol, getConfig())) {
+      if (arraySymbol != null && isArrayElementNullable(arraySymbol, config)) {
         isElementNullable = true;
       }
     }
