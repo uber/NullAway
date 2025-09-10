@@ -1155,6 +1155,26 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void defaultLibraryModelsObjectToString() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  void objectsToString(@Nullable Object o) {",
+            "    String p = Objects.toString(o, \"foo\");",
+            "    String n = Objects.toString(o, null);",
+            "    p.hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    n.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void filesIsDirectory() {
     defaultCompilationHelper
         .addSourceLines(

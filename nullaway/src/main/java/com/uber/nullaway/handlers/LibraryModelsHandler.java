@@ -812,6 +812,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "com.google.common.collect.ImmutableMap", "getOrDefault(java.lang.Object,V)"),
                 1)
+            .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
             .build();
 
     private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
