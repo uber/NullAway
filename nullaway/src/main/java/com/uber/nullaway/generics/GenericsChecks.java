@@ -633,12 +633,11 @@ public final class GenericsChecks {
     solver.addSubtypeConstraint(
         methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     // then, handle parameters
-    for (InvocationArguments.ArgumentInfo argInfo :
-        new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())) {
-      ExpressionTree argument = argInfo.getArgTree();
-      Type formalParamType = argInfo.getFormalParamType();
-      generateConstraintsForParam(solver, allInvocations, argument, formalParamType);
-    }
+    new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
+        .forEachFast(
+            (argument, argPos, formalParamType, unused) -> {
+              generateConstraintsForParam(solver, allInvocations, argument, formalParamType);
+            });
   }
 
   private void generateConstraintsForParam(
@@ -890,29 +889,28 @@ public final class GenericsChecks {
           substituteTypeArgsInGenericMethodType(tree, (Type.ForAll) invokedMethodType, state);
     }
 
-    for (InvocationArguments.ArgumentInfo argInfo :
-        new InvocationArguments(tree, invokedMethodType.asMethodType())) {
-      Type formalParameter = argInfo.getFormalParamType();
-      if (formalParameter.isRaw()) {
-        // bail out of any checking involving raw types for now
-        continue;
-      }
-      ExpressionTree currentActualParam = argInfo.getArgTree();
-      Type actualParameterType = getTreeType(currentActualParam);
-      if (actualParameterType != null) {
-        if (isGenericCallNeedingInference(currentActualParam)) {
-          // infer the type of the method call based on the assignment context
-          // and the formal parameter type
-          actualParameterType =
-              inferGenericMethodCallType(
-                  state, (MethodInvocationTree) currentActualParam, formalParameter, false);
-        }
-        if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
-          reportInvalidParametersNullabilityError(
-              formalParameter, actualParameterType, currentActualParam, state);
-        }
-      }
-    }
+    new InvocationArguments(tree, invokedMethodType.asMethodType())
+        .forEachFast(
+            (currentActualParam, argPos, formalParameter, unused) -> {
+              if (formalParameter.isRaw()) {
+                // bail out of any checking involving raw types for now
+                return;
+              }
+              Type actualParameterType = getTreeType(currentActualParam);
+              if (actualParameterType != null) {
+                if (isGenericCallNeedingInference(currentActualParam)) {
+                  // infer the type of the method call based on the assignment context
+                  // and the formal parameter type
+                  actualParameterType =
+                      inferGenericMethodCallType(
+                          state, (MethodInvocationTree) currentActualParam, formalParameter, false);
+                }
+                if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
+                  reportInvalidParametersNullabilityError(
+                      formalParameter, actualParameterType, currentActualParam, state);
+                }
+              }
+            });
   }
 
   /**
