@@ -37,6 +37,7 @@ import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.InvocationArguments;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -911,20 +912,14 @@ public final class GenericsChecks {
           substituteTypeArgsInGenericMethodType(tree, (Type.ForAll) invokedMethodType, state);
     }
 
-    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
-    int n = formalParamTypes.size();
-    if (isVarArgs) {
-      // If the last argument is var args, don't check it now, it will be checked against
-      // all remaining actual arguments in the next loop.
-      n = n - 1;
-    }
-    for (int i = 0; i < n; i++) {
-      Type formalParameter = formalParamTypes.get(i);
+    for (InvocationArguments.ArgumentInfo argInfo :
+        new InvocationArguments(tree, invokedMethodType.asMethodType())) {
+      Type formalParameter = argInfo.getFormalParamType();
       if (formalParameter.isRaw()) {
         // bail out of any checking involving raw types for now
-        return;
+        continue;
       }
-      ExpressionTree currentActualParam = actualParams.get(i);
+      ExpressionTree currentActualParam = argInfo.getArgTree();
       Type actualParameterType = getTreeType(currentActualParam);
       if (actualParameterType != null) {
         if (isGenericCallNeedingInference(currentActualParam)) {
@@ -937,25 +932,6 @@ public final class GenericsChecks {
         if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
           reportInvalidParametersNullabilityError(
               formalParameter, actualParameterType, currentActualParam, state);
-        }
-      }
-    }
-    if (isVarArgs && !formalParamTypes.isEmpty() && NullabilityUtil.isVarArgsCall(tree)) {
-      Type varargsElementType =
-          ((Type.ArrayType) formalParamTypes.get(formalParamTypes.size() - 1)).elemtype;
-      for (int i = formalParamTypes.size() - 1; i < actualParams.size(); i++) {
-        ExpressionTree actualParamExpr = actualParams.get(i);
-        Type actualParameterType = getTreeType(actualParamExpr);
-        if (actualParameterType != null) {
-          if (isGenericCallNeedingInference(actualParamExpr)) {
-            actualParameterType =
-                inferGenericMethodCallType(
-                    state, (MethodInvocationTree) actualParamExpr, varargsElementType, false);
-          }
-          if (!subtypeParameterNullability(varargsElementType, actualParameterType, state)) {
-            reportInvalidParametersNullabilityError(
-                varargsElementType, actualParameterType, actualParamExpr, state);
-          }
         }
       }
     }
