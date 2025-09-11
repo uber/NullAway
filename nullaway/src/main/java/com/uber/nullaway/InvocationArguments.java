@@ -87,11 +87,12 @@ public class InvocationArguments {
       return;
     }
     if (varArgsPassedIndividually) {
+      Type varArgsComponentType = castToNonNull(this.varArgsComponentType);
       for (int i = 0; i < numArgsPassed; i++) {
         if (i < varArgsIndex) {
           consumer.accept(argsArr[i], i, paramTypesArr[i], false);
         } else {
-          consumer.accept(argsArr[i], i, castToNonNull(this.varArgsComponentType), false);
+          consumer.accept(argsArr[i], i, varArgsComponentType, false);
         }
       }
     } else {
