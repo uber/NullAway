@@ -1977,7 +1977,7 @@ public class NullAway extends BugChecker
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
     new InvocationArguments(tree, methodSymbol.type.asMethodType())
-        .forEachFast(
+        .forEach(
             (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
               if (argPos >= formalParams.size()) {
                 // extra varargs argument; nullness info stored in last position

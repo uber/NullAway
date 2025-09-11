@@ -13,6 +13,10 @@ import com.sun.tools.javac.code.Type;
 import java.util.List;
 import org.jspecify.annotations.Nullable;
 
+/**
+ * Utility class to encapsulate details of operating on all method/constructor invocation arguments,
+ * including handling of varargs.
+ */
 public class InvocationArguments {
 
   // Cached args as array to avoid O(n) indexed access on javac lists
@@ -29,6 +33,12 @@ public class InvocationArguments {
   private final Type.@Nullable ArrayType varArgsArrayType; // null when not varargs
   private final @Nullable Type varArgsComponentType; // null when not varargs
 
+  /**
+   * Construct an InvocationArguments instance for the given invocation tree and method type.
+   *
+   * @param invocationTree the invocation tree (method call or constructor call)
+   * @param invokedMethodType the method type of the invoked method/constructor
+   */
   public InvocationArguments(Tree invocationTree, Type.MethodType invokedMethodType) {
     Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(invocationTree);
     checkNotNull(methodSymbol, "Expected method symbol for invocation tree");
@@ -64,7 +74,12 @@ public class InvocationArguments {
     }
   }
 
-  public void forEachFast(ArgConsumer consumer) {
+  /**
+   * Apply the given {@link ArgConsumer} to information about each argument
+   *
+   * @param consumer the consumer to apply
+   */
+  public void forEach(ArgConsumer consumer) {
     if (!isVarArgs) {
       for (int i = 0; i < numArgsPassed; i++) {
         consumer.accept(argsArr[i], i, paramTypesArr[i], false);
@@ -91,8 +106,19 @@ public class InvocationArguments {
     }
   }
 
+  /** Consumer type for information about each passed argument */
   @FunctionalInterface
   public interface ArgConsumer {
+
+    /**
+     * Process information about a passed argument
+     *
+     * @param argTree the argument expression tree
+     * @param argPos the argument position (0-based)
+     * @param formalParamType the formal parameter type for this argument
+     * @param varArgsPassedAsArray true if this argument corresponds to an array passed in the
+     *     varargs position (i.e., the array holds the individual varargs values)
+     */
     void accept(
         ExpressionTree argTree, int argPos, Type formalParamType, boolean varArgsPassedAsArray);
   }

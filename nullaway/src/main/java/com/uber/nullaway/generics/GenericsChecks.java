@@ -634,7 +634,7 @@ public final class GenericsChecks {
         methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     // then, handle parameters
     new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
-        .forEachFast(
+        .forEach(
             (argument, argPos, formalParamType, unused) -> {
               generateConstraintsForParam(solver, allInvocations, argument, formalParamType);
             });
@@ -890,7 +890,7 @@ public final class GenericsChecks {
     }
 
     new InvocationArguments(tree, invokedMethodType.asMethodType())
-        .forEachFast(
+        .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
               if (formalParameter.isRaw()) {
                 // bail out of any checking involving raw types for now
