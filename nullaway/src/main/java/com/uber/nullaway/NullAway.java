@@ -1979,13 +1979,13 @@ public class NullAway extends BugChecker
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
     for (InvocationArguments.ArgumentInfo argInfo :
-        new InvocationArguments(tree, (Type.MethodType) methodSymbol.type)) {
+        new InvocationArguments(tree, methodSymbol.type.asMethodType())) {
       int argPos = argInfo.getArgPos();
-      boolean varargPosition = varArgsMethod && argPos == formalParams.size() - 1;
-      boolean argIsNonNull = Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos]);
-      if (!varargPosition && !argIsNonNull) {
-        continue;
+      if (argPos >= formalParams.size()) {
+        // extra varargs argument; nullness info stored in last position
+        argPos = argumentPositionNullness.length - 1;
       }
+      boolean argIsNonNull = Objects.equals(Nullness.NONNULL, argumentPositionNullness[argPos]);
       ExpressionTree actual = argInfo.getArgTree();
       boolean mayActualBeNull = false;
       if (argInfo.isVarArgsPassedAsArray()) {
@@ -2008,6 +2008,7 @@ public class NullAway extends BugChecker
         }
       } else {
         if (!argIsNonNull) {
+          // argument can be @Nullable, so nothing to check
           continue;
         }
         mayActualBeNull = mayBeNullExpr(state, actual);
@@ -2023,81 +2024,6 @@ public class NullAway extends BugChecker
                 errorMessage, actual, buildDescription(actual), state, formalParams.get(argPos)));
       }
     }
-    //    for (int argPos = 0; argPos < argumentPositionNullness.length; argPos++) {
-    //      boolean varargPosition = varArgsMethod && argPos == formalParams.size() - 1;
-    //      boolean argIsNonNull = Objects.equals(Nullness.NONNULL,
-    // argumentPositionNullness[argPos]);
-    //      if (!varargPosition && !argIsNonNull) {
-    //        continue;
-    //      }
-    //      ExpressionTree actual;
-    //      boolean mayActualBeNull = false;
-    //      if (varargPosition) {
-    //        // Check all vararg actual arguments for nullability
-    //        // This is the case where no actual parameter is passed for the var args parameter
-    //        // (i.e. it defaults to an empty array)
-    //        if (actualParams.size() <= argPos) {
-    //          continue;
-    //        }
-    //        actual = actualParams.get(argPos);
-    //        VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
-    //        boolean isVarArgsCall = NullabilityUtil.isVarArgsCall(tree);
-    //        if (isVarArgsCall) {
-    //          // This is the case were varargs are being passed individually, as 1 or more actual
-    //          // arguments starting at the position of the var args formal.
-    //          // If the formal var args accepts `@Nullable`, then there is nothing for us to
-    // check.
-    //          if (!argIsNonNull) {
-    //            continue;
-    //          }
-    //          // TODO report all varargs errors in a single build; this code only reports the
-    // first
-    //          //  error
-    //          for (ExpressionTree arg : actualParams.subList(argPos, actualParams.size())) {
-    //            actual = arg;
-    //            mayActualBeNull = mayBeNullExpr(state, actual);
-    //            if (mayActualBeNull) {
-    //              break;
-    //            }
-    //          }
-    //        } else {
-    //          // This is the case where an array is explicitly passed in the position of the var
-    // args
-    //          // parameter
-    //          // Only check for a nullable varargs array if the method is annotated, or a @NonNull
-    //          // restrictive annotation is present in legacy mode (as previously the annotation
-    // was
-    //          // applied to both the array itself and the elements), or a JetBrains @NotNull
-    // declaration
-    //          // annotation is present (due to https://github.com/uber/NullAway/issues/720)
-    //          boolean checkForNullableVarargsArray =
-    //              isMethodAnnotated
-    //                  || (config.isLegacyAnnotationLocation() && argIsNonNull)
-    //                  ||
-    // NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
-    //          if (checkForNullableVarargsArray) {
-    //            // If varargs array itself is not @Nullable, cannot pass @Nullable array
-    //            if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
-    //              mayActualBeNull = mayBeNullExpr(state, actual);
-    //            }
-    //          }
-    //        }
-    //      } else { // not the vararg position
-    //        actual = actualParams.get(argPos);
-    //        mayActualBeNull = mayBeNullExpr(state, actual);
-    //      }
-    //      if (mayActualBeNull) {
-    //        String message =
-    //            "passing @Nullable parameter '"
-    //                + state.getSourceForNode(actual)
-    //                + "' where @NonNull is required";
-    //        ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
-    //        state.reportMatch(
-    //            errorBuilder.createErrorDescriptionForNullAssignment(
-    //                errorMessage, actual, buildDescription(actual), state,
-    // formalParams.get(argPos)));
-    //      }
-    //    }
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
   }
