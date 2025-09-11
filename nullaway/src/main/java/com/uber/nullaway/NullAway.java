@@ -1961,8 +1961,7 @@ public class NullAway extends BugChecker
         }
       }
       if (config.isJSpecifyMode()) {
-        genericsChecks.compareGenericTypeParameterNullabilityForCall(
-            methodSymbol, tree, actualParams, state);
+        genericsChecks.compareGenericTypeParameterNullabilityForCall(methodSymbol, tree, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
           genericsChecks.checkGenericMethodCallTypeArguments(tree, state);
         }

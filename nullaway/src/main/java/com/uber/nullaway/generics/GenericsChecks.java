@@ -869,14 +869,10 @@ public final class GenericsChecks {
    *
    * @param methodSymbol the symbol for the method being called
    * @param tree the tree representing the method call
-   * @param actualParams the actual parameters at the call
    * @param state the visitor state
    */
   public void compareGenericTypeParameterNullabilityForCall(
-      Symbol.MethodSymbol methodSymbol,
-      Tree tree,
-      List<? extends ExpressionTree> actualParams,
-      VisitorState state) {
+      Symbol.MethodSymbol methodSymbol, Tree tree, VisitorState state) {
     Config config = analysis.getConfig();
     if (!config.isJSpecifyMode()) {
       return;
