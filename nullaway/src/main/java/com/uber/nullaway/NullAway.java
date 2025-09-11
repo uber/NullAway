@@ -1920,7 +1920,6 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
-    boolean varArgsMethod = methodSymbol.isVarArgs();
 
     // always do unboxing checks, whether or not the invoked method is annotated
     for (int i = 0; i < formalParams.size() && i < actualParams.size(); i++) {
@@ -1963,7 +1962,7 @@ public class NullAway extends BugChecker
       }
       if (config.isJSpecifyMode()) {
         genericsChecks.compareGenericTypeParameterNullabilityForCall(
-            methodSymbol, tree, actualParams, varArgsMethod, state);
+            methodSymbol, tree, actualParams, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
           genericsChecks.checkGenericMethodCallTypeArguments(tree, state);
         }

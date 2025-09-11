@@ -39,7 +39,6 @@ import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.InvocationArguments;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.handlers.Handler;
@@ -634,26 +633,11 @@ public final class GenericsChecks {
     solver.addSubtypeConstraint(
         methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     // then, handle parameters
-    List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
-    List<Symbol.VarSymbol> formalParams = methodSymbol.getParameters();
-    boolean isVarArgs = methodSymbol.isVarArgs();
-    int numNonVarargsParams = isVarArgs ? formalParams.size() - 1 : formalParams.size();
-    for (int i = 0; i < numNonVarargsParams; i++) {
-      ExpressionTree argument = arguments.get(i);
-      Symbol.VarSymbol formalParam = formalParams.get(i);
-      Type formalParamType = formalParam.type;
+    for (InvocationArguments.ArgumentInfo argInfo :
+        new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())) {
+      ExpressionTree argument = argInfo.getArgTree();
+      Type formalParamType = argInfo.getFormalParamType();
       generateConstraintsForParam(solver, allInvocations, argument, formalParamType);
-    }
-    if (isVarArgs
-        && !formalParams.isEmpty()
-        && NullabilityUtil.isVarArgsCall(methodInvocationTree)) {
-      Symbol.VarSymbol varargsFormalParam = formalParams.get(formalParams.size() - 1);
-      Type.ArrayType varargsArrayType = (Type.ArrayType) varargsFormalParam.type;
-      Type varargsElementType = varargsArrayType.elemtype;
-      for (int i = formalParams.size() - 1; i < arguments.size(); i++) {
-        ExpressionTree argument = arguments.get(i);
-        generateConstraintsForParam(solver, allInvocations, argument, varargsElementType);
-      }
     }
   }
 
@@ -886,14 +870,12 @@ public final class GenericsChecks {
    * @param methodSymbol the symbol for the method being called
    * @param tree the tree representing the method call
    * @param actualParams the actual parameters at the call
-   * @param isVarArgs true if the call is to a varargs method
    * @param state the visitor state
    */
   public void compareGenericTypeParameterNullabilityForCall(
       Symbol.MethodSymbol methodSymbol,
       Tree tree,
       List<? extends ExpressionTree> actualParams,
-      boolean isVarArgs,
       VisitorState state) {
     Config config = analysis.getConfig();
     if (!config.isJSpecifyMode()) {
