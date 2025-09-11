@@ -820,7 +820,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    Foo<String> foo3 = make(\"hello\", null, \"world\");",
             "    Foo<@Nullable String> foo4 = make(\"hello\", \"world\");",
             "    Foo<@Nullable String> foo5 = make(\"hello\", \"world\", makeStr(null));",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'makeStr(null)' where @NonNull is required",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "    Foo<String> foo6 = make(\"hello\", \"world\", makeStr(null));",
             "    // Inference from assignment context only (no args)",
             "    Foo<String> foo7 = make();",
