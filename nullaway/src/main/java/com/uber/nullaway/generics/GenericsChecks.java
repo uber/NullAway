@@ -1147,9 +1147,14 @@ public final class GenericsChecks {
         //            methodType.getReturnType(),
         //            state.getSourceForNode(tree));
         MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
-        Type typeFromAssignmentContext =
+        InvocationAndType invocationAndType =
             path == null ? null : getTypeFromAssignmentContext(path, state);
-        result = runInferenceForCall(state, invocationTree, typeFromAssignmentContext, false);
+        result =
+            runInferenceForCall(
+                state,
+                invocationAndType.invocation,
+                invocationAndType.typeFromAssignmentContext,
+                false);
       }
       if (result instanceof InferenceSuccess) {
         Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
@@ -1161,50 +1166,67 @@ public final class GenericsChecks {
         state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
   }
 
-  private Type getTypeFromAssignmentContext(@Nullable TreePath path, VisitorState state) {
+  private static final class InvocationAndType {
+    final MethodInvocationTree invocation;
+    final Type typeFromAssignmentContext;
+
+    InvocationAndType(MethodInvocationTree invocation, Type typeFromAssignmentContext) {
+      this.invocation = invocation;
+      this.typeFromAssignmentContext = typeFromAssignmentContext;
+    }
+  }
+
+  private InvocationAndType getTypeFromAssignmentContext(TreePath path, VisitorState state) {
     MethodInvocationTree invocation = (MethodInvocationTree) path.getLeaf();
     TreePath parentPath = path.getParentPath();
-    while (parentPath != null) {
-      Tree parent = parentPath.getLeaf();
-      if (parent instanceof AssignmentTree) {
-        AssignmentTree assignment = (AssignmentTree) parent;
-        if (assignment.getExpression() == invocation) {
-          return getTreeType(assignment.getVariable());
-        }
-      } else if (parent instanceof VariableTree) {
-        VariableTree variable = (VariableTree) parent;
-        if (variable.getInitializer() == invocation) {
-          return variable.getType() == null ? null : typeWithPreservedAnnotations(variable);
-        }
-      } else if (parent instanceof ReturnTree) {
-        // find the enclosing method and return its return type
-        MethodTree enclosingMethod = ASTHelpers.findEnclosingNode(parentPath, MethodTree.class);
-        if (enclosingMethod != null) {
-          Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
-          if (methodSymbol != null) {
-            return methodSymbol.getReturnType();
-          }
-        }
-      } else if (parent instanceof ExpressionTree) {
-        // could be a parameter to another method call, or part of a conditional expression, etc.
-        // in any case, just return the type of the parent expression
-        ExpressionTree exprParent = (ExpressionTree) parent;
-        if (exprParent instanceof MethodInvocationTree) {
-          MethodInvocationTree parentInvocation = (MethodInvocationTree) exprParent;
-          for (ExpressionTree arg : parentInvocation.getArguments()) {
-            if (arg == invocation) {
-              return getTreeType(parentInvocation);
-            }
-          }
-        } else if (exprParent instanceof ConditionalExpressionTree) {
-          ConditionalExpressionTree condExpr = (ConditionalExpressionTree) exprParent;
-          if (condExpr.getTrueExpression() == invocation
-              || condExpr.getFalseExpression() == invocation) {
-            return getConditionalExpressionType(condExpr, state);
-          }
+    Tree parent = parentPath.getLeaf();
+    while (parent instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+      parent = parentPath.getLeaf();
+    }
+    if (parent instanceof AssignmentTree) {
+      AssignmentTree assignment = (AssignmentTree) parent;
+      if (assignment.getExpression() == invocation) {
+        return new InvocationAndType(invocation, getTreeType(assignment));
+      }
+    } else if (parent instanceof VariableTree) {
+      VariableTree variable = (VariableTree) parent;
+      if (variable.getInitializer() == invocation) {
+        return new InvocationAndType(invocation, getTreeType(variable));
+      }
+    } else if (parent instanceof ReturnTree) {
+      // find the enclosing method and return its return type
+      TreePath enclosingMethodOrLambda =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
+      // TODO handle lambdas
+      if (enclosingMethodOrLambda.getLeaf() instanceof MethodTree) {
+        MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
+        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
+        if (methodSymbol != null) {
+          return new InvocationAndType(invocation, methodSymbol.getReturnType());
         }
       }
-      parentPath = parentPath.getParentPath();
+    } else if (parent instanceof ExpressionTree) {
+      // could be a parameter to another method call, or part of a conditional expression, etc.
+      // in any case, just return the type of the parent expression
+      ExpressionTree exprParent = (ExpressionTree) parent;
+      if (exprParent instanceof MethodInvocationTree) {
+        MethodInvocationTree parentInvocation = (MethodInvocationTree) exprParent;
+        if (isGenericCallNeedingInference(parentInvocation)) {
+          return getTypeFromAssignmentContext(parentPath, state);
+        }
+        for (ExpressionTree arg : parentInvocation.getArguments()) {
+          if (arg == invocation) {
+            return getTreeType(parentInvocation);
+          }
+        }
+      } else if (exprParent instanceof ConditionalExpressionTree) {
+        ConditionalExpressionTree condExpr = (ConditionalExpressionTree) exprParent;
+        if (condExpr.getTrueExpression() == invocation
+            || condExpr.getFalseExpression() == invocation) {
+          return getConditionalExpressionType(condExpr, state);
+        }
+      }
     }
     return null;
   }
