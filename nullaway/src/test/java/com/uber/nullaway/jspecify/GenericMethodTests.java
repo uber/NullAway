@@ -830,6 +830,27 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsInferencePassingArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static class Foo<T extends @Nullable Object> {}",
+            "    public static <U extends @Nullable Object> Foo<U> make(U... args) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "    Foo<String> foo1 = make(new String[] { \"hello\", \"world\" });",
+            "    Foo<@Nullable String> foo2 = make(new @Nullable String[] { \"hello\", null, \"world\" });",
+            "    // BUG: Diagnostic contains: incompatible types:",
+            "    Foo<String> foo3 = make(new @Nullable String[] { \"hello\", null, \"world\" });",
+            "    Foo<@Nullable String> foo4 = make(new String[] { \"hello\", \"world\" });",
+            "}")
+        .doTest();
+  }
+
   @Ignore("need better handling of lambdas")
   @Test
   public void supplierLambdaInference() {

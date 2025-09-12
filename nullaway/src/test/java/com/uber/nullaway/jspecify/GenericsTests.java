@@ -1013,6 +1013,29 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsPassedAsArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static A<@Nullable String> sampleMethodWithVarArgs(A<String>... args) {",
+            "     return new A<@Nullable String>();",
+            "  }",
+            "  static void testPositive(A<@Nullable String>[] arr) {",
+            "     // BUG: Diagnostic contains: incompatible types:",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(arr);",
+            "  }",
+            "  static void testNegative(A<String>[] arr) {",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(arr);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   /**
    * Currently this test is solely to ensure NullAway does not crash in the presence of raw types.
    * Further study of the JSpecify documents is needed to determine whether any errors should be

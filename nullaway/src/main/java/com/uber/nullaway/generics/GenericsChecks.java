@@ -37,8 +37,8 @@ import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.InvocationArguments;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.handlers.Handler;
@@ -633,27 +633,11 @@ public final class GenericsChecks {
     solver.addSubtypeConstraint(
         methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     // then, handle parameters
-    List<? extends ExpressionTree> arguments = methodInvocationTree.getArguments();
-    List<Symbol.VarSymbol> formalParams = methodSymbol.getParameters();
-    boolean isVarArgs = methodSymbol.isVarArgs();
-    int numNonVarargsParams = isVarArgs ? formalParams.size() - 1 : formalParams.size();
-    for (int i = 0; i < numNonVarargsParams; i++) {
-      ExpressionTree argument = arguments.get(i);
-      Symbol.VarSymbol formalParam = formalParams.get(i);
-      Type formalParamType = formalParam.type;
-      generateConstraintsForParam(solver, allInvocations, argument, formalParamType);
-    }
-    if (isVarArgs
-        && !formalParams.isEmpty()
-        && NullabilityUtil.isVarArgsCall(methodInvocationTree)) {
-      Symbol.VarSymbol varargsFormalParam = formalParams.get(formalParams.size() - 1);
-      Type.ArrayType varargsArrayType = (Type.ArrayType) varargsFormalParam.type;
-      Type varargsElementType = varargsArrayType.elemtype;
-      for (int i = formalParams.size() - 1; i < arguments.size(); i++) {
-        ExpressionTree argument = arguments.get(i);
-        generateConstraintsForParam(solver, allInvocations, argument, varargsElementType);
-      }
-    }
+    new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
+        .forEach(
+            (argument, argPos, formalParamType, unused) -> {
+              generateConstraintsForParam(solver, allInvocations, argument, formalParamType);
+            });
   }
 
   private void generateConstraintsForParam(
@@ -884,16 +868,10 @@ public final class GenericsChecks {
    *
    * @param methodSymbol the symbol for the method being called
    * @param tree the tree representing the method call
-   * @param actualParams the actual parameters at the call
-   * @param isVarArgs true if the call is to a varargs method
    * @param state the visitor state
    */
   public void compareGenericTypeParameterNullabilityForCall(
-      Symbol.MethodSymbol methodSymbol,
-      Tree tree,
-      List<? extends ExpressionTree> actualParams,
-      boolean isVarArgs,
-      VisitorState state) {
+      Symbol.MethodSymbol methodSymbol, Tree tree, VisitorState state) {
     Config config = analysis.getConfig();
     if (!config.isJSpecifyMode()) {
       return;
@@ -911,54 +889,28 @@ public final class GenericsChecks {
           substituteTypeArgsInGenericMethodType(tree, (Type.ForAll) invokedMethodType, state);
     }
 
-    List<Type> formalParamTypes = invokedMethodType.getParameterTypes();
-    int n = formalParamTypes.size();
-    if (isVarArgs) {
-      // If the last argument is var args, don't check it now, it will be checked against
-      // all remaining actual arguments in the next loop.
-      n = n - 1;
-    }
-    for (int i = 0; i < n; i++) {
-      Type formalParameter = formalParamTypes.get(i);
-      if (formalParameter.isRaw()) {
-        // bail out of any checking involving raw types for now
-        return;
-      }
-      ExpressionTree currentActualParam = actualParams.get(i);
-      Type actualParameterType = getTreeType(currentActualParam);
-      if (actualParameterType != null) {
-        if (isGenericCallNeedingInference(currentActualParam)) {
-          // infer the type of the method call based on the assignment context
-          // and the formal parameter type
-          actualParameterType =
-              inferGenericMethodCallType(
-                  state, (MethodInvocationTree) currentActualParam, formalParameter, false);
-        }
-        if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
-          reportInvalidParametersNullabilityError(
-              formalParameter, actualParameterType, currentActualParam, state);
-        }
-      }
-    }
-    if (isVarArgs && !formalParamTypes.isEmpty() && NullabilityUtil.isVarArgsCall(tree)) {
-      Type varargsElementType =
-          ((Type.ArrayType) formalParamTypes.get(formalParamTypes.size() - 1)).elemtype;
-      for (int i = formalParamTypes.size() - 1; i < actualParams.size(); i++) {
-        ExpressionTree actualParamExpr = actualParams.get(i);
-        Type actualParameterType = getTreeType(actualParamExpr);
-        if (actualParameterType != null) {
-          if (isGenericCallNeedingInference(actualParamExpr)) {
-            actualParameterType =
-                inferGenericMethodCallType(
-                    state, (MethodInvocationTree) actualParamExpr, varargsElementType, false);
-          }
-          if (!subtypeParameterNullability(varargsElementType, actualParameterType, state)) {
-            reportInvalidParametersNullabilityError(
-                varargsElementType, actualParameterType, actualParamExpr, state);
-          }
-        }
-      }
-    }
+    new InvocationArguments(tree, invokedMethodType.asMethodType())
+        .forEach(
+            (currentActualParam, argPos, formalParameter, unused) -> {
+              if (formalParameter.isRaw()) {
+                // bail out of any checking involving raw types for now
+                return;
+              }
+              Type actualParameterType = getTreeType(currentActualParam);
+              if (actualParameterType != null) {
+                if (isGenericCallNeedingInference(currentActualParam)) {
+                  // infer the type of the method call based on the assignment context
+                  // and the formal parameter type
+                  actualParameterType =
+                      inferGenericMethodCallType(
+                          state, (MethodInvocationTree) currentActualParam, formalParameter, false);
+                }
+                if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
+                  reportInvalidParametersNullabilityError(
+                      formalParameter, actualParameterType, currentActualParam, state);
+                }
+              }
+            });
   }
 
   /**
