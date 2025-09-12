@@ -676,7 +676,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   public void unboxForEachLoop() {
     makeHelper()
         .addSourceLines(
-            "Outer.java",
+            "Test.java",
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "class Test {",
@@ -692,7 +692,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   public void unboxForEachLoopNonNull() {
     makeHelper()
         .addSourceLines(
-            "Outer.java",
+            "Test.java",
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "class Test {",
