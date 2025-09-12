@@ -672,6 +672,37 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void unboxForEachLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Outer.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "   void f(@Nullable Integer[] array) {",
+            "   // BUG: Diagnostic contains:unboxing of a @Nullable value",
+            "     for (int x : array) {}",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void unboxForEachLoopNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Outer.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "   void f(Integer[] array) {",
+            "     for (int x : array) {}",
+            "   }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

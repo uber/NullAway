@@ -23,7 +23,6 @@
 package com.uber.nullaway;
 
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -1152,40 +1151,6 @@ public class CoreTests extends NullAwayTestsBase {
             "        // BUG: Diagnostic contains: dereferenced expression outer is @Nullable",
             "        return outer.new Inner() {};",
             "    }",
-            "}")
-        .doTest();
-  }
-
-  //  @Ignore
-  @Test
-  public void unboxForEachLoop() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Outer.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "   void f(@Nullable Integer[] array) {",
-            "   // BUG: Diagnostic contains:unboxing of a @Nullable value",
-            "     for (int x : array) {}",
-            "   }",
-            "}")
-        .doTest();
-  }
-
-  @Ignore
-  @Test
-  public void unboxForEachLoopIterable() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.List;",
-            "@NullMarked",
-            "class Test {",
-            "   void f(List<@Nullable Integer> numbers) {",
-            "     for (int x : numbers) {}",
-            "   }",
             "}")
         .doTest();
   }

@@ -1852,7 +1852,11 @@ public class NullAway extends BugChecker
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
     }
-    // auto-unboxing check
+    // auto-unboxing check in JSpecify mode
+    if (!config.isJSpecifyMode()) {
+      return Description.NO_MATCH;
+    }
+
     VariableTree loopVariable = tree.getVariable();
     Type loopVariableType = ASTHelpers.getType(loopVariable);
     // Only relevant when the loop variable is a primitive (implies unboxing of elements).
@@ -1860,20 +1864,16 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Type expressionType = ASTHelpers.getType(expr);
-    boolean isElementNullable = false;
     if (expressionType != null && expressionType.getKind() == TypeKind.ARRAY) {
       Symbol arraySymbol = ASTHelpers.getSymbol(expr);
       if (arraySymbol != null && isArrayElementNullable(arraySymbol, config)) {
-        isElementNullable = true;
+        // A nullable element is being unboxed to a primitive. This is unsafe.
+        ErrorMessage errorMessageUnbox =
+            new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
+        state.reportMatch(
+            errorBuilder.createErrorDescription(
+                errorMessageUnbox, buildDescription(loopVariable), state, null));
       }
-    }
-    if (isElementNullable) {
-      // A nullable element is being unboxed to a primitive. This is unsafe.
-      ErrorMessage errorMessageUnbox =
-          new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
-      state.reportMatch(
-          errorBuilder.createErrorDescription(
-              errorMessageUnbox, buildDescription(loopVariable), state, null));
     }
 
     return Description.NO_MATCH;
