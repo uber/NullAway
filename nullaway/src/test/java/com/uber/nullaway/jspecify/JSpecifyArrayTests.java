@@ -681,7 +681,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "@NullMarked",
             "class Test {",
             "   void f(@Nullable Integer[] array) {",
-            "   // BUG: Diagnostic contains:unboxing of a @Nullable value",
+            "     // BUG: Diagnostic contains: unboxing of a @Nullable value",
             "     for (int x : array) {}",
             "   }",
             "}")
