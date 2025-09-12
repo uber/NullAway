@@ -1154,4 +1154,50 @@ public class CoreTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void recordNullableTest() {
+    String generatedRecordCode =
+        (Double.parseDouble(System.getProperty("java.specification.version")) >= 16)
+            ? "record TestRecord(@Nullable String a, @Nullable String b) {"
+                + "    @Override public String a() {"
+                + "        return Objects.requireNonNull(a);"
+                + "    }"
+                + "}"
+            :
+            // Records not supported in java<16, generate a passing test
+            "class TestRecord  {"
+                + "    @Nullable private final String a;"
+                + "    @Nullable private final String b;"
+                + "    TestRecord(@Nullable String a, @Nullable String b) {"
+                + "        this.a = a;"
+                + "        this.b = b;"
+                + "    }"
+                + "    public String a() {"
+                + "        return Objects.requireNonNull(a);"
+                + "    }"
+                + "    @Nullable public String b() {"
+                + "        return b;"
+                + "    }"
+                + "}";
+    defaultCompilationHelper
+        .addSourceLines(
+            "Record.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import org.jspecify.annotations.Nullable;",
+            generatedRecordCode)
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "class Test {",
+            "    static TestRecord t = new TestRecord(null, null);",
+            "    static void foo() {",
+            "        t.a().hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression t.b() is @Nullable",
+            "        t.b().hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
 }
