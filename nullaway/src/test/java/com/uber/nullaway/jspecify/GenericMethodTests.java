@@ -842,12 +842,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    public static <U extends @Nullable Object> Foo<U> make(U... args) {",
             "      throw new RuntimeException();",
             "    }",
-            "    static <V extends @Nullable String> V makeStr(V v) {",
-            "      return v;",
-            "    }",
             "    Foo<String> foo1 = make(new String[] { \"hello\", \"world\" });",
             "    Foo<@Nullable String> foo2 = make(new @Nullable String[] { \"hello\", null, \"world\" });",
-            "    // BUG: Diagnostic contains: incompatible types",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    Foo<String> foo3 = make(new @Nullable String[] { \"hello\", null, \"world\" });",
             "    Foo<@Nullable String> foo4 = make(new String[] { \"hello\", \"world\" });",
             "}")

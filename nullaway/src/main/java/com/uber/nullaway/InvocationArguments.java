@@ -50,7 +50,8 @@ public class InvocationArguments {
     } else if (invocationTree instanceof NewClassTree) {
       argsList = ((NewClassTree) invocationTree).getArguments();
     } else {
-      throw new IllegalStateException("Unexpected invocation tree type");
+      throw new IllegalStateException(
+          "Unexpected invocation tree type " + invocationTree.getClass());
     }
     this.argsArr = argsList.toArray(new ExpressionTree[argsList.size()]);
     this.numArgsPassed = argsArr.length;

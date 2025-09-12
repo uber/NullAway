@@ -1921,12 +1921,14 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
+    InvocationArguments invArgs = new InvocationArguments(tree, methodSymbol.type.asMethodType());
     // always do unboxing checks, whether or not the invoked method is annotated
-    for (int i = 0; i < formalParams.size() && i < actualParams.size(); i++) {
-      if (formalParams.get(i).type.isPrimitive()) {
-        doUnboxingCheck(state, actualParams.get(i));
-      }
-    }
+    invArgs.forEach(
+        (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
+          if (formalParamType.isPrimitive()) {
+            doUnboxingCheck(state, actual);
+          }
+        });
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
     // If argumentPositionNullness[i] == null, parameter i is unannotated
@@ -1976,58 +1978,56 @@ public class NullAway extends BugChecker
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
-    new InvocationArguments(tree, methodSymbol.type.asMethodType())
-        .forEach(
-            (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
-              if (argPos >= formalParams.size()) {
-                // extra varargs argument; nullness info stored in last position
-                argPos = finalArgumentPositionNullness.length - 1;
-              }
-              boolean argIsNonNull =
-                  Objects.equals(Nullness.NONNULL, finalArgumentPositionNullness[argPos]);
-              boolean mayActualBeNull = false;
-              if (varArgsPassedAsArray) {
-                // This is the case where an array is explicitly passed in the position of the
-                // varargs parameter
-                // Only check for a nullable varargs array if the method is annotated, or a @NonNull
-                // restrictive annotation is present in legacy mode (as previously the annotation
-                // was applied to both the array itself and the elements), or a JetBrains @NotNull
-                // declaration annotation is present (due to
-                // https://github.com/uber/NullAway/issues/720)
-                VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
-                boolean checkForNullableVarargsArray =
-                    isMethodAnnotated
-                        || (config.isLegacyAnnotationLocation() && argIsNonNull)
-                        || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(
-                            formalParamSymbol);
-                if (checkForNullableVarargsArray) {
-                  // If varargs array itself is not @Nullable, cannot pass @Nullable array
-                  if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
-                    mayActualBeNull = mayBeNullExpr(state, actual);
-                  }
-                }
-              } else {
-                if (!argIsNonNull) {
-                  // argument can be @Nullable, so nothing to check
-                  return;
-                }
+    invArgs.forEach(
+        (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
+          if (argPos >= formalParams.size()) {
+            // extra varargs argument; nullness info stored in last position
+            argPos = finalArgumentPositionNullness.length - 1;
+          }
+          boolean argIsNonNull =
+              Objects.equals(Nullness.NONNULL, finalArgumentPositionNullness[argPos]);
+          boolean mayActualBeNull = false;
+          if (varArgsPassedAsArray) {
+            // This is the case where an array is explicitly passed in the position of the
+            // varargs parameter
+            // Only check for a nullable varargs array if the method is annotated, or a @NonNull
+            // restrictive annotation is present in legacy mode (as previously the annotation
+            // was applied to both the array itself and the elements), or a JetBrains @NotNull
+            // declaration annotation is present (due to
+            // https://github.com/uber/NullAway/issues/720)
+            VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
+            boolean checkForNullableVarargsArray =
+                isMethodAnnotated
+                    || (config.isLegacyAnnotationLocation() && argIsNonNull)
+                    || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
+            if (checkForNullableVarargsArray) {
+              // If varargs array itself is not @Nullable, cannot pass @Nullable array
+              if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
                 mayActualBeNull = mayBeNullExpr(state, actual);
               }
-              if (mayActualBeNull) {
-                String message =
-                    "passing @Nullable parameter '"
-                        + state.getSourceForNode(actual)
-                        + "' where @NonNull is required";
-                ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
-                state.reportMatch(
-                    errorBuilder.createErrorDescriptionForNullAssignment(
-                        errorMessage,
-                        actual,
-                        buildDescription(actual),
-                        state,
-                        formalParams.get(argPos)));
-              }
-            });
+            }
+          } else {
+            if (!argIsNonNull) {
+              // argument can be @Nullable, so nothing to check
+              return;
+            }
+            mayActualBeNull = mayBeNullExpr(state, actual);
+          }
+          if (mayActualBeNull) {
+            String message =
+                "passing @Nullable parameter '"
+                    + state.getSourceForNode(actual)
+                    + "' where @NonNull is required";
+            ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
+            state.reportMatch(
+                errorBuilder.createErrorDescriptionForNullAssignment(
+                    errorMessage,
+                    actual,
+                    buildDescription(actual),
+                    state,
+                    formalParams.get(argPos)));
+          }
+        });
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
   }
