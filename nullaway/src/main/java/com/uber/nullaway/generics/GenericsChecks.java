@@ -1221,8 +1221,15 @@ public final class GenericsChecks {
           return getTypeFromAssignmentContext(parentPath, state);
         }
         AtomicReference<Type> formalParamTypeRef = new AtomicReference<>();
-        new InvocationArguments(
-                parentInvocation, (Type.MethodType) ASTHelpers.getType(parentInvocation))
+        Type type = ASTHelpers.getSymbol(parentInvocation).type;
+        //        verify(
+        //            type instanceof Type.MethodType,
+        //            "expected MethodType but got %s (%s) for invocation %s (%s)",
+        //            type,
+        //            type.getClass(),
+        //            state.getSourceForNode(parentInvocation),
+        //            parentInvocation);
+        new InvocationArguments(parentInvocation, type.asMethodType())
             .forEach(
                 (arg, pos, formalParamType, unused) -> {
                   if (arg == invocation) {
@@ -1230,12 +1237,10 @@ public final class GenericsChecks {
                   }
                 });
         return new InvocationAndType(
-            parentInvocation, Objects.requireNonNull(formalParamTypeRef.get()));
-        //        for (ExpressionTree arg : parentInvocation.getArguments()) {
-        //          if (arg == invocation) {
-        //            return getTreeType(parentInvocation);
-        //          }
-        //        }
+            parentInvocation,
+            Objects.requireNonNull(
+                formalParamTypeRef.get(),
+                "did not find " + invocation + " as argument of " + parentInvocation));
       } else if (exprParent instanceof ConditionalExpressionTree) {
         // TODO
       }
