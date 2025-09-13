@@ -764,6 +764,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // should infer T -> @NonNull String",
             "    String result2 = firstOrDefault(Collections.singletonList(\"bye\"), \"hello\");",
             "    result2.hashCode();",
+            "    // should infer T -> @Nullable String (testing that inference is called from dataflow)",
+            "    String result3 = firstOrDefault(Collections.singletonList(null), \"hello\");",
+            "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
+            "    result3.hashCode();",
             "  }",
             "}")
         .doTest();
@@ -853,7 +857,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   @Ignore("need better handling of lambdas")
   @Test
   public void supplierLambdaInference() {
-    makeHelper()
+    makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.*;",
@@ -866,7 +870,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    }",
             "    static void test() {",
             "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
-            "        // BUG: Diagnostic contains: Cannot pass parameter",
             "        invoke(() -> null);",
             "        // legal, infers R -> @Nullable Object",
             "        Object x = invokeWithReturn(() -> null);",
@@ -1134,6 +1137,31 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "            Object o = caffeine.build(adapter);",
             "        }",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodCallAsReceiver() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "",
+            "@NullMarked",
+            "public class Test {",
+            "  static <U extends @Nullable Object> U id(U u) {",
+            "    return u;",
+            "  }",
+            "",
+            "  static void test() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    id(y).toString();",
+            "  }",
             "}")
         .doTest();
   }

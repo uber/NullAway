@@ -1192,19 +1192,22 @@ public final class GenericsChecks {
     if (parent instanceof AssignmentTree) {
       AssignmentTree assignment = (AssignmentTree) parent;
       if (assignment.getExpression() == invocation) {
-        return new InvocationAndType(invocation, getTreeType(assignment));
+        Type treeType = getTreeType(assignment);
+        return treeType == null ? null : new InvocationAndType(invocation, treeType);
       }
     } else if (parent instanceof VariableTree) {
       VariableTree variable = (VariableTree) parent;
       if (variable.getInitializer() == invocation) {
-        return new InvocationAndType(invocation, getTreeType(variable));
+        Type treeType = getTreeType(variable);
+        return treeType == null ? null : new InvocationAndType(invocation, treeType);
       }
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
       // TODO handle lambdas
-      if (enclosingMethodOrLambda.getLeaf() instanceof MethodTree) {
+      if (enclosingMethodOrLambda != null
+          && enclosingMethodOrLambda.getLeaf() instanceof MethodTree) {
         MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
@@ -1236,11 +1239,32 @@ public final class GenericsChecks {
                     formalParamTypeRef.set(formalParamType);
                   }
                 });
-        return new InvocationAndType(
-            parentInvocation,
-            Objects.requireNonNull(
-                formalParamTypeRef.get(),
-                "did not find " + invocation + " as argument of " + parentInvocation));
+        Type formalParamType = formalParamTypeRef.get();
+        if (formalParamType == null) {
+          // this can happen if the invocation is the receiver expression of the call
+          ExpressionTree methodSelect =
+              ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
+          if (methodSelect instanceof MemberSelectTree) {
+            MemberSelectTree mst = (MemberSelectTree) methodSelect;
+            if (ASTHelpers.stripParentheses(mst.getExpression()) == invocation) {
+              // the invocation is the receiver expression, so we want the enclosing type of the
+              // parent invocation
+              formalParamType =
+                  getEnclosingTypeForCallExpression(
+                      ASTHelpers.getSymbol(parentInvocation), parentInvocation, state);
+            } else {
+              Verify.verify(
+                  false,
+                  "did not find %s as argument of %s",
+                  state.getSourceForNode(invocation),
+                  state.getSourceForNode(parentInvocation));
+            }
+          }
+        }
+        return formalParamType == null ? null : new InvocationAndType(invocation, formalParamType);
+        //            Objects.requireNonNull(
+        //                formalParamTypeRef.get(),
+        //                "did not find " + invocation + " as argument of " + parentInvocation));
       } else if (exprParent instanceof ConditionalExpressionTree) {
         // TODO
       }
