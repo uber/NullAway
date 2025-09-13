@@ -1141,26 +1141,54 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** various cases where dataflow analysis forces inference to run for a generic method call */
   @Test
-  public void genericMethodCallAsReceiver() {
+  public void inferenceFromDataflow() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.NullMarked;",
             "import org.jspecify.annotations.Nullable;",
-            "",
             "@NullMarked",
             "public class Test {",
             "  static <U extends @Nullable Object> U id(U u) {",
             "    return u;",
             "  }",
-            "",
-            "  static void test() {",
+            "  static void testReceiver() {",
             "    // to ensure that dataflow runs",
             "    Object x = new Object(); x.toString();",
             "    Object y = null;",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
             "    id(y).toString();",
+            "  }",
+            "  static Object testReturn() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    return id(y);",
+            "  }",
+            "  static Object testReturnWithParens() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    return (((id(y))));",
+            "  }",
+            "  static Object testReturnNested() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    return id(id(y));",
+            "  }",
+            "  static void takesNonNull(Object o) {}",
+            "  static void testParam() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    takesNonNull(id(y));",
             "  }",
             "}")
         .doTest();

@@ -1244,13 +1244,6 @@ public final class GenericsChecks {
         }
         AtomicReference<Type> formalParamTypeRef = new AtomicReference<>();
         Type type = ASTHelpers.getSymbol(parentInvocation).type;
-        //        verify(
-        //            type instanceof Type.MethodType,
-        //            "expected MethodType but got %s (%s) for invocation %s (%s)",
-        //            type,
-        //            type.getClass(),
-        //            state.getSourceForNode(parentInvocation),
-        //            parentInvocation);
         new InvocationArguments(parentInvocation, type.asMethodType())
             .forEach(
                 (arg, pos, formalParamType, unused) -> {
