@@ -766,7 +766,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    result2.hashCode();",
             "    // should infer T -> @Nullable String (testing that inference is called from dataflow)",
             "    String result3 = firstOrDefault(Collections.singletonList(null), \"hello\");",
-            "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
+            "    // BUG: Diagnostic contains: dereferenced expression result3 is @Nullable",
             "    result3.hashCode();",
             "  }",
             "}")

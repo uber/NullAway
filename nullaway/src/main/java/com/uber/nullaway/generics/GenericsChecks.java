@@ -468,18 +468,15 @@ public final class GenericsChecks {
       return;
     }
     ExpressionTree rhsTree;
-    boolean assignedToLocal = false;
+    boolean assignedToLocal;
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
-      Symbol treeSymbol = ASTHelpers.getSymbol(tree);
-      assignedToLocal =
-          treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
+      assignedToLocal = isLocalVariableAssignment(varTree);
     } else if (tree instanceof AssignmentTree) {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
-      Symbol varSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
-      assignedToLocal = varSymbol != null && varSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
+      assignedToLocal = isLocalVariableAssignment(assignmentTree);
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
@@ -500,6 +497,19 @@ public final class GenericsChecks {
         reportInvalidAssignmentInstantiationError(tree, lhsType, rhsType, state);
       }
     }
+  }
+
+  private static boolean isLocalVariableAssignment(Tree tree) {
+    Symbol treeSymbol;
+    if (tree instanceof VariableTree) {
+      treeSymbol = ASTHelpers.getSymbol((VariableTree) tree);
+    } else if (tree instanceof AssignmentTree) {
+      AssignmentTree assignmentTree = (AssignmentTree) tree;
+      treeSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
+    } else {
+      throw new RuntimeException("Unexpected tree type: " + tree.getKind());
+    }
+    return treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
   }
 
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
@@ -1149,7 +1159,7 @@ public final class GenericsChecks {
         //            methodType.getReturnType(),
         //            state.getSourceForNode(tree));
         MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
-        InvocationAndType invocationAndType =
+        InvocationInferenceInfo invocationAndType =
             path == null ? null : getTypeFromAssignmentContext(path, state);
         result =
             invocationAndType == null
@@ -1158,7 +1168,7 @@ public final class GenericsChecks {
                     state,
                     invocationAndType.invocation,
                     invocationAndType.typeFromAssignmentContext,
-                    false);
+                    invocationAndType.assignedToLocal);
       }
       if (result instanceof InferenceSuccess) {
         Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
@@ -1170,17 +1180,20 @@ public final class GenericsChecks {
         state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
   }
 
-  private static final class InvocationAndType {
+  private static final class InvocationInferenceInfo {
     final MethodInvocationTree invocation;
     final Type typeFromAssignmentContext;
+    final boolean assignedToLocal;
 
-    InvocationAndType(MethodInvocationTree invocation, Type typeFromAssignmentContext) {
+    InvocationInferenceInfo(
+        MethodInvocationTree invocation, Type typeFromAssignmentContext, boolean assignedToLocal) {
       this.invocation = invocation;
       this.typeFromAssignmentContext = typeFromAssignmentContext;
+      this.assignedToLocal = assignedToLocal;
     }
   }
 
-  private @Nullable InvocationAndType getTypeFromAssignmentContext(
+  private @Nullable InvocationInferenceInfo getTypeFromAssignmentContext(
       TreePath path, VisitorState state) {
     MethodInvocationTree invocation = (MethodInvocationTree) path.getLeaf();
     TreePath parentPath = path.getParentPath();
@@ -1193,13 +1206,19 @@ public final class GenericsChecks {
       AssignmentTree assignment = (AssignmentTree) parent;
       if (assignment.getExpression() == invocation) {
         Type treeType = getTreeType(assignment);
-        return treeType == null ? null : new InvocationAndType(invocation, treeType);
+        return treeType == null
+            ? null
+            : new InvocationInferenceInfo(
+                invocation, treeType, isLocalVariableAssignment(assignment));
       }
     } else if (parent instanceof VariableTree) {
       VariableTree variable = (VariableTree) parent;
       if (variable.getInitializer() == invocation) {
         Type treeType = getTreeType(variable);
-        return treeType == null ? null : new InvocationAndType(invocation, treeType);
+        return treeType == null
+            ? null
+            : new InvocationInferenceInfo(
+                invocation, treeType, isLocalVariableAssignment(variable));
       }
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
@@ -1211,7 +1230,7 @@ public final class GenericsChecks {
         MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new InvocationAndType(invocation, methodSymbol.getReturnType());
+          return new InvocationInferenceInfo(invocation, methodSymbol.getReturnType(), false);
         }
       }
     } else if (parent instanceof ExpressionTree) {
@@ -1261,7 +1280,9 @@ public final class GenericsChecks {
             }
           }
         }
-        return formalParamType == null ? null : new InvocationAndType(invocation, formalParamType);
+        return formalParamType == null
+            ? null
+            : new InvocationInferenceInfo(invocation, formalParamType, false);
         //            Objects.requireNonNull(
         //                formalParamTypeRef.get(),
         //                "did not find " + invocation + " as argument of " + parentInvocation));
