@@ -4,6 +4,7 @@ import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 
+import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -1205,20 +1206,12 @@ public final class GenericsChecks {
     if (parent instanceof AssignmentTree) {
       AssignmentTree assignment = (AssignmentTree) parent;
       if (assignment.getExpression() == invocation) {
-        Type treeType = getTreeType(assignment);
-        return treeType == null
-            ? null
-            : new InvocationInferenceInfo(
-                invocation, treeType, isLocalVariableAssignment(assignment));
+        return getInvocationInferenceInfoForAssignment(assignment, invocation);
       }
     } else if (parent instanceof VariableTree) {
       VariableTree variable = (VariableTree) parent;
       if (variable.getInitializer() == invocation) {
-        Type treeType = getTreeType(variable);
-        return treeType == null
-            ? null
-            : new InvocationInferenceInfo(
-                invocation, treeType, isLocalVariableAssignment(variable));
+        return getInvocationInferenceInfoForAssignment(variable, invocation);
       }
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
@@ -1265,25 +1258,30 @@ public final class GenericsChecks {
                   getEnclosingTypeForCallExpression(
                       ASTHelpers.getSymbol(parentInvocation), parentInvocation, state);
             } else {
-              Verify.verify(
-                  false,
-                  "did not find %s as argument of %s",
-                  state.getSourceForNode(invocation),
-                  state.getSourceForNode(parentInvocation));
+              throw new RuntimeException(
+                  "did not find invocation "
+                      + state.getSourceForNode(invocation)
+                      + " as receiver expression of "
+                      + state.getSourceForNode(parentInvocation));
             }
           }
         }
         return formalParamType == null
             ? null
             : new InvocationInferenceInfo(invocation, formalParamType, false);
-        //            Objects.requireNonNull(
-        //                formalParamTypeRef.get(),
-        //                "did not find " + invocation + " as argument of " + parentInvocation));
-      } else if (exprParent instanceof ConditionalExpressionTree) {
-        // TODO
       }
     }
     return null;
+  }
+
+  private @Nullable InvocationInferenceInfo getInvocationInferenceInfoForAssignment(
+      Tree assignment, MethodInvocationTree invocation) {
+    Preconditions.checkArgument(
+        assignment instanceof AssignmentTree || assignment instanceof VariableTree);
+    Type treeType = getTreeType(assignment);
+    return treeType == null
+        ? null
+        : new InvocationInferenceInfo(invocation, treeType, isLocalVariableAssignment(assignment));
   }
 
   /**
