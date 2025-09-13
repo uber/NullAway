@@ -741,7 +741,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void firstOrDefaultSelfContained() {
-    makeHelper()
+    makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.*;",
