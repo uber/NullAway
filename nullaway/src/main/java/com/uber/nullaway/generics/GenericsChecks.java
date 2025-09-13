@@ -1497,7 +1497,7 @@ public final class GenericsChecks {
    * Returns a pretty-printed representation of type suitable for error messages. The representation
    * uses simple names rather than fully-qualified names, and retains all type-use annotations.
    */
-  public static String prettyTypeForError(Type type, VisitorState state) {
+  private static String prettyTypeForError(Type type, VisitorState state) {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
   }
 
