@@ -40,6 +40,7 @@ import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.InvocationArguments;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.handlers.Handler;
@@ -52,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
@@ -1150,11 +1152,13 @@ public final class GenericsChecks {
         InvocationAndType invocationAndType =
             path == null ? null : getTypeFromAssignmentContext(path, state);
         result =
-            runInferenceForCall(
-                state,
-                invocationAndType.invocation,
-                invocationAndType.typeFromAssignmentContext,
-                false);
+            invocationAndType == null
+                ? runInferenceForCall(state, invocationTree, null, false)
+                : runInferenceForCall(
+                    state,
+                    invocationAndType.invocation,
+                    invocationAndType.typeFromAssignmentContext,
+                    false);
       }
       if (result instanceof InferenceSuccess) {
         Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
@@ -1176,7 +1180,8 @@ public final class GenericsChecks {
     }
   }
 
-  private InvocationAndType getTypeFromAssignmentContext(TreePath path, VisitorState state) {
+  private @Nullable InvocationAndType getTypeFromAssignmentContext(
+      TreePath path, VisitorState state) {
     MethodInvocationTree invocation = (MethodInvocationTree) path.getLeaf();
     TreePath parentPath = path.getParentPath();
     Tree parent = parentPath.getLeaf();
@@ -1215,17 +1220,24 @@ public final class GenericsChecks {
         if (isGenericCallNeedingInference(parentInvocation)) {
           return getTypeFromAssignmentContext(parentPath, state);
         }
-        for (ExpressionTree arg : parentInvocation.getArguments()) {
-          if (arg == invocation) {
-            return getTreeType(parentInvocation);
-          }
-        }
+        AtomicReference<Type> formalParamTypeRef = new AtomicReference<>();
+        new InvocationArguments(
+                parentInvocation, (Type.MethodType) ASTHelpers.getType(parentInvocation))
+            .forEach(
+                (arg, pos, formalParamType, unused) -> {
+                  if (arg == invocation) {
+                    formalParamTypeRef.set(formalParamType);
+                  }
+                });
+        return new InvocationAndType(
+            parentInvocation, Objects.requireNonNull(formalParamTypeRef.get()));
+        //        for (ExpressionTree arg : parentInvocation.getArguments()) {
+        //          if (arg == invocation) {
+        //            return getTreeType(parentInvocation);
+        //          }
+        //        }
       } else if (exprParent instanceof ConditionalExpressionTree) {
-        ConditionalExpressionTree condExpr = (ConditionalExpressionTree) exprParent;
-        if (condExpr.getTrueExpression() == invocation
-            || condExpr.getFalseExpression() == invocation) {
-          return getConditionalExpressionType(condExpr, state);
-        }
+        // TODO
       }
     }
     return null;
