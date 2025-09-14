@@ -650,7 +650,8 @@ public final class GenericsChecks {
    * Generates inference constraints for a generic method call, including nested calls.
    *
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context of the
-   *     call
+   *     call, or {@code null} if the type is unavailable or the method result is not assigned
+   *     anywhere
    * @param assignedToLocal whether the method call result is assigned to a local variable
    * @param solver the constraint solver
    * @param methodSymbol the symbol for the method being called
@@ -1165,16 +1166,10 @@ public final class GenericsChecks {
     if (explicitTypeArgs.isEmpty() && tree instanceof MethodInvocationTree) {
       MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
       if (result == null) {
-        // have not yet attempted inference for this call.  this should only happen for methods with
-        // a void return type.
-        //        verify(
-        //            methodType.getReturnType().getKind() == TypeKind.VOID,
-        //            "expected void return type but got %s for %s",
-        //            methodType.getReturnType(),
-        //            state.getSourceForNode(tree));
+        // have not yet attempted inference for this call
         MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
-        InvocationInferenceInfo invocationAndType =
-            path == null ? null : getTypeFromAssignmentContext(path, state);
+        InvocationAndContext invocationAndType =
+            path == null ? null : getInvocationAndContextForInference(path, state);
         result =
             invocationAndType == null
                 ? runInferenceForCall(state, invocationTree, null, false)
@@ -1185,21 +1180,24 @@ public final class GenericsChecks {
                     invocationAndType.assignedToLocal);
       }
       if (result instanceof InferenceSuccess) {
-        Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
-            ((InferenceSuccess) result).typeVarNullability;
-        return getTypeWithInferredNullability(state, methodType, typeVarNullability);
+        return getTypeWithInferredNullability(
+            state, methodType, ((InferenceSuccess) result).typeVarNullability);
       }
     }
     return TypeSubstitutionUtils.subst(
         state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
   }
 
-  private static final class InvocationInferenceInfo {
+  /**
+   * An invocation of a generic method, and the corresponding information about its assignment
+   * context, for the purposes of inference.
+   */
+  private static final class InvocationAndContext {
     final MethodInvocationTree invocation;
     final Type typeFromAssignmentContext;
     final boolean assignedToLocal;
 
-    InvocationInferenceInfo(
+    InvocationAndContext(
         MethodInvocationTree invocation, Type typeFromAssignmentContext, boolean assignedToLocal) {
       this.invocation = invocation;
       this.typeFromAssignmentContext = typeFromAssignmentContext;
@@ -1207,7 +1205,23 @@ public final class GenericsChecks {
     }
   }
 
-  private @Nullable InvocationInferenceInfo getTypeFromAssignmentContext(
+  /**
+   * Given a {@link TreePath} to an invocation of a generic method, collect information about the
+   * appropriate invocation on which to perform type inference, and the relevant information from
+   * the assignment context for that invocation.
+   *
+   * <p>Note that in the case of nested invocations, we want to find the outermost invocation that
+   * requires inference, since that is the one whose assignment context is relevant. For example, if
+   * we have {@code <T extends @Nullable Object> T id(T t);} and the call {@code id(id(x))}, given a
+   * {@link TreePath} to the inner call, we want to return the outer call, since its assignment
+   * context is required for inference.
+   *
+   * @param path the path to the invocation
+   * @param state the visitor state
+   * @return the correct invocation on which to perform inference, along with the relevant
+   *     assignment context information, or {@code null} if no good assignment context can be found
+   */
+  private @Nullable InvocationAndContext getInvocationAndContextForInference(
       TreePath path, VisitorState state) {
     MethodInvocationTree invocation = (MethodInvocationTree) path.getLeaf();
     TreePath parentPath = path.getParentPath();
@@ -1236,7 +1250,7 @@ public final class GenericsChecks {
         MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new InvocationInferenceInfo(invocation, methodSymbol.getReturnType(), false);
+          return new InvocationAndContext(invocation, methodSymbol.getReturnType(), false);
         }
       }
     } else if (parent instanceof ExpressionTree) {
@@ -1246,7 +1260,9 @@ public final class GenericsChecks {
       if (exprParent instanceof MethodInvocationTree) {
         MethodInvocationTree parentInvocation = (MethodInvocationTree) exprParent;
         if (isGenericCallNeedingInference(parentInvocation)) {
-          return getTypeFromAssignmentContext(parentPath, state);
+          // TODO if this call returns null, we will end up trying to do inference on the nested
+          //  call; that doesn't seem right
+          return getInvocationAndContextForInference(parentPath, state);
         }
         AtomicReference<Type> formalParamTypeRef = new AtomicReference<>();
         Type type = ASTHelpers.getSymbol(parentInvocation).type;
@@ -1281,21 +1297,20 @@ public final class GenericsChecks {
         }
         return formalParamType == null
             ? null
-            : new InvocationInferenceInfo(invocation, formalParamType, false);
+            : new InvocationAndContext(invocation, formalParamType, false);
       }
     }
     return null;
   }
 
-  private @Nullable InvocationInferenceInfo getInvocationInferenceInfoForAssignment(
+  private @Nullable GenericsChecks.InvocationAndContext getInvocationInferenceInfoForAssignment(
       Tree assignment, MethodInvocationTree invocation) {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
     Type treeType = getTreeType(assignment);
     return treeType == null
         ? null
-        : new InvocationInferenceInfo(
-            invocation, treeType, isAssignmentToLocalVariable(assignment));
+        : new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
   /**
