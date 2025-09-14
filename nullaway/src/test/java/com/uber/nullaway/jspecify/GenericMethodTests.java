@@ -1212,6 +1212,31 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    }",
             "    static final AtomicReferenceFieldUpdater<Test, @Nullable Object> RESULT_UPDATER =",
             "            AtomicReferenceFieldUpdater.newUpdater(Test.class, Object.class, \"result\");",
+                "}")
+            .doTest();
+  }
+
+  @Test
+  public void inferenceFromReceiverPassing() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  static class Foo<T extends @Nullable Object> {",
+            "    T get() {",
+            "      throw new UnsupportedOperationException();",
+            "    }",
+            "  }",
+            "  static <U extends @Nullable Object> Foo<U> make(U u) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static void test() {",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    make(null).get().toString();",
+            "  }",
             "}")
         .doTest();
   }
