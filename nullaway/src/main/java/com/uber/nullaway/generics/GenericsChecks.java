@@ -1303,7 +1303,7 @@ public final class GenericsChecks {
     return null;
   }
 
-  private @Nullable GenericsChecks.InvocationAndContext getInvocationInferenceInfoForAssignment(
+  private @Nullable InvocationAndContext getInvocationInferenceInfoForAssignment(
       Tree assignment, MethodInvocationTree invocation) {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
