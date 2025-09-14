@@ -1194,11 +1194,13 @@ public final class GenericsChecks {
    */
   private static final class InvocationAndContext {
     final MethodInvocationTree invocation;
-    final Type typeFromAssignmentContext;
+    final @Nullable Type typeFromAssignmentContext;
     final boolean assignedToLocal;
 
     InvocationAndContext(
-        MethodInvocationTree invocation, Type typeFromAssignmentContext, boolean assignedToLocal) {
+        MethodInvocationTree invocation,
+        @Nullable Type typeFromAssignmentContext,
+        boolean assignedToLocal) {
       this.invocation = invocation;
       this.typeFromAssignmentContext = typeFromAssignmentContext;
       this.assignedToLocal = assignedToLocal;
@@ -1221,7 +1223,7 @@ public final class GenericsChecks {
    * @return the correct invocation on which to perform inference, along with the relevant
    *     assignment context information, or {@code null} if no good assignment context can be found
    */
-  private @Nullable InvocationAndContext getInvocationAndContextForInference(
+  private InvocationAndContext getInvocationAndContextForInference(
       TreePath path, VisitorState state) {
     MethodInvocationTree invocation = (MethodInvocationTree) path.getLeaf();
     TreePath parentPath = path.getParentPath();
@@ -1230,16 +1232,8 @@ public final class GenericsChecks {
       parentPath = parentPath.getParentPath();
       parent = parentPath.getLeaf();
     }
-    if (parent instanceof AssignmentTree) {
-      AssignmentTree assignment = (AssignmentTree) parent;
-      if (assignment.getExpression() == invocation) {
-        return getInvocationInferenceInfoForAssignment(assignment, invocation);
-      }
-    } else if (parent instanceof VariableTree) {
-      VariableTree variable = (VariableTree) parent;
-      if (variable.getInitializer() == invocation) {
-        return getInvocationInferenceInfoForAssignment(variable, invocation);
-      }
+    if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
+      return getInvocationInferenceInfoForAssignment(parent, invocation);
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
@@ -1260,8 +1254,6 @@ public final class GenericsChecks {
       if (exprParent instanceof MethodInvocationTree) {
         MethodInvocationTree parentInvocation = (MethodInvocationTree) exprParent;
         if (isGenericCallNeedingInference(parentInvocation)) {
-          // TODO if this call returns null, we will end up trying to do inference on the nested
-          //  call; that doesn't seem right
           return getInvocationAndContextForInference(parentPath, state);
         }
         AtomicReference<Type> formalParamTypeRef = new AtomicReference<>();
@@ -1269,7 +1261,7 @@ public final class GenericsChecks {
         new InvocationArguments(parentInvocation, type.asMethodType())
             .forEach(
                 (arg, pos, formalParamType, unused) -> {
-                  if (arg == invocation) {
+                  if (ASTHelpers.stripParentheses(arg) == invocation) {
                     formalParamTypeRef.set(formalParamType);
                   }
                 });
@@ -1295,22 +1287,18 @@ public final class GenericsChecks {
             }
           }
         }
-        return formalParamType == null
-            ? null
-            : new InvocationAndContext(invocation, formalParamType, false);
+        return new InvocationAndContext(invocation, formalParamType, false);
       }
     }
-    return null;
+    return new InvocationAndContext(invocation, null, false);
   }
 
-  private @Nullable InvocationAndContext getInvocationInferenceInfoForAssignment(
+  private InvocationAndContext getInvocationInferenceInfoForAssignment(
       Tree assignment, MethodInvocationTree invocation) {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
     Type treeType = getTreeType(assignment);
-    return treeType == null
-        ? null
-        : new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
+    return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
   /**
