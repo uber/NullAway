@@ -473,11 +473,11 @@ public final class GenericsChecks {
     if (tree instanceof VariableTree) {
       VariableTree varTree = (VariableTree) tree;
       rhsTree = varTree.getInitializer();
-      assignedToLocal = isLocalVariableAssignment(varTree);
+      assignedToLocal = isAssignmentToLocalVariable(varTree);
     } else if (tree instanceof AssignmentTree) {
       AssignmentTree assignmentTree = (AssignmentTree) tree;
       rhsTree = assignmentTree.getExpression();
-      assignedToLocal = isLocalVariableAssignment(assignmentTree);
+      assignedToLocal = isAssignmentToLocalVariable(assignmentTree);
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
@@ -500,7 +500,7 @@ public final class GenericsChecks {
     }
   }
 
-  private static boolean isLocalVariableAssignment(Tree tree) {
+  private static boolean isAssignmentToLocalVariable(Tree tree) {
     Symbol treeSymbol;
     if (tree instanceof VariableTree) {
       treeSymbol = ASTHelpers.getSymbol((VariableTree) tree);
@@ -563,6 +563,19 @@ public final class GenericsChecks {
         Collections.emptyMap());
   }
 
+  /**
+   * Runs inference for a generic method call, side-effecting the
+   * #inferredTypeVarNullabilityForGenericCalls map with the result.
+   *
+   * @param state the visitor state
+   * @param invocationTree the method invocation tree representing the call to a generic method
+   * @param typeFromAssignmentContext the type being "assigned to" in the assignment context, or
+   *     {@code null} if the type is unavailable or the method result is not assigned anywhere
+   * @param assignedToLocal true if the method call result is assigned to a local variable, false
+   *     otherwise
+   * @return the inference result, either success with inferred type variable nullability or failure
+   *     with an error message
+   */
   private MethodInferenceResult runInferenceForCall(
       VisitorState state,
       MethodInvocationTree invocationTree,
@@ -1281,7 +1294,8 @@ public final class GenericsChecks {
     Type treeType = getTreeType(assignment);
     return treeType == null
         ? null
-        : new InvocationInferenceInfo(invocation, treeType, isLocalVariableAssignment(assignment));
+        : new InvocationInferenceInfo(
+            invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
   /**
