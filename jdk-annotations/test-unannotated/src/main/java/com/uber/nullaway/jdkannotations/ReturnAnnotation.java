@@ -4,9 +4,6 @@ import java.util.Locale;
 
 public class ReturnAnnotation {
 
-  // return type : null, nullable, nonnull && type parameter, predefined types
-  // type parameter: nada, exists && nullable, nonnull
-
   public String makeUpperCase(String inputString) {
     if (inputString == null || inputString.isEmpty()) {
       return null;

@@ -7,9 +7,6 @@ import org.jspecify.annotations.Nullable;
 @NullMarked
 public class ReturnAnnotation {
 
-  // return type : null, nullable, nonnull && type parameter, predefined types
-  // type parameter: nada, exists && nullable, nonnull
-
   public @Nullable String makeUpperCase(String inputString) {
     if (inputString == null || inputString.isEmpty()) {
       return null;
