@@ -167,8 +167,9 @@ public class AstubxGeneratorCLI {
           String returnType = method.returnType();
           ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
           if (returnType.indexOf(" ") != -1) {
-            System.err.println("nullable return");
-            returnType = returnType.substring(returnType.indexOf(" ") + 1);
+            //            System.err.println("nullable return");
+            returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
+            returnType = returnType.replace(" ", "");
             returnTypeNullness = ImmutableSet.of("Nullable");
           }
           String signature = className + ":" + returnType + " ";
