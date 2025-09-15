@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
@@ -41,7 +42,11 @@ public class NullnessAnnotationSerializer implements Plugin {
   record TypeParamInfo(String name, List<String> bounds) {}
 
   record MethodInfo(
-      String name, boolean nullMarked, boolean nullUnmarked, List<TypeParamInfo> typeParams) {}
+      String returnType,
+      String name,
+      boolean nullMarked,
+      boolean nullUnmarked,
+      List<TypeParamInfo> typeParams) {}
 
   record ClassInfo(
       String name,
@@ -128,6 +133,44 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return super.visitMethod(methodTree, null);
                   }
+                  Tree mt = methodTree.getReturnType();
+                  //                  if(mt != null) {
+                  //                    TreePath returnTypePath = new TreePath(getCurrentPath(),
+                  // mt);
+                  //                    if (returnTypePath == null) {
+                  //                    }
+                  //                  }
+                  //                  TypeMirror returnTypeMirror =
+                  // trees.getTypeMirror(returnTypePath);
+                  //                  System.out.println("Method: " + mSym.getSimpleName());
+                  //                  System.out.println("Return Type Mirror: " +
+                  // returnTypeMirror.toString());
+                  //                  System.out.println("Annotations on Return Type: " +
+                  // returnTypeMirror.getAnnotationMirrors());
+                  //                  if(returnTypePath==null){}
+                  String returnType = "";
+                  if (mt != null) {
+                    //                    TypeMirror returnTypeMirror = mSym.getReturnType();
+                    //                    if(returnTypeMirror==null){}
+                    //                    List<? extends AnnotationMirror> annotations =
+                    // mSym.getAnnotationMirrors();
+                    //                    var returnTypeTree = methodTree.getReturnType();
+                    //                    TreePath returnTypePath = new TreePath(getCurrentPath(),
+                    // returnTypeTree);
+                    //                    TypeMirror returnTypeMirror =
+                    // trees.getTypeMirror(returnTypePath);
+                    //                    System.out.println("Method: " + mSym.getSimpleName());
+                    //                    System.out.println("Return Type Mirror: " +
+                    // returnTypeMirror.toString());
+                    //                    System.out.println("Annotations on Return Type: " +
+                    // returnTypeMirror.getAnnotationMirrors());
+                    //                    for(var am : annotations) {
+                    //                      returnType += am.getAnnotationType().toString();
+                    //                      System.out.println(am.getAnnotationType().toString());
+                    //                    }
+                    returnType += mSym.getReturnType().toString();
+                  }
+                  //                  System.out.println(returnType);
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
@@ -136,7 +179,11 @@ public class NullnessAnnotationSerializer implements Plugin {
                   }
                   MethodInfo methodInfo =
                       new MethodInfo(
-                          mSym.toString(), hasNullMarked, hasNullUnmarked, methodTypeParams);
+                          returnType,
+                          mSym.toString(),
+                          hasNullMarked,
+                          hasNullUnmarked,
+                          methodTypeParams);
                   if (currentClass != null) {
                     currentClass.methods().add(methodInfo);
                   }
