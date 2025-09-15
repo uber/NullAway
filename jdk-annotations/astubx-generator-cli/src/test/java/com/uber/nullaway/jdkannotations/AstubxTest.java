@@ -43,8 +43,6 @@ public class AstubxTest {
     // write it to a source file in inputSourcesFolder with the right file name
     File sourceFile = inputSourcesFolder.newFile(sourceFileName);
     Files.write(sourceFile.toPath(), String.join("\n", lines).getBytes(StandardCharsets.UTF_8));
-    //        System.err.println(">> write input file to" +
-    // inputSourcesFolder.getRoot().getAbsolutePath());
 
     String outputJsonPath = "build/generated/json-output";
     String outputAstubxPath = "build/generated/astubx-output";
@@ -93,8 +91,6 @@ public class AstubxTest {
     options.addAll(Arrays.asList("-d", classOutputDir.getAbsolutePath()));
     options.add("-Xplugin:NullnessAnnotationSerializer " + jsonOutputDir.getAbsolutePath());
 
-    //        System.err.println(">> plugin jar path: " + pluginJarPath);
-
     DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
 
     StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
@@ -127,19 +123,13 @@ public class AstubxTest {
     if (!success) {
       Assert.fail("Java compilation with plugin failed.");
     }
-    //        System.err.println(">> Made JSON file");
 
     // run the generator
     String astubxOutputDirPath = Paths.get(outputFolder.getRoot().getAbsolutePath()).toString();
-    //    System.err.println(">> write astubx file to directory" + astubxOutputDirPath + "\n\n");
     AstubxGeneratorCLI.LibraryModelData modelData =
         AstubxGeneratorCLI.generateAstubx(jsonOutputDir.getAbsolutePath(), astubxOutputDirPath);
-    //    System.err.println(">> write model data");
     System.err.println("modelData: " + modelData.toString());
 
-    //    System.err.println("expectedMethodRecords: " + expectedMethodRecords.toString());
-    //    System.err.println("expectedNullableUpperBounds: " +
-    // expectedNullableUpperBounds.toString());
     assertThat(modelData.methodRecords, equalTo(expectedMethodRecords));
     assertThat(modelData.nullableUpperBounds, equalTo(expectedNullableUpperBounds));
     assertThat(modelData.nullMarkedClasses, equalTo(expectedNullMarkedClasses));
