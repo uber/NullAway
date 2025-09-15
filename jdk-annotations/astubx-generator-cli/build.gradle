@@ -1,6 +1,7 @@
 plugins {
     id "java-library"
     id "com.gradleup.shadow"
+    id 'nullaway.java-test-conventions'
 }
 
 java {
@@ -46,4 +47,5 @@ dependencies {
     annotationProcessor deps.apt.autoValue
 
     testImplementation deps.test.junit4
+    testImplementation 'org.jspecify:jspecify:0.3.0'
 }
