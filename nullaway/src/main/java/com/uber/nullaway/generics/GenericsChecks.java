@@ -531,7 +531,7 @@ public final class GenericsChecks {
   private Type inferGenericMethodCallType(
       VisitorState state,
       MethodInvocationTree invocationTree,
-      Type typeFromAssignmentContext,
+      @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal) {
     Verify.verify(isGenericCallNeedingInference(invocationTree));
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
