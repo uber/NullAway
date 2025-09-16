@@ -1238,7 +1238,7 @@ public final class GenericsChecks {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
-      // TODO handle lambdas
+      // TODO handle lambdas; https://github.com/uber/NullAway/issues/1288
       if (enclosingMethodOrLambda != null
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree) {
         MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
