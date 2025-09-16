@@ -1149,6 +1149,7 @@ public final class GenericsChecks {
    *
    * @param tree the method invocation tree
    * @param forAllType the generic method type
+   * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @return the substituted method type for the generic method
    */
@@ -1221,7 +1222,8 @@ public final class GenericsChecks {
    * @param path the path to the invocation
    * @param state the visitor state
    * @return the correct invocation on which to perform inference, along with the relevant
-   *     assignment context information, or {@code null} if no good assignment context can be found
+   *     assignment context information. If no assignment context is available, the
+   *     typeFromAssignmentContext field of the result will be null.
    */
   private InvocationAndContext getInvocationAndContextForInference(
       TreePath path, VisitorState state) {
