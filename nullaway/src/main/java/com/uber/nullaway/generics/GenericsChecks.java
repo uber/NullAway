@@ -1169,15 +1169,15 @@ public final class GenericsChecks {
         // have not yet attempted inference for this call
         MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
         InvocationAndContext invocationAndType =
-            path == null ? null : getInvocationAndContextForInference(path, state);
+            path == null
+                ? new InvocationAndContext(invocationTree, null, false)
+                : getInvocationAndContextForInference(path, state);
         result =
-            invocationAndType == null
-                ? runInferenceForCall(state, invocationTree, null, false)
-                : runInferenceForCall(
-                    state,
-                    invocationAndType.invocation,
-                    invocationAndType.typeFromAssignmentContext,
-                    invocationAndType.assignedToLocal);
+            runInferenceForCall(
+                state,
+                invocationAndType.invocation,
+                invocationAndType.typeFromAssignmentContext,
+                invocationAndType.assignedToLocal);
       }
       if (result instanceof InferenceSuccess) {
         return getTypeWithInferredNullability(
