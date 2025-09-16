@@ -1194,6 +1194,28 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Self-contained test for https://github.com/uber/NullAway/issues/1157. We need to import
+   * JSpecify JDK models to get the original test working properly.
+   */
+  @Test
+  public void atomicReferenceFieldUpdaterSelfContained() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "    static class AtomicReferenceFieldUpdater<T, V extends @Nullable Object> {",
+            "      public static <U,W extends @Nullable Object> AtomicReferenceFieldUpdater<U,W> ",
+            "        newUpdater(Class<U> tclass, Class<@NonNull W> vclass, String fieldName) { throw new RuntimeException(); }",
+            "    }",
+            "    static final AtomicReferenceFieldUpdater<Test, @Nullable Object> RESULT_UPDATER =",
+            "            AtomicReferenceFieldUpdater.newUpdater(Test.class, Object.class, \"result\");",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
