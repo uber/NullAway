@@ -531,7 +531,7 @@ public final class GenericsChecks {
   private Type inferGenericMethodCallType(
       VisitorState state,
       MethodInvocationTree invocationTree,
-      Type typeFromAssignmentContext,
+      @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal) {
     Verify.verify(isGenericCallNeedingInference(invocationTree));
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
@@ -1400,7 +1400,14 @@ public final class GenericsChecks {
           enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
         }
       } else if (methodSelect instanceof MemberSelectTree) {
-        enclosingType = getTreeType(((MemberSelectTree) methodSelect).getExpression());
+        ExpressionTree receiver =
+            ASTHelpers.stripParentheses(((MemberSelectTree) methodSelect).getExpression());
+        if (isGenericCallNeedingInference(receiver)) {
+          enclosingType =
+              inferGenericMethodCallType(state, (MethodInvocationTree) receiver, null, false);
+        } else {
+          enclosingType = getTreeType(receiver);
+        }
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
