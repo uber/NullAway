@@ -1254,8 +1254,13 @@ public final class GenericsChecks {
       if (exprParent instanceof MethodInvocationTree) {
         MethodInvocationTree parentInvocation = (MethodInvocationTree) exprParent;
         if (isGenericCallNeedingInference(parentInvocation)) {
+          // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
+          // we want to find the outermost invocation that requires inference, since that is
+          // the one whose assignment context is relevant
           return getInvocationAndContextForInference(parentPath, state);
         }
+        // the generic invocation is either a regular parameter to the parent call, or the
+        // receiver expression
         AtomicReference<Type> formalParamTypeRef = new AtomicReference<>();
         Type type = ASTHelpers.getSymbol(parentInvocation).type;
         new InvocationArguments(parentInvocation, type.asMethodType())
@@ -1267,7 +1272,8 @@ public final class GenericsChecks {
                 });
         Type formalParamType = formalParamTypeRef.get();
         if (formalParamType == null) {
-          // this can happen if the invocation is the receiver expression of the call
+          // this can happen if the invocation is the receiver expression of the call, e.g.,
+          // id(x).foo() (note that foo() need not be generic)
           ExpressionTree methodSelect =
               ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
           if (methodSelect instanceof MemberSelectTree) {
@@ -1290,6 +1296,7 @@ public final class GenericsChecks {
         return new InvocationAndContext(invocation, formalParamType, false);
       }
     }
+    // an unhandled case; for now, give up and return no assignment context
     return new InvocationAndContext(invocation, null, false);
   }
 
