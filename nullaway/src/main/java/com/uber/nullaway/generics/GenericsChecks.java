@@ -1400,7 +1400,8 @@ public final class GenericsChecks {
           enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
         }
       } else if (methodSelect instanceof MemberSelectTree) {
-        ExpressionTree receiver = ((MemberSelectTree) methodSelect).getExpression();
+        ExpressionTree receiver =
+            ASTHelpers.stripParentheses(((MemberSelectTree) methodSelect).getExpression());
         if (isGenericCallNeedingInference(receiver)) {
           enclosingType =
               inferGenericMethodCallType(state, (MethodInvocationTree) receiver, null, false);

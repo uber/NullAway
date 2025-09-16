@@ -1236,6 +1236,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "  static void test() {",
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    make(null).get().toString();",
+            "    // Also with a parenthesized receiver",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    ((make(null))).get().toString();",
             "  }",
             "}")
         .doTest();
