@@ -1212,8 +1212,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    }",
             "    static final AtomicReferenceFieldUpdater<Test, @Nullable Object> RESULT_UPDATER =",
             "            AtomicReferenceFieldUpdater.newUpdater(Test.class, Object.class, \"result\");",
-                "}")
-            .doTest();
+            "}")
+        .doTest();
   }
 
   @Test
