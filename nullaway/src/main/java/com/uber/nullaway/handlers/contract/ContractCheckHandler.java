@@ -75,8 +75,8 @@ public class ContractCheckHandler extends BaseNoOpHandler {
       NullAway analysis = methodAnalysisContext.analysis();
       VisitorState state = methodAnalysisContext.state();
       String[] antecedent =
-          getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
-      String consequent = getConsequent(clause, tree, analysis, state, callee);
+          getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size(), config);
+      String consequent = getConsequent(clause, tree, analysis, state, callee, config);
 
       boolean supported = true;
 

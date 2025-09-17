@@ -4,10 +4,12 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.Mockito.RETURNS_MOCKS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
+import static org.mockito.Mockito.when;
 
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import org.junit.Before;
 import org.junit.Test;
@@ -18,6 +20,7 @@ public class ContractUtilsTest {
   private NullAway analysis;
   private VisitorState state;
   private Symbol symbol;
+  private Config config;
 
   @Before
   public void setUp() {
@@ -25,13 +28,16 @@ public class ContractUtilsTest {
     analysis = mock(NullAway.class, RETURNS_MOCKS);
     state = mock(VisitorState.class);
     symbol = mock(Symbol.class);
+    config = mock(Config.class);
+    when(symbol.getAnnotationMirrors()).thenReturn(com.sun.tools.javac.util.List.nil());
   }
 
   @Test
   public void getEmptyAntecedent() {
-    String[] antecedent = ContractUtils.getAntecedent("->_", tree, analysis, state, symbol, 0);
+    String[] antecedent =
+        ContractUtils.getAntecedent("->_", tree, analysis, state, symbol, 0, config);
 
     assertArrayEquals(new String[0], antecedent);
-    verifyNoInteractions(tree, state, analysis, symbol);
+    verifyNoInteractions(tree, state, analysis, symbol, config);
   }
 }

@@ -117,7 +117,8 @@ public class ContractHandler extends BaseNoOpHandler {
       // This method currently handles contracts of the form `(true|false) -> fail`, other
       // contracts are handled by 'onDataflowVisitMethodInvocation' which has access to more
       // dataflow information.
-      if (!"fail".equals(getConsequent(clause, tree, analysis, storedVisitorState, callee))) {
+      if (!"fail"
+          .equals(getConsequent(clause, tree, analysis, storedVisitorState, callee, config))) {
         continue;
       }
       String[] antecedent =
@@ -127,7 +128,8 @@ public class ContractHandler extends BaseNoOpHandler {
               analysis,
               storedVisitorState,
               callee,
-              originalNode.getArguments().size());
+              originalNode.getArguments().size(),
+              config);
       // Find a single value constraint that is not already known. If more than one argument with
       // unknown nullness affects the method's result, then ignore this clause.
       Node arg = null;
@@ -195,8 +197,8 @@ public class ContractHandler extends BaseNoOpHandler {
     for (String clause : ContractUtils.getContractClauses(callee, config)) {
 
       String[] antecedent =
-          getAntecedent(clause, tree, analysis, state, callee, node.getArguments().size());
-      String consequent = getConsequent(clause, tree, analysis, state, callee);
+          getAntecedent(clause, tree, analysis, state, callee, node.getArguments().size(), config);
+      String consequent = getConsequent(clause, tree, analysis, state, callee, config);
 
       // Find a single value constraint that is not already known. If more than one argument with
       // unknown nullness affects the method's result, then ignore this clause.

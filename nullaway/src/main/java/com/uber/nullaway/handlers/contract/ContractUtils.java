@@ -8,6 +8,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
@@ -42,25 +43,33 @@ public class ContractUtils {
    * @return consequent in the contract.
    */
   static String getConsequent(
-      String clause, Tree tree, NullAway analysis, VisitorState state, Symbol callee) {
+      String clause,
+      Tree tree,
+      NullAway analysis,
+      VisitorState state,
+      Symbol callee,
+      Config config) {
 
     String[] parts = clause.split("->");
     if (parts.length != 2) {
-      String message =
-          "Invalid @Contract annotation detected for method "
-              + callee
-              + ". It contains the following unparseable clause: "
-              + clause
-              + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).";
-      state.reportMatch(
-          analysis
-              .getErrorBuilder()
-              .createErrorDescription(
-                  new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
-                  tree,
-                  analysis.buildDescription(tree),
-                  state,
-                  null));
+      if (shouldReportInvalidContract(callee, config)) {
+        String message =
+            "Invalid @Contract annotation detected for method "
+                + callee
+                + ". It contains the following unparseable clause: "
+                + clause
+                + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).";
+        state.reportMatch(
+            analysis
+                .getErrorBuilder()
+                .createErrorDescription(
+                    new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+                    tree,
+                    analysis.buildDescription(tree),
+                    state,
+                    null));
+      }
+      return "";
     }
     return parts[1].trim();
   }
@@ -82,13 +91,14 @@ public class ContractUtils {
       NullAway analysis,
       VisitorState state,
       Symbol callee,
-      int numOfArguments) {
+      int numOfArguments,
+      Config config) {
 
     String[] parts = clause.split("->");
 
     String[] antecedent = parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
 
-    if (antecedent.length != numOfArguments) {
+    if (antecedent.length != numOfArguments && shouldReportInvalidContract(callee, config)) {
       String message =
           "Invalid @Contract annotation detected for method "
               + callee
@@ -148,5 +158,20 @@ public class ContractUtils {
       }
     }
     return EMPTY_STRING_ARRAY;
+  }
+
+  private static boolean shouldReportInvalidContract(Symbol callee, Config config) {
+    List<? extends AnnotationMirror> annotations = callee.getAnnotationMirrors();
+    if (annotations == null) {
+      return false;
+    }
+    for (AnnotationMirror annotation : annotations) {
+      String annotationName = AnnotationUtils.annotationName(annotation);
+      boolean isConfigAnnotation = config.isContractAnnotation(annotationName);
+      if (endsWithContract(annotationName) || isConfigAnnotation) {
+        return isConfigAnnotation;
+      }
+    }
+    return false;
   }
 }
