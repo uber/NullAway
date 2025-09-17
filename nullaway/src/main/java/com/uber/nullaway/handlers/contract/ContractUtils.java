@@ -2,20 +2,20 @@ package com.uber.nullaway.handlers.contract;
 
 import com.google.common.base.Function;
 import com.google.errorprone.VisitorState;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
-import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 import org.jspecify.annotations.Nullable;
 
-/** An utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
+/** A utility class for {@link ContractHandler} and {@link ContractCheckHandler}. */
 public class ContractUtils {
 
   private static final String[] EMPTY_STRING_ARRAY = new String[0];
@@ -43,16 +43,11 @@ public class ContractUtils {
    * @return consequent in the contract.
    */
   static String getConsequent(
-      String clause,
-      Tree tree,
-      NullAway analysis,
-      VisitorState state,
-      Symbol callee,
-      Config config) {
+      String clause, Tree tree, NullAway analysis, VisitorState state, Symbol callee) {
 
     String[] parts = clause.split("->");
     if (parts.length != 2) {
-      if (shouldReportInvalidContract(callee, config)) {
+      if (shouldReportInvalidContract(tree)) {
         String message =
             "Invalid @Contract annotation detected for method "
                 + callee
@@ -91,14 +86,13 @@ public class ContractUtils {
       NullAway analysis,
       VisitorState state,
       Symbol callee,
-      int numOfArguments,
-      Config config) {
+      int numOfArguments) {
 
     String[] parts = clause.split("->");
 
     String[] antecedent = parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
 
-    if (antecedent.length != numOfArguments && shouldReportInvalidContract(callee, config)) {
+    if (antecedent.length != numOfArguments && shouldReportInvalidContract(tree)) {
       String message =
           "Invalid @Contract annotation detected for method "
               + callee
@@ -149,7 +143,7 @@ public class ContractUtils {
   }
 
   static String[] getContractClauses(Symbol.MethodSymbol callee, Config config) {
-    // Check to see if this method has an @Contract annotation
+    // Check to see if this method has a @Contract annotation
     String contractString = getContractString(callee, config);
     if (contractString != null) {
       String trimmedContractString = contractString.trim();
@@ -160,18 +154,7 @@ public class ContractUtils {
     return EMPTY_STRING_ARRAY;
   }
 
-  private static boolean shouldReportInvalidContract(Symbol callee, Config config) {
-    List<? extends AnnotationMirror> annotations = callee.getAnnotationMirrors();
-    if (annotations == null) {
-      return false;
-    }
-    for (AnnotationMirror annotation : annotations) {
-      String annotationName = AnnotationUtils.annotationName(annotation);
-      boolean isConfigAnnotation = config.isContractAnnotation(annotationName);
-      if (endsWithContract(annotationName) || isConfigAnnotation) {
-        return isConfigAnnotation;
-      }
-    }
-    return false;
+  private static boolean shouldReportInvalidContract(Tree tree) {
+    return tree instanceof MethodTree;
   }
 }

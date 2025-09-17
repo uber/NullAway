@@ -115,7 +115,8 @@ public class ContractsTests extends NullAwayTestsBase {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -123,24 +124,28 @@ public class ContractsTests extends NullAwayTestsBase {
             "import org.jetbrains.annotations.Contract;",
             "class Test {",
             "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object foo(@Nullable Object o) { return o; }",
             "  @Contract(\"!null -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object bar(@Nullable Object o, String s) { return o; }",
             "  @Contract(\"jabberwocky -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object baz(@Nullable Object o) { return o; }",
-            // We don't care as long as nobody calls the method:
             "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object dontcare(@Nullable Object o) { return o; }",
+            "  // don't report errors about invalid contract annotations at calls to these methods",
             "  static Object test1() {",
-            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return foo(null);",
             "  }",
             "  static Object test2() {",
-            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return bar(null, \"\");",
             "  }",
             "  static Object test3() {",
-            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return baz(null);",
             "  }",
             "}")

@@ -39,6 +39,7 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
+import java.util.Set;
 
 /**
  * This Handler parses the jetbrains @Contract annotation and tries to check if the contract is
@@ -53,6 +54,13 @@ import com.uber.nullaway.handlers.MethodAnalysisContext;
 public class ContractCheckHandler extends BaseNoOpHandler {
 
   private final Config config;
+
+  /** A set of value constraints in the antecedent which we can check for now. */
+  private final Set<String> checkableValueConstraints = Set.of("_", "null", "!null");
+
+  /** All known valid value constraints */
+  private final Set<String> allValidValueConstraints =
+      Set.of("_", "null", "!null", "true", "false");
 
   public ContractCheckHandler(Config config) {
     this.config = config;
@@ -75,16 +83,33 @@ public class ContractCheckHandler extends BaseNoOpHandler {
       NullAway analysis = methodAnalysisContext.analysis();
       VisitorState state = methodAnalysisContext.state();
       String[] antecedent =
-          getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size(), config);
-      String consequent = getConsequent(clause, tree, analysis, state, callee, config);
+          getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
+      String consequent = getConsequent(clause, tree, analysis, state, callee);
 
       boolean supported = true;
 
       for (int i = 0; i < antecedent.length; ++i) {
         String valueConstraint = antecedent[i].trim();
-        if (!(valueConstraint.equals("_")
-            || valueConstraint.equals("!null")
-            || valueConstraint.equals("null"))) {
+        if (!allValidValueConstraints.contains(valueConstraint)) {
+          String errorMessage =
+              "Invalid @Contract annotation detected for method "
+                  + callee
+                  + ". It contains the following unparseable clause: "
+                  + clause
+                  + " (unknown value constraint: "
+                  + valueConstraint
+                  + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
+          state.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(
+                          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
+                      tree,
+                      analysis.buildDescription(tree),
+                      state,
+                      null));
+        } else if (!checkableValueConstraints.contains(valueConstraint)) {
           supported = false;
         }
       }

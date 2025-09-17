@@ -33,7 +33,6 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -117,8 +116,7 @@ public class ContractHandler extends BaseNoOpHandler {
       // This method currently handles contracts of the form `(true|false) -> fail`, other
       // contracts are handled by 'onDataflowVisitMethodInvocation' which has access to more
       // dataflow information.
-      if (!"fail"
-          .equals(getConsequent(clause, tree, analysis, storedVisitorState, callee, config))) {
+      if (!"fail".equals(getConsequent(clause, tree, analysis, storedVisitorState, callee))) {
         continue;
       }
       String[] antecedent =
@@ -128,8 +126,7 @@ public class ContractHandler extends BaseNoOpHandler {
               analysis,
               storedVisitorState,
               callee,
-              originalNode.getArguments().size(),
-              config);
+              originalNode.getArguments().size());
       // Find a single value constraint that is not already known. If more than one argument with
       // unknown nullness affects the method's result, then ignore this clause.
       Node arg = null;
@@ -197,8 +194,8 @@ public class ContractHandler extends BaseNoOpHandler {
     for (String clause : ContractUtils.getContractClauses(callee, config)) {
 
       String[] antecedent =
-          getAntecedent(clause, tree, analysis, state, callee, node.getArguments().size(), config);
-      String consequent = getConsequent(clause, tree, analysis, state, callee, config);
+          getAntecedent(clause, tree, analysis, state, callee, node.getArguments().size());
+      String consequent = getConsequent(clause, tree, analysis, state, callee);
 
       // Find a single value constraint that is not already known. If more than one argument with
       // unknown nullness affects the method's result, then ignore this clause.
@@ -274,24 +271,7 @@ public class ContractHandler extends BaseNoOpHandler {
           arg = node.getArgument(i);
           argAntecedentNullness = valueConstraint.equals("null") ? Nullness.NULL : Nullness.NONNULL;
         } else {
-          String errorMessage =
-              "Invalid @Contract annotation detected for method "
-                  + callee
-                  + ". It contains the following uparseable clause: "
-                  + clause
-                  + " (unknown value constraint: "
-                  + valueConstraint
-                  + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
-          state.reportMatch(
-              analysis
-                  .getErrorBuilder()
-                  .createErrorDescription(
-                      new ErrorMessage(
-                          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
-                      tree,
-                      analysis.buildDescription(tree),
-                      state,
-                      null));
+          // unsupported, but we report an error only on the method
           supported = false;
           break;
         }

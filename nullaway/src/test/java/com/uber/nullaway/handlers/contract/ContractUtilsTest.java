@@ -4,7 +4,6 @@ import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.mockito.Mockito.RETURNS_MOCKS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
-import static org.mockito.Mockito.when;
 
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
@@ -29,13 +28,11 @@ public class ContractUtilsTest {
     state = mock(VisitorState.class);
     symbol = mock(Symbol.class);
     config = mock(Config.class);
-    when(symbol.getAnnotationMirrors()).thenReturn(com.sun.tools.javac.util.List.nil());
   }
 
   @Test
   public void getEmptyAntecedent() {
-    String[] antecedent =
-        ContractUtils.getAntecedent("->_", tree, analysis, state, symbol, 0, config);
+    String[] antecedent = ContractUtils.getAntecedent("->_", tree, analysis, state, symbol, 0);
 
     assertArrayEquals(new String[0], antecedent);
     verifyNoInteractions(tree, state, analysis, symbol, config);
