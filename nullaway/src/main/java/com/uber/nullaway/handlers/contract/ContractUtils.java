@@ -49,7 +49,7 @@ public class ContractUtils {
       String message =
           "Invalid @Contract annotation detected for method "
               + callee
-              + ". It contains the following uparseable clause: "
+              + ". It contains the following unparseable clause: "
               + clause
               + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).";
       state.reportMatch(
@@ -92,7 +92,7 @@ public class ContractUtils {
       String message =
           "Invalid @Contract annotation detected for method "
               + callee
-              + ". It contains the following uparseable clause: "
+              + ". It contains the following unparseable clause: "
               + clause
               + " (incorrect number of arguments in the clause's antecedent ["
               + antecedent.length
@@ -123,11 +123,19 @@ public class ContractUtils {
   static @Nullable String getContractString(Symbol.MethodSymbol methodSymbol, Config config) {
     for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotation);
-      if (config.isContractAnnotation(name)) {
+      if (endsWithContract(name) || config.isContractAnnotation(name)) {
         return NullabilityUtil.getAnnotationValue(methodSymbol, name);
       }
     }
     return null;
+  }
+
+  private static boolean endsWithContract(String input) {
+    int lastDot = input.lastIndexOf('.');
+    if (lastDot == -1 || lastDot == input.length() - 1) {
+      return false;
+    }
+    return input.substring(lastDot + 1).equals("Contract");
   }
 
   static String[] getContractClauses(Symbol.MethodSymbol callee, Config config) {
