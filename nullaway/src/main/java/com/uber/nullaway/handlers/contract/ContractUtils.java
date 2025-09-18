@@ -52,7 +52,7 @@ public class ContractUtils {
                 + callee
                 + ". It contains the following unparseable clause: "
                 + clause
-                + "(see https://www.jetbrains.com/help/idea/contract-annotations.html).";
+                + " (see https://www.jetbrains.com/help/idea/contract-annotations.html).";
         state.reportMatch(
             analysis
                 .getErrorBuilder()
