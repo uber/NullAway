@@ -153,6 +153,64 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void malformedNonJetbrainsContracts() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomContractAnnotations=com.example.library.CustomContract",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "CustomContract.java",
+            "package com.example.library;",
+            "import static java.lang.annotation.RetentionPolicy.CLASS;",
+            "import java.lang.annotation.Retention;",
+            "@Retention(CLASS)",
+            "public @interface CustomContract {",
+            "  String value();",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "import com.example.library.CustomContract;",
+            "class Test {",
+            "  @Target(ElementType.METHOD)",
+            "  public @interface Contract {",
+            "      String value();",
+            "  }",
+            "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object foo(@Nullable Object o) { return o; }",
+            "  @Contract(\"!null -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object bar(@Nullable Object o, String s) { return o; }",
+            "  @Contract(\"jabberwocky -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object baz(@Nullable Object o) { return o; }",
+            "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object dontcare(@Nullable Object o) { return o; }",
+            "  @CustomContract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object foo2(@Nullable Object o) { return o; }",
+            "  @CustomContract(\"!null -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object bar2(@Nullable Object o, String s) { return o; }",
+            "  @CustomContract(\"jabberwocky -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object baz2(@Nullable Object o) { return o; }",
+            "  @CustomContract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object dontcare2(@Nullable Object o) { return o; }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void contractNonVarArg() {
     makeTestHelperWithArgs(
             Arrays.asList(
