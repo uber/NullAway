@@ -142,10 +142,13 @@ public class ContractUtils {
    */
   private static boolean endsWithContract(String input) {
     int lastDot = input.lastIndexOf('.');
-    if (lastDot == -1 || lastDot == input.length() - 1) {
-      return false;
+    String simpleName;
+    if (lastDot == -1) {
+      simpleName = input;
+    } else {
+      simpleName = input.substring(lastDot + 1);
     }
-    return input.substring(lastDot + 1).equals("Contract");
+    return simpleName.equals("Contract");
   }
 
   static String[] getContractClauses(Symbol.MethodSymbol callee, Config config) {
