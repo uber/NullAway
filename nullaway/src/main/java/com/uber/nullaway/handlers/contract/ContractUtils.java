@@ -1,6 +1,5 @@
 package com.uber.nullaway.handlers.contract;
 
-import com.google.common.base.Function;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
@@ -28,7 +27,7 @@ public class ContractUtils {
    */
   public static Set<String> trimReceivers(Set<String> fieldNames) {
     return fieldNames.stream()
-        .map((Function<String, String>) input -> input.substring(input.lastIndexOf(".") + 1))
+        .map(input -> input.substring(input.lastIndexOf(".") + 1))
         .collect(Collectors.toSet());
   }
 
@@ -101,7 +100,7 @@ public class ContractUtils {
               + " (incorrect number of arguments in the clause's antecedent ["
               + antecedent.length
               + "], should be the same as the number of "
-              + "arguments in for the method ["
+              + "arguments for the method ["
               + numOfArguments
               + "]).";
       state.reportMatch(
@@ -127,7 +126,7 @@ public class ContractUtils {
   static @Nullable String getContractString(Symbol.MethodSymbol methodSymbol, Config config) {
     for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotation);
-      if (endsWithContract(name) || config.isContractAnnotation(name)) {
+      if (hasSimpleNameContract(name) || config.isContractAnnotation(name)) {
         return NullabilityUtil.getAnnotationValue(methodSymbol, name);
       }
     }
@@ -140,7 +139,7 @@ public class ContractUtils {
    * @param input the qualified name to check
    * @return true if the simple name is "Contract", false otherwise
    */
-  private static boolean endsWithContract(String input) {
+  private static boolean hasSimpleNameContract(String input) {
     int lastDot = input.lastIndexOf('.');
     String simpleName;
     if (lastDot == -1) {
