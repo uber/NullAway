@@ -271,7 +271,7 @@ public class ContractHandler extends BaseNoOpHandler {
           arg = node.getArgument(i);
           argAntecedentNullness = valueConstraint.equals("null") ? Nullness.NULL : Nullness.NONNULL;
         } else {
-          // unsupported, but we report an error only on the method
+          // invalid, but we report an error only on method declarations
           supported = false;
           break;
         }

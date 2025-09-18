@@ -134,6 +134,12 @@ public class ContractUtils {
     return null;
   }
 
+  /**
+   * Checks if the input string, which is a qualified name, has simple name "Contract".
+   *
+   * @param input the qualified name to check
+   * @return true if the simple name is "Contract", false otherwise
+   */
   private static boolean endsWithContract(String input) {
     int lastDot = input.lastIndexOf('.');
     if (lastDot == -1 || lastDot == input.length() - 1) {
@@ -154,6 +160,13 @@ public class ContractUtils {
     return EMPTY_STRING_ARRAY;
   }
 
+  /**
+   * Determines whether we should report an invalid contract for the tree. Right now, we only report
+   * invalid contracts for method declarations ({@link MethodTree}s).
+   *
+   * @param tree the AST node to check
+   * @return true if we should report an invalid contract for this tree, false otherwise
+   */
   private static boolean shouldReportInvalidContract(Tree tree) {
     return tree instanceof MethodTree;
   }
