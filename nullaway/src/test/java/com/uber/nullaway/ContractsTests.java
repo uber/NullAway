@@ -74,6 +74,65 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nonJetbrainsAnnotationNamedContract() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "public class NullnessChecker {",
+            "  @Target(ElementType.METHOD)",
+            "  public @interface Contract {",
+            "      String value();",
+            "  }",
+            "  @Target(ElementType.METHOD)",
+            "  public @interface NotContract {",
+            "      String value();",
+            "  }",
+            "  @Contract(\"_, null -> true\")",
+            "  static boolean isNull(boolean flag, @Nullable Object o) { return o == null; }",
+            "  @Contract(\"null -> false\")",
+            "  static boolean isNonNull(@Nullable Object o) { return o != null; }",
+            "  @Contract(\"null -> fail\")",
+            "  static void assertNonNull(@Nullable Object o) { if (o != null) throw new Error(); }",
+            "  @NotContract(\"null -> fail\")",
+            "  static void assertNonNullNotContract(@Nullable Object o) { if (o != null) throw new Error(); }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.isNonNull(o) ? o.toString() : \"null\";",
+            "  }",
+            "  String test2(@Nullable Object o) {",
+            "    return NullnessChecker.isNull(false, o) ? \"null\" : o.toString();",
+            "  }",
+            "  String test3(@Nullable Object o) {",
+            "    NullnessChecker.assertNonNull(o);",
+            "    return o.toString();",
+            "  }",
+            "  String test4(@Nullable Object o) {",
+            "    NullnessChecker.assertNonNullNotContract(o);",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    return o.toString();",
+            "  }",
+            "  String test4(java.util.Map<String,Object> m) {",
+            "    NullnessChecker.assertNonNull(m.get(\"foo\"));",
+            "    return m.get(\"foo\").toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void impliesNonNullContractAnnotation() {
     makeTestHelperWithArgs(
             Arrays.asList(
