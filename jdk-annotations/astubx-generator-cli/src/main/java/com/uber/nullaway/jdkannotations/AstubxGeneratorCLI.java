@@ -158,7 +158,7 @@ public class AstubxGeneratorCLI {
             }
           }
           if (!upperBoundIndex.isEmpty()) {
-            nullableUpperBounds.put(clazz.name(), upperBoundIndex);
+            nullableUpperBounds.put(className, upperBoundIndex);
           }
         }
 

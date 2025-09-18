@@ -196,6 +196,32 @@ public class AstubxTest {
   }
 
   @Test
+  public void nestedNullableUpperBound() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class ReturnAnnotation {",
+          "public static class UpperBoundExample<T extends @Nullable Object> {",
+          "  T nullableObject;",
+          "  public T getNullable() {",
+          "    return nullableObject;",
+          "  }",
+          "}",
+          "}"
+        };
+    ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
+        ImmutableMap.of("ReturnAnnotation.UpperBoundExample", ImmutableSet.of(0));
+    runTest(
+        "ReturnAnnotation.java",
+        lines,
+        ImmutableMap.of(),
+        expectedNullableUpperBounds,
+        ImmutableSet.of("ReturnAnnotation", "ReturnAnnotation.UpperBoundExample"));
+  }
+
+  @Test
   public void nullMarkedClasses() throws IOException {
     String[] lines =
         new String[] {
