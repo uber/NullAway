@@ -42,7 +42,8 @@ import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.util.Set;
 
 /**
- * This Handler parses the jetbrains @Contract annotation and tries to check if the contract is
+ * This Handler parses @Contract-style annotations (JetBrains or any annotation with simple name
+ * "Contract", plus any configured custom annotations) and tries to check if the contract is
  * followed.
  *
  * <p>Currently, it supports the case when there is only one clause in the contract. The clause of
@@ -118,6 +119,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                       analysis.buildDescription(tree),
                       state,
                       null));
+          checkMethodBody = false;
         } else if (!checkableValueConstraints.contains(valueConstraint)) {
           checkMethodBody = false;
         }
