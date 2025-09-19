@@ -42,7 +42,6 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodAccessNode;
-import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.jspecify.annotations.Nullable;
 
@@ -65,8 +64,7 @@ public final class AccessPathNullnessAnalysis {
   private @Nullable AccessPathNullnessPropagation contractNullnessPropagation;
 
   // Use #instance to instantiate
-  private AccessPathNullnessAnalysis(
-      Predicate<MethodInvocationNode> methodReturnsNonNull, VisitorState state, NullAway analysis) {
+  private AccessPathNullnessAnalysis(VisitorState state, NullAway analysis) {
     Config config = analysis.getConfig();
     Handler handler = analysis.getHandler();
     apContext =
@@ -75,23 +73,13 @@ public final class AccessPathNullnessAnalysis {
             .build();
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
-            Nullness.NONNULL,
-            methodReturnsNonNull,
-            state,
-            apContext,
-            analysis,
-            new CoreNullnessStoreInitializer());
+            Nullness.NONNULL, state, apContext, analysis, new CoreNullnessStoreInitializer());
     this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
 
     if (config.checkContracts()) {
       this.contractNullnessPropagation =
           new AccessPathNullnessPropagation(
-              Nullness.NONNULL,
-              methodReturnsNonNull,
-              state,
-              apContext,
-              analysis,
-              new ContractNullnessStoreInitializer());
+              Nullness.NONNULL, state, apContext, analysis, new ContractNullnessStoreInitializer());
     }
   }
 
@@ -99,17 +87,14 @@ public final class AccessPathNullnessAnalysis {
    * Get the per-Javac instance of the analysis.
    *
    * @param state visitor state for the compilation
-   * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
-   *     value
    * @param analysis instance of NullAway analysis
    * @return instance of the analysis
    */
-  public static AccessPathNullnessAnalysis instance(
-      VisitorState state, Predicate<MethodInvocationNode> methodReturnsNonNull, NullAway analysis) {
+  public static AccessPathNullnessAnalysis instance(VisitorState state, NullAway analysis) {
     Context context = state.context;
     AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
     if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, state, analysis);
+      instance = new AccessPathNullnessAnalysis(state, analysis);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
     }
     return instance;

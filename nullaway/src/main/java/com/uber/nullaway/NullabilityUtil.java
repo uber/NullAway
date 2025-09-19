@@ -213,7 +213,10 @@ public class NullabilityUtil {
         elementValues.entrySet()) {
       ExecutableElement elem = entry.getKey();
       if (elem.getSimpleName().contentEquals("value")) {
-        return (String) entry.getValue().getValue();
+        Object value = entry.getValue().getValue();
+        if (value instanceof String) {
+          return (String) value;
+        }
       }
     }
     // not found
