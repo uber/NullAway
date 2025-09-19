@@ -78,9 +78,7 @@ public class Handlers {
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
-    if (config.checkContracts()) {
-      handlerListBuilder.add(new ContractCheckHandler(config));
-    }
+    handlerListBuilder.add(new ContractCheckHandler(config));
     handlerListBuilder.add(new LombokHandler(config));
     handlerListBuilder.add(new FluentFutureHandler(config));
     CompositeHandler mainHandler = new CompositeHandler(handlerListBuilder.build());

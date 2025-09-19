@@ -66,6 +66,15 @@ public class ContractCheckHandler extends BaseNoOpHandler {
     this.config = config;
   }
 
+  /**
+   * Perform checks on any {@code @Contract} annotations on the method. By default, we check for
+   * syntactic well-formedness of the annotation. If {@code config.checkContracts()} is true, we
+   * also check that the method body is consistent with contracts whose value constraints are one of
+   * "_", "null", or "!null" in the antecedent and "!null" in the consequent.
+   *
+   * @param tree The AST node for the method being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
+   */
   @Override
   public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
@@ -86,7 +95,8 @@ public class ContractCheckHandler extends BaseNoOpHandler {
           getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
       String consequent = getConsequent(clause, tree, analysis, state, callee);
 
-      boolean supported = true;
+      // only check if config.checkContracts() is true
+      boolean supported = config.checkContracts();
 
       for (int i = 0; i < antecedent.length; ++i) {
         String valueConstraint = antecedent[i].trim();

@@ -19,6 +19,32 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void noContractCheckErrorsWithoutFlag() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  @Contract(\"_, !null -> !null\")",
+            "  @Nullable",
+            "  Object foo(Object a, @Nullable Object b) {",
+            "    if (a.hashCode() % 2 == 0) {",
+            "      // no error since CheckContracts is not set",
+            "      return null;",
+            "    }",
+            "    return new Object();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void checkContractNegativeCases() {
     makeTestHelperWithArgs(
             Arrays.asList(
@@ -174,8 +200,7 @@ public class ContractsTests extends NullAwayTestsBase {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CheckContracts=true"))
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -218,8 +243,7 @@ public class ContractsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:CustomContractAnnotations=com.example.library.CustomContract",
-                "-XepOpt:NullAway:CheckContracts=true"))
+                "-XepOpt:NullAway:CustomContractAnnotations=com.example.library.CustomContract"))
         .addSourceLines(
             "CustomContract.java",
             "package com.example.library;",
