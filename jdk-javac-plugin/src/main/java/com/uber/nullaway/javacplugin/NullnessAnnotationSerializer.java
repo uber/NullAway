@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
@@ -41,7 +42,11 @@ public class NullnessAnnotationSerializer implements Plugin {
   record TypeParamInfo(String name, List<String> bounds) {}
 
   record MethodInfo(
-      String name, boolean nullMarked, boolean nullUnmarked, List<TypeParamInfo> typeParams) {}
+      String returnType,
+      String name,
+      boolean nullMarked,
+      boolean nullUnmarked,
+      List<TypeParamInfo> typeParams) {}
 
   record ClassInfo(
       String name,
@@ -83,6 +88,8 @@ public class NullnessAnnotationSerializer implements Plugin {
                     return null; // skip anonymous
                   }
                   ClassSymbol classSym = (ClassSymbol) trees.getElement(getCurrentPath());
+                  // get enclosing class symbol (if any nullmarked, this is nullmarked)
+                  // get the closest annotation
                   @SuppressWarnings("ASTHelpersSuggestions")
                   String moduleName =
                       classSym.packge().getEnclosingElement().getQualifiedName().toString();
@@ -95,6 +102,34 @@ public class NullnessAnnotationSerializer implements Plugin {
                   TypeMirror classType = trees.getTypeMirror(getCurrentPath());
                   boolean hasNullMarked = hasAnnotation(classSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(classSym, NULLUNMARKED_NAME);
+                  System.err.println(simpleName + "= " + hasNullMarked + " & " + hasNullUnmarked);
+                  if (!(hasNullMarked
+                      || hasNullUnmarked)) { // no @NullMarked or @NullUnmarked annotation at all
+                    if (currentClass != null) {
+                      if (currentClass.nullMarked) {
+                        hasNullMarked = true;
+                      }
+                      if (currentClass.nullUnmarked) {
+                        hasNullUnmarked = true;
+                      }
+                    }
+                    //                    // not needed because any marked nullness in the hierarchy
+                    // will be in the currentClass
+                    //                    for (ClassInfo enclosingInfo : classStack) {
+                    //                      System.err.println(enclosingInfo.name + "= " +
+                    // enclosingInfo.nullMarked + " & " + enclosingInfo.nullUnmarked);
+                    //                      if(enclosingInfo.nullMarked) {
+                    //                        hasNullMarked = true;
+                    //                        break;
+                    //                      }
+                    //                      if(enclosingInfo.nullUnmarked) {
+                    //                        hasNullUnmarked = true;
+                    //                        break;
+                    //                      }
+                    //                    }
+                    // check enclosing types recursively
+                    // if one of the annotation exists, follow that and exit loop
+                  }
                   if (currentClass != null) {
                     // save current class context
                     classStack.push(currentClass);
@@ -128,15 +163,66 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return super.visitMethod(methodTree, null);
                   }
+                  Tree mt = methodTree.getReturnType();
+                  //                  if(mt != null) {
+                  //                    TreePath returnTypePath = new TreePath(getCurrentPath(),
+                  // mt);
+                  //                    if (returnTypePath == null) {
+                  //                    }
+                  //                  }
+                  //                  TypeMirror returnTypeMirror =
+                  // trees.getTypeMirror(returnTypePath);
+                  //                  System.out.println("Method: " + mSym.getSimpleName());
+                  //                  System.out.println("Return Type Mirror: " +
+                  // returnTypeMirror.toString());
+                  //                  System.out.println("Annotations on Return Type: " +
+                  // returnTypeMirror.getAnnotationMirrors());
+                  //                  if(returnTypePath==null){}
+                  String returnType = "";
+                  if (mt != null) {
+                    //                    TypeMirror returnTypeMirror = mSym.getReturnType();
+                    //                    if(returnTypeMirror==null){}
+                    //                    List<? extends AnnotationMirror> annotations =
+                    // mSym.getAnnotationMirrors();
+                    //                    var returnTypeTree = methodTree.getReturnType();
+                    //                    TreePath returnTypePath = new TreePath(getCurrentPath(),
+                    // returnTypeTree);
+                    //                    TypeMirror returnTypeMirror =
+                    // trees.getTypeMirror(returnTypePath);
+                    //                    System.out.println("Method: " + mSym.getSimpleName());
+                    //                    System.out.println("Return Type Mirror: " +
+                    // returnTypeMirror.toString());
+                    //                    System.out.println("Annotations on Return Type: " +
+                    // returnTypeMirror.getAnnotationMirrors());
+                    //                    for(var am : annotations) {
+                    //                      returnType += am.getAnnotationType().toString();
+                    //                      System.out.println(am.getAnnotationType().toString());
+                    //                    }
+                    returnType += mSym.getReturnType().toString();
+                  }
+                  //                  System.out.println(returnType);
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
+                  System.err.println(currentClass.name + "." + mSym.toString());
+                  if (!(hasNullMarked || hasNullUnmarked)) {
+                    if (currentClass.nullMarked) {
+                      hasNullMarked = true;
+                    }
+                    if (currentClass.nullUnmarked) {
+                      hasNullUnmarked = true;
+                    }
+                  }
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : methodTree.getTypeParameters()) {
                     methodTypeParams.add(typeParamInfo(tp));
                   }
                   MethodInfo methodInfo =
                       new MethodInfo(
-                          mSym.toString(), hasNullMarked, hasNullUnmarked, methodTypeParams);
+                          returnType,
+                          mSym.toString(),
+                          hasNullMarked,
+                          hasNullUnmarked,
+                          methodTypeParams);
                   if (currentClass != null) {
                     currentClass.methods().add(methodInfo);
                   }
