@@ -95,8 +95,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
           getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
       String consequent = getConsequent(clause, tree, analysis, state, callee);
 
-      // only check if config.checkContracts() is true
-      boolean supported = config.checkContracts();
+      boolean checkMethodBody = config.checkContracts();
 
       for (int i = 0; i < antecedent.length; ++i) {
         String valueConstraint = antecedent[i].trim();
@@ -120,15 +119,15 @@ public class ContractCheckHandler extends BaseNoOpHandler {
                       state,
                       null));
         } else if (!checkableValueConstraints.contains(valueConstraint)) {
-          supported = false;
+          checkMethodBody = false;
         }
       }
 
       if (!consequent.equals("!null")) {
-        supported = false;
+        checkMethodBody = false;
       }
 
-      if (!supported) {
+      if (!checkMethodBody) {
         return;
       }
 
