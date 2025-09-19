@@ -122,7 +122,7 @@ public class AstubxGeneratorCLI {
     Map<String, Set<String>> typeAnnotations = new HashMap<>();
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
     Set<String> nullMarkedClasses = new LinkedHashSet<>();
-    Set<String> nullMarkedClassTypes = new LinkedHashSet<>();
+    //    Set<String> nullMarkedClassTypes = new LinkedHashSet<>();
     Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>(); // not used
 
     for (Map.Entry<String, List<ClassJson>> entry : parsed.entrySet()) {
@@ -136,17 +136,7 @@ public class AstubxGeneratorCLI {
         boolean nullMarked = clazz.nullMarked();
         if (clazz.nullMarked()) {
           nullMarkedClasses.add(className);
-          nullMarkedClassTypes.add(clazz.type());
-        } else {
-          // check if the class is a nested class of a NullMarked class
-          for (String classType : nullMarkedClassTypes) {
-            if (clazz.type().contains(classType)) {
-              System.out.println(clazz.type() + " contains " + classType);
-              nullMarkedClasses.add(className);
-              nullMarked = true;
-              break;
-            }
-          }
+          //          nullMarkedClassTypes.add(clazz.type());
         }
 
         for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
