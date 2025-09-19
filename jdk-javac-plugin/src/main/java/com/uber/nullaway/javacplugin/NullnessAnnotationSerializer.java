@@ -88,6 +88,8 @@ public class NullnessAnnotationSerializer implements Plugin {
                     return null; // skip anonymous
                   }
                   ClassSymbol classSym = (ClassSymbol) trees.getElement(getCurrentPath());
+                  // get enclosing class symbol (if any nullmarked, this is nullmarked)
+                  // get the closest annotation
                   @SuppressWarnings("ASTHelpersSuggestions")
                   String moduleName =
                       classSym.packge().getEnclosingElement().getQualifiedName().toString();
@@ -100,6 +102,34 @@ public class NullnessAnnotationSerializer implements Plugin {
                   TypeMirror classType = trees.getTypeMirror(getCurrentPath());
                   boolean hasNullMarked = hasAnnotation(classSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(classSym, NULLUNMARKED_NAME);
+                  System.err.println(simpleName + "= " + hasNullMarked + " & " + hasNullUnmarked);
+                  if (!(hasNullMarked
+                      || hasNullUnmarked)) { // no @NullMarked or @NullUnmarked annotation at all
+                    if (currentClass != null) {
+                      if (currentClass.nullMarked) {
+                        hasNullMarked = true;
+                      }
+                      if (currentClass.nullUnmarked) {
+                        hasNullUnmarked = true;
+                      }
+                    }
+                    //                    // not needed because any marked nullness in the hierarchy
+                    // will be in the currentClass
+                    //                    for (ClassInfo enclosingInfo : classStack) {
+                    //                      System.err.println(enclosingInfo.name + "= " +
+                    // enclosingInfo.nullMarked + " & " + enclosingInfo.nullUnmarked);
+                    //                      if(enclosingInfo.nullMarked) {
+                    //                        hasNullMarked = true;
+                    //                        break;
+                    //                      }
+                    //                      if(enclosingInfo.nullUnmarked) {
+                    //                        hasNullUnmarked = true;
+                    //                        break;
+                    //                      }
+                    //                    }
+                    // check enclosing types recursively
+                    // if one of the annotation exists, follow that and exit loop
+                  }
                   if (currentClass != null) {
                     // save current class context
                     classStack.push(currentClass);
@@ -173,6 +203,15 @@ public class NullnessAnnotationSerializer implements Plugin {
                   //                  System.out.println(returnType);
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
+                  System.err.println(currentClass.name + "." + mSym.toString());
+                  if (!(hasNullMarked || hasNullUnmarked)) {
+                    if (currentClass.nullMarked) {
+                      hasNullMarked = true;
+                    }
+                    if (currentClass.nullUnmarked) {
+                      hasNullUnmarked = true;
+                    }
+                  }
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : methodTree.getTypeParameters()) {
                     methodTypeParams.add(typeParamInfo(tp));
