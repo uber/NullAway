@@ -111,7 +111,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.StreamSupport;
 import javax.inject.Inject;
@@ -195,8 +194,6 @@ public class NullAway extends BugChecker
   private static final Matcher<ExpressionTree> THIS_MATCHER = NullAway::isThisIdentifierMatcher;
   private static final ImmutableSet<ElementType> TYPE_USE_OR_TYPE_PARAMETER =
       ImmutableSet.of(TYPE_USE, TYPE_PARAMETER);
-
-  private final Predicate<MethodInvocationNode> nonAnnotatedMethod;
 
   /**
    * Possible levels of null-marking / annotatedness for a class. This may be set to FULLY_MARKED or
@@ -296,7 +293,6 @@ public class NullAway extends BugChecker
   public NullAway() {
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
-    nonAnnotatedMethod = this::isMethodUnannotated;
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
@@ -306,7 +302,6 @@ public class NullAway extends BugChecker
   public NullAway(ErrorProneFlags flags) {
     config = new ErrorProneCLIFlagsConfig(flags);
     handler = Handlers.buildDefault(config);
-    nonAnnotatedMethod = this::isMethodUnannotated;
     Set<String> allSuppressionNames =
         config.getSuppressionNameAliases().isEmpty()
             ? allNames()
@@ -319,7 +314,7 @@ public class NullAway extends BugChecker
     genericsChecks = new GenericsChecks(this, config, handler);
   }
 
-  private boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
+  public boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
     return invocationNode == null
         || codeAnnotationInfo.isSymbolUnannotated(
             ASTHelpers.getSymbol(invocationNode.getTree()), config, handler);
@@ -2711,9 +2706,12 @@ public class NullAway extends BugChecker
     if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
       return true;
     }
+    // NOTE: we cannot rely on state.getPath() here to get a TreePath to the invocation, since
+    // sometimes the invocation is a sub-node of the leaf of the path.  So, here if inference runs,
+    // it will do so without an assignment context.  If this becomes a problem, we can revisit
     if (config.isJSpecifyMode()
         && genericsChecks
-            .getGenericReturnNullnessAtInvocation(exprSymbol, invocationTree, state)
+            .getGenericReturnNullnessAtInvocation(exprSymbol, invocationTree, null, state)
             .equals(Nullness.NULLABLE)) {
       return true;
     }
@@ -2732,7 +2730,7 @@ public class NullAway extends BugChecker
   }
 
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
-    return AccessPathNullnessAnalysis.instance(state, nonAnnotatedMethod, this);
+    return AccessPathNullnessAnalysis.instance(state, this);
   }
 
   private Description matchDereference(

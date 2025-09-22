@@ -39,9 +39,11 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
+import java.util.Set;
 
 /**
- * This Handler parses the jetbrains @Contract annotation and tries to check if the contract is
+ * This Handler parses @Contract-style annotations (JetBrains or any annotation with simple name
+ * "Contract", plus any configured custom annotations) and tries to check if the contract is
  * followed.
  *
  * <p>Currently, it supports the case when there is only one clause in the contract. The clause of
@@ -54,10 +56,26 @@ public class ContractCheckHandler extends BaseNoOpHandler {
 
   private final Config config;
 
+  /** A set of value constraints in the antecedent which we can check for now. */
+  private final Set<String> checkableValueConstraints = Set.of("_", "null", "!null");
+
+  /** All known valid value constraints */
+  private final Set<String> allValidValueConstraints =
+      Set.of("_", "null", "!null", "true", "false");
+
   public ContractCheckHandler(Config config) {
     this.config = config;
   }
 
+  /**
+   * Perform checks on any {@code @Contract} annotations on the method. By default, we check for
+   * syntactic well-formedness of the annotation. If {@code config.checkContracts()} is true, we
+   * also check that the method body is consistent with contracts whose value constraints are one of
+   * "_", "null", or "!null" in the antecedent and "!null" in the consequent.
+   *
+   * @param tree The AST node for the method being matched.
+   * @param methodAnalysisContext The MethodAnalysisContext object
+   */
   @Override
   public void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
@@ -78,22 +96,40 @@ public class ContractCheckHandler extends BaseNoOpHandler {
           getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
       String consequent = getConsequent(clause, tree, analysis, state, callee);
 
-      boolean supported = true;
+      boolean checkMethodBody = config.checkContracts();
 
       for (int i = 0; i < antecedent.length; ++i) {
         String valueConstraint = antecedent[i].trim();
-        if (!(valueConstraint.equals("_")
-            || valueConstraint.equals("!null")
-            || valueConstraint.equals("null"))) {
-          supported = false;
+        if (!allValidValueConstraints.contains(valueConstraint)) {
+          String errorMessage =
+              "Invalid @Contract annotation detected for method "
+                  + callee
+                  + ". It contains the following unparseable clause: "
+                  + clause
+                  + " (unknown value constraint: "
+                  + valueConstraint
+                  + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
+          state.reportMatch(
+              analysis
+                  .getErrorBuilder()
+                  .createErrorDescription(
+                      new ErrorMessage(
+                          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
+                      tree,
+                      analysis.buildDescription(tree),
+                      state,
+                      null));
+          checkMethodBody = false;
+        } else if (!checkableValueConstraints.contains(valueConstraint)) {
+          checkMethodBody = false;
         }
       }
 
       if (!consequent.equals("!null")) {
-        supported = false;
+        checkMethodBody = false;
       }
 
-      if (!supported) {
+      if (!checkMethodBody) {
         return;
       }
 
