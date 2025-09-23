@@ -136,7 +136,7 @@ public class AstubxGeneratorCLI {
           fullyQualifiedClassName =
               fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
         }
-        System.err.println(">> " + fullyQualifiedClassName);
+        //        System.err.println(">> " + fullyQualifiedClassName);
         // remove package path
         // check
         boolean nullMarked = clazz.nullMarked();
@@ -160,7 +160,7 @@ public class AstubxGeneratorCLI {
 
         for (MethodJson method : clazz.methods()) {
           String methodName = method.name();
-          System.err.println(methodName);
+          //          System.err.println(methodName);
           String returnType = method.returnType();
           ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
           if (returnType.indexOf(" ") != -1) {
@@ -215,12 +215,14 @@ public class AstubxGeneratorCLI {
           } else {
             signature = signature.substring(0, signature.length() - 2) + ")";
           }
-          if (nullMarked && (!returnTypeNullness.isEmpty() || !nullableParameters.isEmpty())) {
-            methodRecords.put(
-                signature,
-                MethodAnnotationsRecord.create(
-                    returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
-          }
+          if (nullMarked && (!returnTypeNullness.isEmpty() || !nullableParameters.isEmpty())) {}
+          //          if(nullMarked) {}
+          //            if ((!returnTypeNullness.isEmpty() || !nullableParameters.isEmpty())) {
+          methodRecords.put(
+              signature,
+              MethodAnnotationsRecord.create(
+                  returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
+          //          }
         }
       }
     }

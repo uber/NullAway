@@ -204,21 +204,24 @@ public class AstubxTest {
           "import org.jspecify.annotations.Nullable;",
           "@NullMarked",
           "public class ReturnAnnotation {",
-          "public static class UpperBoundExample<T extends @Nullable Object, S> {",
-          "  T nullableObject;",
-          "  public T getNullable() {",
-          "    return nullableObject;",
+          "  public static class UpperBoundExample<T extends @Nullable Object> {",
+          "    T nullableObject;",
+          "    public T getNullable() {",
+          "      return nullableObject;",
+          "    }",
           "  }",
-          "  public @Nullable S returnNull() { return null; }",
-          "}",
           "}"
         };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "ReturnAnnotation.UpperBoundExample:T getNullable()",
+            MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
     ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
         ImmutableMap.of("ReturnAnnotation.UpperBoundExample", ImmutableSet.of(0));
     runTest(
         "ReturnAnnotation.java",
         lines,
-        ImmutableMap.of(),
+        expectedMethodRecords,
         expectedNullableUpperBounds,
         ImmutableSet.of("ReturnAnnotation"));
   }
@@ -300,7 +303,15 @@ public class AstubxTest {
           " }",
           "}"
         };
-    runTest("NullUnmarked.java", lines, ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
+    runTest(
+        "NullUnmarked.java",
+        lines,
+        ImmutableMap.of(
+            "NullUnmarked:java.lang.Object getNewObjectIfNull(java.lang.Object)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable")))),
+        ImmutableMap.of(),
+        ImmutableSet.of());
   }
 
   @Test
