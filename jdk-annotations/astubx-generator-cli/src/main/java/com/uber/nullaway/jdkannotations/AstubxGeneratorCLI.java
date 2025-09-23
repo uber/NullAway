@@ -96,6 +96,7 @@ public class AstubxGeneratorCLI {
 
     // for each JSON file
     //    for (File jsonFile : jsonFiles) {
+    // TODO only one JSON file
     File jsonFile = jsonFiles[0];
     //      String name = jsonFile.getName();
     //      String baseName = name.substring(0, name.length() - ".json".length());
@@ -129,13 +130,18 @@ public class AstubxGeneratorCLI {
       // for each class
       for (ClassJson clazz : entry.getValue()) {
         // remove type parameters from the class type
-        String className = clazz.type();
-        if (className.indexOf('<') != -1) {
-          className = className.substring(0, className.indexOf('<'));
+        String fullyQualifiedClassName = clazz.type();
+        // remove generics
+        if (fullyQualifiedClassName.indexOf('<') != -1) {
+          fullyQualifiedClassName =
+              fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
         }
+        System.err.println(">> " + fullyQualifiedClassName);
+        // remove package path
+        // check
         boolean nullMarked = clazz.nullMarked();
         if (clazz.nullMarked()) {
-          nullMarkedClasses.add(className);
+          nullMarkedClasses.add(fullyQualifiedClassName);
           //          nullMarkedClassTypes.add(clazz.type());
         }
 
@@ -148,12 +154,13 @@ public class AstubxGeneratorCLI {
             }
           }
           if (!upperBoundIndex.isEmpty()) {
-            nullableUpperBounds.put(className, upperBoundIndex);
+            nullableUpperBounds.put(fullyQualifiedClassName, upperBoundIndex);
           }
         }
 
         for (MethodJson method : clazz.methods()) {
           String methodName = method.name();
+          System.err.println(methodName);
           String returnType = method.returnType();
           ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
           if (returnType.indexOf(" ") != -1) {
@@ -162,7 +169,7 @@ public class AstubxGeneratorCLI {
             returnType = returnType.replace(" ", "");
             returnTypeNullness = ImmutableSet.of("Nullable");
           }
-          String signature = className + ":" + returnType + " ";
+          String signature = fullyQualifiedClassName + ":" + returnType + " ";
           signature += methodName.substring(0, methodName.indexOf('(') + 1);
           if (methodName.substring(0, methodName.length() - 2).equals(clazz.name())) {
             continue;
@@ -197,10 +204,11 @@ public class AstubxGeneratorCLI {
             }
             signature += arg + ", ";
           }
-          if (argAnnotation == null) {}
-          if (!nullableParameters.equals("")) {
-            methodName = className + ":" + nullableParameters + " " + methodName;
-          }
+          //          if (argAnnotation == null) {}
+          //          if (!nullableParameters.equals("")) {
+          //            methodName = fullyQualifiedClassName + ":" + nullableParameters + " " +
+          // methodName;
+          //          }
           //            System.err.println(">> " + methodName);
           if (arguments.length == 0) {
             signature += ")";

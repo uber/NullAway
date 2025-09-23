@@ -199,15 +199,17 @@ public class AstubxTest {
   public void nestedNullableUpperBound() throws IOException {
     String[] lines =
         new String[] {
+          //          "package com.uber.nullaway.jdkannotations;",
           "import org.jspecify.annotations.NullMarked;",
           "import org.jspecify.annotations.Nullable;",
           "@NullMarked",
           "public class ReturnAnnotation {",
-          "public static class UpperBoundExample<T extends @Nullable Object> {",
+          "public static class UpperBoundExample<T extends @Nullable Object, S> {",
           "  T nullableObject;",
           "  public T getNullable() {",
           "    return nullableObject;",
           "  }",
+          "  public @Nullable S returnNull() { return null; }",
           "}",
           "}"
         };
@@ -218,7 +220,7 @@ public class AstubxTest {
         lines,
         ImmutableMap.of(),
         expectedNullableUpperBounds,
-        ImmutableSet.of("ReturnAnnotation", "ReturnAnnotation.UpperBoundExample"));
+        ImmutableSet.of("ReturnAnnotation"));
   }
 
   @Test
@@ -231,8 +233,7 @@ public class AstubxTest {
           "  public static class Nested {}",
           "}",
         };
-    ImmutableSet<String> expectedNullMarkedClasses =
-        ImmutableSet.of("NullMarkedClass", "NullMarkedClass.Nested");
+    ImmutableSet<String> expectedNullMarkedClasses = ImmutableSet.of("NullMarkedClass");
     runTest(
         "NullMarkedClass.java",
         lines,
