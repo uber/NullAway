@@ -137,8 +137,6 @@ public class AstubxGeneratorCLI {
               fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
         }
         //        System.err.println(">> " + fullyQualifiedClassName);
-        // remove package path
-        // check
         boolean nullMarked = clazz.nullMarked();
         if (clazz.nullMarked()) {
           nullMarkedClasses.add(fullyQualifiedClassName);
@@ -163,11 +161,19 @@ public class AstubxGeneratorCLI {
           //          System.err.println(methodName);
           String returnType = method.returnType();
           ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
+          // check Nullable annotation of return type
           if (returnType.indexOf(" ") != -1) {
             //            System.err.println("nullable return");
             returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
             returnType = returnType.replace(" ", "");
             returnTypeNullness = ImmutableSet.of("Nullable");
+          } else {
+            // check upperbound if return type is a generic type
+            for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
+              if (returnType.equals(clazz.typeParams().get(idx).name())) {
+                returnTypeNullness = ImmutableSet.of("Nullable");
+              }
+            }
           }
           String signature = fullyQualifiedClassName + ":" + returnType + " ";
           signature += methodName.substring(0, methodName.indexOf('(') + 1);
