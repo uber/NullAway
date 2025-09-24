@@ -12,6 +12,7 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
+import java.nio.file.Paths;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -46,6 +47,7 @@ public class AstubxGeneratorCLI {
   public static void main(String[] args) {
     if (args.length != 2) {
       System.err.println("Invalid number of arguments. Required: <inputPath> <outputPath>");
+      System.exit(2);
     }
     generateAstubx(args[0], args[1]);
   }
@@ -81,28 +83,26 @@ public class AstubxGeneratorCLI {
     File jsonDir = new File(jsonDirPath);
 
     if (!jsonDir.exists() || !jsonDir.isDirectory()) {
-      System.err.println("JSON Directory does not exist or is not a directory.");
-      System.exit(1);
+      throw new IllegalArgumentException(
+          "JSON directory does not exist or is not a directory: " + jsonDirPath);
     }
 
     File[] jsonFiles = jsonDir.listFiles((dir, name) -> name.endsWith(".json"));
     if (jsonFiles == null || jsonFiles.length == 0) {
-      System.err.println("No JSON files found.");
-      System.exit(1);
+      throw new IllegalStateException("No JSON files found in: " + jsonDirPath);
     }
 
     Gson gson = new Gson();
     Type parsedType = new TypeToken<Map<String, List<ClassJson>>>() {}.getType();
 
-    // for each JSON file
-    //    for (File jsonFile : jsonFiles) {
-    // TODO only one JSON file
-    File jsonFile = jsonFiles[0];
-    //      String name = jsonFile.getName();
-    //      String baseName = name.substring(0, name.length() - ".json".length());
+    File jsonFile = jsonFiles[0]; // only one JSON file created
+    // check if the astubx file directory exists
+    try {
+      Files.createDirectories(Paths.get(astubxDirPath));
+    } catch (IOException e) {
+      System.err.println("Failed to create directory: " + astubxDirPath + e.getMessage());
+    }
     File outputFile = new File(astubxDirPath, "output.astubx");
-
-    //      System.out.println("Processing: " + jsonFile.getAbsolutePath());
 
     // parse JSON file
     Map<String, List<ClassJson>> parsed;
@@ -123,7 +123,6 @@ public class AstubxGeneratorCLI {
     Map<String, Set<String>> typeAnnotations = new HashMap<>();
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
     Set<String> nullMarkedClasses = new LinkedHashSet<>();
-    //    Set<String> nullMarkedClassTypes = new LinkedHashSet<>();
     Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>(); // not used
 
     for (Map.Entry<String, List<ClassJson>> entry : parsed.entrySet()) {
@@ -136,11 +135,8 @@ public class AstubxGeneratorCLI {
           fullyQualifiedClassName =
               fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
         }
-        //        System.err.println(">> " + fullyQualifiedClassName);
-        boolean nullMarked = clazz.nullMarked();
         if (clazz.nullMarked()) {
           nullMarkedClasses.add(fullyQualifiedClassName);
-          //          nullMarkedClassTypes.add(clazz.type());
         }
 
         for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
@@ -158,12 +154,14 @@ public class AstubxGeneratorCLI {
 
         for (MethodJson method : clazz.methods()) {
           String methodName = method.name();
-          //          System.err.println(methodName);
           String returnType = method.returnType();
+          // skip all constructors
+          if (methodName.substring(0, methodName.indexOf('(')).equals(clazz.name())) {
+            continue;
+          }
           ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
           // check Nullable annotation of return type
           if (returnType.indexOf(" ") != -1) {
-            //            System.err.println("nullable return");
             returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
             returnType = returnType.replace(" ", "");
             returnTypeNullness = ImmutableSet.of("Nullable");
@@ -177,58 +175,35 @@ public class AstubxGeneratorCLI {
           }
           String signature = fullyQualifiedClassName + ":" + returnType + " ";
           signature += methodName.substring(0, methodName.indexOf('(') + 1);
-          if (methodName.substring(0, methodName.length() - 2).equals(clazz.name())) {
-            continue;
-          }
-          //            System.err.println("methodName: " + methodName);
-          //            System.err.println("signature: " + signature);
           Map<Integer, ImmutableSet<String>> argAnnotation = new LinkedHashMap<>();
 
           // get the arguments
           String argsOnly = methodName.replaceAll(".*\\((.*)\\)", "$1").trim();
-          //            System.out.println("argsOnly: " + argsOnly);
           // split using comma but not the commas separating the generics
           String[] arguments =
               argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?=(?:[^<]*<[^>]*>)*[^>]*$)");
 
-          String nullableParameters = "";
           for (int i = 0; i < arguments.length; i++) {
             String arg = arguments[i].trim();
-            //              System.err.println("arg:" + arg);
             if (arg.indexOf('<') != -1) {
               arg = arg.substring(0, arg.indexOf('<'));
-              //                System.err.println("< trimmed" + arg);
             }
             if (arg.contains("Nullable")) {
               argAnnotation.put(i, ImmutableSet.of("Nullable"));
-              //                arg = arg.substring(arg.indexOf(" ")).trim();
               arg = arg.replace("@org.jspecify.annotations.Nullable ", "");
               arg = arg.replace(" ", "");
-              nullableParameters += arg;
-              //                System.err.println("Contains nullable parameter: " +
-              // nullableParameters);
             }
             signature += arg + ", ";
           }
-          //          if (argAnnotation == null) {}
-          //          if (!nullableParameters.equals("")) {
-          //            methodName = fullyQualifiedClassName + ":" + nullableParameters + " " +
-          // methodName;
-          //          }
-          //            System.err.println(">> " + methodName);
           if (arguments.length == 0) {
             signature += ")";
           } else {
             signature = signature.substring(0, signature.length() - 2) + ")";
           }
-          if (nullMarked && (!returnTypeNullness.isEmpty() || !nullableParameters.isEmpty())) {}
-          //          if(nullMarked) {}
-          //            if ((!returnTypeNullness.isEmpty() || !nullableParameters.isEmpty())) {
           methodRecords.put(
               signature,
               MethodAnnotationsRecord.create(
                   returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
-          //          }
         }
       }
     }
@@ -249,7 +224,5 @@ public class AstubxGeneratorCLI {
     LibraryModelData modelData =
         new LibraryModelData(methodRecords, nullableUpperBounds, nullMarkedClasses);
     return modelData;
-    //      System.out.println("Wrote output to " + outputFile.getAbsolutePath());
-    //    }
   }
 }
