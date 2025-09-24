@@ -11,6 +11,7 @@ dependencies {
 
     // Add the jdk-javac-plugin as annotation processor
     annotationProcessor files("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar")
+    compileOnly files("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar")
 }
 
 //def pluginJar = "${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar"
