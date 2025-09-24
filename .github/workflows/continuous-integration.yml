@@ -25,8 +25,9 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: |
+            25
             21
-          distribution: 'temurin'
+          distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Build and test
@@ -72,7 +73,7 @@ jobs:
         uses: actions/setup-java@v4
         with:
           java-version: 21
-          distribution: 'temurin'
+          distribution: 'zulu'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Publish to Maven Local
