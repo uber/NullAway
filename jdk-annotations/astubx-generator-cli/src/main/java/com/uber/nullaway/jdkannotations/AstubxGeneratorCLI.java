@@ -111,7 +111,7 @@ public class AstubxGeneratorCLI {
           fullyQualifiedClassName =
               fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
         }
-        // (needed? NullAway checks NullMarkedness with fully qualified name)
+        // (Is this needed? NullAway checks NullMarkedness with fully qualified name)
         if (clazz.nullMarked()) {
           nullMarkedClasses.add(fullyQualifiedClassName);
         }
