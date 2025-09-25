@@ -52,12 +52,12 @@ public class AstubxGeneratorCLI {
     generateAstubx(args[0], args[1]);
   }
 
-  public static class LibraryModelData {
+  public static class AstubxData {
     public final Map<String, MethodAnnotationsRecord> methodRecords;
     public final Map<String, Set<Integer>> nullableUpperBounds;
     public final Set<String> nullMarkedClasses;
 
-    public LibraryModelData(
+    public AstubxData(
         Map<String, MethodAnnotationsRecord> methodRecords,
         Map<String, Set<Integer>> nullableUpperBounds,
         Set<String> nullMarkedClasses) {
@@ -68,7 +68,7 @@ public class AstubxGeneratorCLI {
 
     @Override
     public String toString() {
-      return "ModelData{"
+      return "AstubxData{"
           + "methodRecords="
           + methodRecords
           + ", nullableUpperBounds="
@@ -79,7 +79,7 @@ public class AstubxGeneratorCLI {
     }
   }
 
-  public static LibraryModelData generateAstubx(String jsonDirPath, String astubxDirPath) {
+  public static AstubxData generateAstubx(String jsonDirPath, String astubxDirPath) {
     // get parsed JSON file
     Map<String, List<ClassJson>> parsed = parseJson(jsonDirPath);
 
@@ -151,8 +151,7 @@ public class AstubxGeneratorCLI {
     }
 
     // return result as modelData (for testing)
-    LibraryModelData modelData =
-        new LibraryModelData(methodRecords, nullableUpperBounds, nullMarkedClasses);
+    AstubxData modelData = new AstubxData(methodRecords, nullableUpperBounds, nullMarkedClasses);
     return modelData;
   }
 

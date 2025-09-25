@@ -40,99 +40,28 @@ public class AstubxTest {
       ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds,
       ImmutableSet<String> expectedNullMarkedClasses)
       throws IOException {
-    // write it to a source file in inputSourcesFolder with the right file name
-    File sourceFile = inputSourcesFolder.newFile(sourceFileName);
-    Files.write(sourceFile.toPath(), String.join("\n", lines).getBytes(StandardCharsets.UTF_8));
-
+    // make output directories
     String outputJsonPath = "build/generated/json-output";
     String outputAstubxPath = "build/generated/astubx-output";
     new File(outputJsonPath).mkdirs();
     new File(outputAstubxPath).mkdirs();
 
-    File jsonOutputDir = outputFolder.newFolder("build/generated/json-output");
-    File classOutputDir = outputFolder.newFolder("build/generated/class-output");
+    // make output files
+    File jsonOutputFile = outputFolder.newFolder("build/generated/json-output");
+    File classOutputFile = outputFolder.newFolder("build/generated/class-output");
 
-    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
-    if (compiler == null) {
-      throw new AssertionError("Compiler not found. Please run with a JDK.");
-    }
-
-    // Find necessary JARs from the test's own runtime classpath
-    String runtimeClasspath = System.getProperty("java.class.path");
-    String jspecifyJarPath =
-        Arrays.stream(runtimeClasspath.split(File.pathSeparator))
-            .filter(path -> path.contains("jspecify"))
-            .findFirst()
-            .orElseThrow(
-                () -> new AssertionError("Could not find jspecify JAR on the runtime classpath."));
-
-    String pluginJarPath =
-        Paths.get(
-                System.getProperty("user.dir"),
-                "..",
-                "..",
-                "jdk-javac-plugin",
-                "build",
-                "libs",
-                "jdk-javac-plugin-all.jar")
-            .toString();
-    if (!Files.exists(Paths.get(pluginJarPath))) {
-      throw new AssertionError(
-          "Plugin JAR not found at: " + pluginJarPath + ". Please build it first.");
-    }
-
-    // Build the classpath needed to COMPILE the source code
-    String compilationClasspath = pluginJarPath + File.pathSeparator + jspecifyJarPath;
-
-    // Set compiler options, replicating the '-Xplugin' argument
-    List<String> options = new ArrayList<>();
-    options.addAll(Arrays.asList("-processorpath", pluginJarPath));
-    options.addAll(Arrays.asList("-classpath", compilationClasspath));
-    options.addAll(Arrays.asList("-d", classOutputDir.getAbsolutePath()));
-    options.add("-Xplugin:NullnessAnnotationSerializer " + jsonOutputDir.getAbsolutePath());
-
-    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-
-    StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
-    Iterable<? extends JavaFileObject> compilationUnits =
-        fileManager.getJavaFileObjects(sourceFile);
-
-    boolean success =
-        compiler.getTask(null, fileManager, diagnostics, options, null, compilationUnits).call();
-    fileManager.close();
-
-    boolean hasErrors = false;
-    for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
-      // Only print errors and warnings, as notes can be verbose
-      if (diagnostic.getKind() == Diagnostic.Kind.ERROR
-          || diagnostic.getKind() == Diagnostic.Kind.WARNING) {
-        hasErrors = true;
-        System.err.format(
-            "Compiler Diagnostic: %s on line %d in %s%n",
-            diagnostic.getMessage(null),
-            diagnostic.getLineNumber(),
-            diagnostic.getSource() != null ? diagnostic.getSource().getName() : "Unknown file");
-      }
-    }
-
-    // Fail the test if the plugin reported errors, even if 'success' is true
-    if (hasErrors) {
-      Assert.fail("Plugin reported errors. See diagnostics above.");
-    }
-
-    if (!success) {
-      Assert.fail("Java compilation with plugin failed.");
-    }
+    // make source file and run it with the plugin
+    runCompilerWithPlugin(sourceFileName, lines, jsonOutputFile, classOutputFile);
 
     // run the generator
     String astubxOutputDirPath = Paths.get(outputFolder.getRoot().getAbsolutePath()).toString();
-    AstubxGeneratorCLI.LibraryModelData modelData =
-        AstubxGeneratorCLI.generateAstubx(jsonOutputDir.getAbsolutePath(), astubxOutputDirPath);
-    System.err.println("modelData: " + modelData.toString());
+    AstubxGeneratorCLI.AstubxData astubxData =
+        AstubxGeneratorCLI.generateAstubx(jsonOutputFile.getAbsolutePath(), astubxOutputDirPath);
+    //    System.err.println("astubxData: " + astubxData.toString());
 
-    assertThat(modelData.methodRecords, equalTo(expectedMethodRecords));
-    assertThat(modelData.nullableUpperBounds, equalTo(expectedNullableUpperBounds));
-    assertThat(modelData.nullMarkedClasses, equalTo(expectedNullMarkedClasses));
+    assertThat(astubxData.methodRecords, equalTo(expectedMethodRecords));
+    assertThat(astubxData.nullableUpperBounds, equalTo(expectedNullableUpperBounds));
+    assertThat(astubxData.nullMarkedClasses, equalTo(expectedNullMarkedClasses));
     Assert.assertTrue(
         "astubx file was not created",
         Files.exists(Paths.get(Paths.get(astubxOutputDirPath, "output.astubx").toString()))
@@ -432,5 +361,84 @@ public class AstubxTest {
         expectedMethodRecords,
         ImmutableMap.of(),
         ImmutableSet.of("VoidReturn"));
+  }
+
+  private void runCompilerWithPlugin(
+      String sourceFileName, String[] lines, File jsonOutputFile, File classOutputFile)
+      throws IOException {
+    // write test case as a file in inputSourcesFolder
+    File sourceFile = inputSourcesFolder.newFile(sourceFileName);
+    Files.write(sourceFile.toPath(), String.join("\n", lines).getBytes(StandardCharsets.UTF_8));
+
+    // get java compiler
+    JavaCompiler compiler = ToolProvider.getSystemJavaCompiler();
+    if (compiler == null) {
+      throw new AssertionError("Compiler not found. Please run with a JDK.");
+    }
+
+    // Find necessary JARs from the test's own runtime classpath
+    String runtimeClasspath = System.getProperty("java.class.path");
+    String jspecifyJarPath =
+        Arrays.stream(runtimeClasspath.split(File.pathSeparator))
+            .filter(path -> path.contains("jspecify"))
+            .findFirst()
+            .orElseThrow(
+                () -> new AssertionError("Could not find jspecify JAR on the runtime classpath."));
+
+    String pluginJarPath =
+        Paths.get(
+                System.getProperty("user.dir"),
+                "..",
+                "..",
+                "jdk-javac-plugin",
+                "build",
+                "libs",
+                "jdk-javac-plugin-all.jar")
+            .toString();
+    if (!Files.exists(Paths.get(pluginJarPath))) {
+      throw new AssertionError(
+          "Plugin JAR not found at: " + pluginJarPath + ". Please build it first.");
+    }
+
+    // Build the classpath needed to compile the source code
+    String compilationClasspath = pluginJarPath + File.pathSeparator + jspecifyJarPath;
+
+    // Set compiler options, replicating the '-Xplugin' argument
+    List<String> options = new ArrayList<>();
+    options.addAll(Arrays.asList("-processorpath", pluginJarPath));
+    options.addAll(Arrays.asList("-classpath", compilationClasspath));
+    options.addAll(Arrays.asList("-d", classOutputFile.getAbsolutePath()));
+    options.add("-Xplugin:NullnessAnnotationSerializer " + jsonOutputFile.getAbsolutePath());
+
+    // for compilation failures
+    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+    StandardJavaFileManager fileManager = compiler.getStandardFileManager(null, null, null);
+    Iterable<? extends JavaFileObject> compilationUnits =
+        fileManager.getJavaFileObjects(sourceFile);
+
+    // Compilation error checks
+    boolean success =
+        compiler.getTask(null, fileManager, diagnostics, options, null, compilationUnits).call();
+    fileManager.close();
+    boolean hasErrors = false;
+    for (Diagnostic<? extends JavaFileObject> diagnostic : diagnostics.getDiagnostics()) {
+      // Only print errors and warnings, as notes can be verbose
+      if (diagnostic.getKind() == Diagnostic.Kind.ERROR
+          || diagnostic.getKind() == Diagnostic.Kind.WARNING) {
+        hasErrors = true;
+        System.err.format(
+            "Compiler Diagnostic: %s on line %d in %s%n",
+            diagnostic.getMessage(null),
+            diagnostic.getLineNumber(),
+            diagnostic.getSource() != null ? diagnostic.getSource().getName() : "Unknown file");
+      }
+    }
+    // Fail the test if the plugin reported errors, even if 'success' is true
+    if (hasErrors) {
+      Assert.fail("Plugin reported errors. See diagnostics above.");
+    }
+    if (!success) {
+      Assert.fail("Java compilation with plugin failed.");
+    }
   }
 }
