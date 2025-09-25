@@ -150,7 +150,7 @@ public class AstubxGeneratorCLI {
       throw new RuntimeException(e);
     }
 
-    // return result as modelData (for testing)
+    // return result as modelData for testing
     AstubxData modelData = new AstubxData(methodRecords, nullableUpperBounds, nullMarkedClasses);
     return modelData;
   }
