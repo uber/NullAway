@@ -80,6 +80,85 @@ public class AstubxGeneratorCLI {
   }
 
   public static LibraryModelData generateAstubx(String jsonDirPath, String astubxDirPath) {
+    // get parsed JSON file
+    Map<String, List<ClassJson>> parsed = parseJson(jsonDirPath);
+
+    // check if the astubx file directory exists
+    try {
+      Files.createDirectories(Paths.get(astubxDirPath));
+    } catch (IOException e) {
+      System.err.println("Failed to create directory: " + astubxDirPath + e.getMessage());
+    }
+    File outputFile = new File(astubxDirPath, "output.astubx");
+
+    ImmutableMap<String, String> importedAnnotations =
+        ImmutableMap.of(
+            "NonNull", "org.jspecify.annotations.NonNull",
+            "Nullable", "org.jspecify.annotations.Nullable");
+
+    Map<String, Set<String>> packageAnnotations = new HashMap<>(); // not used
+    Map<String, Set<String>> typeAnnotations = new HashMap<>();
+    Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
+    Set<String> nullMarkedClasses = new LinkedHashSet<>();
+    Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>(); // not used
+
+    for (Map.Entry<String, List<ClassJson>> entry : parsed.entrySet()) {
+      // for each class
+      for (ClassJson clazz : entry.getValue()) {
+        // get fully qualified class name
+        String fullyQualifiedClassName = clazz.type();
+        if (fullyQualifiedClassName.indexOf('<') != -1) {
+          fullyQualifiedClassName =
+              fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
+        }
+        // add nullMarked classes (needed? NullAway checks NullMarked classes with fully qualified
+        // name)
+        if (clazz.nullMarked()) {
+          nullMarkedClasses.add(fullyQualifiedClassName);
+        }
+
+        // check upperbounds of type parameters
+        for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
+          TypeParam typeParam = clazz.typeParams().get(idx);
+          Set<Integer> upperBoundIndex = new LinkedHashSet<>();
+          for (String bound : typeParam.bounds()) {
+            if (bound.matches("@Nullable .*")) {
+              upperBoundIndex.add(idx);
+            }
+          }
+          if (!upperBoundIndex.isEmpty()) {
+            nullableUpperBounds.put(fullyQualifiedClassName, upperBoundIndex);
+          }
+        }
+
+        // get methodRecords
+        getMethodRecords(clazz, fullyQualifiedClassName, methodRecords);
+      }
+    }
+
+    // write astubx file
+    try (DataOutputStream out = new DataOutputStream(new FileOutputStream(outputFile))) {
+      StubxWriter.write(
+          out,
+          importedAnnotations,
+          packageAnnotations,
+          typeAnnotations,
+          methodRecords,
+          nullMarkedClasses,
+          nullableUpperBounds);
+    } catch (IOException e) {
+      System.err.println("Error writing JSON file: " + outputFile.getAbsolutePath());
+      throw new RuntimeException(e);
+    }
+
+    // return result as modelData (for testing)
+    LibraryModelData modelData =
+        new LibraryModelData(methodRecords, nullableUpperBounds, nullMarkedClasses);
+    return modelData;
+  }
+
+  private static Map<String, List<ClassJson>> parseJson(String jsonDirPath) {
+    // get parsed JSON file
     File jsonDir = new File(jsonDirPath);
 
     if (!jsonDir.exists() || !jsonDir.isDirectory()) {
@@ -96,13 +175,6 @@ public class AstubxGeneratorCLI {
     Type parsedType = new TypeToken<Map<String, List<ClassJson>>>() {}.getType();
 
     File jsonFile = jsonFiles[0]; // only one JSON file created
-    // check if the astubx file directory exists
-    try {
-      Files.createDirectories(Paths.get(astubxDirPath));
-    } catch (IOException e) {
-      System.err.println("Failed to create directory: " + astubxDirPath + e.getMessage());
-    }
-    File outputFile = new File(astubxDirPath, "output.astubx");
 
     // parse JSON file
     Map<String, List<ClassJson>> parsed;
@@ -114,115 +186,68 @@ public class AstubxGeneratorCLI {
       throw new RuntimeException(e);
     }
 
-    ImmutableMap<String, String> importedAnnotations =
-        ImmutableMap.of(
-            "NonNull", "org.jspecify.annotations.NonNull",
-            "Nullable", "org.jspecify.annotations.Nullable");
+    return parsed;
+  }
 
-    Map<String, Set<String>> packageAnnotations = new HashMap<>(); // not used
-    Map<String, Set<String>> typeAnnotations = new HashMap<>();
-    Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
-    Set<String> nullMarkedClasses = new LinkedHashSet<>();
-    Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>(); // not used
-
-    for (Map.Entry<String, List<ClassJson>> entry : parsed.entrySet()) {
-      // for each class
-      for (ClassJson clazz : entry.getValue()) {
-        // remove type parameters from the class type
-        String fullyQualifiedClassName = clazz.type();
-        // remove generics
-        if (fullyQualifiedClassName.indexOf('<') != -1) {
-          fullyQualifiedClassName =
-              fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
-        }
-        if (clazz.nullMarked()) {
-          nullMarkedClasses.add(fullyQualifiedClassName);
-        }
-
+  private static void getMethodRecords(
+      ClassJson clazz,
+      String fullyQualifiedClassName,
+      Map<String, MethodAnnotationsRecord> methodRecords) {
+    for (MethodJson method : clazz.methods()) {
+      String methodName = method.name();
+      // skip all constructors
+      if (methodName.substring(0, methodName.indexOf('(')).equals(clazz.name())) {
+        continue;
+      }
+      // get return type nullness
+      String returnType = method.returnType();
+      ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
+      // check if return type has Nullable annotation
+      if (returnType.contains("@org.jspecify.annotations.Nullable")) {
+        returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
+        returnType = returnType.replace(" ", ""); // remove whitespace in Array types
+        returnTypeNullness = ImmutableSet.of("Nullable");
+      } else {
+        // check upperbound if return type is generic
         for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
-          TypeParam typeParam = clazz.typeParams().get(idx);
-          Set<Integer> upperBoundIndex = new LinkedHashSet<>();
-          for (String bound : typeParam.bounds()) {
-            if (bound.matches("@Nullable .*")) {
-              upperBoundIndex.add(idx);
-            }
-          }
-          if (!upperBoundIndex.isEmpty()) {
-            nullableUpperBounds.put(fullyQualifiedClassName, upperBoundIndex);
-          }
-        }
-
-        for (MethodJson method : clazz.methods()) {
-          String methodName = method.name();
-          String returnType = method.returnType();
-          // skip all constructors
-          if (methodName.substring(0, methodName.indexOf('(')).equals(clazz.name())) {
-            continue;
-          }
-          ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
-          // check Nullable annotation of return type
-          if (returnType.indexOf(" ") != -1) {
-            returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
-            returnType = returnType.replace(" ", "");
+          if (returnType.equals(clazz.typeParams().get(idx).name())) {
             returnTypeNullness = ImmutableSet.of("Nullable");
-          } else {
-            // check upperbound if return type is a generic type
-            for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
-              if (returnType.equals(clazz.typeParams().get(idx).name())) {
-                returnTypeNullness = ImmutableSet.of("Nullable");
-              }
-            }
           }
-          String signature = fullyQualifiedClassName + ":" + returnType + " ";
-          signature += methodName.substring(0, methodName.indexOf('(') + 1);
-          Map<Integer, ImmutableSet<String>> argAnnotation = new LinkedHashMap<>();
-
-          // get the arguments
-          String argsOnly = methodName.replaceAll(".*\\((.*)\\)", "$1").trim();
-          // split using comma but not the commas separating the generics
-          String[] arguments =
-              argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?=(?:[^<]*<[^>]*>)*[^>]*$)");
-
-          for (int i = 0; i < arguments.length; i++) {
-            String arg = arguments[i].trim();
-            if (arg.indexOf('<') != -1) {
-              arg = arg.substring(0, arg.indexOf('<'));
-            }
-            if (arg.contains("Nullable")) {
-              argAnnotation.put(i, ImmutableSet.of("Nullable"));
-              arg = arg.replace("@org.jspecify.annotations.Nullable ", "");
-              arg = arg.replace(" ", "");
-            }
-            signature += arg + ", ";
-          }
-          if (arguments.length == 0) {
-            signature += ")";
-          } else {
-            signature = signature.substring(0, signature.length() - 2) + ")";
-          }
-          methodRecords.put(
-              signature,
-              MethodAnnotationsRecord.create(
-                  returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
         }
       }
-    }
+      String signatureForMethodRecords = fullyQualifiedClassName + ":" + returnType + " ";
+      signatureForMethodRecords += methodName.substring(0, methodName.indexOf('(') + 1);
+      Map<Integer, ImmutableSet<String>> argAnnotation = new LinkedHashMap<>();
 
-    try (DataOutputStream out = new DataOutputStream(new FileOutputStream(outputFile))) {
-      StubxWriter.write(
-          out,
-          importedAnnotations,
-          packageAnnotations,
-          typeAnnotations,
-          methodRecords,
-          nullMarkedClasses,
-          nullableUpperBounds);
-    } catch (IOException e) {
-      System.err.println("Error writing JSON file: " + outputFile.getAbsolutePath());
-      throw new RuntimeException(e);
+      // get the arguments
+      String argsOnly = methodName.replaceAll(".*\\((.*)\\)", "$1").trim();
+      // split using comma but not the commas separating the generics
+      String[] arguments =
+          argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?=(?:[^<]*<[^>]*>)*[^>]*$)");
+
+      for (int i = 0; i < arguments.length; i++) {
+        String arg = arguments[i].trim();
+        // remove generics on arguments
+        if (arg.indexOf('<') != -1) {
+          arg = arg.substring(0, arg.indexOf('<'));
+        }
+        // remove Nullable annotation (Should we think of other annotations?)
+        if (arg.contains("Nullable")) {
+          argAnnotation.put(i, ImmutableSet.of("Nullable"));
+          arg = arg.replace("@org.jspecify.annotations.Nullable ", "");
+          arg = arg.replace(" ", "");
+        }
+        signatureForMethodRecords += arg + ", ";
+      }
+      if (arguments.length == 0) {
+        signatureForMethodRecords += ")";
+      } else {
+        signatureForMethodRecords =
+            signatureForMethodRecords.substring(0, signatureForMethodRecords.length() - 2) + ")";
+      }
+      methodRecords.put(
+          signatureForMethodRecords,
+          MethodAnnotationsRecord.create(returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
     }
-    LibraryModelData modelData =
-        new LibraryModelData(methodRecords, nullableUpperBounds, nullMarkedClasses);
-    return modelData;
   }
 }
