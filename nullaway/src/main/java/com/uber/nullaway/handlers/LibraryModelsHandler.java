@@ -386,7 +386,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     Iterable<LibraryModels> externalLibraryModels =
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
-    libModelsBuilder.add(new DefaultLibraryModels()).addAll(externalLibraryModels);
+    libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
     if (config.isJarInferEnabled()) {
       libModelsBuilder.add(new ExternalStubxLibraryModels());
     }
@@ -812,9 +812,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
                 methodRef(
                     "com.google.common.collect.ImmutableMap", "getOrDefault(java.lang.Object,V)"),
                 1)
+            .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
             .build();
 
-    private static final ImmutableSet<MethodRef> NULLABLE_RETURNS =
+    private static final ImmutableSet<MethodRef> ALWAYS_NULLABLE_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("com.sun.source.tree.CompilationUnitTree", "getPackageName()"))
             .add(methodRef("java.lang.Throwable", "getMessage()"))
@@ -825,7 +826,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("java.lang.ref.SoftReference", "get()"))
             .add(methodRef("java.lang.ref.WeakReference", "get()"))
             .add(methodRef("java.nio.file.Path", "getParent()"))
-            .add(methodRef("java.util.concurrent.atomic.AtomicReference", "get()"))
             .add(methodRef("java.util.Map", "get(java.lang.Object)"))
             .add(methodRef("javax.lang.model.element.Element", "getEnclosingElement()"))
             .add(methodRef("javax.lang.model.element.ExecutableElement", "getDefaultValue()"))
@@ -838,6 +838,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             .add(methodRef("android.widget.TextView", "getLayout()"))
             .add(methodRef("java.lang.System", "console()"))
             .build();
+
+    private static final ImmutableSet<MethodRef> NULLABLE_RETURNS_JSPECIFY_MODE_DISABLED =
+        ImmutableSet.of(methodRef("java.util.concurrent.atomic.AtomicReference", "get()"));
 
     private static final ImmutableSet<MethodRef> NONNULL_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
@@ -891,12 +894,31 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         new ImmutableSetMultimap.Builder<String, Integer>()
             .put("java.util.function.Function", 0)
             .put("java.util.function.Function", 1)
+            .put("java.util.concurrent.atomic.AtomicReference", 0)
             .build();
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =
-        new ImmutableSet.Builder<String>().add("java.util.function.Function").build();
+        new ImmutableSet.Builder<String>()
+            .add("java.util.function.Function")
+            .add("java.util.concurrent.atomic.AtomicReference")
+            .build();
+
     private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>().build();
+
+    /**
+     * Methods with nullable returns for the current configuration (JSpecify mode enabled or not).
+     */
+    private final ImmutableSet<MethodRef> nullableReturnsForConfig;
+
+    DefaultLibraryModels(Config config) {
+      ImmutableSet.Builder<MethodRef> builder = new ImmutableSet.Builder<>();
+      builder.addAll(ALWAYS_NULLABLE_RETURNS);
+      if (!config.isJSpecifyMode()) {
+        builder.addAll(NULLABLE_RETURNS_JSPECIFY_MODE_DISABLED);
+      }
+      nullableReturnsForConfig = builder.build();
+    }
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
@@ -930,7 +952,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     @Override
     public ImmutableSet<MethodRef> nullableReturns() {
-      return NULLABLE_RETURNS;
+      return nullableReturnsForConfig;
     }
 
     @Override

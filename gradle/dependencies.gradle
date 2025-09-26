@@ -1,5 +1,3 @@
-import org.gradle.util.VersionNumber
-
 /*
  * Copyright (C) 2017. Uber Technologies
  *
@@ -16,24 +14,32 @@ import org.gradle.util.VersionNumber
  * limitations under the License.
  */
 
+buildscript {
+    repositories { mavenCentral() }
+    dependencies { classpath 'com.vdurmont:semver4j:3.1.0' }
+}
+
+import com.vdurmont.semver4j.Semver
+
 // The oldest version of Error Prone that we support running on
 def oldestErrorProneVersion = "2.14.0"
 // Latest released Error Prone version that we've tested with
-def latestErrorProneVersion = "2.41.0"
+def latestErrorProneVersion = "2.42.0"
 // Default to using latest tested Error Prone version
 def defaultErrorProneVersion =  latestErrorProneVersion
 def errorProneVersionToCompileAgainst = defaultErrorProneVersion
 
+// Use semver4j for semantic version parsing/comparison
+def parseSemver = { String v -> new Semver(v, Semver.SemverType.LOOSE) }
+
 // If the epApiVersion project property is set, compile and test against that version of Error Prone
 if (project.hasProperty("epApiVersion")) {
-    def epApiVNum = VersionNumber.parse(epApiVersion)
-    if (epApiVNum.equals(VersionNumber.UNKNOWN)) {
-        throw new IllegalArgumentException("Invalid Error Prone API version " + epApiVersion)
-    }
-    if (epApiVNum.compareTo(VersionNumber.parse(oldestErrorProneVersion)) < 0) {
+    // Validate and compare using semver4j
+    def requested = parseSemver(epApiVersion)
+    def oldest = parseSemver(oldestErrorProneVersion)
+    if (requested.compareTo(oldest) < 0) {
         throw new IllegalArgumentException(
-        "Error Prone API version " + epApiVersion + " is too old; "
-        + oldestErrorProneVersion + " is the oldest supported version")
+        "Error Prone API version " + epApiVersion + " is too old; " + oldestErrorProneVersion + " is the oldest supported version")
     }
     errorProneVersionToCompileAgainst = epApiVersion
 }
@@ -48,7 +54,7 @@ def versions = [
     // The version of Error Prone that NullAway is compiled and tested against
     errorProneApi          : errorProneVersionToCompileAgainst,
     support                : "27.1.1",
-    wala                   : "1.6.9",
+    wala                   : "1.6.12",
     commonscli             : "1.4",
     autoValue              : "1.10.2",
     autoService            : "1.1.1",
@@ -120,7 +126,7 @@ def test = [
     springBeans             : "org.springframework:spring-beans:5.3.7",
     springContext           : "org.springframework:spring-context:5.3.7",
     grpcCore                : "io.grpc:grpc-core:1.15.1", // Should upgrade, but this matches our guava version
-    mockito                 : "org.mockito:mockito-core:5.16.1",
+    mockito                 : "org.mockito:mockito-core:5.19.0",
     javaxAnnotationApi      : "javax.annotation:javax.annotation-api:1.3.2",
     assertJ                 : "org.assertj:assertj-core:3.23.1",
     amazonUtils             : "software.amazon.awssdk:utils:2.32.19",

@@ -942,6 +942,16 @@ public class CoreTests extends NullAwayTestsBase {
             "          // BUG: Diagnostic contains: unboxing",
             "          j);",
             "    }",
+            "    static void primitiveVarArgs(int... args) {}",
+            "    static void m15() {",
+            "        Integer i = null;",
+            "        Integer j = null;",
+            "        primitiveVarArgs(",
+            "          // BUG: Diagnostic contains: unboxing",
+            "          i,",
+            "          // BUG: Diagnostic contains: unboxing",
+            "          j);",
+            "    }",
             "}")
         .doTest();
   }

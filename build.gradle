@@ -22,7 +22,7 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:7.3.0'
+        classpath 'com.android.tools.build:gradle:8.7.2'
         classpath 'com.vanniktech:gradle-maven-publish-plugin:0.34.0'
     }
 }
@@ -58,13 +58,9 @@ subprojects { project ->
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
-        // Always compile using JDK 17, independent of the JDK version used to run Gradle.
-        // We can't compile on JDK 21 since some internal javac APIs changed between 17
-        // and 21, and for now NullAway compiles against the JDK 17 APIs and uses reflection
-        // on JDK 21+.  This configuration means compilation will succeed even if Gradle
-        // is running on JDK 21+.
+        // Always compile using the latest JDK we can
         javaCompiler = javaToolchains.compilerFor {
-            languageVersion = JavaLanguageVersion.of(17)
+            languageVersion = JavaLanguageVersion.of(25)
         }
         options.compilerArgs += [
             "-Xlint:deprecation",

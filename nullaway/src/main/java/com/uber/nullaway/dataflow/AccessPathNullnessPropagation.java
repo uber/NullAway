@@ -172,13 +172,12 @@ public class AccessPathNullnessPropagation
 
   public AccessPathNullnessPropagation(
       Nullness defaultAssumption,
-      Predicate<MethodInvocationNode> methodReturnsNonNull,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       NullAway analysis,
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
-    this.methodReturnsNonNull = methodReturnsNonNull;
+    this.methodReturnsNonNull = analysis::isMethodUnannotated;
     this.state = state;
     this.apContext = apContext;
     this.config = analysis.getConfig();
@@ -1155,7 +1154,7 @@ public class AccessPathNullnessPropagation
       if (tree != null) {
         Nullness nullness =
             genericsChecks.getGenericReturnNullnessAtInvocation(
-                ASTHelpers.getSymbol(tree), tree, state);
+                ASTHelpers.getSymbol(tree), tree, node.getTreePath(), state);
         return nullness.equals(NULLABLE);
       }
     }

@@ -1,5 +1,38 @@
 Changelog
 =========
+
+Version 0.12.10
+---------------
+
+This release contains significant improvements to inference support for generic method calls in JSpecify mode (#1075).
+We expect that many more valid calls will pass NullAway, but that some new bugs may have been introduced.  Please report
+any issues that you see.  There is also a new flag, `-XepOpt:NullAway:WarnOnGenericInferenceFailure` to make NullAway
+report a warning when inference fails, to help identify any issues.
+
+* Improved inference for generic method calls (#1244)
+* Suppress `CastToNonNull` warnings for `@NullUnmarked` method calls by @raccoonback (#1258)
+* JSpecify: Fix crash when overriding with raw types (#1265)
+* Better handle calls to super constructors and superclass methods in JSpecify mode (#1248)
+* issue-1250 pattern matching for instanceof in switch case by @dhruv-agr (#1259)
+* Account for annotations in extends / implements when computing view as supertype (#1266)
+* Bug fix with type substitutions after inference (#1277)
+* JSpecify: Improve error messages for type incompatibility at pseudo-assignments (#1279)
+* Support java.util.Objects.toString() by @gulikoza (#1283)
+* Record when generic method inference fails (#1280)
+* issue 1275 - report unboxing warning for for-each loop by @dhruv-agr (#1281)
+* Abstract iterating over invocation arguments (#1284)
+* Invoke generic method inference in more places (#1286)
+* Maintenance
+  - Build Spring with snapshot build as a CI job (#1251)
+  - Add more instance fields to `GenericsChecks` (#1256)
+  - remove unneeded checkNotCall call (#1257)
+  - Fail build on JDK 21 versions before 21.0.8 (#1261)
+  - Clarify JDK version to use for best JSpecify support (#1269)
+  - Simplified set of CI jobs (#1271)
+  - Build: upgrade to Gradle 9 + AGP 8.7.2 (#1270)
+  - Compile with JDK 24 (#1276)
+  - Don't use deprecated `buildDir` by @mernst (#1278)
+
 Version 0.12.9
 ---------------
 * Add a case in our inference for generic method calls (#1240)

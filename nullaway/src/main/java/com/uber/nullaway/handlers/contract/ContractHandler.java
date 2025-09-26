@@ -33,7 +33,6 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -272,24 +271,7 @@ public class ContractHandler extends BaseNoOpHandler {
           arg = node.getArgument(i);
           argAntecedentNullness = valueConstraint.equals("null") ? Nullness.NULL : Nullness.NONNULL;
         } else {
-          String errorMessage =
-              "Invalid @Contract annotation detected for method "
-                  + callee
-                  + ". It contains the following uparseable clause: "
-                  + clause
-                  + " (unknown value constraint: "
-                  + valueConstraint
-                  + ", see https://www.jetbrains.com/help/idea/contract-annotations.html).";
-          state.reportMatch(
-              analysis
-                  .getErrorBuilder()
-                  .createErrorDescription(
-                      new ErrorMessage(
-                          ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, errorMessage),
-                      tree,
-                      analysis.buildDescription(tree),
-                      state,
-                      null));
+          // invalid, but we report an error only on method declarations
           supported = false;
           break;
         }

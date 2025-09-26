@@ -14,7 +14,6 @@
  * limitations under the License.
  */
 
-import com.android.build.gradle.api.BaseVariant
 import net.ltgt.gradle.errorprone.CheckSeverity
 
 plugins {
@@ -23,6 +22,7 @@ plugins {
 
 android {
     compileSdkVersion deps.build.compileSdkVersion
+    namespace "com.uber.myapplication"
 
     defaultConfig {
         applicationId "com.uber.myapplication"
@@ -36,34 +36,8 @@ android {
         targetCompatibility JavaVersion.VERSION_11
     }
 
-    lintOptions {
-        abortOnError false
-    }
-
-    DomainObjectSet<BaseVariant> variants = getApplicationVariants() // or getLibraryVariants() in libraries
-    variants.addAll(getTestVariants())
-    variants.addAll(getUnitTestVariants())
-    variants.configureEach { variant ->
-        variant.getJavaCompileProvider().configure {
-            options.compilerArgs += [
-                "-XDcompilePolicy=simple",
-                "--should-stop=ifError=FLOW",
-                "-Xplugin:ErrorProne -XepOpt:NullAway:AnnotatedPackages=com.uber",
-            ]
-            options.fork = true
-            options.forkOptions.jvmArgs = [
-                "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-                "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-                "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-                "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED"
-            ]
-        }
+    lint {
+        abortOnError = false
     }
 }
 
@@ -74,6 +48,28 @@ dependencies {
     annotationProcessor project(path: ":sample-library-model")
 
     testImplementation deps.test.junit4
+}
+
+// Configure Java compilation for all Android JavaCompile tasks (AGP 8+ compatible)
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs += [
+        "-XDcompilePolicy=simple",
+        "--should-stop=ifError=FLOW",
+        "-Xplugin:ErrorProne -XepOpt:NullAway:AnnotatedPackages=com.uber",
+    ]
+    options.fork = true
+    options.forkOptions.jvmArgs = [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED"
+    ]
 }
 
 spotless {

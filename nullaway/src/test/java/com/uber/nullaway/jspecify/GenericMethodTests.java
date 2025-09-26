@@ -133,7 +133,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("requires inference of generic method type arguments")
   public void genericMethodAndVoidTypeWithInference() {
     makeHelper()
         .addSourceLines(
@@ -190,7 +189,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        Foo<@Nullable Object> f5 = Foo.makeNonNull(null);",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<Object> f6 = Foo.makeNonNull(null);",
-            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        // BUG: Diagnostic contains: incompatible types:",
             "        Foo<@Nullable Object> f7 = Foo.makeNonNull(new Object());",
             "        Foo<Object> f8 = Foo.makeNonNull(new Object());",
             "      }",
@@ -241,7 +240,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        static void test(Foo<@Nullable Object> f1, Foo<Object> f2) {",
             "            // no error expected",
             "            Foo<@Nullable Object> result = Foo.create(null, f1);",
-            "            // BUG: Diagnostic contains: Cannot assign from type Foo<Object> to type Foo<@Nullable Object>",
+            "            // BUG: Diagnostic contains: incompatible types: Foo<Object> cannot be converted to Foo<@Nullable Object>",
             "            Foo<@Nullable Object> result2 = Foo.create(null, f2);",
             "        }",
             "    }",
@@ -324,9 +323,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "  }",
             "  static void test(Foo<Void, Void> f) {",
             "    Foo<Integer, ArrayList<String>> fooNonNull_1 = f.nonNullTest();",
-            "    // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    Foo<Integer, ArrayList<@Nullable String>> fooNonNull_2 = f.nonNullTest();",
-            "    // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    Foo<@Nullable Integer, ArrayList<String>> fooNonNull_3 = f.nonNullTest();",
             "    Foo<Integer, ArrayList<String>> fooNull_1 = f.nullTest();",
             "    Foo<Integer, ArrayList<@Nullable String>> fooNull_2 = f.nullTest();",
@@ -366,7 +365,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        Foo<Foo<Object>[]> f3 = Foo.test1Null(null);",
             "        Foo<Foo<@Nullable Object>[]> f4 = Foo.test1Null(null);",
             "        Foo<Foo<Object>[]> f5 = Foo.test1Nonnull(new Object());",
-            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        // BUG: Diagnostic contains: incompatible types:",
             "        Foo<Foo<@Nullable Object>[]> f6 = Foo.test1Nonnull(new Object());",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<Foo<Object>[]> f7 = Foo.test1Nonnull(null);",
@@ -378,7 +377,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        Foo<Object>[] f11 = Foo.test2Null(null);",
             "        Foo<@Nullable Object>[] f12 = Foo.test2Null(null);",
             "        Foo<Object>[] f13 = Foo.test2Nonnull(new Object());",
-            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        // BUG: Diagnostic contains: incompatible types:",
             "        Foo<@Nullable Object>[] f14 = Foo.test2Nonnull(new Object());",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        Foo<Object>[] f15 = Foo.test2Nonnull(null);",
@@ -400,7 +399,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    static class Bar<T extends @Nullable Object> {}",
             "    abstract <U> Bar<U> make(Bar<U> other);",
             "    void test(Bar<Bar<String>> other) {",
-            "        // BUG: Diagnostic contains: Cannot assign from type Bar<Bar<String>> to type Bar<Bar<@Nullable String>>",
+            "        // BUG: Diagnostic contains: incompatible types: Bar<Bar<String>> cannot be converted to Bar<Bar<@Nullable String>>",
             "        Bar<Bar<@Nullable String>> unused = make(other);",
             "    }",
             "}")
@@ -477,7 +476,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        this.<String>foo(f);",
             "    }",
             "    void testPositive(Function<String, String> f) {",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type Function<String, String>, as formal parameter has type",
+            "        // BUG: Diagnostic contains: incompatible types: Function<String, String> cannot be converted to",
             "        this.<String>foo(f);",
             "    }",
             "    void testPositive2(Function<@Nullable String, @Nullable String> f) {",
@@ -628,7 +627,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        return Foo.makeNonNull(null);",
             "      }",
             "      static Foo<@Nullable Object> makeNonNullInvalid2() {",
-            "        // BUG: Diagnostic contains: due to mismatched nullability of type parameters",
+            "        // BUG: Diagnostic contains: incompatible types:",
             "        return Foo.makeNonNull(new Object());",
             "      }",
             "      static Foo<Object> makeNonNullValid() {",
@@ -668,7 +667,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        handleFooNullable(Foo.makeNonNull(null));",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        handleFooNonNull(Foo.makeNonNull(null));",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type Foo<Object>",
+            "        // BUG: Diagnostic contains: incompatible types: Foo<Object>",
             "        handleFooNullable(Foo.makeNonNull(new Object()));",
             "        handleFooNonNull(Foo.makeNonNull(new Object()));",
             "      }",
@@ -685,7 +684,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        handleFooNullableVarargs(Foo.makeNonNull(null));",
             "        // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "        handleFooNonNullVarargs(Foo.makeNonNull(null));",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type Foo<Object>",
+            "        // BUG: Diagnostic contains: incompatible types: Foo<Object>",
             "        handleFooNullableVarargs(Foo.makeNonNull(new Object()));",
             "        handleFooNonNullVarargs(Foo.makeNonNull(new Object()));",
             "      }",
@@ -742,7 +741,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void firstOrDefaultSelfContained() {
-    makeHelper()
+    makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.*;",
@@ -765,6 +764,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // should infer T -> @NonNull String",
             "    String result2 = firstOrDefault(Collections.singletonList(\"bye\"), \"hello\");",
             "    result2.hashCode();",
+            "    // should infer T -> @Nullable String (testing that inference is called from dataflow)",
+            "    String result3 = firstOrDefault(Collections.singletonList(null), \"hello\");",
+            "    // BUG: Diagnostic contains: dereferenced expression result3 is @Nullable",
+            "    result3.hashCode();",
             "  }",
             "}")
         .doTest();
@@ -820,7 +823,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    Foo<String> foo3 = make(\"hello\", null, \"world\");",
             "    Foo<@Nullable String> foo4 = make(\"hello\", \"world\");",
             "    Foo<@Nullable String> foo5 = make(\"hello\", \"world\", makeStr(null));",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'makeStr(null)' where @NonNull is required",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "    Foo<String> foo6 = make(\"hello\", \"world\", makeStr(null));",
             "    // Inference from assignment context only (no args)",
             "    Foo<String> foo7 = make();",
@@ -830,10 +833,31 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsInferencePassingArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static class Foo<T extends @Nullable Object> {}",
+            "    public static <U extends @Nullable Object> Foo<U> make(U... args) {",
+            "      throw new RuntimeException();",
+            "    }",
+            "    Foo<String> foo1 = make(new String[] { \"hello\", \"world\" });",
+            "    Foo<@Nullable String> foo2 = make(new @Nullable String[] { \"hello\", null, \"world\" });",
+            "    // BUG: Diagnostic contains: incompatible types:",
+            "    Foo<String> foo3 = make(new @Nullable String[] { \"hello\", null, \"world\" });",
+            "    Foo<@Nullable String> foo4 = make(new String[] { \"hello\", \"world\" });",
+            "}")
+        .doTest();
+  }
+
   @Ignore("need better handling of lambdas")
   @Test
   public void supplierLambdaInference() {
-    makeHelper()
+    makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.*;",
@@ -846,7 +870,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    }",
             "    static void test() {",
             "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
-            "        // BUG: Diagnostic contains: Cannot pass parameter",
             "        invoke(() -> null);",
             "        // legal, infers R -> @Nullable Object",
             "        Object x = invokeWithReturn(() -> null);",
@@ -944,7 +967,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    String s2 = f(arr, \"hi\");",
             "    // legal",
             "    s2.hashCode();",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable String []",
+            "    // BUG: Diagnostic contains: incompatible types: @Nullable String []",
             "    stringField = f(arr2, \"hi\");",
             "  }",
             "}")
@@ -1110,12 +1133,113 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        void test() {",
             "            JCacheLoaderAdapter<K, V> adapter = new JCacheLoaderAdapter<>();",
             "            caffeine.<K, @Nullable Expirable<V>>build(adapter);",
-            "            // TODO inference is buggy for this case; doesn't substitute inferred types properly",
-            "            // See https://github.com/uber/NullAway/issues/1267",
-            "            @SuppressWarnings(\"NullAway\")",
+            "            // also works with inference",
             "            Object o = caffeine.build(adapter);",
             "        }",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  /** various cases where dataflow analysis forces inference to run for a generic method call */
+  @Test
+  public void inferenceFromDataflow() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  static <U extends @Nullable Object> U id(U u) {",
+            "    return u;",
+            "  }",
+            "  static void testReceiver() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    id(y).toString();",
+            "  }",
+            "  static Object testReturn() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    return id(y);",
+            "  }",
+            "  static Object testReturnWithParens() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    return (((id(y))));",
+            "  }",
+            "  static Object testReturnNested() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    return id(id(y));",
+            "  }",
+            "  static void takesNonNull(Object o) {}",
+            "  static void testParam() {",
+            "    // to ensure that dataflow runs",
+            "    Object x = new Object(); x.toString();",
+            "    Object y = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    takesNonNull(id(y));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  /**
+   * Self-contained test for https://github.com/uber/NullAway/issues/1157. We need to import
+   * JSpecify JDK models to get the original test working properly.
+   */
+  @Test
+  public void atomicReferenceFieldUpdaterSelfContained() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "    static class AtomicReferenceFieldUpdater<T, V extends @Nullable Object> {",
+            "      public static <U,W extends @Nullable Object> AtomicReferenceFieldUpdater<U,W> ",
+            "        newUpdater(Class<U> tclass, Class<@NonNull W> vclass, String fieldName) { throw new RuntimeException(); }",
+            "    }",
+            "    static final AtomicReferenceFieldUpdater<Test, @Nullable Object> RESULT_UPDATER =",
+            "            AtomicReferenceFieldUpdater.newUpdater(Test.class, Object.class, \"result\");",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void inferenceFromReceiverPassing() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  static class Foo<T extends @Nullable Object> {",
+            "    T get() {",
+            "      throw new UnsupportedOperationException();",
+            "    }",
+            "  }",
+            "  static <U extends @Nullable Object> Foo<U> make(U u) {",
+            "    throw new RuntimeException();",
+            "  }",
+            "  static void test() {",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    make(null).get().toString();",
+            "    // Also with a parenthesized receiver",
+            "    // BUG: Diagnostic contains: dereferenced expression",
+            "    ((make(null))).get().toString();",
+            "  }",
             "}")
         .doTest();
   }
