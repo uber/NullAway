@@ -4,12 +4,10 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
-java {
-    toolchain {
-        languageVersion = JavaLanguageVersion.of(17)
-    }
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+// Allow Java 21 features for this module
+tasks.withType(JavaCompile).configureEach {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 jar{
@@ -34,6 +32,16 @@ assemble.dependsOn shadowJar
 
 tasks.withType(JavaCompile).configureEach {
     options.release.set(17) // ensures proper bytecode
+}
+
+tasks.withType(Test).configureEach {
+    // Ensure the plugin JAR exists
+    dependsOn(":jdk-javac-plugin:shadowJar")
+}
+
+// Don't test on JDK 17; we require JDK 21
+tasks.getByName('testJdk17').configure {
+    onlyIf { false }
 }
 
 dependencies {
