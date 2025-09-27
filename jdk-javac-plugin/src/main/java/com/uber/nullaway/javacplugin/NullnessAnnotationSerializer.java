@@ -5,6 +5,7 @@ import com.google.gson.GsonBuilder;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
 import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
@@ -41,7 +42,11 @@ public class NullnessAnnotationSerializer implements Plugin {
   record TypeParamInfo(String name, List<String> bounds) {}
 
   record MethodInfo(
-      String name, boolean nullMarked, boolean nullUnmarked, List<TypeParamInfo> typeParams) {}
+      String returnType,
+      String name,
+      boolean nullMarked,
+      boolean nullUnmarked,
+      List<TypeParamInfo> typeParams) {}
 
   record ClassInfo(
       String name,
@@ -128,6 +133,11 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return super.visitMethod(methodTree, null);
                   }
+                  Tree methodTreeReturnTypet = methodTree.getReturnType();
+                  String returnType = "";
+                  if (methodTreeReturnTypet != null) {
+                    returnType += mSym.getReturnType().toString();
+                  }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
@@ -136,7 +146,11 @@ public class NullnessAnnotationSerializer implements Plugin {
                   }
                   MethodInfo methodInfo =
                       new MethodInfo(
-                          mSym.toString(), hasNullMarked, hasNullUnmarked, methodTypeParams);
+                          returnType,
+                          mSym.toString(),
+                          hasNullMarked,
+                          hasNullUnmarked,
+                          methodTypeParams);
                   if (currentClass != null) {
                     currentClass.methods().add(methodInfo);
                   }
