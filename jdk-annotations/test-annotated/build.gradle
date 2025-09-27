@@ -14,9 +14,6 @@ dependencies {
     compileOnly files("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar")
 }
 
-//def pluginJar = "${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar"
-//def testInputsPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/src"
-
 def jsonOutputDir = file("${buildDir}/generated/json")
 def astubxOutputDir = file("${buildDir}/generated/astubx")
 
@@ -30,13 +27,10 @@ tasks.withType(JavaCompile).configureEach { compileTask ->
         doFirst {
             jsonOutputDir.mkdirs()
 
-            def pluginJar = file("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar").absolutePath
             options.compilerArgs += [
                 "-Xplugin:NullnessAnnotationSerializer ${jsonOutputDir.absolutePath}"
             ]
         }
-
-        finalizedBy("generateAstubx")
     }
 }
 
@@ -60,4 +54,7 @@ task generateAstubx(type: JavaExec) {
     ]
 }
 
+tasks.named("generateAstubx") {
+    dependsOn("compileJava")
+}
 build.dependsOn tasks.named("generateAstubx")

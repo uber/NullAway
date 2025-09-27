@@ -117,9 +117,9 @@ public class AstubxGeneratorCLI {
         }
 
         // check upperbounds of type parameters
+        Set<Integer> upperBoundIndex = new LinkedHashSet<>();
         for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
           TypeParam typeParam = clazz.typeParams().get(idx);
-          Set<Integer> upperBoundIndex = new LinkedHashSet<>();
           for (String bound : typeParam.bounds()) {
             if (bound.matches("@Nullable .*")) {
               upperBoundIndex.add(idx);
