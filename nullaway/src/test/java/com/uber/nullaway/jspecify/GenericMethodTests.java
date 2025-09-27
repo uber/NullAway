@@ -873,7 +873,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    static void test() {",
             "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
             "        invoke(() -> null);",
-            "        // legal, infers R -> @Nullable Object",
+            "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
             "        Object x = invokeWithReturn(() -> null);",
             "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
             "        x.hashCode();",
