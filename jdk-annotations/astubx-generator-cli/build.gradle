@@ -4,6 +4,12 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 // Allow Java 21 features for this module
 tasks.withType(JavaCompile).configureEach {
     sourceCompatibility = JavaVersion.VERSION_21
