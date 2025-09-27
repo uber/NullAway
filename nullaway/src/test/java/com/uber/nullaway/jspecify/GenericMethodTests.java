@@ -861,9 +861,11 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.*;",
-            "import java.util.function.Supplier;",
             "@NullMarked",
             "class Test {",
+            "    static interface Supplier<R extends @Nullable Object> {",
+            "        R get();",
+            "    }",
             "    static <R> void invoke(Supplier<@Nullable R> supplier) {}",
             "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
             "        return supplier.get();",
