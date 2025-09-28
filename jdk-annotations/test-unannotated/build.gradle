@@ -13,13 +13,6 @@ dependencies {
 def astubxPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/build/generated/astubx/output.astubx"
 
 jar {
-    manifest {
-        attributes(
-                'Created-By'     : "Gradle ${gradle.gradleVersion}",
-                'Build-Jdk'      : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
-                'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
-                )
-    }
     dependsOn(project(':jdk-annotations:test-annotated').tasks.named('generateAstubx'))
     from(astubxPath) {
         into "com/uber/nullaway/jdkannotations/provider"
