@@ -40,26 +40,35 @@ tasks.withType(JavaCompile).configureEach {
     options.release.set(17) // ensures proper bytecode
 }
 
-tasks.withType(Test).configureEach {
-    // Ensure the plugin JAR exists
-    dependsOn(":jdk-javac-plugin:shadowJar")
-}
-
 // Don't test on JDK 17; we require JDK 21
 tasks.getByName('testJdk17').configure {
     onlyIf { false }
 }
 
+tasks.withType(Test).configureEach { test ->
+    // Ensure the plugin JAR exists
+    dependsOn(":jdk-javac-plugin:shadowJar")
+
+    // Expose a module path for tests as a JVM property.
+    def pluginJarTask = project(':jdk-javac-plugin').tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar)
+    test.dependsOn pluginJarTask
+    test.jvmArgs += [
+            "-Dplugin.path=${pluginJarTask.get().archiveFile.get().asFile.absolutePath}"
+    ]
+}
+
 dependencies {
     implementation project(":library-model:library-model-generator")
     implementation deps.build.gson
-
     implementation deps.build.guava
-    implementation deps.build.javaparser
-    implementation deps.build.javaparserSymbolSolver
-    compileOnly deps.apt.autoValueAnnot
-    annotationProcessor deps.apt.autoValue
+//    implementation deps.build.javaparser
+//    implementation deps.build.javaparserSymbolSolver
+//    compileOnly deps.apt.autoValueAnnot
+//    annotationProcessor deps.apt.autoValue
 
     testImplementation deps.test.junit4
-    testImplementation 'org.jspecify:jspecify:0.3.0'
+    testImplementation deps.build.jspecify
+    testImplementation(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
 }
