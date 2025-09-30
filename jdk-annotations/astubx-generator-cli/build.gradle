@@ -53,7 +53,7 @@ tasks.withType(Test).configureEach { test ->
     def pluginJarTask = project(':jdk-javac-plugin').tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar)
     test.dependsOn pluginJarTask
     test.jvmArgs += [
-            "-Dplugin.path=${pluginJarTask.get().archiveFile.get().asFile.absolutePath}"
+        "-Dplugin.path=${pluginJarTask.get().archiveFile.get().asFile.absolutePath}"
     ]
 }
 
@@ -61,10 +61,10 @@ dependencies {
     implementation project(":library-model:library-model-generator")
     implementation deps.build.gson
     implementation deps.build.guava
-//    implementation deps.build.javaparser
-//    implementation deps.build.javaparserSymbolSolver
-//    compileOnly deps.apt.autoValueAnnot
-//    annotationProcessor deps.apt.autoValue
+    //    implementation deps.build.javaparser
+    //    implementation deps.build.javaparserSymbolSolver
+    //    compileOnly deps.apt.autoValueAnnot
+    //    annotationProcessor deps.apt.autoValue
 
     testImplementation deps.test.junit4
     testImplementation deps.build.jspecify
