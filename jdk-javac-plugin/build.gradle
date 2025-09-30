@@ -5,6 +5,8 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+// We require JDK 21, since we rely on some internal String formatting of javac types and don't support
+// the pre-JDK-21 formats
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -60,7 +62,7 @@ tasks.withType(Test).configureEach { test ->
     ]
 }
 
-// Don't test on JDK 17; some string formatting from javac changed
+// Don't test on JDK 17 since we don't support the JDK 17 javac string formatting
 tasks.getByName('testJdk17').configure {
     onlyIf { false }
 }

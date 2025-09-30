@@ -4,6 +4,7 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+// Require JDK 21, since the jdk-javac-plugin requires it
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
