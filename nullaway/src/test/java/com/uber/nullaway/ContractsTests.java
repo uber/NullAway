@@ -3,6 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
+@SuppressWarnings("deprecation")
 public class ContractsTests extends NullAwayTestsBase {
 
   @Test
@@ -14,6 +15,32 @@ public class ContractsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CheckContracts=true"))
         .addSourceFile("testdata/CheckContractPositiveCases.java")
+        .doTest();
+  }
+
+  @Test
+  public void noContractCheckErrorsWithoutFlag() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "class Test {",
+            "  @Contract(\"_, !null -> !null\")",
+            "  @Nullable",
+            "  Object foo(Object a, @Nullable Object b) {",
+            "    if (a.hashCode() % 2 == 0) {",
+            "      // no error since CheckContracts is not set",
+            "      return null;",
+            "    }",
+            "    return new Object();",
+            "  }",
+            "}")
         .doTest();
   }
 
@@ -62,6 +89,65 @@ public class ContractsTests extends NullAwayTestsBase {
             "  }",
             "  String test3(@Nullable Object o) {",
             "    NullnessChecker.assertNonNull(o);",
+            "    return o.toString();",
+            "  }",
+            "  String test4(java.util.Map<String,Object> m) {",
+            "    NullnessChecker.assertNonNull(m.get(\"foo\"));",
+            "    return m.get(\"foo\").toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nonJetbrainsAnnotationNamedContract() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "public class NullnessChecker {",
+            "  @Target(ElementType.METHOD)",
+            "  public @interface Contract {",
+            "      String value();",
+            "  }",
+            "  @Target(ElementType.METHOD)",
+            "  public @interface NotContract {",
+            "      String value();",
+            "  }",
+            "  @Contract(\"_, null -> true\")",
+            "  static boolean isNull(boolean flag, @Nullable Object o) { return o == null; }",
+            "  @Contract(\"null -> false\")",
+            "  static boolean isNonNull(@Nullable Object o) { return o != null; }",
+            "  @Contract(\"null -> fail\")",
+            "  static void assertNonNull(@Nullable Object o) { if (o != null) throw new Error(); }",
+            "  @NotContract(\"null -> fail\")",
+            "  static void assertNonNullNotContract(@Nullable Object o) { if (o != null) throw new Error(); }",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  String test1(@Nullable Object o) {",
+            "    return NullnessChecker.isNonNull(o) ? o.toString() : \"null\";",
+            "  }",
+            "  String test2(@Nullable Object o) {",
+            "    return NullnessChecker.isNull(false, o) ? \"null\" : o.toString();",
+            "  }",
+            "  String test3(@Nullable Object o) {",
+            "    NullnessChecker.assertNonNull(o);",
+            "    return o.toString();",
+            "  }",
+            "  String test4(@Nullable Object o) {",
+            "    NullnessChecker.assertNonNullNotContract(o);",
+            "    // BUG: Diagnostic contains: dereferenced expression",
             "    return o.toString();",
             "  }",
             "  String test4(java.util.Map<String,Object> m) {",
@@ -122,26 +208,87 @@ public class ContractsTests extends NullAwayTestsBase {
             "import org.jetbrains.annotations.Contract;",
             "class Test {",
             "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object foo(@Nullable Object o) { return o; }",
             "  @Contract(\"!null -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object bar(@Nullable Object o, String s) { return o; }",
             "  @Contract(\"jabberwocky -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object baz(@Nullable Object o) { return o; }",
-            // We don't care as long as nobody calls the method:
             "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
             "  static @Nullable Object dontcare(@Nullable Object o) { return o; }",
+            "  // don't report errors about invalid contract annotations at calls to these methods",
             "  static Object test1() {",
-            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return foo(null);",
             "  }",
             "  static Object test2() {",
-            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return bar(null, \"\");",
             "  }",
             "  static Object test3() {",
-            "    // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return baz(null);",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void malformedNonJetbrainsContracts() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomContractAnnotations=com.example.library.CustomContract"))
+        .addSourceLines(
+            "CustomContract.java",
+            "package com.example.library;",
+            "import static java.lang.annotation.RetentionPolicy.CLASS;",
+            "import java.lang.annotation.Retention;",
+            "@Retention(CLASS)",
+            "public @interface CustomContract {",
+            "  String value();",
+            "}")
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Target;",
+            "import com.example.library.CustomContract;",
+            "class Test {",
+            "  @Target(ElementType.METHOD)",
+            "  public @interface Contract {",
+            "      String value();",
+            "  }",
+            "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object foo(@Nullable Object o) { return o; }",
+            "  @Contract(\"!null -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object bar(@Nullable Object o, String s) { return o; }",
+            "  @Contract(\"jabberwocky -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object baz(@Nullable Object o) { return o; }",
+            "  @Contract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object dontcare(@Nullable Object o) { return o; }",
+            "  @CustomContract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object foo2(@Nullable Object o) { return o; }",
+            "  @CustomContract(\"!null -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object bar2(@Nullable Object o, String s) { return o; }",
+            "  @CustomContract(\"jabberwocky -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object baz2(@Nullable Object o) { return o; }",
+            "  @CustomContract(\"!null -> -> !null\")",
+            "  // BUG: Diagnostic contains: Invalid @Contract annotation",
+            "  static @Nullable Object dontcare2(@Nullable Object o) { return o; }",
             "}")
         .doTest();
   }

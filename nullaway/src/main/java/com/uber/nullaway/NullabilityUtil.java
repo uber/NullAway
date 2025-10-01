@@ -48,6 +48,7 @@ import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -212,7 +213,10 @@ public class NullabilityUtil {
         elementValues.entrySet()) {
       ExecutableElement elem = entry.getKey();
       if (elem.getSimpleName().contentEquals("value")) {
-        return (String) entry.getValue().getValue();
+        Object value = entry.getValue().getValue();
+        if (value instanceof String) {
+          return (String) value;
+        }
       }
     }
     // not found
@@ -476,11 +480,11 @@ public class NullabilityUtil {
    *     the field might be null; false otherwise
    */
   public static boolean mayBeNullFieldFromType(
-      Symbol symbol, Config config, CodeAnnotationInfo codeAnnotationInfo) {
+      Symbol symbol, Config config, Handler handler, CodeAnnotationInfo codeAnnotationInfo) {
     return !(symbol.getSimpleName().toString().equals("class")
             || symbol.isEnum()
-            || codeAnnotationInfo.isSymbolUnannotated(symbol, config, null))
-        && Nullness.hasNullableAnnotation(symbol, config);
+            || codeAnnotationInfo.isSymbolUnannotated(symbol, config, handler))
+        && Nullness.hasNullableOrMonotonicNonNullAnnotation(symbol, config);
   }
 
   /**
@@ -643,5 +647,22 @@ public class NullabilityUtil {
     return varSymbol.getAnnotationMirrors().stream()
         .map(a -> a.getAnnotationType().toString())
         .anyMatch(annotName -> annotName.equals(JETBRAINS_NOT_NULL));
+  }
+
+  /**
+   * Checks if the method invocation is a varargs call, i.e., if individual arguments are being
+   * passed in the varargs position. If false, it means that an array is being passed in the varargs
+   * position.
+   *
+   * @param tree the method invocation tree (MethodInvocationTree or NewClassTree)
+   * @return true if the method invocation is a varargs call, false otherwise
+   */
+  public static boolean isVarArgsCall(Tree tree) {
+    // javac sets the varargsElement field to a non-null value if the invocation is a varargs call
+    Type varargsElement =
+        tree instanceof JCTree.JCMethodInvocation
+            ? ((JCTree.JCMethodInvocation) tree).varargsElement
+            : ((JCTree.JCNewClass) tree).varargsElement;
+    return varargsElement != null;
   }
 }

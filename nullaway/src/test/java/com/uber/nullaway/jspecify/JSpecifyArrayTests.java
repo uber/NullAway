@@ -250,7 +250,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "    @Nullable Integer[] x2 = nullableIntArr;",
             "    // legal (covariant array subtypes)",
             "    x2 = nonnullIntArr;",
-            "    // BUG: Diagnostic contains: Cannot assign from type @Nullable Integer[] to type Integer[]",
+            "    // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []",
             "    x1 = nullableIntArr;",
             "  }",
             "}")
@@ -272,7 +272,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "    @Nullable Integer[] x2 = new Integer[0];",
             "    // legal",
             "    x2 = new @Nullable Integer[0];",
-            "    // BUG: Diagnostic contains: Cannot assign from type @Nullable Integer[] to type Integer[]",
+            "    // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []",
             "    x1 = new @Nullable Integer[0];",
             "  }",
             "}")
@@ -290,7 +290,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "class Test {",
             "  void foo(List<@Nullable Integer[]> l) {}",
             "  void testPositive(List<Integer[]> p) {",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type List<Integer[]>",
+            "    // BUG: Diagnostic contains: incompatible types: List<Integer []>",
             "    foo(p);",
             "  }",
             "  void testNegative(List<@Nullable Integer[]> p) {",
@@ -312,7 +312,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "  static class Bar<T> {",
             "    Foo<T>[] getFoosPositive() {",
             "      @Nullable Foo<T>[] result = new Foo[0];",
-            "      // BUG: Diagnostic contains: Cannot return expression of type @Nullable Foo<T>[] from method",
+            "      // BUG: Diagnostic contains: incompatible types:",
             "      return result;",
             "    }",
             "    Foo<T>[] getFoosNegative() {",
@@ -321,7 +321,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "    }",
             "    void takeFoos(Foo<T>[] foos) {}",
             "    void callTakeFoosPositive(@Nullable Foo<T>[] p) {",
-            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      // BUG: Diagnostic contains: incompatible types: @Nullable Foo<T> []",
             "      takeFoos(p);",
             "    }",
             "    void callTakeFoosNegative(Foo<T>[] p) {",
@@ -331,9 +331,9 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "    void callTakeFoosVarargsPositive(@Nullable Foo<T>[] p, Foo<T>[] p2) {",
             "      // Under the hood, a @Nullable Foo<T>[][] is passed, which is not a subtype",
             "      // of the formal parameter type Foo<T>[][]",
-            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      // BUG: Diagnostic contains: incompatible types: @Nullable Foo<T> []",
             "      takeFoosVarargs(p);",
-            "      // BUG: Diagnostic contains: Cannot pass parameter of type @Nullable Foo<T>[]",
+            "      // BUG: Diagnostic contains: incompatible types: @Nullable Foo<T> []",
             "      takeFoosVarargs(p2, p);",
             "    }",
             "    void callTakeFoosVarargsNegative(Foo<T>[] p) {",
@@ -367,7 +367,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "    @Override",
             "    Integer[] foo() { return new Integer[0]; }",
             "    @Override",
-            "    // BUG: Diagnostic contains: Method returns @Nullable Integer[], but overridden method returns Integer[]",
+            "    // BUG: Diagnostic contains: Method returns @Nullable Integer [], but overridden method returns Integer []",
             "    @Nullable Integer[] bar() { return new @Nullable Integer[0]; }",
             "  }",
             "}")
@@ -389,7 +389,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "  }",
             "  class Sub extends Super {",
             "    @Override",
-            "    // BUG: Diagnostic contains: Parameter has type Integer[], but overridden method has parameter type @Nullable Integer[]",
+            "    // BUG: Diagnostic contains: Parameter has type Integer [], but overridden method has parameter type @Nullable Integer []",
             "    void foo(Integer[] p) { }",
             "    @Override",
             "    void bar(@Nullable Integer[] p) { }",
@@ -407,7 +407,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.Nullable;",
             "class Test {",
             "  static Integer[] testPositive(Integer[] p, boolean t) {",
-            "    // BUG: Diagnostic contains: Conditional expression must have type Integer[]",
+            "    // BUG: Diagnostic contains: Conditional expression must have type Integer []",
             "    Integer[] t1 = t ? new Integer[0] : new @Nullable Integer[0];",
             "    // BUG: Diagnostic contains: Conditional expression must have type",
             "    return t ? new @Nullable Integer[0] : new @Nullable Integer[0];",
@@ -668,6 +668,37 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             "  Object @Nullable [][] foo5 = null;",
             "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "  Object [] @Nullable [] foo6 = null;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void unboxForEachLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "   void f(@Nullable Integer[] array) {",
+            "     // BUG: Diagnostic contains: unboxing of a @Nullable value",
+            "     for (int x : array) {}",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void unboxForEachLoopNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "   void f(Integer[] array) {",
+            "     for (int x : array) {}",
+            "   }",
             "}")
         .doTest();
   }

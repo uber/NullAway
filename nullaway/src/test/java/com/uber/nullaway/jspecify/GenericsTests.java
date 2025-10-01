@@ -48,7 +48,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: Generic type parameter",
             "    testBadNonNull(new NonNullTypeParam<@Nullable String>());",
             "    testBadNonNull(",
-            "        // BUG: Diagnostic contains: Cannot pass parameter of type NonNullTypeParam<@Nullable String>",
+            "        // BUG: Diagnostic contains: incompatible types: NonNullTypeParam<@Nullable String>",
             "        new NonNullTypeParam<",
             "            // BUG: Diagnostic contains: Generic type parameter",
             "            @Nullable String>());",
@@ -210,17 +210,17 @@ public class GenericsTests extends NullAwayTestsBase {
             "  static void param(@Nullable Wrapper<String>.Fn<String> p) {}",
             "  static void positiveParam() {",
             "    Wrapper<@Nullable String>.Fn<String> x = null;",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>",
             "    param(x);",
             "  }",
             "  static void positiveAssign() {",
             "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
-            "    // BUG: Diagnostic contains: Cannot assign from type Test.Wrapper<@Nullable String>.Fn<String> to type Test.Wrapper<String>.Fn<String>",
+            "    // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String> cannot be converted to Test.Wrapper<String>.Fn<String>",
             "    Wrapper<String>.Fn<String> p2 = p1;",
             "  }",
             "  static @Nullable Wrapper<String>.Fn<String> positiveReturn() {",
             "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
-            "    // BUG: Diagnostic contains: Cannot return expression of type Test.Wrapper<@Nullable String>.Fn<String>",
+            "    // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>",
             "    return p1;",
             "  }",
             "  static void negativeParam() {",
@@ -283,7 +283,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class NullableTypeParam<E extends @Nullable Object> {}",
             "  static void testPositive(NullableTypeParam<@Nullable String> t1) {",
-            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
+            "    // BUG: Diagnostic contains: incompatible types: NullableTypeParam<@Nullable String>",
             "    NullableTypeParam<String> t2 = t1;",
             "  }",
             "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
@@ -303,7 +303,8 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class NullableTypeParam<E extends @Nullable Object> {}",
             "  static void testNoWarningForMismatch(NullableTypeParam<@Nullable String> t1) {",
-            "    // no error here since we only do our checks for JSpecify @Nullable annotations",
+            "    // we still get an error here as we are not forcing use of JSpecify's @Nullable",
+            "    // BUG: Diagnostic contains: incompatible types: NullableTypeParam<@Nullable String>",
             "    NullableTypeParam<String> t2 = t1;",
             "  }",
             "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
@@ -324,7 +325,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "  static class SampleClass<E extends @Nullable Object> {}",
             "  static class SampleClassMultipleArguments<E1 extends @Nullable Object, E2> {}",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type SampleClassMultipleArguments<SampleClass<SampleClass<String>>",
+            "    // BUG: Diagnostic contains: incompatible types: SampleClassMultipleArguments<SampleClass<SampleClass<String>>",
             "    SampleClassMultipleArguments<SampleClass<SampleClass<@Nullable String>>, String> t1 =",
             "        new SampleClassMultipleArguments<SampleClass<SampleClass<String>>, String>();",
             "  }",
@@ -347,7 +348,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "  interface Fn<P extends @Nullable Object, R extends @Nullable Object> {}",
             "  class FnImpl implements Fn<@Nullable String, @Nullable String> {}",
             "  void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type Test.FnImpl",
+            "    // BUG: Diagnostic contains: incompatible types: Test.FnImpl",
             "    Fn<@Nullable String, String> f = new FnImpl();",
             "  }",
             "  void testNegative() {",
@@ -369,7 +370,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "  interface Fn2<P extends @Nullable Object> {}",
             "  class FnImpl implements Fn1<@Nullable String, @Nullable String>, Fn2<String> {}",
             "  void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    Fn2<@Nullable String> f = new FnImpl();",
             "  }",
             "  void testNegative() {",
@@ -394,7 +395,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "  class FnImpl2 extends SubClassA<@Nullable String> {}",
             "  void testPositive() {",
             "    SuperClassC<@Nullable String> f;",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    f = new FnImpl1();",
             "  }",
             "  void testNegative() {",
@@ -417,9 +418,9 @@ public class GenericsTests extends NullAwayTestsBase {
             "  class D<P extends @Nullable Object> {}",
             "  class B<P extends @Nullable Object> extends D<P> {}",
             "  void testPositive(B<@Nullable String> b) {",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    D<String> f1 = new B<@Nullable String>();",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    D<String> f2 = b;",
             "  }",
             "  void testNegative(B<String> b) {",
@@ -445,7 +446,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "    Super<@Nullable String, String> s = new Sub<String, @Nullable String>();",
             "  }",
             "  void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    Super<@Nullable String, String> s2 = new Sub<@Nullable String, String>();",
             "  }",
             "}")
@@ -465,11 +466,11 @@ public class GenericsTests extends NullAwayTestsBase {
             "  class C<P extends @Nullable Object> {}",
             "  class A<T extends C<P>, P extends @Nullable Object> {}",
             "  void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    D<C<String>> f1 = new B<C<@Nullable String>>();",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    A<C<String>, String> f2 = new A<C<String>, @Nullable String>();",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    D<C<String>> f3 = new B<@Nullable C<String>>();",
             "  }",
             "  void testNegative() {",
@@ -501,6 +502,32 @@ public class GenericsTests extends NullAwayTestsBase {
             "  }",
             "  static void testNegative() {",
             "    A<Object> p = Test::foo;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void testForLambdaInAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Supplier;",
+            "class Test {",
+            "  interface A<T1 extends @Nullable Object> {",
+            "    String function(T1 o);",
+            "  }",
+            "  static String foo(Object o) {",
+            "    return o.toString();",
+            "  }",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "    A<@Nullable Object> p = x -> x.toString();",
+            "  }",
+            "  static void testNegative() {",
+            "    A<Object> p = x -> \"hello\";",
             "  }",
             "}")
         .doTest();
@@ -739,11 +766,11 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static A<String> testPositive1() {",
-            "   // BUG: Diagnostic contains: Cannot return expression of type A<@Nullable String>",
+            "   // BUG: Diagnostic contains: incompatible types: A<@Nullable String>",
             "   return new A<@Nullable String>();",
             "  }",
             "  static A<@Nullable String> testPositive2() {",
-            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
+            "   // BUG: Diagnostic contains: incompatible types:",
             "   return new A<String>();",
             "  }",
             "  static A<@Nullable String> testNegative() {",
@@ -763,7 +790,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static A<String> testPositive(A<@Nullable String> a) {",
-            "   // BUG: Diagnostic contains: mismatched nullability of type parameters",
+            "   // BUG: Diagnostic contains: incompatible types:",
             "   return a;",
             "  }",
             "  static A<@Nullable String> testNegative(A<@Nullable String> a) {",
@@ -784,7 +811,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "  static class A<T extends @Nullable Object> { }",
             "  static A<String> testPositive(A<@Nullable String> a, int num) {",
             "   if (num % 2 == 0) {",
-            "    // BUG: Diagnostic contains: mismatched nullability of type parameters",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "     return a;",
             "    } else {",
             "     return new A<String>();",
@@ -920,15 +947,15 @@ public class GenericsTests extends NullAwayTestsBase {
             "  static void sampleMethod3(A<@Nullable String> a1) {",
             "  }",
             "  static void testPositive1(A<A<@Nullable String>> a1, A<String> a2) {",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type A<A<@Nullable String>>",
+            "    // BUG: Diagnostic contains: incompatible types: A<A<@Nullable String>>",
             "    A<String> a = sampleMethod1(a1, a2);",
             "  }",
             "  static void testPositive2(A<A<String>> a1, A<String> a2) {",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    A<String> a = sampleMethod2(a1, a2);",
             "  }",
             "  static void testPositive3(A<String> a1) {",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    sampleMethod3(a1);",
             "  }",
             "  static void testNegative(A<A<String>> a1, A<String> a2) {",
@@ -951,7 +978,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "    void bar(A<T> a) { foo(a); this.foo(a); }",
             "  }",
             "  static void test(A<@Nullable String> p, A<String> q) {",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    p.foo(q);",
             "    // this one is fine",
             "    p.foo(p);",
@@ -973,14 +1000,37 @@ public class GenericsTests extends NullAwayTestsBase {
             "     return new A<@Nullable String>();",
             "  }",
             "  static void testPositive(A<@Nullable String> a1, A<String> a2) {",
-            "     // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "     // BUG: Diagnostic contains: incompatible types:",
             "     A<@Nullable String> b = sampleMethodWithVarArgs(a1);",
-            "     // BUG: Diagnostic contains: Cannot pass parameter of type",
+            "     // BUG: Diagnostic contains: incompatible types:",
             "     A<@Nullable String> b2 = sampleMethodWithVarArgs(a2, a1);",
             "  }",
             "  static void testNegative(A<String> a1, A<String> a2) {",
             "     A<@Nullable String> b = sampleMethodWithVarArgs(a1);",
             "     A<@Nullable String> b2 = sampleMethodWithVarArgs(a2, a1);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsPassedAsArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  static class A<T extends @Nullable Object> { }",
+            "  static A<@Nullable String> sampleMethodWithVarArgs(A<String>... args) {",
+            "     return new A<@Nullable String>();",
+            "  }",
+            "  static void testPositive(A<@Nullable String>[] arr) {",
+            "     // BUG: Diagnostic contains: incompatible types:",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(arr);",
+            "  }",
+            "  static void testNegative(A<String>[] arr) {",
+            "     A<@Nullable String> b = sampleMethodWithVarArgs(arr);",
             "  }",
             "}")
         .doTest();
@@ -1022,6 +1072,26 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void rawVarargsParam() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Foo {",
+            "  public interface Supplier<T extends @Nullable Object> extends java.util.function.Supplier<T> {",
+            "  }",
+            "  public static void waitForAll(Runnable callback, Supplier... suppliers) {",
+            "  }",
+            "  public static void test(Supplier<Object> sup2) {",
+            "     waitForAll(() -> {}, sup2);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedGenericTypeAssignment() {
     makeHelper()
         .addSourceLines(
@@ -1031,9 +1101,9 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    A<A<@Nullable String>[]> var1 = new A<A<String>[]>();",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    A<A<String>[]> var2 = new A<A<@Nullable String>[]>();",
             "  }",
             "  static void testNegative() {",
@@ -1054,7 +1124,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type",
+            "    // BUG: Diagnostic contains: incompatible types:",
             "    A<A<String>[]> var2 = new A<A<@Nullable String>[]>();",
             "  }",
             "}")
@@ -1071,7 +1141,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "class Test {",
             "  static class A<T extends @Nullable Object> { }",
             "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: Cannot assign from type A<int[]>",
+            "    // BUG: Diagnostic contains: incompatible types: A<int []>",
             "    A<int @Nullable[]> x = new A<int[]>();",
             "  }",
             "  static void testNegative() {",
@@ -1322,6 +1392,41 @@ public class GenericsTests extends NullAwayTestsBase {
             "      public String apply(String s) { return s; }",
             "    };",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void otherTypeUseNullableAnnotation() {
+    makeHelper()
+        .addSourceLines(
+            "Nullable.java",
+            "package com.other;",
+            "import java.lang.annotation.ElementType;",
+            "import java.lang.annotation.Retention;",
+            "import java.lang.annotation.RetentionPolicy;",
+            "import java.lang.annotation.Target;",
+            "@Target(ElementType.TYPE_USE)",
+            "@Retention(RetentionPolicy.CLASS)",
+            "public @interface Nullable {}")
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import com.other.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "    static abstract class MyClass<T extends @Nullable Object>  {",
+            "        abstract T doThing(T value);",
+            "    }",
+            "    static void repro() {",
+            "        new MyClass<@Nullable Object>() {",
+            "            @Override",
+            "            @Nullable Object doThing(@Nullable Object value) {",
+            "                return value;",
+            "            }",
+            "        }.doThing(null);",
+            "    }",
             "}")
         .doTest();
   }
@@ -1899,12 +2004,9 @@ public class GenericsTests extends NullAwayTestsBase {
 
   @Test
   public void intersectionTypeInvalidAssign() {
-    String[] source;
-    // javac behavior differs between versions before and after 23, so we have two versions of the
-    // test source code
-    if (Runtime.version().feature() >= 23) {
-      source =
-          new String[] {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
             "import java.io.Serializable;",
@@ -1914,7 +2016,7 @@ public class GenericsTests extends NullAwayTestsBase {
             "  static class C implements A<String>, Serializable {}",
             "  static void test1(Object o) {",
             "    var x = (A<String> & Serializable) o;",
-            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
+            "    // BUG: Diagnostic contains: incompatible types: B cannot be converted to A<String> & Serializable",
             "    x = new B();",
             "    // ok",
             "    x = new C();",
@@ -1922,42 +2024,11 @@ public class GenericsTests extends NullAwayTestsBase {
             "  static void test2(Object o) {",
             "    var x = (A<@Nullable String> & Serializable) o;",
             "    x = new B();",
-            "    // BUG: Diagnostic contains: Cannot assign from type C to type A<@Nullable String> & Serializable",
+            "    // BUG: Diagnostic contains: incompatible types: C cannot be converted to A<@Nullable String> & Serializable",
             "    x = new C();",
             "  }",
-            "}"
-          };
-    } else {
-      // Before JDK 23, javac does not compute types with annotations for cast expressions, so the
-      // test assertions do not work as expected.
-      source =
-          new String[] {
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import java.io.Serializable;",
-            "public class Test {",
-            "  interface A<T extends @Nullable Object> {}",
-            "  static class B implements A<@Nullable String>, Serializable {}",
-            "  static class C implements A<String>, Serializable {}",
-            "  static void test1(Object o) {",
-            "    var x = (A<String> & Serializable) o;",
-            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
-            "    x = new B();",
-            "    // ok",
-            "    x = new C();",
-            "  }",
-            "  static void test2(Object o) {",
-            "    var x = (A<@Nullable String> & Serializable) o;",
-            // TODO: should _not_ be an error, see https://github.com/uber/NullAway/issues/1022
-            "    // BUG: Diagnostic contains: Cannot assign from type B to type A<String> & Serializable",
-            "    x = new B();",
-            // TODO: _should_ be an error, see https://github.com/uber/NullAway/issues/1022
-            "    x = new C();",
-            "  }",
-            "}"
-          };
-    }
-    makeHelper().addSourceLines("Test.java", source).doTest();
+            "}")
+        .doTest();
   }
 
   @Test
@@ -2028,6 +2099,108 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableAnnotOnClassTypeVarUse() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<@Nullable V, @Nullable V> f);",
+            "    void testNegative(Function<@Nullable V, @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "    void testPositive(Function<V, V> f) {",
+            "        // BUG: Diagnostic contains: incompatible types: Function<V, V> cannot be converted to",
+            "        foo(f);",
+            "    }",
+            "    abstract void takesArray(Function<@Nullable V, @Nullable V>[] f);",
+            "    void testNegativeArray(Function<@Nullable V, @Nullable V>[] f) {",
+            "        takesArray(f);",
+            "    }",
+            "    void testPositiveArray(Function<V, V>[] f) {",
+            "        // BUG: Diagnostic contains: incompatible types: Function<V, V> [] cannot be converted to",
+            "        takesArray(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nonnullAnnotOnClassTypeVarUse() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NonNull;",
+            "import java.util.function.Function;",
+            "public abstract class Generics {",
+            "    abstract <V extends @Nullable Object> void foo(",
+            "            Function<@NonNull V, @NonNull V> f);",
+            "    void testPositive(Function<@Nullable String, @Nullable String> f) {",
+            "        // BUG: Diagnostic contains: incompatible types: Function<@Nullable String, @Nullable String> cannot be converted to",
+            "        this.<@Nullable String>foo(f);",
+            "    }",
+            "    void testPositiveArray(Function<String @Nullable [], String @Nullable []> f) {",
+            "        // BUG: Diagnostic contains: incompatible types: Function<String @Nullable [], String @Nullable []> cannot be converted to",
+            "        this.<String @Nullable []>foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAnnotOnClassTypeVarUseMixed() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<V, @Nullable V> f);",
+            "    void testNegative(Function<V, @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "    void testPositive1(Function<@Nullable V, V> f) {",
+            "        // BUG: Diagnostic contains: incompatible types: Function<@org.jspecify.annotations.Nullable V, V>",
+            "        foo(f);",
+            "    }",
+            "    void testPositive2(Function<V, V> f) {",
+            "        // BUG: Diagnostic contains: incompatible types: Function<V, V> cannot be converted to",
+            "        foo(f);",
+            "    }",
+            "    void testPositive3(Function<@Nullable V, @Nullable V> f) {",
+            "        // BUG: Diagnostic contains: incompatible types: Function<@org.jspecify.annotations.Nullable V, @org.jspecify.annotations.Nullable V> cannot be converted to",
+            "        foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAnnotOnClassTypeVarWildcardUse() {
+    makeHelper()
+        .addSourceLines(
+            "Generics.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Function;",
+            "public abstract class Generics<V> {",
+            "    abstract void foo(",
+            "            Function<? extends @Nullable V, ? extends @Nullable V> f);",
+            "    void test(Function<? extends @Nullable V, ? extends @Nullable V> f) {",
+            "        foo(f);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void issue1093() {
     makeHelper()
         .addSourceLines(
@@ -2041,6 +2214,21 @@ public class GenericsTests extends NullAwayTestsBase {
             "        NULL;",
             "        Loader() {}",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1127() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Main {",
+            "  void arrayAssign(boolean b, @Nullable String @Nullable [] vals) {",
+            "    @Nullable String[] arr = (b ? vals : null);",
+            "  }",
             "}")
         .doTest();
   }
@@ -2061,9 +2249,369 @@ public class GenericsTests extends NullAwayTestsBase {
             "    void bar(Function<String,String> f) {",
             "      // no error since foo is in @NullUnmarked code",
             "      foo = f;",
-            "      // BUG: Diagnostic contains: Cannot assign from type Function<String, String>",
+            "      // BUG: Diagnostic contains: incompatible types: Function<String, String>",
             "      bar = f;",
             "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1126() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Supplier;",
+            "public class Test {",
+            "    static class K<T extends @Nullable Object> {}",
+            "    void foo(K<@Nullable Object> k) {",
+            "        K<? extends @Nullable Object> k2 = k;",
+            "        Supplier<? extends @Nullable Object> s = () -> null;",
+            "    }",
+            "}")
+        .addSourceLines(
+            "Test2.java",
+            "package com.uber;",
+            "import java.util.HashMap;",
+            "import java.util.Map;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jetbrains.annotations.Contract;",
+            "public class Test2 {",
+            "    @Contract(\"null -> true\")",
+            "    public static boolean isEmpty(@Nullable Map<?, ? extends @Nullable Object> map) {",
+            "        return (map == null || map.isEmpty());",
+            "    }",
+            "    static void foo() {",
+            "        Map<String, @Nullable Object> variables = new HashMap<>();",
+            "        if (isEmpty(variables)) { /* do nothing */ }",
+            "        variables.toString();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1129() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.function.Consumer;",
+            "class Test {",
+            "    interface BodySpec<B, S extends BodySpec<B, S>> {",
+            "        <T extends S> T value(Consumer<@Nullable B> consumer);",
+            "    }",
+            "    abstract class DefaultBodySpec<B, S extends BodySpec<B, S>> implements BodySpec<B, S> {",
+            "        @Override",
+            "        public abstract <T extends S> T value(Consumer<@Nullable B> consumer);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1155")
+  @Test
+  public void callWithConstructorReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class Inner<T extends @Nullable Object> {",
+            "    Inner<T> identity() { return this; }",
+            "  }",
+            "  Inner<@Nullable Object> mThing = new Inner<@Nullable Object>().identity();",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableSuperConstructorArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(T t) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B() {",
+            "      super(null);",
+            "  }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void passNonNullToNullableSuperConstructorArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(T t) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B(Object o) {",
+            "      super(o);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void mismatchedTypeArgNullabilityForSuperConstructor() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    A(List<T> l) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    B(List<Object> l) {",
+            "      // BUG: Diagnostic contains: incompatible types:",
+            "      super(l);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableSuperMethodArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class A<T extends @Nullable Object> {",
+            "    void m(T t) {}",
+            "  }",
+            "  private static class B extends A<@Nullable Object> {",
+            "    void test() {",
+            "      m(null);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newNullableWithArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Test {",
+            "  private static class Wrapper<T extends @Nullable String> {",
+            "    private final T value;",
+            "    Wrapper(T value) {",
+            "      this.value = value;",
+            "    }",
+            "  }",
+            "  Wrapper<@Nullable String> testConstructorCall() {",
+            "    return new Wrapper<@Nullable String>(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newNullableWithArgAndConstructorType() {
+    makeHelper()
+        .addSourceLines(
+            "Holder.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Holder {",
+            "  String s;",
+            "  public <U extends @Nullable Object> Holder(U value) {",
+            "    s = String.valueOf(value);",
+            "  }",
+            "  static Holder testNegative() {",
+            "    return new <@Nullable String>Holder(null);",
+            "  }",
+            "  static Holder testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    return new <String>Holder(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void lambdaToNewNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            "    interface Supplier<T extends @Nullable Object> {",
+            "        T get();",
+            "    }",
+            "    static class SupplierImpl<T2 extends @Nullable Object> implements Supplier<T2> {",
+            "        Supplier<T2> impl;",
+            "        SupplierImpl(Supplier<T2> delegate) {",
+            "            impl = delegate;",
+            "        }",
+            "        @Override",
+            "        public T2 get() {",
+            "            return impl.get();",
+            "        }",
+            "    }",
+            "    static void main() {",
+            "        Supplier<@Nullable Foo> sup = () -> null;",
+            "        new SupplierImpl<@Nullable Foo>(sup);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1156() {
+    makeHelper()
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.function.Function;",
+            "import java.util.function.Supplier;",
+            "@NullMarked",
+            "public class Foo implements Supplier<Integer> {",
+            "  public Foo(Function<Integer, Integer> func) {",
+            "  }",
+            "  @Override",
+            "  public Integer get() {",
+            "    return 0;",
+            "  }",
+            "  public static void test() {",
+            "    new Supplier<Boolean>() {",
+            "      @Override",
+            "      public Boolean get() {",
+            "        Foo foo = new Foo(x -> 1);",
+            "        return true;",
+            "      }",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceToNullUnmarked() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "public class Test {",
+            "  @NullUnmarked",
+            "  public static Boolean isNull(Object o) { return o == null; }",
+            "  @NullUnmarked",
+            "  public static Boolean isNullRestrictParam(@NonNull Object o) { return o == null; }",
+            "  @NullUnmarked",
+            "  public static @Nullable Boolean isNullRestrictReturn(Object o) { return o == null; }",
+            "  static Function<@Nullable Object, Boolean> filter1 = Test::isNull;",
+            "  // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional",
+            "  static Function<@Nullable Object, Boolean> filter2 = Test::isNullRestrictParam;",
+            "  // BUG: Diagnostic contains: referenced method returns @Nullable",
+            "  static Function<@Nullable Object, Boolean> filter3 = Test::isNullRestrictReturn;",
+            "  static Function<@Nullable Object, @Nullable Boolean> filter4 = Test::isNullRestrictReturn;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsOfGenericType() {
+    makeHelper()
+        .addSourceLines(
+            "Varargs.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class Varargs {",
+            "    static class Foo<T extends @Nullable Object> {",
+            "        void foo(T... args) {",
+            "        }",
+            "    }",
+            "    static void testNegative(@Nullable String s) {",
+            "        Foo<@Nullable String> f = new Foo<>();",
+            "        f.foo(s);",
+            "    }",
+            "    static void testPositive(@Nullable String s) {",
+            "        Foo<String> f = new Foo<>();",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter",
+            "        f.foo(s);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void iteratorOverObjArrays() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import java.util.Iterator;",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "public class Test {",
+            "  public static void test() {",
+            "    Iterator<Object[]> it = makeIter();",
+            "    while (it.hasNext()) {",
+            "      Object[] arr = it.next();",
+            "    }",
+            "  }",
+            "",
+            "  private static Iterator<Object[]> makeIter() {",
+            "    throw new RuntimeException();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void assignmentIncompatibilityViaExtendsErrorMessage() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  class A<T extends @Nullable Object> {}",
+            "  class B<T extends @Nullable Object> extends A<@Nullable T> {}",
+            "  class C<T extends @Nullable Object> extends A<@NonNull T> {}",
+            "  void test() {",
+            "    // BUG: Diagnostic contains: incompatible types: Test.B<Object> cannot be converted to Test.A<Object> (Test.B<Object> is a subtype of Test.A<@Nullable Object>)",
+            "    A<Object> a = new B<Object>();",
+            "    // BUG: Diagnostic contains: incompatible types: Test.C<@Nullable Object> cannot be converted to Test.A<@Nullable Object> (Test.C<@Nullable Object> is a subtype of Test.A<@NonNull Object>)",
+            "    A<@Nullable Object> a2 = new C<@Nullable Object>();",
             "  }",
             "}")
         .doTest();

@@ -267,4 +267,106 @@ public class SwitchTests {
             "}")
         .doTest();
   }
+
+  @Test
+  public void caseNullTypeRefinement() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "import java.io.IOException;",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "public class TestCase {",
+            "    boolean hasRelevantMessage(IOException ioException)",
+            "    {",
+            "        String message = ioException.getMessage();",
+            "        return switch (message)",
+            "        {",
+            "            case null -> false;",
+            "            case \"Operation timed out\", \"Connection reset by peer\", \"Premature EOF\", \"Error writing to server\" -> true;",
+            "            default -> message.contains(\"GOAWAY received\");",
+            "        };",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1168() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "NullAwayDiscardError.java",
+            "package com.uber;",
+            "public class NullAwayDiscardError {",
+            "    public sealed interface IntOrBool {}",
+            "    public record WrappedInt(int a) implements IntOrBool {}",
+            "    public record WrappedBoolean(boolean b) implements IntOrBool {}",
+            "    public static void unwrap(IntOrBool i) {",
+            "        switch(i) {",
+            "            case WrappedInt(_) -> {}",
+            "            case WrappedBoolean(_) -> {}",
+            "        }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1250() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "ExceptionUtil.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class ExceptionUtil {",
+            "   static class BusinessException extends Exception {",
+            "       public BusinessException(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   static class BusinessExceptionUnauthenticated extends BusinessException {",
+            "       public BusinessExceptionUnauthenticated(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   private static @Nullable String test(Throwable t) {",
+            "       if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {",
+            "           return \"\"; ",
+            "       }",
+            "       return switch (bException) {",
+            "           case BusinessExceptionUnauthenticated e -> { e.toString(); bException.toString(); yield \"\"; } ",
+            "           default -> bException.getMessage();",
+            "       };",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void patternMatchingInstanceOfNegation() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "ExceptionUtil.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class ExceptionUtil {",
+            "   static class BusinessException extends Exception {",
+            "       public BusinessException(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   static class BusinessExceptionUnauthenticated extends BusinessException {",
+            "       public BusinessExceptionUnauthenticated(String message) {",
+            "           super(message);",
+            "       }",
+            "   }",
+            "   private static @Nullable String test(Throwable t) {",
+            "       if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {",
+            "           return \"\"; ",
+            "       }",
+            "       return bException.getMessage();",
+            "   };",
+            "}")
+        .doTest();
+  }
 }

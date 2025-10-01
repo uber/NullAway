@@ -21,12 +21,14 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.contract.ContractNullnessStoreInitializer;
@@ -40,7 +42,6 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodAccessNode;
-import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.jspecify.annotations.Nullable;
 
@@ -63,36 +64,22 @@ public final class AccessPathNullnessAnalysis {
   private @Nullable AccessPathNullnessPropagation contractNullnessPropagation;
 
   // Use #instance to instantiate
-  private AccessPathNullnessAnalysis(
-      Predicate<MethodInvocationNode> methodReturnsNonNull,
-      VisitorState state,
-      Config config,
-      Handler handler) {
+  private AccessPathNullnessAnalysis(VisitorState state, NullAway analysis) {
+    Config config = analysis.getConfig();
+    Handler handler = analysis.getHandler();
     apContext =
         AccessPath.AccessPathContext.builder()
             .setImmutableTypes(handler.onRegisterImmutableTypes())
             .build();
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
-            Nullness.NONNULL,
-            methodReturnsNonNull,
-            state,
-            apContext,
-            config,
-            handler,
-            new CoreNullnessStoreInitializer());
+            Nullness.NONNULL, state, apContext, analysis, new CoreNullnessStoreInitializer());
     this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
 
     if (config.checkContracts()) {
       this.contractNullnessPropagation =
           new AccessPathNullnessPropagation(
-              Nullness.NONNULL,
-              methodReturnsNonNull,
-              state,
-              apContext,
-              config,
-              handler,
-              new ContractNullnessStoreInitializer());
+              Nullness.NONNULL, state, apContext, analysis, new ContractNullnessStoreInitializer());
     }
   }
 
@@ -100,20 +87,14 @@ public final class AccessPathNullnessAnalysis {
    * Get the per-Javac instance of the analysis.
    *
    * @param state visitor state for the compilation
-   * @param methodReturnsNonNull predicate determining whether a method is assumed to return NonNull
-   *     value
-   * @param config analysis config
+   * @param analysis instance of NullAway analysis
    * @return instance of the analysis
    */
-  public static AccessPathNullnessAnalysis instance(
-      VisitorState state,
-      Predicate<MethodInvocationNode> methodReturnsNonNull,
-      Config config,
-      Handler handler) {
+  public static AccessPathNullnessAnalysis instance(VisitorState state, NullAway analysis) {
     Context context = state.context;
     AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
     if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(methodReturnsNonNull, state, config, handler);
+      instance = new AccessPathNullnessAnalysis(state, analysis);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
     }
     return instance;
@@ -211,12 +192,23 @@ public final class AccessPathNullnessAnalysis {
     return store.filterAccessPaths(
         (ap) -> {
           boolean allAPNonRootElementsAreFinalFields = true;
-          for (AccessPathElement ape : ap.getElements()) {
+          ImmutableList<AccessPathElement> elements = ap.getElements();
+          for (int i = 0; i < elements.size(); i++) {
+            AccessPathElement ape = elements.get(i);
             Element e = ape.getJavaElement();
-            if (!e.getKind().equals(ElementKind.FIELD)
-                || !e.getModifiers().contains(Modifier.FINAL)) {
-              allAPNonRootElementsAreFinalFields = false;
-              break;
+            if (i != elements.size() - 1) { // "inner" elements of the access path
+              if (!e.getKind().equals(ElementKind.FIELD)
+                  || !e.getModifiers().contains(Modifier.FINAL)) {
+                allAPNonRootElementsAreFinalFields = false;
+                break;
+              }
+            } else { // last element
+              // must be a field that is final or annotated with @MonotonicNonNull
+              if (!e.getKind().equals(ElementKind.FIELD)
+                  || !(e.getModifiers().contains(Modifier.FINAL)
+                      || hasMonotonicNonNullAnnotation(e))) {
+                allAPNonRootElementsAreFinalFields = false;
+              }
             }
           }
           if (allAPNonRootElementsAreFinalFields) {
@@ -224,12 +216,19 @@ public final class AccessPathNullnessAnalysis {
             return e == null // This is the case for: this(.f)* where each f is a final field.
                 || e.getKind().equals(ElementKind.PARAMETER)
                 || e.getKind().equals(ElementKind.LOCAL_VARIABLE)
+                // rooted at a static field that is either final or annotated with @MonotonicNonNull
                 || (e.getKind().equals(ElementKind.FIELD)
-                    && e.getModifiers().contains(Modifier.FINAL));
+                    && (e.getModifiers().contains(Modifier.FINAL)
+                        || hasMonotonicNonNullAnnotation(e)));
           }
 
           return handlerPredicate.test(ap);
         });
+  }
+
+  private static boolean hasMonotonicNonNullAnnotation(Element e) {
+    return e.getAnnotationMirrors().stream()
+        .anyMatch(am -> Nullness.isMonotonicNonNullAnnotation(am.getAnnotationType().toString()));
   }
 
   /**

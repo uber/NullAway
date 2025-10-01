@@ -130,6 +130,30 @@ public class JarInferIntegrationTest {
   }
 
   @Test
+  public void constructors() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jarinfer.toys.unannotated.Toys;",
+            "class Test {",
+            "  void test1() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "    Toys t = new Toys(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void jarinferNullableReturnsTest() {
     compilationHelper
         .setArgs(

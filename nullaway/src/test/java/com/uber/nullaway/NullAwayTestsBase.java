@@ -1,7 +1,6 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
-import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
@@ -17,7 +16,7 @@ public abstract class NullAwayTestsBase {
   public void setup() {
     defaultCompilationHelper =
         makeTestHelperWithArgs(
-            Arrays.asList(
+            List.of(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:KnownInitializers="
@@ -33,7 +32,8 @@ public abstract class NullAwayTestsBase {
                 "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.nullaway.testdata.TestAnnot",
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
                 "-XepOpt:NullAway:ExternalInitAnnotations=com.uber.ExternalInit",
-                "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit"));
+                "-XepOpt:NullAway:ExcludedFieldAnnotations=com.uber.ExternalFieldInit",
+                "-XDaddTypeAnnotationsToSymbol=true"));
   }
 
   /**

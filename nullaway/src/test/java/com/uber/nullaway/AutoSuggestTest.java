@@ -318,7 +318,8 @@ public class AutoSuggestTest {
         .doTest(TEXT_MATCH);
   }
 
-  public void suggestInitSuppressionOnConstructor() throws IOException {
+  @Test
+  public void suggestInitSuppressionOnConstructor() {
     makeTestHelper()
         .addInputLines(
             "Test.java",
@@ -377,6 +378,39 @@ public class AutoSuggestTest {
             "import javax.annotation.Nullable;",
             "class Test {",
             "  @SuppressWarnings({\"unused\",\"NullAway.Init\"}) Object f;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void castToNonNullForUnboxing() throws IOException {
+    makeTestHelper()
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable Integer i;",
+            "  int test1() {",
+            "    return i;",
+            "  }",
+            "  void test2() {",
+            "    int x = i;",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  @Nullable Integer i;",
+            "  int test1() {",
+            "    return castToNonNull(i);",
+            "  }",
+            "  void test2() {",
+            "    int x = castToNonNull(i);",
+            "  }",
             "}")
         .doTest();
   }

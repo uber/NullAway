@@ -54,6 +54,31 @@ public enum Nullness implements AbstractValue<Nullness> {
     this.displayName = displayName;
   }
 
+  /**
+   * Check whether an annotation should be treated as equivalent to <code>@MonotonicNonNull</code>.
+   * For now checks if the simple name of the annotation is {@code MonotonicNonNull}, from any
+   * package.
+   */
+  public static boolean isMonotonicNonNullAnnotation(String annotName) {
+    return annotName.endsWith(".MonotonicNonNull");
+  }
+
+  /**
+   * Check for either a {@code @Nullable} annotation or a {@code @MonotonicNonNull} annotation on
+   * {@code symbol}. Used to reason whether a field may be null.
+   */
+  public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
+    return hasNullableOrMonotonicNonNullAnnotation(
+        NullabilityUtil.getAllAnnotations(symbol, config), config);
+  }
+
+  private static boolean hasNullableOrMonotonicNonNullAnnotation(
+      Stream<? extends AnnotationMirror> annotations, Config config) {
+    return annotations
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(anno -> isNullableAnnotation(anno, config) || isMonotonicNonNullAnnotation(anno));
+  }
+
   // The following leastUpperBound and greatestLowerBound methods were created by handwriting a
   // truth table and then encoding the values into these functions. A better approach would be to
   // represent the lattice directly and compute these functions from the lattice.
@@ -158,12 +183,14 @@ public enum Nullness implements AbstractValue<Nullness> {
         || annotName.endsWith(".checkerframework.checker.nullness.compatqual.NullableDecl")
         // matches javax.annotation.CheckForNull and edu.umd.cs.findbugs.annotations.CheckForNull
         || annotName.endsWith(".CheckForNull")
-        // matches any of the multiple @ParametricNullness annotations used within Guava
-        // (see https://github.com/google/guava/issues/6126)
-        // We check the simple name first and the package prefix second for boolean short
-        // circuiting, as Guava includes
-        // many annotations
-        || (annotName.endsWith(".ParametricNullness") && annotName.startsWith("com.google.common."))
+        // matches any of the multiple @ParametricNullness annotations used within Guava (see
+        // https://github.com/google/guava/issues/6126). We check the simple name first and the
+        // package prefix second for boolean short circuiting, as Guava includes many annotations.
+        // We do _not_ match @ParametricNullness annotations in JSpecify mode and rely on generics
+        // checking instead.
+        || (!config.isJSpecifyMode()
+            && annotName.endsWith(".ParametricNullness")
+            && annotName.startsWith("com.google.common."))
         || (config.acknowledgeAndroidRecent()
             && annotName.equals("androidx.annotation.RecentlyNullable"))
         || config.isCustomNullableAnnotation(annotName);

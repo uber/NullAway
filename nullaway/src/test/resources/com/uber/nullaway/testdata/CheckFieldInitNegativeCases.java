@@ -326,6 +326,8 @@ public class CheckFieldInitNegativeCases {
 
     @MonotonicNonNull Object f;
 
+    @com.uber.nullaway.annotations.MonotonicNonNull Object g;
+
     MonotonicNonNullUsage() {}
   }
 
