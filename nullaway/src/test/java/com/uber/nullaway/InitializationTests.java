@@ -199,4 +199,45 @@ public class InitializationTests extends NullAwayTestsBase {
         .doTest();
     ;
   }
+
+  @Test
+  public void initializerForNullableFieldFromNonNullMethod() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nonnull;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Foo {",
+            "    private @Nullable Object mArgs = provide();",
+            "    Foo() {",
+            "        mArgs.getClass();",
+            "    }",
+            "    private @Nonnull Object provide() {",
+            "        return new Object();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void initializerForNullableFieldFromGenericMethod() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nonnull;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Foo {",
+            "    private @Nullable Object mArgs = identity(new Object());",
+            "    Foo() {",
+            "        // BUG: Diagnostic contains: dereferenced expression mArgs is @Nullable",
+            "        mArgs.getClass();",
+            "    }",
+            "    private <T> @Nonnull T identity(T value) {",
+            "        return value;",
+            "    }",
+            "}")
+        .doTest();
+  }
 }

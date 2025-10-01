@@ -8,6 +8,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.TypeCastTree;
@@ -88,7 +89,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
             || !Nullness.hasNullableAnnotation(fieldSymbol, config)) {
           continue;
         }
-        if (initializerIsClearlyNonNull(fieldInitializer)) {
+        if (initializerIsClearlyNonNull(fieldInitializer, config)) {
           result.setInformation(AccessPath.fromFieldElement(fieldSymbol), NONNULL);
         }
       }
@@ -182,7 +183,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     return result.build();
   }
 
-  private static boolean initializerIsClearlyNonNull(ExpressionTree initializer) {
+  private static boolean initializerIsClearlyNonNull(ExpressionTree initializer, Config config) {
     ExpressionTree expression = stripCastsAndParens(initializer);
     if (expression == null || expression.getKind() == Tree.Kind.NULL_LITERAL) {
       return false;
@@ -196,6 +197,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       case LAMBDA_EXPRESSION:
       case MEMBER_REFERENCE:
         return true;
+      case METHOD_INVOCATION:
+        return methodInvocationIsClearlyNonNull((MethodInvocationTree) expression, config);
       default:
         return false;
     }
@@ -217,6 +220,23 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       }
     }
     return current;
+  }
+
+  private static boolean methodInvocationIsClearlyNonNull(
+      MethodInvocationTree invocationTree, Config config) {
+    Symbol symbol = ASTHelpers.getSymbol(invocationTree);
+    if (!(symbol instanceof Symbol.MethodSymbol)) {
+      return false;
+    }
+    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) symbol;
+    Type returnType = methodSymbol.getReturnType();
+    if (returnType == null || returnType instanceof Type.TypeVar) {
+      return false;
+    }
+    if (Nullness.hasNullableAnnotation(methodSymbol, config)) {
+      return false;
+    }
+    return Nullness.hasNonNullAnnotation(methodSymbol, config);
   }
 
   private @Nullable CodeAnnotationInfo codeAnnotationInfo;
