@@ -6,7 +6,11 @@ import static com.uber.nullaway.Nullness.NULLABLE;
 
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.ParenthesizedTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
@@ -67,7 +71,28 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();
     // check if underlyingAST is for a constructor
-    if (ASTHelpers.getSymbol(underlyingAST.getMethod()).isConstructor()) {}
+    if (ASTHelpers.getSymbol(underlyingAST.getMethod()).isConstructor()) {
+      for (Tree member : classTree.getMembers()) {
+        if (!(member instanceof VariableTree)) {
+          continue;
+        }
+        VariableTree fieldTree = (VariableTree) member;
+        ExpressionTree fieldInitializer = fieldTree.getInitializer();
+        if (fieldInitializer == null) {
+          continue;
+        }
+        Symbol.VarSymbol fieldSymbol = ASTHelpers.getSymbol(fieldTree);
+        if (fieldSymbol == null
+            || fieldSymbol.isStatic()
+            || fieldSymbol.type.isPrimitive()
+            || !Nullness.hasNullableAnnotation(fieldSymbol, config)) {
+          continue;
+        }
+        if (initializerIsClearlyNonNull(fieldInitializer)) {
+          result.setInformation(AccessPath.fromFieldElement(fieldSymbol), NONNULL);
+        }
+      }
+    }
     for (LocalVariableNode param : parameters) {
       Symbol paramSymbol = (Symbol) param.getElement();
       Nullness assumed;
@@ -155,6 +180,43 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     }
     result = handler.onDataflowInitialStore(underlyingAST, parameters, result);
     return result.build();
+  }
+
+  private static boolean initializerIsClearlyNonNull(ExpressionTree initializer) {
+    ExpressionTree expression = stripCastsAndParens(initializer);
+    if (expression == null || expression.getKind() == Tree.Kind.NULL_LITERAL) {
+      return false;
+    }
+    if (ASTHelpers.constValue(expression) != null) {
+      return true;
+    }
+    switch (expression.getKind()) {
+      case NEW_CLASS:
+      case NEW_ARRAY:
+      case LAMBDA_EXPRESSION:
+      case MEMBER_REFERENCE:
+        return true;
+      default:
+        return false;
+    }
+  }
+
+  private static @Nullable ExpressionTree stripCastsAndParens(@Nullable ExpressionTree expression) {
+    ExpressionTree current = expression;
+    boolean changed = true;
+    while (changed && current != null) {
+      changed = false;
+      if (current instanceof ParenthesizedTree) {
+        current = ((ParenthesizedTree) current).getExpression();
+        changed = true;
+        continue;
+      }
+      if (current instanceof TypeCastTree) {
+        current = ((TypeCastTree) current).getExpression();
+        changed = true;
+      }
+    }
+    return current;
   }
 
   private @Nullable CodeAnnotationInfo codeAnnotationInfo;
