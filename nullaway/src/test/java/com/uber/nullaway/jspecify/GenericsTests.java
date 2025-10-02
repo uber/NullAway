@@ -240,6 +240,70 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void anonymousNullableCallbackRemoval() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface Callback<T extends @Nullable Object> {",
+            "    void onResult(T result);",
+            "  }",
+            "",
+            "  static void addCallback(Callback<@Nullable Integer> cb) {}",
+            "",
+            "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
+            "",
+            "  public void main() {",
+            "    addCallback(",
+            "        new Callback<@Nullable Integer>() {",
+            "          @Override",
+            "          public void onResult(@Nullable Integer value) {",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void anonymousNonNullCallbackRemovalFails() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface Callback<T extends @Nullable Object> {",
+            "    void onResult(T result);",
+            "  }",
+            "",
+            "  static void addCallback(Callback<@Nullable Integer> cb) {}",
+            "",
+            "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
+            "",
+            "  public void main() {",
+            "    addCallback(",
+            "        // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "        new Callback<Integer>() {",
+            "          @Override",
+            "          public void onResult(Integer value) {",
+            "            // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void downcastInstantiation() {
     makeHelper()
         .addSourceLines(
