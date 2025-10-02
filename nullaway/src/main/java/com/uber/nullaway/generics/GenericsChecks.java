@@ -431,6 +431,7 @@ public final class GenericsChecks {
       } else if (tree instanceof IdentifierTree) {
         IdentifierTree identifierTree = (IdentifierTree) tree;
         Symbol symbol = ASTHelpers.getSymbol(identifierTree);
+        // TODO write test where MemberSelectTree is needed instead of IdentifierTree
         if (symbol != null && identifierTree.getName().contentEquals("this")) {
           Symbol owner = symbol.owner;
           if (owner != null) {

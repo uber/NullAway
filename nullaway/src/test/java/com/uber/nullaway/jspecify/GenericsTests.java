@@ -240,7 +240,7 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void anonymousNullableCallbackRemoval() {
+  public void thisUsageInAnonymousClass() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -252,16 +252,24 @@ public class GenericsTests extends NullAwayTestsBase {
             "  interface Callback<T extends @Nullable Object> {",
             "    void onResult(T result);",
             "  }",
-            "",
             "  static void addCallback(Callback<@Nullable Integer> cb) {}",
-            "",
             "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
-            "",
-            "  public void main() {",
+            "  public void testNegative() {",
             "    addCallback(",
             "        new Callback<@Nullable Integer>() {",
             "          @Override",
             "          public void onResult(@Nullable Integer value) {",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
+            "  }",
+            "  public void testPositive() {",
+            "    addCallback(",
+            "        // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "        new Callback<Integer>() {",
+            "          @Override",
+            "          public void onResult(Integer value) {",
+            "            // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
             "            removeCallback(this);",
             "          }",
             "        });",
@@ -271,11 +279,10 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void anonymousNonNullCallbackRemovalFails() {
+  public void thisUsageInAnonymousClassWithDiamonds() {
     makeHelper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
             "import org.jspecify.annotations.NullMarked;",
             "import org.jspecify.annotations.Nullable;",
             "@NullMarked",
@@ -283,18 +290,25 @@ public class GenericsTests extends NullAwayTestsBase {
             "  interface Callback<T extends @Nullable Object> {",
             "    void onResult(T result);",
             "  }",
-            "",
             "  static void addCallback(Callback<@Nullable Integer> cb) {}",
-            "",
             "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
-            "",
-            "  public void main() {",
+            "  public void testNegativeDiamond() {",
             "    addCallback(",
-            "        // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
-            "        new Callback<Integer>() {",
+            "        new Callback<>() {",
+            "          @Override",
+            "          public void onResult(@Nullable Integer value) {",
+            "            // TODO: we should infer Callback<@Nullable Integer> for the anonymous class and not report an error",
+            "            // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
+            "  }",
+            "  public void testPositiveDiamond() {",
+            "    addCallback(",
+            "        new Callback<>() {",
             "          @Override",
             "          public void onResult(Integer value) {",
-            "            // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "            // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>",
             "            removeCallback(this);",
             "          }",
             "        });",
