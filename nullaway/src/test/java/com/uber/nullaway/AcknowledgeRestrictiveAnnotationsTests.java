@@ -428,4 +428,62 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void methodRefToNullUnmarked() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  interface I {",
+            "    void m(@Nullable Object o);",
+            "  }",
+            "  @NullUnmarked",
+            "  void unmarkedParam(Object o) {}",
+            "  @NullUnmarked",
+            "  void nonNullParam(@NonNull Object o) {}",
+            "  void test() {",
+            "    I i = this::unmarkedParam;",
+            "    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull",
+            "    I i2 = this::nonNullParam;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void methodRefToNullUnmarkedVarargs() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  interface I {",
+            "    void m(Object @Nullable ... o);",
+            "  }",
+            "  @NullUnmarked",
+            "  void unmarkedParam(Object... o) {}",
+            "  @NullUnmarked",
+            "  void nonNullParam(Object @NonNull ... o) {}",
+            "  void test() {",
+            "    I i = this::unmarkedParam;",
+            "    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull",
+            "    I i2 = this::nonNullParam;",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

@@ -192,7 +192,7 @@ public class LibraryModelGenerator {
 
     private final AnnotationCollectionVisitor annotationCollectionVisitor;
 
-    public AnnotationCollectorCallback(LibraryModelData modelData) {
+    AnnotationCollectorCallback(LibraryModelData modelData) {
       this.annotationCollectionVisitor = new AnnotationCollectionVisitor(modelData);
     }
 
@@ -220,7 +220,7 @@ public class LibraryModelGenerator {
     private static final String NULLABLE = "Nullable";
     private static final String JSPECIFY_NULLABLE_IMPORT = "org.jspecify.annotations.Nullable";
 
-    public AnnotationCollectionVisitor(LibraryModelData modelData) {
+    AnnotationCollectionVisitor(LibraryModelData modelData) {
       this.methodRecords = modelData.methodRecords;
       this.nullableUpperBounds = modelData.nullableUpperBounds;
       this.nullMarkedClasses = modelData.nullMarkedClasses;

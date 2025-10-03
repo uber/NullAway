@@ -3,16 +3,19 @@ package com.uber.nullaway;
 import org.junit.Test;
 
 public class Java8Tests extends NullAwayTestsBase {
+  @SuppressWarnings("deprecation")
   @Test
   public void java8PositiveCases() {
     defaultCompilationHelper.addSourceFile("testdata/NullAwayJava8PositiveCases.java").doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void java8NegativeCases() {
     defaultCompilationHelper.addSourceFile("testdata/NullAwayJava8NegativeCases.java").doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void functionalMethodSuperInterface() {
     defaultCompilationHelper
@@ -20,6 +23,7 @@ public class Java8Tests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
   @Test
   public void functionalMethodOverrideSuperInterface() {
     defaultCompilationHelper

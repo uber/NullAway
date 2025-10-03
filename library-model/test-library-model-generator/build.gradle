@@ -19,7 +19,25 @@ plugins {
 }
 
 def testInputsPath = "${rootProject.projectDir}/library-model/test-library-model-generator/src/main/resources/sample_annotated/src"
-def astubxPath = "com/uber/nullaway/libmodel/provider/libmodels.astubx"
+def outputAstubxFile = layout.buildDirectory.file("generated/libmodels/libmodels.astubx")
+
+def cliProj = project(":library-model:library-model-generator-cli")
+def shadowJarTask = cliProj.tasks.named("shadowJar", com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar)
+def libModelCliJar = shadowJarTask.flatMap { it.archiveFile }
+
+def generateLibModelsAstubx = tasks.register('generateLibModelsAstubx', Exec) {
+    dependsOn(shadowJarTask)
+    doFirst {
+        // use the same java as Gradle itself
+        def javaBin = new File(System.getProperty("java.home"), "bin/java")
+
+        commandLine javaBin.absolutePath,
+                "-jar",
+                libModelCliJar.get().asFile.absolutePath,
+                testInputsPath,
+                outputAstubxFile.get().asFile.absolutePath
+    }
+}
 
 jar {
     manifest {
@@ -29,21 +47,12 @@ jar {
                 'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
                 )
     }
+    dependsOn(generateLibModelsAstubx)
+    from(outputAstubxFile) {
+        into("com/uber/nullaway/libmodel/provider")
+    }
 }
 
-jar.doLast {
-    javaexec {
-        classpath = files("${rootProject.projectDir}/library-model/library-model-generator-cli/build/libs/library-model-generator-cli.jar")
-        args = [
-            testInputsPath,
-            "${jar.destinationDirectory.get()}/${astubxPath}"
-        ]
-    }
-    exec {
-        workingDir "./build/libs"
-        commandLine "jar", "uf", "test-library-model-generator.jar", astubxPath
-    }
-}
 
 dependencies {
     compileOnly deps.apt.autoService
@@ -51,5 +60,3 @@ dependencies {
     compileOnly project(":nullaway")
     api deps.build.jspecify
 }
-
-jar.dependsOn ":library-model:library-model-generator-cli:assemble"

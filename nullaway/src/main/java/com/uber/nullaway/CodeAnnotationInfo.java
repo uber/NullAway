@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import static com.google.errorprone.util.ASTHelpers.enclosingClass;
 import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
@@ -70,7 +71,7 @@ public final class CodeAnnotationInfo {
   /**
    * Checks if a symbol comes from an annotated package, as determined by either configuration flags
    * (e.g. {@code -XepOpt:NullAway::AnnotatedPackages}) or package level annotations (e.g. {@code
-   * org.jspecify.annotations.NullMarked}).
+   * org.jspecify.annotations.NullMarked}) or module level annotations.
    *
    * @param outermostClassSymbol symbol for class (must be an outermost class)
    * @param config NullAway config
@@ -83,9 +84,7 @@ public final class CodeAnnotationInfo {
     String className = outermostClassSymbol.getQualifiedName().toString();
     Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && !(enclosingPackage != null
-            && hasDirectAnnotationWithSimpleName(
-                enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME))) {
+        && !(enclosingPackage != null && explicitlyNullMarkedPackageOrModule(enclosingPackage))) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
@@ -104,6 +103,18 @@ public final class CodeAnnotationInfo {
     return true;
   }
 
+  private static boolean explicitlyNullMarkedPackageOrModule(
+      Symbol.PackageSymbol enclosingPackage) {
+    if (hasDirectAnnotationWithSimpleName(
+        enclosingPackage, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
+      return true;
+    }
+    Symbol enclosingModule = enclosingPackage.getEnclosingElement();
+    return enclosingModule != null
+        && hasDirectAnnotationWithSimpleName(
+            enclosingModule, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
+  }
+
   /**
    * Check if a symbol comes from generated code.
    *
@@ -112,14 +123,13 @@ public final class CodeAnnotationInfo {
    *     {@code @Generated}; false otherwise
    */
   public boolean isGenerated(Symbol symbol, Config config) {
-    Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(symbol);
+    Symbol.ClassSymbol classSymbol = enclosingClass(symbol);
     if (classSymbol == null) {
+      // One known case where this can happen: int.class, void.class, etc.
       Preconditions.checkArgument(
-          isClassFieldOfPrimitiveType(
-              symbol), // One known case where this can happen: int.class, void.class, etc.
-          String.format(
-              "Unexpected symbol passed to CodeAnnotationInfo.isGenerated(...) with null enclosing class: %s",
-              symbol));
+          isClassFieldOfPrimitiveType(symbol),
+          "Unexpected symbol passed to CodeAnnotationInfo.isGenerated(...) with null enclosing class: %s",
+          symbol);
       return false;
     }
     Symbol.ClassSymbol outermostClassSymbol = get(classSymbol, config, null).outermostClassSymbol;
@@ -139,7 +149,7 @@ public final class CodeAnnotationInfo {
         && symbol.owner != null
         && symbol.owner.getKind().equals(ElementKind.CLASS)
         && symbol.owner.getQualifiedName().equals(symbol.owner.getSimpleName())
-        && symbol.owner.enclClass() == null;
+        && enclosingClass(symbol) == null;
   }
 
   /**
@@ -151,7 +161,7 @@ public final class CodeAnnotationInfo {
    * @return true if symbol represents an entity contained in a class that is unannotated; false
    *     otherwise
    */
-  public boolean isSymbolUnannotated(Symbol symbol, Config config, @Nullable Handler handler) {
+  public boolean isSymbolUnannotated(Symbol symbol, Config config, Handler handler) {
     Symbol.ClassSymbol classSymbol;
     if (symbol instanceof Symbol.ClassSymbol) {
       classSymbol = (Symbol.ClassSymbol) symbol;
@@ -163,7 +173,7 @@ public final class CodeAnnotationInfo {
       // have weirder problems than this)
       return true;
     } else {
-      classSymbol = castToNonNull(ASTHelpers.enclosingClass(symbol));
+      classSymbol = castToNonNull(enclosingClass(symbol));
     }
     ClassCacheRecord classCacheRecord = get(classSymbol, config, handler);
     boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
@@ -217,7 +227,7 @@ public final class CodeAnnotationInfo {
           || owner.getKind().equals(ElementKind.CONSTRUCTOR)) {
         enclosingMethod = (Symbol.MethodSymbol) owner;
       }
-      Symbol.ClassSymbol enclosingClass = ASTHelpers.enclosingClass(classSymbol);
+      Symbol.ClassSymbol enclosingClass = enclosingClass(classSymbol);
       // enclosingClass can be null in weird cases like for array methods
       if (enclosingClass != null) {
         ClassCacheRecord recordForEnclosing = get(enclosingClass, config, handler);
@@ -244,7 +254,11 @@ public final class CodeAnnotationInfo {
       record =
           new ClassCacheRecord(classSymbol, isAnnotatedTopLevelClass(classSymbol, config, handler));
     }
-    classCache.put(classSymbol, record);
+    // Don't update the cache if the handler is null, as we may not have full info about classes
+    // being null-marked via library models
+    if (handler != null) {
+      classCache.put(classSymbol, record);
+    }
     return record;
   }
 
@@ -305,17 +319,17 @@ public final class CodeAnnotationInfo {
    * key used to retrieve it.
    */
   private static final class ClassCacheRecord {
-    public final Symbol.ClassSymbol outermostClassSymbol;
-    public final boolean isNullnessAnnotated;
-    public final Map<Symbol.MethodSymbol, Boolean> methodNullnessCache;
+    final Symbol.ClassSymbol outermostClassSymbol;
+    final boolean isNullnessAnnotated;
+    final Map<Symbol.MethodSymbol, Boolean> methodNullnessCache;
 
-    public ClassCacheRecord(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
+    ClassCacheRecord(Symbol.ClassSymbol outermostClassSymbol, boolean isAnnotated) {
       this.outermostClassSymbol = outermostClassSymbol;
       this.isNullnessAnnotated = isAnnotated;
       this.methodNullnessCache = new HashMap<>();
     }
 
-    public boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol) {
+    boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol) {
       return methodNullnessCache.computeIfAbsent(
           methodSymbol,
           m -> {

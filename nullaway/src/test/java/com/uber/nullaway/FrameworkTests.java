@@ -3,6 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
+@SuppressWarnings("deprecation")
 public class FrameworkTests extends NullAwayTestsBase {
   @Test
   public void lombokSupportTesting() {
@@ -1062,6 +1063,112 @@ public class FrameworkTests extends NullAwayTestsBase {
             "  public void bar(@Nullable List<String> s) {",
             "    if(CollectionUtils.isNotEmpty(s))",
             "      s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheCollectionsCollectionUtilsIsEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.collections.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isEmpty(s)) {",
+            "      return;",
+            "    }",
+            "    s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void apacheCollections4CollectionUtilsIsEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import org.apache.commons.collections4.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isEmpty(s)) {",
+            "      return;",
+            "    }",
+            "    s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void amazonAwsUtilCollectionUtilsIsNullOrEmpty() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import software.amazon.awssdk.utils.CollectionUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable List<String> s) {",
+            "    if(CollectionUtils.isNullOrEmpty(s)) {",
+            "      return;",
+            "    }",
+            "    s.get(0);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void amazonAwsStringUtilsIsEmptyOrIsBlank() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            "package com.uber;",
+            "import software.amazon.awssdk.utils.StringUtils;",
+            "import org.jetbrains.annotations.Nullable;",
+            "import java.util.List;",
+            "public class Foo {",
+            "  public void bar(@Nullable String s) {",
+            "    if(StringUtils.isEmpty(s)) {",
+            "      return;",
+            "    }",
+            "    s.hashCode();",
+            "  }",
+            "  public void baz(@Nullable String s) {",
+            "    if(StringUtils.isBlank(s)) {",
+            "      return;",
+            "    }",
+            "    s.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void defaultLibraryModelsObjectToString() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Objects;",
+            "import javax.annotation.Nullable;",
+            "public class Test {",
+            "  void objectsToString(@Nullable Object o) {",
+            "    String p = Objects.toString(o, \"foo\");",
+            "    String n = Objects.toString(o, null);",
+            "    p.hashCode();",
+            "    // BUG: Diagnostic contains: dereferenced",
+            "    n.hashCode();",
             "  }",
             "}")
         .doTest();

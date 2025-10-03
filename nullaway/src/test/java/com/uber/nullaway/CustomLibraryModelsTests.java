@@ -264,4 +264,29 @@ public class CustomLibraryModelsTests extends NullAwayTestsBase {
             "}")
         .doTest();
   }
+
+  @Test
+  public void issue1194() {
+    makeLibraryModelsTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.lib.unannotated.ProviderNullMarkedViaModel;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Test {",
+            "  void use(Object o) {}",
+            "  void f(Object o) {",
+            "    use(o);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter",
+            "    use(provider.get());",
+            "  }",
+            "  ProviderNullMarkedViaModel<@Nullable Object> provider = () -> null;",
+            "}")
+        .doTest();
+  }
 }

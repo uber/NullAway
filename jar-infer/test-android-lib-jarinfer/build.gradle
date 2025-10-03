@@ -18,8 +18,15 @@ apply plugin: 'com.android.library'
 
 android {
     compileSdkVersion deps.build.compileSdkVersion
+    namespace "com.uber.testandroidlibjarinfer"
 
     defaultConfig {
         minSdkVersion deps.build.minSdkVersion
+    }
+
+    // Use Java 11 to avoid JDK 24 deprecation warnings for source/target 8
+    compileOptions {
+        sourceCompatibility JavaVersion.VERSION_11
+        targetCompatibility JavaVersion.VERSION_11
     }
 }

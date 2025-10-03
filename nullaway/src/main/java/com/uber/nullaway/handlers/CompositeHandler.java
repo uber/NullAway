@@ -143,11 +143,11 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public Nullness[] onOverrideMethodInvocationParametersNullability(
+  public @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Nullness[] argumentPositionNullness) {
+      @Nullable Nullness[] argumentPositionNullness) {
     for (Handler h : handlers) {
       argumentPositionNullness =
           h.onOverrideMethodInvocationParametersNullability(

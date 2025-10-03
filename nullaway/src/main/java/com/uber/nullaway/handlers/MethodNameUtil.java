@@ -22,8 +22,12 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.annotations.Initializer;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
@@ -40,9 +44,8 @@ class MethodNameUtil {
   // Strings corresponding to the names of the methods (and their owners) used to identify
   // assertions in this handler.
   private static final String IS_NOT_NULL_METHOD = "isNotNull";
+  private static final String IS_HAS_SIZE_METHOD = "hasSize";
   private static final String IS_OWNER_TRUTH_SUBJECT = "com.google.common.truth.Subject";
-  private static final String IS_OWNER_ASSERTJ_ABSTRACT_ASSERT =
-      "org.assertj.core.api.AbstractAssert";
   private static final String IS_INSTANCE_OF_METHOD = "isInstanceOf";
   private static final String IS_INSTANCE_OF_ANY_METHOD = "isInstanceOfAny";
   private static final String IS_TRUE_METHOD = "isTrue";
@@ -79,15 +82,18 @@ class MethodNameUtil {
   private static final String NULL_VALUE_MATCHER = "nullValue";
   private static final String INSTANCE_OF_MATCHER = "instanceOf";
 
+  private static final Supplier<Type> ASSERTJ_ASSERT_TYPE_SUPPLIER =
+      Suppliers.typeFromString("org.assertj.core.api.Assert");
+
   // Names of the methods (and their owners) used to identify assertions in this handler. Name used
   // here refers to com.sun.tools.javac.util.Name. Comparing methods using Names is faster than
   // comparing using strings.
   private Name isNotNull;
+  private Name hasSize;
 
   private Name isInstanceOf;
   private Name isInstanceOfAny;
   private Name isOwnerTruthSubject;
-  private Name isOwnerAssertJAbstractAssert;
 
   private Name isTrue;
   private Name isFalse;
@@ -129,8 +135,8 @@ class MethodNameUtil {
   @Initializer
   void initializeMethodNames(Name.Table table) {
     isNotNull = table.fromString(IS_NOT_NULL_METHOD);
+    hasSize = table.fromString(IS_HAS_SIZE_METHOD);
     isOwnerTruthSubject = table.fromString(IS_OWNER_TRUTH_SUBJECT);
-    isOwnerAssertJAbstractAssert = table.fromString(IS_OWNER_ASSERTJ_ABSTRACT_ASSERT);
 
     isInstanceOf = table.fromString(IS_INSTANCE_OF_METHOD);
     isInstanceOfAny = table.fromString(IS_INSTANCE_OF_ANY_METHOD);
@@ -172,16 +178,20 @@ class MethodNameUtil {
     instanceOfMatcher = table.fromString(INSTANCE_OF_MATCHER);
   }
 
-  boolean isMethodIsNotNull(Symbol.MethodSymbol methodSymbol) {
+  boolean isMethodIsNotNull(Symbol.MethodSymbol methodSymbol, VisitorState state) {
     return matchesMethod(methodSymbol, isNotNull, isOwnerTruthSubject)
-        || matchesMethod(methodSymbol, isNotNull, isOwnerAssertJAbstractAssert);
+        || matchesAssertJAssertMethod(methodSymbol, isNotNull, state);
   }
 
-  boolean isMethodIsInstanceOf(Symbol.MethodSymbol methodSymbol) {
+  boolean isMethodHasSize(Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return matchesAssertJAssertMethod(methodSymbol, hasSize, state);
+  }
+
+  boolean isMethodIsInstanceOf(Symbol.MethodSymbol methodSymbol, VisitorState state) {
     return matchesMethod(methodSymbol, isInstanceOf, isOwnerTruthSubject)
-        || matchesMethod(methodSymbol, isInstanceOf, isOwnerAssertJAbstractAssert)
+        || matchesAssertJAssertMethod(methodSymbol, isInstanceOf, state)
         // Truth doesn't seem to have isInstanceOfAny
-        || matchesMethod(methodSymbol, isInstanceOfAny, isOwnerAssertJAbstractAssert);
+        || matchesAssertJAssertMethod(methodSymbol, isInstanceOfAny, state);
   }
 
   boolean isMethodAssertTrue(Symbol.MethodSymbol methodSymbol) {
@@ -301,6 +311,24 @@ class MethodNameUtil {
       Symbol.MethodSymbol methodSymbol, Name toMatchMethodName, Name toMatchOwnerName) {
     return methodSymbol.name.equals(toMatchMethodName)
         && methodSymbol.owner.getQualifiedName().equals(toMatchOwnerName);
+  }
+
+  /**
+   * Checks if the method is an AssertJ assert method, i.e., it has the same name as
+   * toMatchMethodName and its owner is a subtype of AssertJ's Assert class.
+   *
+   * @param methodSymbol the method symbol to check
+   * @param toMatchMethodName the method name to match
+   * @param state the visitor state
+   * @return {@code true} if the method matches, {@code false} otherwise
+   */
+  private boolean matchesAssertJAssertMethod(
+      Symbol.MethodSymbol methodSymbol, Name toMatchMethodName, VisitorState state) {
+    if (!methodSymbol.name.equals(toMatchMethodName)) {
+      return false;
+    }
+    return ASTHelpers.isSubtype(
+        methodSymbol.owner.type, ASSERTJ_ASSERT_TYPE_SUPPLIER.get(state), state);
   }
 
   boolean isUtilInitialized() {

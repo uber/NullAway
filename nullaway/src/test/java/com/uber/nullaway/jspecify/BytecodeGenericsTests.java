@@ -2,8 +2,8 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
-import java.util.Arrays;
-import org.junit.Ignore;
+import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 
 public class BytecodeGenericsTests extends NullAwayTestsBase {
@@ -64,7 +64,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             "import com.uber.lib.generics.NullableTypeParam;",
             "class Test {",
             "  static void testPositive(NullableTypeParam<@Nullable String> t1) {",
-            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
+            "    // BUG: Diagnostic contains: incompatible types: NullableTypeParam<@Nullable String>",
             "    NullableTypeParam<String> t2 = t1;",
             "  }",
             "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
@@ -76,6 +76,8 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void genericsChecksForFieldAssignments() {
+    // to read annotations properly from bytecode
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -84,9 +86,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             "import com.uber.lib.generics.NullableTypeParam;",
             "class Test {",
             "  static void testPositive(NullableTypeParam<String> t1) {",
-            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<String>",
+            "    // BUG: Diagnostic contains: incompatible types: NullableTypeParam<String>",
             "    NullableTypeParam.staticField = t1;",
-            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
+            "    // BUG: Diagnostic contains: incompatible types: NullableTypeParam<@Nullable String>",
             "    NullableTypeParam<String> t2 = NullableTypeParam.staticField;",
             "  }",
             "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
@@ -99,6 +101,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void genericsChecksForParamPassingAndReturns() {
+    // to read annotations properly from bytecode
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -108,9 +113,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             "import com.uber.lib.generics.GenericTypeArgMethods;",
             "class Test {",
             "  static void testPositive(NullableTypeParam<String> t1) {",
-            "    // BUG: Diagnostic contains: Cannot pass parameter of type NullableTypeParam<String>",
+            "    // BUG: Diagnostic contains: incompatible types: NullableTypeParam<String>",
             "    GenericTypeArgMethods.nullableTypeParamArg(t1);",
-            "    // BUG: Diagnostic contains: Cannot assign from type NullableTypeParam<@Nullable String>",
+            "    // BUG: Diagnostic contains: incompatible types: NullableTypeParam<@Nullable String>",
             "    NullableTypeParam<String> t2 = GenericTypeArgMethods.nullableTypeParamReturn();",
             "  }",
             "  static void testNegative(NullableTypeParam<@Nullable String> t1) {",
@@ -224,10 +229,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
-  @Ignore("Failing due to https://bugs.openjdk.org/browse/JDK-8337795")
-  // TODO Re-enable this test once the JDK bug is fixed, on appropriate JDK versions
-  //  See https://github.com/uber/NullAway/issues/1011
   public void callMethodTakingJavaUtilFunction() {
+    // to read annotations properly from bytecode
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -244,7 +248,9 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+        List.of(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true"));
   }
 }

@@ -197,6 +197,7 @@ public class ErrorBuilder {
       case PASS_NULLABLE:
       case ASSIGN_FIELD_NULLABLE:
       case SWITCH_EXPRESSION_NULLABLE:
+      case UNBOX_NULLABLE:
         if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree)) {
           builder = addCastToNonNullFix(suggestTree, builder, state);
         } else {
@@ -377,14 +378,15 @@ public class ErrorBuilder {
     // should be currently pointing at said call.
     Tree currTree = state.getPath().getLeaf();
     Preconditions.checkArgument(
-        currTree.getKind() == Tree.Kind.METHOD_INVOCATION,
-        String.format("Expected castToNonNull invocation expression, found:\n%s", currTree));
+        currTree instanceof MethodInvocationTree,
+        "Expected castToNonNull invocation expression, found:\n%s",
+        currTree);
     MethodInvocationTree invTree = (MethodInvocationTree) currTree;
     Preconditions.checkArgument(
         invTree.getArguments().contains(suggestTree),
-        String.format(
-            "Method invocation tree %s does not contain the expression %s as an argument being cast",
-            invTree, suggestTree));
+        "Method invocation tree %s does not contain the expression %s as an argument being cast",
+        invTree,
+        suggestTree);
     // Remove the call to castToNonNull:
     SuggestedFix fix =
         SuggestedFix.builder().replace(invTree, state.getSourceForNode(suggestTree)).build();

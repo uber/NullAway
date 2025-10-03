@@ -30,13 +30,17 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.GenericsChecks;
@@ -56,6 +60,7 @@ import org.checkerframework.nullaway.dataflow.analysis.RegularTransferResult;
 import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.analysis.TransferResult;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
+import org.checkerframework.nullaway.dataflow.cfg.node.AnyPatternNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ArrayAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ArrayCreationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ArrayTypeNode;
@@ -129,6 +134,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.UnsignedRightShiftNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
+import org.checkerframework.nullaway.javacutil.TreeUtilsAfterJava11;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -160,22 +166,23 @@ public class AccessPathNullnessPropagation
 
   private final Handler handler;
 
+  private final GenericsChecks genericsChecks;
+
   private final NullnessStoreInitializer nullnessStoreInitializer;
 
   public AccessPathNullnessPropagation(
       Nullness defaultAssumption,
-      Predicate<MethodInvocationNode> methodReturnsNonNull,
       VisitorState state,
       AccessPath.AccessPathContext apContext,
-      Config config,
-      Handler handler,
+      NullAway analysis,
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
-    this.methodReturnsNonNull = methodReturnsNonNull;
+    this.methodReturnsNonNull = analysis::isMethodUnannotated;
     this.state = state;
     this.apContext = apContext;
-    this.config = config;
-    this.handler = handler;
+    this.config = analysis.getConfig();
+    this.handler = analysis.getHandler();
+    this.genericsChecks = analysis.getGenericsChecks();
     this.nullnessStoreInitializer = nullnessStoreInitializer;
   }
 
@@ -407,14 +414,14 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitEqualTo(
       EqualToNode equalToNode, TransferInput<Nullness, NullnessStore> input) {
     return handleEqualityComparison(
-        input, equalToNode.getLeftOperand(), equalToNode.getRightOperand(), true);
+        input, equalToNode.getLeftOperand(), null, equalToNode.getRightOperand(), true);
   }
 
   @Override
   public TransferResult<Nullness, NullnessStore> visitNotEqual(
       NotEqualNode notEqualNode, TransferInput<Nullness, NullnessStore> input) {
     return handleEqualityComparison(
-        input, notEqualNode.getLeftOperand(), notEqualNode.getRightOperand(), false);
+        input, notEqualNode.getLeftOperand(), null, notEqualNode.getRightOperand(), false);
   }
 
   /**
@@ -422,6 +429,8 @@ public class AccessPathNullnessPropagation
    *
    * @param input transfer input for the operation
    * @param leftOperand left operand of the comparison
+   * @param leftOperandNullness nullness of left operand if it is not a sub node of {@code
+   *     input.getNode()}, {@code null} otherwise
    * @param rightOperand right operand of the comparison
    * @param equalTo if {@code true}, the comparison is an equality comparison, otherwise it is a
    *     dis-equality ({@code !=}) comparison
@@ -430,12 +439,14 @@ public class AccessPathNullnessPropagation
   private TransferResult<Nullness, NullnessStore> handleEqualityComparison(
       TransferInput<Nullness, NullnessStore> input,
       Node leftOperand,
+      @Nullable Nullness leftOperandNullness,
       Node rightOperand,
       boolean equalTo) {
     ReadableUpdates thenUpdates = new ReadableUpdates();
     ReadableUpdates elseUpdates = new ReadableUpdates();
     SubNodeValues inputs = values(input);
-    Nullness leftVal = inputs.valueOfSubNode(leftOperand);
+    Nullness leftVal =
+        leftOperandNullness != null ? leftOperandNullness : inputs.valueOfSubNode(leftOperand);
     Nullness rightVal = inputs.valueOfSubNode(rightOperand);
     Nullness equalBranchValue = leftVal.greatestLowerBound(rightVal);
     Updates equalBranchUpdates = equalTo ? thenUpdates : elseUpdates;
@@ -747,7 +758,8 @@ public class AccessPathNullnessPropagation
         break;
       case UNKNOWN:
         fieldMayBeNull =
-            NullabilityUtil.mayBeNullFieldFromType(symbol, config, getCodeAnnotationInfo(state));
+            NullabilityUtil.mayBeNullFieldFromType(
+                symbol, config, handler, getCodeAnnotationInfo(state));
         break;
       default:
         // Should be unreachable unless NullnessHint changes, cases above are exhaustive!
@@ -951,6 +963,7 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitCase(
       CaseNode caseNode, TransferInput<Nullness, NullnessStore> input) {
     List<Node> caseOperands = caseNode.getCaseOperands();
+
     if (caseOperands.isEmpty()) {
       return noStoreChanges(NULLABLE, input);
     } else {
@@ -958,10 +971,66 @@ public class AccessPathNullnessPropagation
       // (i.e., `case null, default:`).  So, it is safe to only look at the first case operand, and
       // update the stores based on that.  We treat the case operation as an equality comparison
       // between the switch expression and the case operand.
+
       Node switchOperand = caseNode.getSwitchOperand().getExpression();
       Node caseOperand = caseOperands.get(0);
-      return handleEqualityComparison(input, switchOperand, caseOperand, true);
+      LocalVariableNode localVariableNode = getVariableNodeForTypePattern(caseNode);
+      if (localVariableNode != null) {
+        ReadableUpdates thenUpdates = new ReadableUpdates();
+        // Pattern variable is non-null in the matching branch
+        thenUpdates.set(localVariableNode, NONNULL);
+
+        ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
+        // Else branch: no extra facts, just propagate
+        NullnessStore elseStore = input.getElseStore();
+        return conditionalResult(thenStore.store, elseStore, thenStore.storeChanged);
+      } else {
+        AccessPath switchOperandAccessPath =
+            AccessPath.getAccessPathForNode(switchOperand, state, apContext);
+        Nullness switchOperandNullness =
+            switchOperandAccessPath == null
+                ? null
+                : input.getRegularStore().getNullnessOfAccessPath(switchOperandAccessPath);
+        return handleEqualityComparison(
+            input, switchOperand, switchOperandNullness, caseOperand, true);
+      }
     }
+  }
+
+  /**
+   * Returns the {@link LocalVariableNode} corresponding to a binding variable in a type pattern
+   * case label, or null if not present.
+   *
+   * <p>This method inspects the labels of the given {@link CaseNode} and checks for a binding
+   * pattern (e.g., {@code case Type var:}) or pattern case label. If such a label is found, it
+   * extracts the binding variable from the label and searches the case operands for a matching
+   * {@link LocalVariableNode}.
+   *
+   * <p>
+   *
+   * @param caseNode the case node to inspect
+   * @return the {@link LocalVariableNode} for the binding variable, or {@code null} if none found
+   */
+  private @Nullable LocalVariableNode getVariableNodeForTypePattern(CaseNode caseNode) {
+    CaseTree caseTree = caseNode.getTree();
+    List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
+    for (Tree label : labels) {
+      String kindName = label.getKind().name();
+      if (kindName.equals("BINDING_PATTERN") || kindName.equals("PATTERN_CASE_LABEL")) {
+        VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
+        for (Node operand : caseNode.getCaseOperands()) {
+          Symbol operandSymbol = ASTHelpers.getSymbol(operand.getTree());
+          Symbol varSymbol = ASTHelpers.getSymbol(varTree);
+          if (operand instanceof LocalVariableNode) {
+            if (operandSymbol != null && operandSymbol.equals(varSymbol)) {
+              return (LocalVariableNode) operand;
+            }
+          }
+        }
+        throw new RuntimeException("Unexpectedly did not find the pattern variable");
+      }
+    }
+    return null;
   }
 
   @Override
@@ -971,8 +1040,6 @@ public class AccessPathNullnessPropagation
     ReadableUpdates elseUpdates = new ReadableUpdates();
     ReadableUpdates bothUpdates = new ReadableUpdates();
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(node.getTree());
-    Preconditions.checkNotNull(
-        callee); // this could be null before https://github.com/google/error-prone/pull/2902
     setReceiverNonnull(bothUpdates, node.getTarget().getReceiver(), callee);
     setNullnessForMapCalls(
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
@@ -1086,8 +1153,8 @@ public class AccessPathNullnessPropagation
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
         Nullness nullness =
-            GenericsChecks.getGenericReturnNullnessAtInvocation(
-                ASTHelpers.getSymbol(tree), tree, state, config);
+            genericsChecks.getGenericReturnNullnessAtInvocation(
+                ASTHelpers.getSymbol(tree), tree, node.getTreePath(), state);
         return nullness.equals(NULLABLE);
       }
     }
@@ -1148,6 +1215,12 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitDeconstructorPattern(
       DeconstructorPatternNode deconstructorPatternNode,
       TransferInput<Nullness, NullnessStore> input) {
+    return noStoreChanges(NULLABLE, input);
+  }
+
+  @Override
+  public TransferResult<Nullness, NullnessStore> visitAnyPattern(
+      AnyPatternNode anyPatternNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
   }
 

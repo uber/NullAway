@@ -79,6 +79,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_OPTIONAL_CLASS_PATHS =
       EP_FL_NAMESPACE + ":CheckOptionalEmptinessCustomClasses";
   static final String FL_SUPPRESS_COMMENT = EP_FL_NAMESPACE + ":AutoFixSuppressionComment";
+  static final String FL_SUPPRESS_NAMES = EP_FL_NAMESPACE + ":SuppressionNameAliases";
 
   static final String FL_SKIP_LIBRARY_MODELS = EP_FL_NAMESPACE + ":IgnoreLibraryModelsFor";
 
@@ -100,6 +101,9 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
   static final String FL_LEGACY_ANNOTATION_LOCATION =
       EP_FL_NAMESPACE + ":LegacyAnnotationLocations";
+
+  static final String FL_WARN_ON_GENERIC_INFERENCE_FAILURE =
+      EP_FL_NAMESPACE + ":WarnOnGenericInferenceFailure";
 
   static final String ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG =
       "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
@@ -220,6 +224,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
   private final boolean legacyAnnotationLocation;
+  private final boolean warnOnInferenceFailure;
   private final ImmutableSet<MethodClassAndName> knownInitializers;
   private final ImmutableSet<String> excludedClassAnnotations;
   private final ImmutableSet<String> generatedCodeAnnotations;
@@ -228,6 +233,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final ImmutableSet<String> contractAnnotations;
   private final @Nullable String castToNonNullMethod;
   private final String autofixSuppressionComment;
+  private final ImmutableSet<String> suppressionNameAliases;
   private final ImmutableSet<String> skippedLibraryModels;
   private final ImmutableSet<String> extraFuturesClasses;
 
@@ -303,6 +309,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
               + FL_JSPECIFY_MODE
               + " is set ");
     }
+    warnOnInferenceFailure = flags.getBoolean(FL_WARN_ON_GENERIC_INFERENCE_FAILURE).orElse(false);
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
     optionalClassPaths =
         new ImmutableSet.Builder<String>()
@@ -313,6 +320,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
       throw new IllegalStateException(
           "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
+    suppressionNameAliases = getFlagStringSet(flags, FL_SUPPRESS_NAMES);
     skippedLibraryModels = getFlagStringSet(flags, FL_SKIP_LIBRARY_MODELS);
     extraFuturesClasses = getFlagStringSet(flags, FL_EXTRA_FUTURES);
 
@@ -500,7 +508,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
   @Override
   public boolean acknowledgeRestrictiveAnnotations() {
-    return isAcknowledgeRestrictive;
+    // restrictive annotations must always be acknowledged in JSpecify mode
+    return isAcknowledgeRestrictive || jspecifyMode;
   }
 
   @Override
@@ -531,6 +540,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public @Nullable String getCastToNonNullMethod() {
     return castToNonNullMethod;
+  }
+
+  @Override
+  public ImmutableSet<String> getSuppressionNameAliases() {
+    return suppressionNameAliases;
   }
 
   @Override
@@ -586,6 +600,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isLegacyAnnotationLocation() {
     return legacyAnnotationLocation;
+  }
+
+  @Override
+  public boolean warnOnGenericInferenceFailure() {
+    return warnOnInferenceFailure;
   }
 
   @AutoValue

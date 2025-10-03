@@ -18,34 +18,50 @@ plugins {
     id "java-library"
 }
 
-evaluationDependsOn(":jar-infer:jar-infer-cli")
+def outputAstubxFile = layout.buildDirectory.file("generated/jarinfer/jarinfer.astubx")
 
-def astubxPath = "com/uber/nullaway/jarinfer/provider/jarinfer.astubx"
+def baseJar = tasks.register('baseJar', Jar) {
+    archiveClassifier.set('base')
+    from sourceSets.main.output
+}
+
+def cliProj = project(":jar-infer:jar-infer-cli")
+def shadowJarTask = cliProj.tasks.named(
+        "shadowJar",
+        com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar
+        )
+def jarInferCliJar = shadowJarTask.flatMap { it.archiveFile }
+
+def generateJarInferAstubx = tasks.register('generateJarInferAstubx', Exec) {
+    dependsOn(baseJar, shadowJarTask)
+
+    def baseJarFile = baseJar.flatMap { it.archiveFile }
+    inputs.files(baseJarFile, jarInferCliJar)
+    outputs.file(outputAstubxFile)
+
+    doFirst {
+        // use the same java as Gradle itself
+        def javaBin = new File(System.getProperty("java.home"), "bin/java")
+
+        commandLine javaBin.absolutePath,
+                "-jar",
+                jarInferCliJar.get().asFile.absolutePath,
+                "-i", baseJarFile.get().asFile.absolutePath,
+                "-o", outputAstubxFile.get().asFile.absolutePath
+    }
+}
 
 jar {
     manifest {
         attributes(
-                'Created-By'     : "Gradle ${gradle.gradleVersion}",
-                'Build-Jdk'      : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
-                'Build-OS'       : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
+                'Created-By' : "Gradle ${gradle.gradleVersion}",
+                'Build-Jdk'  : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
+                'Build-OS'   : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
                 )
     }
-}
-
-jar.doLast {
-    javaexec {
-        classpath = files("${rootProject.projectDir}/jar-infer/jar-infer-cli/build/libs/jar-infer-cli.jar")
-        main = "com.uber.nullaway.jarinfer.JarInfer"
-        args = [
-            "-i",
-            jar.archiveFile.get(),
-            "-o",
-            "${jar.destinationDirectory.get()}/${astubxPath}"
-        ]
-    }
-    exec {
-        workingDir "./build/libs"
-        commandLine "jar", "uf", "test-java-lib-jarinfer.jar", astubxPath
+    dependsOn(generateJarInferAstubx)
+    from(outputAstubxFile) {
+        into("com/uber/nullaway/jarinfer/provider")
     }
 }
 
@@ -55,5 +71,3 @@ dependencies {
     compileOnly project(":nullaway")
     api deps.build.jspecify
 }
-
-jar.dependsOn ":jar-infer:jar-infer-cli:assemble"

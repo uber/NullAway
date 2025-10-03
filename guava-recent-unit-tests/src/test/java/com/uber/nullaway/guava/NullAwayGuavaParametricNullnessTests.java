@@ -19,10 +19,13 @@
  * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
  * THE SOFTWARE.
  */
+package com.uber.nullaway.guava;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
 import java.util.Arrays;
+import java.util.List;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Rule;
 import org.junit.Test;
@@ -33,6 +36,8 @@ public class NullAwayGuavaParametricNullnessTests {
 
   private CompilationTestHelper defaultCompilationHelper;
 
+  private CompilationTestHelper jspecifyCompilationHelper;
+
   @Before
   public void setup() {
     defaultCompilationHelper =
@@ -41,8 +46,24 @@ public class NullAwayGuavaParametricNullnessTests {
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
+                    // Since Guava is now @NullMarked we shouldn't need com.google.common in the
+                    // annotated packages list.
+                    // We still need it here since we are still trying to support
+                    // Error Prone 2.14.0, on which reading @NullMarked from the package-info.java
+                    // file isn't working using ASTHelpers for some reason.
+                    // TODO Once we bump our minimum Error Prone version, remove com.google.common
+                    //  from this list.
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.google.common",
                     "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated"));
+    jspecifyCompilationHelper =
+        CompilationTestHelper.newInstance(NullAway.class, getClass())
+            .setArgs(
+                List.of(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:JSpecifyMode=true",
+                    "-XDaddTypeAnnotationsToSymbol=true"));
   }
 
   @Test
@@ -56,6 +77,33 @@ public class NullAwayGuavaParametricNullnessTests {
             "class Test {",
             "    public static <T> FutureCallback<T> wrapFutureCallback(FutureCallback<T> futureCallback) {",
             "        return new FutureCallback<T>() {",
+            "            @Override",
+            "            public void onSuccess(@Nullable T result) {",
+            "                futureCallback.onSuccess(result);",
+            "            }",
+            "            @Override",
+            "            public void onFailure(Throwable throwable) {",
+            "                futureCallback.onFailure(throwable);",
+            "            }",
+            "        };",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyFutureCallback() {
+    // to ensure javac reads proper generic types from the Guava jar
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import com.google.common.util.concurrent.FutureCallback;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    public static <T> FutureCallback<@Nullable T> wrapFutureCallback(FutureCallback<@Nullable T> futureCallback) {",
+            "        return new FutureCallback<@Nullable T>() {",
             "            @Override",
             "            public void onSuccess(@Nullable T result) {",
             "                futureCallback.onSuccess(result);",
@@ -86,6 +134,59 @@ public class NullAwayGuavaParametricNullnessTests {
             "    }",
             "    public static @Nullable String test2() {",
             "        return Iterables.getFirst(ImmutableList.<String>of(), null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyIterables() {
+    // to ensure javac reads proper generic types from the Guava jar
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import com.google.common.collect.ImmutableList;",
+            "import com.google.common.collect.Iterables;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    public static String test1() {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression",
+            "        return Iterables.<@Nullable String>getFirst(ImmutableList.<String>of(), null);",
+            "    }",
+            "    public static @Nullable String test2() {",
+            "        return Iterables.<@Nullable String>getFirst(ImmutableList.<String>of(), null);",
+            "    }",
+            "    public static String test3() {",
+            "        return Iterables.getOnlyElement(ImmutableList.of(\"hi\"));",
+            "    }",
+            "    public static String test4() {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression",
+            "        return Iterables.<@Nullable String>getOnlyElement(ImmutableList.of(\"hi\"));",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyComparators() {
+    // to ensure javac reads proper generic types from the Guava jar
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import com.google.common.collect.Comparators;",
+            "import java.util.Comparator;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    public static String test1(String t1, String t2, Comparator<? super String> cmp) {",
+            "        return Comparators.min(t1, t2, cmp);",
+            "    }",
+            "    public static String test2(@Nullable String t1, @Nullable String t2, Comparator<? super @Nullable String> cmp) {",
+            "        // BUG: Diagnostic contains: returning @Nullable expression",
+            "        return Comparators.<@Nullable String>min(t1, t2, cmp);",
             "    }",
             "}")
         .doTest();
@@ -146,6 +247,25 @@ public class NullAwayGuavaParametricNullnessTests {
             "             }",
             "        };",
             "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void newHashSetPassingNullable() {
+    // to ensure javac reads proper generic types from the Guava jar
+    Assume.assumeTrue(Runtime.version().feature() >= 21);
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import com.google.common.collect.Sets;",
+            "import java.util.Set;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "  public static void test(@Nullable String s) {",
+            "    Set<@Nullable String> params = Sets.newHashSet(s);",
+            "  }",
             "}")
         .doTest();
   }

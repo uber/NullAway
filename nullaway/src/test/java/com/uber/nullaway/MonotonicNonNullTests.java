@@ -68,6 +68,105 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void rootedAtParameterOrLocal() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "class Test {",
+            "  @MonotonicNonNull Object f1;",
+            "  void testPositiveParam(Test t) {",
+            "    Runnable r = () -> {",
+            "      // BUG: Diagnostic contains: dereferenced expression t.f1",
+            "      t.f1.toString();",
+            "    };",
+            "  }",
+            "  void testNegativeParam(Test t) {",
+            "    t.f1 = new Object();",
+            "    Runnable r = () -> {",
+            "      t.f1.toString();",
+            "    };",
+            "  }",
+            "  void testPositiveLocal() {",
+            "    Test t = new Test();",
+            "    Runnable r = () -> {",
+            "      // BUG: Diagnostic contains: dereferenced expression t.f1",
+            "      t.f1.toString();",
+            "    };",
+            "  }",
+            "  void testNegativeLocal() {",
+            "    Test t = new Test();",
+            "    t.f1 = new Object();",
+            "    Runnable r = () -> {",
+            "      t.f1.toString();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void rootedAtStaticFinal() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "class Test {",
+            "  @MonotonicNonNull Object f1;",
+            "  static final Test t = new Test();",
+            "  void testPositive() {",
+            "    Runnable r = () -> {",
+            "      // BUG: Diagnostic contains: dereferenced expression t.f1",
+            "      t.f1.toString();",
+            "    };",
+            "  }",
+            "  void testNegative() {",
+            "    t.f1 = new Object();",
+            "    Runnable r = () -> {",
+            "      t.f1.toString();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void monotonicNonNullStatic() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "import org.jspecify.annotations.Nullable;",
+            "class Test {",
+            "  @MonotonicNonNull static Object f1;",
+            "  @Nullable static Object f2;",
+            "  void testPositive() {",
+            "    Runnable r = () -> {",
+            "      // BUG: Diagnostic contains: dereferenced expression f1",
+            "      f1.toString();",
+            "    };",
+            "  }",
+            "  void testNegative() {",
+            "    f1 = new Object();",
+            "    Runnable r = () -> {",
+            "      f1.toString();",
+            "    };",
+            "  }",
+            "  void testPositive2() {",
+            "    f2 = new Object();",
+            "    Runnable r = () -> {",
+            "      // BUG: Diagnostic contains: dereferenced expression f2",
+            "      f2.toString();",
+            "    };",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void anonymousClasses() {
     defaultCompilationHelper
         .addSourceLines(

@@ -8,7 +8,7 @@ pluginManagement {
 
 plugins {
     // to automatically pull in relevant JDK toolchains when not present on the local machine
-    id("org.gradle.toolchains.foojay-resolver-convention") version "0.8.0"
+    id("org.gradle.toolchains.foojay-resolver-convention") version "1.0.0"
 }
 
 include ':annotations'
@@ -17,6 +17,7 @@ include ':sample-library-model'
 include ':sample'
 include ':test-java-lib'
 include ':test-java-lib-lombok'
+include ':test-java-module'
 include ':test-library-models'
 include ':jar-infer:android-jarinfer-models-sdk28'
 include ':jar-infer:android-jarinfer-models-sdk29'
@@ -26,6 +27,7 @@ include ':jar-infer:jar-infer-lib'
 include ':jar-infer:jar-infer-cli'
 include ':jar-infer:test-java-lib-jarinfer'
 include ':jar-infer:nullaway-integration-test'
+include ':jdk-javac-plugin'
 include ':jmh'
 include ':guava-recent-unit-tests'
 include ':jdk-recent-unit-tests'

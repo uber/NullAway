@@ -35,6 +35,13 @@ public class VarargsTests extends NullAwayTestsBase {
             "    Object[] x = null;",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'x'",
             "    Utilities.takesNonNullVarargs(o1, x);",
+            "    Object y = null; Object z = null;",
+            "    Utilities.takesNonNullVarargs(",
+            "      o1,",
+            "      // BUG: Diagnostic contains: passing @Nullable parameter 'y'",
+            "      y,",
+            "      // BUG: Diagnostic contains: passing @Nullable parameter 'z'",
+            "      z);",
             "  }",
             "}")
         .doTest();

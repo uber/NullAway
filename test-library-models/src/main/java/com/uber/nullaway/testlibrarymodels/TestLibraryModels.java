@@ -132,4 +132,14 @@ public class TestLibraryModels implements LibraryModels {
             fieldRef("com.uber.lib.unannotated.UnannotatedWithModels", "nullableFieldUnannotated2"))
         .build();
   }
+
+  @Override
+  public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of("com.uber.lib.unannotated.ProviderNullMarkedViaModel", 0);
+  }
+
+  @Override
+  public ImmutableSet<String> nullMarkedClasses() {
+    return ImmutableSet.of("com.uber.lib.unannotated.ProviderNullMarkedViaModel");
+  }
 }

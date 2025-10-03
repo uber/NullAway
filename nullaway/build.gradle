@@ -72,6 +72,7 @@ dependencies {
     testImplementation deps.test.mockito
     testImplementation deps.test.javaxAnnotationApi
     testImplementation deps.test.assertJ
+    testImplementation deps.test.amazonUtils
     // This is for a test exposing a CFG construction failure in the Checker Framework.  We can probably remove it once
     // the issue is fixed upstream and we update. See https://github.com/typetools/checker-framework/issues/6396.
     testImplementation 'org.apache.spark:spark-sql_2.12:3.3.2'
@@ -156,7 +157,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
     // Configure compilation to run with Error Prone and NullAway
     source = sourceSets.main.java
     classpath = sourceSets.main.compileClasspath
-    destinationDirectory = file("$buildDir/ignoredClasses")
+    destinationDirectory.set(layout.buildDirectory.dir('ignoredClasses'))
     options.annotationProcessorPath = files(
             configurations.errorproneExtended.asCollection(),
             sourceSets.main.annotationProcessorPath,
@@ -183,24 +184,4 @@ tasks.register('buildWithNullAway', JavaCompile) {
 
 project.tasks.named('check').configure {
     dependsOn 'buildWithNullAway'
-}
-
-tasks.withType(Test).configureEach { test ->
-    if (test.javaVersion < JavaVersion.VERSION_22) {
-        // Certain tests involving reading annotations from bytecode will not pass on pre-JDK-22 javac
-        // until the fix for https://bugs.openjdk.org/browse/JDK-8225377 is backported or until we add
-        // workarounds.  See https://github.com/uber/NullAway/issues/1005.
-        test.filter {
-            excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForParamPassingAndReturns"
-            excludeTestsMatching "com.uber.nullaway.jspecify.BytecodeGenericsTests.genericsChecksForFieldAssignments"
-        }
-    }
-    // hack: for some reasons the ErrorProneCLIFlagsConfigTest does not pass on EP 2.31.0,
-    // though it passes on both older and newer Error Prone versions (???).  Not worth tracking
-    // down
-    if (deps.versions.errorProneApi == "2.31.0") {
-        test.filter {
-            excludeTestsMatching "com.uber.nullaway.ErrorProneCLIFlagsConfigTest"
-        }
-    }
 }

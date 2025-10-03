@@ -455,7 +455,7 @@ public final class AccessPath implements MapKey {
           Tree tree = argumentNode.getTree();
           if (tree == null) {
             return null; // Not an AP
-          } else if (tree.getKind().equals(Tree.Kind.METHOD_INVOCATION)) {
+          } else if (tree instanceof MethodInvocationTree) {
             // Check for boxing call
             MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
             if (methodInvocationTree.getArguments().size() == 1
@@ -647,7 +647,7 @@ public final class AccessPath implements MapKey {
 
     private final String key;
 
-    public StringMapKey(String key) {
+    StringMapKey(String key) {
       this.key = key;
     }
 
@@ -669,7 +669,7 @@ public final class AccessPath implements MapKey {
 
     private final long key;
 
-    public NumericMapKey(long key) {
+    NumericMapKey(long key) {
       this.key = key;
     }
 
