@@ -431,8 +431,8 @@ public final class GenericsChecks {
       } else if (tree instanceof IdentifierTree) {
         // handle "this" specially, for cases where it appears inside an anonymous class
         IdentifierTree identifierTree = (IdentifierTree) tree;
-        Symbol symbol = ASTHelpers.getSymbol(identifierTree);
-        if (symbol != null && identifierTree.getName().contentEquals("this")) {
+        Symbol symbol = castToNonNull(ASTHelpers.getSymbol(identifierTree));
+        if (identifierTree.getName().contentEquals("this")) {
           Symbol owner = symbol.owner;
           if (owner != null) {
             Symbol.ClassSymbol enclosingClass = owner.enclClass();
@@ -443,9 +443,6 @@ public final class GenericsChecks {
               }
             }
           }
-        }
-        if (symbol == null) {
-          return ASTHelpers.getType(tree);
         }
         result = symbol.type;
       } else if (tree instanceof AssignmentTree) {
