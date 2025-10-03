@@ -41,7 +41,8 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
       return prettyIntersectionType((Type.IntersectionClassType) t);
     }
     if (t.tsym.isAnonymous()) {
-      // TODO better formatting for this case
+      // eventually, we could probably do even better formatting here, but this provides all the
+      // needed information for now
       return t.toString();
     }
     StringBuilder sb = new StringBuilder();
