@@ -60,7 +60,6 @@ tasks.withType(Test).configureEach { test ->
 
 dependencies {
     implementation project(":library-model:library-model-generator")
-    implementation project(":jdk-javac-plugin")
     implementation deps.build.gson
     implementation deps.build.guava
 
