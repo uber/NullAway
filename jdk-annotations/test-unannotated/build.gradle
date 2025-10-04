@@ -10,11 +10,11 @@ dependencies {
     implementation project(":jdk-annotations:test-annotated")
 }
 
-def astubxPath = "${rootProject.projectDir}/jdk-annotations/test-annotated/build/generated/astubx/output.astubx"
+def astubxFile = project(':jdk-annotations:test-annotated').tasks.named('generateAstubx').get().outputs.files.singleFile
 
 jar {
     dependsOn(project(':jdk-annotations:test-annotated').tasks.named('generateAstubx'))
-    from(astubxPath) {
+    from(astubxFile) {
         into "com/uber/nullaway/jdkannotations/provider"
     }
 }
