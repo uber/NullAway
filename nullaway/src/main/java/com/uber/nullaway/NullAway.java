@@ -579,7 +579,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
-      if (safeNullableAssignmentToMonotonicNonNullField(tree, state, assigned)) {
+      if (safeAssignmentOfNullableToMonotonicNonNullField(tree, state, assigned)) {
         return Description.NO_MATCH;
       }
       String message = "assigning @Nullable expression to @NonNull field";
@@ -594,12 +594,24 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private boolean safeNullableAssignmentToMonotonicNonNullField(
+  /**
+   * Check for a special case where we allow assignment of a nullable expression to a
+   * monotonic-nonnull instance field within a constructor of the enclosing class, when we can prove
+   * that the field was not known to be non-null before the assignment. In particular, the field
+   * declaration cannot have an initializer expression, and there cannot be any instance initializer
+   * blocks in the class.
+   *
+   * @param tree the assignment tree
+   * @param state the visitor state
+   * @param assigned the field being assigned to
+   * @return true if this is a safe assignment that we should not warn on
+   */
+  private boolean safeAssignmentOfNullableToMonotonicNonNullField(
       AssignmentTree tree, VisitorState state, Symbol assigned) {
     return assigned instanceof VarSymbol
         && Nullness.hasMonotonicNonNullAnnotation(assigned, config)
         && assignmentTargetsEnclosingInstanceField(tree.getVariable())
-        && inConstructorOfClassWithNoInstanceInitializerBlocks(assigned, state)
+        && inConstructorOfClassWithNoInitializerOfField(assigned, state.getPath())
         && !fieldKnownNonNullBeforeAssignment((VarSymbol) assigned, tree.getVariable(), state);
   }
 
@@ -628,20 +640,27 @@ public class NullAway extends BugChecker
     return fieldNullness == Nullness.NONNULL;
   }
 
-  private boolean inConstructorOfClassWithNoInstanceInitializerBlocks(
-      Symbol assigned, VisitorState state) {
-    TreePath path = state.getPath();
+  /**
+   * Check if we are in a constructor of the class that declares the given field, and that class has
+   * no instance initializer blocks and the field has no initializer expression.
+   *
+   * @param fieldSymbol the field symbol
+   * @param path the current tree path
+   * @return true if we are in such a constructor, false otherwise
+   */
+  private boolean inConstructorOfClassWithNoInitializerOfField(Symbol fieldSymbol, TreePath path) {
     for (TreePath current = path; current != null; current = current.getParentPath()) {
       Tree leaf = current.getLeaf();
       if (leaf instanceof MethodTree) {
         MethodTree methodTree = (MethodTree) leaf;
         if (isConstructor(methodTree)) {
-          // check that class has no instance initializer blocks
+          // check that class has no instance initializer blocks and no initializer expression for
+          // the field
           ClassSymbol enclClass = ASTHelpers.getSymbol(methodTree).enclClass();
           FieldInitEntities fieldInitEntities = class2Entities.get(enclClass);
           return fieldInitEntities != null
               && fieldInitEntities.instanceInitializerBlocks().isEmpty()
-              && fieldInitEntities.uninitMonotonicNonNullInstanceFields().contains(assigned);
+              && fieldInitEntities.uninitMonotonicNonNullInstanceFields().contains(fieldSymbol);
         }
       }
       if (leaf instanceof ClassTree) {

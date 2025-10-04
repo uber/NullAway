@@ -43,7 +43,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableAssignmentInConstructorAllowed() {
+  public void nullableAssignmentInConstructor() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -54,11 +54,14 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
             "@NullMarked",
             "class Test {",
             "  @MonotonicNonNull Object mBar;",
-            "  @Nullable Object maybeNull() {",
-            "    return null;",
-            "  }",
             "  Test() {",
-            "    mBar = maybeNull();",
+            "    mBar = null;",
+            "  }",
+            "  Test(boolean b) {",
+            "    mBar = new Object();",
+            "    // now not allowed!",
+            "    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "    mBar = null;",
             "  }",
             "}")
         .doTest();
