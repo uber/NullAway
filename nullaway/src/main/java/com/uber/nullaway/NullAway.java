@@ -579,7 +579,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
-      if (safeNullableAssignmentToMonotonicNonNullField(tree, state, assigned, expression)) {
+      if (safeNullableAssignmentToMonotonicNonNullField(tree, state, assigned)) {
         return Description.NO_MATCH;
       }
       String message = "assigning @Nullable expression to @NonNull field";
@@ -594,13 +594,12 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  @SuppressWarnings("UnusedVariable")
   private boolean safeNullableAssignmentToMonotonicNonNullField(
-      AssignmentTree tree, VisitorState state, Symbol assigned, ExpressionTree expression) {
+      AssignmentTree tree, VisitorState state, Symbol assigned) {
     return assigned instanceof VarSymbol
         && Nullness.hasMonotonicNonNullAnnotation(assigned, config)
         && assignmentTargetsEnclosingInstanceField(tree.getVariable())
-        && inConstructorOfClassWithNoInstanceInitializerBlocks(state)
+        && inConstructorOfClassWithNoInstanceInitializerBlocks(assigned, state)
         && !fieldKnownNonNullBeforeAssignment((VarSymbol) assigned, tree.getVariable(), state);
   }
 
@@ -629,7 +628,8 @@ public class NullAway extends BugChecker
     return fieldNullness == Nullness.NONNULL;
   }
 
-  private boolean inConstructorOfClassWithNoInstanceInitializerBlocks(VisitorState state) {
+  private boolean inConstructorOfClassWithNoInstanceInitializerBlocks(
+      Symbol assigned, VisitorState state) {
     TreePath path = state.getPath();
     for (TreePath current = path; current != null; current = current.getParentPath()) {
       Tree leaf = current.getLeaf();
@@ -640,7 +640,8 @@ public class NullAway extends BugChecker
           ClassSymbol enclClass = ASTHelpers.getSymbol(methodTree).enclClass();
           FieldInitEntities fieldInitEntities = class2Entities.get(enclClass);
           return fieldInitEntities != null
-              && fieldInitEntities.instanceInitializerBlocks().isEmpty();
+              && fieldInitEntities.instanceInitializerBlocks().isEmpty()
+              && fieldInitEntities.uninitMonotonicNonNullInstanceFields().contains(assigned);
         }
       }
       if (leaf instanceof ClassTree) {
@@ -2500,6 +2501,7 @@ public class NullAway extends BugChecker
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
     Set<Symbol> nonnullInstanceFields = new LinkedHashSet<>();
     Set<Symbol> nonnullStaticFields = new LinkedHashSet<>();
+    Set<Symbol> uninitMonotonicNonNullInstanceFields = new LinkedHashSet<>();
     List<BlockTree> instanceInitializerBlocks = new ArrayList<>();
     List<BlockTree> staticInitializerBlocks = new ArrayList<>();
     Set<MethodTree> constructors = new LinkedHashSet<>();
@@ -2531,6 +2533,10 @@ public class NullAway extends BugChecker
           // field declaration
           VariableTree varTree = (VariableTree) memberTree;
           Symbol fieldSymbol = ASTHelpers.getSymbol(varTree);
+          if (Nullness.hasMonotonicNonNullAnnotation(fieldSymbol, config)
+              && varTree.getInitializer() == null) {
+            uninitMonotonicNonNullInstanceFields.add(fieldSymbol);
+          }
           if (fieldSymbol.type.isPrimitive()
               || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)) {
             continue;
@@ -2565,6 +2571,7 @@ public class NullAway extends BugChecker
         classSymbol,
         ImmutableSet.copyOf(nonnullInstanceFields),
         ImmutableSet.copyOf(nonnullStaticFields),
+        ImmutableSet.copyOf(uninitMonotonicNonNullInstanceFields),
         ImmutableList.copyOf(instanceInitializerBlocks),
         ImmutableList.copyOf(staticInitializerBlocks),
         ImmutableSet.copyOf(constructors),
@@ -2910,6 +2917,7 @@ public class NullAway extends BugChecker
         Symbol.ClassSymbol classSymbol,
         Set<Symbol> nonnullInstanceFields,
         Set<Symbol> nonnullStaticFields,
+        Set<Symbol> uninitMonotonicNonNullInstanceFields,
         List<BlockTree> instanceInitializerBlocks,
         List<BlockTree> staticInitializerBlocks,
         Set<MethodTree> constructors,
@@ -2919,6 +2927,7 @@ public class NullAway extends BugChecker
           classSymbol,
           ImmutableSet.copyOf(nonnullInstanceFields),
           ImmutableSet.copyOf(nonnullStaticFields),
+          ImmutableSet.copyOf(uninitMonotonicNonNullInstanceFields),
           ImmutableList.copyOf(instanceInitializerBlocks),
           ImmutableList.copyOf(staticInitializerBlocks),
           ImmutableSet.copyOf(constructors),
@@ -2939,6 +2948,9 @@ public class NullAway extends BugChecker
      * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
      */
     abstract ImmutableSet<Symbol> nonnullStaticFields();
+
+    /** {@code @MonotonicNonNull} instance fields with no initializer expression at declaration */
+    abstract ImmutableSet<Symbol> uninitMonotonicNonNullInstanceFields();
 
     /**
      * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
