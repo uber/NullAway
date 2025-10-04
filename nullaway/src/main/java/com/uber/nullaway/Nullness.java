@@ -79,6 +79,19 @@ public enum Nullness implements AbstractValue<Nullness> {
         .anyMatch(anno -> isNullableAnnotation(anno, config) || isMonotonicNonNullAnnotation(anno));
   }
 
+  /**
+   * Check whether {@code symbol} has a {@code @MonotonicNonNull} annotation.
+   *
+   * @param symbol symbol to inspect for annotations
+   * @param config NullAway config to resolve type-use annotations
+   * @return true if the symbol is annotated with {@code @MonotonicNonNull}
+   */
+  public static boolean hasMonotonicNonNullAnnotation(Symbol symbol, Config config) {
+    return NullabilityUtil.getAllAnnotations(symbol, config)
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(Nullness::isMonotonicNonNullAnnotation);
+  }
+
   // The following leastUpperBound and greatestLowerBound methods were created by handwriting a
   // truth table and then encoding the values into these functions. A better approach would be to
   // represent the lattice directly and compute these functions from the lattice.

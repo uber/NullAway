@@ -579,6 +579,15 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
+      if (assigned instanceof Symbol.VarSymbol
+          && Nullness.hasMonotonicNonNullAnnotation(assigned, config)
+          && assignmentTargetsEnclosingInstanceField(tree.getVariable())
+          && isWithinConstructorContext(state)
+          && expression.getKind() != Tree.Kind.NULL_LITERAL
+          && !fieldKnownNonNullBeforeAssignment(
+              (Symbol.VarSymbol) assigned, tree.getVariable(), state)) {
+        return Description.NO_MATCH;
+      }
       String message = "assigning @Nullable expression to @NonNull field";
       return errorBuilder.createErrorDescriptionForNullAssignment(
           new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message),
@@ -589,6 +598,48 @@ public class NullAway extends BugChecker
     }
     handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     return Description.NO_MATCH;
+  }
+
+  private boolean assignmentTargetsEnclosingInstanceField(ExpressionTree variableTree) {
+    if (variableTree instanceof IdentifierTree) {
+      return true;
+    }
+    if (variableTree instanceof MemberSelectTree) {
+      ExpressionTree receiver = ((MemberSelectTree) variableTree).getExpression();
+      return receiver instanceof IdentifierTree
+          && ((IdentifierTree) receiver).getName().contentEquals("this");
+    }
+    return false;
+  }
+
+  private boolean fieldKnownNonNullBeforeAssignment(
+      Symbol.VarSymbol fieldSymbol, ExpressionTree variableTree, VisitorState state) {
+    TreePath currentPath = state.getPath();
+    if (currentPath == null) {
+      return false;
+    }
+    TreePath variablePath = new TreePath(currentPath, variableTree);
+    Nullness fieldNullness =
+        getNullnessAnalysis(state)
+            .getNullnessOfExpressionNamedField(variablePath, state.context, fieldSymbol);
+    return fieldNullness == Nullness.NONNULL;
+  }
+
+  private boolean isWithinConstructorContext(VisitorState state) {
+    return isWithinConstructorPath(state.getPath());
+  }
+
+  private boolean isWithinConstructorPath(TreePath path) {
+    for (TreePath current = path; current != null; current = current.getParentPath()) {
+      Tree leaf = current.getLeaf();
+      if (leaf instanceof MethodTree) {
+        return isConstructor((MethodTree) leaf);
+      }
+      if (leaf instanceof ClassTree) {
+        return false;
+      }
+    }
+    return false;
   }
 
   @Override

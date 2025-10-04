@@ -43,6 +43,51 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableAssignmentInConstructorAllowed() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  @MonotonicNonNull Object mBar;",
+            "  @Nullable Object maybeNull() {",
+            "    return null;",
+            "  }",
+            "  Test() {",
+            "    mBar = maybeNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAssignmentInMethodDisallowed() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  @MonotonicNonNull Object mBar;",
+            "  @Nullable Object maybeNull() {",
+            "    return null;",
+            "  }",
+            "  void assign() {",
+            "    // BUG: Diagnostic contains: assigning @Nullable expression",
+            "    mBar = maybeNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void lambdas() {
     defaultCompilationHelper
         .addSourceLines(
