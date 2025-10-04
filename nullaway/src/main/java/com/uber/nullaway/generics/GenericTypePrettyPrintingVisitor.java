@@ -40,6 +40,11 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
     if (t.isIntersection()) {
       return prettyIntersectionType((Type.IntersectionClassType) t);
     }
+    if (t.tsym.isAnonymous()) {
+      // eventually, we could probably do even better formatting here, but this provides all the
+      // needed information for now
+      return t.toString();
+    }
     StringBuilder sb = new StringBuilder();
     Type enclosingType = t.getEnclosingType();
     if (!ASTHelpers.isSameType(enclosingType, Type.noType, state)) {

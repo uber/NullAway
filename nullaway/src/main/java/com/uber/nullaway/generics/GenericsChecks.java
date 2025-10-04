@@ -407,7 +407,7 @@ public final class GenericsChecks {
    * @param tree A tree for which we need the type with preserved annotations.
    * @return Type of the tree with preserved annotations.
    */
-  private @Nullable Type getTreeType(Tree tree) {
+  private @Nullable Type getTreeType(Tree tree, VisitorState state) {
     tree = ASTHelpers.stripParentheses(tree);
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree) {
@@ -424,10 +424,27 @@ public final class GenericsChecks {
       return typeWithPreservedAnnotations(tree);
     } else {
       Type result;
-      if (tree instanceof VariableTree || tree instanceof IdentifierTree) {
+      if (tree instanceof VariableTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
         // the symbol for the variable instead
         result = castToNonNull(ASTHelpers.getSymbol(tree)).type;
+      } else if (tree instanceof IdentifierTree) {
+        // handle "this" specially, for cases where it appears inside an anonymous class
+        IdentifierTree identifierTree = (IdentifierTree) tree;
+        Symbol symbol = castToNonNull(ASTHelpers.getSymbol(identifierTree));
+        if (identifierTree.getName().contentEquals("this")) {
+          Symbol owner = symbol.owner;
+          if (owner != null) {
+            Symbol.ClassSymbol enclosingClass = owner.enclClass();
+            if (enclosingClass != null) {
+              Type enclosingType = getTypeForSymbol(enclosingClass, state);
+              if (enclosingType != null) {
+                return enclosingType;
+              }
+            }
+          }
+        }
+        result = symbol.type;
       } else if (tree instanceof AssignmentTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
         // the symbol for the assigned location instead, if available
@@ -464,7 +481,7 @@ public final class GenericsChecks {
     if (!config.isJSpecifyMode()) {
       return;
     }
-    Type lhsType = getTreeType(tree);
+    Type lhsType = getTreeType(tree, state);
     if (lhsType == null) {
       return;
     }
@@ -486,7 +503,7 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    Type rhsType = getTreeType(rhsTree);
+    Type rhsType = getTreeType(rhsTree, state);
     if (rhsType != null) {
       if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
@@ -590,6 +607,7 @@ public final class GenericsChecks {
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
     try {
       generateConstraintsForCall(
+          state,
           typeFromAssignmentContext,
           assignedToLocal,
           solver,
@@ -662,6 +680,7 @@ public final class GenericsChecks {
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private void generateConstraintsForCall(
+      VisitorState state,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       ConstraintSolver solver,
@@ -678,11 +697,12 @@ public final class GenericsChecks {
     new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
         .forEach(
             (argument, argPos, formalParamType, unused) -> {
-              generateConstraintsForParam(solver, allInvocations, argument, formalParamType);
+              generateConstraintsForParam(state, solver, allInvocations, argument, formalParamType);
             });
   }
 
   private void generateConstraintsForParam(
+      VisitorState state,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree argument,
@@ -693,9 +713,10 @@ public final class GenericsChecks {
       MethodInvocationTree invTree = (MethodInvocationTree) argument;
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
-      generateConstraintsForCall(formalParamType, false, solver, symbol, invTree, allInvocations);
+      generateConstraintsForCall(
+          state, formalParamType, false, solver, symbol, invTree, allInvocations);
     } else {
-      Type argumentType = getTreeType(argument);
+      Type argumentType = getTreeType(argument, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
         return;
@@ -769,7 +790,7 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
-    Type returnExpressionType = getTreeType(retExpr);
+    Type returnExpressionType = getTreeType(retExpr, state);
     if (returnExpressionType != null) {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
@@ -869,8 +890,8 @@ public final class GenericsChecks {
     Tree falsePartTree = tree.getFalseExpression();
 
     Type condExprType = getConditionalExpressionType(tree, state);
-    Type truePartType = getTreeType(truePartTree);
-    Type falsePartType = getTreeType(falsePartTree);
+    Type truePartType = getTreeType(truePartTree, state);
+    Type falsePartType = getTreeType(falsePartTree, state);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
@@ -899,9 +920,9 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getTreeType(parent);
+      return getTreeType(parent, state);
     }
-    return getTreeType(tree);
+    return getTreeType(tree, state);
   }
 
   /**
@@ -938,7 +959,7 @@ public final class GenericsChecks {
                 // bail out of any checking involving raw types for now
                 return;
               }
-              Type actualParameterType = getTreeType(currentActualParam);
+              Type actualParameterType = getTreeType(currentActualParam, state);
               if (actualParameterType != null) {
                 if (isGenericCallNeedingInference(currentActualParam)) {
                   // infer the type of the method call based on the assignment context
@@ -1037,7 +1058,7 @@ public final class GenericsChecks {
             "method should be directly inside an anonymous NewClassTree "
                 + state.getSourceForNode(path.getLeaf()));
       }
-      Type typeFromTree = getTreeType(newClassTree);
+      Type typeFromTree = getTreeType(newClassTree, state);
       if (typeFromTree != null) {
         verify(
             state.getTypes().isAssignable(symbol.type, typeFromTree),
@@ -1235,7 +1256,7 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getInvocationInferenceInfoForAssignment(parent, invocation);
+      return getInvocationInferenceInfoForAssignment(parent, invocation, state);
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
@@ -1303,10 +1324,10 @@ public final class GenericsChecks {
   }
 
   private InvocationAndContext getInvocationInferenceInfoForAssignment(
-      Tree assignment, MethodInvocationTree invocation) {
+      Tree assignment, MethodInvocationTree invocation, VisitorState state) {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
-    Type treeType = getTreeType(assignment);
+    Type treeType = getTreeType(assignment, state);
     return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
@@ -1406,14 +1427,14 @@ public final class GenericsChecks {
           enclosingType =
               inferGenericMethodCallType(state, (MethodInvocationTree) receiver, null, false);
         } else {
-          enclosingType = getTreeType(receiver);
+          enclosingType = getTreeType(receiver, state);
         }
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
-      enclosingType = getTreeType(tree);
+      enclosingType = getTreeType(tree, state);
     }
     return enclosingType;
   }
@@ -1499,7 +1520,7 @@ public final class GenericsChecks {
     List<? extends VariableTree> methodParameters = tree.getParameters();
     List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
     for (int i = 0; i < methodParameters.size(); i++) {
-      Type overridingMethodParameterType = getTreeType(methodParameters.get(i));
+      Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overriddenMethodParameterType != null && overridingMethodParameterType != null) {
         // allow contravariant subtyping
