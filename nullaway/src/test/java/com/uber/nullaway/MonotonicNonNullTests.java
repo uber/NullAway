@@ -65,7 +65,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nullableAssignmentInMethodDisallowed() {
+  public void nullableAssignmentInConstructorWithInstanceInitializer() {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
@@ -76,12 +76,35 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
             "@NullMarked",
             "class Test {",
             "  @MonotonicNonNull Object mBar;",
+            "  { mBar = new Object(); }",
             "  @Nullable Object maybeNull() {",
             "    return null;",
             "  }",
-            "  void assign() {",
-            "    // BUG: Diagnostic contains: assigning @Nullable expression",
+            "  Test() {",
+            "    // not allowed since enclosing class has an instance initializer block",
+            "    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
             "    mBar = maybeNull();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nullableAssignmentInConstructorWithInitializerExpression() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.annotations.MonotonicNonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  @MonotonicNonNull Object mBar = new Object();",
+            "  Test() {",
+            "    // not allowed since field already initialized",
+            "    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
+            "    mBar = null;",
             "  }",
             "}")
         .doTest();

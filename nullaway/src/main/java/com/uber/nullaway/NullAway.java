@@ -579,13 +579,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expression = tree.getExpression();
     if (mayBeNullExpr(state, expression)) {
-      if (assigned instanceof Symbol.VarSymbol
-          && Nullness.hasMonotonicNonNullAnnotation(assigned, config)
-          && assignmentTargetsEnclosingInstanceField(tree.getVariable())
-          && isWithinConstructorContext(state)
-          && expression.getKind() != Tree.Kind.NULL_LITERAL
-          && !fieldKnownNonNullBeforeAssignment(
-              (Symbol.VarSymbol) assigned, tree.getVariable(), state)) {
+      if (safeNullableAssignmentToMonotonicNonNullField(tree, state, assigned, expression)) {
         return Description.NO_MATCH;
       }
       String message = "assigning @Nullable expression to @NonNull field";
@@ -598,6 +592,16 @@ public class NullAway extends BugChecker
     }
     handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     return Description.NO_MATCH;
+  }
+
+  @SuppressWarnings("UnusedVariable")
+  private boolean safeNullableAssignmentToMonotonicNonNullField(
+      AssignmentTree tree, VisitorState state, Symbol assigned, ExpressionTree expression) {
+    return assigned instanceof VarSymbol
+        && Nullness.hasMonotonicNonNullAnnotation(assigned, config)
+        && assignmentTargetsEnclosingInstanceField(tree.getVariable())
+        && inConstructorOfClassWithNoInstanceInitializerBlocks(state)
+        && !fieldKnownNonNullBeforeAssignment((VarSymbol) assigned, tree.getVariable(), state);
   }
 
   private boolean assignmentTargetsEnclosingInstanceField(ExpressionTree variableTree) {
@@ -625,15 +629,19 @@ public class NullAway extends BugChecker
     return fieldNullness == Nullness.NONNULL;
   }
 
-  private boolean isWithinConstructorContext(VisitorState state) {
-    return isWithinConstructorPath(state.getPath());
-  }
-
-  private boolean isWithinConstructorPath(TreePath path) {
+  private boolean inConstructorOfClassWithNoInstanceInitializerBlocks(VisitorState state) {
+    TreePath path = state.getPath();
     for (TreePath current = path; current != null; current = current.getParentPath()) {
       Tree leaf = current.getLeaf();
       if (leaf instanceof MethodTree) {
-        return isConstructor((MethodTree) leaf);
+        MethodTree methodTree = (MethodTree) leaf;
+        if (isConstructor(methodTree)) {
+          // check that class has no instance initializer blocks
+          ClassSymbol enclClass = ASTHelpers.getSymbol(methodTree).enclClass();
+          FieldInitEntities fieldInitEntities = class2Entities.get(enclClass);
+          return fieldInitEntities != null
+              && fieldInitEntities.instanceInitializerBlocks().isEmpty();
+        }
       }
       if (leaf instanceof ClassTree) {
         return false;
