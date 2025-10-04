@@ -38,16 +38,16 @@ public class NullnessAnnotationSerializer implements Plugin {
   private static final String NULLUNMARKED_NAME = "org.jspecify.annotations.NullUnmarked";
 
   // Data classes for JSON output
-  record TypeParamInfo(String name, List<String> bounds) {}
+  public record TypeParamInfo(String name, List<String> bounds) {}
 
-  record MethodInfo(
+  public record MethodInfo(
       String returnType,
       String name,
       boolean nullMarked,
       boolean nullUnmarked,
       List<TypeParamInfo> typeParams) {}
 
-  record ClassInfo(
+  public record ClassInfo(
       String name,
       String type,
       boolean nullMarked,

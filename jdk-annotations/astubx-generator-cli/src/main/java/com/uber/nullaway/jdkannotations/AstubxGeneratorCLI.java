@@ -4,6 +4,9 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.ClassInfo;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.MethodInfo;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.TypeParamInfo;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
 import com.uber.nullaway.libmodel.StubxWriter;
 import java.io.DataOutputStream;
@@ -26,23 +29,6 @@ import java.util.Set;
  * NullAway needs.
  */
 public class AstubxGeneratorCLI {
-  // For JSON parsing
-  private static record TypeParam(String name, List<String> bounds) {}
-
-  private static record MethodJson(
-      String returnType,
-      String name,
-      boolean nullMarked,
-      boolean nullUnmarked,
-      List<TypeParam> typeParams) {}
-
-  private static record ClassJson(
-      String name,
-      String type,
-      boolean nullMarked,
-      boolean nullUnmarked,
-      List<TypeParam> typeParams,
-      List<MethodJson> methods) {}
 
   public static void main(String[] args) {
     if (args.length != 2) {
@@ -81,7 +67,7 @@ public class AstubxGeneratorCLI {
 
   public static AstubxData generateAstubx(String jsonDirPath, String astubxDirPath) {
     // get parsed JSON file
-    Map<String, List<ClassJson>> parsed = parseJson(jsonDirPath);
+    Map<String, List<ClassInfo>> parsed = parseJson(jsonDirPath);
 
     // check if the astubx file directory exists
     try {
@@ -100,11 +86,11 @@ public class AstubxGeneratorCLI {
     Map<String, Set<String>> typeAnnotations = new HashMap<>();
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
     Set<String> nullMarkedClasses = new LinkedHashSet<>();
-    Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>(); // not used
+    Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>();
 
-    for (Map.Entry<String, List<ClassJson>> entry : parsed.entrySet()) {
+    for (Map.Entry<String, List<ClassInfo>> entry : parsed.entrySet()) {
       // for each class
-      for (ClassJson clazz : entry.getValue()) {
+      for (ClassInfo clazz : entry.getValue()) {
         // get fully qualified class name
         String fullyQualifiedClassName = clazz.type();
         if (fullyQualifiedClassName.indexOf('<') != -1) {
@@ -119,7 +105,7 @@ public class AstubxGeneratorCLI {
         // check upperbounds of type parameters
         Set<Integer> upperBoundIndex = new LinkedHashSet<>();
         for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
-          TypeParam typeParam = clazz.typeParams().get(idx);
+          TypeParamInfo typeParam = clazz.typeParams().get(idx);
           for (String bound : typeParam.bounds()) {
             if (bound.matches("@Nullable .*")) {
               upperBoundIndex.add(idx);
@@ -155,7 +141,7 @@ public class AstubxGeneratorCLI {
     return modelData;
   }
 
-  private static Map<String, List<ClassJson>> parseJson(String jsonDirPath) {
+  private static Map<String, List<ClassInfo>> parseJson(String jsonDirPath) {
     // get parsed JSON file
     File jsonDir = new File(jsonDirPath);
 
@@ -170,12 +156,12 @@ public class AstubxGeneratorCLI {
     }
 
     Gson gson = new Gson();
-    Type parsedType = new TypeToken<Map<String, List<ClassJson>>>() {}.getType();
+    Type parsedType = new TypeToken<Map<String, List<ClassInfo>>>() {}.getType();
 
     File jsonFile = jsonFiles[0]; // only one JSON file created
 
     // parse JSON file
-    Map<String, List<ClassJson>> parsed;
+    Map<String, List<ClassInfo>> parsed;
     try {
       String jsonContent = Files.readString(jsonFile.toPath());
       parsed = gson.fromJson(jsonContent, parsedType);
@@ -188,10 +174,10 @@ public class AstubxGeneratorCLI {
   }
 
   private static void getMethodRecords(
-      ClassJson clazz,
+      ClassInfo clazz,
       String fullyQualifiedClassName,
       Map<String, MethodAnnotationsRecord> methodRecords) {
-    for (MethodJson method : clazz.methods()) {
+    for (MethodInfo method : clazz.methods()) {
       String methodName = method.name();
       // skip all constructors
       if (methodName.substring(0, methodName.indexOf('(')).equals(clazz.name())) {

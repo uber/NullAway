@@ -37,10 +37,6 @@ shadowJar {
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
 
-tasks.withType(JavaCompile).configureEach {
-    options.release.set(17) // ensures proper bytecode
-}
-
 // Don't test on JDK 17; we require JDK 21
 tasks.getByName('testJdk17').configure {
     onlyIf { false }
@@ -60,6 +56,7 @@ tasks.withType(Test).configureEach { test ->
 
 dependencies {
     implementation project(":library-model:library-model-generator")
+    implementation project(":jdk-javac-plugin")
     implementation deps.build.gson
     implementation deps.build.guava
 

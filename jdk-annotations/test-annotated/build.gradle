@@ -2,6 +2,12 @@ plugins {
     id "java-library"
 }
 
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
 dependencies {
     compileOnly deps.apt.autoService
     annotationProcessor deps.apt.autoService
@@ -35,6 +41,9 @@ tasks.withType(JavaCompile).configureEach { compileTask ->
 task generateAstubx(type: JavaExec) {
     group = "build"
     description = "Generate .astubx files from JSON using AstubxGeneratorCLI"
+
+    def javaToolchains = project.extensions.getByType(JavaToolchainService)
+    javaLauncher = javaToolchains.launcherFor(java.toolchain)
 
     inputs.dir(jsonOutputDir)
     outputs.dir(astubxOutputDir)
