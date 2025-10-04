@@ -1,0 +1,20 @@
+plugins {
+    id "java-library"
+}
+
+dependencies {
+    compileOnly deps.apt.autoService
+    annotationProcessor deps.apt.autoService
+    compileOnly project(":nullaway")
+    api deps.build.jspecify
+    implementation project(":jdk-annotations:test-annotated")
+}
+
+def astubxFile = project(':jdk-annotations:test-annotated').tasks.named('generateAstubx').get().outputs.files.singleFile
+
+jar {
+    dependsOn(project(':jdk-annotations:test-annotated').tasks.named('generateAstubx'))
+    from(astubxFile) {
+        into "com/uber/nullaway/jdkannotations/provider"
+    }
+}
