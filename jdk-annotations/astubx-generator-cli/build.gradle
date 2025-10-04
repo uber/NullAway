@@ -62,6 +62,10 @@ dependencies {
     implementation project(":library-model:library-model-generator")
     implementation deps.build.gson
     implementation deps.build.guava
+    //    implementation deps.build.javaparser
+    //    implementation deps.build.javaparserSymbolSolver
+    //    compileOnly deps.apt.autoValueAnnot
+    //    annotationProcessor deps.apt.autoValue
 
     testImplementation deps.test.junit4
     testImplementation deps.build.jspecify
