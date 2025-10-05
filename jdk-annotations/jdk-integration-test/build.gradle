@@ -24,3 +24,8 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
 }
+
+// Don't test on JDK 17; we require JDK 21
+tasks.getByName('testJdk17').configure {
+    onlyIf { false }
+}
