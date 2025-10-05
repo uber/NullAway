@@ -69,19 +69,10 @@ public class AstubxGeneratorCLI {
     // get parsed JSON file
     Map<String, List<ClassInfo>> parsed = parseJson(jsonDirPath);
 
-    // check if the astubx file directory exists
-    try {
-      Files.createDirectories(Paths.get(astubxDirPath));
-    } catch (IOException e) {
-      System.err.println("Failed to create directory: " + astubxDirPath + e.getMessage());
-    }
-    File outputFile = new File(astubxDirPath, "output.astubx");
-
     ImmutableMap<String, String> importedAnnotations =
         ImmutableMap.of(
             "NonNull", "org.jspecify.annotations.NonNull",
             "Nullable", "org.jspecify.annotations.Nullable");
-
     Map<String, Set<String>> packageAnnotations = new HashMap<>(); // not used
     Map<String, Set<String>> typeAnnotations = new HashMap<>();
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
@@ -122,6 +113,35 @@ public class AstubxGeneratorCLI {
     }
 
     // write astubx file
+    writeToAstubx(
+        astubxDirPath,
+        importedAnnotations,
+        packageAnnotations,
+        typeAnnotations,
+        methodRecords,
+        nullMarkedClasses,
+        nullableUpperBounds);
+
+    // return result as modelData for testing
+    AstubxData modelData = new AstubxData(methodRecords, nullableUpperBounds, nullMarkedClasses);
+    return modelData;
+  }
+
+  private static void writeToAstubx(
+      String astubxDirPath,
+      ImmutableMap<String, String> importedAnnotations,
+      Map<String, Set<String>> packageAnnotations,
+      Map<String, Set<String>> typeAnnotations,
+      Map<String, MethodAnnotationsRecord> methodRecords,
+      Set<String> nullMarkedClasses,
+      Map<String, Set<Integer>> nullableUpperBounds) {
+    // check if the astubx file directory exists
+    try {
+      Files.createDirectories(Paths.get(astubxDirPath));
+    } catch (IOException e) {
+      System.err.println("Failed to create directory: " + astubxDirPath + e.getMessage());
+    }
+    File outputFile = new File(astubxDirPath, "output.astubx");
     try (DataOutputStream out = new DataOutputStream(new FileOutputStream(outputFile))) {
       StubxWriter.write(
           out,
@@ -135,10 +155,6 @@ public class AstubxGeneratorCLI {
       System.err.println("Error writing JSON file: " + outputFile.getAbsolutePath());
       throw new RuntimeException(e);
     }
-
-    // return result as modelData for testing
-    AstubxData modelData = new AstubxData(methodRecords, nullableUpperBounds, nullMarkedClasses);
-    return modelData;
   }
 
   private static Map<String, List<ClassInfo>> parseJson(String jsonDirPath) {
