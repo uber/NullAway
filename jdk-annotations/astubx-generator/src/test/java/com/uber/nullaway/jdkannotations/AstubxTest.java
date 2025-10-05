@@ -40,12 +40,7 @@ public class AstubxTest {
     compilationHelper =
         CompilationTestHelper.newInstance(DummyChecker.class, getClass())
             .setArgs(
-                Arrays.asList(
-                    "-d",
-                    tempPath,
-                    "-processorpath",
-                    System.getProperty("plugin.path"),
-                    "-Xplugin:NullnessAnnotationSerializer " + tempPath));
+                Arrays.asList("-d", tempPath, "-Xplugin:NullnessAnnotationSerializer " + tempPath));
   }
 
   @Test

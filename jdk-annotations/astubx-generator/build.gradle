@@ -24,13 +24,6 @@ tasks.getByName('testJdk17').configure {
 tasks.withType(Test).configureEach { test ->
     // Ensure the plugin JAR exists
     dependsOn(":jdk-javac-plugin:shadowJar")
-
-    // Expose a module path for tests as a JVM property.
-    def pluginJarTask = project(':jdk-javac-plugin').tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar)
-    test.dependsOn pluginJarTask
-    test.jvmArgs += [
-        "-Dplugin.path=${pluginJarTask.get().archiveFile.get().asFile.absolutePath}"
-    ]
 }
 
 dependencies {

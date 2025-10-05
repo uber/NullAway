@@ -58,7 +58,6 @@ public class AstubxGenerator {
   }
 
   public static AstubxData generateAstubx(String jsonDirPath, String astubxDirPath) {
-    // get parsed JSON file
     Map<String, List<ClassInfo>> parsed = parseJson(jsonDirPath);
 
     ImmutableMap<String, String> importedAnnotations =
