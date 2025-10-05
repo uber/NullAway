@@ -205,9 +205,14 @@ public class AstubxGeneratorCLI {
 
       // get the arguments
       String argsOnly = methodName.replaceAll(".*\\((.*)\\)", "$1").trim();
-      // split using comma but not the commas separating the generics
+      // split using comma but leave the commas that are inside any angle brackets(to leave
+      // generics) or is a comma that divides annotations
+      // after finding a comma, it checks two conditions
+      // if the comma is followed by a '@' character, it skips the comma
+      // it looks at the rest of the string and if any angle brackets are not paired, skips the
+      // comma
       String[] arguments =
-          argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?=(?:[^<]*<[^>]*>)*[^>]*$)");
+          argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?!@)(?=(?:[^<]*<[^>]*>)*[^>]*$)");
 
       for (int i = 0; i < arguments.length; i++) {
         String arg = arguments[i].trim();
@@ -215,10 +220,22 @@ public class AstubxGeneratorCLI {
         if (arg.indexOf('<') != -1) {
           arg = arg.substring(0, arg.indexOf('<'));
         }
-        // remove Nullable annotation (Should we think of other annotations?)
-        if (arg.contains("Nullable")) {
-          argAnnotation.put(i, ImmutableSet.of("Nullable"));
-          arg = arg.replace("@org.jspecify.annotations.Nullable ", "");
+        // remove annotations
+        if (arg.contains("@")) {
+          String[] args = arg.split(" ");
+          arg = "";
+          for (String argument : args) {
+            if (argument.contains("@")) {
+              if (argument.contains("Nullable")) {
+                argAnnotation.put(i, ImmutableSet.of("Nullable"));
+              }
+              arg += argument.substring(0, argument.indexOf('@'));
+            } else {
+              arg += argument;
+            }
+          }
+        } else {
+          // remove any spaces in Array types
           arg = arg.replace(" ", "");
         }
         signatureForMethodRecords += arg + ", ";
