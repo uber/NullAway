@@ -174,16 +174,16 @@ public class AstubxGeneratorCLI {
     Gson gson = new Gson();
     Type parsedType = new TypeToken<Map<String, List<ClassInfo>>>() {}.getType();
 
-    File jsonFile = jsonFiles[0]; // only one JSON file created
-
     // parse JSON file
-    Map<String, List<ClassInfo>> parsed;
-    try {
-      String jsonContent = Files.readString(jsonFile.toPath());
-      parsed = gson.fromJson(jsonContent, parsedType);
-    } catch (IOException e) {
-      System.err.println("Error reading JSON file: " + jsonFile.getAbsolutePath());
-      throw new RuntimeException(e);
+    Map<String, List<ClassInfo>> parsed = new HashMap<>();
+    for (File jsonFile : jsonFiles) {
+      try {
+        String jsonContent = Files.readString(jsonFile.toPath());
+        parsed.putAll(gson.fromJson(jsonContent, parsedType));
+      } catch (IOException e) {
+        System.err.println("Error reading JSON file: " + jsonFile.getAbsolutePath());
+        throw new RuntimeException(e);
+      }
     }
 
     return parsed;
