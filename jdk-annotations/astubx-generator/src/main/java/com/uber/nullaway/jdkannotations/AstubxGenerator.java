@@ -213,12 +213,10 @@ public class AstubxGenerator {
 
       // get the arguments
       String argsOnly = methodName.replaceAll(".*\\((.*)\\)", "$1").trim();
-      // split using comma but leave the commas that are inside any angle brackets(to leave
-      // generics) or is a comma that divides annotations
-      // after finding a comma, it checks two conditions
-      // if the comma is followed by a '@' character, it skips the comma
-      // it looks at the rest of the string and if any angle brackets are not paired, skips the
-      // comma
+      // Split using comma but leave the commas that are inside any angle brackets(to leave
+      // generics) or is a comma that divides annotations. After finding a comma, it checks two
+      // conditions; 1) if the comma is followed by a '@' character, it skips the comma 2) it looks
+      // at the rest of the string and if any angle brackets are not paired, skips the comma
       String[] arguments =
           argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?!@)(?=(?:[^<]*<[^>]*>)*[^>]*$)");
 
