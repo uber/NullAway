@@ -1,10 +1,8 @@
 plugins {
     id "java-library"
     id "com.gradleup.shadow"
-    id 'nullaway.java-test-conventions'
 }
 
-// Require JDK 21, since the jdk-javac-plugin requires it
 java {
     toolchain {
         languageVersion = JavaLanguageVersion.of(21)
@@ -16,6 +14,7 @@ tasks.withType(JavaCompile).configureEach {
     sourceCompatibility = JavaVersion.VERSION_21
     targetCompatibility = JavaVersion.VERSION_21
 }
+
 
 jar{
     manifest {
@@ -30,39 +29,13 @@ jar{
 shadowJar {
     mergeServiceFiles()
     configurations = [
-        project.configurations.runtimeClasspath
+            project.configurations.runtimeClasspath
     ]
     archiveClassifier = ""
 }
 shadowJar.dependsOn jar
 assemble.dependsOn shadowJar
 
-// Don't test on JDK 17; we require JDK 21
-tasks.getByName('testJdk17').configure {
-    onlyIf { false }
-}
-
-tasks.withType(Test).configureEach { test ->
-    // Ensure the plugin JAR exists
-    dependsOn(":jdk-javac-plugin:shadowJar")
-
-    // Expose a module path for tests as a JVM property.
-    def pluginJarTask = project(':jdk-javac-plugin').tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar)
-    test.dependsOn pluginJarTask
-    test.jvmArgs += [
-        "-Dplugin.path=${pluginJarTask.get().archiveFile.get().asFile.absolutePath}"
-    ]
-}
-
 dependencies {
-    implementation project(":library-model:library-model-generator")
-    implementation project(":jdk-javac-plugin")
-    implementation deps.build.gson
-    implementation deps.build.guava
-
-    testImplementation deps.test.junit4
-    testImplementation deps.build.jspecify
-    testImplementation(deps.build.errorProneTestHelpers) {
-        exclude group: "junit", module: "junit"
-    }
+    implementation project(":jdk-annotations:astubx-generator")
 }

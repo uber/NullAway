@@ -312,9 +312,8 @@ public class AstubxTest {
       ImmutableSet<String> expectedNullMarkedClasses) {
     // run the generator
     String astubxOutputDirPath = Paths.get(astubxFolder.getRoot().getAbsolutePath()).toString();
-    AstubxGeneratorCLI.AstubxData astubxData =
-        AstubxGeneratorCLI.generateAstubx(
-            jsonFolder.getRoot().getAbsolutePath(), astubxOutputDirPath);
+    AstubxGenerator.AstubxData astubxData =
+        AstubxGenerator.generateAstubx(jsonFolder.getRoot().getAbsolutePath(), astubxOutputDirPath);
     System.err.println("astubxData: " + astubxData.toString());
 
     assertThat(astubxData.methodRecords, equalTo(expectedMethodRecords));
