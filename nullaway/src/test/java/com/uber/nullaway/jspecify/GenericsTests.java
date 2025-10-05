@@ -240,6 +240,91 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void thisUsageInAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface Callback<T extends @Nullable Object> {",
+            "    void onResult(T result);",
+            "  }",
+            "  static void addCallback(Callback<@Nullable Integer> cb) {}",
+            "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
+            "  public void testNegative() {",
+            "    addCallback(",
+            "        new Callback<@Nullable Integer>() {",
+            "          @Override",
+            "          public void onResult(@Nullable Integer value) {",
+            "            removeCallback(this);",
+            "          }",
+            "          void callOnResult() {",
+            "            this.onResult(null);",
+            "          }",
+            "        });",
+            "  }",
+            "  public void testPositive() {",
+            "    addCallback(",
+            "        // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "        new Callback<Integer>() {",
+            "          @Override",
+            "          public void onResult(Integer value) {",
+            "            // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "            removeCallback(this);",
+            "          }",
+            "          void callOnResult() {",
+            "            // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "            this.onResult(null);",
+            "          }",
+            "        });",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void thisUsageInAnonymousClassWithDiamonds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface Callback<T extends @Nullable Object> {",
+            "    void onResult(T result);",
+            "  }",
+            "  static void addCallback(Callback<@Nullable Integer> cb) {}",
+            "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
+            "  public void testNegativeDiamond() {",
+            "    addCallback(",
+            "        new Callback<>() {",
+            "          @Override",
+            "          public void onResult(@Nullable Integer value) {",
+            "            // TODO: we should infer Callback<@Nullable Integer> for the anonymous class and not report an error",
+            "            // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
+            "  }",
+            "  public void testPositiveDiamond() {",
+            "    addCallback(",
+            "        new Callback<>() {",
+            "          @Override",
+            "          public void onResult(Integer value) {",
+            "            // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void downcastInstantiation() {
     makeHelper()
         .addSourceLines(
