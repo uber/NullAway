@@ -79,7 +79,6 @@ public class AstubxGenerator {
           fullyQualifiedClassName =
               fullyQualifiedClassName.substring(0, fullyQualifiedClassName.indexOf('<'));
         }
-        // (Is this needed? NullAway checks NullMarkedness with fully qualified name)
         if (clazz.nullMarked()) {
           nullMarkedClasses.add(fullyQualifiedClassName);
         }
@@ -100,7 +99,7 @@ public class AstubxGenerator {
         }
 
         // get methodRecords
-        getMethodRecords(clazz, fullyQualifiedClassName, methodRecords);
+        getMethodRecords(clazz, fullyQualifiedClassName, upperBoundIndex, methodRecords);
       }
     }
 
@@ -192,6 +191,7 @@ public class AstubxGenerator {
   private static void getMethodRecords(
       ClassInfo clazz,
       String fullyQualifiedClassName,
+      Set<Integer> upperBoundIndex,
       Map<String, MethodAnnotationsRecord> methodRecords) {
     for (MethodInfo method : clazz.methods()) {
       String methodName = method.name();
@@ -210,8 +210,11 @@ public class AstubxGenerator {
       } else {
         // check upperbound if return type is generic
         for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
-          if (returnType.equals(clazz.typeParams().get(idx).name())) {
-            returnTypeNullness = ImmutableSet.of("Nullable");
+          if (returnType.contains(clazz.typeParams().get(idx).name())) {
+            if (upperBoundIndex.contains(idx)) {
+              returnTypeNullness = ImmutableSet.of("Nullable");
+              break;
+            }
           }
         }
       }
