@@ -109,7 +109,7 @@ public class AstubxGenerator {
     return modelData;
   }
 
-  private static void writeToAstubx(
+  public static void writeToAstubx(
       String astubxDirPath,
       ImmutableMap<String, String> importedAnnotations,
       Map<String, Set<String>> packageAnnotations,

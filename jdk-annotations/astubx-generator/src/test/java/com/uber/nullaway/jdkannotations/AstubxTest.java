@@ -347,8 +347,8 @@ public class AstubxTest {
       ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords,
       ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds,
       ImmutableSet<String> expectedNullMarkedClasses) {
-    // run the generator
     String astubxOutputDirPath = Paths.get(astubxFolder.getRoot().getAbsolutePath()).toString();
+    // get astubx data
     AstubxGenerator.AstubxData astubxData =
         AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath(), astubxOutputDirPath);
     System.err.println("astubxData: " + astubxData.toString());
@@ -356,6 +356,16 @@ public class AstubxTest {
     assertThat(astubxData.methodRecords(), equalTo(expectedMethodRecords));
     assertThat(astubxData.nullableUpperBounds(), equalTo(expectedNullableUpperBounds));
     assertThat(astubxData.nullMarkedClasses(), equalTo(expectedNullMarkedClasses));
+
+    // write astubx file
+    AstubxGenerator.writeToAstubx(
+        astubxOutputDirPath,
+        astubxData.importedAnnotations(),
+        astubxData.packageAnnotations(),
+        astubxData.typeAnnotations(),
+        astubxData.methodRecords(),
+        astubxData.nullMarkedClasses(),
+        astubxData.nullableUpperBounds());
     Assert.assertTrue(
         "astubx file was not created",
         Files.exists(Paths.get(Paths.get(astubxOutputDirPath, "output.astubx").toString()))
