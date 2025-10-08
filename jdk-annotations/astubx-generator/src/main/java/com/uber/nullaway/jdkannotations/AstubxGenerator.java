@@ -30,32 +30,10 @@ import java.util.Set;
  */
 public class AstubxGenerator {
 
-  public static class AstubxData {
-    public final Map<String, MethodAnnotationsRecord> methodRecords;
-    public final Map<String, Set<Integer>> nullableUpperBounds;
-    public final Set<String> nullMarkedClasses;
-
-    public AstubxData(
-        Map<String, MethodAnnotationsRecord> methodRecords,
-        Map<String, Set<Integer>> nullableUpperBounds,
-        Set<String> nullMarkedClasses) {
-      this.methodRecords = methodRecords;
-      this.nullableUpperBounds = nullableUpperBounds;
-      this.nullMarkedClasses = nullMarkedClasses;
-    }
-
-    @Override
-    public String toString() {
-      return "AstubxData{"
-          + "methodRecords="
-          + methodRecords
-          + ", nullableUpperBounds="
-          + nullableUpperBounds
-          + ", nullMarkedClasses="
-          + nullMarkedClasses
-          + '}';
-    }
-  }
+  public record AstubxData(
+      Map<String, MethodAnnotationsRecord> methodRecords,
+      Map<String, Set<Integer>> nullableUpperBounds,
+      Set<String> nullMarkedClasses) {}
 
   public static AstubxData generateAstubx(String jsonDirPath, String astubxDirPath) {
     Map<String, List<ClassInfo>> parsed = parseJson(jsonDirPath);
@@ -64,7 +42,9 @@ public class AstubxGenerator {
         ImmutableMap.of(
             "NonNull", "org.jspecify.annotations.NonNull",
             "Nullable", "org.jspecify.annotations.Nullable");
-    Map<String, Set<String>> packageAnnotations = new HashMap<>(); // not used
+    // There is no package-info.java files in jspecify/jdk that were @NullMarked so package
+    // information support is skipped in jdk-javac-plugin
+    Map<String, Set<String>> packageAnnotations = new HashMap<>();
     Map<String, Set<String>> typeAnnotations = new HashMap<>();
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
     Set<String> nullMarkedClasses = new LinkedHashSet<>();
@@ -99,7 +79,7 @@ public class AstubxGenerator {
         }
 
         // get methodRecords
-        getMethodRecords(clazz, fullyQualifiedClassName, upperBoundIndex, methodRecords);
+        getMethodRecords(clazz, fullyQualifiedClassName, methodRecords);
       }
     }
 
@@ -191,32 +171,18 @@ public class AstubxGenerator {
   private static void getMethodRecords(
       ClassInfo clazz,
       String fullyQualifiedClassName,
-      Set<Integer> upperBoundIndex,
       Map<String, MethodAnnotationsRecord> methodRecords) {
     for (MethodInfo method : clazz.methods()) {
       String methodName = method.name();
-      // skip all constructors
-      if (methodName.substring(0, methodName.indexOf('(')).equals(clazz.name())) {
-        continue;
-      }
       // get return type nullness
       String returnType = method.returnType();
       ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
       // check if return type has Nullable annotation
-      if (returnType.contains("@org.jspecify.annotations.Nullable")) {
+      if (returnType.contains("@org.jspecify.annotations.Nullable")
+          || returnType.contains("Nullable")) {
         returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
         returnType = returnType.replace(" ", ""); // remove whitespace in Array types
         returnTypeNullness = ImmutableSet.of("Nullable");
-      } else {
-        // check upperbound if return type is generic
-        for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
-          if (returnType.contains(clazz.typeParams().get(idx).name())) {
-            if (upperBoundIndex.contains(idx)) {
-              returnTypeNullness = ImmutableSet.of("Nullable");
-              break;
-            }
-          }
-        }
       }
       String signatureForMethodRecords = fullyQualifiedClassName + ":" + returnType + " ";
       signatureForMethodRecords += methodName.substring(0, methodName.indexOf('(') + 1);
