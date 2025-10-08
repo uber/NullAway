@@ -26,6 +26,8 @@ dependencies {
 }
 
 // Don't test on JDK 17; we require JDK 21
-tasks.getByName('testJdk17').configure {
-    onlyIf { false }
+tasks.named("testJdk17").configure {
+    doFirst {
+        throw new GradleException("jdk-integration-test requires JDK 21; please rerun with the correct toolchain.")
+    }
 }

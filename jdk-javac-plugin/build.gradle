@@ -63,6 +63,8 @@ tasks.withType(Test).configureEach { test ->
 }
 
 // Don't test on JDK 17 since we don't support the JDK 17 javac string formatting
-tasks.getByName('testJdk17').configure {
-    onlyIf { false }
+tasks.named("testJdk17").configure {
+    doFirst {
+        throw new GradleException("jdk-integration-test requires JDK 21; please rerun with the correct toolchain.")
+    }
 }
