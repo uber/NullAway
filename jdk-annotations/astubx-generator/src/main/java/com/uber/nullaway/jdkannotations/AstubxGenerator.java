@@ -31,11 +31,27 @@ import java.util.Set;
 public class AstubxGenerator {
 
   public record AstubxData(
+      ImmutableMap<String, String> importedAnnotations,
+      Map<String, Set<String>> packageAnnotations,
+      Map<String, Set<String>> typeAnnotations,
       Map<String, MethodAnnotationsRecord> methodRecords,
       Map<String, Set<Integer>> nullableUpperBounds,
       Set<String> nullMarkedClasses) {}
 
-  public static AstubxData generateAstubx(String jsonDirPath, String astubxDirPath) {
+  public static void generateAstubx(String jsonDirPath, String astubxDirPath) {
+    AstubxData astubxData = getAstubxData(jsonDirPath, astubxDirPath);
+    // write astubx file
+    writeToAstubx(
+        astubxDirPath,
+        astubxData.importedAnnotations,
+        astubxData.packageAnnotations,
+        astubxData.typeAnnotations,
+        astubxData.methodRecords,
+        astubxData.nullMarkedClasses,
+        astubxData.nullableUpperBounds);
+  }
+
+  public static AstubxData getAstubxData(String jsonDirPath, String astubxDirPath) {
     Map<String, List<ClassInfo>> parsed = parseJson(jsonDirPath);
 
     ImmutableMap<String, String> importedAnnotations =
@@ -77,24 +93,19 @@ public class AstubxGenerator {
         if (!upperBoundIndex.isEmpty()) {
           nullableUpperBounds.put(fullyQualifiedClassName, upperBoundIndex);
         }
-
         // get methodRecords
         getMethodRecords(clazz, fullyQualifiedClassName, methodRecords);
       }
     }
-
-    // write astubx file
-    writeToAstubx(
-        astubxDirPath,
-        importedAnnotations,
-        packageAnnotations,
-        typeAnnotations,
-        methodRecords,
-        nullMarkedClasses,
-        nullableUpperBounds);
-
     // return result as modelData for testing
-    AstubxData modelData = new AstubxData(methodRecords, nullableUpperBounds, nullMarkedClasses);
+    AstubxData modelData =
+        new AstubxData(
+            importedAnnotations,
+            packageAnnotations,
+            typeAnnotations,
+            methodRecords,
+            nullableUpperBounds,
+            nullMarkedClasses);
     return modelData;
   }
 

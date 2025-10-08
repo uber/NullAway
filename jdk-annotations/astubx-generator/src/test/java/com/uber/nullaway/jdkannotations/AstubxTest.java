@@ -350,7 +350,7 @@ public class AstubxTest {
     // run the generator
     String astubxOutputDirPath = Paths.get(astubxFolder.getRoot().getAbsolutePath()).toString();
     AstubxGenerator.AstubxData astubxData =
-        AstubxGenerator.generateAstubx(jsonFolder.getRoot().getAbsolutePath(), astubxOutputDirPath);
+        AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath(), astubxOutputDirPath);
     System.err.println("astubxData: " + astubxData.toString());
 
     assertThat(astubxData.methodRecords(), equalTo(expectedMethodRecords));
