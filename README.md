@@ -1,6 +1,6 @@
 ## NullAway: Fast Annotation-Based Null Checking for Java [![Build Status](https://github.com/uber/nullaway/actions/workflows/continuous-integration.yml/badge.svg)](https://github.com/uber/nullaway/actions/workflows/continuous-integration.yml) [![Coverage Status](https://codecov.io/github/uber/NullAway/coverage.svg?branch=master)](https://codecov.io/github/uber/NullAway?branch=master)
 
-NullAway is a tool to help eliminate `NullPointerException`s (NPEs) in your Java code.  To use NullAway, first add `@Nullable` annotations in your code wherever a field, method parameter, or return value may be `null`.  Given these annotations, NullAway performs a series of type-based, local checks to ensure that any pointer that gets dereferenced in your code cannot be `null`.  NullAway is similar to the type-based nullability checking in the Kotlin and Swift languages, and the [Checker Framework](https://checkerframework.org/) and [Eradicate](https://fbinfer.com/docs/checker-eradicate/) null checkers for Java.
+NullAway is a tool to help eliminate `NullPointerException`s (NPEs) in your Java code.  To use NullAway, first add `@Nullable` annotations in your code wherever a field, method parameter, or return value may be `null`.  Given these annotations, NullAway performs a series of type-based, local checks to ensure that any pointer that gets dereferenced in your code cannot be `null`.  NullAway is similar to the type-based nullability checking in the Kotlin and Swift languages, and the [Checker Framework](https://checkerframework.org/) and [Eradicate](https://fbinfer.com/docs/1.1.0/checker-eradicate/) null checkers for Java.
 
 NullAway is *fast*.  It is built as a plugin to [Error Prone](http://errorprone.info/) and can run on every single build of your code.  In our measurements, the build-time overhead of running NullAway is usually less than 10%.  NullAway is also *practical*: it does not prevent all possible NPEs in your code, but it catches most of the NPEs we have observed in production while imposing a reasonable annotation burden, giving a great "bang for your buck."
 
@@ -8,7 +8,7 @@ NullAway is *fast*.  It is built as a plugin to [Error Prone](http://errorprone.
 
 ### Overview
 
-NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.14.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.
+NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.14.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.  If you are building with JSpecify mode enabled, we recommend building with the most recent JDK available; see [the wiki docs on JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support) for more details.
 
 ### Gradle
 
@@ -67,6 +67,10 @@ Beyond that, compared to the Java configuration, the JSpecify dependency can be 
 Some annotation processors like [Dagger](https://google.github.io/dagger/) and [AutoValue](https://github.com/google/auto/tree/master/value) generate code into the same package namespace as your own code.  This can cause problems when setting NullAway to the `ERROR` level as suggested above, since errors in this generated code will block the build.  Currently the best solution to this problem is to completely disable Error Prone on generated code, using the `-XepExcludedPaths` option added in Error Prone 2.1.3 (documented [here](http://errorprone.info/docs/flags), use `options.errorprone.excludedPaths=` in Gradle).  To use, figure out which directory contains the generated code, and add that directory to the excluded path regex.
 
 **Note for Dagger users**: Dagger versions older than 2.12 can have bad interactions with NullAway; see [here](https://github.com/uber/NullAway/issues/48#issuecomment-340018409).  Please update to Dagger 2.12 to fix the problem.
+
+#### JSpecify Mode / Guava
+
+As of version 33.4.1, [Guava](https://github.com/google/guava) uses [JSpecify](https://jspecify.dev) `@NullMarked` annotations for most of its packages, and hence NullAway will treat those packages as annotated by default.  This treatment may lead to some false positives (due to handling of type variables), which can be mitigated by running NullAway in its (under-development) JSpecify mode.  See [the wiki docs on JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support) for more details.
 
 #### Lombok
 

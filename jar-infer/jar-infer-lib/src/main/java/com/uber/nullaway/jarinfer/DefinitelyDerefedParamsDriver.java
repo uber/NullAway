@@ -47,7 +47,7 @@ import com.ibm.wala.types.generics.MethodTypeSignature;
 import com.ibm.wala.types.generics.TypeSignature;
 import com.ibm.wala.types.generics.TypeVariableSignature;
 import com.ibm.wala.util.collections.Iterator2Iterable;
-import com.ibm.wala.util.config.FileOfClasses;
+import com.ibm.wala.util.config.PatternsFilter;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
 import com.uber.nullaway.libmodel.StubxWriter;
 import java.io.ByteArrayInputStream;
@@ -240,7 +240,7 @@ public class DefinitelyDerefedParamsDriver {
     }
     AnalysisScope scope = AnalysisScopeReader.instance.makeBasePrimordialScope(null);
     scope.setExclusions(
-        new FileOfClasses(
+        new PatternsFilter(
             new ByteArrayInputStream(DEFAULT_EXCLUSIONS.getBytes(StandardCharsets.UTF_8))));
     if (jarIS != null) {
       scope.addInputStreamForJarToScope(ClassLoaderReference.Application, jarIS);
@@ -546,10 +546,15 @@ public class DefinitelyDerefedParamsDriver {
         argTypes[i] = getSourceLevelQualifiedTypeName(mtd.getParameterType(argi++));
       }
     }
+    String methodName = mtd.getName().toString();
+    if (methodName.equals("<init>")) {
+      // use simple name of enclosing class
+      methodName = classType.substring(classType.lastIndexOf('.') + 1);
+    }
     return classType
         + ":"
         + (returnType == null ? "void " : returnType + " ")
-        + mtd.getName().toString()
+        + methodName
         + "("
         + String.join(", ", argTypes)
         + ")";

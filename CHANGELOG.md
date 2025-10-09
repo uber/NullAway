@@ -1,8 +1,102 @@
 Changelog
 =========
+
+Version 0.12.10
+---------------
+
+This release contains significant improvements to inference support for generic method calls in JSpecify mode (#1075).
+We expect that many more valid calls will pass NullAway, but that some new bugs may have been introduced.  Please report
+any issues that you see.  There is also a new flag, `-XepOpt:NullAway:WarnOnGenericInferenceFailure` to make NullAway
+report a warning when inference fails, to help identify any issues.
+
+* Improved inference for generic method calls (#1244)
+* Suppress `CastToNonNull` warnings for `@NullUnmarked` method calls by @raccoonback (#1258)
+* JSpecify: Fix crash when overriding with raw types (#1265)
+* Better handle calls to super constructors and superclass methods in JSpecify mode (#1248)
+* issue-1250 pattern matching for instanceof in switch case by @dhruv-agr (#1259)
+* Account for annotations in extends / implements when computing view as supertype (#1266)
+* Bug fix with type substitutions after inference (#1277)
+* JSpecify: Improve error messages for type incompatibility at pseudo-assignments (#1279)
+* Support java.util.Objects.toString() by @gulikoza (#1283)
+* Record when generic method inference fails (#1280)
+* issue 1275 - report unboxing warning for for-each loop by @dhruv-agr (#1281)
+* Abstract iterating over invocation arguments (#1284)
+* Invoke generic method inference in more places (#1286)
+* Maintenance
+  - Build Spring with snapshot build as a CI job (#1251)
+  - Add more instance fields to `GenericsChecks` (#1256)
+  - remove unneeded checkNotCall call (#1257)
+  - Fail build on JDK 21 versions before 21.0.8 (#1261)
+  - Clarify JDK version to use for best JSpecify support (#1269)
+  - Simplified set of CI jobs (#1271)
+  - Build: upgrade to Gradle 9 + AGP 8.7.2 (#1270)
+  - Compile with JDK 24 (#1276)
+  - Don't use deprecated `buildDir` by @mernst (#1278)
+
+Version 0.12.9
+---------------
+* Add a case in our inference for generic method calls (#1240)
+* Add library model for Apache Commons CollectionUtils.isNotEmpty, Amazon CollectionUtils.IsNullOrEmpty, and a couple Amazon StringUtils methods (#1242)
+* Maintenance
+  - Fix maven central link in RELEASING.md (#1237)
+  - Update to Error Prone 2.41.0 (#1239)
+  - Add tests for gh-1246 (#1247)
+  - Test reading JSpecify annotations from bytecodes on JDK 21 (#1245)
+
+Version 0.12.8
+---------------
+* Document interactions between Guava and JSpecify mode in README (#1208)
+* JSpecify: handle nullness annotations from extends / inherits clauses (#1211)
+* Allowing NewClassTree to be passed into getGenericParameterNullnessAtInvocation (#1210)
+* Support @NullMarked on modules (#1216)
+* Handle NewClassTree in compareGenericTypeParameterNullabilityForCall(#1212) (#1217)
+* More flexible handling of AssertJ isNotNull methods (#1221)
+* Support AssertJ hasSize() (#1229)
+* Inference of generic method type arguments based on returns and parameter passing (#1226)
+* Prototype implementation of javac plugin to serialize nullness annotations (#1225)
+* Add AdditionalSuppressionNames configuration option (#1231)
+* Updates to deploy releases to Central Portal (#1234)
+* Fix to handling of case null (#1235)
+* Maintenance
+  - Update to Gradle 8.14 (#1213)
+  - Update to Error Prone 2.39.0 (#1228)
+  - Fix broken link to Eradicate in README.md (#1227)
+
+Version 0.12.7
+---------------
+* Update to Checker Framework 3.49.2 (#1183)
+* Don't check synchronized blocks within unannotated code (#1185)
+* Test on JDK 24 (#1187)
+* Fix multiple issues with NewClassTrees that have enclosing expressions (#1191)
+* Ensure classes null-marked by library model detected in all places (#1197)
+* JSpecify: handle varargs whose element type is a type variable (#1200)
+* Update to Error Prone 2.38.0 (#1203)
+* Optimization to annotation stripping in library model matching (#1204)
+* Make arg position nullness array contents nullable (#1207)
+* Properly handle method references to null-unmarked methods (#1205)
+
+Version 0.12.6
+---------------
+* JSpecify: view type as super in generic method inference (#1177)
+* Infer @Nullable type arguments for type variables from unmarked code (#1181)
+* Convert android-jar.py to Python 3 (#1175)
+* Suggest castToNonNull fix for unboxing error (#1182)
+
+Version 0.12.5
+---------------
+* Add missing override to RestoreNullnessAnnotationsVisitor (#1154)
+* Add more bailouts for raw types (#1153)
+* Do unboxing check for invocation parameters even when calling a @NullUnmarked method (#1163)
+* JSpecify: infer generic method type arguments for assignments (#1131)
+* JSpecify: properly handle lambdas in anonymous inner classes (#1165)
+* Support @MonotonicNonNull on static fields (#1166)
+* Update to Error Prone 2.37.0 (#1169)
+* Use proper name for constructors in JarInfer (#1167)
+* Don't treat @ParametricNullness as @Nullable in JSpecify mode (#1174)
+
 Version 0.12.4
 ---------------
-* Better `@MonotonicNonNull` support (#1149) 
+* Better `@MonotonicNonNull` support (#1149)
 * Add support for local variables for arrays. (#1146)
 * Ignore Spring Framework 6.2 `@MockitoBean`, `@MockitoSpyBean` fields (#1147)
 * JSpecify: preserve explicit nullability annotations on type variables when performing substitutions (#1143)

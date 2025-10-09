@@ -1,5 +1,6 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotsOnTypeVarsFromSubtypes;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.sun.tools.javac.code.Attribute;
@@ -12,10 +13,43 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
+import java.util.Map;
+import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
 
 /** Utility method related to substituting type arguments for type variables. */
 public class TypeSubstitutionUtils {
+
+  /**
+   * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
+   * variables from the subtype to the resulting supertype.
+   *
+   * @param types the {@link Types} instance
+   * @param subtype the subtype
+   * @param superTypeSymbol the symbol of the supertype
+   * @param config the NullAway config
+   * @return the type of {@code subtype} viewed as a {@code superTypeSymbol}, or {@code null} if the
+   *     view cannot be computed
+   */
+  public static @Nullable Type asSuper(
+      Types types, Type subtype, Symbol.ClassSymbol superTypeSymbol, Config config) {
+    Type asSuper = types.asSuper(subtype, superTypeSymbol);
+    if (asSuper == null) {
+      return null;
+    }
+    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
+        subtype instanceof DeclaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(
+                (DeclaredType) subtype, superTypeSymbol, types, config)
+            : Map.of();
+    // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
+    // same type variables as asSuper; we use it to find the positions corresponding to type
+    // variables in asSuper to substitute nullability annotations based on
+    // annotsOnTypeVarsFromSubtypes.
+    return restoreExplicitNullabilityAnnotations(
+        superTypeSymbol.asType(), asSuper, config, annotsOnTypeVarsFromSubtypes);
+  }
 
   /**
    * Returns the type of {@code sym} as a member of {@code t}.
@@ -29,7 +63,13 @@ public class TypeSubstitutionUtils {
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
-    return restoreExplicitNullabilityAnnotations(origType, memberType, config);
+    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
+        t instanceof DeclaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(
+                (DeclaredType) t, (Symbol.MethodSymbol) sym, types, config)
+            : Map.of();
+    return restoreExplicitNullabilityAnnotations(
+        origType, memberType, config, annotsOnTypeVarsFromSubtypes);
   }
 
   /**
@@ -39,11 +79,16 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
+   * @param annotsOnTypeVarsFromSubtypes annotations on type variables added by subtypes
    * @return the new type with explicit nullability annotations restored
    */
-  private static Type restoreExplicitNullabilityAnnotations(
-      Type origType, Type newType, Config config) {
-    return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
+  public static Type restoreExplicitNullabilityAnnotations(
+      Type origType,
+      Type newType,
+      Config config,
+      Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
+    return new RestoreNullnessAnnotationsVisitor(config, annotsOnTypeVarsFromSubtypes)
+        .visit(newType, origType);
   }
 
   /**
@@ -55,14 +100,19 @@ public class TypeSubstitutionUtils {
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
     private final Config config;
+    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes;
 
-    RestoreNullnessAnnotationsVisitor(Config config) {
+    RestoreNullnessAnnotationsVisitor(
+        Config config,
+        Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
       this.config = config;
+      this.annotsOnTypeVarsFromSubtypes = annotsOnTypeVarsFromSubtypes;
     }
 
     @Override
     public Type visitMethodType(Type.MethodType t, Type other) {
-      Type.MethodType otherMethodType = (Type.MethodType) other;
+      // other can be a ForAll whose qtype is a MethodType; asMethodType() safely unwraps it.
+      Type.MethodType otherMethodType = other.asMethodType();
       List<Type> argtypes = t.argtypes;
       Type restype = t.restype;
       List<Type> thrown = t.thrown;
@@ -134,13 +184,14 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type variable {@code other}.
+     * on a type variable {@code other} (either direct or from subtypes).
      *
      * @param t the type to update
      * @param other the type variable to update from
      * @return the updated type, or {@code null} if no updates were made
      */
     private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
+      // first check for annotations directly on the type variable
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
           continue;
@@ -148,16 +199,22 @@ public class TypeSubstitutionUtils {
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
         if (Nullness.isNullableAnnotation(qualifiedName, config)
             || Nullness.isNonNullAnnotation(qualifiedName, config)) {
-          // Construct and return an updated version of t with annotation annot.
-          List<Attribute.TypeCompound> annotationCompound =
-              List.from(
-                  Collections.singletonList(
-                      new Attribute.TypeCompound(annot.type, List.nil(), null)));
-          TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
-          return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
+          return typeWithAnnot(t, annot);
         }
       }
+      // then see if any annotations were added from subtypes
+      Attribute.TypeCompound typeArgAnnot =
+          (Attribute.TypeCompound) annotsOnTypeVarsFromSubtypes.get(other.tsym);
+      if (typeArgAnnot != null) {
+        return typeWithAnnot(t, typeArgAnnot);
+      }
       return null;
+    }
+
+    private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
+      // Construct and return an updated version of t with annotation annot.
+      Type annotType = annot.type;
+      return TypeSubstitutionUtils.typeWithAnnot(t, annotType);
     }
 
     @Override
@@ -205,6 +262,14 @@ public class TypeSubstitutionUtils {
     }
   }
 
+  public static Type typeWithAnnot(Type t, Type annotType) {
+    List<Attribute.TypeCompound> annotationCompound =
+        List.from(
+            Collections.singletonList(new Attribute.TypeCompound(annotType, List.nil(), null)));
+    TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
+    return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
+  }
+
   /**
    * Substitutes the types in {@code to} for the types in {@code from} in {@code t}.
    *
@@ -217,6 +282,6 @@ public class TypeSubstitutionUtils {
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
     Type substResult = types.subst(t, from, to);
-    return restoreExplicitNullabilityAnnotations(t, substResult, config);
+    return restoreExplicitNullabilityAnnotations(t, substResult, config, Collections.emptyMap());
   }
 }

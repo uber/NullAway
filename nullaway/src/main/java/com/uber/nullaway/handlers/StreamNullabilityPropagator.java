@@ -22,6 +22,8 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -377,7 +379,7 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
       } else if (collectCallToRecordsAndInnerMethodsOrLambdas.containsKey(outerCallInChain)) {
         // Update mapOrCollectRecordToFilterMap for all relevant methods / lambdas
         for (CollectRecordAndInnerMethod collectRecordAndInnerMethod :
-            collectCallToRecordsAndInnerMethodsOrLambdas.get(outerCallInChain)) {
+            collectCallToRecordsAndInnerMethodsOrLambdas.get(castToNonNull(outerCallInChain))) {
           MapOrCollectMethodToFilterInstanceRecord record =
               new MapOrCollectMethodToFilterInstanceRecord(
                   collectRecordAndInnerMethod.getCollectLikeMethodRecord(), filterMethodOrLambda);

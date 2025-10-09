@@ -46,14 +46,12 @@ public class Handlers {
     ImmutableList.Builder<Handler> handlerListBuilder = ImmutableList.builder();
     MethodNameUtil methodNameUtil = new MethodNameUtil();
 
-    // Acknowledge restrictive annotations if in JSpecify mode or if the user has explicitly
-    // requested it
-    boolean acknowledgeRestrictive =
-        config.acknowledgeRestrictiveAnnotations() || config.isJSpecifyMode();
-    if (acknowledgeRestrictive) {
+    RestrictiveAnnotationHandler restrictiveAnnotationHandler = null;
+    if (config.acknowledgeRestrictiveAnnotations()) {
       // This runs before LibraryModelsHandler, so that library models can override third-party
       // bytecode annotations
-      handlerListBuilder.add(new RestrictiveAnnotationHandler(config));
+      restrictiveAnnotationHandler = new RestrictiveAnnotationHandler(config);
+      handlerListBuilder.add(restrictiveAnnotationHandler);
     }
     if (config.handleTestAssertionLibraries()) {
       handlerListBuilder.add(new AssertionHandler(methodNameUtil));
@@ -80,13 +78,18 @@ public class Handlers {
     if (config.checkOptionalEmptiness()) {
       handlerListBuilder.add(new OptionalEmptinessHandler(config, methodNameUtil));
     }
-    if (config.checkContracts()) {
-      handlerListBuilder.add(new ContractCheckHandler(config));
-    }
+    handlerListBuilder.add(new ContractCheckHandler(config));
     handlerListBuilder.add(new LombokHandler(config));
     handlerListBuilder.add(new FluentFutureHandler(config));
+    CompositeHandler mainHandler = new CompositeHandler(handlerListBuilder.build());
 
-    return new CompositeHandler(handlerListBuilder.build());
+    // Initialize the handlers that need to be aware of the main handler
+    if (restrictiveAnnotationHandler != null) {
+      restrictiveAnnotationHandler.initMainHandler(mainHandler);
+    }
+    libraryModelsHandler.initMainHandler(mainHandler);
+
+    return mainHandler;
   }
 
   /**

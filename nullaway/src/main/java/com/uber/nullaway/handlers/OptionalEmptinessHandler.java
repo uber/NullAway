@@ -27,7 +27,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.Tree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -89,7 +89,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
     if (exprMayBeNull) {
       return true;
     }
-    if (expr.getKind() == Tree.Kind.METHOD_INVOCATION
+    if (expr instanceof MethodInvocationTree
         && exprSymbol instanceof Symbol.MethodSymbol
         && optionalIsGetCall((Symbol.MethodSymbol) exprSymbol, state.getTypes())) {
       return true;
@@ -308,8 +308,7 @@ public class OptionalEmptinessHandler extends BaseNoOpHandler {
    * directly.
    */
   private static final class OptionalContentVariableElement implements VariableElement {
-    public static final Context.Key<OptionalContentVariableElement> contextKey =
-        new Context.Key<>();
+    static final Context.Key<OptionalContentVariableElement> contextKey = new Context.Key<>();
 
     private static final ImmutableSet<Modifier> MODIFIERS =
         ImmutableSet.of(Modifier.PUBLIC, Modifier.FINAL);

@@ -1,4 +1,4 @@
-// An init script to override Caffeine's build configuration to use a snapshot version of NullAway
+// An init script to override a build configuration to use a snapshot version of NullAway
 allprojects {
   repositories {
     mavenCentral()
@@ -17,6 +17,7 @@ gradle.projectsLoaded {
           }
         }
         cacheChangingModulesFor(0, "seconds")
+        cacheDynamicVersionsFor(0, "seconds")
       }
     }
   }

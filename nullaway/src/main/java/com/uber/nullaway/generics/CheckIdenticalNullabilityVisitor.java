@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
@@ -15,10 +16,13 @@ import javax.lang.model.type.TypeKind;
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
+  private final GenericsChecks genericsChecks;
   private final Config config;
 
-  CheckIdenticalNullabilityVisitor(VisitorState state, Config config) {
+  CheckIdenticalNullabilityVisitor(
+      VisitorState state, GenericsChecks genericsChecks, Config config) {
     this.state = state;
+    this.genericsChecks = genericsChecks;
     this.config = config;
   }
 
@@ -37,7 +41,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Types types = state.getTypes();
     // The base type of rhsType may be a subtype of lhsType's base type.  In such cases, we must
     // compare lhsType against the supertype of rhsType with a matching base type.
-    Type rhsTypeAsSuper = types.asSuper(rhsType, lhsType.tsym);
+    Type rhsTypeAsSuper =
+        TypeSubstitutionUtils.asSuper(types, rhsType, (Symbol.ClassSymbol) lhsType.tsym, config);
     if (rhsTypeAsSuper == null) {
       // Surprisingly, this can in fact occur, in cases involving raw types.  See, e.g.,
       // GenericsTests#issue1082 and https://github.com/uber/NullAway/pull/1086. Bail out.
@@ -63,8 +68,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         // TODO Handle wildcard types
         continue;
       }
-      boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsTypeArgument, config);
-      boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsTypeArgument, config);
+      boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
+      boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
         return false;
       }
@@ -76,6 +81,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     // If there is an enclosing type (for non-static inner classes), its type argument nullability
     // should also match.  When there is no enclosing type, getEnclosingType() returns a NoType
     // object, which gets handled by the fallback visitType() method
+    // NOTE: I don't think we need to use rhsTypeAsSuper here, since the enclosing type of rhsType
+    // should be converted properly via another call to asSuper when we recurse.
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
   }
 
@@ -94,8 +101,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
     Type lhsComponentType = lhsType.getComponentType();
     Type rhsComponentType = arrRhsType.getComponentType();
-    boolean isLHSNullableAnnotated = GenericsChecks.isNullableAnnotated(lhsComponentType, config);
-    boolean isRHSNullableAnnotated = GenericsChecks.isNullableAnnotated(rhsComponentType, config);
+    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
+    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
       return false;
     }
