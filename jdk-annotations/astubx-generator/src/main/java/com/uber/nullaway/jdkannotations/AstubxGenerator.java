@@ -30,7 +30,7 @@ import java.util.Set;
  */
 public class AstubxGenerator {
 
-  public record AstubxData(
+  private record AstubxData(
       ImmutableMap<String, String> importedAnnotations,
       Map<String, Set<String>> packageAnnotations,
       Map<String, Set<String>> typeAnnotations,
@@ -39,9 +39,8 @@ public class AstubxGenerator {
       Set<String> nullMarkedClasses) {}
 
   public static void generateAstubx(String jsonDirPath, String astubxDirPath) {
-    AstubxData astubxData = getAstubxData(jsonDirPath, astubxDirPath);
-    // write astubx file
-    writeToAstubx(
+    AstubxData astubxData = getAstubxData(jsonDirPath);
+    writeToAstubxFile(
         astubxDirPath,
         astubxData.importedAnnotations,
         astubxData.packageAnnotations,
@@ -51,7 +50,7 @@ public class AstubxGenerator {
         astubxData.nullableUpperBounds);
   }
 
-  public static AstubxData getAstubxData(String jsonDirPath, String astubxDirPath) {
+  private static AstubxData getAstubxData(String jsonDirPath) {
     Map<String, List<ClassInfo>> parsed = parseJson(jsonDirPath);
 
     ImmutableMap<String, String> importedAnnotations =
@@ -109,7 +108,7 @@ public class AstubxGenerator {
     return modelData;
   }
 
-  public static void writeToAstubx(
+  private static void writeToAstubxFile(
       String astubxDirPath,
       ImmutableMap<String, String> importedAnnotations,
       Map<String, Set<String>> packageAnnotations,
