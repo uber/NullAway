@@ -29,4 +29,3 @@ dependencies {
 tasks.named("testJdk17").configure {
     onlyIf { false }
 }
-
