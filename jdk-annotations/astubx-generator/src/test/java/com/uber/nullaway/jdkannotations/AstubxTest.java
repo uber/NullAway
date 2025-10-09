@@ -350,7 +350,7 @@ public class AstubxTest {
     String astubxOutputDirPath = Paths.get(astubxFolder.getRoot().getAbsolutePath()).toString();
     // get astubx data
     AstubxGenerator.AstubxData astubxData =
-        AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath(), astubxOutputDirPath);
+        AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath());
     System.err.println("astubxData: " + astubxData.toString());
 
     assertThat(astubxData.methodRecords(), equalTo(expectedMethodRecords));
@@ -358,7 +358,7 @@ public class AstubxTest {
     assertThat(astubxData.nullMarkedClasses(), equalTo(expectedNullMarkedClasses));
 
     // write astubx file
-    AstubxGenerator.writeToAstubx(
+    AstubxGenerator.writeToAstubxFile(
         astubxOutputDirPath,
         astubxData.importedAnnotations(),
         astubxData.packageAnnotations(),
