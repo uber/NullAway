@@ -18,9 +18,7 @@ tasks.withType(JavaCompile).configureEach {
 
 // Don't test on JDK 17; we require JDK 21
 tasks.named("testJdk17").configure {
-    doFirst {
-        throw new GradleException("jdk-integration-test requires JDK 21; please rerun with the correct toolchain.")
-    }
+    onlyIf { false }
 }
 
 tasks.withType(Test).configureEach { test ->
