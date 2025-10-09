@@ -59,9 +59,7 @@ public class AstubxGenerator {
     Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>();
 
     for (Map.Entry<String, List<ClassInfo>> entry : parsed.entrySet()) {
-      // for each class
       for (ClassInfo clazz : entry.getValue()) {
-        // get fully qualified class name
         String fullyQualifiedClassName = clazz.type();
         if (fullyQualifiedClassName.indexOf('<') != -1) {
           fullyQualifiedClassName =
@@ -72,33 +70,29 @@ public class AstubxGenerator {
         }
 
         // check upperbounds of type parameters
-        Set<Integer> upperBoundIndex = new LinkedHashSet<>();
+        Set<Integer> nullableUpperBoundIndices = new LinkedHashSet<>();
         for (int idx = 0; idx < clazz.typeParams().size(); idx++) {
           TypeParamInfo typeParam = clazz.typeParams().get(idx);
           for (String bound : typeParam.bounds()) {
             if (bound.contains("@org.jspecify.annotations.Nullable")
                 || bound.contains("@Nullable")) {
-              upperBoundIndex.add(idx);
+              nullableUpperBoundIndices.add(idx);
             }
           }
         }
-        if (!upperBoundIndex.isEmpty()) {
-          nullableUpperBounds.put(fullyQualifiedClassName, upperBoundIndex);
+        if (!nullableUpperBoundIndices.isEmpty()) {
+          nullableUpperBounds.put(fullyQualifiedClassName, nullableUpperBoundIndices);
         }
-        // get methodRecords
         getMethodRecords(clazz, fullyQualifiedClassName, methodRecords);
       }
     }
-    // return result as modelData for testing
-    AstubxData modelData =
-        new AstubxData(
-            importedAnnotations,
-            packageAnnotations,
-            typeAnnotations,
-            methodRecords,
-            nullableUpperBounds,
-            nullMarkedClasses);
-    return modelData;
+    return new AstubxData(
+        importedAnnotations,
+        packageAnnotations,
+        typeAnnotations,
+        methodRecords,
+        nullableUpperBounds,
+        nullMarkedClasses);
   }
 
   public static void writeToAstubxFile(String astubxDirPath, AstubxData astubxData) {
