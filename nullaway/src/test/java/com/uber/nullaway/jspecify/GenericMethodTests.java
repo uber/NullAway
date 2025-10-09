@@ -804,7 +804,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void testLocalsRefined() {
-    makeHelper()
+    makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.NullMarked;",
@@ -824,6 +824,12 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        String s = \"hello\";",
             "        String t = id(s);",
             "        t.hashCode();",
+            "    }",
+            "    String field = \"hello\";",
+            "    void testField() {",
+            "        String s = null;",
+            "        // BUG: Diagnostic contains: Failed to infer type argument nullability",
+            "        field = id(s);",
             "    }",
             "    void testLoop() {",
             "        String s = \"hello\";",

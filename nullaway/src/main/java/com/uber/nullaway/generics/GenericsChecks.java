@@ -45,8 +45,10 @@ import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.handlers.Handler;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -90,6 +92,13 @@ public final class GenericsChecks {
     }
   }
 
+  /** Indicates that inference for a call is currently running to prevent re-entrance. */
+  private static final class InferenceInProgress implements MethodInferenceResult {
+    private InferenceInProgress() {}
+  }
+
+  private static final InferenceInProgress INFERENCE_IN_PROGRESS = new InferenceInProgress();
+
   /**
    * Maps a Tree representing a call to a generic method or constructor to the result of inferring
    * its type argument nullability. The call must not have any explicit type arguments. If a tree is
@@ -101,6 +110,7 @@ public final class GenericsChecks {
   private final NullAway analysis;
   private final Config config;
   private final Handler handler;
+  private final Deque<Boolean> dataflowQueryFlags = new ArrayDeque<>();
 
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
     this.analysis = analysis;
@@ -604,6 +614,8 @@ public final class GenericsChecks {
     // require inference
     Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
     allInvocations.add(invocationTree);
+    dataflowQueryFlags.push(Boolean.FALSE);
+    markInferenceInProgress(invocationTree);
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
     try {
       generateConstraintsForCall(
@@ -638,6 +650,15 @@ public final class GenericsChecks {
         inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
       }
       return failureResult;
+    } finally {
+      boolean queriedDuringRun =
+          !dataflowQueryFlags.isEmpty() && Boolean.TRUE.equals(dataflowQueryFlags.pop());
+      if (inferredTypeVarNullabilityForGenericCalls.get(invocationTree) == INFERENCE_IN_PROGRESS) {
+        inferredTypeVarNullabilityForGenericCalls.remove(invocationTree);
+      }
+      if (queriedDuringRun) {
+        analysis.getNullnessAnalysis(state).invalidateCaches();
+      }
     }
   }
 
@@ -713,6 +734,7 @@ public final class GenericsChecks {
       MethodInvocationTree invTree = (MethodInvocationTree) argument;
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
+      markInferenceInProgress(invTree);
       generateConstraintsForCall(
           state, formalParamType, false, solver, symbol, invTree, allInvocations);
     } else {
@@ -721,8 +743,45 @@ public final class GenericsChecks {
         // bail out of any checking involving raw types for now
         return;
       }
+      argumentType = refineArgumentTypeWithDataflow(argumentType, argument, state);
       solver.addSubtypeConstraint(argumentType, formalParamType, false);
     }
+  }
+
+  private void markInferenceInProgress(MethodInvocationTree invocationTree) {
+    inferredTypeVarNullabilityForGenericCalls.putIfAbsent(invocationTree, INFERENCE_IN_PROGRESS);
+  }
+
+  private Type refineArgumentTypeWithDataflow(
+      Type argumentType, ExpressionTree argument, VisitorState state) {
+    if (!config.isJSpecifyMode() || argumentType.isPrimitive()) {
+      return argumentType;
+    }
+    Symbol argumentSymbol = ASTHelpers.getSymbol(argument);
+    if (argumentSymbol == null || argumentSymbol.getKind() != ElementKind.LOCAL_VARIABLE) {
+      return argumentType;
+    }
+    TreePath currentPath = state.getPath();
+    if (currentPath == null) {
+      return argumentType;
+    }
+    TreePath argumentPath = new TreePath(currentPath, argument);
+    if (NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath) == null) {
+      return argumentType;
+    }
+    if (!dataflowQueryFlags.isEmpty() && !dataflowQueryFlags.peek()) {
+      dataflowQueryFlags.pop();
+      dataflowQueryFlags.push(Boolean.TRUE);
+    }
+    Nullness refinedNullness =
+        analysis.getNullnessAnalysis(state).getNullness(argumentPath, state.context);
+    if (refinedNullness == null || !NullabilityUtil.nullnessToBool(refinedNullness)) {
+      return argumentType;
+    }
+    if (isNullableAnnotated(argumentType)) {
+      return argumentType;
+    }
+    return TypeSubstitutionUtils.typeWithAnnot(argumentType, getSyntheticNullAnnotType(state));
   }
 
   private static boolean isGenericCallNeedingInference(ExpressionTree argument) {
