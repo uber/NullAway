@@ -15,7 +15,7 @@ dependencies {
     api deps.build.jspecify
 
     // Add the jdk-javac-plugin as annotation processor
-    annotationProcessor files("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar")
+    annotationProcessor project(":jdk-javac-plugin")
 }
 
 def jsonOutputDir = file("${buildDir}/generated/json")
