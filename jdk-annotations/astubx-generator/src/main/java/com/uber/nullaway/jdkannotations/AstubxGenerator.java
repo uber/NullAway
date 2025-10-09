@@ -40,14 +40,7 @@ public class AstubxGenerator {
 
   public static void generateAstubx(String jsonDirPath, String astubxDirPath) {
     AstubxData astubxData = getAstubxData(jsonDirPath);
-    writeToAstubxFile(
-        astubxDirPath,
-        astubxData.importedAnnotations,
-        astubxData.packageAnnotations,
-        astubxData.typeAnnotations,
-        astubxData.methodRecords,
-        astubxData.nullMarkedClasses,
-        astubxData.nullableUpperBounds);
+    writeToAstubxFile(astubxDirPath, astubxData);
   }
 
   public static AstubxData getAstubxData(String jsonDirPath) {
@@ -108,14 +101,7 @@ public class AstubxGenerator {
     return modelData;
   }
 
-  public static void writeToAstubxFile(
-      String astubxDirPath,
-      ImmutableMap<String, String> importedAnnotations,
-      Map<String, Set<String>> packageAnnotations,
-      Map<String, Set<String>> typeAnnotations,
-      Map<String, MethodAnnotationsRecord> methodRecords,
-      Set<String> nullMarkedClasses,
-      Map<String, Set<Integer>> nullableUpperBounds) {
+  public static void writeToAstubxFile(String astubxDirPath, AstubxData astubxData) {
     // check if the astubx file directory exists
     try {
       Files.createDirectories(Paths.get(astubxDirPath));
@@ -127,12 +113,12 @@ public class AstubxGenerator {
     try (DataOutputStream out = new DataOutputStream(new FileOutputStream(outputFile))) {
       StubxWriter.write(
           out,
-          importedAnnotations,
-          packageAnnotations,
-          typeAnnotations,
-          methodRecords,
-          nullMarkedClasses,
-          nullableUpperBounds);
+          astubxData.importedAnnotations(),
+          astubxData.packageAnnotations(),
+          astubxData.typeAnnotations(),
+          astubxData.methodRecords(),
+          astubxData.nullMarkedClasses(),
+          astubxData.nullableUpperBounds());
     } catch (IOException e) {
       System.err.println("Error writing JSON file: " + outputFile.getAbsolutePath());
       throw new RuntimeException(e);

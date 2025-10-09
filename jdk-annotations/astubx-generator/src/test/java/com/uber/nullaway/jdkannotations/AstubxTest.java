@@ -358,14 +358,7 @@ public class AstubxTest {
     assertThat(astubxData.nullMarkedClasses(), equalTo(expectedNullMarkedClasses));
 
     // write astubx file
-    AstubxGenerator.writeToAstubxFile(
-        astubxOutputDirPath,
-        astubxData.importedAnnotations(),
-        astubxData.packageAnnotations(),
-        astubxData.typeAnnotations(),
-        astubxData.methodRecords(),
-        astubxData.nullMarkedClasses(),
-        astubxData.nullableUpperBounds());
+    AstubxGenerator.writeToAstubxFile(astubxOutputDirPath, astubxData);
     Assert.assertTrue(
         "astubx file was not created",
         Files.exists(Paths.get(Paths.get(astubxOutputDirPath, "output.astubx").toString()))
