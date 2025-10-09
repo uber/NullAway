@@ -13,7 +13,9 @@ dependencies {
 def astubxFile = project(':jdk-annotations:test-annotated').tasks.named('generateAstubx').get().outputs.files.singleFile
 
 jar {
+    // build JAR after task :jdk-annotations:test-annotated:generateAstubx is finished
     dependsOn(project(':jdk-annotations:test-annotated').tasks.named('generateAstubx'))
+    // take the copy of the task's output files and place it inside the new JAR at com/uber/nullaway/jdkannotations/provider
     from(astubxFile) {
         into "com/uber/nullaway/jdkannotations/provider"
     }
