@@ -13,7 +13,6 @@ dependencies {
     annotationProcessor deps.apt.autoService
     compileOnly project(":nullaway")
     api deps.build.jspecify
-    implementation project(":jdk-annotations:astubx-generator-cli")
 
     // Add the jdk-javac-plugin as annotation processor
     annotationProcessor files("${rootProject.projectDir}/jdk-javac-plugin/build/libs/jdk-javac-plugin-all.jar")
