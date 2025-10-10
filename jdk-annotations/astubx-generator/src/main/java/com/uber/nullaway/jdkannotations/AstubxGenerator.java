@@ -16,6 +16,7 @@ import java.io.IOException;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -148,7 +149,13 @@ public class AstubxGenerator {
     for (File jsonFile : jsonFiles) {
       try {
         String jsonContent = Files.readString(jsonFile.toPath());
-        parsed.putAll(gson.fromJson(jsonContent, parsedType));
+        Map<String, List<ClassInfo>> parsedShard = gson.fromJson(jsonContent, parsedType);
+        for (Map.Entry<String, List<ClassInfo>> shardEntry : parsedShard.entrySet()) {
+          parsed
+              // if the key didn't exist, create a new list
+              .computeIfAbsent(shardEntry.getKey(), __ -> new ArrayList<>())
+              .addAll(shardEntry.getValue()); // add values to the key
+        }
       } catch (IOException e) {
         System.err.println("Error reading JSON file: " + jsonFile.getAbsolutePath());
         throw new RuntimeException(e);
@@ -169,9 +176,10 @@ public class AstubxGenerator {
       ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
       // check if return type has Nullable annotation
       if (returnType.contains("@org.jspecify.annotations.Nullable")
-          || returnType.contains("Nullable")) {
+          || returnType.matches(".*@Nullable\\b.*")) {
         returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
-        returnType = returnType.replace(" ", ""); // remove whitespace in Array types
+        returnType = returnType.replaceAll("@Nullable\\s*", "");
+        returnType = returnType.replace(" []", "[]"); // remove whitespace in Array types
         returnTypeNullness = ImmutableSet.of("Nullable");
       }
       String signatureForMethodRecords = fullyQualifiedClassName + ":" + returnType + " ";
@@ -199,7 +207,8 @@ public class AstubxGenerator {
           arg = "";
           for (String argument : args) {
             if (argument.contains("@")) {
-              if (argument.contains("Nullable")) {
+              if (argument.contains("@org.jspecify.annotations.Nullable")
+                  || argument.matches(".*@Nullable\\b.*")) {
                 argAnnotation.put(i, ImmutableSet.of("Nullable"));
               }
               arg += argument.substring(0, argument.indexOf('@'));
