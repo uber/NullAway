@@ -565,7 +565,8 @@ public final class GenericsChecks {
     MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
     if (result == null) { // have not yet attempted inference for this call
       result =
-          runInferenceForCall(state, invocationTree, typeFromAssignmentContext, assignedToLocal);
+          runInferenceForCall(
+              state, null, invocationTree, typeFromAssignmentContext, assignedToLocal);
     }
     if (result instanceof InferenceSuccess) {
       typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
@@ -603,6 +604,7 @@ public final class GenericsChecks {
    */
   private MethodInferenceResult runInferenceForCall(
       VisitorState state,
+      @Nullable TreePath path,
       MethodInvocationTree invocationTree,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal) {
@@ -618,6 +620,7 @@ public final class GenericsChecks {
     try {
       generateConstraintsForCall(
           state,
+          path,
           typeFromAssignmentContext,
           assignedToLocal,
           solver,
@@ -703,6 +706,7 @@ public final class GenericsChecks {
    */
   private void generateConstraintsForCall(
       VisitorState state,
+      @Nullable TreePath path,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       ConstraintSolver solver,
@@ -721,11 +725,18 @@ public final class GenericsChecks {
         .forEach(
             (argument, argPos, formalParamType, unused) ->
                 generateConstraintsForParam(
-                    state, solver, allInvocations, argument, formalParamType, dataflowQueried));
+                    state,
+                    path,
+                    solver,
+                    allInvocations,
+                    argument,
+                    formalParamType,
+                    dataflowQueried));
   }
 
   private void generateConstraintsForParam(
       VisitorState state,
+      @Nullable TreePath path,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree argument,
@@ -739,14 +750,23 @@ public final class GenericsChecks {
       allInvocations.add(invTree);
       markInferenceInProgress(invTree);
       generateConstraintsForCall(
-          state, formalParamType, false, solver, symbol, invTree, allInvocations, dataflowQueried);
+          state,
+          path,
+          formalParamType,
+          false,
+          solver,
+          symbol,
+          invTree,
+          allInvocations,
+          dataflowQueried);
     } else {
       Type argumentType = getTreeType(argument, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
         return;
       }
-      argumentType = refineArgumentTypeWithDataflow(argumentType, argument, state, dataflowQueried);
+      argumentType =
+          refineArgumentTypeWithDataflow(argumentType, argument, state, path, dataflowQueried);
       solver.addSubtypeConstraint(argumentType, formalParamType, false);
     }
   }
@@ -759,6 +779,7 @@ public final class GenericsChecks {
       Type argumentType,
       ExpressionTree argument,
       VisitorState state,
+      @Nullable TreePath path,
       AtomicBoolean dataflowQueried) {
     if (!config.isJSpecifyMode() || argumentType.isPrimitive()) {
       return argumentType;
@@ -767,7 +788,7 @@ public final class GenericsChecks {
     if (argumentSymbol == null || argumentSymbol.getKind() != ElementKind.LOCAL_VARIABLE) {
       return argumentType;
     }
-    TreePath currentPath = state.getPath();
+    TreePath currentPath = path != null ? path : state.getPath();
     if (currentPath == null) {
       return argumentType;
     }
@@ -1259,6 +1280,7 @@ public final class GenericsChecks {
         result =
             runInferenceForCall(
                 state,
+                path,
                 invocationAndType.invocation,
                 invocationAndType.typeFromAssignmentContext,
                 invocationAndType.assignedToLocal);

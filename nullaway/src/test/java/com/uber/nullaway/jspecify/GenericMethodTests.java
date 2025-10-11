@@ -854,6 +854,31 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void testLoopFalseNegative() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    void testLoopFalseNegative() {",
+            "        String t = \"hello\";",
+            "        while (true) {",
+            "            // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "            t.hashCode();",
+            "            String s = null;",
+            "            t = id(s);",
+            "        }",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void varargsInference() {
     makeHelper()
         .addSourceLines(
