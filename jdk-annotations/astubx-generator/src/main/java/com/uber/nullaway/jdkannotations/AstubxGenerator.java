@@ -23,6 +23,8 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 
 /**
  * This class utilizes jdk-javac-plugin module to generate JSON files from Java source files. Using
@@ -196,8 +198,7 @@ public class AstubxGenerator {
       String returnType = method.returnType();
       ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
       // check if return type has Nullable annotation
-      if (returnType.contains("@org.jspecify.annotations.Nullable")
-          || returnType.matches(".*@Nullable\\b.*")) {
+      if (returnType.contains("@org.jspecify.annotations.Nullable")) {
         returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
         returnType = returnType.replaceAll("@Nullable\\s*", "");
         returnType = returnType.replace(" []", "[]"); // remove whitespace in Array types
@@ -208,42 +209,46 @@ public class AstubxGenerator {
       Map<Integer, ImmutableSet<String>> argAnnotation = new LinkedHashMap<>();
 
       // get the arguments
-      String argsOnly = methodName.replaceAll(".*\\((.*)\\)", "$1").trim();
+      String argsOnly = "";
+      Pattern pattern = Pattern.compile(".*\\((.*)\\)");
+      Matcher matcher = pattern.matcher(methodName);
+      if (matcher.matches()) {
+        argsOnly = matcher.group(1).trim();
+      }
       // Split using comma but leave the commas that are inside any angle brackets(to leave
       // generics) or is a comma that divides annotations. After finding a comma, it checks two
       // conditions; 1) if the comma is followed by a '@' character, it skips the comma 2) it looks
       // at the rest of the string and if any angle brackets are not paired, skips the comma
-      String[] arguments =
+      String[] argumentList =
           argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?!@)(?=(?:[^<]*<[^>]*>)*[^>]*$)");
 
-      for (int i = 0; i < arguments.length; i++) {
-        String arg = arguments[i].trim();
+      for (int i = 0; i < argumentList.length; i++) {
+        String typeSignature = argumentList[i].trim();
         // remove generics on arguments
-        if (arg.indexOf('<') != -1) {
-          arg = arg.substring(0, arg.indexOf('<'));
+        if (typeSignature.indexOf('<') != -1) {
+          typeSignature = typeSignature.substring(0, typeSignature.indexOf('<'));
         }
         // remove annotations
-        if (arg.contains("@")) {
-          String[] args = arg.split(" ");
-          arg = "";
-          for (String argument : args) {
-            if (argument.contains("@")) {
-              if (argument.contains("@org.jspecify.annotations.Nullable")
-                  || argument.matches(".*@Nullable\\b.*")) {
+        if (typeSignature.contains("@")) {
+          String[] signatureTokens = typeSignature.split(" ");
+          typeSignature = "";
+          for (String token : signatureTokens) {
+            if (token.contains("@")) {
+              if (token.contains("@org.jspecify.annotations.Nullable")) {
                 argAnnotation.put(i, ImmutableSet.of("Nullable"));
               }
-              arg += argument.substring(0, argument.indexOf('@'));
+              typeSignature += token.substring(0, token.indexOf('@'));
             } else {
-              arg += argument;
+              typeSignature += token;
             }
           }
         } else {
           // remove any spaces in Array types
-          arg = arg.replace(" ", "");
+          typeSignature = typeSignature.replace(" ", "");
         }
-        signatureForMethodRecords += arg + ", ";
+        signatureForMethodRecords += typeSignature + ", ";
       }
-      if (arguments.length == 0) {
+      if (argumentList.length == 0) {
         signatureForMethodRecords += ")";
       } else {
         signatureForMethodRecords =
