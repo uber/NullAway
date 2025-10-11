@@ -38,12 +38,16 @@ public class NullnessAnnotationSerializer implements Plugin {
   private static final String NULLUNMARKED_NAME = "org.jspecify.annotations.NullUnmarked";
 
   // Data classes for JSON output
-  record TypeParamInfo(String name, List<String> bounds) {}
+  public record TypeParamInfo(String name, List<String> bounds) {}
 
-  record MethodInfo(
-      String name, boolean nullMarked, boolean nullUnmarked, List<TypeParamInfo> typeParams) {}
+  public record MethodInfo(
+      String returnType,
+      String name,
+      boolean nullMarked,
+      boolean nullUnmarked,
+      List<TypeParamInfo> typeParams) {}
 
-  record ClassInfo(
+  public record ClassInfo(
       String name,
       String type,
       boolean nullMarked,
@@ -128,6 +132,10 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return super.visitMethod(methodTree, null);
                   }
+                  String returnType = "";
+                  if (methodTree.getReturnType() != null) {
+                    returnType += mSym.getReturnType().toString();
+                  }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
@@ -136,7 +144,11 @@ public class NullnessAnnotationSerializer implements Plugin {
                   }
                   MethodInfo methodInfo =
                       new MethodInfo(
-                          mSym.toString(), hasNullMarked, hasNullUnmarked, methodTypeParams);
+                          returnType,
+                          mSym.toString(),
+                          hasNullMarked,
+                          hasNullUnmarked,
+                          methodTypeParams);
                   if (currentClass != null) {
                     currentClass.methods().add(methodInfo);
                   }

@@ -1,0 +1,31 @@
+plugins {
+    id "java-library"
+    id "nullaway.java-test-conventions"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// Allow Java 21 features for this module
+tasks.withType(JavaCompile).configureEach {
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
+}
+
+dependencies {
+    testImplementation project(":nullaway")
+    testImplementation project(":jdk-annotations:test-unannotated")
+    testImplementation deps.test.junit4
+    testImplementation deps.build.jspecify
+    testImplementation(deps.build.errorProneTestHelpers) {
+        exclude group: "junit", module: "junit"
+    }
+}
+
+// Don't test on JDK 17; we require JDK 21
+tasks.named("testJdk17").configure {
+    onlyIf { false }
+}
