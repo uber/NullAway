@@ -246,14 +246,9 @@ public class AstubxGenerator {
           // remove any spaces in Array types
           typeSignature = typeSignature.replace(" ", "");
         }
-        signatureForMethodRecords += typeSignature + ", ";
+        argumentList[i] = typeSignature;
       }
-      if (argumentList.length == 0) {
-        signatureForMethodRecords += ")";
-      } else {
-        signatureForMethodRecords =
-            signatureForMethodRecords.substring(0, signatureForMethodRecords.length() - 2) + ")";
-      }
+      signatureForMethodRecords += String.join(", ", argumentList) + ")";
       methodRecords.put(
           signatureForMethodRecords,
           MethodAnnotationsRecord.create(returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
