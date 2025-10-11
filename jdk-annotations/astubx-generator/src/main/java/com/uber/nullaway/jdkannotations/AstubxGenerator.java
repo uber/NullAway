@@ -208,19 +208,8 @@ public class AstubxGenerator {
       signatureForMethodRecords += methodName.substring(0, methodName.indexOf('(') + 1);
       Map<Integer, ImmutableSet<String>> argAnnotation = new LinkedHashMap<>();
 
-      // get the arguments
-      String argsOnly = "";
-      Pattern pattern = Pattern.compile(".*\\((.*)\\)");
-      Matcher matcher = pattern.matcher(methodName);
-      if (matcher.matches()) {
-        argsOnly = matcher.group(1).trim();
-      }
-      // Split using comma but leave the commas that are inside any angle brackets(to leave
-      // generics) or is a comma that divides annotations. After finding a comma, it checks two
-      // conditions; 1) if the comma is followed by a '@' character, it skips the comma 2) it looks
-      // at the rest of the string and if any angle brackets are not paired, skips the comma
-      String[] argumentList =
-          argsOnly.isEmpty() ? new String[0] : argsOnly.split(",(?!@)(?=(?:[^<]*<[^>]*>)*[^>]*$)");
+      // get the argument lists
+      String[] argumentList = getArgumentsAsArray(methodName);
 
       for (int i = 0; i < argumentList.length; i++) {
         String typeSignature = argumentList[i].trim();
@@ -253,5 +242,56 @@ public class AstubxGenerator {
           signatureForMethodRecords,
           MethodAnnotationsRecord.create(returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
     }
+  }
+
+  private static String[] getArgumentsAsArray(String methodName) {
+    // get String of only arguments
+    String argsOnly = "";
+    Pattern pattern = Pattern.compile(".*\\((.*)\\)");
+    Matcher matcher = pattern.matcher(methodName);
+    if (matcher.matches()) {
+      argsOnly = matcher.group(1).trim();
+    }
+
+    if (argsOnly.isEmpty()) {
+      return new String[0];
+    }
+
+    // make a list of arguments
+    List<String> output = new ArrayList<>();
+    StringBuilder cur = new StringBuilder();
+
+    int depth = 0; // nesting level for '<' ... '>'
+    for (int i = 0; i < argsOnly.length(); i++) {
+      char c = argsOnly.charAt(i);
+      switch (c) {
+        case '<' -> {
+          depth++;
+          cur.append(c);
+        }
+        case '>' -> {
+          depth = Math.max(0, depth - 1);
+          cur.append(c);
+        }
+        case ',' -> {
+          if (depth == 0) {
+            String token = cur.toString().trim();
+            if (!token.isEmpty()) {
+              output.add(token);
+            }
+            cur.setLength(0);
+          } else {
+            cur.append(c);
+          }
+        }
+        default -> cur.append(c);
+      }
+    }
+    String tail = cur.toString().trim();
+    if (!tail.isEmpty()) {
+      output.add(tail);
+    }
+
+    return output.toArray(String[]::new);
   }
 }
