@@ -215,7 +215,19 @@ public class AstubxGenerator {
         String typeSignature = argumentList[i].trim();
         // remove generics on arguments
         if (typeSignature.indexOf('<') != -1) {
-          typeSignature = typeSignature.substring(0, typeSignature.indexOf('<'));
+          StringBuilder withoutGenerics = new StringBuilder();
+          int depth = 0;
+          for (int j = 0; j < typeSignature.length(); j++) {
+            char ch = typeSignature.charAt(j);
+            if (ch == '<') {
+              depth++;
+            } else if (ch == '>') {
+              depth = Math.max(0, depth - 1);
+            } else if (depth == 0) {
+              withoutGenerics.append(ch);
+            }
+          }
+          typeSignature = withoutGenerics.toString().trim();
         }
         // remove annotations
         if (typeSignature.contains("@")) {

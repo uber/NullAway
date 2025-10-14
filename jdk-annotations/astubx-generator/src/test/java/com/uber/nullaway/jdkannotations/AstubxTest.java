@@ -289,6 +289,33 @@ public class AstubxTest {
   }
 
   @Test
+  public void parameterizedTypeArray() {
+    compilationHelper
+        .addSourceLines(
+            "ParameterizedTypeArray.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "@NullMarked",
+            "public class ParameterizedTypeArray {",
+            " public List<String>[] getList() {",
+            "   return (List<String>[]) new List[3];",
+            " }",
+            "public void listParameter(List<String>[] list) {}",
+            "}")
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "ParameterizedTypeArray: ParameterizedTypeArray()",
+            MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()),
+            "ParameterizedTypeArray:java.util.List<java.lang.String>[] getList()",
+            MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()),
+            "ParameterizedTypeArray:void listParameter(java.util.List[])",
+            MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("ParameterizedTypeArray"));
+  }
+
+  @Test
   public void primitiveTypeReturn() {
     compilationHelper
         .addSourceLines(
