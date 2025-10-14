@@ -54,4 +54,8 @@ public class ReturnAnnotation {
       return object;
     }
   }
+
+  public static UpperBoundExample<String>[] returnNullableGenericArray() {
+    return null;
+  }
 }

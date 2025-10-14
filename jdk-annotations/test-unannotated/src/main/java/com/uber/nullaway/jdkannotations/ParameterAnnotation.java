@@ -1,7 +1,5 @@
 package com.uber.nullaway.jdkannotations;
 
-import org.jspecify.annotations.Nullable;
-
 public class ParameterAnnotation {
   public static Integer add(Integer a, Integer b) {
     return a + b;
@@ -41,7 +39,7 @@ public class ParameterAnnotation {
   }
 
   @SuppressWarnings("ArrayToString")
-  public static void takesNullGenericArray(Generic<String> @Nullable [] objects) {
+  public static void takesNullGenericArray(Generic<String>[] objects) {
     System.out.println(objects);
   }
 

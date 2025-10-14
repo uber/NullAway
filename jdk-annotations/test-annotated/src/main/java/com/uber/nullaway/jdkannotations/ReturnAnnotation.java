@@ -63,4 +63,8 @@ public class ReturnAnnotation {
       return object;
     }
   }
+
+  public static UpperBoundExample<String> @Nullable [] returnNullableGenericArray() {
+    return null;
+  }
 }
