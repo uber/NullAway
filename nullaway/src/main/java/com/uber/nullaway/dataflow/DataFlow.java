@@ -85,12 +85,10 @@ public final class DataFlow {
               new CacheLoader<AnalysisParams, Analysis<?, ?, ?>>() {
                 @Override
                 public Analysis<?, ?, ?> load(AnalysisParams key) {
-                  ControlFlowGraph cfg = key.cfg();
                   ForwardTransferFunction<?, ?> transfer = key.transferFunction();
 
                   @SuppressWarnings({"unchecked", "rawtypes"})
                   Analysis<?, ?, ?> analysis = new ForwardAnalysisImpl<>(transfer);
-                  analysis.performAnalysis(cfg);
                   return analysis;
                 }
               });
@@ -155,6 +153,7 @@ public final class DataFlow {
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
     Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
+    analysis.performAnalysis(cfg);
 
     return new Result<A, S, T>() {
       @Override

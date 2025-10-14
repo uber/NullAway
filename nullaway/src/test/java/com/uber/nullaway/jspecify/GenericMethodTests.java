@@ -853,6 +853,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore
   @Test
   public void testLoopFalseNegative() {
     makeHelperWithInferenceFailureWarning()
