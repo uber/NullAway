@@ -248,6 +248,32 @@ public class JDKIntegrationTest {
   }
 
   @Test
+  public void nullableGenericArrayTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ParameterAnnotation.takesNonNullGenericArray(null);",
+            "  }",
+            "  static void testNegative() {",
+            "    ParameterAnnotation.takesNullGenericArray(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void genericParameterTest() {
     compilationHelper
         .setArgs(

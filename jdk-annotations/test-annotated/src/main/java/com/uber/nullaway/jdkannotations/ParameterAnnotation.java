@@ -43,4 +43,14 @@ public class ParameterAnnotation {
       System.out.println(t.toString());
     }
   }
+
+  @SuppressWarnings("ArrayToString")
+  public static void takesNullGenericArray(Generic<String> @Nullable [] objects) {
+    System.out.println(objects);
+  }
+
+  @SuppressWarnings("ArrayToString")
+  public static void takesNonNullGenericArray(Generic<String>[] objects) {
+    System.out.println(objects);
+  }
 }
