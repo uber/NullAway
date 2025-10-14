@@ -388,7 +388,7 @@ public class AstubxTest {
     AstubxGenerator.writeToAstubxFile(astubxOutputDirPath, astubxData);
     Assert.assertTrue(
         "astubx file was not created",
-        Files.exists(Paths.get(Paths.get(astubxOutputDirPath, "output.astubx").toString()))
+        Files.exists(Paths.get(astubxOutputDirPath, "output.astubx"))
             || (expectedMethodRecords.isEmpty()
                 && expectedNullableUpperBounds.isEmpty()
                 && expectedNullMarkedClasses.isEmpty()));
