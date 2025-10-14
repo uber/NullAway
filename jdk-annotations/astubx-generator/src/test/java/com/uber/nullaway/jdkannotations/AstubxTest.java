@@ -374,7 +374,7 @@ public class AstubxTest {
       ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords,
       ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds,
       ImmutableSet<String> expectedNullMarkedClasses) {
-    String astubxOutputDirPath = Paths.get(astubxFolder.getRoot().getAbsolutePath()).toString();
+    String astubxOutputDirPath = astubxFolder.getRoot().getAbsolutePath();
     // get astubx data
     AstubxGenerator.AstubxData astubxData =
         AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath());
