@@ -378,7 +378,6 @@ public class AstubxTest {
     // get astubx data
     AstubxGenerator.AstubxData astubxData =
         AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath());
-    System.err.println("astubxData: " + astubxData.toString());
 
     assertThat(astubxData.methodRecords(), equalTo(expectedMethodRecords));
     assertThat(astubxData.nullableUpperBounds(), equalTo(expectedNullableUpperBounds));
