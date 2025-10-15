@@ -1,0 +1,70 @@
+plugins {
+    id "java-library"
+}
+
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+dependencies {
+    compileOnly deps.apt.autoService
+    annotationProcessor deps.apt.autoService
+    compileOnly project(":nullaway")
+    api deps.build.jspecify
+
+    // Add the jdk-javac-plugin as annotation processor
+    annotationProcessor project(":jdk-javac-plugin")
+}
+
+def jsonOutputDir = file("${buildDir}/generated/json")
+def astubxOutputDir = file("${buildDir}/generated/astubx")
+
+tasks.withType(JavaCompile).configureEach { compileTask ->
+    if(name == "compileJava") {
+        outputs.dir(jsonOutputDir)
+        dependsOn(":jdk-javac-plugin:shadowJar")
+
+        doFirst {
+            jsonOutputDir.mkdirs()
+
+            options.compilerArgs += [
+                "-Xplugin:NullnessAnnotationSerializer ${jsonOutputDir.absolutePath}"
+            ]
+        }
+    }
+}
+
+// generate .astubx files from JSON
+task generateAstubx(type: Exec) {
+    group = "build"
+    description = "Generate .astubx files from JSON using AstubxGeneratorCLI"
+
+    def cliProj = project(":jdk-annotations:astubx-generator-cli")
+    def shadowJarTask = cliProj.tasks.named('shadowJar', com.github.jengelman.gradle.plugins.shadow.tasks.ShadowJar)
+    def cliJarFile = shadowJarTask.flatMap { it.archiveFile }
+
+    dependsOn(shadowJarTask)
+    inputs.dir(jsonOutputDir)
+    inputs.file(cliJarFile)
+    outputs.dir(astubxOutputDir)
+
+    doFirst {
+        astubxOutputDir.mkdirs()
+
+        def javaToolchains = project.extensions.getByType(JavaToolchainService)
+        def javaLauncher = javaToolchains.launcherFor(java.toolchain)
+
+        commandLine javaLauncher.get().getExecutablePath().getAsFile().getAbsolutePath(),
+                "-jar",
+                cliJarFile.get().asFile.absolutePath,
+                jsonOutputDir.absolutePath,
+                astubxOutputDir.absolutePath
+    }
+}
+
+tasks.named("generateAstubx") {
+    dependsOn("compileJava")
+}
+build.dependsOn tasks.named("generateAstubx")

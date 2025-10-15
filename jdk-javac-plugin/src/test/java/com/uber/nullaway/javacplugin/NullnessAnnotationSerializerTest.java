@@ -75,7 +75,7 @@ public class NullnessAnnotationSerializerTest {
                         true,
                         false,
                         List.of(),
-                        List.of(new MethodInfo("Foo()", false, false, List.of()))))));
+                        List.of(new MethodInfo("", "Foo()", false, false, List.of()))))));
   }
 
   @Test
@@ -90,8 +90,11 @@ public class NullnessAnnotationSerializerTest {
         .addSourceLines(
             "Foo.java",
             "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
             "@NullMarked",
-            "class Foo {}")
+            "class Foo {",
+            "  public @Nullable String NullableReturn(@Nullable Integer i) { return null;}",
+            "}")
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -105,7 +108,14 @@ public class NullnessAnnotationSerializerTest {
                         true,
                         false,
                         List.of(),
-                        List.of(new MethodInfo("Foo()", false, false, List.of()))))));
+                        List.of(
+                            new MethodInfo("", "Foo()", false, false, List.of()),
+                            new MethodInfo(
+                                "java.lang.@org.jspecify.annotations.Nullable String",
+                                "NullableReturn(java.lang.@org.jspecify.annotations.Nullable Integer)",
+                                false,
+                                false,
+                                List.of()))))));
   }
 
   @Test
@@ -133,8 +143,8 @@ public class NullnessAnnotationSerializerTest {
                         false,
                         List.of(),
                         List.of(
-                            new MethodInfo("Foo()", false, false, List.of()),
-                            new MethodInfo("publicMethod()", false, false, List.of()))))));
+                            new MethodInfo("", "Foo()", false, false, List.of()),
+                            new MethodInfo("void", "publicMethod()", false, false, List.of()))))));
   }
 
   @Test
@@ -166,15 +176,15 @@ public class NullnessAnnotationSerializerTest {
                         false,
                         List.of(),
                         List.of(
-                            new MethodInfo("Foo()", false, false, List.of()),
-                            new MethodInfo("method()", false, false, List.of()))),
+                            new MethodInfo("", "Foo()", false, false, List.of()),
+                            new MethodInfo("void", "method()", false, false, List.of()))),
                     new ClassInfo(
                         "Inner",
                         "Foo.Inner",
                         false,
                         true,
                         List.of(),
-                        List.of(new MethodInfo("Inner()", false, false, List.of()))))));
+                        List.of(new MethodInfo("", "Inner()", false, false, List.of()))))));
   }
 
   @Test
@@ -201,8 +211,9 @@ public class NullnessAnnotationSerializerTest {
                         false,
                         List.of(new TypeParamInfo("T", List.of("@Nullable Object"))),
                         List.of(
-                            new MethodInfo("Foo()", false, false, List.of()),
+                            new MethodInfo("", "Foo()", false, false, List.of()),
                             new MethodInfo(
+                                "U",
                                 "<U>make(U)",
                                 false,
                                 false,

@@ -5,10 +5,18 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
-// Allow Java 17 features for this module
+// We require JDK 21, since we rely on some internal String formatting of javac types and don't support
+// the pre-JDK-21 formats
+java {
+    toolchain {
+        languageVersion = JavaLanguageVersion.of(21)
+    }
+}
+
+// Allow Java 21 features for this module
 tasks.withType(JavaCompile).configureEach {
-    sourceCompatibility = JavaVersion.VERSION_17
-    targetCompatibility = JavaVersion.VERSION_17
+    sourceCompatibility = JavaVersion.VERSION_21
+    targetCompatibility = JavaVersion.VERSION_21
 }
 
 tasks.withType(JavaCompile).configureEach {
@@ -52,4 +60,9 @@ tasks.withType(Test).configureEach { test ->
         // Expose a module path for tests as a JVM property.
         "-Dtest.module.path=${configurations.testModulePath.asPath}"
     ]
+}
+
+// Don't test on JDK 17 since we don't support the JDK 17 javac string formatting
+tasks.named("testJdk17").configure {
+    onlyIf { false }
 }
