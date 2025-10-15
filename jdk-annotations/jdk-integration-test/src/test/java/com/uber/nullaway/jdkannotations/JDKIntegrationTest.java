@@ -277,6 +277,32 @@ public class JDKIntegrationTest {
   }
 
   @Test
+  public void nullableGenericReturnTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.returnNullableGenericContainingNullable()",
+            "    ReturnAnnotation.returnNullableGenericContainingNullable().hashCode();",
+            "  }",
+            "  static void testNegative() {",
+            "    ReturnAnnotation.returnNonNullGenericContainingNullable().hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void genericParameterTest() {
     compilationHelper
         .setArgs(

@@ -58,4 +58,12 @@ public class ReturnAnnotation {
   public static UpperBoundExample<String>[] returnNullableGenericArray() {
     return null;
   }
+
+  public static UpperBoundExample<String> returnNonNullGenericContainingNullable() {
+    return new UpperBoundExample<String>();
+  }
+
+  public static UpperBoundExample<String> returnNullableGenericContainingNullable() {
+    return null;
+  }
 }
