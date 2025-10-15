@@ -54,7 +54,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -91,13 +90,6 @@ public final class GenericsChecks {
     }
   }
 
-  /** Indicates that inference for a call is currently running to prevent re-entrance. */
-  private static final class InferenceInProgress implements MethodInferenceResult {
-    private InferenceInProgress() {}
-  }
-
-  private static final InferenceInProgress INFERENCE_IN_PROGRESS = new InferenceInProgress();
-
   /**
    * Maps a Tree representing a call to a generic method or constructor to the result of inferring
    * its type argument nullability. The call must not have any explicit type arguments. If a tree is
@@ -110,15 +102,10 @@ public final class GenericsChecks {
   private final Config config;
   private final Handler handler;
 
-  private boolean isDataflowRunning = false;
+  private boolean dataflowRunning = false;
 
   public void setDataflowRunning(boolean isRunning) {
-    this.isDataflowRunning = isRunning;
-  }
-
-  @SuppressWarnings("UnusedMethod")
-  private boolean isDataflowRunning() {
-    return this.isDataflowRunning;
+    this.dataflowRunning = isRunning;
   }
 
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
@@ -625,8 +612,6 @@ public final class GenericsChecks {
     // require inference
     Set<MethodInvocationTree> allInvocations = new LinkedHashSet<>();
     allInvocations.add(invocationTree);
-    AtomicBoolean dataflowQueried = new AtomicBoolean(false);
-    markInferenceInProgress(invocationTree);
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
     try {
       generateConstraintsForCall(
@@ -637,12 +622,13 @@ public final class GenericsChecks {
           solver,
           methodSymbol,
           invocationTree,
-          allInvocations,
-          dataflowQueried);
+          allInvocations);
       typeVarNullability = solver.solve();
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
-      for (MethodInvocationTree invTree : allInvocations) {
-        inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
+      if (!dataflowRunning) {
+        for (MethodInvocationTree invTree : allInvocations) {
+          inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
+        }
       }
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
@@ -659,20 +645,12 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(invocationTree), state, null));
       }
       InferenceFailure failureResult = new InferenceFailure(e.getMessage());
-      for (MethodInvocationTree invTree : allInvocations) {
-        inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
-      }
-      return failureResult;
-    } finally {
-      for (MethodInvocationTree invTree : allInvocations) {
-        if (inferredTypeVarNullabilityForGenericCalls.get(invTree) == INFERENCE_IN_PROGRESS) {
-          inferredTypeVarNullabilityForGenericCalls.remove(invTree);
+      if (!dataflowRunning) {
+        for (MethodInvocationTree invTree : allInvocations) {
+          inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
         }
       }
-      if (dataflowQueried.get()) {
-        // TODO only invalidate the cached result for the containing method?
-        analysis.getNullnessAnalysis(state).invalidateCaches();
-      }
+      return failureResult;
     }
   }
 
@@ -712,7 +690,6 @@ public final class GenericsChecks {
    * @param allInvocations a set of all method invocations that require inference, including nested
    *     ones. This is an output parameter that gets mutated while generating the constraints to add
    *     nested invocations.
-   * @param dataflowQueried whether dataflow was queried
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private void generateConstraintsForCall(
@@ -723,8 +700,7 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
-      Set<MethodInvocationTree> allInvocations,
-      AtomicBoolean dataflowQueried)
+      Set<MethodInvocationTree> allInvocations)
       throws UnsatisfiableConstraintsException {
     // first, handle the return type flow
     if (typeFromAssignmentContext != null) {
@@ -736,13 +712,7 @@ public final class GenericsChecks {
         .forEach(
             (argument, argPos, formalParamType, unused) ->
                 generateConstraintsForParam(
-                    state,
-                    path,
-                    solver,
-                    allInvocations,
-                    argument,
-                    formalParamType,
-                    dataflowQueried));
+                    state, path, solver, allInvocations, argument, formalParamType));
   }
 
   private void generateConstraintsForParam(
@@ -751,47 +721,28 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree argument,
-      Type formalParamType,
-      AtomicBoolean dataflowQueried) {
+      Type formalParamType) {
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isGenericCallNeedingInference(argument)) {
       MethodInvocationTree invTree = (MethodInvocationTree) argument;
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
-      markInferenceInProgress(invTree);
       generateConstraintsForCall(
-          state,
-          path,
-          formalParamType,
-          false,
-          solver,
-          symbol,
-          invTree,
-          allInvocations,
-          dataflowQueried);
+          state, path, formalParamType, false, solver, symbol, invTree, allInvocations);
     } else {
       Type argumentType = getTreeType(argument, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
         return;
       }
-      argumentType =
-          refineArgumentTypeWithDataflow(argumentType, argument, state, path, dataflowQueried);
+      argumentType = refineArgumentTypeWithDataflow(argumentType, argument, state, path);
       solver.addSubtypeConstraint(argumentType, formalParamType, false);
     }
   }
 
-  private void markInferenceInProgress(MethodInvocationTree invocationTree) {
-    inferredTypeVarNullabilityForGenericCalls.putIfAbsent(invocationTree, INFERENCE_IN_PROGRESS);
-  }
-
   private Type refineArgumentTypeWithDataflow(
-      Type argumentType,
-      ExpressionTree argument,
-      VisitorState state,
-      @Nullable TreePath path,
-      AtomicBoolean dataflowQueried) {
+      Type argumentType, ExpressionTree argument, VisitorState state, @Nullable TreePath path) {
     if (!config.isJSpecifyMode() || argumentType.isPrimitive()) {
       return argumentType;
     }
@@ -807,9 +758,8 @@ public final class GenericsChecks {
     if (NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath) == null) {
       return argumentType;
     }
-    dataflowQueried.set(true);
     Nullness refinedNullness;
-    if (isDataflowRunning()) {
+    if (dataflowRunning) {
       refinedNullness =
           analysis.getNullnessAnalysis(state).getNullnessFromRunning(argumentPath, state.context);
     } else {
