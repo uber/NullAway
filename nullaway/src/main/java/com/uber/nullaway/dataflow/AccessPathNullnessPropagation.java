@@ -1152,11 +1152,12 @@ public class AccessPathNullnessPropagation
     if (node != null && config.isJSpecifyMode()) {
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
-        genericsChecks.setDataflowRunning(true);
+        // flag that we are calling from dataflow to avoid infinite recursion
+        genericsChecks.setCalledFromDataflow(true);
         Nullness nullness =
             genericsChecks.getGenericReturnNullnessAtInvocation(
                 ASTHelpers.getSymbol(tree), tree, node.getTreePath(), state);
-        genericsChecks.setDataflowRunning(false);
+        genericsChecks.setCalledFromDataflow(false);
         return nullness.equals(NULLABLE);
       }
     }

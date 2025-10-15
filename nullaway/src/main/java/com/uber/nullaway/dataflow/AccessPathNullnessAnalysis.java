@@ -111,6 +111,14 @@ public final class AccessPathNullnessAnalysis {
     return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation, false);
   }
 
+  /**
+   * Get the nullness info for an expression from the current running dataflow analysis (so it may
+   * not be the final result).
+   *
+   * @param exprPath tree path of expression
+   * @param context Javac context
+   * @return nullness info for expression, from running dataflow
+   */
   public @Nullable Nullness getNullnessFromRunning(TreePath exprPath, Context context) {
     return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation, true);
   }

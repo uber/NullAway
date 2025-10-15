@@ -145,6 +145,13 @@ public final class DataFlow {
    * their control flow graph is the same. - if two transfer functions are {@code equal}, and are
    * run over the same control flow graph, the analysis result is the same. - for all contexts, the
    * analysis result is the same.
+   *
+   * @param path path to method, lambda or initializer
+   * @param context Javac context
+   * @param transfer transfer functions
+   * @param performAnalysis whether dataflow analysis should be initiated via a call to {@code
+   *     performAnalysis}. If the analysis is already running, this parameter should be {@code
+   *     false}; dataflow cannot be run recursively.
    */
   private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       Result<A, S, T> dataflow(
@@ -200,6 +207,7 @@ public final class DataFlow {
    * @param exprPath expression
    * @param context Javac context
    * @param transfer transfer functions
+   * @param isRunning true if the dataflow analysis is currently running
    * @param <A> values in abstraction
    * @param <S> store type
    * @param <T> transfer function type
@@ -209,6 +217,7 @@ public final class DataFlow {
       @Nullable A expressionDataflow(
           TreePath exprPath, Context context, T transfer, boolean isRunning) {
     if (isRunning) {
+      // get the Analysis object from the cache, and get the current result from that
       Analysis<A, S, T> analysis =
           dataflow(
                   Preconditions.checkNotNull(

@@ -102,10 +102,11 @@ public final class GenericsChecks {
   private final Config config;
   private final Handler handler;
 
-  private boolean dataflowRunning = false;
+  /** Was generic type checking / inference invoked from the dataflow analysis at the top level? */
+  private boolean calledFromDataflow = false;
 
-  public void setDataflowRunning(boolean isRunning) {
-    this.dataflowRunning = isRunning;
+  public void setCalledFromDataflow(boolean calledFromDataflow) {
+    this.calledFromDataflow = calledFromDataflow;
   }
 
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
@@ -625,7 +626,7 @@ public final class GenericsChecks {
           allInvocations);
       typeVarNullability = solver.solve();
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
-      if (!dataflowRunning) {
+      if (!calledFromDataflow) {
         for (MethodInvocationTree invTree : allInvocations) {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
         }
@@ -645,7 +646,7 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(invocationTree), state, null));
       }
       InferenceFailure failureResult = new InferenceFailure(e.getMessage());
-      if (!dataflowRunning) {
+      if (!calledFromDataflow) {
         for (MethodInvocationTree invTree : allInvocations) {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
         }
@@ -756,7 +757,7 @@ public final class GenericsChecks {
       return argumentType;
     }
     Nullness refinedNullness;
-    if (dataflowRunning) {
+    if (calledFromDataflow) {
       refinedNullness =
           analysis.getNullnessAnalysis(state).getNullnessFromRunning(argumentPath, state.context);
     } else {
