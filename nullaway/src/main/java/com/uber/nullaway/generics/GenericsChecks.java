@@ -743,7 +743,7 @@ public final class GenericsChecks {
 
   private Type refineArgumentTypeWithDataflow(
       Type argumentType, ExpressionTree argument, VisitorState state, @Nullable TreePath path) {
-    if (!config.isJSpecifyMode() || argumentType.isPrimitive()) {
+    if (argumentType.isPrimitive()) {
       return argumentType;
     }
     Symbol argumentSymbol = ASTHelpers.getSymbol(argument);
@@ -751,9 +751,6 @@ public final class GenericsChecks {
       return argumentType;
     }
     TreePath currentPath = path != null ? path : state.getPath();
-    if (currentPath == null) {
-      return argumentType;
-    }
     TreePath argumentPath = new TreePath(currentPath, argument); // TODO suspicious
     if (NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath) == null) {
       return argumentType;
