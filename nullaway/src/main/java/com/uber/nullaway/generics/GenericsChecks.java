@@ -60,6 +60,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
@@ -102,7 +103,12 @@ public final class GenericsChecks {
   private final Config config;
   private final Handler handler;
 
-  /** Was generic type checking / inference invoked from the dataflow analysis at the top level? */
+  /**
+   * Was this code invoked from dataflow? Used to avoid infinite recursion.
+   *
+   * @see
+   *     com.uber.nullaway.dataflow.AccessPathNullnessPropagation#genericReturnIsNullable(MethodInvocationNode)
+   */
   private boolean calledFromDataflow = false;
 
   public void setCalledFromDataflow(boolean calledFromDataflow) {
@@ -593,6 +599,8 @@ public final class GenericsChecks {
    * #inferredTypeVarNullabilityForGenericCalls map with the result.
    *
    * @param state the visitor state
+   * @param path the tree path to the invocationTree if available and possibly distinct from {@code
+   *     state.getPath()}
    * @param invocationTree the method invocation tree representing the call to a generic method
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context, or
    *     {@code null} if the type is unavailable or the method result is not assigned anywhere
@@ -626,6 +634,8 @@ public final class GenericsChecks {
           allInvocations);
       typeVarNullability = solver.solve();
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
+      // don't cache result if we were called from dataflow, since the result may rely on dataflow
+      // facts that do not reflect the fixed point
       if (!calledFromDataflow) {
         for (MethodInvocationTree invTree : allInvocations) {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
@@ -646,6 +656,8 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(invocationTree), state, null));
       }
       InferenceFailure failureResult = new InferenceFailure(e.getMessage());
+      // don't cache result if we were called from dataflow, since the result may rely on dataflow
+      // facts that do not reflect the fixed point
       if (!calledFromDataflow) {
         for (MethodInvocationTree invTree : allInvocations) {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
@@ -681,6 +693,9 @@ public final class GenericsChecks {
   /**
    * Generates inference constraints for a generic method call, including nested calls.
    *
+   * @param state the visitor state
+   * @param path the tree path to the invocationTree if available and possibly distinct from {@code
+   *     state.getPath()}
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context of the
    *     call, or {@code null} if the type is unavailable or the method result is not assigned
    *     anywhere
@@ -742,6 +757,16 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Refines the type of an argument using dataflow information, if available.
+   *
+   * @param argumentType the original type of the argument
+   * @param argument the argument expression tree
+   * @param state the visitor state
+   * @param path the tree path to the invocation if available and possibly distinct from {@code
+   *     state.getPath()}
+   * @return the refined type of the argument
+   */
   private Type refineArgumentTypeWithDataflow(
       Type argumentType, ExpressionTree argument, VisitorState state, @Nullable TreePath path) {
     if (argumentType.isPrimitive()) {
@@ -752,12 +777,17 @@ public final class GenericsChecks {
       return argumentType;
     }
     TreePath currentPath = path != null ? path : state.getPath();
-    TreePath argumentPath = new TreePath(currentPath, argument); // TODO suspicious
+    // this is a bit sketchy, as it may not actually be the valid tree path to the argument.
+    // However, all we need the path for is to discover the enclosing method/lambda/initializer, and
+    // for that purpose this should be sufficient.
+    TreePath argumentPath = new TreePath(currentPath, argument);
     if (NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath) == null) {
       return argumentType;
     }
     Nullness refinedNullness;
     if (calledFromDataflow) {
+      // dataflow analysis is already running, so just get the current dataflow value for the
+      // argument
       refinedNullness =
           analysis.getNullnessAnalysis(state).getNullnessFromRunning(argumentPath, state.context);
     } else {
