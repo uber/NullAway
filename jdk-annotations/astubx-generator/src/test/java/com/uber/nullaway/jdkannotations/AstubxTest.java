@@ -296,21 +296,24 @@ public class AstubxTest {
             "import org.jspecify.annotations.NullMarked;",
             "import org.jspecify.annotations.Nullable;",
             "import java.util.List;",
+            "import java.util.ArrayList;",
             "@NullMarked",
             "public class ParameterizedTypeArray {",
-            " public List<String>[] getList() {",
-            "   return (List<String>[]) new List[3];",
-            " }",
-            "public void listParameter(List<String>[] list) {}",
+            "  public List<String>[] identity(List<String>[] listArray) {",
+            "    return listArray;",
+            "  }",
+            "  public List<@Nullable String>[] nullableIdentity(List<@Nullable String>[] listArray) {",
+            "    return listArray;",
+            "  }",
             "}")
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
             "ParameterizedTypeArray: ParameterizedTypeArray()",
             MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()),
-            "ParameterizedTypeArray:java.util.List<java.lang.String>[] getList()",
+            "ParameterizedTypeArray:java.util.List<java.lang.String>[] identity(java.util.List<java.lang.String>[])",
             MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()),
-            "ParameterizedTypeArray:void listParameter(java.util.List[])",
+            "ParameterizedTypeArray:java.util.List<java.lang.String>[] nullableIdentity(java.util.List<java.lang.String>[])",
             MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("ParameterizedTypeArray"));
   }

@@ -195,7 +195,7 @@ public class AstubxGenerator {
     for (MethodInfo method : clazz.methods()) {
       String methodName = method.name();
       // get return type nullness
-      String returnType = method.returnType();
+      String returnType = removeGenericAnnotations(method.returnType());
       ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
       // check if return type has Nullable annotation
       if (returnType.contains("@org.jspecify.annotations.Nullable")) {
@@ -212,23 +212,8 @@ public class AstubxGenerator {
       String[] argumentList = getArgumentsAsArray(methodName);
 
       for (int i = 0; i < argumentList.length; i++) {
-        String typeSignature = argumentList[i].trim();
-        // remove generics on arguments
-        if (typeSignature.indexOf('<') != -1) {
-          StringBuilder withoutGenerics = new StringBuilder();
-          int depth = 0;
-          for (int j = 0; j < typeSignature.length(); j++) {
-            char ch = typeSignature.charAt(j);
-            if (ch == '<') {
-              depth++;
-            } else if (ch == '>') {
-              depth = Math.max(0, depth - 1);
-            } else if (depth == 0) {
-              withoutGenerics.append(ch);
-            }
-          }
-          typeSignature = withoutGenerics.toString().trim();
-        }
+        // remove generic annotations on arguments
+        String typeSignature = removeGenericAnnotations(argumentList[i].trim());
         // remove annotations
         if (typeSignature.contains("@")) {
           String[] signatureTokens = typeSignature.split(" ");
@@ -305,5 +290,33 @@ public class AstubxGenerator {
     }
 
     return output.toArray(String[]::new);
+  }
+
+  private static String removeGenericAnnotations(String typeSignature) {
+    if (typeSignature.indexOf('<') != -1) {
+      StringBuilder withoutGenericAnnotations = new StringBuilder();
+      int depth = 0;
+      int annotationDepth = 0;
+      for (int j = 0; j < typeSignature.length(); j++) {
+        char ch = typeSignature.charAt(j);
+        if (ch == '<') {
+          depth++;
+          withoutGenericAnnotations.append(ch);
+        } else if (ch == '>') {
+          depth = Math.max(0, depth - 1);
+          withoutGenericAnnotations.append(ch);
+        } else if (depth == 0) {
+          withoutGenericAnnotations.append(ch);
+        } else if (ch == '@') {
+          annotationDepth++;
+        } else if (ch == ' ' && annotationDepth != 0) {
+          annotationDepth = Math.max(0, annotationDepth - 1);
+        } else if (annotationDepth == 0) {
+          withoutGenericAnnotations.append(ch);
+        }
+      }
+      typeSignature = withoutGenericAnnotations.toString().trim();
+    }
+    return typeSignature;
   }
 }
