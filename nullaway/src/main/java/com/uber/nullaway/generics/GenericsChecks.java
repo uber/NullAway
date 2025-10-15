@@ -110,6 +110,17 @@ public final class GenericsChecks {
   private final Config config;
   private final Handler handler;
 
+  private boolean isDataflowRunning = false;
+
+  public void setDataflowRunning(boolean isRunning) {
+    this.isDataflowRunning = isRunning;
+  }
+
+  @SuppressWarnings("UnusedMethod")
+  private boolean isDataflowRunning() {
+    return this.isDataflowRunning;
+  }
+
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
     this.analysis = analysis;
     this.config = config;
@@ -797,8 +808,14 @@ public final class GenericsChecks {
       return argumentType;
     }
     dataflowQueried.set(true);
-    Nullness refinedNullness =
-        analysis.getNullnessAnalysis(state).getNullness(argumentPath, state.context);
+    Nullness refinedNullness;
+    if (isDataflowRunning()) {
+      refinedNullness =
+          analysis.getNullnessAnalysis(state).getNullnessFromRunning(argumentPath, state.context);
+    } else {
+      refinedNullness =
+          analysis.getNullnessAnalysis(state).getNullness(argumentPath, state.context);
+    }
     if (refinedNullness == null || !NullabilityUtil.nullnessToBool(refinedNullness)) {
       return argumentType;
     }

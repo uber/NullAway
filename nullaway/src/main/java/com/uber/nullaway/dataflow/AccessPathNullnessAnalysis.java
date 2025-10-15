@@ -108,7 +108,11 @@ public final class AccessPathNullnessAnalysis {
    * @return nullness info for expression, from dataflow
    */
   public @Nullable Nullness getNullness(TreePath exprPath, Context context) {
-    return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation);
+    return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation, false);
+  }
+
+  public @Nullable Nullness getNullnessFromRunning(TreePath exprPath, Context context) {
+    return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation, true);
   }
 
   /**
@@ -121,7 +125,7 @@ public final class AccessPathNullnessAnalysis {
    */
   public @Nullable Nullness getNullnessForContractDataflow(TreePath exprPath, Context context) {
     return dataFlow.expressionDataflow(
-        exprPath, context, castToNonNull(contractNullnessPropagation));
+        exprPath, context, castToNonNull(contractNullnessPropagation), false);
   }
 
   /**

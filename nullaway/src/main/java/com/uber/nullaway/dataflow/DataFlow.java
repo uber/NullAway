@@ -147,13 +147,16 @@ public final class DataFlow {
    * analysis result is the same.
    */
   private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      Result<A, S, T> dataflow(TreePath path, Context context, T transfer) {
+      Result<A, S, T> dataflow(
+          TreePath path, Context context, T transfer, boolean performAnalysis) {
     ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
     ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
     Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
-    analysis.performAnalysis(cfg);
+    if (performAnalysis) {
+      analysis.performAnalysis(cfg);
+    }
 
     return new Result<A, S, T>() {
       @Override
@@ -186,7 +189,8 @@ public final class DataFlow {
       throw new IllegalArgumentException(
           "Cannot get CFG for node outside a method, lambda, or initializer");
     }
-    return dataflow(enclosingMethodOrLambdaOrInitializer, context, transfer).getControlFlowGraph();
+    return dataflow(enclosingMethodOrLambdaOrInitializer, context, transfer, true)
+        .getControlFlowGraph();
   }
 
   /**
@@ -202,9 +206,23 @@ public final class DataFlow {
    * @return dataflow value for expression
    */
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      @Nullable A expressionDataflow(TreePath exprPath, Context context, T transfer) {
-    AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
-    return analysisResult == null ? null : analysisResult.getValue(exprPath.getLeaf());
+      @Nullable A expressionDataflow(
+          TreePath exprPath, Context context, T transfer, boolean isRunning) {
+    if (isRunning) {
+      Analysis<A, S, T> analysis =
+          dataflow(
+                  Preconditions.checkNotNull(
+                      findEnclosingMethodOrLambdaOrInitializer(exprPath),
+                      "expression is not inside a method, lambda or initializer block!"),
+                  context,
+                  transfer,
+                  false)
+              .getAnalysis();
+      return analysis.getValue(exprPath.getLeaf());
+    } else {
+      AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
+      return analysisResult == null ? null : analysisResult.getValue(exprPath.getLeaf());
+    }
   }
 
   /**
@@ -229,7 +247,7 @@ public final class DataFlow {
         "Leaf of methodPath must be of type MethodTree, LambdaExpressionTree, BlockTree, or VariableTree, but was %s",
         leaf.getClass().getName());
 
-    return dataflow(path, context, transfer).getAnalysis().getRegularExitStore();
+    return dataflow(path, context, transfer, true).getAnalysis().getRegularExitStore();
   }
 
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
@@ -279,7 +297,7 @@ public final class DataFlow {
     // *before* any unboxing operations (like invoking intValue() on an Integer).  This is
     // important,
     // e.g., for actually checking that the unboxing operation is legal.
-    return dataflow(enclosingPath, context, transfer).getAnalysis().getResult();
+    return dataflow(enclosingPath, context, transfer, true).getAnalysis().getResult();
   }
 
   /** clear the CFG and analysis caches */
