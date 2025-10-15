@@ -88,4 +88,4 @@ jobs:
         run: |
           cp .github/workflows/use-snapshot.gradle.kts /tmp/${{ matrix.project }}
           cd /tmp/${{ matrix.project }}
-          ./gradlew --init-script use-snapshot.gradle.kts build -x test -x javadoc
+          ./gradlew --init-script use-snapshot.gradle.kts build -x check -x assemble
