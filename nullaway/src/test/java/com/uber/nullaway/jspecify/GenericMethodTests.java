@@ -802,7 +802,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void testLocalsRefined() {
+  public void localsWithTypesFromDataflow() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -840,7 +840,23 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        field2 = id(s);",
             "        field2.hashCode();",
             "    }",
-            "    void testLoop() {",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dataflowAndLoops() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    void testLoop1() {",
             "        String s = \"hello\";",
             "        while (true) {",
             "            String t = id(s);",
@@ -849,23 +865,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "            s = null;",
             "        }",
             "    }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void testLoopFalseNegative() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "class Test {",
-            "    static <T extends @Nullable Object> T id(T t) {",
-            "        return t;",
-            "    }",
-            "    void testLoopFalseNegative() {",
+            "    void testLoop2() {",
             "        String t = \"hello\";",
             "        while (true) {",
             "            // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
@@ -874,23 +874,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "            t = id(s);",
             "        }",
             "    }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void anotherTrickyLoop() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "class Test {",
-            "    static <T extends @Nullable Object> T id(T t) {",
-            "        return t;",
-            "    }",
-            "    void test() {",
+            "    void testLoop3() {",
             "        String t = \"hello\";",
             "        String s = \"hello\";",
             "        t.hashCode();",
