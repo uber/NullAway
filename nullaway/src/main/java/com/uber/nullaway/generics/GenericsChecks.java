@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -777,7 +778,7 @@ public final class GenericsChecks {
       return argumentType;
     }
     Symbol argumentSymbol = ASTHelpers.getSymbol(argument);
-    if (argumentSymbol == null || argumentSymbol.getKind() != ElementKind.LOCAL_VARIABLE) {
+    if (argumentSymbol == null) {
       return argumentType;
     }
     TreePath currentPath = path != null ? path : state.getPath();
@@ -798,13 +799,53 @@ public final class GenericsChecks {
       refinedNullness =
           analysis.getNullnessAnalysis(state).getNullness(argumentPath, state.context);
     }
-    if (refinedNullness == null || !NullabilityUtil.nullnessToBool(refinedNullness)) {
+    if (refinedNullness == null) {
       return argumentType;
     }
-    if (isNullableAnnotated(argumentType)) {
-      return argumentType;
+    return refineTypeWithNullness(state, argumentType, refinedNullness);
+  }
+
+  private Type refineTypeWithNullness(
+      VisitorState state, Type argumentType, Nullness refinedNullness) {
+    if (NullabilityUtil.nullnessToBool(refinedNullness)) {
+      // refine to @Nullable
+      if (isNullableAnnotated(argumentType)) {
+        return argumentType;
+      }
+      ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
+      for (Attribute.TypeCompound existing : argumentType.getAnnotationMirrors()) {
+        updatedAnnotations.append(existing);
+      }
+      Attribute.TypeCompound syntheticNullable =
+          new Attribute.TypeCompound(
+              getSyntheticNullAnnotType(state), com.sun.tools.javac.util.List.nil(), null);
+      updatedAnnotations.append(syntheticNullable);
+      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+          argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
+    } else {
+      // refine to @NonNull.  This can be done by removing the top-level @Nullable annotation if
+      // present.  If @Nullable is
+      // not present on the type at the top level the type is already @NonNull and can just be
+      // returned.
+      if (!isNullableAnnotated(argumentType)) {
+        return argumentType;
+      }
+      ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
+      boolean removedNullable = false;
+      for (Attribute.TypeCompound annot : argumentType.getAnnotationMirrors()) {
+        String annotationName = annot.type.toString();
+        if (Nullness.isNullableAnnotation(annotationName, config)) {
+          removedNullable = true;
+          continue;
+        }
+        updatedAnnotations.append(annot);
+      }
+      if (!removedNullable) {
+        return argumentType;
+      }
+      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+          argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
     }
-    return TypeSubstitutionUtils.typeWithAnnot(argumentType, getSyntheticNullAnnotType(state));
   }
 
   private static boolean isGenericCallNeedingInference(ExpressionTree argument) {
