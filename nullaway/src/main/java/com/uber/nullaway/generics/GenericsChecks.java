@@ -115,6 +115,10 @@ public final class GenericsChecks {
     this.calledFromDataflow = calledFromDataflow;
   }
 
+  public boolean isCalledFromDataflow() {
+    return calledFromDataflow;
+  }
+
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
     this.analysis = analysis;
     this.config = config;

@@ -16,6 +16,7 @@
 package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
+import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
@@ -1152,12 +1153,18 @@ public class AccessPathNullnessPropagation
     if (node != null && config.isJSpecifyMode()) {
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
-        // flag that we are calling from dataflow to avoid infinite recursion
+        // set flag that we are calling from dataflow to avoid infinite recursion, and verify that
+        // we are not already in a recursion.
+        verify(!genericsChecks.isCalledFromDataflow());
         genericsChecks.setCalledFromDataflow(true);
-        Nullness nullness =
-            genericsChecks.getGenericReturnNullnessAtInvocation(
-                ASTHelpers.getSymbol(tree), tree, node.getTreePath(), state);
-        genericsChecks.setCalledFromDataflow(false);
+        Nullness nullness;
+        try {
+          nullness =
+              genericsChecks.getGenericReturnNullnessAtInvocation(
+                  ASTHelpers.getSymbol(tree), tree, node.getTreePath(), state);
+        } finally {
+          genericsChecks.setCalledFromDataflow(false);
+        }
         return nullness.equals(NULLABLE);
       }
     }
