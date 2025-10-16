@@ -802,31 +802,20 @@ public final class GenericsChecks {
     if (refinedNullness == null) {
       return argumentType;
     }
-    return refineTypeWithNullness(state, argumentType, refinedNullness);
+    return updateTypeWithNullness(state, argumentType, refinedNullness);
   }
 
-  private Type refineTypeWithNullness(
+  private Type updateTypeWithNullness(
       VisitorState state, Type argumentType, Nullness refinedNullness) {
     if (NullabilityUtil.nullnessToBool(refinedNullness)) {
       // refine to @Nullable
       if (isNullableAnnotated(argumentType)) {
         return argumentType;
       }
-      ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
-      for (Attribute.TypeCompound existing : argumentType.getAnnotationMirrors()) {
-        updatedAnnotations.append(existing);
-      }
-      Attribute.TypeCompound syntheticNullable =
-          new Attribute.TypeCompound(
-              getSyntheticNullAnnotType(state), com.sun.tools.javac.util.List.nil(), null);
-      updatedAnnotations.append(syntheticNullable);
-      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
-          argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
+      return TypeSubstitutionUtils.typeWithAnnot(argumentType, getSyntheticNullAnnotType(state));
     } else {
       // refine to @NonNull.  This can be done by removing the top-level @Nullable annotation if
-      // present.  If @Nullable is
-      // not present on the type at the top level the type is already @NonNull and can just be
-      // returned.
+      // present.
       if (!isNullableAnnotated(argumentType)) {
         return argumentType;
       }
@@ -840,9 +829,7 @@ public final class GenericsChecks {
         }
         updatedAnnotations.append(annot);
       }
-      if (!removedNullable) {
-        return argumentType;
-      }
+      Verify.verify(removedNullable);
       return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
           argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
     }
