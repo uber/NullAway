@@ -17,6 +17,7 @@ import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
@@ -27,6 +28,16 @@ import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.jspecify.annotations.Nullable;
 
 class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
+
+  private final @Nullable GenericsChecks genericsChecks;
+
+  public CoreNullnessStoreInitializer(GenericsChecks genericsChecks) {
+    this.genericsChecks = genericsChecks;
+  }
+
+  public CoreNullnessStoreInitializer() {
+    this(null);
+  }
 
   @Override
   public NullnessStore getInitialStore(
@@ -82,7 +93,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     return result.build();
   }
 
-  private static NullnessStore lambdaInitialStore(
+  private NullnessStore lambdaInitialStore(
       UnderlyingAST.CFGLambda underlyingAST,
       List<LocalVariableNode> parameters,
       Handler handler,
@@ -103,11 +114,19 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
+
+    Type lambdaType = castToNonNull(ASTHelpers.getType(code));
+    if (genericsChecks != null) {
+      Type inferredType = genericsChecks.getInferredLambdaType(code);
+      if (inferredType != null) {
+        lambdaType = inferredType;
+      }
+    }
+
     // This obtains the types of the functional interface method parameters with preserved
     // annotations in case of generic type arguments.  Only used in JSpecify mode.
     List<Type> overridenMethodParamTypeList =
-        TypeSubstitutionUtils.memberType(
-                types, castToNonNull(ASTHelpers.getType(code)), fiMethodSymbol, config)
+        TypeSubstitutionUtils.memberType(types, lambdaType, fiMethodSymbol, config)
             .getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     @Nullable Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
