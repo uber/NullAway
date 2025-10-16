@@ -892,7 +892,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void fieldsWithTypesFromDataflow() {
+  public void otherExprsWithTypesFromDataflow() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -914,6 +914,13 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "            String t = id(field);",
             "            t.hashCode();",
             "        }",
+            "    }",
+            "    void testUnsupported() {",
+            "        String s = \"hello\";",
+            "        // dataflow can't prove the argument is non-null",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 's == null ? null : s'",
+            "        String t = id(s == null ? null : s);",
+            "        t.hashCode();",
             "    }",
             "}")
         .doTest();

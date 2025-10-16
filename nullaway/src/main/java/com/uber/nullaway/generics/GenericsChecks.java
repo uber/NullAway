@@ -814,8 +814,7 @@ public final class GenericsChecks {
       }
       return TypeSubstitutionUtils.typeWithAnnot(argumentType, getSyntheticNullAnnotType(state));
     } else {
-      // refine to @NonNull.  This can be done by removing the top-level @Nullable annotation if
-      // present.
+      // refine to @NonNull, by removing the top-level @Nullable annotation if present.
       if (!isNullableAnnotated(argumentType)) {
         return argumentType;
       }
