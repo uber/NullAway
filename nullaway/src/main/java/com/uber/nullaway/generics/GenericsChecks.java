@@ -99,6 +99,7 @@ public final class GenericsChecks {
   private final Map<MethodInvocationTree, MethodInferenceResult>
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
+  /** Maps a LambdaExpressionTree to it's inferred type. */
   private final Map<LambdaExpressionTree, Type> inferredLambdaTypes = new LinkedHashMap<>();
 
   public @Nullable Type getInferredLambdaType(LambdaExpressionTree tree) {
@@ -1682,6 +1683,7 @@ public final class GenericsChecks {
    */
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
+    inferredLambdaTypes.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
