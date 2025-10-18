@@ -99,7 +99,10 @@ public final class GenericsChecks {
   private final Map<MethodInvocationTree, MethodInferenceResult>
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
-  /** Maps a LambdaExpressionTree to it's inferred type. */
+  /**
+   * Maps each {@code LambdaExpressionTree} passed as a parameter to a generic method to its
+   * inferred type, if inference for the generic method call succeeded.
+   */
   private final Map<LambdaExpressionTree, Type> inferredLambdaTypes = new LinkedHashMap<>();
 
   public @Nullable Type getInferredLambdaType(LambdaExpressionTree tree) {
@@ -736,7 +739,8 @@ public final class GenericsChecks {
       generateConstraintsForCall(
           state, formalParamType, false, solver, symbol, invTree, allInvocations);
     } else if (!(argument instanceof LambdaExpressionTree)) {
-      // Skip subtype constraint for lambdas
+      // Skip adding a subtype constraint for lambda arguments; we want to also infer the type of
+      // the lambda expression
       Type argumentType = getTreeType(argument, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now

@@ -29,14 +29,10 @@ import org.jspecify.annotations.Nullable;
 
 class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
 
-  private final @Nullable GenericsChecks genericsChecks;
+  private final GenericsChecks genericsChecks;
 
   public CoreNullnessStoreInitializer(GenericsChecks genericsChecks) {
     this.genericsChecks = genericsChecks;
-  }
-
-  public CoreNullnessStoreInitializer() {
-    this(null);
   }
 
   @Override
@@ -115,6 +111,16 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
 
+    /*
+     * A potential concern here is that this method might return null because we haven't inferred the type
+     * of the lambda yet.
+     * However, this is not an issue due to the standard AST traversal order used by Error Prone.
+     * We currently only infer lambda types when they are passed as a parameter to a generic method.
+     * The checker is guaranteed to visit the enclosing generic method call (e.g., {@code wrap(s -> ...)})
+     * and perform type inference for it *before* it descends into the lambda's body to begin dataflow
+     * analysis. By the time this method is called during the setup for the lambda's analysis, the
+     * inferred type for the lambda argument will have already been computed and stored.
+     */
     Type lambdaType = castToNonNull(ASTHelpers.getType(code));
     if (genericsChecks != null) {
       Type inferredType = genericsChecks.getInferredLambdaType(code);
