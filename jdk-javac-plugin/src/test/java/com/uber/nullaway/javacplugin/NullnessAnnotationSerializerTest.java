@@ -68,14 +68,7 @@ public class NullnessAnnotationSerializerTest {
         .containsExactlyEntriesOf(
             Map.of(
                 "unnamed",
-                List.of(
-                    new ClassInfo(
-                        "Foo",
-                        "Foo",
-                        true,
-                        false,
-                        List.of(),
-                        List.of(new MethodInfo("", "Foo()", false, false, List.of()))))));
+                List.of(new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()))));
   }
 
   @Test
@@ -109,7 +102,6 @@ public class NullnessAnnotationSerializerTest {
                         false,
                         List.of(),
                         List.of(
-                            new MethodInfo("", "Foo()", false, false, List.of()),
                             new MethodInfo(
                                 "java.lang.@org.jspecify.annotations.Nullable String",
                                 "NullableReturn(java.lang.@org.jspecify.annotations.Nullable Integer)",
@@ -135,16 +127,7 @@ public class NullnessAnnotationSerializerTest {
         .containsExactlyEntriesOf(
             Map.of(
                 "unnamed",
-                List.of(
-                    new ClassInfo(
-                        "Foo",
-                        "Foo",
-                        true,
-                        false,
-                        List.of(),
-                        List.of(
-                            new MethodInfo("", "Foo()", false, false, List.of()),
-                            new MethodInfo("void", "publicMethod()", false, false, List.of()))))));
+                List.of(new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()))));
   }
 
   @Test
@@ -157,7 +140,7 @@ public class NullnessAnnotationSerializerTest {
             "class Foo {",
             "  @NullUnmarked",
             "  class Inner { }",
-            "  private class PrivateInner { }",
+            "  private class PrivateInner<String extends @Nullable Object> { }",
             "  void method() {",
             "    Runnable r = new Runnable() { public void run() {} };",
             "  }",
@@ -169,22 +152,8 @@ public class NullnessAnnotationSerializerTest {
             Map.of(
                 "unnamed",
                 List.of(
-                    new ClassInfo(
-                        "Foo",
-                        "Foo",
-                        true,
-                        false,
-                        List.of(),
-                        List.of(
-                            new MethodInfo("", "Foo()", false, false, List.of()),
-                            new MethodInfo("void", "method()", false, false, List.of()))),
-                    new ClassInfo(
-                        "Inner",
-                        "Foo.Inner",
-                        false,
-                        true,
-                        List.of(),
-                        List.of(new MethodInfo("", "Inner()", false, false, List.of()))))));
+                    new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()),
+                    new ClassInfo("Inner", "Foo.Inner", false, true, List.of(), List.of()))));
   }
 
   @Test
@@ -211,7 +180,6 @@ public class NullnessAnnotationSerializerTest {
                         false,
                         List.of(new TypeParamInfo("T", List.of("@Nullable Object"))),
                         List.of(
-                            new MethodInfo("", "Foo()", false, false, List.of()),
                             new MethodInfo(
                                 "U",
                                 "<U>make(U)",
