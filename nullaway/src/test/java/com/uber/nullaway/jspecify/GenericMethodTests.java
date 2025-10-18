@@ -1246,6 +1246,33 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1294_lambdaArguments() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            " public interface Callback<T extends @Nullable Object> {",
+            "   void onResult(T thing);",
+            " }",
+            " public static <T extends @Nullable Object> Callback<T> wrap(Callback<T> thing) {",
+            "   return thing;",
+            " }",
+            " public static void test() {",
+            "   Callback<@Nullable String> ret1 = wrap(s -> {});",
+            // we should get an error at the s.hashCode() call.
+            "   // BUG: Diagnostic contains: dereferenced expression",
+            "   Callback<@Nullable String> ret2 = wrap(s -> { s.hashCode(); });",
+            "   Callback<@Nullable String> ret3 = wrap(s -> { if (s != null) s.hashCode(); });",
+            "   Callback<String> ret4 = wrap(s -> { s.hashCode(); });",
+            "   }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
