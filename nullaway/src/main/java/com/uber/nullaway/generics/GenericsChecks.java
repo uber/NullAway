@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -60,6 +61,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
+import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
@@ -101,6 +103,22 @@ public final class GenericsChecks {
   private final NullAway analysis;
   private final Config config;
   private final Handler handler;
+
+  /**
+   * Was this code invoked from dataflow? Used to avoid infinite recursion.
+   *
+   * @see
+   *     com.uber.nullaway.dataflow.AccessPathNullnessPropagation#genericReturnIsNullable(MethodInvocationNode)
+   */
+  private boolean calledFromDataflow = false;
+
+  public void setCalledFromDataflow(boolean calledFromDataflow) {
+    this.calledFromDataflow = calledFromDataflow;
+  }
+
+  public boolean isCalledFromDataflow() {
+    return calledFromDataflow;
+  }
 
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
     this.analysis = analysis;
@@ -557,7 +575,8 @@ public final class GenericsChecks {
     MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
     if (result == null) { // have not yet attempted inference for this call
       result =
-          runInferenceForCall(state, invocationTree, typeFromAssignmentContext, assignedToLocal);
+          runInferenceForCall(
+              state, null, invocationTree, typeFromAssignmentContext, assignedToLocal);
     }
     if (result instanceof InferenceSuccess) {
       typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
@@ -585,6 +604,8 @@ public final class GenericsChecks {
    * #inferredTypeVarNullabilityForGenericCalls map with the result.
    *
    * @param state the visitor state
+   * @param path the tree path to the invocationTree if available and possibly distinct from {@code
+   *     state.getPath()}
    * @param invocationTree the method invocation tree representing the call to a generic method
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context, or
    *     {@code null} if the type is unavailable or the method result is not assigned anywhere
@@ -595,6 +616,7 @@ public final class GenericsChecks {
    */
   private MethodInferenceResult runInferenceForCall(
       VisitorState state,
+      @Nullable TreePath path,
       MethodInvocationTree invocationTree,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal) {
@@ -608,6 +630,7 @@ public final class GenericsChecks {
     try {
       generateConstraintsForCall(
           state,
+          path,
           typeFromAssignmentContext,
           assignedToLocal,
           solver,
@@ -616,8 +639,12 @@ public final class GenericsChecks {
           allInvocations);
       typeVarNullability = solver.solve();
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
-      for (MethodInvocationTree invTree : allInvocations) {
-        inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
+      // don't cache result if we were called from dataflow, since the result may rely on dataflow
+      // facts that do not reflect the fixed point
+      if (!calledFromDataflow) {
+        for (MethodInvocationTree invTree : allInvocations) {
+          inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
+        }
       }
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
@@ -634,8 +661,12 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(invocationTree), state, null));
       }
       InferenceFailure failureResult = new InferenceFailure(e.getMessage());
-      for (MethodInvocationTree invTree : allInvocations) {
-        inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
+      // don't cache result if we were called from dataflow, since the result may rely on dataflow
+      // facts that do not reflect the fixed point
+      if (!calledFromDataflow) {
+        for (MethodInvocationTree invTree : allInvocations) {
+          inferredTypeVarNullabilityForGenericCalls.put(invTree, failureResult);
+        }
       }
       return failureResult;
     }
@@ -667,6 +698,9 @@ public final class GenericsChecks {
   /**
    * Generates inference constraints for a generic method call, including nested calls.
    *
+   * @param state the visitor state
+   * @param path the tree path to the invocationTree if available and possibly distinct from {@code
+   *     state.getPath()}
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context of the
    *     call, or {@code null} if the type is unavailable or the method result is not assigned
    *     anywhere
@@ -681,6 +715,7 @@ public final class GenericsChecks {
    */
   private void generateConstraintsForCall(
       VisitorState state,
+      @Nullable TreePath path,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       ConstraintSolver solver,
@@ -696,13 +731,14 @@ public final class GenericsChecks {
     // then, handle parameters
     new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
         .forEach(
-            (argument, argPos, formalParamType, unused) -> {
-              generateConstraintsForParam(state, solver, allInvocations, argument, formalParamType);
-            });
+            (argument, argPos, formalParamType, unused) ->
+                generateConstraintsForParam(
+                    state, path, solver, allInvocations, argument, formalParamType));
   }
 
   private void generateConstraintsForParam(
       VisitorState state,
+      @Nullable TreePath path,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree argument,
@@ -714,14 +750,87 @@ public final class GenericsChecks {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
       generateConstraintsForCall(
-          state, formalParamType, false, solver, symbol, invTree, allInvocations);
+          state, path, formalParamType, false, solver, symbol, invTree, allInvocations);
     } else {
       Type argumentType = getTreeType(argument, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
         return;
       }
+      argumentType = refineArgumentTypeWithDataflow(argumentType, argument, state, path);
       solver.addSubtypeConstraint(argumentType, formalParamType, false);
+    }
+  }
+
+  /**
+   * Refines the type of an argument using dataflow information, if available.
+   *
+   * @param argumentType the original type of the argument
+   * @param argument the argument expression tree
+   * @param state the visitor state
+   * @param path the tree path to the invocation if available and possibly distinct from {@code
+   *     state.getPath()}
+   * @return the refined type of the argument
+   */
+  private Type refineArgumentTypeWithDataflow(
+      Type argumentType, ExpressionTree argument, VisitorState state, @Nullable TreePath path) {
+    if (argumentType.isPrimitive()) {
+      return argumentType;
+    }
+    Symbol argumentSymbol = ASTHelpers.getSymbol(argument);
+    if (argumentSymbol == null) {
+      return argumentType;
+    }
+    TreePath currentPath = path != null ? path : state.getPath();
+    // this is a bit sketchy, as it may not actually be the valid tree path to the argument.
+    // However, all we need the path for is to discover the enclosing method/lambda/initializer, and
+    // for that purpose this should be sufficient.
+    TreePath argumentPath = new TreePath(currentPath, argument);
+    if (NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath) == null) {
+      return argumentType;
+    }
+    Nullness refinedNullness;
+    if (calledFromDataflow) {
+      // dataflow analysis is already running, so just get the current dataflow value for the
+      // argument
+      refinedNullness =
+          analysis.getNullnessAnalysis(state).getNullnessFromRunning(argumentPath, state.context);
+    } else {
+      refinedNullness =
+          analysis.getNullnessAnalysis(state).getNullness(argumentPath, state.context);
+    }
+    if (refinedNullness == null) {
+      return argumentType;
+    }
+    return updateTypeWithNullness(state, argumentType, refinedNullness);
+  }
+
+  private Type updateTypeWithNullness(
+      VisitorState state, Type argumentType, Nullness refinedNullness) {
+    if (NullabilityUtil.nullnessToBool(refinedNullness)) {
+      // refine to @Nullable
+      if (isNullableAnnotated(argumentType)) {
+        return argumentType;
+      }
+      return TypeSubstitutionUtils.typeWithAnnot(argumentType, getSyntheticNullAnnotType(state));
+    } else {
+      // refine to @NonNull, by removing the top-level @Nullable annotation if present.
+      if (!isNullableAnnotated(argumentType)) {
+        return argumentType;
+      }
+      ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
+      boolean removedNullable = false;
+      for (Attribute.TypeCompound annot : argumentType.getAnnotationMirrors()) {
+        String annotationName = annot.type.toString();
+        if (Nullness.isNullableAnnotation(annotationName, config)) {
+          removedNullable = true;
+          continue;
+        }
+        updatedAnnotations.append(annot);
+      }
+      Verify.verify(removedNullable);
+      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+          argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
     }
   }
 
@@ -1197,6 +1306,7 @@ public final class GenericsChecks {
         result =
             runInferenceForCall(
                 state,
+                path,
                 invocationAndType.invocation,
                 invocationAndType.typeFromAssignmentContext,
                 invocationAndType.assignedToLocal);
