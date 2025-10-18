@@ -46,6 +46,12 @@ test {
     dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
 }
 
+tasks.withType(Test).configureEach {
+    if (name.startsWith("testJdk")) {
+        dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
+    }
+}
+
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"
 }
