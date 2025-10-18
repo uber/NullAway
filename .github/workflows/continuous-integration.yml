@@ -31,7 +31,7 @@ jobs:
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
       - name: Build and test
-        run: ./gradlew build
+        run: ./gradlew build --info --stacktrace
       - name: Run shellcheck
         run: ./gradlew shellcheck
         if: runner.os == 'Linux'
