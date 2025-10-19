@@ -17,6 +17,7 @@ import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
@@ -27,6 +28,12 @@ import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
 import org.jspecify.annotations.Nullable;
 
 class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
+
+  private final GenericsChecks genericsChecks;
+
+  public CoreNullnessStoreInitializer(GenericsChecks genericsChecks) {
+    this.genericsChecks = genericsChecks;
+  }
 
   @Override
   public NullnessStore getInitialStore(
@@ -82,7 +89,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     return result.build();
   }
 
-  private static NullnessStore lambdaInitialStore(
+  private NullnessStore lambdaInitialStore(
       UnderlyingAST.CFGLambda underlyingAST,
       List<LocalVariableNode> parameters,
       Handler handler,
@@ -103,11 +110,27 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     Symbol.MethodSymbol fiMethodSymbol = NullabilityUtil.getFunctionalInterfaceMethod(code, types);
     com.sun.tools.javac.util.List<Symbol.VarSymbol> fiMethodParameters =
         fiMethodSymbol.getParameters();
+
+    /*
+     * A potential concern here is that this method might return null because we haven't inferred the type
+     * of the lambda yet.
+     * However, this is not an issue due to the standard AST traversal order used by Error Prone.
+     * We currently only infer lambda types when they are passed as a parameter to a generic method.
+     * The checker is guaranteed to visit the enclosing generic method call (e.g., {@code wrap(s -> ...)})
+     * and perform type inference for it *before* it descends into the lambda's body to begin dataflow
+     * analysis. By the time this method is called during the setup for the lambda's analysis, the
+     * inferred type for the lambda argument will have already been computed and stored.
+     */
+    Type lambdaType = castToNonNull(ASTHelpers.getType(code));
+    Type inferredType = genericsChecks.getInferredLambdaType(code);
+    if (inferredType != null) {
+      lambdaType = inferredType;
+    }
+
     // This obtains the types of the functional interface method parameters with preserved
     // annotations in case of generic type arguments.  Only used in JSpecify mode.
     List<Type> overridenMethodParamTypeList =
-        TypeSubstitutionUtils.memberType(
-                types, castToNonNull(ASTHelpers.getType(code)), fiMethodSymbol, config)
+        TypeSubstitutionUtils.memberType(types, lambdaType, fiMethodSymbol, config)
             .getParameterTypes();
     // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
     @Nullable Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
