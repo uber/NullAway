@@ -73,7 +73,11 @@ public final class AccessPathNullnessAnalysis {
             .build();
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
-            Nullness.NONNULL, state, apContext, analysis, new CoreNullnessStoreInitializer());
+            Nullness.NONNULL,
+            state,
+            apContext,
+            analysis,
+            new CoreNullnessStoreInitializer(analysis.getGenericsChecks()));
     this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
 
     if (config.checkContracts()) {

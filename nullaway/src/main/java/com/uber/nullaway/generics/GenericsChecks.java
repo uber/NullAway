@@ -15,6 +15,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -97,6 +98,16 @@ public final class GenericsChecks {
    */
   private final Map<MethodInvocationTree, MethodInferenceResult>
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
+
+  /**
+   * Maps each {@code LambdaExpressionTree} passed as a parameter to a generic method to its
+   * inferred type, if inference for the generic method call succeeded.
+   */
+  private final Map<LambdaExpressionTree, Type> inferredLambdaTypes = new LinkedHashMap<>();
+
+  public @Nullable Type getInferredLambdaType(LambdaExpressionTree tree) {
+    return inferredLambdaTypes.get(tree);
+  }
 
   private final NullAway analysis;
   private final Config config;
@@ -615,6 +626,18 @@ public final class GenericsChecks {
           invocationTree,
           allInvocations);
       typeVarNullability = solver.solve();
+
+      // Store inferred types for lambda arguments
+      new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
+          .forEach(
+              (argument, argPos, formalParamType, unused) -> {
+                if (argument instanceof LambdaExpressionTree) {
+                  Type inferredType =
+                      getTypeWithInferredNullability(state, formalParamType, typeVarNullability);
+                  inferredLambdaTypes.put((LambdaExpressionTree) argument, inferredType);
+                }
+              });
+
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
       for (MethodInvocationTree invTree : allInvocations) {
         inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
@@ -715,7 +738,9 @@ public final class GenericsChecks {
       allInvocations.add(invTree);
       generateConstraintsForCall(
           state, formalParamType, false, solver, symbol, invTree, allInvocations);
-    } else {
+    } else if (!(argument instanceof LambdaExpressionTree)) {
+      // Skip adding a subtype constraint for lambda arguments; we want to also infer the type of
+      // the lambda expression
       Type argumentType = getTreeType(argument, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
@@ -959,7 +984,16 @@ public final class GenericsChecks {
                 // bail out of any checking involving raw types for now
                 return;
               }
-              Type actualParameterType = getTreeType(currentActualParam, state);
+
+              Type actualParameterType = null;
+              if ((currentActualParam instanceof LambdaExpressionTree)) {
+                Type lambdaInferredType = inferredLambdaTypes.get(currentActualParam);
+                if (lambdaInferredType != null) {
+                  actualParameterType = lambdaInferredType;
+                }
+              } else {
+                actualParameterType = getTreeType(currentActualParam, state);
+              }
               if (actualParameterType != null) {
                 if (isGenericCallNeedingInference(currentActualParam)) {
                   // infer the type of the method call based on the assignment context
@@ -1653,6 +1687,7 @@ public final class GenericsChecks {
    */
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
+    inferredLambdaTypes.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
