@@ -116,10 +116,11 @@ public class NullnessAnnotationSerializerTest {
         .addSourceLines(
             "Foo.java",
             "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
             "@NullMarked",
             "class Foo {",
-            "  void publicMethod() {}",
-            "  private void privateMethod() {}",
+            "  void publicMethod(@Nullable String s) {}",
+            "  private void privateMethod(@Nullable String s) {}",
             "}")
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
@@ -127,7 +128,20 @@ public class NullnessAnnotationSerializerTest {
         .containsExactlyEntriesOf(
             Map.of(
                 "unnamed",
-                List.of(new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()))));
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo(
+                                "void",
+                                "publicMethod(java.lang.@org.jspecify.annotations.Nullable String)",
+                                false,
+                                false,
+                                List.of()))))));
   }
 
   @Test
@@ -152,8 +166,8 @@ public class NullnessAnnotationSerializerTest {
             Map.of(
                 "unnamed",
                 List.of(
-                    new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()),
-                    new ClassInfo("Inner", "Foo.Inner", false, true, List.of(), List.of()))));
+                    new ClassInfo("Inner", "Foo.Inner", false, true, List.of(), List.of()),
+                    new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()))));
   }
 
   @Test
@@ -186,6 +200,97 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(new TypeParamInfo("U", List.of("@Nullable Object")))))))));
+  }
+
+  @Test
+  public void skipNonAnnotatedClasses() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Foo {",
+            "  class NoAnnotation {}",
+            "  class Inner {",
+            "    void annotatedMethod(@Nullable String s) {}",
+            "  }",
+            "  class AnnotatedGeneric<T extends @Nullable Object> {}",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Inner",
+                        "Foo.Inner",
+                        false,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo(
+                                "void",
+                                "annotatedMethod(java.lang.@org.jspecify.annotations.Nullable String)",
+                                false,
+                                false,
+                                List.of()))),
+                    new ClassInfo(
+                        "AnnotatedGeneric",
+                        "Foo.AnnotatedGeneric<T>",
+                        false,
+                        false,
+                        List.of(new TypeParamInfo("T", List.of("@Nullable Object"))),
+                        List.of()),
+                    new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()))));
+  }
+
+  @Test
+  public void skipNonAnnotatedMethods() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Foo {",
+            "  void noAnnotation() {}",
+            "  <T extends @Nullable Object> void annotatedTypeArgument() {}",
+            "  @Nullable String annotatedReturnType() { throw new RuntimeException(); }",
+            "  void annotatedParameter(@Nullable String s) {}",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo(
+                                "void",
+                                "<T>annotatedTypeArgument()",
+                                false,
+                                false,
+                                List.of(new TypeParamInfo("T", List.of("@Nullable Object")))),
+                            new MethodInfo(
+                                "java.lang.@org.jspecify.annotations.Nullable String",
+                                "annotatedReturnType()",
+                                false,
+                                false,
+                                List.of()),
+                            new MethodInfo(
+                                "void",
+                                "annotatedParameter(java.lang.@org.jspecify.annotations.Nullable String)",
+                                false,
+                                false,
+                                List.of()))))));
   }
 
   private Map<String, List<ClassInfo>> getParsedJSON() {
