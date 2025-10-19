@@ -42,14 +42,8 @@ dependencies {
     testRuntimeOnly deps.build.errorProneCheckApi
 }
 
-test {
-    dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
-}
-
 tasks.withType(Test).configureEach {
-    if (name.startsWith("testJdk")) {
-        dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
-    }
+    dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
 }
 
 tasks.getByName('testJdk25').configure {
