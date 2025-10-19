@@ -11,6 +11,7 @@ import com.sun.source.util.Plugin;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import java.io.IOException;
@@ -28,6 +29,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
 
 /**
  * A Javac plugin that serializes nullness annotations from Java source files into a JSON file.
@@ -82,7 +84,6 @@ public class NullnessAnnotationSerializer implements Plugin {
                 Deque<ClassInfo> classStack = new ArrayDeque<>();
 
                 ClassInfo currentClass = null;
-                boolean currentClassHasAnnotation = false;
 
                 @Override
                 public Void visitClass(ClassTree classTree, Void unused) {
@@ -103,16 +104,12 @@ public class NullnessAnnotationSerializer implements Plugin {
                   TypeMirror classType = trees.getTypeMirror(getCurrentPath());
                   boolean hasNullMarked = hasAnnotation(classSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(classSym, NULLUNMARKED_NAME);
-                  currentClassHasAnnotation =
-                      currentClassHasAnnotation
-                          || hasNullMarked
-                          || hasNullUnmarked
-                          || (currentClass != null && currentClass.methods().isEmpty());
                   // only save classes containing jspecify annotations
-                  if (currentClass != null && currentClassHasAnnotation) {
+                  if (currentClass != null) {
                     // save current class context
                     classStack.push(currentClass);
                   }
+                  boolean currentClassHasAnnotation = hasNullMarked || hasNullUnmarked;
                   // build new class context
                   List<TypeParamInfo> classTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : classTree.getTypeParameters()) {
@@ -130,10 +127,14 @@ public class NullnessAnnotationSerializer implements Plugin {
                           hasNullUnmarked,
                           classTypeParams,
                           classMethods);
-                  moduleClasses
-                      .computeIfAbsent(moduleName, k -> new ArrayList<>())
-                      .add(currentClass);
                   super.visitClass(classTree, null);
+                  currentClassHasAnnotation =
+                      currentClassHasAnnotation || !currentClass.methods().isEmpty();
+                  if (currentClassHasAnnotation) {
+                    moduleClasses
+                        .computeIfAbsent(moduleName, k -> new ArrayList<>())
+                        .add(currentClass);
+                  }
                   // restore previous class context
                   currentClass = !classStack.isEmpty() ? classStack.pop() : null;
                   return null;
@@ -156,6 +157,14 @@ public class NullnessAnnotationSerializer implements Plugin {
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
                   methodHasAnnotations = methodHasAnnotations || hasNullMarked || hasNullUnmarked;
+                  // check each parameter annotations
+                  if (!methodHasAnnotations) {
+                    for (Symbol.VarSymbol vSym : mSym.getParameters()) {
+                      if (hasJspecifyAnnotation(vSym.asType().getAnnotationMirrors())) {
+                        methodHasAnnotations = true;
+                      }
+                    }
+                  }
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : methodTree.getTypeParameters()) {
                     if (typeParamHasAnnotation(tp)) {
@@ -186,7 +195,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return new TypeParamInfo(name, bounds);
                 }
 
-                private boolean hasAnnotation(com.sun.tools.javac.code.Symbol sym, String fqn) {
+                private boolean hasAnnotation(Symbol sym, String fqn) {
                   return sym.getAnnotationMirrors().stream()
                       .map(AnnotationMirror::getAnnotationType)
                       .map(Object::toString)
@@ -199,35 +208,19 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (tpPath == null) {
                     return false;
                   }
-
                   // Get the symbol for the type parameter
-                  com.sun.tools.javac.code.Symbol tpSym =
-                      (com.sun.tools.javac.code.Symbol) trees.getElement(tpPath);
+                  Symbol tpSym = (Symbol) trees.getElement(tpPath);
                   if (tpSym == null) {
                     return false;
                   }
 
-                  // 1. Check annotations on the type variable declaration itself (e.g.,
-                  // <@MyAnnotation T>)
-                  if (hasJspecifyAnnotation(tpSym.getAnnotationMirrors())) {
-                    return true;
-                  }
-
-                  // 2. Check annotations on the *bounds* (e.g., <T extends @Nullable Object>)
-                  // These are type-use annotations and live on the TypeMirror of the bound.
+                  // Check upper bound
                   TypeMirror tpType = tpSym.asType();
-                  if (tpType instanceof javax.lang.model.type.TypeVariable typeVar) {
+                  if (tpType instanceof TypeVariable typeVar) {
                     // Check upper bound
                     TypeMirror upperBound = typeVar.getUpperBound();
                     if (upperBound != null
                         && hasJspecifyAnnotation(upperBound.getAnnotationMirrors())) {
-                      return true;
-                    }
-
-                    // Check lower bound
-                    TypeMirror lowerBound = typeVar.getLowerBound();
-                    if (lowerBound != null
-                        && hasJspecifyAnnotation(lowerBound.getAnnotationMirrors())) {
                       return true;
                     }
                   }
