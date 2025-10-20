@@ -22,13 +22,13 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.7.2'
+        classpath 'com.android.tools.build:gradle:8.13.0'
         classpath 'com.vanniktech:gradle-maven-publish-plugin:0.34.0'
     }
 }
 plugins {
-    id "com.diffplug.spotless" version "6.25.0"
-    id "net.ltgt.errorprone" version "4.1.0" apply false
+    id "com.diffplug.spotless" version "8.0.0"
+    id "net.ltgt.errorprone" version "4.3.0" apply false
     id "com.gradleup.shadow" version "8.3.8" apply false
     id "me.champeau.jmh" version "0.7.1" apply false
     id "com.github.ben-manes.versions" version "0.51.0"
@@ -42,7 +42,14 @@ repositories {
 
 apply from: "gradle/dependencies.gradle"
 
-if (JavaVersion.current() == JavaVersion.VERSION_21) {
+def currentJavaVersion = JavaVersion.current()
+if (!currentJavaVersion.isCompatibleWith(JavaVersion.VERSION_21)) {
+    throw new GradleException(
+    "NullAway only builds on JDK 21 or higher now. Detected ${System.getProperty('java.version')}. Please upgrade to JDK 21 or later."
+    )
+}
+
+if (currentJavaVersion == JavaVersion.VERSION_21) {
     def runtimeVersion = Runtime.version()
     if (runtimeVersion.feature() == 21 && runtimeVersion.update() < 8) {
         throw new GradleException(
@@ -129,7 +136,7 @@ spotless {
     groovyGradle {
         target '**/*.gradle'
         greclipse()
-        indentWithSpaces(4)
+        leadingTabsToSpaces(4)
         trimTrailingWhitespace()
         endWithNewline()
     }
