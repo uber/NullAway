@@ -2711,7 +2711,7 @@ public class NullAway extends BugChecker
     // it will do so without an assignment context.  If this becomes a problem, we can revisit
     if (config.isJSpecifyMode()
         && genericsChecks
-            .getGenericReturnNullnessAtInvocation(exprSymbol, invocationTree, null, state)
+            .getGenericReturnNullnessAtInvocation(exprSymbol, invocationTree, null, state, false)
             .equals(Nullness.NULLABLE)) {
       return true;
     }
