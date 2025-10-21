@@ -3,7 +3,6 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
-import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -62,7 +61,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
-import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
@@ -843,19 +841,7 @@ public final class GenericsChecks {
       if (!isNullableAnnotated(argumentType)) {
         return argumentType;
       }
-      ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
-      boolean removedNullable = false;
-      for (Attribute.TypeCompound annot : argumentType.getAnnotationMirrors()) {
-        String annotationName = annot.type.toString();
-        if (Nullness.isNullableAnnotation(annotationName, config)) {
-          removedNullable = true;
-          continue;
-        }
-        updatedAnnotations.append(annot);
-      }
-      Verify.verify(removedNullable);
-      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
-          argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
+      return TypeSubstitutionUtils.removeNullableAnnotation(argumentType, config);
     }
   }
 
