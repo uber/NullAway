@@ -554,6 +554,7 @@ public final class GenericsChecks {
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context
    * @param assignedToLocal true if the method call result is assigned to a local variable, false
    *     otherwise
+   * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @return the type of the method call after inference
    */
   private Type inferGenericMethodCallType(
@@ -610,6 +611,7 @@ public final class GenericsChecks {
    *     {@code null} if the type is unavailable or the method result is not assigned anywhere
    * @param assignedToLocal true if the method call result is assigned to a local variable, false
    *     otherwise
+   * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @return the inference result, either success with inferred type variable nullability or failure
    *     with an error message
    */
@@ -724,6 +726,7 @@ public final class GenericsChecks {
    * @param allInvocations a set of all method invocations that require inference, including nested
    *     ones. This is an output parameter that gets mutated while generating the constraints to add
    *     nested invocations.
+   * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private void generateConstraintsForCall(
@@ -802,6 +805,7 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param path the tree path to the invocation if available and possibly distinct from {@code
    *     state.getPath()}
+   * @param calledFromDataflow true if this refinement is being done as part of dataflow analysis
    * @return the refined type of the argument
    */
   private Type refineArgumentTypeWithDataflow(
@@ -1268,6 +1272,8 @@ public final class GenericsChecks {
    * @param invokedMethodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
    * @param path the path to the invocation tree, or null if not available
+   * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return Nullness of invocation's return type, or {@code NONNULL} if the call does not invoke an
    *     instance method
    */
@@ -1325,6 +1331,7 @@ public final class GenericsChecks {
    * @param forAllType the generic method type
    * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the substituted method type for the generic method
    */
   private Type substituteTypeArgsInGenericMethodType(
@@ -1401,6 +1408,7 @@ public final class GenericsChecks {
    *
    * @param path the path to the invocation
    * @param state the visitor state
+   * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @return the correct invocation on which to perform inference, along with the relevant
    *     assignment context information. If no assignment context is available, the
    *     typeFromAssignmentContext field of the result will be null.
@@ -1564,6 +1572,7 @@ public final class GenericsChecks {
    * @param invokedMethodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
    * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the enclosing type for the method call, or null if it cannot be determined
    */
   private @Nullable Type getEnclosingTypeForCallExpression(
