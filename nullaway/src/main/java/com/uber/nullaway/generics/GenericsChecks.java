@@ -805,9 +805,12 @@ public final class GenericsChecks {
       return argumentType;
     }
     TreePath currentPath = path != null ? path : state.getPath();
-    // this is a bit sketchy, as it may not actually be the valid tree path to the argument.
-    // However, all we need the path for is to discover the enclosing method/lambda/initializer, and
-    // for that purpose this should be sufficient.
+    // We need a TreePath whose leaf is the argument expression, as the calls to `getNullness` /
+    // `getNullnessFromRunning` below return the nullness of the leaf of the path.
+    // Just appending argument to currentPath is a bit sketchy, as it may not actually be the valid
+    // tree path to the argument.  However, all we need the path for (beyond the leaf) is to
+    // discover the enclosing method/lambda/initializer, and for that purpose this should be
+    // sufficient.
     TreePath argumentPath = new TreePath(currentPath, argument);
     if (NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath) == null) {
       return argumentType;
