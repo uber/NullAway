@@ -113,22 +113,6 @@ public final class GenericsChecks {
   private final Config config;
   private final Handler handler;
 
-  /**
-   * Was this code invoked from dataflow? Used to avoid infinite recursion.
-   *
-   * @see
-   *     com.uber.nullaway.dataflow.AccessPathNullnessPropagation#genericReturnIsNullable(MethodInvocationNode)
-   */
-  // private boolean calledFromDataflow = false;
-
-  public void setCalledFromDataflow(boolean calledFromDataflow) {
-    // this.calledFromDataflow = calledFromDataflow;
-  }
-
-  public boolean isCalledFromDataflow() {
-    return false; /*calledFromDataflow;*/
-  }
-
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
     this.analysis = analysis;
     this.config = config;
@@ -535,7 +519,7 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
             inferGenericMethodCallType(
-                state, (MethodInvocationTree) rhsTree, lhsType, assignedToLocal);
+                state, (MethodInvocationTree) rhsTree, lhsType, assignedToLocal, false);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
@@ -652,7 +636,8 @@ public final class GenericsChecks {
           solver,
           methodSymbol,
           invocationTree,
-          allInvocations);
+          allInvocations,
+          calledFromDataflow);
       typeVarNullability = solver.solve();
 
       // Store inferred types for lambda arguments
@@ -749,7 +734,8 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
-      Set<MethodInvocationTree> allInvocations)
+      Set<MethodInvocationTree> allInvocations,
+      boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
     // first, handle the return type flow
     if (typeFromAssignmentContext != null) {
@@ -761,7 +747,13 @@ public final class GenericsChecks {
         .forEach(
             (argument, argPos, formalParamType, unused) ->
                 generateConstraintsForParam(
-                    state, path, solver, allInvocations, argument, formalParamType));
+                    state,
+                    path,
+                    solver,
+                    allInvocations,
+                    argument,
+                    formalParamType,
+                    calledFromDataflow));
   }
 
   private void generateConstraintsForParam(
@@ -779,7 +771,15 @@ public final class GenericsChecks {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
       generateConstraintsForCall(
-          state, path, formalParamType, false, solver, symbol, invTree, allInvocations);
+          state,
+          path,
+          formalParamType,
+          false,
+          solver,
+          symbol,
+          invTree,
+          allInvocations,
+          calledFromDataflow);
     } else if (!(argument instanceof LambdaExpressionTree)) {
       // Skip adding a subtype constraint for lambda arguments; we want to also infer the type of
       // the lambda expression
@@ -1076,7 +1076,7 @@ public final class GenericsChecks {
       return;
     }
     Type invokedMethodType = methodSymbol.type;
-    Type enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, state);
+    Type enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, state, false);
     if (enclosingType != null) {
       invokedMethodType =
           TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
@@ -1297,7 +1297,8 @@ public final class GenericsChecks {
       }
     }
 
-    Type enclosingType = getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state);
+    Type enclosingType =
+        getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state, calledFromDataflow);
     if (enclosingType == null) {
       return Nullness.NONNULL;
     } else {
@@ -1349,7 +1350,7 @@ public final class GenericsChecks {
         InvocationAndContext invocationAndType =
             path == null
                 ? new InvocationAndContext(invocationTree, null, false)
-                : getInvocationAndContextForInference(path, state);
+                : getInvocationAndContextForInference(path, state, calledFromDataflow);
         result =
             runInferenceForCall(
                 state,
@@ -1405,7 +1406,7 @@ public final class GenericsChecks {
    *     typeFromAssignmentContext field of the result will be null.
    */
   private InvocationAndContext getInvocationAndContextForInference(
-      TreePath path, VisitorState state) {
+      TreePath path, VisitorState state, boolean calledFromDataflow) {
     MethodInvocationTree invocation = (MethodInvocationTree) path.getLeaf();
     TreePath parentPath = path.getParentPath();
     Tree parent = parentPath.getLeaf();
@@ -1438,7 +1439,7 @@ public final class GenericsChecks {
           // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
           // we want to find the outermost invocation that requires inference, since that is
           // the one whose assignment context is relevant
-          return getInvocationAndContextForInference(parentPath, state);
+          return getInvocationAndContextForInference(parentPath, state, calledFromDataflow);
         }
         // the generic invocation is either a regular parameter to the parent call, or the
         // receiver expression
@@ -1464,7 +1465,10 @@ public final class GenericsChecks {
               // parent invocation
               formalParamType =
                   getEnclosingTypeForCallExpression(
-                      ASTHelpers.getSymbol(parentInvocation), parentInvocation, state);
+                      ASTHelpers.getSymbol(parentInvocation),
+                      parentInvocation,
+                      state,
+                      calledFromDataflow);
             } else {
               throw new RuntimeException(
                   "did not find invocation "
@@ -1544,7 +1548,7 @@ public final class GenericsChecks {
       }
     }
 
-    Type enclosingType = getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state);
+    Type enclosingType = getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state, false);
     if (enclosingType == null) {
       return Nullness.NONNULL;
     }
@@ -1563,7 +1567,10 @@ public final class GenericsChecks {
    * @return the enclosing type for the method call, or null if it cannot be determined
    */
   private @Nullable Type getEnclosingTypeForCallExpression(
-      Symbol.MethodSymbol invokedMethodSymbol, Tree tree, VisitorState state) {
+      Symbol.MethodSymbol invokedMethodSymbol,
+      Tree tree,
+      VisitorState state,
+      boolean calledFromDataflow) {
     Type enclosingType = null;
     if (tree instanceof MethodInvocationTree) {
       if (invokedMethodSymbol.isStatic()) {
@@ -1584,7 +1591,8 @@ public final class GenericsChecks {
             ASTHelpers.stripParentheses(((MemberSelectTree) methodSelect).getExpression());
         if (isGenericCallNeedingInference(receiver)) {
           enclosingType =
-              inferGenericMethodCallType(state, (MethodInvocationTree) receiver, null, false);
+              inferGenericMethodCallType(
+                  state, (MethodInvocationTree) receiver, null, false, calledFromDataflow);
         } else {
           enclosingType = getTreeType(receiver, state);
         }
