@@ -42,8 +42,15 @@ dependencies {
     testRuntimeOnly deps.build.errorProneCheckApi
 }
 
-test {
+tasks.withType(Test).configureEach {
     dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
+}
+
+tasks.getByName('testJdk25').configure {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+        vendor = org.gradle.jvm.toolchain.JvmVendorSpec.AZUL
+    }
 }
 
 tasks.withType(JavaCompile).configureEach {

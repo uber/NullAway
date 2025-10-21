@@ -773,7 +773,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("need better support for generics inference combined with local vars")
   @Test
   public void firstOrDefaultLocalVarParam() {
     makeHelper()
@@ -798,6 +797,131 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
             "    result.hashCode();",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void localsWithTypesFromDataflow() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    void testPositive() {",
+            "        String s = null;",
+            "        String t = id(s);",
+            "        // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "        t.hashCode();",
+            "    }",
+            "    void testNegative() {",
+            "        String s = \"hello\";",
+            "        String t = id(s);",
+            "        t.hashCode();",
+            "    }",
+            "    String field = \"hello\";",
+            "    void testField() {",
+            "        String s = null;",
+            "        // BUG: Diagnostic contains: Failed to infer type argument nullability",
+            "        field = id(s);",
+            "    }",
+            "    @Nullable String field2 = null;",
+            "    void testField2() {",
+            "        String s = null;",
+            "        field2 = id(s);",
+            "        // BUG: Diagnostic contains: dereferenced expression field2 is @Nullable",
+            "        field2.hashCode();",
+            "        s = \"hello\";",
+            "        field2 = id(s);",
+            "        field2.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dataflowAndLoops() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    void testLoop1() {",
+            "        String s = \"hello\";",
+            "        while (true) {",
+            "            String t = id(s);",
+            "            // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "            t.hashCode();",
+            "            s = null;",
+            "        }",
+            "    }",
+            "    void testLoop2() {",
+            "        String t = \"hello\";",
+            "        while (true) {",
+            "            // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "            t.hashCode();",
+            "            String s = null;",
+            "            t = id(s);",
+            "        }",
+            "    }",
+            "    void testLoop3() {",
+            "        String t = \"hello\";",
+            "        String s = \"hello\";",
+            "        t.hashCode();",
+            "        int i = 2;",
+            "        while (i > 0) {",
+            "            t = id(s);",
+            "            s = null;",
+            "            i--;",
+            "        }",
+            "        // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "        t.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void otherExprsWithTypesFromDataflow() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    @Nullable String field;",
+            "    void testPositive() {",
+            "        String t = id(field);",
+            "        // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "        t.hashCode();",
+            "    }",
+            "    void testNegative() {",
+            "        if (field != null) {",
+            "            String t = id(field);",
+            "            t.hashCode();",
+            "        }",
+            "    }",
+            "    void testUnsupported() {",
+            "        String s = \"hello\";",
+            "        // dataflow can't prove the argument is non-null",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 's == null ? null : s'",
+            "        String t = id(s == null ? null : s);",
+            "        t.hashCode();",
+            "    }",
             "}")
         .doTest();
   }
@@ -1160,7 +1284,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // to ensure that dataflow runs",
             "    Object x = new Object(); x.toString();",
             "    Object y = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    // BUG: Diagnostic contains: dereferenced expression id(y) is @Nullable",
             "    id(y).toString();",
             "  }",
             "  static Object testReturn() {",
@@ -1174,7 +1298,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // to ensure that dataflow runs",
             "    Object x = new Object(); x.toString();",
             "    Object y = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
             "    return (((id(y))));",
             "  }",
             "  static Object testReturnNested() {",
@@ -1242,6 +1366,33 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    ((make(null))).get().toString();",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1294_lambdaArguments() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            " public interface Callback<T extends @Nullable Object> {",
+            "   void onResult(T thing);",
+            " }",
+            " public static <T extends @Nullable Object> Callback<T> wrap(Callback<T> thing) {",
+            "   return thing;",
+            " }",
+            " public static void test() {",
+            "   Callback<@Nullable String> ret1 = wrap(s -> {});",
+            // we should get an error at the s.hashCode() call.
+            "   // BUG: Diagnostic contains: dereferenced expression",
+            "   Callback<@Nullable String> ret2 = wrap(s -> { s.hashCode(); });",
+            "   Callback<@Nullable String> ret3 = wrap(s -> { if (s != null) s.hashCode(); });",
+            "   Callback<String> ret4 = wrap(s -> { s.hashCode(); });",
+            "   }",
             "}")
         .doTest();
   }
