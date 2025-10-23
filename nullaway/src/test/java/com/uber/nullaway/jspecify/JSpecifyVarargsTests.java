@@ -465,6 +465,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
         .addSourceLines(
             "NonNull.java",
@@ -639,6 +640,8 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true"));
   }
 }

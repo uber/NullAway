@@ -32,6 +32,8 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
-            "-XepOpt:NullAway:OnlyNullMarked=true", "-XepOpt:NullAway:JSpecifyMode=true"));
+            "-XepOpt:NullAway:OnlyNullMarked=true",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true"));
   }
 }

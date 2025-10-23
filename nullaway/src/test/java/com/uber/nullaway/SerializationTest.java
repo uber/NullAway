@@ -2138,6 +2138,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",
@@ -2180,6 +2181,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",
@@ -2222,6 +2224,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SerializeFixMetadata=true",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",

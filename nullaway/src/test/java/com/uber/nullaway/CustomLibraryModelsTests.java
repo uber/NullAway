@@ -272,7 +272,8 @@ public class CustomLibraryModelsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true"))
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",

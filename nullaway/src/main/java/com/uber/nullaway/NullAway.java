@@ -94,6 +94,7 @@ import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.Options;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
@@ -226,6 +227,8 @@ public class NullAway extends BugChecker
   // always be called before the field gets dereferenced
   @SuppressWarnings("NullAway.Init")
   private CodeAnnotationInfo codeAnnotationInfo;
+
+  private boolean checkedJDKVersionForJSpecifyMode = false;
 
   private final Config config;
 
@@ -1703,6 +1706,14 @@ public class NullAway extends BugChecker
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     }
+    if (!checkedJDKVersionForJSpecifyMode && config.isJSpecifyMode()) {
+      if (!isValidJavacConfigForJSpecifyMode(state)) {
+        String msg =
+            "Running NullAway in JSpecify mode requires either JDK 22+ or passing the flag -XDaddTypeAnnotationsToSymbol=true to JDK 21.0.8+";
+        throw new IllegalStateException(msg);
+      }
+    }
+    checkedJDKVersionForJSpecifyMode = true;
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
     // NOTE: for this mechanism to work, we rely on the enclosing ClassTree
@@ -2811,6 +2822,24 @@ public class NullAway extends BugChecker
       }
     }
     return expr;
+  }
+
+  private static boolean isValidJavacConfigForJSpecifyMode(VisitorState state) {
+    // Ensure that in JSpecify mode, either (1) we are running on JDK 22 or above, or (2) the user
+    // has passed -XDaddTypeAnnotationsToSymbol=true to javac.
+    Runtime.Version version = Runtime.version();
+    if (version.feature() < 22) {
+      Options opts = Options.instance(state.context); // Error Prone exposes the javac Context
+      String key = "addTypeAnnotationsToSymbol"; // drop the `-XD` prefix
+      if (!opts.isSet(key)) {
+        return false; // not present
+      }
+      String v = opts.get(key); // "" for bare flag, or a string value
+      return v.isEmpty() || Boolean.parseBoolean(v);
+    } else {
+      // JDK 22+ always has type annotations on symbols
+      return true;
+    }
   }
 
   /**

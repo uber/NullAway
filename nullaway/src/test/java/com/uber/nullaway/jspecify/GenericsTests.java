@@ -2705,7 +2705,9 @@ public class GenericsTests extends NullAwayTestsBase {
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true"));
   }
 
   private CompilationTestHelper makeHelperWithoutJSpecifyMode() {

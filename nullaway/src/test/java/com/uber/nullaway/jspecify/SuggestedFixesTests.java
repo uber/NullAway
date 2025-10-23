@@ -21,6 +21,7 @@ public class SuggestedFixesTests {
             SuggestedFixesTests.class.getProtectionDomain().getCodeSource().getLocation().getPath(),
             "-XepOpt:NullAway:AnnotatedPackages=com.uber",
             "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true",
             "-XepOpt:NullAway:SuggestSuppressions=true");
   }
 

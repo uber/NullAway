@@ -873,7 +873,8 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:JSpecifyMode=true"))
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -906,7 +907,8 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:JSpecifyMode=true"))
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Foo.java",
             "package com.uber;",

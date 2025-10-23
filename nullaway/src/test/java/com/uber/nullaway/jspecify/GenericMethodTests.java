@@ -1400,7 +1400,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true"));
   }
 
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
@@ -1408,6 +1410,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber",
             "-XepOpt:NullAway:JSpecifyMode=true",
+            "-XDaddTypeAnnotationsToSymbol=true",
             "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true"));
   }
 }
