@@ -2,6 +2,7 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
 import java.util.List;
 import org.junit.Assume;
 import org.junit.Test;
@@ -248,9 +249,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        List.of(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:JSpecifyMode=true",
-            "-XDaddTypeAnnotationsToSymbol=true"));
+        NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 }

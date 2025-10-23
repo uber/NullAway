@@ -6,6 +6,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.errorprone.CompilationTestHelper;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -56,5 +57,17 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
     assertTrue(e.getMessage().contains(ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG));
+  }
+
+  @Test
+  public void missingTypeAnnotationSymbolFlagForJSpecifyModeOnOlderJDK() {
+    Assume.assumeTrue(Runtime.version().feature() < 22);
+    CompilationTestHelper compilationTestHelper =
+        makeTestHelperWithArgs(
+                List.of("-XepOpt:NullAway:OnlyNullMarked", "-XepOpt:NullAway:JSpecifyMode=true"))
+            .addSourceLines("Stub.java", "package com.uber; class Stub {}");
+    AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
+    assertTrue(
+        e.getMessage().contains("Running NullAway in JSpecify mode requires either JDK 22+"));
   }
 }
