@@ -137,6 +137,7 @@ public class LibraryModelIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
@@ -163,7 +164,8 @@ public class LibraryModelIntegrationTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true"))
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -185,6 +187,7 @@ public class LibraryModelIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
@@ -209,6 +212,7 @@ public class LibraryModelIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
@@ -236,6 +240,7 @@ public class LibraryModelIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
@@ -262,6 +267,7 @@ public class LibraryModelIntegrationTest {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
