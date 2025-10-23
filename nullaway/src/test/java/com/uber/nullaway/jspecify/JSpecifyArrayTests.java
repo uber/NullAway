@@ -24,6 +24,7 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -705,9 +706,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:JSpecifyMode=true",
-            "-XDaddTypeAnnotationsToSymbol=true"));
+        NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 }

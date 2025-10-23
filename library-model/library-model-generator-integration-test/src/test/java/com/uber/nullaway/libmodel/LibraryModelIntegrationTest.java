@@ -2,6 +2,7 @@ package com.uber.nullaway.libmodel;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -132,13 +133,12 @@ public class LibraryModelIntegrationTest {
   public void libraryModelInnerClassNullableUpperBoundsTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true",
-                "-XepOpt:NullAway:JarInferEnabled=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -160,12 +160,11 @@ public class LibraryModelIntegrationTest {
   public void libraryModelNullableUpperBoundsWithoutJarInferTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -182,13 +181,12 @@ public class LibraryModelIntegrationTest {
   public void libraryModelDefaultParameterNullabilityTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true",
-                "-XepOpt:NullAway:JarInferEnabled=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -207,13 +205,12 @@ public class LibraryModelIntegrationTest {
   public void libraryModelParameterNullabilityTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true",
-                "-XepOpt:NullAway:JarInferEnabled=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -235,13 +232,12 @@ public class LibraryModelIntegrationTest {
   public void nullableArrayTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true",
-                "-XepOpt:NullAway:JarInferEnabled=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
@@ -262,13 +258,12 @@ public class LibraryModelIntegrationTest {
   public void genericParameterTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true",
-                "-XepOpt:NullAway:JarInferEnabled=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
             "package com.uber;",

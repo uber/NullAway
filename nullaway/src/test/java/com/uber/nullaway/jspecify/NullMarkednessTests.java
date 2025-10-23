@@ -1,6 +1,7 @@
 package com.uber.nullaway.jspecify;
 
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -869,12 +870,11 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   @Test
   public void nullUnmarkedMethodWithNonNullParamJSpecifyMode() {
     makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
         .addSourceLines(
             "Foo.java",
             "package com.uber;",
@@ -903,12 +903,11 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   @Test
   public void nullUnmarkedMethodWithNullableReturnJSpecifyMode() {
     makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
         .addSourceLines(
             "Foo.java",
             "package com.uber;",

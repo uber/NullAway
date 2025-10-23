@@ -3,6 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.VarargsTests;
+import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -460,13 +461,12 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   @Test
   public void testVarargsRestrictive() {
     makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XDaddTypeAnnotationsToSymbol=true",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true")))
         .addSourceLines(
             "NonNull.java",
             "package com.uber.both;",
@@ -639,9 +639,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:JSpecifyMode=true",
-            "-XDaddTypeAnnotationsToSymbol=true"));
+        NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 }
