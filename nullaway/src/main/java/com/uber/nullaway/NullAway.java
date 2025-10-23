@@ -1706,14 +1706,16 @@ public class NullAway extends BugChecker
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     }
-    if (!checkedJDKVersionForJSpecifyMode && config.isJSpecifyMode()) {
-      if (!isValidJavacConfigForJSpecifyMode(state)) {
+    if (!checkedJDKVersionForJSpecifyMode) {
+      checkedJDKVersionForJSpecifyMode = true;
+      if (config.isJSpecifyMode() && !isValidJavacConfigForJSpecifyMode(state)) {
         String msg =
-            "Running NullAway in JSpecify mode requires either JDK 22+ or passing the flag -XDaddTypeAnnotationsToSymbol=true to JDK 21.0.8+";
+            "Running NullAway in JSpecify mode requires either JDK 22+"
+                + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
+                + " see https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.";
         throw new IllegalStateException(msg);
       }
     }
-    checkedJDKVersionForJSpecifyMode = true;
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
     // NOTE: for this mechanism to work, we rely on the enclosing ClassTree
@@ -2829,12 +2831,12 @@ public class NullAway extends BugChecker
     // has passed -XDaddTypeAnnotationsToSymbol=true to javac.
     Runtime.Version version = Runtime.version();
     if (version.feature() < 22) {
-      Options opts = Options.instance(state.context); // Error Prone exposes the javac Context
-      String key = "addTypeAnnotationsToSymbol"; // drop the `-XD` prefix
+      Options opts = Options.instance(state.context);
+      String key = "addTypeAnnotationsToSymbol";
       if (!opts.isSet(key)) {
-        return false; // not present
+        return false;
       }
-      String v = opts.get(key); // "" for bare flag, or a string value
+      String v = opts.get(key);
       return v.isEmpty() || Boolean.parseBoolean(v);
     } else {
       // JDK 22+ always has type annotations on symbols
