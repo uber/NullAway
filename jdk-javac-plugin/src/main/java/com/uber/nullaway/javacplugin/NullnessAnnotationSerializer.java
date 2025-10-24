@@ -216,7 +216,6 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return hasJspecifyAnnotationDeep(tpSym.asType());
                 }
 
-
                 private boolean hasJspecifyAnnotation(List<? extends AnnotationMirror> mirrors) {
                   if (mirrors == null) {
                     return false;
@@ -234,18 +233,20 @@ public class NullnessAnnotationSerializer implements Plugin {
                 }
 
                 private boolean hasJspecifyAnnotationDeep(TypeMirror type) {
-                  if(type == null) {
+                  if (type == null) {
                     return false;
                   }
-                  if(hasJspecifyAnnotation(type.getAnnotationMirrors())) {
+                  if (hasJspecifyAnnotation(type.getAnnotationMirrors())) {
                     return true;
                   }
-                  switch(type.getKind()) {
+                  switch (type.getKind()) {
                     case ARRAY -> {
-                      return hasJspecifyAnnotationDeep(((javax.lang.model.type.ArrayType) type).getComponentType());
+                      return hasJspecifyAnnotationDeep(
+                          ((javax.lang.model.type.ArrayType) type).getComponentType());
                     }
                     case DECLARED -> {
-                      for (TypeMirror arg : ((javax.lang.model.type.DeclaredType) type).getTypeArguments()) {
+                      for (TypeMirror arg :
+                          ((javax.lang.model.type.DeclaredType) type).getTypeArguments()) {
                         if (hasJspecifyAnnotationDeep(arg)) {
                           return true;
                         }
@@ -253,15 +254,19 @@ public class NullnessAnnotationSerializer implements Plugin {
                       return false;
                     }
                     case WILDCARD -> {
-                      javax.lang.model.type.WildcardType wt = (javax.lang.model.type.WildcardType) type;
-                      return hasJspecifyAnnotationDeep(wt.getExtendsBound()) || hasJspecifyAnnotationDeep(wt.getSuperBound());
+                      javax.lang.model.type.WildcardType wt =
+                          (javax.lang.model.type.WildcardType) type;
+                      return hasJspecifyAnnotationDeep(wt.getExtendsBound())
+                          || hasJspecifyAnnotationDeep(wt.getSuperBound());
                     }
                     case TYPEVAR -> {
                       TypeVariable tv = (TypeVariable) type;
-                      return hasJspecifyAnnotationDeep(tv.getUpperBound()) || hasJspecifyAnnotationDeep(tv.getLowerBound());
+                      return hasJspecifyAnnotationDeep(tv.getUpperBound())
+                          || hasJspecifyAnnotationDeep(tv.getLowerBound());
                     }
                     case INTERSECTION -> {
-                      for (TypeMirror b : ((javax.lang.model.type.IntersectionType) type).getBounds()) {
+                      for (TypeMirror b :
+                          ((javax.lang.model.type.IntersectionType) type).getBounds()) {
                         if (hasJspecifyAnnotationDeep(b)) {
                           return true;
                         }
