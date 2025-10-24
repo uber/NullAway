@@ -150,7 +150,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   String returnType = "";
                   if (methodTree.getReturnType() != null) {
                     returnType += mSym.getReturnType().toString();
-                    if (hasJspecifyAnnotation(mSym.getReturnType().getAnnotationMirrors())) {
+                    if (hasJspecifyAnnotationDeep(mSym.getReturnType())) {
                       methodHasAnnotations = true;
                     }
                   }
@@ -160,7 +160,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   // check each parameter annotations
                   if (!methodHasAnnotations) {
                     for (Symbol.VarSymbol vSym : mSym.getParameters()) {
-                      if (hasJspecifyAnnotation(vSym.asType().getAnnotationMirrors())) {
+                      if (hasJspecifyAnnotationDeep(vSym.asType())) {
                         methodHasAnnotations = true;
                       }
                     }
@@ -213,21 +213,10 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (tpSym == null) {
                     return false;
                   }
-
-                  // Check upper bound
-                  TypeMirror tpType = tpSym.asType();
-                  if (tpType instanceof TypeVariable typeVar) {
-                    // Check upper bound
-                    TypeMirror upperBound = typeVar.getUpperBound();
-                    if (upperBound != null
-                        && hasJspecifyAnnotation(upperBound.getAnnotationMirrors())) {
-                      return true;
-                    }
-                  }
-                  return false;
+                  return hasJspecifyAnnotationDeep(tpSym.asType());
                 }
 
-                /** Helper method to check a list of AnnotationMirrors for JSpecify annotations. */
+
                 private boolean hasJspecifyAnnotation(List<? extends AnnotationMirror> mirrors) {
                   if (mirrors == null) {
                     return false;
@@ -242,6 +231,47 @@ public class NullnessAnnotationSerializer implements Plugin {
                     }
                   }
                   return false;
+                }
+
+                private boolean hasJspecifyAnnotationDeep(TypeMirror type) {
+                  if(type == null) {
+                    return false;
+                  }
+                  if(hasJspecifyAnnotation(type.getAnnotationMirrors())) {
+                    return true;
+                  }
+                  switch(type.getKind()) {
+                    case ARRAY -> {
+                      return hasJspecifyAnnotationDeep(((javax.lang.model.type.ArrayType) type).getComponentType());
+                    }
+                    case DECLARED -> {
+                      for (TypeMirror arg : ((javax.lang.model.type.DeclaredType) type).getTypeArguments()) {
+                        if (hasJspecifyAnnotationDeep(arg)) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    }
+                    case WILDCARD -> {
+                      javax.lang.model.type.WildcardType wt = (javax.lang.model.type.WildcardType) type;
+                      return hasJspecifyAnnotationDeep(wt.getExtendsBound()) || hasJspecifyAnnotationDeep(wt.getSuperBound());
+                    }
+                    case TYPEVAR -> {
+                      TypeVariable tv = (TypeVariable) type;
+                      return hasJspecifyAnnotationDeep(tv.getUpperBound()) || hasJspecifyAnnotationDeep(tv.getLowerBound());
+                    }
+                    case INTERSECTION -> {
+                      for (TypeMirror b : ((javax.lang.model.type.IntersectionType) type).getBounds()) {
+                        if (hasJspecifyAnnotationDeep(b)) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    }
+                    default -> {
+                      return false;
+                    }
+                  }
                 }
               }.scan(cu, null);
             } else if (e.getKind() == com.sun.source.util.TaskEvent.Kind.COMPILATION) {
