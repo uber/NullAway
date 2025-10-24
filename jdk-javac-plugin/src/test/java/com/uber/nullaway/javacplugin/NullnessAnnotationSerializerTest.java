@@ -293,6 +293,63 @@ public class NullnessAnnotationSerializerTest {
                                 List.of()))))));
   }
 
+  @Test
+  public void annotationDeepScan() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.List;",
+            "@NullMarked",
+            "public class Foo {",
+            "  interface Bar {}",
+            "  public void arrayType(@Nullable String[] arr) {}",
+            "  public void wildCard(List<? super @Nullable Integer> list) {}",
+            "  public <U extends @Nullable Object> void typeVariable(U u) {}",
+            "  public <T extends @Nullable String & Bar> void intersection(T t) {}",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo(
+                                "void",
+                                "arrayType(java.lang.@org.jspecify.annotations.Nullable String[])",
+                                false,
+                                false,
+                                List.of()),
+                            new MethodInfo(
+                                "void",
+                                "wildCard(java.util.List<? super java.lang.@org.jspecify.annotations.Nullable Integer>)",
+                                false,
+                                false,
+                                List.of()),
+                            new MethodInfo(
+                                "void",
+                                "<U>typeVariable(U)",
+                                false,
+                                false,
+                                List.of(new TypeParamInfo("U", List.of("@Nullable Object")))),
+                            new MethodInfo(
+                                "void",
+                                "<T>intersection(T)",
+                                false,
+                                false,
+                                List.of(
+                                    new TypeParamInfo(
+                                        "T", List.of("@Nullable String", "Bar")))))))));
+  }
+
   private Map<String, List<ClassInfo>> getParsedJSON() {
     String tempPath = temporaryFolder.getRoot().getAbsolutePath();
     // list all json files in the  tempPath
