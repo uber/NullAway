@@ -180,7 +180,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                           hasNullMarked,
                           hasNullUnmarked,
                           methodTypeParams);
-                  // only add currentClass if there are annotations in it
+                  // only add this method if it uses JSpecify annotations
                   if (currentClass != null && methodHasAnnotations) {
                     currentClass.methods().add(methodInfo);
                   }
