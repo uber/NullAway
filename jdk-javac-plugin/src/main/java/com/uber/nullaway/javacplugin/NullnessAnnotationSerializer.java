@@ -162,6 +162,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                     for (Symbol.VarSymbol vSym : mSym.getParameters()) {
                       if (hasJspecifyAnnotationDeep(vSym.asType())) {
                         methodHasAnnotations = true;
+                        break;
                       }
                     }
                   }

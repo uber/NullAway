@@ -154,7 +154,7 @@ public class NullnessAnnotationSerializerTest {
             "class Foo {",
             "  @NullUnmarked",
             "  class Inner { }",
-            "  private class PrivateInner<String extends @Nullable Object> { }",
+            "  private class PrivateInner<T extends @Nullable Object> { }",
             "  void method() {",
             "    Runnable r = new Runnable() { public void run() {} };",
             "  }",
