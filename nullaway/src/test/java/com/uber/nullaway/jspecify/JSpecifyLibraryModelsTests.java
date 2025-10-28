@@ -2,6 +2,7 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -31,7 +32,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:OnlyNullMarked=true", "-XepOpt:NullAway:JSpecifyMode=true"));
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList("-XepOpt:NullAway:OnlyNullMarked=true")));
   }
 }

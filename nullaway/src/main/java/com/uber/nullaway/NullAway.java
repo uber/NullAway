@@ -98,6 +98,7 @@ import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
@@ -226,6 +227,8 @@ public class NullAway extends BugChecker
   // always be called before the field gets dereferenced
   @SuppressWarnings("NullAway.Init")
   private CodeAnnotationInfo codeAnnotationInfo;
+
+  private boolean checkedJDKVersionForJSpecifyMode = false;
 
   private final Config config;
 
@@ -1702,6 +1705,17 @@ public class NullAway extends BugChecker
     // which is not available in the constructor
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
+    }
+    if (!checkedJDKVersionForJSpecifyMode) {
+      checkedJDKVersionForJSpecifyMode = true;
+      if (config.isJSpecifyMode()
+          && !JSpecifyJavacConfig.isValidJavacConfigForJSpecifyMode(state)) {
+        String msg =
+            "Running NullAway in JSpecify mode requires either JDK 22+"
+                + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
+                + " see https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.";
+        throw new IllegalStateException(msg);
+      }
     }
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
