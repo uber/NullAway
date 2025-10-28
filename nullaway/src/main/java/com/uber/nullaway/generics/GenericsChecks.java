@@ -11,6 +11,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
@@ -27,6 +28,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -794,6 +796,86 @@ public final class GenericsChecks {
       argumentType =
           refineArgumentTypeWithDataflow(argumentType, argument, state, path, calledFromDataflow);
       solver.addSubtypeConstraint(argumentType, formalParamType, false);
+    } else if (argument instanceof LambdaExpressionTree) {
+      LambdaExpressionTree lambda = (LambdaExpressionTree) argument;
+      Symbol.MethodSymbol fiMethod =
+          NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
+      Type fiReturnType = fiMethod.getReturnType();
+      Tree body = lambda.getBody();
+      if (body instanceof ExpressionTree) {
+        // Case 1: Expression body, e.g., () -> null
+        Type returnedExpressionType = getTreeType((ExpressionTree) body, state);
+        if (returnedExpressionType != null) {
+          solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
+        }
+      } else if (body instanceof BlockTree) {
+        // Case 2: Block body, e.g., () -> { return null; }
+
+        List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
+
+        for (ExpressionTree returnExpr : returnExpressions) {
+          Type returnedExpressionType = getTreeType(returnExpr, state);
+          if (returnedExpressionType != null) {
+            // Add a constraint that the returned expression's type
+            // must be a subtype of the functional interface's return type.
+            solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
+          }
+        }
+      }
+    }
+  }
+
+  static class ReturnFinder extends TreePathScanner<Void, Void> {
+
+    private final List<ExpressionTree> returnExpressions = new ArrayList<>();
+
+    /**
+     * Scans the given tree and returns all found return expressions.
+     *
+     * @param tree The tree (e.g., a lambda body) to scan.
+     * @return A list of all return expressions found.
+     */
+    public static List<ExpressionTree> findReturnExpressions(Tree tree) {
+      ReturnFinder finder = new ReturnFinder();
+      finder.scan(tree, null);
+      return finder.getReturnExpressions();
+    }
+
+    /**
+     * Gets the list of return expressions found by this visitor.
+     *
+     * @return The list of return expressions.
+     */
+    public List<ExpressionTree> getReturnExpressions() {
+      return returnExpressions;
+    }
+
+    @Override
+    public Void visitLambdaExpression(LambdaExpressionTree node, Void p) {
+      // Do not scan inside nested lambdas
+      return null;
+    }
+
+    @Override
+    public Void visitClass(ClassTree node, Void p) {
+      // Do not scan inside nested (anonymous/local) classes
+      return null;
+    }
+
+    @Override
+    public Void visitMethod(MethodTree node, Void p) {
+      // Do not scan inside methods of local classes
+      return null;
+    }
+
+    @Override
+    public Void visitReturn(ReturnTree node, Void p) {
+      ExpressionTree expression = node.getExpression();
+      if (expression != null) {
+        returnExpressions.add(expression);
+      }
+      // We've processed this return, don't scan its children
+      return null;
     }
   }
 
