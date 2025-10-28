@@ -214,7 +214,11 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (tpSym == null) {
                     return false;
                   }
-                  return hasJspecifyAnnotationDeep(tpSym.asType());
+                  TypeVariable tv = (TypeVariable) tpSym.asType();
+                  boolean hasAnnotation =
+                      hasJspecifyAnnotationDeep(tv.getUpperBound())
+                          || hasJspecifyAnnotationDeep(tv.getLowerBound());
+                  return hasAnnotation || hasJspecifyAnnotationDeep(tpSym.asType());
                 }
 
                 private boolean hasJspecifyAnnotation(List<? extends AnnotationMirror> mirrors) {
@@ -259,11 +263,6 @@ public class NullnessAnnotationSerializer implements Plugin {
                           (javax.lang.model.type.WildcardType) type;
                       return hasJspecifyAnnotationDeep(wt.getExtendsBound())
                           || hasJspecifyAnnotationDeep(wt.getSuperBound());
-                    }
-                    case TYPEVAR -> {
-                      TypeVariable tv = (TypeVariable) type;
-                      return hasJspecifyAnnotationDeep(tv.getUpperBound())
-                          || hasJspecifyAnnotationDeep(tv.getLowerBound());
                     }
                     case INTERSECTION -> {
                       for (TypeMirror b :

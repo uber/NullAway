@@ -89,8 +89,6 @@ public class AstubxTest {
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
-            "NullableUpperBound:T getNullable()",
-            MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()),
             "NullableUpperBound:T withAnnotation()",
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
     ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
@@ -121,8 +119,6 @@ public class AstubxTest {
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
-            "ReturnAnnotation.UpperBoundExample:T getNullable()",
-            MethodAnnotationsRecord.create(ImmutableSet.of(), ImmutableMap.of()),
             "ReturnAnnotation.UpperBoundExample:T withAnnotation()",
             MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
     ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
