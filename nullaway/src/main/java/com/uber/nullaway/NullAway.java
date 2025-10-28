@@ -94,11 +94,11 @@ import com.sun.tools.javac.code.Symbol.VarSymbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.processing.JavacProcessingEnvironment;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.util.Options;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
@@ -1708,7 +1708,8 @@ public class NullAway extends BugChecker
     }
     if (!checkedJDKVersionForJSpecifyMode) {
       checkedJDKVersionForJSpecifyMode = true;
-      if (config.isJSpecifyMode() && !isValidJavacConfigForJSpecifyMode(state)) {
+      if (config.isJSpecifyMode()
+          && !JSpecifyJavacConfig.isValidJavacConfigForJSpecifyMode(state)) {
         String msg =
             "Running NullAway in JSpecify mode requires either JDK 22+"
                 + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
@@ -2824,23 +2825,6 @@ public class NullAway extends BugChecker
       }
     }
     return expr;
-  }
-
-  private static boolean isValidJavacConfigForJSpecifyMode(VisitorState state) {
-    // Ensure that in JSpecify mode, either (1) we are running on JDK 22 or above, or (2) the user
-    // has passed -XDaddTypeAnnotationsToSymbol=true to javac.
-    Runtime.Version version = Runtime.version();
-    if (version.feature() < 22) {
-      Options opts = Options.instance(state.context);
-      String key = "addTypeAnnotationsToSymbol";
-      if (!opts.isSet(key)) {
-        return false;
-      }
-      return Boolean.parseBoolean(opts.get(key));
-    } else {
-      // JDK 22+ always has type annotations on symbols
-      return true;
-    }
   }
 
   /**

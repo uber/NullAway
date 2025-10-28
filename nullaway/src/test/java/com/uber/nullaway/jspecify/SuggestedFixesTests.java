@@ -2,7 +2,7 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -28,7 +28,7 @@ public class SuggestedFixesTests {
                     .getLocation()
                     .getPath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"));
-    args.addAll(NullAwayJSpecifyConfig.jspecifyModeArgs());
+    args.addAll(JSpecifyJavacConfig.jspecifyModeArgs());
     args.add("-XepOpt:NullAway:SuggestSuppressions=true");
     return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
         .setArgs(args.toArray(new String[0]));

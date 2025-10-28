@@ -2,7 +2,7 @@ package com.uber.nullaway.jdkannotations;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -127,7 +127,7 @@ public class JDKIntegrationTest {
   public void libraryModelInnerClassNullableUpperBoundsTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -154,7 +154,7 @@ public class JDKIntegrationTest {
   public void libraryModelNullableUpperBoundsWithoutJarInferTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -175,7 +175,7 @@ public class JDKIntegrationTest {
   public void libraryModelDefaultParameterNullabilityTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -199,7 +199,7 @@ public class JDKIntegrationTest {
   public void libraryModelParameterNullabilityTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -226,7 +226,7 @@ public class JDKIntegrationTest {
   public void nullableArrayTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -252,7 +252,7 @@ public class JDKIntegrationTest {
   public void nullableGenericArrayTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -281,7 +281,7 @@ public class JDKIntegrationTest {
   public void nullableGenericReturnTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -307,7 +307,7 @@ public class JDKIntegrationTest {
   public void genericParameterTest() {
     compilationHelper
         .setArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),

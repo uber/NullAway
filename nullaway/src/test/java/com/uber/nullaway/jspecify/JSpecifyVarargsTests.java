@@ -3,7 +3,7 @@ package com.uber.nullaway.jspecify;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.VarargsTests;
-import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -461,7 +461,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   @Test
   public void testVarargsRestrictive() {
     makeTestHelperWithArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -639,7 +639,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
 
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 }

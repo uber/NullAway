@@ -23,7 +23,7 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
-import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -269,7 +269,7 @@ public class CustomLibraryModelsTests extends NullAwayTestsBase {
   @Test
   public void issue1194() {
     makeLibraryModelsTestHelperWithArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),

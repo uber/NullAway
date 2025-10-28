@@ -1,7 +1,7 @@
 package com.uber.nullaway.jspecify;
 
 import com.uber.nullaway.NullAwayTestsBase;
-import com.uber.nullaway.testhelper.NullAwayJSpecifyConfig;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -870,7 +870,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   @Test
   public void nullUnmarkedMethodWithNonNullParamJSpecifyMode() {
     makeTestHelperWithArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
@@ -903,7 +903,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   @Test
   public void nullUnmarkedMethodWithNullableReturnJSpecifyMode() {
     makeTestHelperWithArgs(
-            NullAwayJSpecifyConfig.withJSpecifyModeArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
