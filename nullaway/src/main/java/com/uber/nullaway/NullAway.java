@@ -2836,8 +2836,7 @@ public class NullAway extends BugChecker
       if (!opts.isSet(key)) {
         return false;
       }
-      String v = opts.get(key);
-      return v.isEmpty() || Boolean.parseBoolean(v);
+      return Boolean.parseBoolean(opts.get(key));
     } else {
       // JDK 22+ always has type annotations on symbols
       return true;
