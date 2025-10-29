@@ -104,7 +104,6 @@ public class NullnessAnnotationSerializer implements Plugin {
                   TypeMirror classType = trees.getTypeMirror(getCurrentPath());
                   boolean hasNullMarked = hasAnnotation(classSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(classSym, NULLUNMARKED_NAME);
-                  // only save classes containing jspecify annotations
                   if (currentClass != null) {
                     // save current class context
                     classStack.push(currentClass);
@@ -130,6 +129,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   super.visitClass(classTree, null);
                   currentClassHasAnnotation =
                       currentClassHasAnnotation || !currentClass.methods().isEmpty();
+                  // only save classes containing jspecify annotations
                   if (currentClassHasAnnotation) {
                     moduleClasses
                         .computeIfAbsent(moduleName, k -> new ArrayList<>())
@@ -150,7 +150,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   String returnType = "";
                   if (methodTree.getReturnType() != null) {
                     returnType += mSym.getReturnType().toString();
-                    if (hasJspecifyAnnotationDeep(mSym.getReturnType())) {
+                    if (hasJSpecifyAnnotationDeep(mSym.getReturnType())) {
                       methodHasAnnotations = true;
                     }
                   }
@@ -160,7 +160,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   // check each parameter annotations
                   if (!methodHasAnnotations) {
                     for (Symbol.VarSymbol vSym : mSym.getParameters()) {
-                      if (hasJspecifyAnnotationDeep(vSym.asType())) {
+                      if (hasJSpecifyAnnotationDeep(vSym.asType())) {
                         methodHasAnnotations = true;
                         break;
                       }
@@ -216,12 +216,12 @@ public class NullnessAnnotationSerializer implements Plugin {
                   }
                   TypeVariable tv = (TypeVariable) tpSym.asType();
                   boolean hasAnnotation =
-                      hasJspecifyAnnotationDeep(tv.getUpperBound())
-                          || hasJspecifyAnnotationDeep(tv.getLowerBound());
-                  return hasAnnotation || hasJspecifyAnnotationDeep(tpSym.asType());
+                      hasJSpecifyAnnotationDeep(tv.getUpperBound())
+                          || hasJSpecifyAnnotationDeep(tv.getLowerBound());
+                  return hasAnnotation || hasJSpecifyAnnotationDeep(tpSym.asType());
                 }
 
-                private boolean hasJspecifyAnnotation(List<? extends AnnotationMirror> mirrors) {
+                private boolean hasJSpecifyAnnotation(List<? extends AnnotationMirror> mirrors) {
                   if (mirrors == null) {
                     return false;
                   }
@@ -237,22 +237,32 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return false;
                 }
 
-                private boolean hasJspecifyAnnotationDeep(TypeMirror type) {
+                /**
+                 * Recursively checks if a {@code TypeMirror} or any of its nested type components
+                 * (like array components or bounds) have a JSpecify nullness annotation.
+                 *
+                 * <p>This method performs a "deep" search, traversing the structure of a given
+                 * type. It returns {@code true} as soon as the first JSpecify annotation is found.
+                 *
+                 * @param type The {@link TypeMirror} to inspect.
+                 * @return Returns {@code true} if {@code type} has JSpecify annotations.
+                 */
+                private boolean hasJSpecifyAnnotationDeep(TypeMirror type) {
                   if (type == null) {
                     return false;
                   }
-                  if (hasJspecifyAnnotation(type.getAnnotationMirrors())) {
+                  if (hasJSpecifyAnnotation(type.getAnnotationMirrors())) {
                     return true;
                   }
                   switch (type.getKind()) {
                     case ARRAY -> {
-                      return hasJspecifyAnnotationDeep(
+                      return hasJSpecifyAnnotationDeep(
                           ((javax.lang.model.type.ArrayType) type).getComponentType());
                     }
                     case DECLARED -> {
                       for (TypeMirror arg :
                           ((javax.lang.model.type.DeclaredType) type).getTypeArguments()) {
-                        if (hasJspecifyAnnotationDeep(arg)) {
+                        if (hasJSpecifyAnnotationDeep(arg)) {
                           return true;
                         }
                       }
@@ -261,13 +271,13 @@ public class NullnessAnnotationSerializer implements Plugin {
                     case WILDCARD -> {
                       javax.lang.model.type.WildcardType wt =
                           (javax.lang.model.type.WildcardType) type;
-                      return hasJspecifyAnnotationDeep(wt.getExtendsBound())
-                          || hasJspecifyAnnotationDeep(wt.getSuperBound());
+                      return hasJSpecifyAnnotationDeep(wt.getExtendsBound())
+                          || hasJSpecifyAnnotationDeep(wt.getSuperBound());
                     }
                     case INTERSECTION -> {
                       for (TypeMirror b :
                           ((javax.lang.model.type.IntersectionType) type).getBounds()) {
-                        if (hasJspecifyAnnotationDeep(b)) {
+                        if (hasJSpecifyAnnotationDeep(b)) {
                           return true;
                         }
                       }
