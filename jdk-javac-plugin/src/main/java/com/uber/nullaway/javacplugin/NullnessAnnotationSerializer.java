@@ -30,6 +30,7 @@ import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A Javac plugin that serializes nullness annotations from Java source files into a JSON file.
@@ -221,16 +222,19 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return hasAnnotation || hasJSpecifyAnnotationDeep(tpSym.asType());
                 }
 
-                private boolean hasJSpecifyAnnotation(List<? extends AnnotationMirror> mirrors) {
-                  if (mirrors == null) {
-                    return false;
-                  }
+                /**
+                 * Checks if a list of {@link AnnotationMirror}s contains any JSpecify nullness
+                 * annotations ({@code @Nullable} or {@code @NonNull}).
+                 *
+                 * @param mirrors the list of {@link AnnotationMirror}s to check
+                 * @return {@code true} if any JSpecify nullness annotations are present, {@code
+                 *     false} otherwise
+                 */
+                private boolean typeHasJSpecifyAnnotation(
+                    List<? extends AnnotationMirror> mirrors) {
                   for (AnnotationMirror am : mirrors) {
                     String fqn = am.getAnnotationType().toString();
-                    if (fqn.equals(NULLABLE_NAME)
-                        || fqn.equals(NONNULL_NAME)
-                        || fqn.equals(NULLMARKED_NAME)
-                        || fqn.equals(NULLUNMARKED_NAME)) {
+                    if (fqn.equals(NULLABLE_NAME) || fqn.equals(NONNULL_NAME)) {
                       return true;
                     }
                   }
@@ -247,11 +251,11 @@ public class NullnessAnnotationSerializer implements Plugin {
                  * @param type The {@link TypeMirror} to inspect.
                  * @return Returns {@code true} if {@code type} has JSpecify annotations.
                  */
-                private boolean hasJSpecifyAnnotationDeep(TypeMirror type) {
+                private boolean hasJSpecifyAnnotationDeep(@Nullable TypeMirror type) {
                   if (type == null) {
                     return false;
                   }
-                  if (hasJSpecifyAnnotation(type.getAnnotationMirrors())) {
+                  if (typeHasJSpecifyAnnotation(type.getAnnotationMirrors())) {
                     return true;
                   }
                   switch (type.getKind()) {
