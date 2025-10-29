@@ -43,6 +43,7 @@ configurations {
 
 dependencies {
     implementation deps.build.gson
+    implementation deps.build.jspecify
 
     testImplementation deps.test.junit4
     testImplementation(deps.build.errorProneTestHelpers) {
