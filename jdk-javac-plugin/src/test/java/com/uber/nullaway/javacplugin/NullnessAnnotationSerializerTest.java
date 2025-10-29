@@ -210,7 +210,7 @@ public class NullnessAnnotationSerializerTest {
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "class Foo {",
-            "  class NoAnnotation {}",
+            "  class NoAnnotation { void noAnnotMethod() {} }",
             "  class Inner {",
             "    void annotatedMethod(@Nullable String s) {}",
             "  }",
