@@ -307,6 +307,7 @@ public class NullnessAnnotationSerializerTest {
             "  public void wildCard(List<? super @Nullable Integer> list) {}",
             "  public <U extends @Nullable Object> void typeVariable(U u) {}",
             "  public <T extends @Nullable String & Bar> void intersection(T t) {}",
+            "  public <T> void nullableOnTypeVar(List<@Nullable T> list) {}",
             "}")
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
@@ -346,8 +347,13 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(
-                                    new TypeParamInfo(
-                                        "T", List.of("@Nullable String", "Bar")))))))));
+                                    new TypeParamInfo("T", List.of("@Nullable String", "Bar")))),
+                            new MethodInfo(
+                                "void",
+                                "<T>nullableOnTypeVar(java.util.List<@org.jspecify.annotations.Nullable T>)",
+                                false,
+                                false,
+                                List.of(new TypeParamInfo("T", List.of()))))))));
   }
 
   private Map<String, List<ClassInfo>> getParsedJSON() {
