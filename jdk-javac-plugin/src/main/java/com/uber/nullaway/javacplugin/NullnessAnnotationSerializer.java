@@ -8,8 +8,10 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.TypeParameterTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
+import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.Trees;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import java.io.IOException;
@@ -27,6 +29,8 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
+import javax.lang.model.type.TypeVariable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A Javac plugin that serializes nullness annotations from Java source files into a JSON file.
@@ -36,6 +40,8 @@ public class NullnessAnnotationSerializer implements Plugin {
 
   private static final String NULLMARKED_NAME = "org.jspecify.annotations.NullMarked";
   private static final String NULLUNMARKED_NAME = "org.jspecify.annotations.NullUnmarked";
+  private static final String NULLABLE_NAME = "org.jspecify.annotations.Nullable";
+  private static final String NONNULL_NAME = "org.jspecify.annotations.NonNull";
 
   // Data classes for JSON output
   public record TypeParamInfo(String name, List<String> bounds) {}
@@ -103,10 +109,14 @@ public class NullnessAnnotationSerializer implements Plugin {
                     // save current class context
                     classStack.push(currentClass);
                   }
+                  boolean currentClassHasAnnotation = hasNullMarked || hasNullUnmarked;
                   // build new class context
                   List<TypeParamInfo> classTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : classTree.getTypeParameters()) {
                     classTypeParams.add(typeParamInfo(tp));
+                    if (typeParamHasAnnotation(tp)) {
+                      currentClassHasAnnotation = true;
+                    }
                   }
                   List<MethodInfo> classMethods = new ArrayList<>();
                   currentClass =
@@ -117,10 +127,15 @@ public class NullnessAnnotationSerializer implements Plugin {
                           hasNullUnmarked,
                           classTypeParams,
                           classMethods);
-                  moduleClasses
-                      .computeIfAbsent(moduleName, k -> new ArrayList<>())
-                      .add(currentClass);
                   super.visitClass(classTree, null);
+                  currentClassHasAnnotation =
+                      currentClassHasAnnotation || !currentClass.methods().isEmpty();
+                  // only save classes containing jspecify annotations
+                  if (currentClassHasAnnotation) {
+                    moduleClasses
+                        .computeIfAbsent(moduleName, k -> new ArrayList<>())
+                        .add(currentClass);
+                  }
                   // restore previous class context
                   currentClass = !classStack.isEmpty() ? classStack.pop() : null;
                   return null;
@@ -132,14 +147,31 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return super.visitMethod(methodTree, null);
                   }
+                  boolean methodHasAnnotations = false;
                   String returnType = "";
                   if (methodTree.getReturnType() != null) {
                     returnType += mSym.getReturnType().toString();
+                    if (hasJSpecifyAnnotationDeep(mSym.getReturnType())) {
+                      methodHasAnnotations = true;
+                    }
                   }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
+                  methodHasAnnotations = methodHasAnnotations || hasNullMarked || hasNullUnmarked;
+                  // check each parameter annotations
+                  if (!methodHasAnnotations) {
+                    for (Symbol.VarSymbol vSym : mSym.getParameters()) {
+                      if (hasJSpecifyAnnotationDeep(vSym.asType())) {
+                        methodHasAnnotations = true;
+                        break;
+                      }
+                    }
+                  }
                   List<TypeParamInfo> methodTypeParams = new ArrayList<>();
                   for (TypeParameterTree tp : methodTree.getTypeParameters()) {
+                    if (typeParamHasAnnotation(tp)) {
+                      methodHasAnnotations = true;
+                    }
                     methodTypeParams.add(typeParamInfo(tp));
                   }
                   MethodInfo methodInfo =
@@ -149,7 +181,8 @@ public class NullnessAnnotationSerializer implements Plugin {
                           hasNullMarked,
                           hasNullUnmarked,
                           methodTypeParams);
-                  if (currentClass != null) {
+                  // only add this method if it uses JSpecify annotations
+                  if (currentClass != null && methodHasAnnotations) {
                     currentClass.methods().add(methodInfo);
                   }
                   return super.visitMethod(methodTree, null);
@@ -164,11 +197,100 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return new TypeParamInfo(name, bounds);
                 }
 
-                private boolean hasAnnotation(com.sun.tools.javac.code.Symbol sym, String fqn) {
+                private boolean hasAnnotation(Symbol sym, String fqn) {
                   return sym.getAnnotationMirrors().stream()
                       .map(AnnotationMirror::getAnnotationType)
                       .map(Object::toString)
                       .anyMatch(fqn::equals);
+                }
+
+                private boolean typeParamHasAnnotation(TypeParameterTree tp) {
+                  // Get the path to the type parameter relative to the current class path
+                  TreePath tpPath = TreePath.getPath(getCurrentPath(), tp);
+                  if (tpPath == null) {
+                    return false;
+                  }
+                  // Get the symbol for the type parameter
+                  Symbol tpSym = (Symbol) trees.getElement(tpPath);
+                  if (tpSym == null) {
+                    return false;
+                  }
+                  TypeVariable tv = (TypeVariable) tpSym.asType();
+                  boolean hasAnnotation =
+                      hasJSpecifyAnnotationDeep(tv.getUpperBound())
+                          || hasJSpecifyAnnotationDeep(tv.getLowerBound());
+                  return hasAnnotation || hasJSpecifyAnnotationDeep(tpSym.asType());
+                }
+
+                /**
+                 * Checks if a list of {@link AnnotationMirror}s contains any JSpecify nullness
+                 * annotations ({@code @Nullable} or {@code @NonNull}).
+                 *
+                 * @param mirrors the list of {@link AnnotationMirror}s to check
+                 * @return {@code true} if any JSpecify nullness annotations are present, {@code
+                 *     false} otherwise
+                 */
+                private boolean typeHasJSpecifyAnnotation(
+                    List<? extends AnnotationMirror> mirrors) {
+                  for (AnnotationMirror am : mirrors) {
+                    String fqn = am.getAnnotationType().toString();
+                    if (fqn.equals(NULLABLE_NAME) || fqn.equals(NONNULL_NAME)) {
+                      return true;
+                    }
+                  }
+                  return false;
+                }
+
+                /**
+                 * Recursively checks if a {@code TypeMirror} or any of its nested type components
+                 * (like array components or bounds) have a JSpecify nullness annotation.
+                 *
+                 * <p>This method performs a "deep" search, traversing the structure of a given
+                 * type. It returns {@code true} as soon as the first JSpecify annotation is found.
+                 *
+                 * @param type The {@link TypeMirror} to inspect.
+                 * @return Returns {@code true} if {@code type} has JSpecify annotations.
+                 */
+                private boolean hasJSpecifyAnnotationDeep(@Nullable TypeMirror type) {
+                  if (type == null) {
+                    return false;
+                  }
+                  if (typeHasJSpecifyAnnotation(type.getAnnotationMirrors())) {
+                    return true;
+                  }
+                  switch (type.getKind()) {
+                    case ARRAY -> {
+                      return hasJSpecifyAnnotationDeep(
+                          ((javax.lang.model.type.ArrayType) type).getComponentType());
+                    }
+                    case DECLARED -> {
+                      for (TypeMirror arg :
+                          ((javax.lang.model.type.DeclaredType) type).getTypeArguments()) {
+                        if (hasJSpecifyAnnotationDeep(arg)) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    }
+                    case WILDCARD -> {
+                      javax.lang.model.type.WildcardType wt =
+                          (javax.lang.model.type.WildcardType) type;
+                      return hasJSpecifyAnnotationDeep(wt.getExtendsBound())
+                          || hasJSpecifyAnnotationDeep(wt.getSuperBound());
+                    }
+                    case INTERSECTION -> {
+                      for (TypeMirror b :
+                          ((javax.lang.model.type.IntersectionType) type).getBounds()) {
+                        if (hasJSpecifyAnnotationDeep(b)) {
+                          return true;
+                        }
+                      }
+                      return false;
+                    }
+                    default -> {
+                      return false;
+                    }
+                  }
                 }
               }.scan(cu, null);
             } else if (e.getKind() == com.sun.source.util.TaskEvent.Kind.COMPILATION) {
