@@ -8,7 +8,6 @@ In this release, NullAway checks the requirement that JSpecify mode is only run 
 configuration, and fails if it detects an incompatibility.
 See <https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions> for details.
 
-## What's Changed
 * Use inference for generic call passed as receiver to instance method (#1293)
 * Accept any annotation with simple name `Contract`, and change reporting of invalid contract annotations (#1295)
 * Properly model AtomicReference.get() in JSpecify mode (#1298)
