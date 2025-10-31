@@ -1,6 +1,35 @@
 Changelog
 =========
 
+Version 0.12.11
+---------------
+
+In this release, NullAway checks the requirement that JSpecify mode is only run on a compatible `javac` version /
+configuration, and fails if it detects an incompatibility.
+See https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.
+
+## What's Changed
+* Use inference for generic call passed as receiver to instance method (#1293)
+* Accept any annotation with simple name `Contract`, and change reporting of invalid contract annotations (#1295)
+* Properly model AtomicReference.get() in JSpecify mode (#1298)
+* Improve handling and error messages when using `this` inside an anonymous class (#1305)
+* Generate astubx from JSON output of jdk-javac-plugin by @haewiful (#1243)
+* Improve inference for generic method with void-returning lambda argument by @dhruv-agr (#1312)
+* Use refined types from dataflow analysis in generic method inference (#1309)
+* Fail if NullAway is run in JSpecify mode with an incompatible javac version / configuration (#1317)
+* Jdk javac plugin: don't serialize info for classes / methods without annotations by @haewiful (#1316)
+* Maintenance
+  - [Cleanup] Refactor away unnecessary Predicate by @lazaroclapp (#1297)
+  - Update to Error Prone 2.42.0 (#1299)
+  - Update to Gradle 9.1.0 (#1302)
+  - Test on JDK 25 (#1301)
+  - Compile with JDK 25 (#1303)
+  - Add CodeRabbit config (#1306)
+  - Update Gradle command used for integration tests (#1311)
+  - Disable CodeRabbit review status comments (#1313)
+  - Gradle fixes for jar-infer-lib (#1314)
+  - Enable building NullAway on JDK 25 (#1315)
+
 Version 0.12.10
 ---------------
 
