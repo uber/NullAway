@@ -6,7 +6,7 @@ Version 0.12.11
 
 In this release, NullAway checks the requirement that JSpecify mode is only run on a compatible `javac` version /
 configuration, and fails if it detects an incompatibility.
-See https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.
+See <https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions> for details.
 
 ## What's Changed
 * Use inference for generic call passed as receiver to instance method (#1293)
