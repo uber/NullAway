@@ -55,15 +55,15 @@ public final class RequireExplicitNullMarking extends BugChecker
       return Description.NO_MATCH;
     }
     for (Symbol symbol = classSymbol; symbol != null; symbol = symbol.getEnclosingElement()) {
-      if (hasNullMarkedOrNullUnmarkedAnnotation(state, symbol)) {
+      if (hasNullMarkedOrNullUnmarkedAnnotation(symbol)) {
         return Description.NO_MATCH;
       }
     }
     return describeMatch(classTree);
   }
 
-  private static boolean hasNullMarkedOrNullUnmarkedAnnotation(VisitorState state, Symbol symbol) {
-    return ASTHelpers.hasAnnotation(symbol, "org.jspecify.annotations.NullMarked", state)
-        || ASTHelpers.hasAnnotation(symbol, "org.jspecify.annotations.NullUnmarked", state);
+  private static boolean hasNullMarkedOrNullUnmarkedAnnotation(Symbol symbol) {
+    return ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "NullMarked")
+        || ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "NullUnmarked");
   }
 }
