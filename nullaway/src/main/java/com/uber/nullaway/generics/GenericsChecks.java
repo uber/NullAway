@@ -800,7 +800,13 @@ public final class GenericsChecks {
       LambdaExpressionTree lambda = (LambdaExpressionTree) argument;
       Symbol.MethodSymbol fiMethod =
           NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
-      Type fiReturnType = fiMethod.getReturnType();
+
+      // get the return type of the functional interface method, viewed as a member of the formal
+      // parameter type, so the generic method's type variables are substituted in
+      Type.MethodType fiMethodTypeAsMember =
+          TypeSubstitutionUtils.memberType(state.getTypes(), formalParamType, fiMethod, config)
+              .asMethodType();
+      Type fiReturnType = fiMethodTypeAsMember.getReturnType();
       Tree body = lambda.getBody();
       if (body instanceof ExpressionTree) {
         // Case 1: Expression body, e.g., () -> null
