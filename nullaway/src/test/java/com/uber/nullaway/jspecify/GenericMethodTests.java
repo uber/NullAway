@@ -979,7 +979,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("need better handling of lambdas")
   @Test
   public void supplierLambdaInference() {
     makeHelperWithInferenceFailureWarning()
