@@ -23,11 +23,6 @@ public final class JSpecifyJavacConfig {
 
   private JSpecifyJavacConfig() {}
 
-  /** Returns the compiler arguments required to enable JSpecify mode in tests. */
-  public static List<String> jspecifyModeArgs() {
-    return JSPECIFY_MODE_ARGS;
-  }
-
   /**
    * Returns a copy of {@code args} with the JSpecify-specific compiler arguments appended.
    *
