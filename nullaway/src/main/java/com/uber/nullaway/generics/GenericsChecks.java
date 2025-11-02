@@ -28,7 +28,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreePathScanner;
+import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -825,7 +825,7 @@ public final class GenericsChecks {
     }
   }
 
-  static class ReturnFinder extends TreePathScanner<Void, Void> {
+  static class ReturnFinder extends TreeScanner<Void, Void> {
 
     private final List<ExpressionTree> returnExpressions = new ArrayList<>();
 
