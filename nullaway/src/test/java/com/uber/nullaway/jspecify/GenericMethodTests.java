@@ -1271,7 +1271,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   /** various cases where dataflow analysis forces inference to run for a generic method call */
   @Test
   public void inferenceFromDataflow() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.NullMarked;",

@@ -40,6 +40,8 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import com.uber.nullaway.handlers.Handler;
+import java.util.HashSet;
+import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
@@ -92,6 +94,8 @@ public final class DataFlow {
                   return analysis;
                 }
               });
+
+  private final Set<AnalysisParams> alreadyRunAnalyses = new HashSet<>();
 
   private final LoadingCache<CfgParams, ControlFlowGraph> cfgCache =
       CacheBuilder.newBuilder()
@@ -161,11 +165,12 @@ public final class DataFlow {
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
     Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
-    if (performAnalysis) {
+    if (performAnalysis && !alreadyRunAnalyses.contains(aparams)) {
       analysis.performAnalysis(cfg);
+      alreadyRunAnalyses.add(aparams);
     }
 
-    return new Result<A, S, T>() {
+    return new Result<>() {
       @Override
       public Analysis<A, S, T> getAnalysis() {
         return analysis;
@@ -313,6 +318,7 @@ public final class DataFlow {
   public void invalidateCaches() {
     cfgCache.invalidateAll();
     analysisCache.invalidateAll();
+    alreadyRunAnalyses.clear();
   }
 
   @AutoValue
