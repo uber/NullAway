@@ -105,18 +105,21 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
   private static boolean isPureMethod(Symbol.MethodSymbol methodSymbol) {
     for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotation);
-      // Only JetBrains @Contract supports a 'pure' attribute; check by simple name to be robust
       int lastDot = name.lastIndexOf('.');
       String simple = (lastDot >= 0) ? name.substring(lastDot + 1) : name;
-      if (!"Contract".equals(simple)) {
-        continue;
+      // Checker Framework annotations indicating purity by presence
+      if ("Pure".equals(simple) || "SideEffectFree".equals(simple)) {
+        return true;
       }
-      for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
-          annotation.getElementValues().entrySet()) {
-        if (entry.getKey().getSimpleName().contentEquals("pure")) {
-          Object val = entry.getValue().getValue();
-          if (val instanceof Boolean && ((Boolean) val)) {
-            return true;
+      // JetBrains-style or custom @Contract with a 'pure' attribute
+      if ("Contract".equals(simple)) {
+        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
+            annotation.getElementValues().entrySet()) {
+          if (entry.getKey().getSimpleName().contentEquals("pure")) {
+            Object val = entry.getValue().getValue();
+            if (val instanceof Boolean && ((Boolean) val)) {
+              return true;
+            }
           }
         }
       }
