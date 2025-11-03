@@ -16,6 +16,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.dataflow.AccessPath;
 import java.util.Map;
@@ -26,6 +27,8 @@ import javax.lang.model.element.AnnotationValue;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 public class SynchronousCallbackHandler extends BaseNoOpHandler {
+
+  private final Config config;
 
   /**
    * Maps method name to full information about the corresponding methods and what parameter is the
@@ -51,6 +54,10 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
 
   private static final Supplier<Type> STREAM_TYPE_SUPPLIER =
       Suppliers.typeFromString("java.util.stream.Stream");
+
+  public SynchronousCallbackHandler(Config config) {
+    this.config = config;
+  }
 
   @Override
   public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
@@ -102,15 +109,17 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
     return FALSE_AP_PREDICATE;
   }
 
-  private static boolean isPureMethod(Symbol.MethodSymbol methodSymbol) {
+  private boolean isPureMethod(Symbol.MethodSymbol methodSymbol) {
+    if (!this.config.checkPure()) {
+      return false;
+    }
     for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotation);
-      int lastDot = name.lastIndexOf('.');
-      String simple = (lastDot >= 0) ? name.substring(lastDot + 1) : name;
-      // Checker Framework annotations indicating purity by presence
-      if ("Pure".equals(simple) || "SideEffectFree".equals(simple)) {
+      if (config.isPureAnnotation(name)) {
         return true;
       }
+      int lastDot = name.lastIndexOf('.');
+      String simple = (lastDot >= 0) ? name.substring(lastDot + 1) : name;
       // JetBrains-style or custom @Contract with a 'pure' attribute
       if ("Contract".equals(simple)) {
         for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :

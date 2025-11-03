@@ -2,6 +2,8 @@ package com.uber.nullaway;
 
 import org.junit.Test;
 
+import java.util.Arrays;
+
 /**
  * Tests for preserving environment nullness facts for lambdas passed to pure methods
  * (methods annotated with @Contract(pure = true), Checker Framework @Pure or @SideEffectFree).
@@ -12,7 +14,12 @@ public class PureLambdasTests extends NullAwayTestsBase {
 
   @Test
   public void pureMethodLambdaPreservesFacts() {
-    defaultCompilationHelper
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:CheckPure=true",
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "com/example/library/PureLibrary.java",
             "package com.example.library;",
@@ -44,7 +51,12 @@ public class PureLambdasTests extends NullAwayTestsBase {
 
   @Test
   public void nonPureMethodLambdaDoesNotPreserveFacts() {
-    defaultCompilationHelper
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:CheckPure=true",
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "com/example/library/OrdinaryLibrary.java",
             "package com.example.library;",
@@ -75,7 +87,12 @@ public class PureLambdasTests extends NullAwayTestsBase {
 
   @Test
   public void nonJetbrainsPureContractAnnotationPreservesFacts() {
-    defaultCompilationHelper
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:CheckPure=true",
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "com/example/library/Contract.java",
             "package com.example.library;",
@@ -119,7 +136,12 @@ public class PureLambdasTests extends NullAwayTestsBase {
 
   @Test
   public void checkerFrameworkPureAnnotationPreservesFacts() {
-    defaultCompilationHelper
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:CheckPure=true",
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "org/checkerframework/dataflow/qual/Pure.java",
             "package org.checkerframework.dataflow.qual;",
@@ -160,7 +182,12 @@ public class PureLambdasTests extends NullAwayTestsBase {
 
   @Test
   public void checkerFrameworkSideEffectFreeAnnotationPreservesFacts() {
-    defaultCompilationHelper
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:CheckPure=true",
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "org/checkerframework/dataflow/qual/SideEffectFree.java",
             "package org.checkerframework.dataflow.qual;",

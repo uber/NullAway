@@ -69,11 +69,13 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
+  static final String FL_PURE_ANNOT = EP_FL_NAMESPACE + ":CustomPureAnnotations";
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   static final String FL_CHECK_OPTIONAL_EMPTINESS = EP_FL_NAMESPACE + ":CheckOptionalEmptiness";
   static final String FL_CHECK_CONTRACTS = EP_FL_NAMESPACE + ":CheckContracts";
+  static final String FL_CHECK_PURE = EP_FL_NAMESPACE + ":CheckPure";
   static final String FL_HANDLE_TEST_ASSERTION_LIBRARIES =
       EP_FL_NAMESPACE + ":HandleTestAssertionLibraries";
   static final String FL_OPTIONAL_CLASS_PATHS =
@@ -174,6 +176,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final ImmutableSet<String> DEFAULT_CONTRACT_ANNOT =
       ImmutableSet.of("org.jetbrains.annotations.Contract");
 
+  static final ImmutableSet<String> DEFAULT_PURE_ANNOT =
+      ImmutableSet.of(
+          "org.checkerframework.dataflow.qual.Pure",
+          "org.checkerframework.dataflow.qual.SideEffectFree");
+
   static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
       ImmutableSet.of(
           "jakarta.inject.Inject", // no explicit initialization when there is dependency injection
@@ -217,6 +224,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean isAcknowledgeRestrictive;
   private final boolean checkOptionalEmptiness;
   private final boolean checkContracts;
+  private final boolean checkPure;
   private final boolean handleTestAssertionLibraries;
   private final ImmutableSet<String> optionalClassPaths;
   private final boolean assertsEnabled;
@@ -231,6 +239,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final ImmutableSet<String> initializerAnnotations;
   private final ImmutableSet<String> externalInitAnnotations;
   private final ImmutableSet<String> contractAnnotations;
+  private final ImmutableSet<String> pureAnnotations;
   private final @Nullable String castToNonNullMethod;
   private final String autofixSuppressionComment;
   private final ImmutableSet<String> suppressionNameAliases;
@@ -285,11 +294,13 @@ final class ErrorProneCLIFlagsConfig implements Config {
     externalInitAnnotations =
         getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
+    pureAnnotations = getFlagStringSet(flags, FL_PURE_ANNOT, DEFAULT_PURE_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     isAcknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);
     checkOptionalEmptiness = flags.getBoolean(FL_CHECK_OPTIONAL_EMPTINESS).orElse(false);
     checkContracts = flags.getBoolean(FL_CHECK_CONTRACTS).orElse(false);
+    checkPure = flags.getBoolean(FL_CHECK_PURE).orElse(false);
     handleTestAssertionLibraries =
         flags.getBoolean(FL_HANDLE_TEST_ASSERTION_LIBRARIES).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
@@ -523,6 +534,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   }
 
   @Override
+  public boolean checkPure() {
+    return checkPure;
+  }
+
+  @Override
   public boolean handleTestAssertionLibraries() {
     return handleTestAssertionLibraries;
   }
@@ -564,6 +580,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isContractAnnotation(String annotationName) {
     return contractAnnotations.contains(annotationName);
+  }
+
+  @Override
+  public boolean isPureAnnotation(String annotationName) {
+    return pureAnnotations.contains(annotationName);
   }
 
   @Override

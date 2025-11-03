@@ -175,6 +175,14 @@ public interface Config {
   boolean isContractAnnotation(String annotationName);
 
   /**
+   * Checks if annotation makes a method pure.
+   *
+   * @param annotationName fully-qualified annotation name
+   * @return true if the annotation makes a method get considered Pure
+   */
+  boolean isPureAnnotation(String annotationName);
+
+  /**
    * Checks if the checker should suggest adding warning suppressions instead of fixes.
    *
    * @return true if the null checker should suggest adding warning suppressions. Only useful for
@@ -211,6 +219,13 @@ public interface Config {
   boolean checkOptionalEmptiness();
 
   boolean checkContracts();
+
+  /**
+   * Checks if methods are annotated as being pure, allowing nullability to be passed through lambda parameters.
+   *
+   * @return true if methods annotated as being pure should skip some nullability checks.
+   */
+  boolean checkPure();
 
   /**
    * Checks if test assertion library handling is enabled.
