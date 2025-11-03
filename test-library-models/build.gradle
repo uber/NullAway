@@ -34,7 +34,6 @@ dependencies {
     }
     testImplementation project(":nullaway")
     testImplementation project(":test-java-lib")
-
 }
 
 tasks.withType(JavaCompile) {

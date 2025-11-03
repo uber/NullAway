@@ -22,6 +22,7 @@
 
 package com.uber.nullaway;
 
+import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
@@ -279,6 +280,49 @@ public class CustomLibraryModelsTests {
             "    use(provider.get());",
             "  }",
             "  ProviderNullMarkedViaModel<@Nullable Object> provider = () -> null;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
+    var testHelper =
+        BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+            .setArgs(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SuggestSuppressions=true");
+    testHelper
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public static <T> T castToNonNull(String reason, T value, int line) {",
+            "    if (value == null) {",
+            "      throw new NullPointerException(reason + \" at line \" + line);",
+            "    }",
+            "    return value;",
+            "  }",
+            "  Object test1(Object o) {",
+            "    return Test.castToNonNull(\"CAST_REASON\",o,42);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public static <T> T castToNonNull(String reason, T value, int line) {",
+            "    if (value == null) {",
+            "      throw new NullPointerException(reason + \" at line \" + line);",
+            "    }",
+            "    return value;",
+            "  }",
+            "  Object test1(Object o) {",
+            "    return o;",
+            "  }",
             "}")
         .doTest();
   }
