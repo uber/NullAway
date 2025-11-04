@@ -22,7 +22,6 @@
 
 package com.uber.nullaway;
 
-import static com.google.common.base.Verify.verify;
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
@@ -36,6 +35,7 @@ import static java.lang.annotation.ElementType.TYPE_USE;
 
 import com.google.auto.service.AutoService;
 import com.google.auto.value.AutoValue;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
 import com.google.common.collect.ImmutableSet;
@@ -446,7 +446,7 @@ public class NullAway extends BugChecker
 
   private static Symbol.MethodSymbol getSymbolForMethodInvocation(MethodInvocationTree tree) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    verify(methodSymbol != null, "not expecting unresolved method here");
+    Verify.verify(methodSymbol != null, "not expecting unresolved method here");
     // In certain cases, we need to get the base symbol for the method rather than the symbol
     // attached to the call.
     // For interface methods, if the method is an implicit method corresponding to a method from
@@ -2726,7 +2726,7 @@ public class NullAway extends BugChecker
     if (config.isJSpecifyMode() && exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
       TreePath path = state.getPath();
       var invocationPath = TreePath.getPath(path, invocationTree);
-      verify(
+      Verify.verify(
           invocationPath != null,
           "%s not found as a descendant of %s",
           invocationTree,
