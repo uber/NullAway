@@ -1282,7 +1282,7 @@ public final class GenericsChecks {
   public Nullness getGenericReturnNullnessAtInvocation(
       Symbol.MethodSymbol invokedMethodSymbol,
       MethodInvocationTree tree,
-      @Nullable TreePath path,
+      TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
     // If the return type is not a type variable, just return NONNULL (explicit @Nullable should
