@@ -2720,10 +2720,10 @@ public class NullAway extends BugChecker
     if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
       return true;
     }
-    // NOTE: we cannot rely on state.getPath() here to get a TreePath to the invocation, since
-    // sometimes the invocation is a sub-node of the leaf of the path.  So, here if inference runs,
-    // it will do so without an assignment context.  If this becomes a problem, we can revisit
     if (config.isJSpecifyMode() && exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
+      // It is important to pass a correct TreePath to getGenericReturnNullnessAtInvocation.  So, we
+      // do a search under path to find invocationTree.  This shouldn't be too costly in the common
+      // case, and it's important for correctness.
       TreePath path = state.getPath();
       var invocationPath = TreePath.getPath(path, invocationTree);
       Verify.verify(

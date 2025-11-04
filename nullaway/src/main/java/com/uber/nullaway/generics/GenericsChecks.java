@@ -1608,10 +1608,15 @@ public final class GenericsChecks {
         ExpressionTree receiver =
             ASTHelpers.stripParentheses(((MemberSelectTree) methodSelect).getExpression());
         if (isGenericCallNeedingInference(receiver)) {
-          // TODO not the right path but it's ok?
+          var receiverPath = path == null ? null : new TreePath(path, receiver);
           enclosingType =
               inferGenericMethodCallType(
-                  state, (MethodInvocationTree) receiver, path, null, false, calledFromDataflow);
+                  state,
+                  (MethodInvocationTree) receiver,
+                  receiverPath,
+                  null,
+                  false,
+                  calledFromDataflow);
         } else {
           enclosingType = getTreeType(receiver, state);
         }
