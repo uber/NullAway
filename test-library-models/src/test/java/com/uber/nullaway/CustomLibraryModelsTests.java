@@ -22,29 +22,22 @@
 
 package com.uber.nullaway;
 
+import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
-import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Rule;
 import org.junit.Test;
+import org.junit.rules.TemporaryFolder;
 
-public class CustomLibraryModelsTests extends NullAwayTestsBase {
+public class CustomLibraryModelsTests {
 
   private CompilationTestHelper makeLibraryModelsTestHelperWithArgs(List<String> args) {
-    // Adding directly to args will throw an UnsupportedOperationException, since that list is
-    // created by calling Arrays.asList (for consistency with the rest of NullAway's test cases),
-    // which produces a list which doesn't support add/addAll. Because of this, before we add our
-    // additional arguments, we must first copy the list into a mutable ArrayList.
-    List<String> extendedArguments = new ArrayList<>(args);
-    extendedArguments.addAll(
-        0,
-        Arrays.asList(
-            "-processorpath",
-            TestLibraryModels.class.getProtectionDomain().getCodeSource().getLocation().getPath()));
-    return makeTestHelperWithArgs(extendedArguments);
+    return CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
   }
+
+  @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   @Test
   public void allowLibraryModelsOverrideAnnotations() {
@@ -287,6 +280,49 @@ public class CustomLibraryModelsTests extends NullAwayTestsBase {
             "    use(provider.get());",
             "  }",
             "  ProviderNullMarkedViaModel<@Nullable Object> provider = () -> null;",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
+    var testHelper =
+        BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
+            .setArgs(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SuggestSuppressions=true");
+    testHelper
+        .addInputLines(
+            "Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public static <T> T castToNonNull(String reason, T value, int line) {",
+            "    if (value == null) {",
+            "      throw new NullPointerException(reason + \" at line \" + line);",
+            "    }",
+            "    return value;",
+            "  }",
+            "  Object test1(Object o) {",
+            "    return Test.castToNonNull(\"CAST_REASON\",o,42);",
+            "  }",
+            "}")
+        .addOutputLines(
+            "out/Test.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "class Test {",
+            "  public static <T> T castToNonNull(String reason, T value, int line) {",
+            "    if (value == null) {",
+            "      throw new NullPointerException(reason + \" at line \" + line);",
+            "    }",
+            "    return value;",
+            "  }",
+            "  Object test1(Object o) {",
+            "    return o;",
+            "  }",
             "}")
         .doTest();
   }
