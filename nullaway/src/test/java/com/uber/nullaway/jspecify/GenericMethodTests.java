@@ -1299,7 +1299,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // to ensure that dataflow runs",
             "    Object x = new Object(); x.toString();",
             "    Object y = null;",
-            "    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
             "    return (((id(y))));",
             "  }",
             "  static Object testReturnNested() {",
