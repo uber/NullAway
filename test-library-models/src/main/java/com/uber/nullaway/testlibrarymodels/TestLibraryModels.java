@@ -89,6 +89,7 @@ public class TestLibraryModels implements LibraryModels {
             methodRef(
                 "com.uber.nullaway.testdata.Util", "<T>castToNonNull(java.lang.String,T,int)"),
             1)
+        .put(methodRef("com.uber.Test", "<T>castToNonNull(java.lang.String,T,int)"), 1)
         .build();
   }
 
