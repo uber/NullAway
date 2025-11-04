@@ -519,7 +519,7 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
             inferGenericMethodCallType(
-                state, (MethodInvocationTree) rhsTree, lhsType, assignedToLocal, false);
+                state, (MethodInvocationTree) rhsTree, null, lhsType, assignedToLocal, false);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
@@ -560,6 +560,7 @@ public final class GenericsChecks {
   private Type inferGenericMethodCallType(
       VisitorState state,
       MethodInvocationTree invocationTree,
+      @Nullable TreePath path,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       boolean calledFromDataflow) {
@@ -572,7 +573,7 @@ public final class GenericsChecks {
       result =
           runInferenceForCall(
               state,
-              null,
+              path,
               invocationTree,
               typeFromAssignmentContext,
               assignedToLocal,
@@ -935,7 +936,7 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
             inferGenericMethodCallType(
-                state, (MethodInvocationTree) retExpr, formalReturnType, false, false);
+                state, (MethodInvocationTree) retExpr, null, formalReturnType, false, false);
       }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state);
@@ -1080,7 +1081,7 @@ public final class GenericsChecks {
       return;
     }
     Type invokedMethodType = methodSymbol.type;
-    Type enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, state, false);
+    Type enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, null, state, false);
     if (enclosingType != null) {
       invokedMethodType =
           TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
@@ -1118,6 +1119,7 @@ public final class GenericsChecks {
                       inferGenericMethodCallType(
                           state,
                           (MethodInvocationTree) currentActualParam,
+                          null,
                           formalParameter,
                           false,
                           false);
@@ -1304,7 +1306,8 @@ public final class GenericsChecks {
     }
 
     Type enclosingType =
-        getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state, calledFromDataflow);
+        getEnclosingTypeForCallExpression(
+            invokedMethodSymbol, tree, path, state, calledFromDataflow);
     if (enclosingType == null) {
       return Nullness.NONNULL;
     } else {
@@ -1475,6 +1478,7 @@ public final class GenericsChecks {
                   getEnclosingTypeForCallExpression(
                       ASTHelpers.getSymbol(parentInvocation),
                       parentInvocation,
+                      parentPath,
                       state,
                       calledFromDataflow);
             } else {
@@ -1556,7 +1560,8 @@ public final class GenericsChecks {
       }
     }
 
-    Type enclosingType = getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, state, false);
+    Type enclosingType =
+        getEnclosingTypeForCallExpression(invokedMethodSymbol, tree, null, state, false);
     if (enclosingType == null) {
       return Nullness.NONNULL;
     }
@@ -1578,6 +1583,7 @@ public final class GenericsChecks {
   private @Nullable Type getEnclosingTypeForCallExpression(
       Symbol.MethodSymbol invokedMethodSymbol,
       Tree tree,
+      @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
     Type enclosingType = null;
@@ -1599,9 +1605,10 @@ public final class GenericsChecks {
         ExpressionTree receiver =
             ASTHelpers.stripParentheses(((MemberSelectTree) methodSelect).getExpression());
         if (isGenericCallNeedingInference(receiver)) {
+          // TODO not the right path but it's ok?
           enclosingType =
               inferGenericMethodCallType(
-                  state, (MethodInvocationTree) receiver, null, false, calledFromDataflow);
+                  state, (MethodInvocationTree) receiver, path, null, false, calledFromDataflow);
         } else {
           enclosingType = getTreeType(receiver, state);
         }
