@@ -95,6 +95,10 @@ public final class DataFlow {
                 }
               });
 
+  /**
+   * Set of {@link AnalysisParams} for which the analysis has already been run to completion. Used
+   * to avoid re-running analyses needlessly
+   */
   private final Set<AnalysisParams> alreadyRunAnalyses = new HashSet<>();
 
   private final LoadingCache<CfgParams, ControlFlowGraph> cfgCache =

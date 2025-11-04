@@ -551,6 +551,8 @@ public final class GenericsChecks {
    *
    * @param state the visitor state
    * @param invocationTree the method invocation tree representing the call to a generic method
+   * @param path the tree path to the invocationTree if available and possibly distinct from {@code
+   *     state.getPath()}
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context
    * @param assignedToLocal true if the method call result is assigned to a local variable, false
    *     otherwise
@@ -1576,6 +1578,7 @@ public final class GenericsChecks {
    *
    * @param invokedMethodSymbol symbol for the invoked method
    * @param tree the tree for the invocation
+   * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the enclosing type for the method call, or null if it cannot be determined
