@@ -24,6 +24,7 @@ import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeVariable;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An implementation of {@link ConstraintSolver} that uses a work-list algorithm to propagate
@@ -80,7 +81,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
   }
 
-  class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<Void, Type> {
+  class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
     private boolean localVariableType;
 
     AddSubtypeConstraintsVisitor(boolean localVariableType) {
@@ -88,7 +89,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     @Override
-    public Void visitType(Type subtype, Type supertype) {
+    public @Nullable Void visitType(Type subtype, Type supertype) {
       // handle flow into a type variable.  the check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
@@ -98,7 +99,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     @Override
-    public Void visitClassType(ClassType subtype, Type supertype) {
+    public @Nullable Void visitClassType(ClassType subtype, Type supertype) {
       if (supertype instanceof ClassType) {
         Type subtypeAsSuper =
             TypeSubstitutionUtils.asSuper(
@@ -130,7 +131,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     @Override
-    public Void visitArrayType(Type.ArrayType subtype, Type supertype) {
+    public @Nullable Void visitArrayType(Type.ArrayType subtype, Type supertype) {
       if (supertype instanceof Type.ArrayType) {
         Type.ArrayType superArrayType = (Type.ArrayType) supertype;
         // recursing, so set localVariableType to false
@@ -146,7 +147,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     @Override
-    public Void visitTypeVar(TypeVar subtype, Type supertype) {
+    public @Nullable Void visitTypeVar(TypeVar subtype, Type supertype) {
       if (!localVariableType) {
         directlyConstrainTypePair(subtype, supertype);
       }

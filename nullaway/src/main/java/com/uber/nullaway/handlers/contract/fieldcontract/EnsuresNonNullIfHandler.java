@@ -123,9 +123,9 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
   private void buildUpReturnToEnclosingMethodMap(VisitorState methodState) {
     returnTreesInMethodUnderAnalysis.clear();
-    new TreePathScanner<Void, Void>() {
+    new TreePathScanner<@Nullable Void, @Nullable Void>() {
       @Override
-      public Void visitReturn(ReturnTree node, Void unused) {
+      public @Nullable Void visitReturn(ReturnTree node, @Nullable Void unused) {
         TreePath enclosingMethod =
             NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(getCurrentPath());
         if (enclosingMethod == null) {
