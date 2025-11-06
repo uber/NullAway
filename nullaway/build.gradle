@@ -166,6 +166,8 @@ tasks.register('buildWithNullAway', JavaCompile) {
             sourceSets.main.compileClasspath)
     options.errorprone.enabled = true
     options.errorprone {
+        disableAllChecks = true
+        error("NullAway")
         option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway,com.google.common")
         option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
         option("NullAway:CheckOptionalEmptiness")
