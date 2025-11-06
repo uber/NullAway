@@ -8,6 +8,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A visitor that pretty prints a generic type including its type-use nullability annotations, for
@@ -16,7 +17,8 @@ import com.sun.tools.javac.code.Types;
  * <p>This code is a modified and extended version of code in {@link
  * com.google.errorprone.util.Signatures}
  */
-final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<String, Void> {
+final class GenericTypePrettyPrintingVisitor
+    extends Types.DefaultTypeVisitor<String, @Nullable Void> {
 
   private final VisitorState state;
 
@@ -25,7 +27,7 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
   }
 
   @Override
-  public String visitWildcardType(Type.WildcardType t, Void unused) {
+  public String visitWildcardType(Type.WildcardType t, @Nullable Void unused) {
     // NOTE: we have not tested this code yet as we do not yet support wildcard types
     StringBuilder sb = new StringBuilder();
     sb.append(t.kind);
@@ -36,7 +38,7 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
   }
 
   @Override
-  public String visitClassType(Type.ClassType t, Void s) {
+  public String visitClassType(Type.ClassType t, @Nullable Void s) {
     if (t.isIntersection()) {
       return prettyIntersectionType((Type.IntersectionClassType) t);
     }
@@ -72,12 +74,12 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
   }
 
   @Override
-  public String visitCapturedType(Type.CapturedType t, Void s) {
+  public String visitCapturedType(Type.CapturedType t, @Nullable Void s) {
     return t.wildcard.accept(this, null);
   }
 
   @Override
-  public String visitArrayType(Type.ArrayType t, Void unused) {
+  public String visitArrayType(Type.ArrayType t, @Nullable Void unused) {
     StringBuilder sb = new StringBuilder();
     sb.append(t.elemtype.accept(this, null));
     for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
@@ -88,7 +90,7 @@ final class GenericTypePrettyPrintingVisitor extends Types.DefaultTypeVisitor<St
   }
 
   @Override
-  public String visitType(Type t, Void s) {
+  public String visitType(Type t, @Nullable Void s) {
     return t.toString();
   }
 }
