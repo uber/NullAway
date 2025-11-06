@@ -388,7 +388,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
-    libModelsBuilder.add(new JDKStubxLibraryModels());
     if (config.isJarInferEnabled()) {
       libModelsBuilder.add(new ExternalStubxLibraryModels());
     }
@@ -1349,15 +1348,42 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  private static class JDKStubxLibraryModels implements LibraryModels {
+  /** Constructs Library Models from stubx files */
+  private static class ExternalStubxLibraryModels implements LibraryModels {
+
+    /** astubx file name used in our Android SDK JarInfer models */
+    private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
+
+    /** Class we expect to be present in a jar containing Android SDK JarInfer models */
+    private static final String ANDROID_MODEL_CLASS =
+        "com.uber.nullaway.jarinfer.AndroidJarInferModels";
 
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
 
-    JDKStubxLibraryModels() {
-      String libraryModelLogName = "JDKAstubxHandler";
+    ExternalStubxLibraryModels() {
+      String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
+      // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
+      try {
+        InputStream androidStubxIS =
+            Class.forName(ANDROID_MODEL_CLASS)
+                .getClassLoader()
+                .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+        if (androidStubxIS != null) {
+          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+          astubxLoadLog("Loaded Android RT models.");
+          System.err.println(">>> Loaded Android RT models.");
+        }
+      } catch (ClassNotFoundException e) {
+        astubxLoadLog(
+            "Cannot find Android RT models locator class."
+                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
+
+      } catch (Exception e) {
+        astubxLoadLog("Cannot load Android RT models.");
+      }
 
       try (InputStream in =
           new FileInputStream("/Users/yeahn/git-repos/NullAway/astubx/output.astubx")) {
@@ -1479,177 +1505,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             methodNameAndSignature =
                 methodNameAndSignature.substring(methodNameAndSignature.indexOf(">") + 1);
           }
-
-          for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
-            Integer index = argEntry.getKey();
-            if (index == -1) {
-              Set<String> annotations = argEntry.getValue();
-              if (annotations.contains("javax.annotation.Nullable")
-                  || annotations.contains("org.jspecify.annotations.Nullable")) {
-                methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
-                builder.add(methodRef(className, methodNameAndSignature));
-              }
-            }
-          }
-        }
-      }
-      return builder.build();
-    }
-
-    @Override
-    public ImmutableSet<MethodRef> nonNullReturns() {
-      return ImmutableSet.of();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
-      return ImmutableSetMultimap.of();
-    }
-  }
-
-  /** Constructs Library Models from stubx files */
-  private static class ExternalStubxLibraryModels implements LibraryModels {
-
-    /** astubx file name used in our Android SDK JarInfer models */
-    private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
-
-    /** Class we expect to be present in a jar containing Android SDK JarInfer models */
-    private static final String ANDROID_MODEL_CLASS =
-        "com.uber.nullaway.jarinfer.AndroidJarInferModels";
-
-    private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
-    private final Set<String> nullMarkedClassesCache;
-    private final Map<String, Integer> upperBoundsCache;
-
-    ExternalStubxLibraryModels() {
-      String libraryModelLogName = "LM";
-      StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
-      // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
-      try {
-        InputStream androidStubxIS =
-            Class.forName(ANDROID_MODEL_CLASS)
-                .getClassLoader()
-                .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
-        if (androidStubxIS != null) {
-          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
-          astubxLoadLog("Loaded Android RT models.");
-        }
-      } catch (ClassNotFoundException e) {
-        astubxLoadLog(
-            "Cannot find Android RT models locator class."
-                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
-
-      } catch (Exception e) {
-        astubxLoadLog("Cannot load Android RT models.");
-      }
-
-      argAnnotCache = cacheUtil.getArgAnnotCache();
-      nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
-      upperBoundsCache = cacheUtil.getUpperBoundCache();
-    }
-
-    @Override
-    public ImmutableSet<String> nullMarkedClasses() {
-      return new ImmutableSet.Builder<String>().addAll(nullMarkedClassesCache).build();
-    }
-
-    @Override
-    public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
-      ImmutableSetMultimap.Builder<String, Integer> mapBuilder =
-          new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Integer> entry : upperBoundsCache.entrySet()) {
-        mapBuilder.put(entry.getKey(), entry.getValue());
-      }
-      return mapBuilder.build();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
-      return ImmutableSetMultimap.of();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
-      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
-          new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Map<String, Map<Integer, Set<String>>>> outerEntry :
-          argAnnotCache.entrySet()) {
-        String className = outerEntry.getKey();
-        for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
-            outerEntry.getValue().entrySet()) {
-          String methodNameAndSignature =
-              innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
-          for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
-            Integer index = entry.getKey();
-            if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
-              // remove spaces after commas
-              methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
-              mapBuilder.put(methodRef(className, methodNameAndSignature), index);
-            }
-          }
-        }
-      }
-      return mapBuilder.build();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
-      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
-          new ImmutableSetMultimap.Builder<>();
-      for (String className : argAnnotCache.keySet()) {
-        for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
-            argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature =
-              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-
-          for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
-            Integer index = argEntry.getKey();
-            if (index >= 0) {
-              for (String annotation : argEntry.getValue()) {
-                if (annotation.contains("NonNull")
-                    || annotation.equals("javax.annotation.Nonnull")) {
-                  astubxLoadLog(
-                      "Found non-null parameter: "
-                          + className
-                          + "."
-                          + methodEntry.getKey()
-                          + " arg "
-                          + argEntry.getKey());
-                  // remove spaces after commas
-                  methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
-                  mapBuilder.put(methodRef(className, methodNameAndSignature), index);
-                }
-              }
-            }
-          }
-        }
-      }
-      return mapBuilder.build();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
-      return ImmutableSetMultimap.of();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
-      return ImmutableSetMultimap.of();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
-      return ImmutableSetMultimap.of();
-    }
-
-    @Override
-    public ImmutableSet<MethodRef> nullableReturns() {
-      ImmutableSet.Builder<MethodRef> builder = new ImmutableSet.Builder<>();
-      for (String className : argAnnotCache.keySet()) {
-        for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
-            argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature =
-              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();

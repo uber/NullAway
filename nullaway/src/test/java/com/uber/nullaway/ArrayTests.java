@@ -190,6 +190,7 @@ public class ArrayTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:LegacyAnnotationLocations=true"));
+            "-XepOpt:NullAway:LegacyAnnotationLocations=true",
+            "-XepOpt:NullAway:JarInferEnabled=true"));
   }
 }
