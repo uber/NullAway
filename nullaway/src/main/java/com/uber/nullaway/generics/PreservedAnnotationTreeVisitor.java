@@ -20,6 +20,7 @@ import com.uber.nullaway.Nullness;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Visitor For getting the preserved Annotation Types for the nested generic type arguments within a
@@ -27,7 +28,7 @@ import java.util.List;
  * generic type arguments in its types for NewClassTrees. We need a visitor since the nested
  * arguments may appear on different kinds of type trees, e.g., ArrayTypeTrees.
  */
-public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void> {
+public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, @Nullable Void> {
 
   private final Config config;
 
@@ -36,19 +37,19 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   }
 
   @Override
-  public Type visitNewArray(NewArrayTree tree, Void p) {
+  public Type visitNewArray(NewArrayTree tree, @Nullable Void p) {
     Type elemType = tree.getType().accept(this, null);
     return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
   }
 
   @Override
-  public Type visitArrayType(ArrayTypeTree tree, Void p) {
+  public Type visitArrayType(ArrayTypeTree tree, @Nullable Void p) {
     Type elemType = tree.getType().accept(this, null);
     return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
   }
 
   @Override
-  public Type visitParameterizedType(ParameterizedTypeTree tree, Void p) {
+  public Type visitParameterizedType(ParameterizedTypeTree tree, @Nullable Void p) {
     Type.ClassType baseType = (Type.ClassType) tree.getType().accept(this, null);
     List<? extends Tree> typeArguments = tree.getTypeArguments();
     List<Type> newTypeArgs = new ArrayList<>();
@@ -61,7 +62,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
   }
 
   @Override
-  public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, Void unused) {
+  public Type visitAnnotatedType(AnnotatedTypeTree annotatedType, @Nullable Void unused) {
     List<? extends AnnotationTree> annotations = annotatedType.getAnnotations();
     boolean hasNullableAnnotation = false;
     Type nullableType = null;
@@ -92,7 +93,7 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, Void
 
   /** By default, just use the type computed by javac */
   @Override
-  protected Type defaultAction(Tree node, Void unused) {
+  protected Type defaultAction(Tree node, @Nullable Void unused) {
     return castToNonNull(ASTHelpers.getType(node));
   }
 }
