@@ -177,10 +177,12 @@ public class ArrayTests extends NullAwayTestsBase {
             "StringJoinerTest.java",
             "import org.jspecify.annotations.*;",
             "import java.util.StringJoiner;",
+            "import java.sql.SQLException;",
             "@NullMarked",
             "public class StringJoinerTest {",
             "  void test() {",
             "    StringJoiner x = new StringJoiner(null);",
+            "    String msg = new SQLException().getSQLState();",
             "  }",
             "}")
         .doTest();

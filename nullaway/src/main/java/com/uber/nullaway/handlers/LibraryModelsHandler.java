@@ -1500,10 +1500,10 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             argAnnotCache.get(className).entrySet()) {
           String methodNameAndSignature =
               methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-          if (methodNameAndSignature.contains(">")
-              && methodNameAndSignature.indexOf(">") < methodNameAndSignature.indexOf("(")) {
+          while (methodNameAndSignature.contains(" ")
+              && methodNameAndSignature.indexOf(" ") < methodNameAndSignature.indexOf("(")) {
             methodNameAndSignature =
-                methodNameAndSignature.substring(methodNameAndSignature.indexOf(">") + 1);
+                methodNameAndSignature.substring(methodNameAndSignature.indexOf(" ") + 1);
           }
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
@@ -1533,7 +1533,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
   }
 
-  private static boolean DEBUG_ASTUBX_LOADING = false;
+  private static boolean DEBUG_ASTUBX_LOADING = true;
 
   private static void astubxLoadLog(String msg) {
     if (DEBUG_ASTUBX_LOADING) {
