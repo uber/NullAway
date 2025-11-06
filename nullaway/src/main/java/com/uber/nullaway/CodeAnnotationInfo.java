@@ -177,8 +177,7 @@ public final class CodeAnnotationInfo {
     }
     ClassCacheRecord classCacheRecord = get(classSymbol, config, handler);
     boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
-    if (symbol.getKind().equals(ElementKind.METHOD)
-        || symbol.getKind().equals(ElementKind.CONSTRUCTOR)) {
+    if (symbol instanceof Symbol.MethodSymbol) {
       return !classCacheRecord.isMethodNullnessAnnotated((Symbol.MethodSymbol) symbol);
     } else {
       return !inAnnotatedClass;

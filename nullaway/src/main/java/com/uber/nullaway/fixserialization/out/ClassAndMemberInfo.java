@@ -59,8 +59,10 @@ public class ClassAndMemberInfo {
       throw new RuntimeException(
           "not expecting a region tree " + regionTree + " of type " + regionTree.getClass());
     }
-    this.member = symbol;
-    this.clazz = ASTHelpers.enclosingClass(this.member);
+    if (symbol != null) {
+      this.member = symbol;
+      this.clazz = ASTHelpers.enclosingClass(this.member);
+    }
   }
 
   /** Finds the class and member where the error / fix is reported according to {@code path}. */
