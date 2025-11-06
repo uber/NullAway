@@ -170,6 +170,22 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void testing() {
+    makeLegacyModeHelper()
+        .addSourceLines(
+            "StringJoinerTest.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.StringJoiner;",
+            "@NullMarked",
+            "public class StringJoinerTest {",
+            "  void test() {",
+            "    StringJoiner x = new StringJoiner(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeLegacyModeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
