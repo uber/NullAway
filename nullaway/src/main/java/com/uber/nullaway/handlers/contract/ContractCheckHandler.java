@@ -137,7 +137,7 @@ public class ContractCheckHandler extends BaseNoOpHandler {
       // we scan the method tree for the return nodes and check the contract
       new TreePathScanner<@Nullable Void, @Nullable Void>() {
         @Override
-        public Void visitReturn(ReturnTree returnTree, Void unused) {
+        public @Nullable Void visitReturn(ReturnTree returnTree, @Nullable Void unused) {
 
           VisitorState returnState = state.withPath(getCurrentPath());
           Nullness nullness =
