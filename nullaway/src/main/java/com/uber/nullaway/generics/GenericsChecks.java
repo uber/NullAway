@@ -1599,8 +1599,8 @@ public final class GenericsChecks {
       if (methodSelect instanceof IdentifierTree) {
         // implicit this parameter, or a super call.  in either case, use the type of the enclosing
         // class.
-        ClassTree enclosingClassTree =
-            ASTHelpers.findEnclosingNode(state.getPath(), ClassTree.class);
+        TreePath basePath = (path != null) ? path : state.getPath();
+        ClassTree enclosingClassTree = ASTHelpers.findEnclosingNode(basePath, ClassTree.class);
         if (enclosingClassTree != null) {
           enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
         }
