@@ -110,7 +110,7 @@ public class Serializer {
    *
    * @param outputDirectory Path to root directory for all serialized outputs.
    */
-  private void serializeVersion(@Nullable String outputDirectory) {
+  private void serializeVersion(String outputDirectory) {
     Path versionOutputPath = Paths.get(outputDirectory).resolve("serialization_version.txt");
     try (Writer fileWriter =
         Files.newBufferedWriter(versionOutputPath.toFile().toPath(), Charset.defaultCharset())) {

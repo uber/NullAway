@@ -22,6 +22,8 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.uber.nullaway.jarinfer.JarInferStubxProvider;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -105,7 +107,7 @@ public class StubxCacheUtil {
     for (JarInferStubxProvider provider : astubxProviders) {
       for (String astubxPath : provider.pathsToStubxFiles()) {
         Class<? extends JarInferStubxProvider> providerClass = provider.getClass();
-        InputStream stubxInputStream = providerClass.getResourceAsStream(astubxPath);
+        InputStream stubxInputStream = castToNonNull(providerClass.getResourceAsStream(astubxPath));
         String stubxLocation = providerClass + ":" + astubxPath;
         try {
           parseStubStream(stubxInputStream, stubxLocation);

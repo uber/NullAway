@@ -45,9 +45,7 @@ public class MethodParameterLocation extends AbstractSymbolLocation {
     this.paramSymbol = (Symbol.VarSymbol) target;
     Symbol cursor = target;
     // Look for the enclosing method.
-    while (cursor != null
-        && cursor.getKind() != ElementKind.CONSTRUCTOR
-        && cursor.getKind() != ElementKind.METHOD) {
+    while (cursor != null && !(cursor instanceof Symbol.MethodSymbol)) {
       cursor = cursor.owner;
     }
     Preconditions.checkNotNull(cursor);

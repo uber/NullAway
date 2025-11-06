@@ -1279,7 +1279,7 @@ public class NullAway extends BugChecker
       Tree parent = enclosingBlockPath.getParentPath().getLeaf();
       return ASTHelpers.getSymbol((ClassTree) parent);
     } else {
-      return castToNonNull(ASTHelpers.enclosingClass(ASTHelpers.getSymbol(leaf)));
+      return castToNonNull(ASTHelpers.enclosingClass(castToNonNull(ASTHelpers.getSymbol(leaf))));
     }
   }
 
