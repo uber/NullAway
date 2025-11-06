@@ -425,7 +425,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    }",
             "    // this method should have no errors once we support inference for generic methods",
             "    public static void requiresInferenceSupport() {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
             "        Todo.foo(() -> null);",
             "    }",
             "    @FunctionalInterface",
