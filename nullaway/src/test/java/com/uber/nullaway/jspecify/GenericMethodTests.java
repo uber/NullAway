@@ -1006,6 +1006,35 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void lambdaReturnsGenericMethodCall() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static interface Supplier<T extends @Nullable Object> {",
+            "        T get();",
+            "    }",
+            "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
+            "        return supplier.get();",
+            "    }",
+            "    static <U extends @Nullable Object> U genericMethod(U var){",
+            "         return var;",
+            "    }",
+            "    static void test() {",
+            "        Object x = invokeWithReturn(() -> { return genericMethod(\"value\");});",
+            "        Object y = invokeWithReturn(() -> { return genericMethod(null);});",
+            "        // legal, should infer x is a @NonNull String",
+            "        x.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y is @Nullable",
+            "        y.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void inferenceWithFieldAssignment() {
     makeHelper()
         .addSourceLines(
