@@ -170,29 +170,10 @@ public class ArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Test
-  public void testing() {
-    makeLegacyModeHelper()
-        .addSourceLines(
-            "StringJoinerTest.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.StringJoiner;",
-            "import java.sql.SQLException;",
-            "@NullMarked",
-            "public class StringJoinerTest {",
-            "  void test() {",
-            "    StringJoiner x = new StringJoiner(null);",
-            "    String msg = new SQLException().getSQLState();",
-            "  }",
-            "}")
-        .doTest();
-  }
-
   private CompilationTestHelper makeLegacyModeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(
             "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:LegacyAnnotationLocations=true",
-            "-XepOpt:NullAway:JarInferEnabled=true"));
+            "-XepOpt:NullAway:LegacyAnnotationLocations=true"));
   }
 }
