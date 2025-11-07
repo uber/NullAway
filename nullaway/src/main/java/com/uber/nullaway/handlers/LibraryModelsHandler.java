@@ -50,7 +50,6 @@ import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
-import java.io.FileInputStream;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -1375,7 +1374,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         if (androidStubxIS != null) {
           cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
           astubxLoadLog("Loaded Android RT models.");
-          System.err.println(">>> Loaded Android RT models.");
         }
       } catch (ClassNotFoundException e) {
         astubxLoadLog(
@@ -1536,12 +1534,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       String libraryModelLogName = "JDKStubxLibraryModels";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
 
-      try (InputStream in =
-          new FileInputStream("/Users/yeahn/git-repos/NullAway/astubx/output.astubx")) {
+      try (InputStream in = getClass().getClassLoader().getResourceAsStream("output.astubx")) {
         cacheUtil.parseStubStream(in, "output.astubx");
-        System.err.println(">>> Loaded custom JDK astubx models from output.astubx");
+        astubxLoadLog("Loaded JDK astubx model.");
       } catch (Exception e) {
-        System.err.println(">>> Failed to load JDK astubx: " + e);
+        astubxLoadLog("Failed to load JDK astubx: " + e);
       }
 
       argAnnotCache = cacheUtil.getArgAnnotCache();
