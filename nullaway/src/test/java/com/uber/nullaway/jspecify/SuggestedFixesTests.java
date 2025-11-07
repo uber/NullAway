@@ -1,10 +1,10 @@
 package com.uber.nullaway.jspecify;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import org.junit.Rule;
 import org.junit.Test;
@@ -17,21 +17,14 @@ public class SuggestedFixesTests {
 
   private BugCheckerRefactoringTestHelper makeTestHelper() {
     List<String> args =
-        new ArrayList<>(
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
             List.of(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-processorpath",
-                SuggestedFixesTests.class
-                    .getProtectionDomain()
-                    .getCodeSource()
-                    .getLocation()
-                    .getPath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"));
-    args.addAll(JSpecifyJavacConfig.jspecifyModeArgs());
-    args.add("-XepOpt:NullAway:SuggestSuppressions=true");
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SuggestSuppressions=true"));
     return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
-        .setArgs(args.toArray(new String[0]));
+        .setArgs(ImmutableList.copyOf(args));
   }
 
   @Test
