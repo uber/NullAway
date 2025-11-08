@@ -1,6 +1,16 @@
 Changelog
 =========
 
+Version 0.12.12
+---------------
+
+This release fixes a severe performance regression introduced in NullAway 0.12.11 and we encourage all users of 0.12.11 to upgrade.
+
+* Address severe performance regression in dataflow analysis (#1328)
+* Maintenance
+  - Fix test args for SuggestedFixesTests (#1324)
+  - Stop passing -processorpath to CompilationTestHelper in NullAway tests (#1326)
+
 Version 0.12.11
 ---------------
 

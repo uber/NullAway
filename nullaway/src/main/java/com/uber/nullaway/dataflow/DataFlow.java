@@ -23,6 +23,7 @@ import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrIni
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -93,6 +94,13 @@ public final class DataFlow {
                 }
               });
 
+  /**
+   * Set of {@link AnalysisParams} for which the analysis has already been run to completion. Used
+   * to avoid re-running analyses needlessly
+   */
+  private final Cache<AnalysisParams, Boolean> alreadyRunAnalyses =
+      CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
+
   private final LoadingCache<CfgParams, ControlFlowGraph> cfgCache =
       CacheBuilder.newBuilder()
           .maximumSize(MAX_CACHE_SIZE)
@@ -161,11 +169,12 @@ public final class DataFlow {
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
     Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
-    if (performAnalysis) {
+    if (performAnalysis && alreadyRunAnalyses.getIfPresent(aparams) == null) {
       analysis.performAnalysis(cfg);
+      alreadyRunAnalyses.put(aparams, Boolean.TRUE);
     }
 
-    return new Result<A, S, T>() {
+    return new Result<>() {
       @Override
       public Analysis<A, S, T> getAnalysis() {
         return analysis;
@@ -313,6 +322,7 @@ public final class DataFlow {
   public void invalidateCaches() {
     cfgCache.invalidateAll();
     analysisCache.invalidateAll();
+    alreadyRunAnalyses.invalidateAll();
   }
 
   @AutoValue
