@@ -175,12 +175,12 @@ public interface Config {
   boolean isContractAnnotation(String annotationName);
 
   /**
-   * Checks if annotation makes a method pure.
+   * Checks if annotation makes a method preserve the nullability of lambdas passed as parameters.
    *
    * @param annotationName fully-qualified annotation name
-   * @return true if the annotation makes a method get considered Pure
+   * @return true if the annotation makes a method get considered nullability preserving
    */
-  boolean isPureAnnotation(String annotationName);
+  boolean isNullnessPreservingAnnotation(String annotationName);
 
   /**
    * Checks if the checker should suggest adding warning suppressions instead of fixes.
@@ -221,11 +221,13 @@ public interface Config {
   boolean checkContracts();
 
   /**
-   * Checks if methods are annotated as being pure, allowing nullability to be passed through lambda parameters.
+   * Checks if methods are annotated as being nullness preserving, allowing nullability to be passed
+   * through lambda parameters.
    *
-   * @return true if methods annotated as being pure should skip some nullability checks.
+   * @return true if methods annotated as being nullness preserving should skip some nullability
+   *     checks.
    */
-  boolean checkPure();
+  boolean checkNullnessPreserving();
 
   /**
    * Checks if test assertion library handling is enabled.

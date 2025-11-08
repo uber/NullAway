@@ -19,11 +19,8 @@ import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.dataflow.AccessPath;
-import java.util.Map;
 import java.util.function.Predicate;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.ExecutableElement;
-import javax.lang.model.element.AnnotationValue;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 public class SynchronousCallbackHandler extends BaseNoOpHandler {
@@ -79,9 +76,9 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
         // preserve access paths for all callbacks passed to stream methods
         return TRUE_AP_PREDICATE;
       }
-      // If the callee is a pure method (e.g., annotated with @Contract(pure = true)),
-      // then treat callbacks as synchronous and preserve access paths as well.
-      if (isPureMethod(symbol)) {
+      // If the callee is a method that preserves the nullability of lambdas passed as parameters.
+      // (e.g., annotated with @NullnessPreserving).
+      if (isNullnessPreservingMethod(symbol)) {
         return TRUE_AP_PREDICATE;
       }
       String invokedMethodName = symbol.getSimpleName().toString();
@@ -109,28 +106,14 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
     return FALSE_AP_PREDICATE;
   }
 
-  private boolean isPureMethod(Symbol.MethodSymbol methodSymbol) {
-    if (!this.config.checkPure()) {
+  private boolean isNullnessPreservingMethod(Symbol.MethodSymbol methodSymbol) {
+    if (!this.config.checkNullnessPreserving()) {
       return false;
     }
     for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotation);
-      if (config.isPureAnnotation(name)) {
+      if (config.isNullnessPreservingAnnotation(name)) {
         return true;
-      }
-      int lastDot = name.lastIndexOf('.');
-      String simple = (lastDot >= 0) ? name.substring(lastDot + 1) : name;
-      // JetBrains-style or custom @Contract with a 'pure' attribute
-      if ("Contract".equals(simple)) {
-        for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
-            annotation.getElementValues().entrySet()) {
-          if (entry.getKey().getSimpleName().contentEquals("pure")) {
-            Object val = entry.getValue().getValue();
-            if (val instanceof Boolean && ((Boolean) val)) {
-              return true;
-            }
-          }
-        }
       }
     }
     return false;
