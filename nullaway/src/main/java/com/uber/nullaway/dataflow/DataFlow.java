@@ -171,7 +171,7 @@ public final class DataFlow {
     Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
     if (performAnalysis && alreadyRunAnalyses.getIfPresent(aparams) == null) {
       analysis.performAnalysis(cfg);
-      alreadyRunAnalyses.put(aparams, Boolean.TRUE);
+      alreadyRunAnalyses.put(aparams, Boolean.TRUE); // dummy comment
     }
 
     return new Result<>() {
