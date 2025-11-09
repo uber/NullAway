@@ -799,7 +799,7 @@ public final class GenericsChecks {
       argumentType =
           refineArgumentTypeWithDataflow(argumentType, argument, state, path, calledFromDataflow);
       solver.addSubtypeConstraint(argumentType, formalParamType, false);
-    } else if (argument instanceof LambdaExpressionTree) {
+    } else {
       LambdaExpressionTree lambda = (LambdaExpressionTree) argument;
       Symbol.MethodSymbol fiMethod =
           NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
