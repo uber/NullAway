@@ -23,6 +23,7 @@ import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrIni
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -40,8 +41,6 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import com.uber.nullaway.handlers.Handler;
-import java.util.HashSet;
-import java.util.Set;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
@@ -99,7 +98,8 @@ public final class DataFlow {
    * Set of {@link AnalysisParams} for which the analysis has already been run to completion. Used
    * to avoid re-running analyses needlessly
    */
-  private final Set<AnalysisParams> alreadyRunAnalyses = new HashSet<>();
+  private final Cache<AnalysisParams, Boolean> alreadyRunAnalyses =
+      CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
 
   private final LoadingCache<CfgParams, ControlFlowGraph> cfgCache =
       CacheBuilder.newBuilder()
@@ -169,9 +169,9 @@ public final class DataFlow {
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
     Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
-    if (performAnalysis && !alreadyRunAnalyses.contains(aparams)) {
+    if (performAnalysis && alreadyRunAnalyses.getIfPresent(aparams) == null) {
       analysis.performAnalysis(cfg);
-      alreadyRunAnalyses.add(aparams);
+      alreadyRunAnalyses.put(aparams, Boolean.TRUE);
     }
 
     return new Result<>() {
@@ -322,7 +322,7 @@ public final class DataFlow {
   public void invalidateCaches() {
     cfgCache.invalidateAll();
     analysisCache.invalidateAll();
-    alreadyRunAnalyses.clear();
+    alreadyRunAnalyses.invalidateAll();
   }
 
   @AutoValue
