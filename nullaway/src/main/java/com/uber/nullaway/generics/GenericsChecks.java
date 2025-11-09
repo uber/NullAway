@@ -823,6 +823,24 @@ public final class GenericsChecks {
         List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
 
         for (ExpressionTree returnExpr : returnExpressions) {
+
+          if (returnExpr instanceof MethodInvocationTree
+              && isGenericCallNeedingInference(returnExpr)) {
+            MethodInvocationTree invTree = (MethodInvocationTree) returnExpr;
+            Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
+            allInvocations.add(invTree);
+            generateConstraintsForCall(
+                state,
+                path,
+                fiReturnType,
+                false,
+                solver,
+                symbol,
+                invTree,
+                allInvocations,
+                calledFromDataflow);
+          }
+
           Type returnedExpressionType = getTreeType(returnExpr, state);
           if (returnedExpressionType != null) {
             // Add a constraint that the returned expression's type
@@ -834,7 +852,7 @@ public final class GenericsChecks {
     }
   }
 
-  static class ReturnFinder extends TreeScanner<Void, Void> {
+  static class ReturnFinder extends TreeScanner<@Nullable Void, @Nullable Void> {
 
     private final List<ExpressionTree> returnExpressions = new ArrayList<>();
 
@@ -860,25 +878,25 @@ public final class GenericsChecks {
     }
 
     @Override
-    public Void visitLambdaExpression(LambdaExpressionTree node, Void p) {
+    public @Nullable Void visitLambdaExpression(LambdaExpressionTree node, @Nullable Void p) {
       // Do not scan inside nested lambdas
       return null;
     }
 
     @Override
-    public Void visitClass(ClassTree node, Void p) {
+    public @Nullable Void visitClass(ClassTree node, @Nullable Void p) {
       // Do not scan inside nested (anonymous/local) classes
       return null;
     }
 
     @Override
-    public Void visitMethod(MethodTree node, Void p) {
+    public @Nullable Void visitMethod(MethodTree node, @Nullable Void p) {
       // Do not scan inside methods of local classes
       return null;
     }
 
     @Override
-    public Void visitReturn(ReturnTree node, Void p) {
+    public @Nullable Void visitReturn(ReturnTree node, @Nullable Void p) {
       ExpressionTree expression = node.getExpression();
       if (expression != null) {
         returnExpressions.add(expression);
