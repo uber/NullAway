@@ -813,7 +813,25 @@ public final class GenericsChecks {
       Tree body = lambda.getBody();
       if (body instanceof ExpressionTree) {
         // Case 1: Expression body, e.g., () -> null
-        Type returnedExpressionType = getTreeType((ExpressionTree) body, state);
+        ExpressionTree returnedExpression = (ExpressionTree) body;
+        returnedExpression = ASTHelpers.stripParentheses(returnedExpression);
+        if (returnedExpression instanceof MethodInvocationTree
+            && isGenericCallNeedingInference(returnedExpression)) {
+          MethodInvocationTree invTree = (MethodInvocationTree) returnedExpression;
+          Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
+          allInvocations.add(invTree);
+          generateConstraintsForCall(
+              state,
+              path,
+              fiReturnType,
+              false,
+              solver,
+              symbol,
+              invTree,
+              allInvocations,
+              calledFromDataflow);
+        }
+        Type returnedExpressionType = getTreeType(returnedExpression, state);
         if (returnedExpressionType != null) {
           solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
         }
@@ -823,10 +841,10 @@ public final class GenericsChecks {
         List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
 
         for (ExpressionTree returnExpr : returnExpressions) {
-
-          if (returnExpr instanceof MethodInvocationTree
-              && isGenericCallNeedingInference(returnExpr)) {
-            MethodInvocationTree invTree = (MethodInvocationTree) returnExpr;
+          ExpressionTree unwrappedReturnExpr = ASTHelpers.stripParentheses(returnExpr);
+          if (unwrappedReturnExpr instanceof MethodInvocationTree
+              && isGenericCallNeedingInference(unwrappedReturnExpr)) {
+            MethodInvocationTree invTree = (MethodInvocationTree) unwrappedReturnExpr;
             Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
             allInvocations.add(invTree);
             generateConstraintsForCall(
@@ -841,7 +859,7 @@ public final class GenericsChecks {
                 calledFromDataflow);
           }
 
-          Type returnedExpressionType = getTreeType(returnExpr, state);
+          Type returnedExpressionType = getTreeType(unwrappedReturnExpr, state);
           if (returnedExpressionType != null) {
             // Add a constraint that the returned expression's type
             // must be a subtype of the functional interface's return type.
