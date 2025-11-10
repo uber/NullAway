@@ -26,6 +26,7 @@ import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.uber.nullaway.NullAway;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Context object for checks on methods. Contains the {@link NullAway} instance, the {@link
@@ -49,7 +50,7 @@ public class MethodAnalysisContext {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (this == o) {
       return true;
     }
