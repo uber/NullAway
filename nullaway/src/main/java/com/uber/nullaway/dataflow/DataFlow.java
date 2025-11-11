@@ -341,6 +341,12 @@ public final class DataFlow {
     }
 
     abstract TreePath codePath();
+
+    @Override
+    public abstract boolean equals(@Nullable Object o);
+
+    @Override
+    public abstract int hashCode();
   }
 
   @AutoValue
@@ -355,6 +361,12 @@ public final class DataFlow {
     abstract ForwardTransferFunction<?, ?> transferFunction();
 
     abstract ControlFlowGraph cfg();
+
+    @Override
+    public abstract boolean equals(@Nullable Object o);
+
+    @Override
+    public abstract int hashCode();
   }
 
   /** A pair of Analysis and ControlFlowGraph. */
