@@ -789,8 +789,6 @@ public final class GenericsChecks {
           allInvocations,
           calledFromDataflow);
     } else if (!(argument instanceof LambdaExpressionTree)) {
-      // Skip adding a subtype constraint for lambda arguments; we want to also infer the type of
-      // the lambda expression
       Type argumentType = getTreeType(argument, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
@@ -842,7 +840,7 @@ public final class GenericsChecks {
     if (body instanceof ExpressionTree) {
       // Case 1: Expression body, e.g., () -> null
       ExpressionTree returnedExpression = (ExpressionTree) body;
-      generateConstraintsForGenericMethodInLambdaArg(
+      generateConstraintsForExprReturnedFromLambda(
           returnedExpression,
           state,
           path,
@@ -856,13 +854,13 @@ public final class GenericsChecks {
       List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
 
       for (ExpressionTree returnExpr : returnExpressions) {
-        generateConstraintsForGenericMethodInLambdaArg(
+        generateConstraintsForExprReturnedFromLambda(
             returnExpr, state, path, solver, allInvocations, calledFromDataflow, fiReturnType);
       }
     }
   }
 
-  private void generateConstraintsForGenericMethodInLambdaArg(
+  private void generateConstraintsForExprReturnedFromLambda(
       ExpressionTree returnExpr,
       VisitorState state,
       @Nullable TreePath path,
