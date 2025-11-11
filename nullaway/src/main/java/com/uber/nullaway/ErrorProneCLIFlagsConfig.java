@@ -624,5 +624,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
     abstract String enclosingClass();
 
     abstract String methodName();
+
+    @Override
+    public abstract boolean equals(@Nullable Object o);
+
+    @Override
+    public abstract int hashCode();
   }
 }

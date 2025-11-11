@@ -576,7 +576,7 @@ public final class AccessPath implements MapKey {
   }
 
   @Override
-  public boolean equals(Object o) {
+  public boolean equals(@Nullable Object o) {
     if (this == o) {
       return true;
     }
@@ -657,7 +657,7 @@ public final class AccessPath implements MapKey {
     }
 
     @Override
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       if (obj instanceof StringMapKey) {
         return this.key.equals(((StringMapKey) obj).key);
       }
@@ -686,7 +686,7 @@ public final class AccessPath implements MapKey {
      */
     @Override
     @JacocoIgnoreGenerated
-    public boolean equals(Object obj) {
+    public boolean equals(@Nullable Object obj) {
       if (obj instanceof NumericMapKey) {
         return this.key == ((NumericMapKey) obj).key;
       }
@@ -724,7 +724,7 @@ public final class AccessPath implements MapKey {
      */
     @Override
     @JacocoIgnoreGenerated
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
       if (this == o) {
         return true;
       }
