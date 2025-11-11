@@ -801,23 +801,63 @@ public final class GenericsChecks {
       solver.addSubtypeConstraint(argumentType, formalParamType, false);
     } else {
       LambdaExpressionTree lambda = (LambdaExpressionTree) argument;
-      Symbol.MethodSymbol fiMethod =
-          NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
+      handleLambdaArgumentInGenericMethodInference(
+          state, path, solver, allInvocations, formalParamType, calledFromDataflow, lambda);
+    }
+  }
 
-      // get the return type of the functional interface method, viewed as a member of the formal
-      // parameter type, so the generic method's type variables are substituted in
-      Type.MethodType fiMethodTypeAsMember =
-          TypeSubstitutionUtils.memberType(state.getTypes(), formalParamType, fiMethod, config)
-              .asMethodType();
-      Type fiReturnType = fiMethodTypeAsMember.getReturnType();
-      Tree body = lambda.getBody();
-      if (body instanceof ExpressionTree) {
-        // Case 1: Expression body, e.g., () -> null
-        ExpressionTree returnedExpression = (ExpressionTree) body;
-        returnedExpression = ASTHelpers.stripParentheses(returnedExpression);
-        if (returnedExpression instanceof MethodInvocationTree
-            && isGenericCallNeedingInference(returnedExpression)) {
-          MethodInvocationTree invTree = (MethodInvocationTree) returnedExpression;
+  private void handleLambdaArgumentInGenericMethodInference(
+      VisitorState state,
+      @Nullable TreePath path,
+      ConstraintSolver solver,
+      Set<MethodInvocationTree> allInvocations,
+      Type formalParamType,
+      boolean calledFromDataflow,
+      LambdaExpressionTree lambda) {
+    Symbol.MethodSymbol fiMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
+
+    // get the return type of the functional interface method, viewed as a member of the formal
+    // parameter type, so the generic method's type variables are substituted in
+    Type.MethodType fiMethodTypeAsMember =
+        TypeSubstitutionUtils.memberType(state.getTypes(), formalParamType, fiMethod, config)
+            .asMethodType();
+    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    Tree body = lambda.getBody();
+    if (body instanceof ExpressionTree) {
+      // Case 1: Expression body, e.g., () -> null
+      ExpressionTree returnedExpression = (ExpressionTree) body;
+      returnedExpression = ASTHelpers.stripParentheses(returnedExpression);
+      if (returnedExpression instanceof MethodInvocationTree
+          && isGenericCallNeedingInference(returnedExpression)) {
+        MethodInvocationTree invTree = (MethodInvocationTree) returnedExpression;
+        Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
+        allInvocations.add(invTree);
+        generateConstraintsForCall(
+            state,
+            path,
+            fiReturnType,
+            false,
+            solver,
+            symbol,
+            invTree,
+            allInvocations,
+            calledFromDataflow);
+      }
+      Type returnedExpressionType = getTreeType(returnedExpression, state);
+      if (returnedExpressionType != null) {
+        solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
+      }
+    } else if (body instanceof BlockTree) {
+      // Case 2: Block body, e.g., () -> { return null; }
+
+      List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
+
+      for (ExpressionTree returnExpr : returnExpressions) {
+        ExpressionTree unwrappedReturnExpr = ASTHelpers.stripParentheses(returnExpr);
+        if (unwrappedReturnExpr instanceof MethodInvocationTree
+            && isGenericCallNeedingInference(unwrappedReturnExpr)) {
+          MethodInvocationTree invTree = (MethodInvocationTree) unwrappedReturnExpr;
           Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
           allInvocations.add(invTree);
           generateConstraintsForCall(
@@ -831,40 +871,12 @@ public final class GenericsChecks {
               allInvocations,
               calledFromDataflow);
         }
-        Type returnedExpressionType = getTreeType(returnedExpression, state);
+
+        Type returnedExpressionType = getTreeType(unwrappedReturnExpr, state);
         if (returnedExpressionType != null) {
+          // Add a constraint that the returned expression's type
+          // must be a subtype of the functional interface's return type.
           solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
-        }
-      } else if (body instanceof BlockTree) {
-        // Case 2: Block body, e.g., () -> { return null; }
-
-        List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
-
-        for (ExpressionTree returnExpr : returnExpressions) {
-          ExpressionTree unwrappedReturnExpr = ASTHelpers.stripParentheses(returnExpr);
-          if (unwrappedReturnExpr instanceof MethodInvocationTree
-              && isGenericCallNeedingInference(unwrappedReturnExpr)) {
-            MethodInvocationTree invTree = (MethodInvocationTree) unwrappedReturnExpr;
-            Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
-            allInvocations.add(invTree);
-            generateConstraintsForCall(
-                state,
-                path,
-                fiReturnType,
-                false,
-                solver,
-                symbol,
-                invTree,
-                allInvocations,
-                calledFromDataflow);
-          }
-
-          Type returnedExpressionType = getTreeType(unwrappedReturnExpr, state);
-          if (returnedExpressionType != null) {
-            // Add a constraint that the returned expression's type
-            // must be a subtype of the functional interface's return type.
-            solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
-          }
         }
       }
     }
