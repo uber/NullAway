@@ -2936,11 +2936,5 @@ public class NullAway extends BugChecker
      * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
      */
     abstract ImmutableSet<MethodTree> staticInitializerMethods();
-
-    @Override
-    public abstract boolean equals(@Nullable Object o);
-
-    @Override
-    public abstract int hashCode();
   }
 }

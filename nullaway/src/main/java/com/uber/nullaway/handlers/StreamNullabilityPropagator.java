@@ -69,7 +69,6 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
-import org.jspecify.annotations.Nullable;
 
 /**
  * This Handler transfers nullability info through chains of calls to methods of
@@ -141,12 +140,6 @@ class StreamNullabilityPropagator extends BaseNoOpHandler {
     abstract CollectLikeMethodRecord getCollectLikeMethodRecord();
 
     abstract Tree getInnerMethodOrLambda();
-
-    @Override
-    public abstract boolean equals(@Nullable Object o);
-
-    @Override
-    public abstract int hashCode();
   }
 
   // Maps collect calls in the observable call chain to the relevant (collect record, inner method

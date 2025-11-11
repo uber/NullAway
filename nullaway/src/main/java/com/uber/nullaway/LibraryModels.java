@@ -313,11 +313,5 @@ public interface LibraryModels {
     public static FieldRef fieldRef(String enclosingClass, String fieldName) {
       return new AutoValue_LibraryModels_FieldRef(enclosingClass, fieldName);
     }
-
-    @Override
-    public abstract boolean equals(@Nullable Object o);
-
-    @Override
-    public abstract int hashCode();
   }
 }
