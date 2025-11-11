@@ -827,58 +827,57 @@ public final class GenericsChecks {
     if (body instanceof ExpressionTree) {
       // Case 1: Expression body, e.g., () -> null
       ExpressionTree returnedExpression = (ExpressionTree) body;
-      returnedExpression = ASTHelpers.stripParentheses(returnedExpression);
-      if (returnedExpression instanceof MethodInvocationTree
-          && isGenericCallNeedingInference(returnedExpression)) {
-        MethodInvocationTree invTree = (MethodInvocationTree) returnedExpression;
-        Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
-        allInvocations.add(invTree);
-        generateConstraintsForCall(
-            state,
-            path,
-            fiReturnType,
-            false,
-            solver,
-            symbol,
-            invTree,
-            allInvocations,
-            calledFromDataflow);
-      }
-      Type returnedExpressionType = getTreeType(returnedExpression, state);
-      if (returnedExpressionType != null) {
-        solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
-      }
+      generateConstraintsForGenericMethodInLambdaArg(
+          returnedExpression,
+          state,
+          path,
+          solver,
+          allInvocations,
+          calledFromDataflow,
+          fiReturnType);
     } else if (body instanceof BlockTree) {
       // Case 2: Block body, e.g., () -> { return null; }
 
       List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
 
       for (ExpressionTree returnExpr : returnExpressions) {
-        ExpressionTree unwrappedReturnExpr = ASTHelpers.stripParentheses(returnExpr);
-        if (unwrappedReturnExpr instanceof MethodInvocationTree
-            && isGenericCallNeedingInference(unwrappedReturnExpr)) {
-          MethodInvocationTree invTree = (MethodInvocationTree) unwrappedReturnExpr;
-          Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
-          allInvocations.add(invTree);
-          generateConstraintsForCall(
-              state,
-              path,
-              fiReturnType,
-              false,
-              solver,
-              symbol,
-              invTree,
-              allInvocations,
-              calledFromDataflow);
-        }
-
-        Type returnedExpressionType = getTreeType(unwrappedReturnExpr, state);
-        if (returnedExpressionType != null) {
-          // Add a constraint that the returned expression's type
-          // must be a subtype of the functional interface's return type.
-          solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
-        }
+        generateConstraintsForGenericMethodInLambdaArg(
+            returnExpr, state, path, solver, allInvocations, calledFromDataflow, fiReturnType);
       }
+    }
+  }
+
+  private void generateConstraintsForGenericMethodInLambdaArg(
+      ExpressionTree returnExpr,
+      VisitorState state,
+      @Nullable TreePath path,
+      ConstraintSolver solver,
+      Set<MethodInvocationTree> allInvocations,
+      boolean calledFromDataflow,
+      Type fiReturnType) {
+    ExpressionTree unwrappedReturnExpr = ASTHelpers.stripParentheses(returnExpr);
+    if (unwrappedReturnExpr instanceof MethodInvocationTree
+        && isGenericCallNeedingInference(unwrappedReturnExpr)) {
+      MethodInvocationTree invTree = (MethodInvocationTree) unwrappedReturnExpr;
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
+      allInvocations.add(invTree);
+      generateConstraintsForCall(
+          state,
+          path,
+          fiReturnType,
+          false,
+          solver,
+          symbol,
+          invTree,
+          allInvocations,
+          calledFromDataflow);
+    }
+
+    Type returnedExpressionType = getTreeType(unwrappedReturnExpr, state);
+    if (returnedExpressionType != null) {
+      // Add a constraint that the returned expression's type
+      // must be a subtype of the functional interface's return type.
+      solver.addSubtypeConstraint(returnedExpressionType, fiReturnType, false);
     }
   }
 
