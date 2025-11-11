@@ -806,6 +806,21 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Generate constraints for any return expression inside lambda argument. If the return expression
+   * is a method invocation then recursively call generateConstraintsForCall
+   *
+   * @param state the visitor state
+   * @param path the tree path to the invocationTree if available and possibly distinct from {@code
+   *     state.getPath()}
+   * @param solver the constraint solver
+   * @param allInvocations a set of all method invocations that require inference, including nested
+   *     ones. This is an output parameter that gets mutated while generating the constraints to add
+   *     nested invocations.
+   * @param formalParamType The formal parameter type
+   * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
+   * @param lambda The lambda argument
+   */
   private void handleLambdaArgumentInGenericMethodInference(
       VisitorState state,
       @Nullable TreePath path,
@@ -881,6 +896,21 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * A visitor that scans a {@link Tree} (typically a lambda or method body) to find all {@code
+   * return} statements and collect their expressions.
+   *
+   * <p>This scanner is specifically designed to be "shallow." It will <b>not</b> descend into
+   * nested lambdas, local classes, or anonymous classes, ensuring it only finds {@code return}
+   * statements relevant to the *current* function body.
+   *
+   * <p>Usage:
+   *
+   * <pre>
+   * Tree lambdaBody = myLambda.getBody();
+   * List<ExpressionTree> returns = ReturnFinder.findReturnExpressions(lambdaBody);
+   * </pre>
+   */
   static class ReturnFinder extends TreeScanner<@Nullable Void, @Nullable Void> {
 
     private final List<ExpressionTree> returnExpressions = new ArrayList<>();
