@@ -860,6 +860,21 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Generates type-inference constraints for an expression returned from a lambda argument, in the
+   * context of generic method inference. If the return expression is itself a generic method call,
+   * recursively generates constraints for that call.
+   *
+   * @param returnExpr the return expression to analyze
+   * @param state the visitor state
+   * @param path the tree path if available
+   * @param solver the constraint solver
+   * @param allInvocations a set of all method invocations that require inference, including nested
+   *     ones. This is an output parameter that gets mutated while generating the constraints to add
+   *     nested invocations.
+   * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
+   * @param fiReturnType the return type of the functional interface method
+   */
   private void generateConstraintsForExprReturnedFromLambda(
       ExpressionTree returnExpr,
       VisitorState state,
