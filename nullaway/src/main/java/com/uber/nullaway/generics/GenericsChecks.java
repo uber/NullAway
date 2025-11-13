@@ -786,6 +786,7 @@ public final class GenericsChecks {
       ExpressionTree rhsExpr,
       Type lhsType,
       boolean calledFromDataflow) {
+    rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isGenericCallNeedingInference(rhsExpr)) {
@@ -851,7 +852,7 @@ public final class GenericsChecks {
           path,
           solver,
           allInvocations,
-          ASTHelpers.stripParentheses(returnedExpression),
+          returnedExpression,
           fiReturnType,
           calledFromDataflow);
     } else if (body instanceof BlockTree) {
@@ -859,13 +860,7 @@ public final class GenericsChecks {
       List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
       for (ExpressionTree returnExpr : returnExpressions) {
         generateConstraintsForPseudoAssignment(
-            state,
-            path,
-            solver,
-            allInvocations,
-            ASTHelpers.stripParentheses(returnExpr),
-            fiReturnType,
-            calledFromDataflow);
+            state, path, solver, allInvocations, returnExpr, fiReturnType, calledFromDataflow);
       }
     }
   }
