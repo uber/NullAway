@@ -754,7 +754,7 @@ public final class GenericsChecks {
     new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
         .forEach(
             (argument, argPos, formalParamType, unused) ->
-                generateConstraintsForParam(
+                generateConstraintsForPseudoAssignment(
                     state,
                     path,
                     solver,
@@ -764,43 +764,49 @@ public final class GenericsChecks {
                     calledFromDataflow));
   }
 
-  private void generateConstraintsForParam(
+  /**
+   * In the context of generic method inference, generate constraints for a pseudo-assignment
+   * (parameter passing or return).
+   *
+   * @param state the visitor state
+   * @param path the tree path to {@code rhsExpr} if available
+   * @param solver the constraint solver
+   * @param allInvocations a set of all method invocations that require inference, including nested
+   *     ones. This is an output parameter that gets mutated while generating the constraints to add
+   *     nested invocations.
+   * @param rhsExpr the right-hand side expression of the pseudo-assignment
+   * @param lhsType the left-hand side type of the pseudo-assignment
+   * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
+   */
+  private void generateConstraintsForPseudoAssignment(
       VisitorState state,
       @Nullable TreePath path,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
-      ExpressionTree argument,
-      Type formalParamType,
+      ExpressionTree rhsExpr,
+      Type lhsType,
       boolean calledFromDataflow) {
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
-    if (isGenericCallNeedingInference(argument)) {
-      MethodInvocationTree invTree = (MethodInvocationTree) argument;
+    if (isGenericCallNeedingInference(rhsExpr)) {
+      MethodInvocationTree invTree = (MethodInvocationTree) rhsExpr;
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
       generateConstraintsForCall(
-          state,
-          path,
-          formalParamType,
-          false,
-          solver,
-          symbol,
-          invTree,
-          allInvocations,
-          calledFromDataflow);
-    } else if (!(argument instanceof LambdaExpressionTree)) {
-      Type argumentType = getTreeType(argument, state);
+          state, path, lhsType, false, solver, symbol, invTree, allInvocations, calledFromDataflow);
+    } else if (!(rhsExpr instanceof LambdaExpressionTree)) {
+      Type argumentType = getTreeType(rhsExpr, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
         return;
       }
       argumentType =
-          refineArgumentTypeWithDataflow(argumentType, argument, state, path, calledFromDataflow);
-      solver.addSubtypeConstraint(argumentType, formalParamType, false);
+          refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, path, calledFromDataflow);
+      solver.addSubtypeConstraint(argumentType, lhsType, false);
     } else {
-      LambdaExpressionTree lambda = (LambdaExpressionTree) argument;
+      LambdaExpressionTree lambda = (LambdaExpressionTree) rhsExpr;
       handleLambdaArgumentInGenericMethodInference(
-          state, path, solver, allInvocations, formalParamType, calledFromDataflow, lambda);
+          state, path, solver, allInvocations, lhsType, calledFromDataflow, lambda);
     }
   }
 
@@ -840,7 +846,7 @@ public final class GenericsChecks {
     if (body instanceof ExpressionTree) {
       // Case 1: Expression body, e.g., () -> null
       ExpressionTree returnedExpression = (ExpressionTree) body;
-      generateConstraintsForParam(
+      generateConstraintsForPseudoAssignment(
           state,
           path,
           solver,
@@ -852,7 +858,7 @@ public final class GenericsChecks {
       // Case 2: Block body, e.g., () -> { return null; }
       List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
       for (ExpressionTree returnExpr : returnExpressions) {
-        generateConstraintsForParam(
+        generateConstraintsForPseudoAssignment(
             state,
             path,
             solver,
