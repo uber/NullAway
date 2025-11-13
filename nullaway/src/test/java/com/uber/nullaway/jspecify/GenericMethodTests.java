@@ -1050,6 +1050,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        x_expr_paren.hashCode();",
             "        // BUG: Diagnostic contains: dereferenced expression y_expr_paren is @Nullable",
             "        y_expr_paren.hashCode();",
+            "        Object x2 = invokeWithReturn(() ->{ Object y2 = null; return y2;});",
             "    }",
             "}")
         .doTest();
