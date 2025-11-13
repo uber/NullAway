@@ -45,7 +45,7 @@ dependencies {
 
 
     // Source jars for our desired benchmarks
-    caffeineSources('com.github.ben-manes.caffeine:caffeine:3.0.2:sources') {
+    caffeineSources('com.github.ben-manes.caffeine:caffeine:3.2.3:sources') {
         transitive = false
     }
     autodisposeSources('com.uber.autodispose2:autodispose:2.1.0:sources') {
@@ -55,7 +55,7 @@ dependencies {
         transitive = false
     }
 
-    caffeineDeps 'com.github.ben-manes.caffeine:caffeine:3.0.2'
+    caffeineDeps 'com.github.ben-manes.caffeine:caffeine:3.2.3'
     autodisposeDeps 'com.uber.autodispose2:autodispose:2.1.0'
     nullawayReleaseDeps 'com.uber.nullaway:nullaway:0.9.7'
     // Add in the compile-only dependencies of NullAway
@@ -74,17 +74,17 @@ def caffeineSourceDir = project.layout.buildDirectory.dir('caffeineSources')
 def autodisposeSourceDir = project.layout.buildDirectory.dir('autodisposeSources')
 def nullawayReleaseSourceDir = project.layout.buildDirectory.dir('nullawayReleaseSources')
 
-task extractCaffeineSources(type: Copy) {
+tasks.register('extractCaffeineSources', Copy) {
     from zipTree(configurations.caffeineSources.singleFile)
     into caffeineSourceDir
 }
 
-task extractAutodisposeSources(type: Copy) {
+tasks.register('extractAutodisposeSources', Copy) {
     from zipTree(configurations.autodisposeSources.singleFile)
     into autodisposeSourceDir
 }
 
-task extractNullawayReleaseSources(type: Copy) {
+tasks.register('extractNullawayReleaseSources', Copy) {
     from zipTree(configurations.nullawayReleaseSources.singleFile)
     into nullawayReleaseSourceDir
 }
@@ -137,7 +137,7 @@ jmh {
     // for more examples see https://github.com/melix/jmh-gradle-plugin/blob/master/README.adoc#configuration-options
     // iterations = 5
     // fork = 5
-    // includes = ['DFlowMicro']
+    includes = ['Caffeine']
 }
 
 tasks.withType(Test).configureEach { test ->
