@@ -425,7 +425,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    }",
             "    // this method should have no errors once we support inference for generic methods",
             "    public static void requiresInferenceSupport() {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
             "        Todo.foo(() -> null);",
             "    }",
             "    @FunctionalInterface",
@@ -979,7 +978,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("need better handling of lambdas")
   @Test
   public void supplierLambdaInference() {
     makeHelperWithInferenceFailureWarning()
@@ -988,8 +986,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "class Test {",
-            "    static interface Supplier<R extends @Nullable Object> {",
-            "        R get();",
+            "    static interface Supplier<T extends @Nullable Object> {",
+            "        T get();",
             "    }",
             "    static <R> void invoke(Supplier<@Nullable R> supplier) {}",
             "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
@@ -1002,6 +1000,58 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        Object x = invokeWithReturn(() -> null);",
             "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
             "        x.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void lambdaReturnsGenericMethodCall() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static interface Supplier<T extends @Nullable Object> {",
+            "        T get();",
+            "    }",
+            "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
+            "        return supplier.get();",
+            "    }",
+            "    static <U extends @Nullable Object> U genericMethod(U var){",
+            "         return var;",
+            "    }",
+            "    static void test() {",
+            "        Object x = invokeWithReturn(() -> { return genericMethod(\"value\");});",
+            "        Object y = invokeWithReturn(() -> { return genericMethod(null);});",
+            "        // legal, should infer x is a @NonNull String",
+            "        x.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y is @Nullable",
+            "        y.hashCode();",
+            "        // Block-bodied with parenthesized return",
+            "        Object x_block_paren = invokeWithReturn(() -> { return (genericMethod(\"value\"));});",
+            "        Object y_block_paren = invokeWithReturn(() -> { return (genericMethod(null));});",
+            "        // legal, should infer x_block_paren is a @NonNull String",
+            "        x_block_paren.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y_block_paren is @Nullable",
+            "        y_block_paren.hashCode();",
+            "        // Expression-bodied",
+            "        Object x_expr = invokeWithReturn(() -> genericMethod(\"value\"));",
+            "        Object y_expr = invokeWithReturn(() -> genericMethod(null));",
+            "        // legal, should infer x_expr is a @NonNull String",
+            "        x_expr.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y_expr is @Nullable",
+            "        y_expr.hashCode();",
+            "        // Expression-bodied with parenthesized return",
+            "        Object x_expr_paren = invokeWithReturn(() -> (genericMethod(\"value\")));",
+            "        Object y_expr_paren = invokeWithReturn(() -> (genericMethod(null)));",
+            "        // legal, should infer x_expr_paren is a @NonNull String",
+            "        x_expr_paren.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y_expr_paren is @Nullable",
+            "        y_expr_paren.hashCode();",
+            "        // TODO",
+            "        // Object x2 = invokeWithReturn(() ->{ Object y2 = null; return y2;});",
             "    }",
             "}")
         .doTest();

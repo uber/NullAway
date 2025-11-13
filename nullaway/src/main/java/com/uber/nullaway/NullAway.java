@@ -1022,9 +1022,13 @@ public class NullAway extends BugChecker
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
+      Type lambdaType = ASTHelpers.getType(lambdaTree);
+      Type inferredType = genericsChecks.getInferredLambdaType(lambdaTree);
+      if (inferredType != null) {
+        lambdaType = inferredType;
+      }
       if (genericsChecks
-              .getGenericMethodReturnTypeNullness(
-                  methodSymbol, ASTHelpers.getType(lambdaTree), state)
+              .getGenericMethodReturnTypeNullness(methodSymbol, lambdaType, state)
               .equals(Nullness.NULLABLE)
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
               methodSymbol, lambdaTree, state, codeAnnotationInfo)) {
