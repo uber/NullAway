@@ -806,7 +806,7 @@ public final class GenericsChecks {
       solver.addSubtypeConstraint(argumentType, lhsType, false);
     } else {
       LambdaExpressionTree lambda = (LambdaExpressionTree) rhsExpr;
-      handleLambdaArgumentInGenericMethodInference(
+      handleLambdaInGenericMethodInference(
           state, path, solver, allInvocations, lhsType, calledFromDataflow, lambda);
     }
   }
@@ -822,25 +822,25 @@ public final class GenericsChecks {
    * @param allInvocations a set of all method invocations that require inference, including nested
    *     ones. This is an output parameter that gets mutated while generating the constraints to add
    *     nested invocations.
-   * @param formalParamType The formal parameter type
+   * @param lhsType the type to which the lambda is being assigned
    * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @param lambda The lambda argument
    */
-  private void handleLambdaArgumentInGenericMethodInference(
+  private void handleLambdaInGenericMethodInference(
       VisitorState state,
       @Nullable TreePath path,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
-      Type formalParamType,
+      Type lhsType,
       boolean calledFromDataflow,
       LambdaExpressionTree lambda) {
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
 
-    // get the return type of the functional interface method, viewed as a member of the formal
-    // parameter type, so the generic method's type variables are substituted in
+    // get the return type of the functional interface method, viewed as a member of the lhs
+    // type, so the generic method's type variables are substituted in
     Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(state.getTypes(), formalParamType, fiMethod, config)
+        TypeSubstitutionUtils.memberType(state.getTypes(), lhsType, fiMethod, config)
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Tree body = lambda.getBody();
