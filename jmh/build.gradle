@@ -98,7 +98,7 @@ tasks.getByName('jmh').outputs.upToDateWhen { false }
 
 // a trick: to get the classpath for a benchmark, create a configuration that depends on the benchmark, and
 // then filter out the benchmark itself
-def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.0.2")}).asPath
+def caffeineClasspath = configurations.caffeineDeps.filter({f -> !f.toString().contains("caffeine-3.2.3")}).asPath
 def autodisposeClasspath = configurations.autodisposeDeps.filter({f -> !f.toString().contains("autodispose-2.1.0")}).asPath
 def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f -> !f.toString().contains("nullaway-0.9.7")}).asPath
 
