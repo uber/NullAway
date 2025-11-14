@@ -106,7 +106,7 @@ public class CaffeineCompiler extends AbstractBenchmarkCompiler {
 
   @Override
   protected String getAnnotatedPackages() {
-    return "com.github.benmanes.caffeine";
+    return "com.github.benmanes.caffeine,com.google.common,com.google.inject";
   }
 
   @Override
@@ -116,6 +116,10 @@ public class CaffeineCompiler extends AbstractBenchmarkCompiler {
 
   @Override
   protected List<String> getExtraErrorProneArgs() {
-    return List.of("-XepOpt:NullAway:JSpecifyMode=true");
+    return List.of(
+        "-XepOpt:NullAway:JSpecifyMode=true",
+        "-XepOpt:NullAway:CheckOptionalEmptiness=true",
+        "-XepOpt:NullAway:SuggestSuppressions=true",
+        "-XepOpt:NullAway:CheckContracts=true");
   }
 }
