@@ -387,9 +387,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
-    if (config.isJarInferEnabled()) {
-      libModelsBuilder.add(new ExternalStubxLibraryModels());
-    }
+    libModelsBuilder.add(new ExternalStubxLibraryModels(config.isJarInferEnabled()));
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
 
@@ -1361,26 +1359,35 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
 
-    ExternalStubxLibraryModels() {
+    ExternalStubxLibraryModels(boolean isJarEnabled) {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
-      // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
-      try {
-        InputStream androidStubxIS =
-            Class.forName(ANDROID_MODEL_CLASS)
-                .getClassLoader()
-                .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
-        if (androidStubxIS != null) {
-          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
-          astubxLoadLog("Loaded Android RT models.");
-        }
-      } catch (ClassNotFoundException e) {
-        astubxLoadLog(
-            "Cannot find Android RT models locator class."
-                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
+      if (isJarEnabled) {
+        // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
+        try {
+          InputStream androidStubxIS =
+              Class.forName(ANDROID_MODEL_CLASS)
+                  .getClassLoader()
+                  .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+          if (androidStubxIS != null) {
+            cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+            astubxLoadLog("Loaded Android RT models.");
+          }
+        } catch (ClassNotFoundException e) {
+          astubxLoadLog(
+              "Cannot find Android RT models locator class."
+                  + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
 
+        } catch (Exception e) {
+          astubxLoadLog("Cannot load Android RT models.");
+        }
+      }
+
+      try (InputStream in = getClass().getClassLoader().getResourceAsStream("output.astubx")) {
+        cacheUtil.parseStubStream(in, "output.astubx");
+        astubxLoadLog("Loaded JDK astubx model.");
       } catch (Exception e) {
-        astubxLoadLog("Cannot load Android RT models.");
+        astubxLoadLog("Failed to load JDK astubx: " + e);
       }
 
       argAnnotCache = cacheUtil.getArgAnnotCache();
@@ -1490,6 +1497,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             argAnnotCache.get(className).entrySet()) {
           String methodNameAndSignature =
               methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+          while (methodNameAndSignature.contains(" ")
+              && methodNameAndSignature.indexOf(" ") < methodNameAndSignature.indexOf("(")) {
+            methodNameAndSignature =
+                methodNameAndSignature.substring(methodNameAndSignature.indexOf(" ") + 1);
+          }
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
