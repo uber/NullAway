@@ -1441,11 +1441,6 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             argAnnotCache.get(className).entrySet()) {
           String methodNameAndSignature =
               methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-          while (methodNameAndSignature.contains(" ")
-              && methodNameAndSignature.indexOf(" ") < methodNameAndSignature.indexOf("(")) {
-            methodNameAndSignature =
-                methodNameAndSignature.substring(methodNameAndSignature.indexOf(" ") + 1);
-          }
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
