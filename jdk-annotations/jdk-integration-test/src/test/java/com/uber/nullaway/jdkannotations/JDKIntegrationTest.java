@@ -329,4 +329,26 @@ public class JDKIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libraryLoadMethodParser() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.List;",
+            "class Test<T> {",
+            "  @Nullable List<? super T> getMap() {",
+            "    return null;",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
