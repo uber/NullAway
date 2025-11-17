@@ -174,9 +174,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final ImmutableSet<String> DEFAULT_CONTRACT_ANNOT =
       ImmutableSet.of("org.jetbrains.annotations.Contract");
 
-  static final ImmutableSet<String> DEFAULT_NULLNESS_PRESERVING_ANNOT =
-      ImmutableSet.of("com.uber.nullaway.annotations.NullnessPreserving");
-
   static final ImmutableSet<String> DEFAULT_EXCLUDED_FIELD_ANNOT =
       ImmutableSet.of(
           "jakarta.inject.Inject", // no explicit initialization when there is dependency injection

@@ -30,6 +30,13 @@ import java.lang.annotation.Target;
  * <p>This allows NullAway to safely reason about nullness within lambdas passed to such methods as
  * if the lambda were executed inline at the call site.
  *
+ * <p><b>Important:</b> NullAway does <em>not</em> verify that annotated methods actually satisfy
+ * these requirements. The annotation represents a contract that developers must uphold manually.
+ * Misuse of this annotation (e.g., annotating methods that perform side effects or invoke lambdas
+ * asynchronously) can lead to unsound nullability analysis. Note that this annotation requires only
+ * side-effect freedom; determinism (always producing the same result for the same inputs) is not
+ * required.
+ *
  * <p><b>Example:</b>
  *
  * <pre>{@code
