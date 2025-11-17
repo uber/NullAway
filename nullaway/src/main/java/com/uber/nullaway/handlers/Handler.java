@@ -392,7 +392,7 @@ public interface Handler {
    * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
    *     bound
    */
-  boolean onOverrideTypeParameterUpperBound(String className, int index);
+  boolean onOverrideClassTypeVariableUpperBound(String className, int index);
 
   /**
    * Method to override the null-markedness of a class.

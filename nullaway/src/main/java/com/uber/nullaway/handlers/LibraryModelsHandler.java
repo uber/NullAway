@@ -353,7 +353,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
+  public boolean onOverrideClassTypeVariableUpperBound(String className, int index) {
     ImmutableSet<Integer> res = libraryModels.typeVariablesWithNullableUpperBounds().get(className);
     return res.contains(index);
   }

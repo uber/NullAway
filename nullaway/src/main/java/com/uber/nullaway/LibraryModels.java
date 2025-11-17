@@ -124,6 +124,10 @@ public interface LibraryModels {
     return ImmutableSetMultimap.of();
   }
 
+  default ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of();
+  }
+
   /**
    * Get the set of library classes that are NullMarked. Only used in JSpecify mode.
    *
