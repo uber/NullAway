@@ -175,14 +175,6 @@ public interface Config {
   boolean isContractAnnotation(String annotationName);
 
   /**
-   * Checks if annotation makes a method preserve the nullability of lambdas passed as parameters.
-   *
-   * @param annotationName fully-qualified annotation name
-   * @return true if the annotation makes a method get considered nullability preserving
-   */
-  boolean isNullnessPreservingAnnotation(String annotationName);
-
-  /**
    * Checks if the checker should suggest adding warning suppressions instead of fixes.
    *
    * @return true if the null checker should suggest adding warning suppressions. Only useful for
@@ -219,15 +211,6 @@ public interface Config {
   boolean checkOptionalEmptiness();
 
   boolean checkContracts();
-
-  /**
-   * Checks if methods are annotated as being nullness preserving, allowing nullability to be passed
-   * through lambda parameters.
-   *
-   * @return true if methods annotated as being nullness preserving should skip some nullability
-   *     checks.
-   */
-  boolean checkNullnessPreserving();
 
   /**
    * Checks if test assertion library handling is enabled.

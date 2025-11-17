@@ -9,7 +9,9 @@ import java.lang.annotation.Target;
  * Indicates that a method or constructor preserves the nullness environment when invoking lambda
  * expressions passed as parameters.
  *
- * <p>When a method or constructor is annotated with {@code @NullnessPreserving}, NullAway assumes
+ * <p>You can only use this on methods which have a single lambda callback. Otherwise, the purity cannot be guaranteed.
+ *
+ * <p>When a method or constructor is annotated with {@code @PureExceptLambda}, NullAway assumes
  * that any lambda arguments passed to it are invoked <em>synchronously</em> and that the invocation
  * does not modify the visible state or capture the lambda for later (asynchronous) execution. As a
  * result, NullAway treats the body of the lambda as being executed in the same nullness environment
@@ -20,7 +22,7 @@ import java.lang.annotation.Target;
  * <ul>
  *   <li>The annotated method or constructor does not perform side effects on fields or global state
  *       visible at the call site.
- *   <li>Any functional parameters (e.g., lambdas or method references) are invoked synchronously
+ *   <li>The single functional parameter (e.g., lambda or method reference) is invoked synchronously
  *       within the method or constructor body and are not stored or invoked later.
  *   <li>Nullability information from the surrounding context is preserved inside the lambda body.
  * </ul>
@@ -31,7 +33,7 @@ import java.lang.annotation.Target;
  * <p><b>Example:</b>
  *
  * <pre>{@code
- * @NullnessPreserving
+ * @PureExceptLambda
  * public static <T> void runWith(T value, Consumer<T> action) {
  *     action.accept(value);
  * }
@@ -39,4 +41,4 @@ import java.lang.annotation.Target;
  */
 @Retention(RetentionPolicy.CLASS)
 @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
-public @interface NullnessPreserving {}
+public @interface PureExceptLambda {}

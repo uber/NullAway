@@ -70,7 +70,7 @@ public class Handlers {
     handlerListBuilder.add(new RequiresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullHandler());
     handlerListBuilder.add(new EnsuresNonNullIfHandler());
-    handlerListBuilder.add(new SynchronousCallbackHandler(config));
+    handlerListBuilder.add(new SynchronousCallbackHandler());
     if (config.serializationIsActive() && config.getSerializationConfig().fieldInitInfoEnabled) {
       handlerListBuilder.add(
           new FieldInitializationSerializationHandler(config.getSerializationConfig()));

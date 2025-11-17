@@ -5,11 +5,11 @@ import org.junit.Test;
 
 /**
  * Tests for preserving environment nullness facts for lambdas passed to nullness preserving methods
- * (methods annotated with @NullnessPreserving). Variables captured in such lambdas should not be
+ * (methods annotated with @PureExceptLambda). Variables captured in such lambdas should not be
  * treated as automatically nullable; instead, the facts at the call site should be visible in the
  * lambda body.
  */
-public class NullnessPreservingTests extends NullAwayTestsBase {
+public class PureExceptLambdaTests extends NullAwayTestsBase {
 
   @Test
   public void methodLambdaPreservesFacts() {
@@ -17,15 +17,14 @@ public class NullnessPreservingTests extends NullAwayTestsBase {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:CheckNullnessPreserving=true",
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "com/example/library/PureLibrary.java",
             "package com.example.library;",
-            "import com.uber.nullaway.annotations.NullnessPreserving;",
+            "import com.uber.nullaway.annotations.PureExceptLambda;",
             "import java.util.function.Consumer;",
             "public class PureLibrary {",
-            "  @NullnessPreserving",
+            "  @PureExceptLambda",
             "  public static <T> void withConsumer(T t, Consumer<T> consumer) {",
             "    consumer.accept(t);",
             "  }",
@@ -54,7 +53,6 @@ public class NullnessPreservingTests extends NullAwayTestsBase {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:CheckNullnessPreserving=true",
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "com/example/library/OrdinaryLibrary.java",

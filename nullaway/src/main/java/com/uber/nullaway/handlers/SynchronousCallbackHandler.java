@@ -16,7 +16,6 @@ import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.dataflow.AccessPath;
 import java.util.function.Predicate;
@@ -24,8 +23,6 @@ import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 public class SynchronousCallbackHandler extends BaseNoOpHandler {
-
-  private final Config config;
 
   /**
    * Maps method name to full information about the corresponding methods and what parameter is the
@@ -52,10 +49,6 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
   private static final Supplier<Type> STREAM_TYPE_SUPPLIER =
       Suppliers.typeFromString("java.util.stream.Stream");
 
-  public SynchronousCallbackHandler(Config config) {
-    this.config = config;
-  }
-
   @Override
   public Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
       TreePath path, VisitorState state) {
@@ -77,8 +70,8 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
         return TRUE_AP_PREDICATE;
       }
       // If the callee is a method that preserves the nullability of lambdas passed as parameters.
-      // (e.g., annotated with @NullnessPreserving).
-      if (isNullnessPreservingMethod(symbol)) {
+      // (e.g., annotated with @PureExceptLambda).
+      if (isMethodPureExceptLambda(symbol)) {
         return TRUE_AP_PREDICATE;
       }
       String invokedMethodName = symbol.getSimpleName().toString();
@@ -106,13 +99,12 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
     return FALSE_AP_PREDICATE;
   }
 
-  private boolean isNullnessPreservingMethod(Symbol.MethodSymbol methodSymbol) {
-    if (!this.config.checkNullnessPreserving()) {
-      return false;
-    }
+  private boolean isMethodPureExceptLambda(Symbol.MethodSymbol methodSymbol) {
     for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotation);
-      if (config.isNullnessPreservingAnnotation(name)) {
+      int lastDot = name.lastIndexOf('.');
+      String simpleName = lastDot == -1 ? name : name.substring(lastDot + 1);
+      if (simpleName.equals("PureExceptLambda")) {
         return true;
       }
     }

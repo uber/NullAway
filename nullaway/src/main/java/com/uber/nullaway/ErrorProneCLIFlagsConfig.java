@@ -69,14 +69,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
-  static final String FL_NULLNESS_PRESERVING_ANNOT =
-      EP_FL_NAMESPACE + ":CustomNullnessPreservingAnnotations";
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
   static final String FL_ACKNOWLEDGE_RESTRICTIVE =
       EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
   static final String FL_CHECK_OPTIONAL_EMPTINESS = EP_FL_NAMESPACE + ":CheckOptionalEmptiness";
   static final String FL_CHECK_CONTRACTS = EP_FL_NAMESPACE + ":CheckContracts";
-  static final String FL_CHECK_NULLNESS_PRESERVING = EP_FL_NAMESPACE + ":CheckNullnessPreserving";
   static final String FL_HANDLE_TEST_ASSERTION_LIBRARIES =
       EP_FL_NAMESPACE + ":HandleTestAssertionLibraries";
   static final String FL_OPTIONAL_CLASS_PATHS =
@@ -223,7 +220,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean isAcknowledgeRestrictive;
   private final boolean checkOptionalEmptiness;
   private final boolean checkContracts;
-  private final boolean checkNullnessPreserving;
   private final boolean handleTestAssertionLibraries;
   private final ImmutableSet<String> optionalClassPaths;
   private final boolean assertsEnabled;
@@ -238,7 +234,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final ImmutableSet<String> initializerAnnotations;
   private final ImmutableSet<String> externalInitAnnotations;
   private final ImmutableSet<String> contractAnnotations;
-  private final ImmutableSet<String> nullnessPreservingAnnotations;
   private final @Nullable String castToNonNullMethod;
   private final String autofixSuppressionComment;
   private final ImmutableSet<String> suppressionNameAliases;
@@ -293,14 +288,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
     externalInitAnnotations =
         getFlagStringSet(flags, FL_EXTERNAL_INIT_ANNOT, DEFAULT_EXTERNAL_INIT_ANNOT);
     contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
-    nullnessPreservingAnnotations =
-        getFlagStringSet(flags, FL_NULLNESS_PRESERVING_ANNOT, DEFAULT_NULLNESS_PRESERVING_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
     isAcknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);
     checkOptionalEmptiness = flags.getBoolean(FL_CHECK_OPTIONAL_EMPTINESS).orElse(false);
     checkContracts = flags.getBoolean(FL_CHECK_CONTRACTS).orElse(false);
-    checkNullnessPreserving = flags.getBoolean(FL_CHECK_NULLNESS_PRESERVING).orElse(false);
     handleTestAssertionLibraries =
         flags.getBoolean(FL_HANDLE_TEST_ASSERTION_LIBRARIES).orElse(false);
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
@@ -534,11 +526,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   }
 
   @Override
-  public boolean checkNullnessPreserving() {
-    return checkNullnessPreserving;
-  }
-
-  @Override
   public boolean handleTestAssertionLibraries() {
     return handleTestAssertionLibraries;
   }
@@ -580,11 +567,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isContractAnnotation(String annotationName) {
     return contractAnnotations.contains(annotationName);
-  }
-
-  @Override
-  public boolean isNullnessPreservingAnnotation(String annotationName) {
-    return nullnessPreservingAnnotations.contains(annotationName);
   }
 
   @Override

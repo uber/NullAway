@@ -120,11 +120,6 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean isNullnessPreservingAnnotation(String annotationName) {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
   public boolean isExcludedFieldAnnotation(String annotationName) {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
@@ -166,11 +161,6 @@ public class DummyOptionsConfig implements Config {
 
   @Override
   public boolean checkContracts() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
-  public boolean checkNullnessPreserving() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
