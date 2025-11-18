@@ -25,6 +25,7 @@ import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableSet;
 import java.util.function.Function;
 import java.util.stream.Collector;
+import org.jspecify.annotations.Nullable;
 
 /**
  * An immutable model describing a collect-like method from a stream-based API, such as {@link
@@ -81,4 +82,10 @@ public abstract class CollectLikeMethodRecord implements MapOrCollectLikeMethodR
    */
   @Override
   public abstract ImmutableSet<Integer> argsFromStream();
+
+  @Override
+  public abstract boolean equals(@Nullable Object o);
+
+  @Override
+  public abstract int hashCode();
 }

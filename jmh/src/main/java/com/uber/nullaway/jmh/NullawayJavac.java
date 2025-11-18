@@ -51,11 +51,11 @@ public class NullawayJavac {
   //////////////////////
   // state required to run javac via the standard APIs
   //////////////////////
-  private List<JavaFileObject> compilationUnits;
-  private JavaCompiler compiler;
-  private @Nullable DiagnosticListener<JavaFileObject> diagnosticListener;
-  private StandardJavaFileManager fileManager;
-  private List<String> options;
+  private final List<JavaFileObject> compilationUnits;
+  private final JavaCompiler compiler;
+  private final @Nullable DiagnosticListener<JavaFileObject> diagnosticListener;
+  private final StandardJavaFileManager fileManager;
+  private final List<String> options;
 
   /**
    * Sets up compilation for a simple single source file, for testing / sanity checking purposes.
