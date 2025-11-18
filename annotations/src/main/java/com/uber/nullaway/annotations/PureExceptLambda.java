@@ -24,7 +24,7 @@ import java.lang.annotation.Target;
  *   <li>The annotated method or constructor does not perform side effects on fields or global state
  *       visible at the call site.
  *   <li>The single functional parameter (e.g., lambda or method reference) is invoked synchronously
- *       within the method or constructor body and are not stored or invoked later.
+ *       within the method or constructor body and is not stored or invoked later.
  *   <li>Nullability information from the surrounding context is preserved inside the lambda body.
  * </ul>
  *
