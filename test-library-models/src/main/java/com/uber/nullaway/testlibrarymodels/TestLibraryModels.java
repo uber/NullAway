@@ -143,4 +143,10 @@ public class TestLibraryModels implements LibraryModels {
   public ImmutableSet<String> nullMarkedClasses() {
     return ImmutableSet.of("com.uber.lib.unannotated.ProviderNullMarkedViaModel");
   }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of(
+        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<T>of(T)"), 0);
+  }
 }
