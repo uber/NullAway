@@ -299,6 +299,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (fromUnannotatedMethod(typeVarElement)) {
       return true;
     }
+    // first, check if library model overrides the upper bound nullability
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (enclosingElement instanceof Symbol.MethodSymbol) {
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) enclosingElement;
@@ -317,6 +318,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         return true;
       }
     }
+    // otherwise, check the actual upper bound annotations
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
     com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
         upperBound.getAnnotationMirrors();
