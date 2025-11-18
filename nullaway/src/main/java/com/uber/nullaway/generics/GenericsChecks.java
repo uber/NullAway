@@ -257,7 +257,8 @@ public final class GenericsChecks {
                 || handler.onOverrideClassTypeVariableUpperBound(baseType.tsym.toString(), i);
         // if type variable's upper bound does not have @Nullable annotation then the instantiation
         // is invalid
-        if (!hasNullableAnnotation) {
+        if (!hasNullableAnnotation
+            && !handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, i)) {
           reportInvalidTypeArgumentError(
               nullableTypeArguments.get(i), methodSymbol, typeVariable, state);
         }

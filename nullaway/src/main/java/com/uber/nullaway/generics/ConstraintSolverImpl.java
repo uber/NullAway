@@ -299,6 +299,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (fromUnannotatedMethod(typeVarElement)) {
       return true;
     }
+    Element enclosingElement = typeVarElement.getEnclosingElement();
+    if (enclosingElement instanceof Symbol.MethodSymbol) {
+      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) enclosingElement;
+      int typeVarIndex =
+          methodSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
+      Verify.verify(typeVarIndex >= 0);
+      if (handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex)) {
+        return true;
+      }
+    }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
     com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
         upperBound.getAnnotationMirrors();

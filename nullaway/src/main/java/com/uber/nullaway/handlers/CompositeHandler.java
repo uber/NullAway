@@ -325,6 +325,20 @@ class CompositeHandler implements Handler {
 
   /** Returns true if any handler returns true. */
   @Override
+  public boolean onOverrideMethodTypeVariableUpperBound(
+      Symbol.MethodSymbol methodSymbol, int index) {
+    boolean result = false;
+    for (Handler h : handlers) {
+      result = h.onOverrideMethodTypeVariableUpperBound(methodSymbol, index);
+      if (result) {
+        break;
+      }
+    }
+    return result;
+  }
+
+  /** Returns true if any handler returns true. */
+  @Override
   public boolean onOverrideNullMarkedClasses(String className) {
     boolean result = false;
     for (Handler h : handlers) {

@@ -359,6 +359,16 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
+  public boolean onOverrideMethodTypeVariableUpperBound(
+      Symbol.MethodSymbol methodSymbol, int index) {
+    ImmutableSet<Integer> res =
+        libraryModels
+            .methodTypeVariablesWithNullableUpperBounds()
+            .get(MethodRef.fromSymbol(methodSymbol));
+    return res.contains(index);
+  }
+
+  @Override
   public boolean onOverrideNullMarkedClasses(String className) {
     return libraryModels.nullMarkedClasses().contains(className);
   }

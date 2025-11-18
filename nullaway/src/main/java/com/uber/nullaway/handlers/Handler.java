@@ -395,6 +395,19 @@ public interface Handler {
   boolean onOverrideClassTypeVariableUpperBound(String className, int index);
 
   /**
+   * Method to override the nullability of the upper bound for a generic type variable on a method.
+   *
+   * @param methodSymbol The method symbol
+   * @param index index of the generic type variable (starting at 0)
+   * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
+   *     bound
+   */
+  default boolean onOverrideMethodTypeVariableUpperBound(
+      Symbol.MethodSymbol methodSymbol, int index) {
+    return false;
+  }
+
+  /**
    * Method to override the null-markedness of a class.
    *
    * @param className name of the class
