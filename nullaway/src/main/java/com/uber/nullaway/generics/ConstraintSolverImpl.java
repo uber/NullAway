@@ -308,6 +308,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex)) {
         return true;
       }
+    } else if (enclosingElement instanceof Symbol.ClassSymbol) {
+      Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) enclosingElement;
+      int typeVarIndex =
+          classSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
+      Verify.verify(typeVarIndex >= 0);
+      if (handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
+        return true;
+      }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
     com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =

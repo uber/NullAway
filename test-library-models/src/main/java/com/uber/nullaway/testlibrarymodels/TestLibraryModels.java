@@ -147,6 +147,6 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
     return ImmutableSetMultimap.of(
-        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<T>of(T)"), 0);
+        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0);
   }
 }
