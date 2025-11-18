@@ -9,7 +9,8 @@ import java.lang.annotation.Target;
  * Indicates that a method or constructor preserves the nullness environment when invoking lambda
  * expressions passed as parameters.
  *
- * <p>You can only use this on methods which have a single lambda callback. Otherwise, the purity cannot be guaranteed.
+ * <p>You can only use this on methods which have a single lambda callback. Otherwise, the purity
+ * cannot be guaranteed.
  *
  * <p>When a method or constructor is annotated with {@code @PureExceptLambda}, NullAway assumes
  * that any lambda arguments passed to it are invoked <em>synchronously</em> and that the invocation
