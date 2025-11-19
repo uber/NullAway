@@ -1448,6 +1448,31 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void mapWithLambda() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.Map;",
+            "@NullMarked",
+            "class Test {",
+            "  interface MyFunc<T extends @Nullable Object, U extends @Nullable Object> {",
+            "    U apply(T t);",
+            "  }",
+            "  static Map<String, @Nullable String> bar(Map<String, @Nullable String> m) {",
+            "    return m;",
+            "  }",
+            "  static <T extends @Nullable String, U extends @Nullable String> void foo(",
+            "      MyFunc<Map<T, U>, Map<T, U>> f) {}",
+            "  void test() {",
+            "    foo(map -> bar(map));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
