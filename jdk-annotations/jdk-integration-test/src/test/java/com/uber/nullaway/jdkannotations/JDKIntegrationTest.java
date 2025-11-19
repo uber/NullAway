@@ -331,7 +331,7 @@ public class JDKIntegrationTest {
   }
 
   @Test
-  public void libraryLoadMethodParser() {
+  public void libraryLoadMethodParserReturn() {
     compilationHelper
         .setArgs(
             Arrays.asList(
@@ -343,10 +343,11 @@ public class JDKIntegrationTest {
             "Test.java",
             "package com.uber;",
             "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
             "import java.util.List;",
             "class Test<T> {",
-            "  @Nullable List<? super T> getMap() {",
-            "    return null;",
+            "  void testCall() {",
+            "    List l = ReturnAnnotation.getList(6, null);",
             "  }",
             "}")
         .doTest();
