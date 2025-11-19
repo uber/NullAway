@@ -1419,6 +1419,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             outerEntry.getValue().entrySet()) {
           String methodNameAndSignature =
               innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
+          while (methodNameAndSignature.contains(" ")
+              && methodNameAndSignature.indexOf(" ") < methodNameAndSignature.indexOf("(")) {
+            methodNameAndSignature =
+                methodNameAndSignature.substring(methodNameAndSignature.indexOf(" ") + 1);
+          }
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
@@ -1441,6 +1446,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
             argAnnotCache.get(className).entrySet()) {
           String methodNameAndSignature =
               methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
+          while (methodNameAndSignature.contains(" ")
+              && methodNameAndSignature.indexOf(" ") < methodNameAndSignature.indexOf("(")) {
+            methodNameAndSignature =
+                methodNameAndSignature.substring(methodNameAndSignature.indexOf(" ") + 1);
+          }
 
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
