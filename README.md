@@ -50,7 +50,7 @@ tasks.withType(JavaCompile) {
 
 or to `build.gradle.kts` if you use the [Kotlin Gradle DSL](https://docs.gradle.org/current/userguide/kotlin_dsl.html): 
 
-``kotlin
+```kotlin
 plugins {
   // we assume you are already using the Java plugin
   id("net.ltgt.errorprone") version "<plugin version>"
