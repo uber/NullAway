@@ -34,6 +34,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
@@ -456,6 +457,13 @@ public final class GenericsChecks {
               }
             }
           }
+        } else if (symbol.getKind() == ElementKind.PARAMETER) {
+          // if it's a lambda parameter, and we inferred the type of the lambda, we want the
+          // inferred type of the parameter
+          Type lambdaParameterType = getInferredLambdaParameterType(symbol, state);
+          if (lambdaParameterType != null) {
+            return lambdaParameterType;
+          }
         }
         result = symbol.type;
       } else if (tree instanceof AssignmentTree) {
@@ -477,6 +485,46 @@ public final class GenericsChecks {
       }
       return result;
     }
+  }
+
+  /**
+   * Gets the inferred type of lambda parameter, if the lambda was passed to a generic method and
+   * its type was inferred previously
+   *
+   * @param symbol the symbol for the parameter (possibly not of a lambda, just needs kind to be
+   *     {@code ElementKind.PARAMETER})
+   * @param state the visitor state
+   * @return the inferred type of the lambda parameter, or null if not found
+   */
+  private @Nullable Type getInferredLambdaParameterType(Symbol symbol, VisitorState state) {
+    if (symbol.owner != null && symbol.owner.getKind() == ElementKind.METHOD) {
+      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) symbol.owner;
+      if (!methodSymbol.getParameters().contains(symbol)) { // lambda parameter
+        LambdaExpressionTree lambdaTree =
+            ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
+        if (lambdaTree != null) {
+          Type inferredLambdaType = inferredLambdaTypes.get(lambdaTree);
+          if (inferredLambdaType != null) {
+            var params = lambdaTree.getParameters();
+            for (int i = 0; i < params.size(); i++) {
+              VariableTree param = params.get(i);
+              Symbol paramSymbol = ASTHelpers.getSymbol(param);
+              if (paramSymbol != null && paramSymbol.equals(symbol)) {
+                Types types = state.getTypes();
+                var fiMethodType =
+                    TypeSubstitutionUtils.memberType(
+                        types,
+                        inferredLambdaType,
+                        NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, types),
+                        config);
+                return fiMethodType.getParameterTypes().get(i);
+              }
+            }
+          }
+        }
+      }
+    }
+    return null;
   }
 
   /**
