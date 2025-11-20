@@ -68,7 +68,7 @@ dependencies {
 tasks.withType<JavaCompile>().configureEach {
     options.errorprone {
         check("NullAway", net.ltgt.gradle.errorprone.CheckSeverity.ERROR)
-        option("NullAway:AnnotatedPackages", "com.chessgamesarchive")
+        option("NullAway:AnnotatedPackages", "com.uber")
         
         // Disable NullAway on test code
         if (name.lowercase().contains("test")) {
