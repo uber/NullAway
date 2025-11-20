@@ -1473,6 +1473,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void inferredLambdaParameterAssignedToField() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "import java.util.Map;",
+            "@NullMarked",
+            "class Test {",
+            "  interface MyConsumer<T extends @Nullable Object> {",
+            "    void consume(T t);",
+            "  }",
+            "  @Nullable Map<String, @Nullable String> mField;",
+            "  static <T extends @Nullable String, U extends @Nullable String> void foo(",
+            "      MyConsumer<Map<T, U>> f) {}",
+            "  void test() {",
+            "    foo(map -> { mField = map; });",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
