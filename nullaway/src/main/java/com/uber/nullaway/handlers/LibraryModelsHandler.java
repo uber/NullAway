@@ -985,12 +985,24 @@ public class LibraryModelsHandler implements Handler {
             .put("java.util.function.Function", 0)
             .put("java.util.function.Function", 1)
             .put("java.util.concurrent.atomic.AtomicReference", 0)
+            .put("java.util.concurrent.atomic.AtomicReferenceFieldUpdater", 1)
             .build();
+
+    private static final ImmutableSetMultimap<MethodRef, Integer>
+        NULLABLE_METHOD_TYPE_VARIABLE_UPPER_BOUNDS =
+            new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+                .put(
+                    methodRef(
+                        "java.util.concurrent.atomic.AtomicReferenceFieldUpdater",
+                        "<U,W>newUpdater(java.lang.Class<U>,java.lang.Class<W>,java.lang.String)"),
+                    1)
+                .build();
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =
         new ImmutableSet.Builder<String>()
             .add("java.util.function.Function")
             .add("java.util.concurrent.atomic.AtomicReference")
+            .add("java.util.concurrent.atomic.AtomicReferenceFieldUpdater")
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
@@ -1053,6 +1065,11 @@ public class LibraryModelsHandler implements Handler {
     @Override
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       return NULLABLE_VARIABLE_TYPE_UPPER_BOUNDS;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+      return NULLABLE_METHOD_TYPE_VARIABLE_UPPER_BOUNDS;
     }
 
     @Override
