@@ -305,16 +305,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) enclosingElement;
       int typeVarIndex =
           methodSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
-      Verify.verify(typeVarIndex >= 0);
-      if (handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex)) {
+      // TODO typeVarIndex is -1 in some cases; see test
+      //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
+      //  Investigate further.
+      if (typeVarIndex >= 0
+          && handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex)) {
         return true;
       }
     } else if (enclosingElement instanceof Symbol.ClassSymbol) {
       Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) enclosingElement;
       int typeVarIndex =
           classSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
-      Verify.verify(typeVarIndex >= 0);
-      if (handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
+      if (typeVarIndex >= 0
+          && handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
         return true;
       }
     }

@@ -1448,6 +1448,24 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void instanceGenericMethodWithMethodRefArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.List;",
+            "import java.util.function.Consumer;",
+            "@NullMarked",
+            "class Test {",
+            "        public <E extends Enum<E>> void visitEnum(String descriptor, String value, Consumer<E> consumer) {}",
+            "        void test(String s1, String s2, List<Object> l) {",
+            "            visitEnum(s1, s2, l::add);",
+            "        }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
