@@ -353,8 +353,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
+  public boolean onOverrideClassTypeVariableUpperBound(String className, int index) {
     ImmutableSet<Integer> res = libraryModels.typeVariablesWithNullableUpperBounds().get(className);
+    return res.contains(index);
+  }
+
+  @Override
+  public boolean onOverrideMethodTypeVariableUpperBound(
+      Symbol.MethodSymbol methodSymbol, int index) {
+    ImmutableSet<Integer> res =
+        libraryModels
+            .methodTypeVariablesWithNullableUpperBounds()
+            .get(MethodRef.fromSymbol(methodSymbol));
     return res.contains(index);
   }
 
@@ -1004,6 +1014,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds;
 
+    private final ImmutableSetMultimap<MethodRef, Integer>
+        methodTypeVariablesWithNullableUpperBounds;
+
     private final ImmutableSet<String> nullMarkedClasses;
 
     private final ImmutableSet<FieldRef> nullableFields;
@@ -1022,6 +1035,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<String, Integer> nullableVariableTypeUpperBoundsBuilder =
           new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer>
+          methodTypeVariableNullableUpperBoundsBuilder = new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<String> nullMarkedClassesBuilder = new ImmutableSet.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
@@ -1097,6 +1112,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         }
         nullableVariableTypeUpperBoundsBuilder.putAll(
             libraryModels.typeVariablesWithNullableUpperBounds());
+        methodTypeVariableNullableUpperBoundsBuilder.putAll(
+            libraryModels.methodTypeVariablesWithNullableUpperBounds());
         for (String name : libraryModels.nullMarkedClasses()) {
           nullMarkedClassesBuilder.add(name);
         }
@@ -1119,6 +1136,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
       nullableFields = nullableFieldsBuilder.build();
       nullableVariableTypeUpperBounds = nullableVariableTypeUpperBoundsBuilder.build();
+      methodTypeVariablesWithNullableUpperBounds =
+          methodTypeVariableNullableUpperBoundsBuilder.build();
       nullMarkedClasses = nullMarkedClassesBuilder.build();
     }
 
@@ -1169,6 +1188,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       return nullableVariableTypeUpperBounds;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+      return methodTypeVariablesWithNullableUpperBounds;
     }
 
     @Override

@@ -285,6 +285,33 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void methodTypeVarNullableUpperBound() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.ProviderNullMarkedViaModel;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void test() {",
+            "    ProviderNullMarkedViaModel<@Nullable Object> p = ProviderNullMarkedViaModel.of(null);",
+            "    // BUG: Diagnostic contains: dereferenced expression p.get() is @Nullable",
+            "    p.get().toString();",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ProviderNullMarkedViaModel<Object> q = ProviderNullMarkedViaModel.of(null);",
+            "    ProviderNullMarkedViaModel<Object> r = ProviderNullMarkedViaModel.of(new Object());",
+            "    r.get().toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
