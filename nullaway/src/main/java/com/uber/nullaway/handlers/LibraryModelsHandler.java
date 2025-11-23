@@ -28,6 +28,7 @@ import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -1465,7 +1466,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     }
 
     private static String getMethodNameAndSignature(String methodInfo) {
-      int methodNameIndex = methodInfo.lastIndexOf(' ', methodInfo.indexOf('(')) + 1;
+      int openParenIndex = methodInfo.indexOf('(');
+      Verify.verify(openParenIndex != -1, "Malformed method info: %s", methodInfo);
+      int methodNameIndex = methodInfo.lastIndexOf(' ', openParenIndex) + 1;
       return methodInfo.substring(methodNameIndex);
     }
 
