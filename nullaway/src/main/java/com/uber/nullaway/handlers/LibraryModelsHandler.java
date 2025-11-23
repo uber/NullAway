@@ -1417,13 +1417,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         String className = outerEntry.getKey();
         for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
             outerEntry.getValue().entrySet()) {
-          String methodNameAndSignature =
-              innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
-          while (methodNameAndSignature.contains(" ")
-              && methodNameAndSignature.indexOf(" ") < methodNameAndSignature.indexOf("(")) {
-            methodNameAndSignature =
-                methodNameAndSignature.substring(methodNameAndSignature.indexOf(" ") + 1);
-          }
+          String methodInfo = innerEntry.getKey();
+          int methodNameIndex = methodInfo.lastIndexOf(' ', methodInfo.indexOf('(')) + 1;
+          String methodNameAndSignature = methodInfo.substring(methodNameIndex);
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
@@ -1444,14 +1440,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature =
-              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-          while (methodNameAndSignature.contains(" ")
-              && methodNameAndSignature.indexOf(" ") < methodNameAndSignature.indexOf("(")) {
-            methodNameAndSignature =
-                methodNameAndSignature.substring(methodNameAndSignature.indexOf(" ") + 1);
-          }
-
+          String methodInfo = methodEntry.getKey();
+          int methodNameIndex = methodInfo.lastIndexOf(' ', methodInfo.indexOf('(')) + 1;
+          String methodNameAndSignature = methodInfo.substring(methodNameIndex);
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
             if (index >= 0) {
