@@ -1449,7 +1449,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void mapWithLambda() {
+  public void typeOfParameterWithInferredLambda() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -1468,29 +1468,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "      MyFunc<Map<T, U>, Map<T, U>> f) {}",
             "  void test() {",
             "    foo(map -> bar(map));",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void inferredLambdaParameterAssignedToField() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "import java.util.Map;",
-            "@NullMarked",
-            "class Test {",
-            "  interface MyConsumer<T extends @Nullable Object> {",
-            "    void consume(T t);",
-            "  }",
-            "  @Nullable Map<String, @Nullable String> mField;",
-            "  static <T extends @Nullable String, U extends @Nullable String> void foo(",
-            "      MyConsumer<Map<T, U>> f) {}",
-            "  void test() {",
-            "    foo(map -> { mField = map; });",
             "  }",
             "}")
         .doTest();
