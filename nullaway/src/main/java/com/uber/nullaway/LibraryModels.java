@@ -31,6 +31,7 @@ import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import org.jspecify.annotations.Nullable;
 
 /** Provides models for library routines for the null checker. */
 public interface LibraryModels {
@@ -271,7 +272,7 @@ public interface LibraryModels {
     }
 
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
       if (this == o) {
         return true;
       }

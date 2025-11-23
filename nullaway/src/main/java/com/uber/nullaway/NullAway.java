@@ -1022,9 +1022,13 @@ public class NullAway extends BugChecker
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
+      Type lambdaType = ASTHelpers.getType(lambdaTree);
+      Type inferredType = genericsChecks.getInferredLambdaType(lambdaTree);
+      if (inferredType != null) {
+        lambdaType = inferredType;
+      }
       if (genericsChecks
-              .getGenericMethodReturnTypeNullness(
-                  methodSymbol, ASTHelpers.getType(lambdaTree), state)
+              .getGenericMethodReturnTypeNullness(methodSymbol, lambdaType, state)
               .equals(Nullness.NULLABLE)
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
               methodSymbol, lambdaTree, state, codeAnnotationInfo)) {
@@ -2720,14 +2724,23 @@ public class NullAway extends BugChecker
     if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
       return true;
     }
-    // NOTE: we cannot rely on state.getPath() here to get a TreePath to the invocation, since
-    // sometimes the invocation is a sub-node of the leaf of the path.  So, here if inference runs,
-    // it will do so without an assignment context.  If this becomes a problem, we can revisit
-    if (config.isJSpecifyMode()
-        && genericsChecks
-            .getGenericReturnNullnessAtInvocation(exprSymbol, invocationTree, null, state, false)
-            .equals(Nullness.NULLABLE)) {
-      return true;
+    if (config.isJSpecifyMode() && exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
+      // It is important to pass a correct TreePath to getGenericReturnNullnessAtInvocation.  So, we
+      // do a search under path to find invocationTree.  This shouldn't be too costly in the common
+      // case, and it's important for correctness.
+      TreePath path = state.getPath();
+      var invocationPath = TreePath.getPath(path, invocationTree);
+      Verify.verify(
+          invocationPath != null,
+          "%s not found as a descendant of %s",
+          invocationTree,
+          path.getLeaf());
+      if (genericsChecks
+          .getGenericReturnNullnessAtInvocation(
+              exprSymbol, invocationTree, invocationPath, state, false)
+          .equals(Nullness.NULLABLE)) {
+        return true;
+      }
     }
     return false;
   }
