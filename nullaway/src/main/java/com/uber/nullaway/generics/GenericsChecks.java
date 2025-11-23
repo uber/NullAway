@@ -498,18 +498,22 @@ public final class GenericsChecks {
    */
   private @Nullable Type getInferredLambdaParameterType(Symbol symbol, VisitorState state) {
     if (symbol.owner != null && symbol.owner.getKind() == ElementKind.METHOD) {
-      Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) symbol.owner;
-      if (!methodSymbol.getParameters().contains(symbol)) { // lambda parameter
+      Symbol.MethodSymbol containingMethodSymbol = (Symbol.MethodSymbol) symbol.owner;
+      if (!containingMethodSymbol.getParameters().contains(symbol)) {
+        // we have a lambda parameter
         LambdaExpressionTree lambdaTree =
             ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
         if (lambdaTree != null) {
           Type inferredLambdaType = inferredLambdaTypes.get(lambdaTree);
           if (inferredLambdaType != null) {
+            // type of lambda was inferred
             var params = lambdaTree.getParameters();
             for (int i = 0; i < params.size(); i++) {
               VariableTree param = params.get(i);
               Symbol paramSymbol = ASTHelpers.getSymbol(param);
               if (paramSymbol != null && paramSymbol.equals(symbol)) {
+                // get the type of the functional interface method as a member of the inferred type
+                // of the lambda
                 Types types = state.getTypes();
                 var fiMethodType =
                     TypeSubstitutionUtils.memberType(
