@@ -347,7 +347,8 @@ public class JDKIntegrationTest {
             "import java.util.List;",
             "class Test<T> {",
             "  void testCall() {",
-            "    List l = ReturnAnnotation.getList(6, null);",
+            "    // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.getList(6, null) is @Nullable",
+            "    ReturnAnnotation.getList(6, null).isEmpty();",
             "  }",
             "}")
         .doTest();
