@@ -329,4 +329,28 @@ public class JDKIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void libraryLoadMethodParserReturn() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
+            "import java.util.List;",
+            "class Test<T> {",
+            "  void testCall() {",
+            "    // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.getList(6, null) is @Nullable",
+            "    ReturnAnnotation.getList(6, null).isEmpty();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

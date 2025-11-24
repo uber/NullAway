@@ -28,6 +28,7 @@ import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -1441,8 +1442,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         String className = outerEntry.getKey();
         for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
             outerEntry.getValue().entrySet()) {
-          String methodNameAndSignature =
-              innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
+          String methodNameAndSignature = getMethodNameAndSignature(innerEntry.getKey());
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
@@ -1463,9 +1463,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature =
-              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-
+          String methodNameAndSignature = getMethodNameAndSignature(methodEntry.getKey());
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
             if (index >= 0) {
@@ -1491,6 +1489,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       return mapBuilder.build();
     }
 
+    private static String getMethodNameAndSignature(String methodInfo) {
+      int openParenIndex = methodInfo.indexOf('(');
+      Verify.verify(openParenIndex != -1, "Malformed method info: %s", methodInfo);
+      int methodNameIndex = methodInfo.lastIndexOf(' ', openParenIndex) + 1;
+      return methodInfo.substring(methodNameIndex);
+    }
+
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
       return ImmutableSetMultimap.of();
@@ -1512,9 +1517,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature =
-              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-
+          String methodNameAndSignature = getMethodNameAndSignature(methodEntry.getKey());
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
             if (index == -1) {

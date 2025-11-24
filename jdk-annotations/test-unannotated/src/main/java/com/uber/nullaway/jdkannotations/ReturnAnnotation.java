@@ -1,5 +1,6 @@
 package com.uber.nullaway.jdkannotations;
 
+import java.util.List;
 import java.util.Locale;
 
 public class ReturnAnnotation {
@@ -64,6 +65,10 @@ public class ReturnAnnotation {
   }
 
   public static UpperBoundExample<String> returnNullableGenericContainingNullable() {
+    return null;
+  }
+
+  public static List<? super String> getList(Integer i, Character c) {
     return null;
   }
 }
