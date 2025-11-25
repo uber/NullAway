@@ -1058,6 +1058,25 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericMethodLambdaArgWildCard() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object,R extends @Nullable Object> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {",
+            "        return mapper.apply((T)\"value\");",
+            "    }",
+            "    static void test() {",
+            "        Object x = invokeWithReturn((t) -> {Object y=null; return (y);});",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void inferenceWithFieldAssignment() {
     makeHelper()
         .addSourceLines(
