@@ -1057,6 +1057,28 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("https://github.com/uber/NullAway/issues/1350")
+  @Test
+  public void genericMethodLambdaArgWildCard() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T, R> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {",
+            "        throw new RuntimeException();",
+            "    }",
+            "    static void test() {",
+            "        // legal, should infer R -> Object but then the type of the lambda as ",
+            "        //  Function<Object, @Nullable Object> via wildcard upper bound",
+            "        Object x = invokeWithReturn(t -> null);",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   @Test
   public void inferenceWithFieldAssignment() {
     makeHelper()
@@ -1469,6 +1491,24 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "  void test() {",
             "    foo(map -> bar(map));",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void instanceGenericMethodWithMethodRefArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.List;",
+            "import java.util.function.Consumer;",
+            "@NullMarked",
+            "class Test {",
+            "        public <E extends Enum<E>> void visitEnum(String descriptor, String value, Consumer<E> consumer) {}",
+            "        void test(String s1, String s2, List<Object> l) {",
+            "            visitEnum(s1, s2, l::add);",
+            "        }",
             "}")
         .doTest();
   }
