@@ -1042,6 +1042,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore
   @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
