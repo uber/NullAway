@@ -115,12 +115,23 @@ public interface LibraryModels {
 
   /**
    * Get the (className, type argument index) pairs for library classes where the generic type
-   * argument has a {@code @Nullable} upper bound. Only used in JSpecify mode.
+   * variable has a {@code @Nullable} upper bound. Only used in JSpecify mode.
    *
-   * @return map from the className to the positions of the generic type arguments that have a
+   * @return map from the className to the positions of the generic type variables that have a
    *     {@code Nullable} upper bound.
    */
   default ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of();
+  }
+
+  /**
+   * Get the (method, type argument index) pairs for library methods where the generic type variable
+   * has a {@code @Nullable} upper bound. Only used in JSpecify mode
+   *
+   * @return map from the method to the positions of the generic type variables that have a {@code
+   *     Nullable} upper bound.
+   */
+  default ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
     return ImmutableSetMultimap.of();
   }
 
