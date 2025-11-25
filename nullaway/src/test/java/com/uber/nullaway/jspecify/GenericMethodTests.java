@@ -1042,7 +1042,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore
+  // @Ignore
   @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
@@ -1052,11 +1052,11 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "import java.util.function.Function;",
             "@NullMarked",
             "class Test {",
-            "    static <T extends @Nullable Object,R extends @Nullable Object> R invokeWithReturn(Function <? super T, ? extends R> mapper) {",
-            "        return null;",
+            "    static <T, R> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {",
+            "        throw new RuntimeException();",
             "    }",
             "    static void test() {",
-            "        Object x = invokeWithReturn((t) -> {Object y=null; return (y);});",
+            "        Object x = invokeWithReturn(t -> null);",
             "    }",
             "}")
         .doTest();
