@@ -1496,6 +1496,24 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wildcardAndArrayTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  public final <T, V> V map(Function<? super T, ? extends V> mapper) { throw new RuntimeException(); }",
+            "  public Integer foo(byte[] bytes) { return Integer.valueOf(3); }",
+            "  public void test() {",
+            "    map((byte[] bytes) -> foo(bytes));",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void instanceGenericMethodWithMethodRefArgument() {
     makeHelper()
         .addSourceLines(
