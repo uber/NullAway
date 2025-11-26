@@ -77,18 +77,15 @@ public final class DataFlow {
     this.handler = handler;
   }
 
-  private final LoadingCache<AnalysisParams, Analysis<?, ?, ?>> analysisCache =
+  private final LoadingCache<AnalysisParams, RunOnceForwardAnalysisImpl<?, ?, ?>> analysisCache =
       CacheBuilder.newBuilder()
           .maximumSize(MAX_CACHE_SIZE)
           .build(
-              new CacheLoader<AnalysisParams, Analysis<?, ?, ?>>() {
+              new CacheLoader<>() {
                 @Override
-                public Analysis<?, ?, ?> load(AnalysisParams key) {
+                public RunOnceForwardAnalysisImpl<?, ?, ?> load(AnalysisParams key) {
                   ForwardTransferFunction<?, ?> transfer = key.transferFunction();
-
-                  @SuppressWarnings({"unchecked", "rawtypes"})
-                  Analysis<?, ?, ?> analysis = new RunOnceForwardAnalysisImpl<>(transfer);
-                  return analysis;
+                  return new RunOnceForwardAnalysisImpl<>(transfer);
                 }
               });
 
@@ -159,9 +156,10 @@ public final class DataFlow {
     ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
-    Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
+    RunOnceForwardAnalysisImpl<A, S, T> analysis =
+        (RunOnceForwardAnalysisImpl<A, S, T>) analysisCache.getUnchecked(aparams);
     if (performAnalysis) {
-      analysis.performAnalysis(cfg);
+      analysis.performAnalysisIfNeeded(cfg);
     }
 
     return new Result<>() {
