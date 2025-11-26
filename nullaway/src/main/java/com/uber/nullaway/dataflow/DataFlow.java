@@ -159,7 +159,7 @@ public final class DataFlow {
     RunOnceForwardAnalysisImpl<A, S, T> analysis =
         (RunOnceForwardAnalysisImpl<A, S, T>) analysisCache.getUnchecked(aparams);
     if (performAnalysis) {
-      analysis.performAnalysisIfNeeded(cfg);
+      analysis.performAnalysis(cfg);
     }
 
     return new Result<>() {

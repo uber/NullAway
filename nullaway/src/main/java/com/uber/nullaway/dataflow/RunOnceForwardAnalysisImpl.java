@@ -7,10 +7,10 @@ import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
 
 /**
- * A ForwardAnalysis implementation that provides a method {@link
- * #performAnalysisIfNeeded(ControlFlowGraph)} to perform the analysis at most once.
+ * A ForwardAnalysis implementation that overrides {@link #performAnalysis(ControlFlowGraph)} to
+ * perform the analysis at most once.
  */
-public class RunOnceForwardAnalysisImpl<
+class RunOnceForwardAnalysisImpl<
         V extends AbstractValue<V>, S extends Store<S>, T extends ForwardTransferFunction<V, S>>
     extends ForwardAnalysisImpl<V, S, T> {
 
@@ -25,7 +25,8 @@ public class RunOnceForwardAnalysisImpl<
    *
    * @param cfg the control flow graph to analyze
    */
-  public void performAnalysisIfNeeded(ControlFlowGraph cfg) {
+  @Override
+  public void performAnalysis(ControlFlowGraph cfg) {
     if (!analysisPerformed) {
       super.performAnalysis(cfg);
       analysisPerformed = true;
