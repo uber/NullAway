@@ -1,6 +1,39 @@
 Changelog
 =========
 
+Version 0.12.13
+---------------
+
+NullAway now includes a new Error Prone checker, `RequireExplicitNullMarking`,
+that checks that every class is explicitly `@NullMarked` or `@NullUnmarked` (at the class or package level), so code
+is not left `@NullUnmarked` unintentionally.  The check is disabled by default.  See [the docs](https://github.com/uber/NullAway/wiki/JSpecify-Support#requireexplicitnullmarking-checker)
+for further details.
+
+NullAway also includes support for a new `@PureExceptLambda` annotation, contributed by @FxMorin, to tell NullAway
+to preserve nullability information from the enclosing method when analyzing the body of certain lambdas.
+See [the docs](https://github.com/uber/NullAway/wiki/Supported-Annotations#pureexceptlambda) for details.
+
+* Use passed-in `TreePath` in one more place when available (#1329)
+* Checker to ensure explicit null marking of every class (#1323)
+* Bound size of alreadyRunAnalyses cache to be consistent (#1334)
+* Improve inference for generic methods with lambda argument containing return statements by @dhruv-agr (#1337)
+* Add `PureExceptLambda` annotation by @FxMorin (#1325)
+* Support marking method type variable upper bounds as `@Nullable` in library models (#1345)
+* Method name parsing in `ExternalStubxLibraryModels` class is missing a corner case by @haewiful (#1344)
+* Better fix for dataflow analysis caching (#1353)
+* Maintenance
+    - Add package-info files with @NullMarked (#1331)
+    - Speed up buildWithNullAway task (#1330)
+    - Enable the VoidMissingNullable checker and autofix all extant warnings (#1332)
+    - Bump JDK version to 25 for integration tests (#1336)
+    - Switch Coderabbit to assertive mode (#1338)
+    - Enable EqualsMissingNullable check and fix all extant warnings (#1339)
+    - Bump to AutoValue 1.11.1 (#1340)
+    - Update Caffeine benchmark (#1342)
+    - Add a test for a useless @Contract (#1346)
+    - Test case for wildcards in Generic Method with Lambda Arguments by @dhruv-agr (#1349)
+    - Add initial AGENTS.md file (#1352)
+
 Version 0.12.12
 ---------------
 
