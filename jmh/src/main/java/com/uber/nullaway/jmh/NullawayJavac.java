@@ -30,7 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import javax.tools.DiagnosticListener;
@@ -175,16 +174,22 @@ public class NullawayJavac {
     outputDir.toFile().deleteOnExit();
     this.options = new ArrayList<>();
     if (classpath != null) {
-      options.addAll(Arrays.asList("-classpath", classpath));
+      options.addAll(List.of("-classpath", classpath));
     }
     String processorPath =
         System.getProperty("java.class.path") + File.pathSeparator + extraProcessorPath;
+    // Error Prone arguments must be passed space separated with -Xplugin:ErrorProne
     String allErrorProneArgs =
-        String.format(
-            "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=%s %s",
-            annotatedPackages, String.join(" ", extraErrorProneArgs));
+        String.join(
+            " ",
+            List.of(
+                "-Xplugin:ErrorProne",
+                "-XepDisableAllChecks",
+                "-Xep:NullAway:ERROR",
+                "-XepOpt:NullAway:AnnotatedPackages=" + annotatedPackages,
+                String.join(" ", extraErrorProneArgs)));
     options.addAll(
-        Arrays.asList(
+        List.of(
             "-processorpath",
             processorPath,
             "-d",
@@ -195,7 +200,7 @@ public class NullawayJavac {
     // add these options since we have at least one benchmark that only compiles with access to
     // javac-internal APIs
     options.addAll(
-        Arrays.asList(
+        List.of(
             "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
