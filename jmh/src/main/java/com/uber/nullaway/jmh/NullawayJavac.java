@@ -179,6 +179,10 @@ public class NullawayJavac {
     }
     String processorPath =
         System.getProperty("java.class.path") + File.pathSeparator + extraProcessorPath;
+    String allErrorProneArgs =
+        String.format(
+            "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages=%s %s",
+            annotatedPackages, String.join(" ", extraErrorProneArgs));
     options.addAll(
         Arrays.asList(
             "-processorpath",
@@ -187,9 +191,7 @@ public class NullawayJavac {
             outputDir.toAbsolutePath().toString(),
             "-XDcompilePolicy=simple",
             "--should-stop=ifError=FLOW",
-            "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages="
-                + annotatedPackages
-                + String.join(" ", extraErrorProneArgs)));
+            allErrorProneArgs));
     // add these options since we have at least one benchmark that only compiles with access to
     // javac-internal APIs
     options.addAll(
