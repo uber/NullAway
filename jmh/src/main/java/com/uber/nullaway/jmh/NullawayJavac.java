@@ -207,7 +207,7 @@ public class NullawayJavac {
             "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED"));
-    // for JSpecify mode
+    // for JSpecify mode (benign outside JSpecify mode)
     options.add("-XDaddTypeAnnotationsToSymbol=true");
   }
 
