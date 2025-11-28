@@ -135,9 +135,9 @@ jmh {
 
     // commented-out examples of how to tweak other jmh parameters; they show the default values
     // for more examples see https://github.com/melix/jmh-gradle-plugin/blob/master/README.adoc#configuration-options
-    // iterations = 5
+    iterations = 50
     // fork = 5
-    // includes = ['DFlowMicro']
+    includes = ['Caffeine']
 }
 
 tasks.withType(Test).configureEach { test ->
