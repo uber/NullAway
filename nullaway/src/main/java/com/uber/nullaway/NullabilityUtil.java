@@ -53,6 +53,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.BiPredicate;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
@@ -189,6 +190,31 @@ public class NullabilityUtil {
     // for methods, we care about annotations on the return type, not on the method type itself
     Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol, config);
     return Stream.concat(symbol.getAnnotationMirrors().stream(), typeUseAnnotations);
+  }
+
+  /**
+   * Apply {@code predicate} to all declaration and type-use annotations on {@code symbol}, stopping
+   * early if it returns {@code true}.
+   */
+  public static boolean hasAnyAnnotation(
+      Symbol symbol, Config config, Predicate<String> predicate) {
+    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
+      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
+        return true;
+      }
+    }
+    Symbol typeAnnotationOwner =
+        symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
+    for (Attribute.TypeCompound typeCompound : typeAnnotationOwner.getRawTypeAttributes()) {
+      if (!targetTypeMatches(symbol, typeCompound.position)
+          || !isDirectTypeUseAnnotation(typeCompound, symbol, config)) {
+        continue;
+      }
+      if (predicate.test(typeCompound.getAnnotationType().toString())) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
