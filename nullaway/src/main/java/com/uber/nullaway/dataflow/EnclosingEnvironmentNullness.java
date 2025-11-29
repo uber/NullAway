@@ -33,7 +33,7 @@ public class EnclosingEnvironmentNullness {
   }
 
   public void addEnvironmentMapping(Tree t, NullnessStore s) {
-    Preconditions.checkArgument(isValidTreeType(t), "cannot store environment for node " + t);
+    Preconditions.checkArgument(isValidTreeType(t), "cannot store environment for node %s", t);
     environmentNullness.put(t, s);
   }
 
