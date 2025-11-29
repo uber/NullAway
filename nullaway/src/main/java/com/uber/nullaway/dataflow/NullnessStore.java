@@ -173,12 +173,12 @@ public class NullnessStore implements Store<NullnessStore> {
     ImmutableMap<AccessPath, Nullness> thisContents = this.contents;
     int thisContentsSize = thisContents.size();
     if (thisContentsSize == 0) {
-      return other;
+      return this;
     }
     ImmutableMap<AccessPath, Nullness> otherContents = other.contents;
     int otherContentsSize = other.contents.size();
     if (otherContentsSize == 0) {
-      return this;
+      return other;
     }
     ImmutableMap<AccessPath, Nullness> smallContents, largeContents;
     if (thisContentsSize < otherContentsSize) {
