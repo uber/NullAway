@@ -16,14 +16,11 @@
 
 package com.uber.nullaway.dataflow;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath.IteratorContentsKey;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -338,12 +335,13 @@ public class NullnessStore implements Store<NullnessStore> {
 
   /** class for building up instances of the store. */
   public static final class Builder {
-    // TODO use an ImmutableMap.Builder
-    private final Map<AccessPath, Nullness> contents;
+    private final ImmutableMap.Builder<AccessPath, Nullness> contents;
 
     Builder(NullnessStore prototype) {
-
-      contents = new HashMap<>(prototype.contents);
+      contents = ImmutableMap.builder();
+      if (!prototype.contents.isEmpty()) {
+        contents.putAll(prototype.contents);
+      }
     }
 
     /**
@@ -357,7 +355,7 @@ public class NullnessStore implements Store<NullnessStore> {
      * @return the new builder
      */
     public NullnessStore.Builder setInformation(AccessPath ap, Nullness value) {
-      contents.put(checkNotNull(ap), checkNotNull(value));
+      contents.put(ap, value);
       return this;
     }
 
@@ -367,7 +365,7 @@ public class NullnessStore implements Store<NullnessStore> {
      * @return a store constructed from everything added to the builder
      */
     public NullnessStore build() {
-      return new NullnessStore(contents);
+      return new NullnessStore(contents.buildKeepingLast());
     }
   }
 }
