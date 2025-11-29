@@ -191,10 +191,10 @@ public class NullnessStore implements Store<NullnessStore> {
     ImmutableMap.Builder<AccessPath, Nullness> upperBoundContentsBuilder = ImmutableMap.builder();
     for (Map.Entry<AccessPath, Nullness> entry : smallContents.entrySet()) {
       AccessPath ap = entry.getKey();
-      Nullness thisValue = entry.getValue();
-      Nullness otherValue = largeContents.get(ap);
-      if (otherValue != null) {
-        upperBoundContentsBuilder.put(ap, thisValue.leastUpperBound(otherValue));
+      Nullness smallValue = entry.getValue();
+      Nullness largeValue = largeContents.get(ap);
+      if (largeValue != null) {
+        upperBoundContentsBuilder.put(ap, smallValue.leastUpperBound(largeValue));
       }
     }
     return new NullnessStore(upperBoundContentsBuilder.build());
