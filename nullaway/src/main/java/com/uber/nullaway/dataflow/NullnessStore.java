@@ -176,7 +176,7 @@ public class NullnessStore implements Store<NullnessStore> {
       return this;
     }
     ImmutableMap<AccessPath, Nullness> otherContents = other.contents;
-    int otherContentsSize = other.contents.size();
+    int otherContentsSize = otherContents.size();
     if (otherContentsSize == 0) {
       return other;
     }
@@ -198,20 +198,6 @@ public class NullnessStore implements Store<NullnessStore> {
       }
     }
     return new NullnessStore(upperBoundContentsBuilder.build());
-
-    //    NullnessStore.Builder result = NullnessStore.empty().toBuilder();
-    //    for (AccessPath ap : intersection(contents.keySet(), other.contents.keySet())) {
-    //      Nullness apContents = contents.get(ap);
-    //      if (apContents == null) {
-    //        throw new RuntimeException("null contents for " + ap);
-    //      }
-    //      Nullness otherAPContents = other.contents.get(ap);
-    //      if (otherAPContents == null) {
-    //        throw new RuntimeException("null other contents for " + ap);
-    //      }
-    //      result.contents.put(ap, apContents.leastUpperBound(otherAPContents));
-    //    }
-    //    return result.build();
   }
 
   @Override
