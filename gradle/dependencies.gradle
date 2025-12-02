@@ -83,7 +83,7 @@ def build = [
     errorProneTestHelpersOld: "com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}",
     checkerDataflow         : "org.checkerframework:dataflow-nullaway:${versions.checkerFramework}",
     gson                    : "com.google.code.gson:gson:2.13.1",
-    guava                   : "com.google.guava:guava:30.1-jre",
+    guava                   : "com.google.guava:guava:31.1-jre",
     javaparser              : "com.github.javaparser:javaparser-core:${versions.javaparser}",
     javaparserSymbolSolver  : "com.github.javaparser:javaparser-symbol-solver-core:${versions.javaparser}",
     javaxValidation         : "javax.validation:validation-api:2.0.1.Final",
