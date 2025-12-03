@@ -18,14 +18,18 @@ public class FieldOrMethodCallElement implements AccessPathElement {
   private final Element javaElement;
   private final @Nullable ImmutableList<String> constantArguments;
 
+  private final int cachedHashCode;
+
   public FieldOrMethodCallElement(Element javaElement, List<String> constantArguments) {
     this.javaElement = javaElement;
     this.constantArguments = ImmutableList.copyOf(constantArguments);
+    this.cachedHashCode = computeHashCode();
   }
 
   public FieldOrMethodCallElement(Element javaElement) {
     this.javaElement = javaElement;
     this.constantArguments = null;
+    this.cachedHashCode = computeHashCode();
   }
 
   @Override
@@ -45,6 +49,10 @@ public class FieldOrMethodCallElement implements AccessPathElement {
 
   @Override
   public int hashCode() {
+    return cachedHashCode;
+  }
+
+  private int computeHashCode() {
     int result = javaElement.hashCode();
     result = 31 * result + (constantArguments != null ? constantArguments.hashCode() : 0);
     return result;
