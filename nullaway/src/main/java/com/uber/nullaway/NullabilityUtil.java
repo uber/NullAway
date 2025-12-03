@@ -193,16 +193,22 @@ public class NullabilityUtil {
   }
 
   /**
-   * Apply {@code predicate} to all declaration and type-use annotations on {@code symbol}, stopping
-   * early if it returns {@code true}.
+   * Check if any direct annotation a symbol matches a given predicate. Works for both source and
+   * bytecode.
+   *
+   * @param symbol the symbol
+   * @param config NullAway configuration
+   * @param predicate the predicate to match annotation names against
+   * @return true if any annotation on the symbol matches the predicate, false otherwise
    */
-  public static boolean hasAnyAnnotation(
+  public static boolean hasAnyAnnotationMatching(
       Symbol symbol, Config config, Predicate<String> predicate) {
     for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
       if (predicate.test(annotationMirror.getAnnotationType().toString())) {
         return true;
       }
     }
+    // to handle bytecodes, also check direct type-use annotations stored in attributes
     Symbol typeAnnotationOwner =
         symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
     for (Attribute.TypeCompound typeCompound : typeAnnotationOwner.getRawTypeAttributes()) {

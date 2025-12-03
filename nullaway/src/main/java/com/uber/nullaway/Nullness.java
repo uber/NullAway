@@ -21,7 +21,6 @@ package com.uber.nullaway;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.List;
-import java.util.Iterator;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
@@ -69,7 +68,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * {@code symbol}. Used to reason whether a field may be null.
    */
   public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotation(
+    return NullabilityUtil.hasAnyAnnotationMatching(
         symbol,
         config,
         annot -> isNullableAnnotation(annot, config) || isMonotonicNonNullAnnotation(annot));
@@ -153,26 +152,16 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   public static boolean hasNullableAnnotation(
       Stream<? extends AnnotationMirror> annotations, Config config) {
-    Iterator<? extends AnnotationMirror> iterator = annotations.iterator();
-    while (iterator.hasNext()) {
-      AnnotationMirror annotationMirror = iterator.next();
-      if (isNullableAnnotation(annotationMirror.getAnnotationType().toString(), config)) {
-        return true;
-      }
-    }
-    return false;
+    return annotations
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(anno -> isNullableAnnotation(anno, config));
   }
 
   public static boolean hasNonNullAnnotation(
       Stream<? extends AnnotationMirror> annotations, Config config) {
-    Iterator<? extends AnnotationMirror> iterator = annotations.iterator();
-    while (iterator.hasNext()) {
-      AnnotationMirror annotationMirror = iterator.next();
-      if (isNonNullAnnotation(annotationMirror.getAnnotationType().toString(), config)) {
-        return true;
-      }
-    }
-    return false;
+    return annotations
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(anno -> isNonNullAnnotation(anno, config));
   }
 
   /**
@@ -225,7 +214,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNonNullAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotation(
+    return NullabilityUtil.hasAnyAnnotationMatching(
         symbol, config, annot -> isNonNullAnnotation(annot, config));
   }
 
@@ -237,7 +226,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNullableAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotation(
+    return NullabilityUtil.hasAnyAnnotationMatching(
         symbol, config, annot -> isNullableAnnotation(annot, config));
   }
 
