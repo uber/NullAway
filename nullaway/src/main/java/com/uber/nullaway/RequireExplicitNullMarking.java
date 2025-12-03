@@ -45,15 +45,14 @@ import javax.lang.model.element.NestingKind;
 public final class RequireExplicitNullMarking extends BugChecker
     implements BugChecker.ClassTreeMatcher {
 
-  /**
-   * The BugPattern annotation on this class, used below to determine whether to report a match or
-   * not.
-   */
-  private static final BugPattern BUG_PATTERN =
-      RequireExplicitNullMarking.class.getAnnotation(BugPattern.class);
-
   @Override
   public Description matchClass(ClassTree classTree, VisitorState state) {
+    SeverityLevel severityLevel = state.severityMap().get(this.getClass().getSimpleName());
+    // If the severity is SUGGESTION, we do not want to report a match, to avoid noisy NOTE-level
+    // messages from javac.
+    if (SeverityLevel.SUGGESTION.equals(severityLevel)) {
+      return Description.NO_MATCH;
+    }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
     if (classSymbol == null) {
       return Description.NO_MATCH;
@@ -66,13 +65,7 @@ public final class RequireExplicitNullMarking extends BugChecker
         return Description.NO_MATCH;
       }
     }
-    SeverityLevel severityLevel =
-        state.severityMap().getOrDefault(BUG_PATTERN.name(), BUG_PATTERN.severity());
-    // If the severity is SUGGESTION, we do not want to report a match, to avoid noisy NOTE-level
-    // messages from javac.
-    return SeverityLevel.SUGGESTION.equals(severityLevel)
-        ? Description.NO_MATCH
-        : describeMatch(classTree);
+    return describeMatch(classTree);
   }
 
   private static boolean hasNullMarkedOrNullUnmarkedAnnotation(Symbol symbol) {
