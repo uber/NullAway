@@ -12,7 +12,7 @@ This release fixes a bug where the new `RequireExplicitNullMarking` check was no
 * Tune warning message for RequireExplicitNullMarking (#1366)
 * Maintenance
   - Fix arg concatenation bug in JMH (#1357)
-  - move wildcard-related tests to a separate test class (#1361)
+  - Move wildcard-related tests to a separate test class (#1361)
 
 Version 0.12.13
 ---------------
