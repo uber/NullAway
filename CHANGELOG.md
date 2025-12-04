@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Version 0.12.14
+---------------
+
+This release fixes a bug where the new `RequireExplicitNullMarking` check was not fully disabled by default.  It also includes a couple of performance optimizations to reduce NullAway overhead.
+
+* Various optimizations (#1358)
+* Don't report matches from RequireExplicitNullMarking when run at SUGGESTION level (#1365)
+* Optimize methods that check for annotations on a Symbol (#1362)
+* Tune warning message for RequireExplicitNullMarking (#1366)
+* Maintenance
+  - Fix arg concatenation bug in JMH (#1357)
+  - move wildcard-related tests to a separate test class (#1361)
+
 Version 0.12.13
 ---------------
 
