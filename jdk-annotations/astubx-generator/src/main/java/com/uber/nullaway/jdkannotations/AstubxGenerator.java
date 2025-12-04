@@ -204,6 +204,16 @@ public class AstubxGenerator {
         returnType = returnType.replace(" []", "[]"); // remove whitespace in Array types
         returnTypeNullness = ImmutableSet.of("Nullable");
       }
+      ImmutableSet.Builder<Integer> nullableTypeParamBuilder = ImmutableSet.builder();
+      for (int i = 0; i < method.typeParams().size(); i++) {
+        TypeParamInfo typeParam = method.typeParams().get(i);
+        for (String upperBound : typeParam.bounds()) {
+          if (upperBound.contains("@Nullable")) {
+            nullableTypeParamBuilder.add(i);
+          }
+        }
+      }
+
       String signatureForMethodRecords = fullyQualifiedClassName + ":" + returnType + " ";
       signatureForMethodRecords += methodName.substring(0, methodName.indexOf('(') + 1);
       Map<Integer, ImmutableSet<String>> argAnnotation = new LinkedHashMap<>();
@@ -237,7 +247,10 @@ public class AstubxGenerator {
       signatureForMethodRecords += String.join(", ", argumentList) + ")";
       methodRecords.put(
           signatureForMethodRecords,
-          MethodAnnotationsRecord.create(returnTypeNullness, ImmutableMap.copyOf(argAnnotation)));
+          MethodAnnotationsRecord.create(
+              returnTypeNullness,
+              nullableTypeParamBuilder.build(),
+              ImmutableMap.copyOf(argAnnotation)));
     }
   }
 
