@@ -158,6 +158,13 @@ public class StubxCacheUtil {
       LOG(DEBUG, "DEBUG", "method: " + methodSig + ", return annotation: " + annotation);
       cacheAnnotation(methodSig, RETURN, annotation);
     }
+    // Read the number of (method, nullable type parameter index)
+    int numMethodTypeParams = in.readInt();
+    for (int i = 0; i < numMethodTypeParams; ++i) {
+      String methodSig = strings[in.readInt()];
+      int idx = in.readInt();
+      if (methodSig.isEmpty() && idx == 0) {}
+    }
     // Read the number of (method, argument, annotation) entries
     int numArgumentRecords = in.readInt();
     // Read each (method, argument, annotation) record
