@@ -10,10 +10,14 @@ import org.junit.runners.JUnit4;
 public class RequireExplicitNullMarkingTest {
 
   private CompilationTestHelper compilationHelper;
+  private CompilationTestHelper compilationHelperSuggestionLevel;
 
   @Before
   public void setUp() {
     compilationHelper =
+        CompilationTestHelper.newInstance(RequireExplicitNullMarking.class, getClass())
+            .setArgs("-Xep:RequireExplicitNullMarking:WARN");
+    compilationHelperSuggestionLevel =
         CompilationTestHelper.newInstance(RequireExplicitNullMarking.class, getClass());
   }
 
@@ -27,6 +31,19 @@ public class RequireExplicitNullMarkingTest {
             "class MissingAnnotation {",
             "  // no report on nested class",
             "  class NestedClass {}",
+            "}")
+        .doTest();
+  }
+
+  /** Test that at SUGGESTION level, no report is made for missing annotations */
+  @Test
+  public void noReportAtDefaultLevel() {
+    compilationHelperSuggestionLevel
+        .addSourceLines(
+            "test/MissingAnnotation.java",
+            "package test;",
+            "// no warning here since we're at the default SUGGESTION level",
+            "class MissingAnnotation {",
             "}")
         .doTest();
   }
