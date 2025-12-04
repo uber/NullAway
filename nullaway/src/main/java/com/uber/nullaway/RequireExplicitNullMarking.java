@@ -48,6 +48,12 @@ public final class RequireExplicitNullMarking extends BugChecker
 
   @Override
   public Description matchClass(ClassTree classTree, VisitorState state) {
+    SeverityLevel severityLevel = state.severityMap().get(this.getClass().getSimpleName());
+    // If the severity is SUGGESTION, we do not want to report a match, to avoid noisy NOTE-level
+    // messages from javac.
+    if (SeverityLevel.SUGGESTION.equals(severityLevel)) {
+      return Description.NO_MATCH;
+    }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
     if (classSymbol == null) {
       return Description.NO_MATCH;
