@@ -23,7 +23,6 @@ import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrIni
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
-import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -45,7 +44,6 @@ import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
 import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
-import org.checkerframework.nullaway.dataflow.analysis.ForwardAnalysisImpl;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.analysis.TransferFunction;
@@ -79,27 +77,17 @@ public final class DataFlow {
     this.handler = handler;
   }
 
-  private final LoadingCache<AnalysisParams, Analysis<?, ?, ?>> analysisCache =
+  private final LoadingCache<AnalysisParams, RunOnceForwardAnalysisImpl<?, ?, ?>> analysisCache =
       CacheBuilder.newBuilder()
           .maximumSize(MAX_CACHE_SIZE)
           .build(
-              new CacheLoader<AnalysisParams, Analysis<?, ?, ?>>() {
+              new CacheLoader<>() {
                 @Override
-                public Analysis<?, ?, ?> load(AnalysisParams key) {
+                public RunOnceForwardAnalysisImpl<?, ?, ?> load(AnalysisParams key) {
                   ForwardTransferFunction<?, ?> transfer = key.transferFunction();
-
-                  @SuppressWarnings({"unchecked", "rawtypes"})
-                  Analysis<?, ?, ?> analysis = new ForwardAnalysisImpl<>(transfer);
-                  return analysis;
+                  return new RunOnceForwardAnalysisImpl<>(transfer);
                 }
               });
-
-  /**
-   * Set of {@link AnalysisParams} for which the analysis has already been run to completion. Used
-   * to avoid re-running analyses needlessly
-   */
-  private final Cache<AnalysisParams, Boolean> alreadyRunAnalyses =
-      CacheBuilder.newBuilder().maximumSize(MAX_CACHE_SIZE).build();
 
   private final LoadingCache<CfgParams, ControlFlowGraph> cfgCache =
       CacheBuilder.newBuilder()
@@ -168,10 +156,10 @@ public final class DataFlow {
     ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
-    Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
-    if (performAnalysis && alreadyRunAnalyses.getIfPresent(aparams) == null) {
+    RunOnceForwardAnalysisImpl<A, S, T> analysis =
+        (RunOnceForwardAnalysisImpl<A, S, T>) analysisCache.getUnchecked(aparams);
+    if (performAnalysis) {
       analysis.performAnalysis(cfg);
-      alreadyRunAnalyses.put(aparams, Boolean.TRUE);
     }
 
     return new Result<>() {
@@ -322,7 +310,6 @@ public final class DataFlow {
   public void invalidateCaches() {
     cfgCache.invalidateAll();
     analysisCache.invalidateAll();
-    alreadyRunAnalyses.invalidateAll();
   }
 
   @AutoValue

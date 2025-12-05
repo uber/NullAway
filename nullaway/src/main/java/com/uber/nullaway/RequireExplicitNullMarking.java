@@ -40,13 +40,20 @@ import javax.lang.model.element.NestingKind;
 @BugPattern(
     severity = SeverityLevel.SUGGESTION,
     summary =
-        "Top-level classes must either be directly annotated with @NullMarked/@NullUnmarked or be in a"
-            + " package or module that is explicitly @NullMarked/@NullUnmarked.")
+        "[RequireExplicitNullMarking] Top-level classes must either be directly annotated with @NullMarked/@NullUnmarked,"
+            + " be in a package that is explicitly @NullMarked/@NullUnmarked,"
+            + " or be in a module that is explicitly @NullMarked.")
 public final class RequireExplicitNullMarking extends BugChecker
     implements BugChecker.ClassTreeMatcher {
 
   @Override
   public Description matchClass(ClassTree classTree, VisitorState state) {
+    SeverityLevel severityLevel = state.severityMap().get(this.getClass().getSimpleName());
+    // If the severity is SUGGESTION, we do not want to report a match, to avoid noisy NOTE-level
+    // messages from javac.
+    if (SeverityLevel.SUGGESTION.equals(severityLevel)) {
+      return Description.NO_MATCH;
+    }
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
     if (classSymbol == null) {
       return Description.NO_MATCH;

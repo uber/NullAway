@@ -81,6 +81,7 @@ dependencies {
     errorProneOldest(deps.build.errorProneTestHelpersOld) {
         exclude group: "junit", module: "junit"
     }
+    errorProneOldest deps.build.guava
 }
 
 javadoc {
