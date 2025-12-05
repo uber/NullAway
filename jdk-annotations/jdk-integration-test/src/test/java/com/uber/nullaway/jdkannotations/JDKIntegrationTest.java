@@ -353,4 +353,33 @@ public class JDKIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void loadLibraryModuleMethodTypeParam() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "import java.util.List;",
+            "class Test {",
+            "  void testCall() {",
+            "    ParameterAnnotation.nullableTypeParam(1, null).toString();",
+            "    ParameterAnnotation.nullableTypeParam(1, \"string\").toString();",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ParameterAnnotation.nullableTypeParam(null, \"string\");",
+            "    ParameterAnnotation.nonNullTypeParam(1);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
+            "    ParameterAnnotation.nonNullTypeParam(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

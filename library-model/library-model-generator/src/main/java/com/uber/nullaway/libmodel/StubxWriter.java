@@ -104,9 +104,11 @@ public final class StubxWriter {
     }
     // Followed by the number of encoded method return/declaration annotation records
     int methodAnnotationSize = 0;
+    int methodTypeParamNullableUpperbounds = 0;
     int methodArgumentRecordsSize = 0;
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
       methodAnnotationSize += entry.getValue().methodAnnotations().size();
+      methodTypeParamNullableUpperbounds += entry.getValue().typeParamNullableUpperbounds().size();
       methodArgumentRecordsSize += entry.getValue().argumentAnnotations().size();
     }
     out.writeInt(methodAnnotationSize);
@@ -115,6 +117,14 @@ public final class StubxWriter {
       for (String annot : entry.getValue().methodAnnotations()) {
         out.writeInt(encodingDictionary.get(entry.getKey()));
         out.writeInt(encodingDictionary.get(importedAnnotations.get(annot)));
+      }
+    }
+    out.writeInt(methodTypeParamNullableUpperbounds);
+    // followed by method type variables
+    for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
+      for (int nullableIndex : entry.getValue().typeParamNullableUpperbounds()) {
+        out.writeInt(encodingDictionary.get(entry.getKey()));
+        out.writeInt(nullableIndex);
       }
     }
     // Followed by the number of encoded method argument annotation records
