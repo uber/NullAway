@@ -73,4 +73,9 @@ public final class RequireExplicitNullMarking extends BugChecker
     return ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "NullMarked")
         || ASTHelpers.hasDirectAnnotationWithSimpleName(symbol, "NullUnmarked");
   }
+
+  @Override
+  public String linkUrl() {
+    return "https://github.com/uber/NullAway/wiki/JSpecify-Support#requireexplicitnullmarking-checker";
+  }
 }

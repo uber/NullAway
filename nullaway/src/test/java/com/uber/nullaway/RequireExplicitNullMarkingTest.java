@@ -35,6 +35,18 @@ public class RequireExplicitNullMarkingTest {
         .doTest();
   }
 
+  @Test
+  public void defaultURL() {
+    compilationHelper
+        .addSourceLines(
+            "test/MissingAnnotation.java",
+            "package test;",
+            "// BUG: Diagnostic contains: https://github.com/uber/NullAway/wiki/JSpecify-Support#requireexplicitnullmarking-checker",
+            "class MissingAnnotation {",
+            "}")
+        .doTest();
+  }
+
   /** Test that at SUGGESTION level, no report is made for missing annotations */
   @Test
   public void noReportAtDefaultLevel() {
