@@ -76,6 +76,7 @@ public final class RequireExplicitNullMarking extends BugChecker
 
   @Override
   public String linkUrl() {
+    // trailing space is deliberate to help ensure clickability from terminals
     return "https://github.com/uber/NullAway/wiki/JSpecify-Support#requireexplicitnullmarking-checker ";
   }
 }
