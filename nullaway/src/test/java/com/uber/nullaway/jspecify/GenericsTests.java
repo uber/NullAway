@@ -2727,6 +2727,32 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nonNullInFieldTypeArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  static class Foo<T extends @Nullable Object> {",
+            "    Foo<@NonNull T> nonNullField = new Foo<>();",
+            "    Foo<@Nullable T> nullableField = new Foo<>();",
+            "    static void test(Foo<@Nullable String> nullableFoo, Foo<@NonNull String> nonnullFoo) {",
+            "      // BUG: Diagnostic contains: incompatible types: Test.Foo<@NonNull String> cannot be converted to Test.Foo<@Nullable String>",
+            "      Foo<@Nullable String> f1 = nullableFoo.nonNullField;",
+            "      Foo<String> f2 = nullableFoo.nonNullField;",
+            "      Foo<@Nullable String> f3 = nonnullFoo.nullableField;",
+            "      // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<@NonNull String>",
+            "      Foo<String> f4 = nonnullFoo.nullableField;",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
