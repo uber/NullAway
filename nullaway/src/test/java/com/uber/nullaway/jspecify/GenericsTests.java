@@ -2703,6 +2703,30 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nonNullInReturnTypeArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface MaybeNull<T extends @Nullable Object> {",
+            "    T get();",
+            "    default MaybeNull<@NonNull T> asNonNull() {",
+            "      return (MaybeNull<@NonNull T>) this;",
+            "    }",
+            "  }",
+            "  static void accept(MaybeNull<String> nonNullThing) {}",
+            "  static void test(MaybeNull<@Nullable String> nullable) {",
+            "    accept(nullable.asNonNull());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
