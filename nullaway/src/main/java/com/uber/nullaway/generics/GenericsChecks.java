@@ -471,14 +471,25 @@ public final class GenericsChecks {
         }
       } else {
         result = ASTHelpers.getType(tree);
-        if (result != null && tree instanceof MethodInvocationTree) {
-          // the return type could have explicitly-annotated type variables, so do the necessary
-          // annotation replacements
-          MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
-          Type returnType = castToNonNull(ASTHelpers.getSymbol(invocationTree)).getReturnType();
-          result =
-              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                  returnType, result, config, Collections.emptyMap());
+        if (result != null) {
+          if (tree instanceof MethodInvocationTree) {
+            // the return type could have explicitly-annotated type variables, so do the necessary
+            // annotation replacements
+            MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
+            Type returnType = castToNonNull(ASTHelpers.getSymbol(invocationTree)).getReturnType();
+            result =
+                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                    returnType, result, config, Collections.emptyMap());
+          } else if (tree instanceof MemberSelectTree) {
+            MemberSelectTree memberSelectTree = (MemberSelectTree) tree;
+            Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
+            if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
+              Type fieldType = memberSelectSymbol.type;
+              result =
+                  TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                      fieldType, result, config, Collections.emptyMap());
+            }
+          }
         }
       }
       if (result != null && result.isRaw()) {
