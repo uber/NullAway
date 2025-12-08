@@ -471,6 +471,26 @@ public final class GenericsChecks {
         }
       } else {
         result = ASTHelpers.getType(tree);
+        if (result != null) {
+          // for method invocations and field reads, there may be annotations on type variables in
+          // the return / field type that need to be restored
+          if (tree instanceof MethodInvocationTree) {
+            MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
+            Type returnType = castToNonNull(ASTHelpers.getSymbol(invocationTree)).getReturnType();
+            result =
+                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                    returnType, result, config, Collections.emptyMap());
+          } else if (tree instanceof MemberSelectTree) {
+            MemberSelectTree memberSelectTree = (MemberSelectTree) tree;
+            Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
+            if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
+              Type fieldType = memberSelectSymbol.type;
+              result =
+                  TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                      fieldType, result, config, Collections.emptyMap());
+            }
+          }
+        }
       }
       if (result != null && result.isRaw()) {
         // bail out of any checking involving raw types for now
