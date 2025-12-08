@@ -44,7 +44,6 @@ import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
 import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
-import org.checkerframework.nullaway.dataflow.analysis.ForwardAnalysisImpl;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.analysis.TransferFunction;
@@ -78,20 +77,15 @@ public final class DataFlow {
     this.handler = handler;
   }
 
-  private final LoadingCache<AnalysisParams, Analysis<?, ?, ?>> analysisCache =
+  private final LoadingCache<AnalysisParams, RunOnceForwardAnalysisImpl<?, ?, ?>> analysisCache =
       CacheBuilder.newBuilder()
           .maximumSize(MAX_CACHE_SIZE)
           .build(
-              new CacheLoader<AnalysisParams, Analysis<?, ?, ?>>() {
+              new CacheLoader<>() {
                 @Override
-                public Analysis<?, ?, ?> load(AnalysisParams key) {
-                  ControlFlowGraph cfg = key.cfg();
+                public RunOnceForwardAnalysisImpl<?, ?, ?> load(AnalysisParams key) {
                   ForwardTransferFunction<?, ?> transfer = key.transferFunction();
-
-                  @SuppressWarnings({"unchecked", "rawtypes"})
-                  Analysis<?, ?, ?> analysis = new ForwardAnalysisImpl<>(transfer);
-                  analysis.performAnalysis(cfg);
-                  return analysis;
+                  return new RunOnceForwardAnalysisImpl<>(transfer);
                 }
               });
 
@@ -147,16 +141,28 @@ public final class DataFlow {
    * their control flow graph is the same. - if two transfer functions are {@code equal}, and are
    * run over the same control flow graph, the analysis result is the same. - for all contexts, the
    * analysis result is the same.
+   *
+   * @param path path to method, lambda or initializer
+   * @param context Javac context
+   * @param transfer transfer functions
+   * @param performAnalysis whether dataflow analysis should be initiated via a call to {@code
+   *     performAnalysis}. If the analysis is already running, this parameter should be {@code
+   *     false}; dataflow cannot be run recursively.
    */
   private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      Result<A, S, T> dataflow(TreePath path, Context context, T transfer) {
+      Result<A, S, T> dataflow(
+          TreePath path, Context context, T transfer, boolean performAnalysis) {
     ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
     ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
     AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
     @SuppressWarnings("unchecked")
-    Analysis<A, S, T> analysis = (Analysis<A, S, T>) analysisCache.getUnchecked(aparams);
+    RunOnceForwardAnalysisImpl<A, S, T> analysis =
+        (RunOnceForwardAnalysisImpl<A, S, T>) analysisCache.getUnchecked(aparams);
+    if (performAnalysis) {
+      analysis.performAnalysis(cfg);
+    }
 
-    return new Result<A, S, T>() {
+    return new Result<>() {
       @Override
       public Analysis<A, S, T> getAnalysis() {
         return analysis;
@@ -187,7 +193,8 @@ public final class DataFlow {
       throw new IllegalArgumentException(
           "Cannot get CFG for node outside a method, lambda, or initializer");
     }
-    return dataflow(enclosingMethodOrLambdaOrInitializer, context, transfer).getControlFlowGraph();
+    return dataflow(enclosingMethodOrLambdaOrInitializer, context, transfer, true)
+        .getControlFlowGraph();
   }
 
   /**
@@ -197,15 +204,31 @@ public final class DataFlow {
    * @param exprPath expression
    * @param context Javac context
    * @param transfer transfer functions
+   * @param isRunning true if the dataflow analysis is currently running
    * @param <A> values in abstraction
    * @param <S> store type
    * @param <T> transfer function type
    * @return dataflow value for expression
    */
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      @Nullable A expressionDataflow(TreePath exprPath, Context context, T transfer) {
-    AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
-    return analysisResult == null ? null : analysisResult.getValue(exprPath.getLeaf());
+      @Nullable A expressionDataflow(
+          TreePath exprPath, Context context, T transfer, boolean isRunning) {
+    if (isRunning) {
+      // get the Analysis object from the cache, and get the current result from that
+      Analysis<A, S, T> analysis =
+          dataflow(
+                  Preconditions.checkNotNull(
+                      findEnclosingMethodOrLambdaOrInitializer(exprPath),
+                      "expression is not inside a method, lambda or initializer block!"),
+                  context,
+                  transfer,
+                  false)
+              .getAnalysis();
+      return analysis.getValue(exprPath.getLeaf());
+    } else {
+      AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
+      return analysisResult == null ? null : analysisResult.getValue(exprPath.getLeaf());
+    }
   }
 
   /**
@@ -230,7 +253,7 @@ public final class DataFlow {
         "Leaf of methodPath must be of type MethodTree, LambdaExpressionTree, BlockTree, or VariableTree, but was %s",
         leaf.getClass().getName());
 
-    return dataflow(path, context, transfer).getAnalysis().getRegularExitStore();
+    return dataflow(path, context, transfer, true).getAnalysis().getRegularExitStore();
   }
 
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
@@ -280,7 +303,7 @@ public final class DataFlow {
     // *before* any unboxing operations (like invoking intValue() on an Integer).  This is
     // important,
     // e.g., for actually checking that the unboxing operation is legal.
-    return dataflow(enclosingPath, context, transfer).getAnalysis().getResult();
+    return dataflow(enclosingPath, context, transfer, true).getAnalysis().getResult();
   }
 
   /** clear the CFG and analysis caches */

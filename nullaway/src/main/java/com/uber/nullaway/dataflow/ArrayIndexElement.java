@@ -2,6 +2,7 @@ package com.uber.nullaway.dataflow;
 
 import java.util.Objects;
 import javax.lang.model.element.Element;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Represents an array index element of an AccessPath, encapsulating access to array elements either
@@ -58,7 +59,7 @@ public class ArrayIndexElement implements AccessPathElement {
   }
 
   @Override
-  public boolean equals(Object obj) {
+  public boolean equals(@Nullable Object obj) {
     if (obj instanceof ArrayIndexElement) {
       ArrayIndexElement other = (ArrayIndexElement) obj;
       return Objects.equals(javaElement, other.javaElement) && Objects.equals(index, other.index);

@@ -1,6 +1,90 @@
 Changelog
 =========
 
+Version 0.12.14
+---------------
+
+This release fixes a bug where the new `RequireExplicitNullMarking` check was not fully disabled by default.  It also includes a couple of performance optimizations to reduce NullAway overhead.
+
+* Various optimizations (#1358)
+* Don't report matches from RequireExplicitNullMarking when run at SUGGESTION level (#1365)
+* Optimize methods that check for annotations on a Symbol (#1362)
+* Tune warning message for RequireExplicitNullMarking (#1366)
+* Maintenance
+  - Fix arg concatenation bug in JMH (#1357)
+  - Move wildcard-related tests to a separate test class (#1361)
+
+Version 0.12.13
+---------------
+
+NullAway now includes a new Error Prone checker, `RequireExplicitNullMarking`,
+that checks that every class is explicitly `@NullMarked` or `@NullUnmarked` (at the class or package level), so code
+is not left `@NullUnmarked` unintentionally.  The check is disabled by default.  See [the docs](https://github.com/uber/NullAway/wiki/JSpecify-Support#requireexplicitnullmarking-checker)
+for further details.
+
+NullAway also includes support for a new `@PureExceptLambda` annotation, contributed by @FxMorin, to tell NullAway
+to preserve nullability information from the enclosing method when analyzing the body of certain lambdas.
+See [the docs](https://github.com/uber/NullAway/wiki/Supported-Annotations#pureexceptlambda) for details.
+
+* Use passed-in `TreePath` in one more place when available (#1329)
+* Checker to ensure explicit null marking of every class (#1323)
+* Bound size of alreadyRunAnalyses cache to be consistent (#1334)
+* Improve inference for generic methods with lambda argument containing return statements by @dhruv-agr (#1337)
+* Add `PureExceptLambda` annotation by @FxMorin (#1325)
+* Support marking method type variable upper bounds as `@Nullable` in library models (#1345)
+* Method name parsing in `ExternalStubxLibraryModels` class is missing a corner case by @haewiful (#1344)
+* Better fix for dataflow analysis caching (#1353)
+* Maintenance
+    - Add package-info files with @NullMarked (#1331)
+    - Speed up buildWithNullAway task (#1330)
+    - Enable the VoidMissingNullable checker and autofix all extant warnings (#1332)
+    - Bump JDK version to 25 for integration tests (#1336)
+    - Switch Coderabbit to assertive mode (#1338)
+    - Enable EqualsMissingNullable check and fix all extant warnings (#1339)
+    - Bump to AutoValue 1.11.1 (#1340)
+    - Update Caffeine benchmark (#1342)
+    - Add a test for a useless @Contract (#1346)
+    - Test case for wildcards in Generic Method with Lambda Arguments by @dhruv-agr (#1349)
+    - Add initial AGENTS.md file (#1352)
+
+Version 0.12.12
+---------------
+
+This release fixes a severe performance regression introduced in NullAway 0.12.11 and we encourage all users of 0.12.11 to upgrade.
+
+* Address severe performance regression in dataflow analysis (#1328)
+* Maintenance
+  - Fix test args for SuggestedFixesTests (#1324)
+  - Stop passing -processorpath to CompilationTestHelper in NullAway tests (#1326)
+
+Version 0.12.11
+---------------
+
+In this release, NullAway checks the requirement that JSpecify mode is only run on a compatible `javac` version /
+configuration, and fails if it detects an incompatibility.
+See <https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions> for details.
+
+* Use inference for generic call passed as receiver to instance method (#1293)
+* Accept any annotation with simple name `Contract`, and change reporting of invalid contract annotations (#1295)
+* Properly model AtomicReference.get() in JSpecify mode (#1298)
+* Improve handling and error messages when using `this` inside an anonymous class (#1305)
+* Generate astubx from JSON output of jdk-javac-plugin by @haewiful (#1243)
+* Improve inference for generic method with void-returning lambda argument by @dhruv-agr (#1312)
+* Use refined types from dataflow analysis in generic method inference (#1309)
+* Fail if NullAway is run in JSpecify mode with an incompatible javac version / configuration (#1317)
+* Jdk javac plugin: don't serialize info for classes / methods without annotations by @haewiful (#1316)
+* Maintenance
+  - [Cleanup] Refactor away unnecessary Predicate by @lazaroclapp (#1297)
+  - Update to Error Prone 2.42.0 (#1299)
+  - Update to Gradle 9.1.0 (#1302)
+  - Test on JDK 25 (#1301)
+  - Compile with JDK 25 (#1303)
+  - Add CodeRabbit config (#1306)
+  - Update Gradle command used for integration tests (#1311)
+  - Disable CodeRabbit review status comments (#1313)
+  - Gradle fixes for jar-infer-lib (#1314)
+  - Enable building NullAway on JDK 25 (#1315)
+
 Version 0.12.10
 ---------------
 

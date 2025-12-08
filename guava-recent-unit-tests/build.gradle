@@ -39,6 +39,7 @@ dependencies {
     errorProneOldest(deps.build.errorProneTestHelpersOld) {
         exclude group: "junit", module: "junit"
     }
+    errorProneOldest deps.build.guava
 }
 
 // Create a task to test with the oldest supported version of Error Prone

@@ -98,6 +98,7 @@ import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
@@ -226,6 +227,8 @@ public class NullAway extends BugChecker
   // always be called before the field gets dereferenced
   @SuppressWarnings("NullAway.Init")
   private CodeAnnotationInfo codeAnnotationInfo;
+
+  private boolean checkedJDKVersionForJSpecifyMode = false;
 
   private final Config config;
 
@@ -1020,9 +1023,13 @@ public class NullAway extends BugChecker
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
+      Type lambdaType = ASTHelpers.getType(lambdaTree);
+      Type inferredType = genericsChecks.getInferredLambdaType(lambdaTree);
+      if (inferredType != null) {
+        lambdaType = inferredType;
+      }
       if (genericsChecks
-              .getGenericMethodReturnTypeNullness(
-                  methodSymbol, ASTHelpers.getType(lambdaTree), state)
+              .getGenericMethodReturnTypeNullness(methodSymbol, lambdaType, state)
               .equals(Nullness.NULLABLE)
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
               methodSymbol, lambdaTree, state, codeAnnotationInfo)) {
@@ -1703,6 +1710,17 @@ public class NullAway extends BugChecker
     // which is not available in the constructor
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
+    }
+    if (!checkedJDKVersionForJSpecifyMode) {
+      checkedJDKVersionForJSpecifyMode = true;
+      if (config.isJSpecifyMode()
+          && !JSpecifyJavacConfig.isValidJavacConfigForJSpecifyMode(state)) {
+        String msg =
+            "Running NullAway in JSpecify mode requires either JDK 22+"
+                + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
+                + " see https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.";
+        throw new IllegalStateException(msg);
+      }
     }
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
@@ -2707,14 +2725,23 @@ public class NullAway extends BugChecker
     if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
       return true;
     }
-    // NOTE: we cannot rely on state.getPath() here to get a TreePath to the invocation, since
-    // sometimes the invocation is a sub-node of the leaf of the path.  So, here if inference runs,
-    // it will do so without an assignment context.  If this becomes a problem, we can revisit
-    if (config.isJSpecifyMode()
-        && genericsChecks
-            .getGenericReturnNullnessAtInvocation(exprSymbol, invocationTree, null, state)
-            .equals(Nullness.NULLABLE)) {
-      return true;
+    if (config.isJSpecifyMode() && exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
+      // It is important to pass a correct TreePath to getGenericReturnNullnessAtInvocation.  So, we
+      // do a search under path to find invocationTree.  This shouldn't be too costly in the common
+      // case, and it's important for correctness.
+      TreePath path = state.getPath();
+      var invocationPath = TreePath.getPath(path, invocationTree);
+      Verify.verify(
+          invocationPath != null,
+          "%s not found as a descendant of %s",
+          invocationTree,
+          path.getLeaf());
+      if (genericsChecks
+          .getGenericReturnNullnessAtInvocation(
+              exprSymbol, invocationTree, invocationPath, state, false)
+          .equals(Nullness.NULLABLE)) {
+        return true;
+      }
     }
     return false;
   }

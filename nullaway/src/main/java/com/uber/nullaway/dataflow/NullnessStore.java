@@ -16,15 +16,11 @@
 
 package com.uber.nullaway.dataflow;
 
-import static com.google.common.base.Preconditions.checkNotNull;
-import static com.google.common.collect.Sets.intersection;
-
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath.IteratorContentsKey;
-import java.util.HashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
@@ -166,20 +162,39 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   @Override
+  @SuppressWarnings("ReferenceEquality")
   public NullnessStore leastUpperBound(NullnessStore other) {
-    NullnessStore.Builder result = NullnessStore.empty().toBuilder();
-    for (AccessPath ap : intersection(contents.keySet(), other.contents.keySet())) {
-      Nullness apContents = contents.get(ap);
-      if (apContents == null) {
-        throw new RuntimeException("null contents for " + ap);
-      }
-      Nullness otherAPContents = other.contents.get(ap);
-      if (otherAPContents == null) {
-        throw new RuntimeException("null other contents for " + ap);
-      }
-      result.contents.put(ap, apContents.leastUpperBound(otherAPContents));
+    if (this == other) {
+      return this;
     }
-    return result.build();
+    ImmutableMap<AccessPath, Nullness> thisContents = this.contents;
+    int thisContentsSize = thisContents.size();
+    if (thisContentsSize == 0) {
+      return this;
+    }
+    ImmutableMap<AccessPath, Nullness> otherContents = other.contents;
+    int otherContentsSize = otherContents.size();
+    if (otherContentsSize == 0) {
+      return other;
+    }
+    ImmutableMap<AccessPath, Nullness> smallContents, largeContents;
+    if (thisContentsSize < otherContentsSize) {
+      smallContents = thisContents;
+      largeContents = otherContents;
+    } else {
+      smallContents = otherContents;
+      largeContents = thisContents;
+    }
+    ImmutableMap.Builder<AccessPath, Nullness> upperBoundContentsBuilder = ImmutableMap.builder();
+    for (Map.Entry<AccessPath, Nullness> entry : smallContents.entrySet()) {
+      AccessPath ap = entry.getKey();
+      Nullness largeValue = largeContents.get(ap);
+      if (largeValue != null) {
+        Nullness smallValue = entry.getValue();
+        upperBoundContentsBuilder.put(ap, smallValue.leastUpperBound(largeValue));
+      }
+    }
+    return new NullnessStore(upperBoundContentsBuilder.build());
   }
 
   @Override
@@ -189,6 +204,9 @@ public class NullnessStore implements Store<NullnessStore> {
 
   @Override
   public boolean equals(@Nullable Object o) {
+    if (this == o) {
+      return true;
+    }
     if (!(o instanceof NullnessStore)) {
       return false;
     }
@@ -317,11 +335,13 @@ public class NullnessStore implements Store<NullnessStore> {
 
   /** class for building up instances of the store. */
   public static final class Builder {
-    private final Map<AccessPath, Nullness> contents;
+    private final ImmutableMap.Builder<AccessPath, Nullness> contents;
 
     Builder(NullnessStore prototype) {
-
-      contents = new HashMap<>(prototype.contents);
+      contents = ImmutableMap.builder();
+      if (!prototype.contents.isEmpty()) {
+        contents.putAll(prototype.contents);
+      }
     }
 
     /**
@@ -335,7 +355,7 @@ public class NullnessStore implements Store<NullnessStore> {
      * @return the new builder
      */
     public NullnessStore.Builder setInformation(AccessPath ap, Nullness value) {
-      contents.put(checkNotNull(ap), checkNotNull(value));
+      contents.put(ap, value);
       return this;
     }
 
@@ -345,7 +365,7 @@ public class NullnessStore implements Store<NullnessStore> {
      * @return a store constructed from everything added to the builder
      */
     public NullnessStore build() {
-      return new NullnessStore(contents);
+      return new NullnessStore(contents.buildKeepingLast());
     }
   }
 }

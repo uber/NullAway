@@ -30,7 +30,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import javax.tools.DiagnosticListener;
@@ -51,11 +50,11 @@ public class NullawayJavac {
   //////////////////////
   // state required to run javac via the standard APIs
   //////////////////////
-  private List<JavaFileObject> compilationUnits;
-  private JavaCompiler compiler;
-  private @Nullable DiagnosticListener<JavaFileObject> diagnosticListener;
-  private StandardJavaFileManager fileManager;
-  private List<String> options;
+  private final List<JavaFileObject> compilationUnits;
+  private final JavaCompiler compiler;
+  private final @Nullable DiagnosticListener<JavaFileObject> diagnosticListener;
+  private final StandardJavaFileManager fileManager;
+  private final List<String> options;
 
   /**
    * Sets up compilation for a simple single source file, for testing / sanity checking purposes.
@@ -175,25 +174,33 @@ public class NullawayJavac {
     outputDir.toFile().deleteOnExit();
     this.options = new ArrayList<>();
     if (classpath != null) {
-      options.addAll(Arrays.asList("-classpath", classpath));
+      options.addAll(List.of("-classpath", classpath));
     }
     String processorPath =
         System.getProperty("java.class.path") + File.pathSeparator + extraProcessorPath;
+    // Error Prone arguments must be passed space separated with -Xplugin:ErrorProne
+    String allErrorProneArgs =
+        String.join(
+            " ",
+            List.of(
+                "-Xplugin:ErrorProne",
+                "-XepDisableAllChecks",
+                "-Xep:NullAway:ERROR",
+                "-XepOpt:NullAway:AnnotatedPackages=" + annotatedPackages,
+                String.join(" ", extraErrorProneArgs)));
     options.addAll(
-        Arrays.asList(
+        List.of(
             "-processorpath",
             processorPath,
             "-d",
             outputDir.toAbsolutePath().toString(),
             "-XDcompilePolicy=simple",
             "--should-stop=ifError=FLOW",
-            "-Xplugin:ErrorProne -XepDisableAllChecks -Xep:NullAway:ERROR -XepOpt:NullAway:AnnotatedPackages="
-                + annotatedPackages
-                + String.join(" ", extraErrorProneArgs)));
+            allErrorProneArgs));
     // add these options since we have at least one benchmark that only compiles with access to
     // javac-internal APIs
     options.addAll(
-        Arrays.asList(
+        List.of(
             "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
@@ -205,6 +212,8 @@ public class NullawayJavac {
             "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
             "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED"));
+    // for JSpecify mode (benign outside JSpecify mode)
+    options.add("-XDaddTypeAnnotationsToSymbol=true");
   }
 
   /**

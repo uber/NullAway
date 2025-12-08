@@ -23,6 +23,7 @@ package com.uber.nullaway.guava;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Assume;
@@ -58,12 +59,11 @@ public class NullAwayGuavaParametricNullnessTests {
     jspecifyCompilationHelper =
         CompilationTestHelper.newInstance(NullAway.class, getClass())
             .setArgs(
-                List.of(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:OnlyNullMarked=true",
-                    "-XepOpt:NullAway:JSpecifyMode=true",
-                    "-XDaddTypeAnnotationsToSymbol=true"));
+                JSpecifyJavacConfig.withJSpecifyModeArgs(
+                    List.of(
+                        "-d",
+                        temporaryFolder.getRoot().getAbsolutePath(),
+                        "-XepOpt:NullAway:OnlyNullMarked=true")));
   }
 
   @Test

@@ -28,6 +28,7 @@ import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
@@ -353,8 +354,18 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
   }
 
   @Override
-  public boolean onOverrideTypeParameterUpperBound(String className, int index) {
+  public boolean onOverrideClassTypeVariableUpperBound(String className, int index) {
     ImmutableSet<Integer> res = libraryModels.typeVariablesWithNullableUpperBounds().get(className);
+    return res.contains(index);
+  }
+
+  @Override
+  public boolean onOverrideMethodTypeVariableUpperBound(
+      Symbol.MethodSymbol methodSymbol, int index) {
+    ImmutableSet<Integer> res =
+        libraryModels
+            .methodTypeVariablesWithNullableUpperBounds()
+            .get(MethodRef.fromSymbol(methodSymbol));
     return res.contains(index);
   }
 
@@ -1004,6 +1015,9 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
 
     private final ImmutableSetMultimap<String, Integer> nullableVariableTypeUpperBounds;
 
+    private final ImmutableSetMultimap<MethodRef, Integer>
+        methodTypeVariablesWithNullableUpperBounds;
+
     private final ImmutableSet<String> nullMarkedClasses;
 
     private final ImmutableSet<FieldRef> nullableFields;
@@ -1022,6 +1036,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<String, Integer> nullableVariableTypeUpperBoundsBuilder =
           new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, Integer>
+          methodTypeVariableNullableUpperBoundsBuilder = new ImmutableSetMultimap.Builder<>();
       ImmutableSet.Builder<String> nullMarkedClassesBuilder = new ImmutableSet.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
@@ -1097,6 +1113,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         }
         nullableVariableTypeUpperBoundsBuilder.putAll(
             libraryModels.typeVariablesWithNullableUpperBounds());
+        methodTypeVariableNullableUpperBoundsBuilder.putAll(
+            libraryModels.methodTypeVariablesWithNullableUpperBounds());
         for (String name : libraryModels.nullMarkedClasses()) {
           nullMarkedClassesBuilder.add(name);
         }
@@ -1119,6 +1137,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
       nullableFields = nullableFieldsBuilder.build();
       nullableVariableTypeUpperBounds = nullableVariableTypeUpperBoundsBuilder.build();
+      methodTypeVariablesWithNullableUpperBounds =
+          methodTypeVariableNullableUpperBoundsBuilder.build();
       nullMarkedClasses = nullMarkedClassesBuilder.build();
     }
 
@@ -1169,6 +1189,11 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     @Override
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       return nullableVariableTypeUpperBounds;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+      return methodTypeVariablesWithNullableUpperBounds;
     }
 
     @Override
@@ -1417,8 +1442,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
         String className = outerEntry.getKey();
         for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
             outerEntry.getValue().entrySet()) {
-          String methodNameAndSignature =
-              innerEntry.getKey().substring(innerEntry.getKey().indexOf(" ") + 1);
+          String methodNameAndSignature = getMethodNameAndSignature(innerEntry.getKey());
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
@@ -1439,9 +1463,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature =
-              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-
+          String methodNameAndSignature = getMethodNameAndSignature(methodEntry.getKey());
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
             if (index >= 0) {
@@ -1467,6 +1489,13 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       return mapBuilder.build();
     }
 
+    private static String getMethodNameAndSignature(String methodInfo) {
+      int openParenIndex = methodInfo.indexOf('(');
+      Verify.verify(openParenIndex != -1, "Malformed method info: %s", methodInfo);
+      int methodNameIndex = methodInfo.lastIndexOf(' ', openParenIndex) + 1;
+      return methodInfo.substring(methodNameIndex);
+    }
+
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
       return ImmutableSetMultimap.of();
@@ -1488,9 +1517,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       for (String className : argAnnotCache.keySet()) {
         for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
             argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature =
-              methodEntry.getKey().substring(methodEntry.getKey().indexOf(" ") + 1);
-
+          String methodNameAndSignature = getMethodNameAndSignature(methodEntry.getKey());
           for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
             Integer index = argEntry.getKey();
             if (index == -1) {

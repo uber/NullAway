@@ -19,6 +19,8 @@ import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.dataflow.AccessPath;
 import java.util.function.Predicate;
+import javax.lang.model.element.AnnotationMirror;
+import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
 public class SynchronousCallbackHandler extends BaseNoOpHandler {
 
@@ -67,6 +69,11 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
         // preserve access paths for all callbacks passed to stream methods
         return TRUE_AP_PREDICATE;
       }
+      // If the callee is a method that preserves the nullability of lambdas passed as parameters.
+      // (e.g., annotated with @PureExceptLambda).
+      if (isMethodPureExceptLambda(symbol)) {
+        return TRUE_AP_PREDICATE;
+      }
       String invokedMethodName = symbol.getSimpleName().toString();
       if (METHOD_NAME_TO_SIG_AND_PARAM_INDEX.containsKey(invokedMethodName)) {
         ImmutableMap<MethodRef, Integer> entriesForMethodName =
@@ -90,5 +97,17 @@ public class SynchronousCallbackHandler extends BaseNoOpHandler {
       }
     }
     return FALSE_AP_PREDICATE;
+  }
+
+  private boolean isMethodPureExceptLambda(Symbol.MethodSymbol methodSymbol) {
+    for (AnnotationMirror annotation : methodSymbol.getAnnotationMirrors()) {
+      String name = AnnotationUtils.annotationName(annotation);
+      int lastDot = name.lastIndexOf('.');
+      String simpleName = lastDot == -1 ? name : name.substring(lastDot + 1);
+      if (simpleName.equals("PureExceptLambda")) {
+        return true;
+      }
+    }
+    return false;
   }
 }

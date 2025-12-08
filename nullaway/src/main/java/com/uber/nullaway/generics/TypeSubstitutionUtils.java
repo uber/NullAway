@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotsOnTypeVarsFromSubtypes;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
+import com.google.common.base.Verify;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -268,6 +269,30 @@ public class TypeSubstitutionUtils {
             Collections.singletonList(new Attribute.TypeCompound(annotType, List.nil(), null)));
     TypeMetadata typeMetadata = TYPE_METADATA_BUILDER.create(annotationCompound);
     return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(t, typeMetadata);
+  }
+
+  /**
+   * Removes the {@code @Nullable} annotation from the given type.
+   *
+   * @param argumentType the type from which to remove the {@code @Nullable} annotation (it must be
+   *     present)
+   * @param config the NullAway config
+   * @return the type without the {@code @Nullable} annotation
+   */
+  public static Type removeNullableAnnotation(Type argumentType, Config config) {
+    ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
+    boolean removedNullable = false;
+    for (Attribute.TypeCompound annot : argumentType.getAnnotationMirrors()) {
+      String annotationName = annot.type.toString();
+      if (Nullness.isNullableAnnotation(annotationName, config)) {
+        removedNullable = true;
+        continue;
+      }
+      updatedAnnotations.append(annot);
+    }
+    Verify.verify(removedNullable);
+    return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+        argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
   }
 
   /**

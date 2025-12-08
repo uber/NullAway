@@ -2,6 +2,7 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import org.junit.Ignore;
 import org.junit.Test;
@@ -424,7 +425,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    }",
             "    // this method should have no errors once we support inference for generic methods",
             "    public static void requiresInferenceSupport() {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
             "        Todo.foo(() -> null);",
             "    }",
             "    @FunctionalInterface",
@@ -773,7 +773,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("need better support for generics inference combined with local vars")
   @Test
   public void firstOrDefaultLocalVarParam() {
     makeHelper()
@@ -798,6 +797,131 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: dereferenced expression result is @Nullable",
             "    result.hashCode();",
             "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void localsWithTypesFromDataflow() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    void testPositive() {",
+            "        String s = null;",
+            "        String t = id(s);",
+            "        // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "        t.hashCode();",
+            "    }",
+            "    void testNegative() {",
+            "        String s = \"hello\";",
+            "        String t = id(s);",
+            "        t.hashCode();",
+            "    }",
+            "    String field = \"hello\";",
+            "    void testField() {",
+            "        String s = null;",
+            "        // BUG: Diagnostic contains: Failed to infer type argument nullability",
+            "        field = id(s);",
+            "    }",
+            "    @Nullable String field2 = null;",
+            "    void testField2() {",
+            "        String s = null;",
+            "        field2 = id(s);",
+            "        // BUG: Diagnostic contains: dereferenced expression field2 is @Nullable",
+            "        field2.hashCode();",
+            "        s = \"hello\";",
+            "        field2 = id(s);",
+            "        field2.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void dataflowAndLoops() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    void testLoop1() {",
+            "        String s = \"hello\";",
+            "        while (true) {",
+            "            String t = id(s);",
+            "            // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "            t.hashCode();",
+            "            s = null;",
+            "        }",
+            "    }",
+            "    void testLoop2() {",
+            "        String t = \"hello\";",
+            "        while (true) {",
+            "            // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "            t.hashCode();",
+            "            String s = null;",
+            "            t = id(s);",
+            "        }",
+            "    }",
+            "    void testLoop3() {",
+            "        String t = \"hello\";",
+            "        String s = \"hello\";",
+            "        t.hashCode();",
+            "        int i = 2;",
+            "        while (i > 0) {",
+            "            t = id(s);",
+            "            s = null;",
+            "            i--;",
+            "        }",
+            "        // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "        t.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void otherExprsWithTypesFromDataflow() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "    static <T extends @Nullable Object> T id(T t) {",
+            "        return t;",
+            "    }",
+            "    @Nullable String field;",
+            "    void testPositive() {",
+            "        String t = id(field);",
+            "        // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "        t.hashCode();",
+            "    }",
+            "    void testNegative() {",
+            "        if (field != null) {",
+            "            String t = id(field);",
+            "            t.hashCode();",
+            "        }",
+            "    }",
+            "    void testUnsupported() {",
+            "        String s = \"hello\";",
+            "        // dataflow can't prove the argument is non-null",
+            "        // BUG: Diagnostic contains: passing @Nullable parameter 's == null ? null : s'",
+            "        String t = id(s == null ? null : s);",
+            "        t.hashCode();",
+            "    }",
             "}")
         .doTest();
   }
@@ -854,7 +978,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("need better handling of lambdas")
   @Test
   public void supplierLambdaInference() {
     makeHelperWithInferenceFailureWarning()
@@ -863,8 +986,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "class Test {",
-            "    static interface Supplier<R extends @Nullable Object> {",
-            "        R get();",
+            "    static interface Supplier<T extends @Nullable Object> {",
+            "        T get();",
             "    }",
             "    static <R> void invoke(Supplier<@Nullable R> supplier) {}",
             "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
@@ -877,6 +1000,58 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "        Object x = invokeWithReturn(() -> null);",
             "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
             "        x.hashCode();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void lambdaReturnsGenericMethodCall() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "class Test {",
+            "    static interface Supplier<T extends @Nullable Object> {",
+            "        T get();",
+            "    }",
+            "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
+            "        return supplier.get();",
+            "    }",
+            "    static <U extends @Nullable Object> U genericMethod(U var){",
+            "         return var;",
+            "    }",
+            "    static void test() {",
+            "        Object x = invokeWithReturn(() -> { return genericMethod(\"value\");});",
+            "        Object y = invokeWithReturn(() -> { return genericMethod(null);});",
+            "        // legal, should infer x is a @NonNull String",
+            "        x.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y is @Nullable",
+            "        y.hashCode();",
+            "        // Block-bodied with parenthesized return",
+            "        Object x_block_paren = invokeWithReturn(() -> { return (genericMethod(\"value\"));});",
+            "        Object y_block_paren = invokeWithReturn(() -> { return (genericMethod(null));});",
+            "        // legal, should infer x_block_paren is a @NonNull String",
+            "        x_block_paren.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y_block_paren is @Nullable",
+            "        y_block_paren.hashCode();",
+            "        // Expression-bodied",
+            "        Object x_expr = invokeWithReturn(() -> genericMethod(\"value\"));",
+            "        Object y_expr = invokeWithReturn(() -> genericMethod(null));",
+            "        // legal, should infer x_expr is a @NonNull String",
+            "        x_expr.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y_expr is @Nullable",
+            "        y_expr.hashCode();",
+            "        // Expression-bodied with parenthesized return",
+            "        Object x_expr_paren = invokeWithReturn(() -> (genericMethod(\"value\")));",
+            "        Object y_expr_paren = invokeWithReturn(() -> (genericMethod(null)));",
+            "        // legal, should infer x_expr_paren is a @NonNull String",
+            "        x_expr_paren.hashCode();",
+            "        // BUG: Diagnostic contains: dereferenced expression y_expr_paren is @Nullable",
+            "        y_expr_paren.hashCode();",
+            "        // TODO",
+            "        // Object x2 = invokeWithReturn(() ->{ Object y2 = null; return y2;});",
             "    }",
             "}")
         .doTest();
@@ -1108,45 +1283,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * Extracted from Caffeine; exposed some subtle bugs in substitutions involving identity of {@code
-   * Type} objects
-   */
-  @Test
-  public void nullableWildcardFromCaffeine() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class Test {",
-            "    public interface CacheLoader<K, V extends @Nullable Object> {}",
-            "    static class JCacheLoaderAdapter<K, V> implements CacheLoader<K, @Nullable Expirable<V>> {}",
-            "    static class Expirable<V> {}",
-            "    static class Caffeine<K, V> {",
-            "        public <K1 extends K, V1 extends @Nullable V> Object build(",
-            "                CacheLoader<? super K1, V1> loader) {",
-            "            throw new RuntimeException();",
-            "        }",
-            "    }",
-            "    class Builder<K, V> {",
-            "        Caffeine<Object, Object> caffeine = new Caffeine<>();",
-            "        void test() {",
-            "            JCacheLoaderAdapter<K, V> adapter = new JCacheLoaderAdapter<>();",
-            "            caffeine.<K, @Nullable Expirable<V>>build(adapter);",
-            "            // also works with inference",
-            "            Object o = caffeine.build(adapter);",
-            "        }",
-            "    }",
-            "}")
-        .doTest();
-  }
-
   /** various cases where dataflow analysis forces inference to run for a generic method call */
   @Test
   public void inferenceFromDataflow() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             "import org.jspecify.annotations.NullMarked;",
@@ -1160,7 +1300,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // to ensure that dataflow runs",
             "    Object x = new Object(); x.toString();",
             "    Object y = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required",
+            "    // BUG: Diagnostic contains: dereferenced expression id(y) is @Nullable",
             "    id(y).toString();",
             "  }",
             "  static Object testReturn() {",
@@ -1246,17 +1386,62 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1294_lambdaArguments() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Foo {",
+            " public interface Callback<T extends @Nullable Object> {",
+            "   void onResult(T thing);",
+            " }",
+            " public static <T extends @Nullable Object> Callback<T> wrap(Callback<T> thing) {",
+            "   return thing;",
+            " }",
+            " public static void test() {",
+            "   Callback<@Nullable String> ret1 = wrap(s -> {});",
+            // we should get an error at the s.hashCode() call.
+            "   // BUG: Diagnostic contains: dereferenced expression",
+            "   Callback<@Nullable String> ret2 = wrap(s -> { s.hashCode(); });",
+            "   Callback<@Nullable String> ret3 = wrap(s -> { if (s != null) s.hashCode(); });",
+            "   Callback<String> ret4 = wrap(s -> { s.hashCode(); });",
+            "   }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void instanceGenericMethodWithMethodRefArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.List;",
+            "import java.util.function.Consumer;",
+            "@NullMarked",
+            "class Test {",
+            "        public <E extends Enum<E>> void visitEnum(String descriptor, String value, Consumer<E> consumer) {}",
+            "        void test(String s1, String s2, List<Object> l) {",
+            "            visitEnum(s1, s2, l::add);",
+            "        }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:JSpecifyMode=true",
-            "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true"));
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList(
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")));
   }
 }

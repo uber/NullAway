@@ -26,7 +26,6 @@ import static com.google.errorprone.BugCheckerRefactoringTestHelper.TestMode.TEX
 
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.sun.source.tree.Tree;
-import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.io.IOException;
 import org.junit.Rule;
 import org.junit.Test;
@@ -44,8 +43,6 @@ public class AutoSuggestTest {
         .setArgs(
             "-d",
             temporaryFolder.getRoot().getAbsolutePath(),
-            "-processorpath",
-            TestLibraryModels.class.getProtectionDomain().getCodeSource().getLocation().getPath(),
             "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex",
             "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
             "-XepOpt:NullAway:SuggestSuppressions=true");
@@ -157,32 +154,6 @@ public class AutoSuggestTest {
             "class Test {",
             "  Object test1(Object o) {",
             "    return castToNonNull(o);",
-            "  }",
-            "}")
-        .addOutputLines(
-            "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
-            "class Test {",
-            "  Object test1(Object o) {",
-            "    return o;",
-            "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void removeUnnecessaryCastToNonNullFromLibraryModel() throws IOException {
-    makeTestHelper()
-        .addInputLines(
-            "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
-            "class Test {",
-            "  Object test1(Object o) {",
-            "    return castToNonNull(\"CAST_REASON\",o,42);",
             "  }",
             "}")
         .addOutputLines(

@@ -33,6 +33,7 @@ import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
 import com.uber.nullaway.tools.FieldInitDisplay;
@@ -2132,13 +2133,13 @@ public class SerializationTest extends NullAwayTestsBase {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:SerializeFixMetadata=true",
+                    "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
         .addSourceLines(
             "com/uber/A.java",
             "package com.uber;",
@@ -2174,13 +2175,13 @@ public class SerializationTest extends NullAwayTestsBase {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:SerializeFixMetadata=true",
+                    "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
         .addSourceLines(
             "com/uber/A.java",
             "package com.uber;",
@@ -2216,13 +2217,13 @@ public class SerializationTest extends NullAwayTestsBase {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
     tester
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:SerializeFixMetadata=true",
+                    "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
         .addSourceLines(
             "com/uber/A.java",
             "package com.uber;",

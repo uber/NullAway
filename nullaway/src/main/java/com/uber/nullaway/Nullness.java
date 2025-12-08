@@ -68,15 +68,10 @@ public enum Nullness implements AbstractValue<Nullness> {
    * {@code symbol}. Used to reason whether a field may be null.
    */
   public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
-    return hasNullableOrMonotonicNonNullAnnotation(
-        NullabilityUtil.getAllAnnotations(symbol, config), config);
-  }
-
-  private static boolean hasNullableOrMonotonicNonNullAnnotation(
-      Stream<? extends AnnotationMirror> annotations, Config config) {
-    return annotations
-        .map(anno -> anno.getAnnotationType().toString())
-        .anyMatch(anno -> isNullableAnnotation(anno, config) || isMonotonicNonNullAnnotation(anno));
+    return NullabilityUtil.hasAnyAnnotationMatching(
+        symbol,
+        config,
+        annot -> isNullableAnnotation(annot, config) || isMonotonicNonNullAnnotation(annot));
   }
 
   // The following leastUpperBound and greatestLowerBound methods were created by handwriting a
@@ -219,7 +214,8 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNonNullAnnotation(Symbol symbol, Config config) {
-    return hasNonNullAnnotation(NullabilityUtil.getAllAnnotations(symbol, config), config);
+    return NullabilityUtil.hasAnyAnnotationMatching(
+        symbol, config, annot -> isNonNullAnnotation(annot, config));
   }
 
   /**
@@ -230,7 +226,8 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNullableAnnotation(Symbol symbol, Config config) {
-    return hasNullableAnnotation(NullabilityUtil.getAllAnnotations(symbol, config), config);
+    return NullabilityUtil.hasAnyAnnotationMatching(
+        symbol, config, annot -> isNullableAnnotation(annot, config));
   }
 
   private static boolean hasNullableTypeUseAnnotation(Symbol symbol, Config config) {
@@ -316,11 +313,21 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   /** Checks if the symbol has a {@code @Nullable} declaration annotation */
   public static boolean hasNullableDeclarationAnnotation(Symbol symbol, Config config) {
-    return hasNullableAnnotation(symbol.getRawAttributes().stream(), config);
+    for (AnnotationMirror annotationMirror : symbol.getRawAttributes()) {
+      if (isNullableAnnotation(annotationMirror.getAnnotationType().toString(), config)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Checks if the symbol has a {@code @NonNull} declaration annotation */
   public static boolean hasNonNullDeclarationAnnotation(Symbol symbol, Config config) {
-    return hasNonNullAnnotation(symbol.getRawAttributes().stream(), config);
+    for (AnnotationMirror annotationMirror : symbol.getRawAttributes()) {
+      if (isNonNullAnnotation(annotationMirror.getAnnotationType().toString(), config)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

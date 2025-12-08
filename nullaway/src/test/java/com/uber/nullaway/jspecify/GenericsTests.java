@@ -2,6 +2,7 @@ package com.uber.nullaway.jspecify;
 
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Ignore;
@@ -234,6 +235,91 @@ public class GenericsTests extends NullAwayTestsBase {
             "  static @Nullable Wrapper<@Nullable String>.Fn<String> negativeReturn() {",
             "    Wrapper<@Nullable String>.Fn<String> p1 = null;",
             "    return p1;",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void thisUsageInAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface Callback<T extends @Nullable Object> {",
+            "    void onResult(T result);",
+            "  }",
+            "  static void addCallback(Callback<@Nullable Integer> cb) {}",
+            "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
+            "  public void testNegative() {",
+            "    addCallback(",
+            "        new Callback<@Nullable Integer>() {",
+            "          @Override",
+            "          public void onResult(@Nullable Integer value) {",
+            "            removeCallback(this);",
+            "          }",
+            "          void callOnResult() {",
+            "            this.onResult(null);",
+            "          }",
+            "        });",
+            "  }",
+            "  public void testPositive() {",
+            "    addCallback(",
+            "        // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "        new Callback<Integer>() {",
+            "          @Override",
+            "          public void onResult(Integer value) {",
+            "            // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>",
+            "            removeCallback(this);",
+            "          }",
+            "          void callOnResult() {",
+            "            // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
+            "            this.onResult(null);",
+            "          }",
+            "        });",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void thisUsageInAnonymousClassWithDiamonds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface Callback<T extends @Nullable Object> {",
+            "    void onResult(T result);",
+            "  }",
+            "  static void addCallback(Callback<@Nullable Integer> cb) {}",
+            "  static void removeCallback(Callback<@Nullable Integer> cb) {}",
+            "  public void testNegativeDiamond() {",
+            "    addCallback(",
+            "        new Callback<>() {",
+            "          @Override",
+            "          public void onResult(@Nullable Integer value) {",
+            "            // TODO: we should infer Callback<@Nullable Integer> for the anonymous class and not report an error",
+            "            // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
+            "  }",
+            "  public void testPositiveDiamond() {",
+            "    addCallback(",
+            "        new Callback<>() {",
+            "          @Override",
+            "          public void onResult(Integer value) {",
+            "            // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>",
+            "            removeCallback(this);",
+            "          }",
+            "        });",
             "  }",
             "}")
         .doTest();
@@ -2663,10 +2749,60 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nonNullInReturnTypeArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface MaybeNull<T extends @Nullable Object> {",
+            "    T get();",
+            "    default MaybeNull<@NonNull T> asNonNull() {",
+            "      return (MaybeNull<@NonNull T>) this;",
+            "    }",
+            "  }",
+            "  static void accept(MaybeNull<String> nonNullThing) {}",
+            "  static void test(MaybeNull<@Nullable String> nullable) {",
+            "    accept(nullable.asNonNull());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nonNullInFieldTypeArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  static class Foo<T extends @Nullable Object> {",
+            "    Foo<@NonNull T> nonNullField = new Foo<>();",
+            "    Foo<@Nullable T> nullableField = new Foo<>();",
+            "    static void test(Foo<@Nullable String> nullableFoo, Foo<@NonNull String> nonnullFoo) {",
+            "      // BUG: Diagnostic contains: incompatible types: Foo<@NonNull String> cannot be converted to Foo<@Nullable String>",
+            "      Foo<@Nullable String> f1 = nullableFoo.nonNullField;",
+            "      Foo<String> f2 = nullableFoo.nonNullField;",
+            "      Foo<@Nullable String> f3 = nonnullFoo.nullableField;",
+            "      // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>",
+            "      Foo<String> f4 = nonnullFoo.nullableField;",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber", "-XepOpt:NullAway:JSpecifyMode=true"));
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 
   private CompilationTestHelper makeHelperWithoutJSpecifyMode() {

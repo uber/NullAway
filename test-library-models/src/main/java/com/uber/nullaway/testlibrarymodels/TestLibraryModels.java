@@ -89,6 +89,7 @@ public class TestLibraryModels implements LibraryModels {
             methodRef(
                 "com.uber.nullaway.testdata.Util", "<T>castToNonNull(java.lang.String,T,int)"),
             1)
+        .put(methodRef("com.uber.Test", "<T>castToNonNull(java.lang.String,T,int)"), 1)
         .build();
   }
 
@@ -141,5 +142,11 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableSet<String> nullMarkedClasses() {
     return ImmutableSet.of("com.uber.lib.unannotated.ProviderNullMarkedViaModel");
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+    return ImmutableSetMultimap.of(
+        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0);
   }
 }

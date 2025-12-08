@@ -24,7 +24,8 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Not safe to run multiple times; create a fresh visitor for each root type to scan.
  */
-public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<Void, Void> {
+public final class TypeVarWithSymbolCollector
+    extends Types.DefaultTypeVisitor<@Nullable Void, @Nullable Void> {
 
   private final Element symbol;
   private final Set<TypeVar> matches = new LinkedHashSet<>();
@@ -49,7 +50,7 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
 
   // ---- Core matching logic ----
   @Override
-  public Void visitTypeVar(TypeVar t, Void p) {
+  public @Nullable Void visitTypeVar(TypeVar t, @Nullable Void p) {
     if (t.tsym == symbol) {
       matches.add(t);
     }
@@ -60,7 +61,7 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
 
   // ---- Common container types ----
   @Override
-  public Void visitClassType(ClassType t, Void p) {
+  public @Nullable Void visitClassType(ClassType t, @Nullable Void p) {
     for (Type arg : t.getTypeArguments()) {
       scan(arg);
     }
@@ -70,20 +71,20 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
   }
 
   @Override
-  public Void visitArrayType(ArrayType t, Void p) {
+  public @Nullable Void visitArrayType(ArrayType t, @Nullable Void p) {
     scan(t.getComponentType());
     return null;
   }
 
   @Override
-  public Void visitWildcardType(WildcardType t, Void p) {
+  public @Nullable Void visitWildcardType(WildcardType t, @Nullable Void p) {
     scan(t.getExtendsBound());
     scan(t.getSuperBound());
     return null;
   }
 
   @Override
-  public Void visitCapturedType(CapturedType t, Void p) {
+  public @Nullable Void visitCapturedType(CapturedType t, @Nullable Void p) {
     scan(t.getUpperBound());
     scan(t.getLowerBound());
     scan(t.wildcard);
@@ -92,7 +93,7 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
 
   // ---- Functional / executable types ----
   @Override
-  public Void visitMethodType(MethodType t, Void p) {
+  public @Nullable Void visitMethodType(MethodType t, @Nullable Void p) {
     scan(t.getReturnType());
     for (Type pt : t.getParameterTypes()) {
       scan(pt);
@@ -104,7 +105,7 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
   }
 
   @Override
-  public Void visitForAll(ForAll t, Void p) {
+  public @Nullable Void visitForAll(ForAll t, @Nullable Void p) {
     scan(t.qtype);
     for (Type type : t.getTypeArguments()) {
       scan(type);
@@ -114,7 +115,7 @@ public final class TypeVarWithSymbolCollector extends Types.DefaultTypeVisitor<V
 
   // ---- Trivial / leaf types we don't need to descend into ----
   @Override
-  public Void visitType(Type t, Void p) {
+  public @Nullable Void visitType(Type t, @Nullable Void p) {
     // Fallback: best-effort traversal via type arguments, if any.
     for (Type arg : t.getTypeArguments()) {
       scan(arg);

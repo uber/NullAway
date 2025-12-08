@@ -28,6 +28,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.ThrowNode;
 import org.checkerframework.nullaway.javacutil.AnnotationProvider;
 import org.checkerframework.nullaway.javacutil.BasicAnnotationProvider;
 import org.checkerframework.nullaway.javacutil.trees.TreeBuilder;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A NullAway specific CFGBuilder subclass, which allows to more directly control the AST to CFG
@@ -222,7 +223,7 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
     }
 
     @Override
-    public MethodInvocationNode visitMethodInvocation(MethodInvocationTree tree, Void p) {
+    public MethodInvocationNode visitMethodInvocation(MethodInvocationTree tree, @Nullable Void p) {
       MethodInvocationNode originalNode = super.visitMethodInvocation(tree, null);
       return handler.onCFGBuildPhase1AfterVisitMethodInvocation(this, tree, originalNode);
     }

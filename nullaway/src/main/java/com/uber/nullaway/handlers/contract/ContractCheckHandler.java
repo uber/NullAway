@@ -40,6 +40,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.BaseNoOpHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.util.Set;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This Handler parses @Contract-style annotations (JetBrains or any annotation with simple name
@@ -134,9 +135,9 @@ public class ContractCheckHandler extends BaseNoOpHandler {
       }
 
       // we scan the method tree for the return nodes and check the contract
-      new TreePathScanner<Void, Void>() {
+      new TreePathScanner<@Nullable Void, @Nullable Void>() {
         @Override
-        public Void visitReturn(ReturnTree returnTree, Void unused) {
+        public @Nullable Void visitReturn(ReturnTree returnTree, @Nullable Void unused) {
 
           VisitorState returnState = state.withPath(getCurrentPath());
           Nullness nullness =

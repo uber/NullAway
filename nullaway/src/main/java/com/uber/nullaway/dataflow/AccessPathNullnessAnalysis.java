@@ -73,7 +73,11 @@ public final class AccessPathNullnessAnalysis {
             .build();
     this.nullnessPropagation =
         new AccessPathNullnessPropagation(
-            Nullness.NONNULL, state, apContext, analysis, new CoreNullnessStoreInitializer());
+            Nullness.NONNULL,
+            state,
+            apContext,
+            analysis,
+            new CoreNullnessStoreInitializer(analysis.getGenericsChecks()));
     this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
 
     if (config.checkContracts()) {
@@ -108,7 +112,19 @@ public final class AccessPathNullnessAnalysis {
    * @return nullness info for expression, from dataflow
    */
   public @Nullable Nullness getNullness(TreePath exprPath, Context context) {
-    return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation);
+    return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation, false);
+  }
+
+  /**
+   * Get the nullness info for an expression from the current running dataflow analysis (so it may
+   * not be the final result).
+   *
+   * @param exprPath tree path of expression
+   * @param context Javac context
+   * @return nullness info for expression, from running dataflow
+   */
+  public @Nullable Nullness getNullnessFromRunning(TreePath exprPath, Context context) {
+    return dataFlow.expressionDataflow(exprPath, context, nullnessPropagation, true);
   }
 
   /**
@@ -121,7 +137,7 @@ public final class AccessPathNullnessAnalysis {
    */
   public @Nullable Nullness getNullnessForContractDataflow(TreePath exprPath, Context context) {
     return dataFlow.expressionDataflow(
-        exprPath, context, castToNonNull(contractNullnessPropagation));
+        exprPath, context, castToNonNull(contractNullnessPropagation), false);
   }
 
   /**

@@ -173,6 +173,8 @@ public class ContractsTests extends NullAwayTestsBase {
             "public class NullnessChecker {",
             "  @Contract(\"!null -> !null\")",
             "  static @Nullable Object noOp(@Nullable Object o) { return o; }",
+            "  @Contract(\"null -> null\")",
+            "  static @Nullable Object uselessContract(@Nullable Object o) { return o; }",
             "}")
         .addSourceLines(
             "Test.java",
@@ -189,6 +191,11 @@ public class ContractsTests extends NullAwayTestsBase {
             "  Object test3(@Nullable Object o1) {",
             "    // BUG: Diagnostic contains: returning @Nullable expression",
             "    return NullnessChecker.noOp(o1);",
+            "  }",
+            "  Object test4(Object o4) {",
+            "    // still get a report here since the @Contract annotation doesn't help",
+            "    // BUG: Diagnostic contains: returning @Nullable expression",
+            "    return NullnessChecker.uselessContract(o4);",
             "  }",
             "}")
         .doTest();
