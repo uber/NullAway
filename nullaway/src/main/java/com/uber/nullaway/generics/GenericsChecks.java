@@ -472,9 +472,9 @@ public final class GenericsChecks {
       } else {
         result = ASTHelpers.getType(tree);
         if (result != null) {
+          // for method invocations and field reads, there may be annotations on type variables in
+          // the return / field type that need to be restored
           if (tree instanceof MethodInvocationTree) {
-            // the return type could have explicitly-annotated type variables, so do the necessary
-            // annotation replacements
             MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
             Type returnType = castToNonNull(ASTHelpers.getSymbol(invocationTree)).getReturnType();
             result =
