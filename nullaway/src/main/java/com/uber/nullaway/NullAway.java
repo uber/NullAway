@@ -496,7 +496,7 @@ public class NullAway extends BugChecker
    * @param treePath either a lambda or a local / anonymous class, identified by its tree path
    * @param state visitor state
    */
-  private void updateEnvironmentMapping(TreePath treePath, VisitorState state) {
+  public void updateEnvironmentMapping(TreePath treePath, VisitorState state) {
     AccessPathNullnessAnalysis analysis = getNullnessAnalysis(state);
     // two notes:
     // 1. we are free to take local variable information from the program point before
@@ -2818,7 +2818,7 @@ public class NullAway extends BugChecker
    * @param expr a potentially parenthesised expression.
    * @return the same expression without parentheses.
    */
-  private static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
+  public static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
     boolean someChange = true;
     while (someChange) {
       someChange = false;

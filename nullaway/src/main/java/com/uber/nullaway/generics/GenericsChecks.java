@@ -62,6 +62,7 @@ import java.util.concurrent.atomic.AtomicReference;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.type.ExecutableType;
+import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
@@ -851,17 +852,24 @@ public final class GenericsChecks {
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Tree body = lambda.getBody();
+    // augment our current TreePath so that the lambda is the leaf, in case dataflow analysis needs
+    // to be run within it
+    if (path == null) {
+      path = state.getPath();
+    }
+    TreePath lambdaPath = new TreePath(path, lambda);
     if (body instanceof ExpressionTree) {
       // Case 1: Expression body, e.g., () -> null
       ExpressionTree returnedExpression = (ExpressionTree) body;
       generateConstraintsForPseudoAssignment(
-          state, path, solver, allInvocations, returnedExpression, fiReturnType);
+          state, lambdaPath, solver, allInvocations, returnedExpression, fiReturnType);
     } else if (body instanceof BlockTree) {
       // Case 2: Block body, e.g., () -> { return null; }
+      // TODO add tests for dataflow for this case
       List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
       for (ExpressionTree returnExpr : returnExpressions) {
         generateConstraintsForPseudoAssignment(
-            state, path, solver, allInvocations, returnExpr, fiReturnType);
+            state, lambdaPath, solver, allInvocations, returnExpr, fiReturnType);
       }
     }
   }
@@ -946,12 +954,11 @@ public final class GenericsChecks {
    * @return the refined type of the argument
    */
   private Type refineArgumentTypeWithDataflow(
-      Type argumentType, ExpressionTree argument, VisitorState state, @Nullable TreePath path) {
-    if (argumentType.isPrimitive()) {
-      return argumentType;
-    }
-    Symbol argumentSymbol = ASTHelpers.getSymbol(argument);
-    if (argumentSymbol == null) {
+      Type argumentType,
+      ExpressionTree argument,
+      VisitorState state,
+      @Nullable TreePath path) {
+    if (!shouldRunDataflowForExpression(argumentType, argument)) {
       return argumentType;
     }
     TreePath currentPath = path != null ? path : state.getPath();
@@ -966,6 +973,21 @@ public final class GenericsChecks {
     if (enclosingPath == null) {
       return argumentType;
     }
+    if (enclosingPath.getLeaf() instanceof LambdaExpressionTree) {
+      // need to force dataflow to run on the enclosing method / lambda / initializer first, to
+      // ensure enclosing environment nullness is set
+      TreePath enclosingForLambda =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(enclosingPath);
+      if (enclosingForLambda == null) {
+        return argumentType;
+      } else {
+        boolean didRun =
+            analysis.getNullnessAnalysis(state).forceRunOnMethod(enclosingForLambda, state.context);
+        if (didRun) {
+          analysis.updateEnvironmentMapping(enclosingPath, state);
+        }
+      }
+    }
     Nullness refinedNullness;
     AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
     if (nullnessAnalysis.isRunning(enclosingPath, state.context)) {
@@ -979,6 +1001,28 @@ public final class GenericsChecks {
       return argumentType;
     }
     return updateTypeWithNullness(state, argumentType, refinedNullness);
+  }
+
+  private static boolean shouldRunDataflowForExpression(Type exprType, ExpressionTree expr) {
+    if (exprType.isPrimitive() || exprType instanceof NullType) {
+      return false;
+    }
+    expr = NullAway.stripParensAndCasts(expr);
+    switch (expr.getKind()) {
+      case ARRAY_ACCESS:
+      case MEMBER_SELECT:
+      case METHOD_INVOCATION:
+      case IDENTIFIER:
+      case ASSIGNMENT:
+      case CONDITIONAL_EXPRESSION:
+        return true;
+      default:
+        // match switch expressions by comparing strings, so the code compiles on JDK versions < 12
+        if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
+          return true;
+        }
+        return false;
+    }
   }
 
   private Type updateTypeWithNullness(
