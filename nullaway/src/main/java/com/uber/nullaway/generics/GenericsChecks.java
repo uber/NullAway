@@ -962,14 +962,15 @@ public final class GenericsChecks {
     // discover the enclosing method/lambda/initializer, and for that purpose this should be
     // sufficient.
     TreePath argumentPath = new TreePath(currentPath, argument);
-    if (NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath) == null) {
+    TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath);
+    if (enclosingPath == null) {
       return argumentType;
     }
     Nullness refinedNullness;
     AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
     // TODO don't call with argumentPath!  Call with path to containing method/lambda/initializer
     // instead
-    if (nullnessAnalysis.isRunning(argumentPath, state.context)) {
+    if (nullnessAnalysis.isRunning(enclosingPath, state.context)) {
       // dataflow analysis is already running, so just get the current dataflow value for the
       // argument
       refinedNullness = nullnessAnalysis.getNullnessFromRunning(argumentPath, state.context);
