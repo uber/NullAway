@@ -968,8 +968,6 @@ public final class GenericsChecks {
     }
     Nullness refinedNullness;
     AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
-    // TODO don't call with argumentPath!  Call with path to containing method/lambda/initializer
-    // instead
     if (nullnessAnalysis.isRunning(enclosingPath, state.context)) {
       // dataflow analysis is already running, so just get the current dataflow value for the
       // argument
