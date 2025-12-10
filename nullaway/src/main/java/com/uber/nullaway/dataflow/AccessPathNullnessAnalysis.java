@@ -24,7 +24,11 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
+import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.Config;
@@ -382,5 +386,25 @@ public final class AccessPathNullnessAnalysis {
   /** invalidate all caches */
   public void invalidateCaches() {
     dataFlow.invalidateCaches();
+  }
+
+  /**
+   * Check if dataflow analysis is currently running for the method / lambda / initializer at the
+   * given TreePath.
+   *
+   * @param path tree path to check
+   * @param context Javac context
+   * @return true if dataflow analysis is currently running for the given path
+   */
+  public boolean isRunning(TreePath path, Context context) {
+    Tree leaf = path.getLeaf();
+    Preconditions.checkArgument(
+        leaf instanceof MethodTree
+            || leaf instanceof LambdaExpressionTree
+            || leaf instanceof BlockTree
+            || leaf instanceof VariableTree,
+        "Leaf of methodPath must be of type MethodTree, LambdaExpressionTree, BlockTree, or VariableTree, but was %s",
+        leaf.getClass().getName());
+    return dataFlow.isRunning(path, context, nullnessPropagation);
   }
 }
