@@ -383,4 +383,8 @@ public final class AccessPathNullnessAnalysis {
   public void invalidateCaches() {
     dataFlow.invalidateCaches();
   }
+
+  public boolean isRunning(TreePath argumentPath, Context context) {
+    return dataFlow.isRunning(argumentPath, context, nullnessPropagation);
+  }
 }
