@@ -312,6 +312,15 @@ public final class DataFlow {
     analysisCache.invalidateAll();
   }
 
+  /**
+   * Check whether the dataflow analysis is currently running for the method, lambda or initializer
+   * which is the leaf of {@code path}.
+   *
+   * @param path path to method, lambda or initializer
+   * @param context Javac context
+   * @param transfer transfer functions
+   * @return true if the analysis is currently running for the given method, lambda or initializer
+   */
   public boolean isRunning(TreePath path, Context context, AccessPathNullnessPropagation transfer) {
     ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
     ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
