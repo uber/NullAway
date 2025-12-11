@@ -954,10 +954,7 @@ public final class GenericsChecks {
    * @return the refined type of the argument
    */
   private Type refineArgumentTypeWithDataflow(
-      Type argumentType,
-      ExpressionTree argument,
-      VisitorState state,
-      @Nullable TreePath path) {
+      Type argumentType, ExpressionTree argument, VisitorState state, @Nullable TreePath path) {
     if (!shouldRunDataflowForExpression(argumentType, argument)) {
       return argumentType;
     }
@@ -981,6 +978,8 @@ public final class GenericsChecks {
       if (enclosingForLambda == null) {
         return argumentType;
       } else {
+        // TODO BUG FIX we need to always update the environment mapping, even if the dataflow
+        //  analysis is currently running
         boolean didRun =
             analysis.getNullnessAnalysis(state).forceRunOnMethod(enclosingForLambda, state.context);
         if (didRun) {
@@ -997,6 +996,8 @@ public final class GenericsChecks {
     } else {
       refinedNullness = nullnessAnalysis.getNullness(argumentPath, state.context);
     }
+    // TODO if we did the dataflow analysis for a lambda, always remove the analysis result from the
+    //  cache for safety
     if (refinedNullness == null) {
       return argumentType;
     }
