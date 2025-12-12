@@ -47,6 +47,8 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
+import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
+import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
@@ -970,21 +972,14 @@ public final class GenericsChecks {
     if (enclosingPath == null) {
       return argumentType;
     }
-    if (enclosingPath.getLeaf() instanceof LambdaExpressionTree) {
-      // need to force dataflow to run on the enclosing method / lambda / initializer first, to
-      // ensure enclosing environment nullness is set
-      TreePath enclosingForLambda =
+    boolean enclosingIsLambda = enclosingPath.getLeaf() instanceof LambdaExpressionTree;
+    if (enclosingIsLambda) {
+      TreePath methodEnclosingLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(enclosingPath);
-      if (enclosingForLambda == null) {
+      if (methodEnclosingLambda == null) {
         return argumentType;
       } else {
-        // TODO BUG FIX we need to always update the environment mapping, even if the dataflow
-        //  analysis is currently running
-        boolean didRun =
-            analysis.getNullnessAnalysis(state).forceRunOnMethod(enclosingForLambda, state.context);
-        if (didRun) {
-          analysis.updateEnvironmentMapping(enclosingPath, state);
-        }
+        updateEnvironmentMappingForLambda(state, methodEnclosingLambda, enclosingPath);
       }
     }
     Nullness refinedNullness;
@@ -1002,6 +997,22 @@ public final class GenericsChecks {
       return argumentType;
     }
     return updateTypeWithNullness(state, argumentType, refinedNullness);
+  }
+
+  private void updateEnvironmentMappingForLambda(
+      VisitorState state, TreePath enclosingForLambda, TreePath enclosingPath) {
+    // TODO BUG FIX we need to always update the environment mapping, even if the dataflow
+    //  analysis is currently running
+    AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
+    if (nullnessAnalysis.isRunning(enclosingForLambda, state.context)) {
+      NullnessStore nullnessInfoBeforeNestedMethodNode =
+          nullnessAnalysis.getNullnessInfoBeforeNestedMethodWithAnalysisRunning(
+              enclosingPath, state, handler);
+      EnclosingEnvironmentNullness.instance(state.context)
+          .addEnvironmentMapping(enclosingPath.getLeaf(), nullnessInfoBeforeNestedMethodNode);
+    } else {
+      analysis.updateEnvironmentMapping(enclosingPath, state);
+    }
   }
 
   private static boolean shouldRunDataflowForExpression(Type exprType, ExpressionTree expr) {

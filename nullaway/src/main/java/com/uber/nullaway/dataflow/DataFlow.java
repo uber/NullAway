@@ -23,6 +23,7 @@ import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrIni
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -306,6 +307,12 @@ public final class DataFlow {
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
 
+  public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
+      @Nullable S resultBeforeWithAnalysisRunning(TreePath exprPath, Context context, T transfer) {
+    AnalysisResult<A, S> analysisResult = resultForWithAnalysisRunning(exprPath, context, transfer);
+    return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
+  }
+
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       @Nullable AnalysisResult<A, S> resultForExpr(TreePath exprPath, Context context, T transfer) {
     Tree leaf = exprPath.getLeaf();
@@ -337,6 +344,31 @@ public final class DataFlow {
     // important,
     // e.g., for actually checking that the unboxing operation is legal.
     return dataflow(enclosingPath, context, transfer, true).getAnalysis().getResult();
+  }
+
+  private <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
+      @Nullable AnalysisResult<A, S> resultForWithAnalysisRunning(
+          TreePath exprPath, Context context, T transfer) {
+    TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
+    if (enclosingPath == null) {
+      throw new RuntimeException("expression is not inside a method, lambda or initializer block!");
+    }
+
+    Tree method = enclosingPath.getLeaf();
+    if (method instanceof MethodTree && ((MethodTree) method).getBody() == null) {
+      // expressions can occur in abstract methods, for example {@code Map.Entry} in:
+      //
+      //   abstract Set<Map.Entry<K, V>> entries();
+      return null;
+    }
+    // Calling getValue() on the AnalysisResult (as opposed to calling it on the Analysis itself)
+    // ensures we get the result for expr
+    // *before* any unboxing operations (like invoking intValue() on an Integer).  This is
+    // important,
+    // e.g., for actually checking that the unboxing operation is legal.
+    Analysis<A, S, T> analysis = dataflow(enclosingPath, context, transfer, false).getAnalysis();
+    Verify.verify(analysis.isRunning(), "Expected analysis to be running for %s", method);
+    return analysis.getResult();
   }
 
   /** clear the CFG and analysis caches */
