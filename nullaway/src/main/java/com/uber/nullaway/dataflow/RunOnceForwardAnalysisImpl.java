@@ -1,7 +1,5 @@
 package com.uber.nullaway.dataflow;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-
 import com.google.common.base.Verify;
 import com.sun.source.tree.Tree;
 import java.util.Set;
@@ -12,6 +10,7 @@ import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
+import org.checkerframework.nullaway.dataflow.cfg.block.Block;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.jspecify.annotations.Nullable;
 
@@ -52,7 +51,8 @@ class RunOnceForwardAnalysisImpl<
    * @return the store before the given tree, or {@code null} if the tree is not in the CFG
    */
   public @Nullable S getStoreBefore(Tree tree) {
-    Verify.verify(isRunning());
+    Verify.verify(
+        isRunning(), "getStoreBefore called when analysis is not running (tree=%s)", tree);
     Set<Node> nodes = getNodesForTree(tree);
     if (nodes != null) {
       return getStoreBefore(nodes);
@@ -75,7 +75,11 @@ class RunOnceForwardAnalysisImpl<
   }
 
   private @Nullable S getStoreBefore(Node node) {
-    TransferInput<V, S> prevStore = getInput(castToNonNull(node.getBlock()));
+    Block block = node.getBlock();
+    if (block == null) {
+      return null;
+    }
+    TransferInput<V, S> prevStore = getInput(block);
     if (prevStore == null) {
       return null;
     }

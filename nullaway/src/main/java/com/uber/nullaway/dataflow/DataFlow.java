@@ -285,15 +285,15 @@ public final class DataFlow {
       throw new RuntimeException("expression is not inside a method, lambda or initializer block!");
     }
 
-    Tree method = enclosingPath.getLeaf();
-    if (!(method instanceof MethodTree) || ((MethodTree) method).getBody() != null) {
-      RunOnceForwardAnalysisImpl<A, S, T> analysis =
-          (RunOnceForwardAnalysisImpl<A, S, T>)
-              dataflow(enclosingPath, context, transfer, false).getAnalysis();
-      Verify.verify(analysis.isRunning(), "Expected analysis to be running for %s", method);
-      return analysis.getStoreBefore(exprPath.getLeaf());
+    Tree enclosing = enclosingPath.getLeaf();
+    if (enclosing instanceof MethodTree && ((MethodTree) enclosing).getBody() == null) {
+      return null;
     }
-    return null;
+    RunOnceForwardAnalysisImpl<A, S, T> analysis =
+        (RunOnceForwardAnalysisImpl<A, S, T>)
+            dataflow(enclosingPath, context, transfer, false).getAnalysis();
+    Verify.verify(analysis.isRunning(), "Expected analysis to be running for %s", enclosing);
+    return analysis.getStoreBefore(exprPath.getLeaf());
   }
 
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
