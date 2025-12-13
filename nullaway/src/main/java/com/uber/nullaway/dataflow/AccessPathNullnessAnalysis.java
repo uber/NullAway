@@ -375,10 +375,10 @@ public final class AccessPathNullnessAnalysis {
    *
    * @param methodPath tree path of the method (or lambda) to analyze.
    * @param context Javac context
-   * @return true if the analysis was run, false if it was already running
+   * @return the final NullnessStore on exit from the method.
    */
-  public boolean forceRunOnMethod(TreePath methodPath, Context context) {
-    return dataFlow.forceRun(methodPath, context, nullnessPropagation);
+  public @Nullable NullnessStore forceRunOnMethod(TreePath methodPath, Context context) {
+    return dataFlow.finalResult(methodPath, context, nullnessPropagation);
   }
 
   /**

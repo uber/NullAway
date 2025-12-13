@@ -261,35 +261,6 @@ public final class DataFlow {
         leaf.getClass().getName());
   }
 
-  /**
-   * Force a run of the dataflow analysis for the given method/lambda/initializer block. If the
-   * analysis is already running, does nothing.
-   *
-   * @param path path to method (or lambda, or initializer block)
-   * @param context Javac context
-   * @param transfer transfer functions
-   * @param <A> values in abstraction
-   * @param <S> store type
-   * @param <T> transfer function type
-   * @return true if the analysis was run, false if it was already running
-   */
-  public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
-      boolean forceRun(TreePath path, Context context, T transfer) {
-    checkLeafTypeForDataflow(path);
-    ProcessingEnvironment env = JavacProcessingEnvironment.instance(context);
-    ControlFlowGraph cfg = cfgCache.getUnchecked(CfgParams.create(path, env));
-    AnalysisParams aparams = AnalysisParams.create(transfer, cfg);
-    @SuppressWarnings("unchecked")
-    RunOnceForwardAnalysisImpl<A, S, T> analysis =
-        (RunOnceForwardAnalysisImpl<A, S, T>) analysisCache.getUnchecked(aparams);
-    if (!analysis.isRunning()) {
-      analysis.performAnalysis(cfg);
-      return true;
-    } else {
-      return false;
-    }
-  }
-
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       @Nullable S resultBeforeExpr(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultForExpr(exprPath, context, transfer);
