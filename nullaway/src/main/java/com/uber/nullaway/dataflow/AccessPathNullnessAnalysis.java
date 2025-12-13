@@ -47,7 +47,6 @@ import javax.lang.model.element.VariableElement;
 import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
-import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -205,13 +204,12 @@ public final class AccessPathNullnessAnalysis {
       TreePath pathToNestedMethodNode, VisitorState state, Handler handler) {
     NullnessStore store =
         dataFlow.resultBefore(pathToNestedMethodNode, state.context, nullnessPropagation);
-    return getStoreForAccessPathsToExposeToNestedMethod(
-        pathToNestedMethodNode, state, handler, store);
+    return getAccessPathsForNestedMethod(pathToNestedMethodNode, state, handler, store);
   }
 
   /**
-   * Get nullness info for local variables (and final fields) before some node represented a nested
-   * method (lambda or anonymous class)
+   * Like {@link #getNullnessInfoBeforeNestedMethodNode(TreePath, VisitorState, Handler)}, but works
+   * for a dataflow analysis that is currently running
    *
    * @param pathToNestedMethodNode tree path to some AST node representing a nested method
    * @param state visitor state
@@ -223,11 +221,20 @@ public final class AccessPathNullnessAnalysis {
     NullnessStore store =
         dataFlow.resultBeforeWithAnalysisRunning(
             pathToNestedMethodNode, state.context, nullnessPropagation);
-    return getStoreForAccessPathsToExposeToNestedMethod(
-        pathToNestedMethodNode, state, handler, store);
+    return getAccessPathsForNestedMethod(pathToNestedMethodNode, state, handler, store);
   }
 
-  private static @NonNull NullnessStore getStoreForAccessPathsToExposeToNestedMethod(
+  /**
+   * Get access paths for local variables and final (or {@code @MonotonicNonNull}) fields in the
+   * store before some nested method node.
+   *
+   * @param pathToNestedMethodNode tree path to some AST node representing a nested method
+   * @param state visitor state
+   * @param handler handler instance
+   * @param store nullness store before the nested method node
+   * @return filtered nullness store
+   */
+  private static NullnessStore getAccessPathsForNestedMethod(
       TreePath pathToNestedMethodNode,
       VisitorState state,
       Handler handler,
