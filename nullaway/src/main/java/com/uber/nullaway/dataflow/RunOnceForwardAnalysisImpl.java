@@ -44,6 +44,8 @@ class RunOnceForwardAnalysisImpl<
    * Gets the store before the given tree for a currently-running analysis. If the analysis has
    * completed running, use {@code getResult()}.
    *
+   * <p>TODO remove this API if/when a similar API is added inside the Checker Framework
+   *
    * @param tree the tree
    * @return the store before the given tree, or {@code null} if the tree is not in the CFG
    */
