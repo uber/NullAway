@@ -1001,18 +1001,18 @@ public final class GenericsChecks {
 
   private void updateEnvironmentMappingForLambda(
       VisitorState state, TreePath enclosingForLambda, TreePath enclosingPath) {
-    // TODO BUG FIX we need to always update the environment mapping, even if the dataflow
-    //  analysis is currently running
     AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
+    NullnessStore storeBeforeLambda;
     if (nullnessAnalysis.isRunning(enclosingForLambda, state.context)) {
-      NullnessStore nullnessInfoBeforeNestedMethodNode =
+      storeBeforeLambda =
           nullnessAnalysis.getNullnessInfoBeforeNestedMethodWithAnalysisRunning(
               enclosingPath, state, handler);
-      EnclosingEnvironmentNullness.instance(state.context)
-          .addEnvironmentMapping(enclosingPath.getLeaf(), nullnessInfoBeforeNestedMethodNode);
     } else {
-      analysis.updateEnvironmentMapping(enclosingPath, state);
+      storeBeforeLambda =
+          nullnessAnalysis.getNullnessInfoBeforeNestedMethodNode(enclosingPath, state, handler);
     }
+    EnclosingEnvironmentNullness.instance(state.context)
+        .addEnvironmentMapping(enclosingPath.getLeaf(), storeBeforeLambda);
   }
 
   private static boolean shouldRunDataflowForExpression(Type exprType, ExpressionTree expr) {
