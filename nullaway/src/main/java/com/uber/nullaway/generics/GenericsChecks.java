@@ -1009,6 +1009,8 @@ public final class GenericsChecks {
    */
   private void updateEnvironmentMappingForLambda(
       VisitorState state, TreePath enclosingForLambda, TreePath lambdaPath) {
+    // if the enclosing method is itself a lambda, we need to recursively ensure its
+    // environment mapping is set up first
     if (enclosingForLambda.getLeaf() instanceof LambdaExpressionTree) {
       TreePath nextEnclosing =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(enclosingForLambda);
