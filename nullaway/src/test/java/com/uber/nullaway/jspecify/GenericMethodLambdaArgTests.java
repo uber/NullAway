@@ -53,8 +53,9 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
             "        x_expr_paren.hashCode();",
             "        // BUG: Diagnostic contains: dereferenced expression y_expr_paren is @Nullable",
             "        y_expr_paren.hashCode();",
-            "        // TODO",
-            "        // Object x2 = invokeWithReturn(() ->{ Object y2 = null; return y2;});",
+            "        Object x2 = invokeWithReturn(() ->{ Object y2 = null; return y2;});",
+            "        // BUG: Diagnostic contains: dereferenced expression x2 is @Nullable",
+            "        x2.hashCode();",
             "    }",
             "}")
         .doTest();
@@ -103,9 +104,9 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
             "        return supplier.get();",
             "    }",
             "    static void test() {",
-            "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
+            "        // legal, should infer R -> @Nullable Object",
             "        invoke(() -> null);",
-            "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
+            "        // legal, should infer R -> @Nullable Object",
             "        Object x = invokeWithReturn(() -> null);",
             "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
             "        x.hashCode();",
