@@ -156,6 +156,41 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedLambdaFromSpring() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.function.Function;",
+            "import java.util.function.Supplier;",
+            "@NullMarked",
+            "public class Test {",
+            "    public interface Publisher<T> {}",
+            "    public static final class Flux<T> implements Publisher<T> {",
+            "        public static <T> Flux<T> defer(Supplier<? extends Publisher<T>> supplier) {",
+            "            return new Flux<>();",
+            "        }",
+            "        public static <T> Flux<T> from(Publisher<? extends T> publisher) {",
+            "            return new Flux<>();",
+            "        }",
+            "        public <R> Flux<R> map(Function<? super T, ? extends R> mapper) {",
+            "            return new Flux<>();",
+            "        }",
+            "        public Flux<T> doOnDiscard() {",
+            "            return this;",
+            "        }",
+            "    }",
+            "    public static <T> Flux<T> skipUntilByteCount(Publisher<T> publisher) {",
+            "        return Flux.defer(() ->",
+            "            Flux.from(publisher)",
+            "                    .map(buffer -> buffer)",
+            "        ).doOnDiscard();",
+            "    }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
