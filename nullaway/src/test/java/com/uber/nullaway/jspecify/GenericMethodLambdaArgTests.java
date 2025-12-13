@@ -78,7 +78,6 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
             " }",
             " public static void test() {",
             "   Callback<@Nullable String> ret1 = wrap(s -> {});",
-            // we should get an error at the s.hashCode() call.
             "   // BUG: Diagnostic contains: dereferenced expression",
             "   Callback<@Nullable String> ret2 = wrap(s -> { s.hashCode(); });",
             "   Callback<@Nullable String> ret3 = wrap(s -> { if (s != null) s.hashCode(); });",
