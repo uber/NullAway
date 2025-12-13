@@ -1,5 +1,7 @@
 package com.uber.nullaway.dataflow;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Verify;
 import com.sun.source.tree.Tree;
 import java.util.Set;
@@ -73,7 +75,7 @@ class RunOnceForwardAnalysisImpl<
   }
 
   private @Nullable S getStoreBefore(Node node) {
-    TransferInput<V, S> prevStore = getInput(node.getBlock());
+    TransferInput<V, S> prevStore = getInput(castToNonNull(node.getBlock()));
     if (prevStore == null) {
       return null;
     }
