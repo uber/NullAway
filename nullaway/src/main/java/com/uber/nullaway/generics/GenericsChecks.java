@@ -867,7 +867,6 @@ public final class GenericsChecks {
           state, lambdaPath, solver, allInvocations, returnedExpression, fiReturnType);
     } else if (body instanceof BlockTree) {
       // Case 2: Block body, e.g., () -> { return null; }
-      // TODO add tests for dataflow for this case
       List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
       for (ExpressionTree returnExpr : returnExpressions) {
         generateConstraintsForPseudoAssignment(
@@ -999,22 +998,39 @@ public final class GenericsChecks {
     return updateTypeWithNullness(state, argumentType, refinedNullness);
   }
 
+  /**
+   * Sets up the environment mapping for a lambda expression so that dataflow analysis can be run
+   * within the lambda body, handling the case where dataflow analysis is already running on the
+   * enclosing method.
+   *
+   * @param state the visitor state
+   * @param enclosingForLambda the tree path to the enclosing method or initializer for the lambda
+   * @param lambdaPath the tree path to the lambda expression
+   */
   private void updateEnvironmentMappingForLambda(
-      VisitorState state, TreePath enclosingForLambda, TreePath enclosingPath) {
+      VisitorState state, TreePath enclosingForLambda, TreePath lambdaPath) {
     AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
     NullnessStore storeBeforeLambda;
     if (nullnessAnalysis.isRunning(enclosingForLambda, state.context)) {
       storeBeforeLambda =
           nullnessAnalysis.getNullnessInfoBeforeNestedMethodWithAnalysisRunning(
-              enclosingPath, state, handler);
+              lambdaPath, state, handler);
     } else {
       storeBeforeLambda =
-          nullnessAnalysis.getNullnessInfoBeforeNestedMethodNode(enclosingPath, state, handler);
+          nullnessAnalysis.getNullnessInfoBeforeNestedMethodNode(lambdaPath, state, handler);
     }
     EnclosingEnvironmentNullness.instance(state.context)
-        .addEnvironmentMapping(enclosingPath.getLeaf(), storeBeforeLambda);
+        .addEnvironmentMapping(lambdaPath.getLeaf(), storeBeforeLambda);
   }
 
+  /**
+   * Checks if dataflow analysis should be run for the given expression to refine its nullability.
+   *
+   * @param exprType type of the expression
+   * @param expr the expression
+   * @return true if dataflow analysis could possibly refine the nullability of the expression,
+   *     false otherwise
+   */
   private static boolean shouldRunDataflowForExpression(Type exprType, ExpressionTree expr) {
     if (exprType.isPrimitive() || exprType instanceof NullType) {
       return false;

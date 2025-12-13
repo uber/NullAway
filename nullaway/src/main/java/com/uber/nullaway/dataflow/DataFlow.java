@@ -274,6 +274,10 @@ public final class DataFlow {
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
 
+  /**
+   * Like {@link #resultBefore(TreePath, Context, ForwardTransferFunction)} but for the case where
+   * the dataflow analysis is currently running
+   */
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       @Nullable S resultBeforeWithAnalysisRunning(TreePath exprPath, Context context, T transfer) {
     TreePath enclosingPath = findEnclosingMethodOrLambdaOrInitializer(exprPath);
@@ -282,17 +286,7 @@ public final class DataFlow {
     }
 
     Tree method = enclosingPath.getLeaf();
-    // expressions can occur in abstract methods, for example {@code Map.Entry} in:
-    //
-    //   abstract Set<Map.Entry<K, V>> entries();
-    if (!(method instanceof MethodTree)
-        || ((MethodTree) method).getBody()
-            != null) { // Calling getValue() on the AnalysisResult (as opposed to calling it on the
-      // Analysis itself)
-      // ensures we get the result for expr
-      // *before* any unboxing operations (like invoking intValue() on an Integer).  This is
-      // important,
-      // e.g., for actually checking that the unboxing operation is legal.
+    if (!(method instanceof MethodTree) || ((MethodTree) method).getBody() != null) {
       RunOnceForwardAnalysisImpl<A, S, T> analysis =
           (RunOnceForwardAnalysisImpl<A, S, T>)
               dataflow(enclosingPath, context, transfer, false).getAnalysis();
@@ -300,7 +294,6 @@ public final class DataFlow {
       return analysis.getStoreBefore(exprPath.getLeaf());
     }
     return null;
-    // return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
   }
 
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>

@@ -4,7 +4,6 @@ import com.google.common.base.Verify;
 import com.sun.source.tree.Tree;
 import java.util.Set;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
-import org.checkerframework.nullaway.dataflow.analysis.Analysis;
 import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardAnalysisImpl;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
@@ -41,6 +40,13 @@ class RunOnceForwardAnalysisImpl<
     }
   }
 
+  /**
+   * Gets the store before the given tree for a currently-running analysis. If the analysis has
+   * completed running, use {@code getResult()}.
+   *
+   * @param tree the tree
+   * @return the store before the given tree, or {@code null} if the tree is not in the CFG
+   */
   public @Nullable S getStoreBefore(Tree tree) {
     Verify.verify(isRunning());
     Set<Node> nodes = getNodesForTree(tree);
@@ -69,9 +75,7 @@ class RunOnceForwardAnalysisImpl<
     if (prevStore == null) {
       return null;
     }
-    S store =
-        AnalysisResult.runAnalysisFor(
-            node, Analysis.BeforeOrAfter.BEFORE, prevStore, getNodeValues(), null);
-    return store;
+    return AnalysisResult.runAnalysisFor(
+        node, BeforeOrAfter.BEFORE, prevStore, getNodeValues(), null);
   }
 }
