@@ -1009,6 +1009,13 @@ public final class GenericsChecks {
    */
   private void updateEnvironmentMappingForLambda(
       VisitorState state, TreePath enclosingForLambda, TreePath lambdaPath) {
+    if (enclosingForLambda.getLeaf() instanceof LambdaExpressionTree) {
+      TreePath nextEnclosing =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(enclosingForLambda);
+      if (nextEnclosing != null) {
+        updateEnvironmentMappingForLambda(state, nextEnclosing, enclosingForLambda);
+      }
+    }
     AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
     NullnessStore storeBeforeLambda;
     if (nullnessAnalysis.isRunning(enclosingForLambda, state.context)) {
