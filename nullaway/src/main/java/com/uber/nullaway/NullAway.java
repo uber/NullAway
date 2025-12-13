@@ -2818,7 +2818,7 @@ public class NullAway extends BugChecker
    * @param expr a potentially parenthesised expression.
    * @return the same expression without parentheses.
    */
-  private static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
+  public static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
     boolean someChange = true;
     while (someChange) {
       someChange = false;
