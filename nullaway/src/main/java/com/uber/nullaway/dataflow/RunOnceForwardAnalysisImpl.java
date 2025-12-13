@@ -1,10 +1,18 @@
 package com.uber.nullaway.dataflow;
 
+import com.google.common.base.Verify;
+import com.sun.source.tree.Tree;
+import java.util.Set;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
+import org.checkerframework.nullaway.dataflow.analysis.Analysis;
+import org.checkerframework.nullaway.dataflow.analysis.AnalysisResult;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardAnalysisImpl;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
+import org.checkerframework.nullaway.dataflow.analysis.TransferInput;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
+import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A ForwardAnalysis implementation that overrides {@link #performAnalysis(ControlFlowGraph)} to
@@ -31,5 +39,39 @@ class RunOnceForwardAnalysisImpl<
       super.performAnalysis(cfg);
       analysisPerformed = true;
     }
+  }
+
+  public @Nullable S getStoreBefore(Tree tree) {
+    Verify.verify(isRunning());
+    Set<Node> nodes = getNodesForTree(tree);
+    if (nodes != null) {
+      return getStoreBefore(nodes);
+    } else {
+      return null;
+    }
+  }
+
+  private @Nullable S getStoreBefore(Set<Node> nodes) {
+    S merge = null;
+    for (Node aNode : nodes) {
+      S s = getStoreBefore(aNode);
+      if (merge == null) {
+        merge = s;
+      } else if (s != null) {
+        merge = merge.leastUpperBound(s);
+      }
+    }
+    return merge;
+  }
+
+  private @Nullable S getStoreBefore(Node node) {
+    TransferInput<V, S> prevStore = getInput(node.getBlock());
+    if (prevStore == null) {
+      return null;
+    }
+    S store =
+        AnalysisResult.runAnalysisFor(
+            node, Analysis.BeforeOrAfter.BEFORE, prevStore, getNodeValues(), null);
+    return store;
   }
 }
