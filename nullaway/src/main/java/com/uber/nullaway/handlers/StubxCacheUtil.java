@@ -67,6 +67,8 @@ public class StubxCacheUtil {
 
   private final Set<String> nullMarkedClassesCache;
 
+  private final Map<String, Integer> methodTypaParamNullableUpperBoundCache;
+
   /**
    * Initializes a new {@code StubxCacheUtil} instance.
    *
@@ -79,6 +81,7 @@ public class StubxCacheUtil {
     argAnnotCache = new LinkedHashMap<>();
     upperBoundCache = new HashMap<>();
     nullMarkedClassesCache = new HashSet<>();
+    methodTypaParamNullableUpperBoundCache = new HashMap<>();
     this.logCaller = logCaller;
     loadStubxFiles();
   }
@@ -89,6 +92,10 @@ public class StubxCacheUtil {
 
   public Set<String> getNullMarkedClassesCache() {
     return nullMarkedClassesCache;
+  }
+
+  public Map<String, Integer> getMethodTypaParamNullableUpperBoundCache() {
+    return methodTypaParamNullableUpperBoundCache;
   }
 
   public Map<String, Map<String, Map<Integer, Set<String>>>> getArgAnnotCache() {
@@ -157,6 +164,13 @@ public class StubxCacheUtil {
       String annotation = strings[in.readInt()];
       LOG(DEBUG, "DEBUG", "method: " + methodSig + ", return annotation: " + annotation);
       cacheAnnotation(methodSig, RETURN, annotation);
+    }
+    // Read the number of (method, nullable type parameter index)
+    int numMethodTypeParams = in.readInt();
+    for (int i = 0; i < numMethodTypeParams; ++i) {
+      String methodSig = strings[in.readInt()];
+      int idx = in.readInt();
+      this.methodTypaParamNullableUpperBoundCache.put(methodSig, idx);
     }
     // Read the number of (method, argument, annotation) entries
     int numArgumentRecords = in.readInt();

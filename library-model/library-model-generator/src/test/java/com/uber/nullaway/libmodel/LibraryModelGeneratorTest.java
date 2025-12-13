@@ -73,7 +73,8 @@ public class LibraryModelGeneratorTest {
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
             "AnnotationExample:java.lang.String makeUpperCase(java.lang.String)",
-            MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
     runTest(
         "AnnotationExample.java",
         lines,
@@ -155,7 +156,9 @@ public class LibraryModelGeneratorTest {
         ImmutableMap.of(
             "NullableParameters:java.lang.Object getNewObjectIfNull(java.lang.Object)",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
     runTest(
         "NullableParameters.java",
         lines,
@@ -204,7 +207,9 @@ public class LibraryModelGeneratorTest {
         ImmutableMap.of(
             "NullableParameters:java.lang.Object[] getNewObjectArrayIfNull(java.lang.Object[])",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
     runTest(
         "NullableParameters.java",
         lines,
@@ -230,7 +235,9 @@ public class LibraryModelGeneratorTest {
         ImmutableMap.of(
             "Generic:java.lang.String getString(T)",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of(), ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
     runTest(
         "Generic.java",
         lines,
@@ -259,6 +266,7 @@ public class LibraryModelGeneratorTest {
             "PrimitiveType:int multiply(java.lang.Integer, java.lang.Integer)",
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
+                ImmutableSet.of(),
                 ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
     runTest(
         "PrimitiveType.java",
@@ -266,6 +274,29 @@ public class LibraryModelGeneratorTest {
         expectedMethodRecords,
         ImmutableMap.of(),
         ImmutableSet.of("PrimitiveType"));
+  }
+
+  @Test
+  public void methodTypeVariable() throws IOException {
+    String[] lines =
+        new String[] {
+          "import org.jspecify.annotations.NullMarked;",
+          "import org.jspecify.annotations.Nullable;",
+          "@NullMarked",
+          "public class Test {",
+          "  <K, T extends @Nullable Object> void nullableTypeVar() {}",
+          "  <T> @Nullable Object nonNullTypeVar() { return null; }",
+          "}"
+        };
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "Test:void nullableTypeVar()",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(), ImmutableSet.of(1), ImmutableMap.of()),
+            "Test:java.lang.Object nonNullTypeVar()",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
+    runTest("Test.java", lines, expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
   }
 
   @Test
@@ -287,6 +318,7 @@ public class LibraryModelGeneratorTest {
         ImmutableMap.of(
             "VoidReturn:void printMultiply(java.lang.Integer, java.lang.Integer)",
             MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
                 ImmutableSet.of(),
                 ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
     runTest(

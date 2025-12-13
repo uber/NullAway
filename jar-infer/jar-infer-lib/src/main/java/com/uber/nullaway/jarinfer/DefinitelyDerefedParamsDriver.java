@@ -455,13 +455,15 @@ public class DefinitelyDerefedParamsDriver {
           sign,
           MethodAnnotationsRecord.create(
               nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
+              ImmutableSet.of(),
               ImmutableMap.copyOf(argAnnotation)));
       nullableReturns.remove(sign);
     }
     for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
       methodRecords.put(
           nullableReturnMethodSign,
-          MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+          MethodAnnotationsRecord.create(
+              ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
     }
     StubxWriter.write(
         out,

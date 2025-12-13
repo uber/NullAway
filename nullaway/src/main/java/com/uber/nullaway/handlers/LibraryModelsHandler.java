@@ -1385,6 +1385,7 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
+    private final Map<String, Integer> methodTypeParamNullableUpperBoundCache;
 
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
@@ -1411,6 +1412,8 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
       argAnnotCache = cacheUtil.getArgAnnotCache();
       nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
       upperBoundsCache = cacheUtil.getUpperBoundCache();
+      methodTypeParamNullableUpperBoundCache =
+          cacheUtil.getMethodTypaParamNullableUpperBoundCache();
     }
 
     @Override
@@ -1424,6 +1427,20 @@ public class LibraryModelsHandler extends BaseNoOpHandler {
           new ImmutableSetMultimap.Builder<>();
       for (Map.Entry<String, Integer> entry : upperBoundsCache.entrySet()) {
         mapBuilder.put(entry.getKey(), entry.getValue());
+      }
+      return mapBuilder.build();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      for (Map.Entry<String, Integer> entry : methodTypeParamNullableUpperBoundCache.entrySet()) {
+        //        String methodSig = entry.getKey();
+        String className = entry.getKey().split(":")[0].replace('$', '.');
+        String methodSig = getMethodNameAndSignature(entry.getKey());
+
+        mapBuilder.put(MethodRef.methodRef(className, methodSig), entry.getValue());
       }
       return mapBuilder.build();
     }
