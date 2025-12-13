@@ -362,7 +362,9 @@ public class JDKIntegrationTest {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:JarInferEnabled=true"))
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Test.java",
             "package com.uber;",
