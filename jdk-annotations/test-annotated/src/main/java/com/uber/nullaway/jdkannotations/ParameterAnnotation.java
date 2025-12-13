@@ -54,7 +54,7 @@ public class ParameterAnnotation {
     System.out.println(objects);
   }
 
-  public static <K, T extends @Nullable String> T nullableTypeParam(K k, @Nullable T t) {
+  public static <K, T extends @Nullable String> T nullableTypeParam(K k, T t) {
     return t;
   }
 
