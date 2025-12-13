@@ -245,12 +245,6 @@ public final class DataFlow {
    */
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
       @Nullable S finalResult(TreePath path, Context context, T transfer) {
-    checkLeafTypeForDataflow(path);
-
-    return dataflow(path, context, transfer, true).getAnalysis().getRegularExitStore();
-  }
-
-  private static void checkLeafTypeForDataflow(TreePath path) {
     Tree leaf = path.getLeaf();
     Preconditions.checkArgument(
         leaf instanceof MethodTree
@@ -259,6 +253,8 @@ public final class DataFlow {
             || leaf instanceof VariableTree,
         "Leaf of methodPath must be of type MethodTree, LambdaExpressionTree, BlockTree, or VariableTree, but was %s",
         leaf.getClass().getName());
+
+    return dataflow(path, context, transfer, true).getAnalysis().getRegularExitStore();
   }
 
   public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
