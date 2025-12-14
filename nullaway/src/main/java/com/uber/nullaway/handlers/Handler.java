@@ -58,6 +58,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <p>Handlers are used to model specific libraries and APIs, as opposed to general features of the
  * Java language, which are handled by the nullability checker core and dataflow packages.
+ *
+ * <p>Default no-op implementations are provided for all methods, so that handlers can choose to
+ * implement only the methods they care about.
  */
 public interface Handler {
 
