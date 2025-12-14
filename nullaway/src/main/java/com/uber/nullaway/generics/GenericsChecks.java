@@ -945,38 +945,39 @@ public final class GenericsChecks {
   }
 
   /**
-   * Refines the type of an argument using dataflow information, if available.
+   * Refines the type of an expression using dataflow information, if available.
    *
-   * @param argumentType the original type of the argument
-   * @param argument the argument expression tree
+   * @param exprType the original type of the expression
+   * @param expr the expression tree
    * @param state the visitor state
-   * @param path the tree path to the invocation if available and possibly distinct from {@code
-   *     state.getPath()}
-   * @return the refined type of the argument
+   * @param path relevant tree path if available and possibly distinct from {@code state.getPath()}
+   * @return the refined type of the expression
    */
   private Type refineArgumentTypeWithDataflow(
-      Type argumentType, ExpressionTree argument, VisitorState state, @Nullable TreePath path) {
-    if (!shouldRunDataflowForExpression(argumentType, argument)) {
-      return argumentType;
+      Type exprType, ExpressionTree expr, VisitorState state, @Nullable TreePath path) {
+    if (!shouldRunDataflowForExpression(exprType, expr)) {
+      return exprType;
     }
     TreePath currentPath = path != null ? path : state.getPath();
-    // We need a TreePath whose leaf is the argument expression, as the calls to `getNullness` /
+    // We need a TreePath whose leaf is the expression, as the calls to `getNullness` /
     // `getNullnessFromRunning` below return the nullness of the leaf of the path.
-    // Just appending argument to currentPath is a bit sketchy, as it may not actually be the valid
-    // tree path to the argument.  However, all we need the path for (beyond the leaf) is to
+    // Just appending expr to currentPath is a bit sketchy, as it may not actually be the valid
+    // tree path to the expression.  However, all we need the path for (beyond the leaf) is to
     // discover the enclosing method/lambda/initializer, and for that purpose this should be
     // sufficient.
-    TreePath argumentPath = new TreePath(currentPath, argument);
-    TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(argumentPath);
+    TreePath exprPath = new TreePath(currentPath, expr);
+    TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
     if (enclosingPath == null) {
-      return argumentType;
+      return exprType;
     }
+    // If the expression is inside a lambda, we need to ensure that the environment mapping for
+    // the lambda is set up so that dataflow analysis can be run within the lambda body
     boolean enclosingIsLambda = enclosingPath.getLeaf() instanceof LambdaExpressionTree;
     if (enclosingIsLambda) {
       TreePath methodEnclosingLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(enclosingPath);
       if (methodEnclosingLambda == null) {
-        return argumentType;
+        return exprType;
       } else {
         updateEnvironmentMappingForLambda(state, methodEnclosingLambda, enclosingPath);
       }
@@ -986,16 +987,16 @@ public final class GenericsChecks {
     if (nullnessAnalysis.isRunning(enclosingPath, state.context)) {
       // dataflow analysis is already running, so just get the current dataflow value for the
       // argument
-      refinedNullness = nullnessAnalysis.getNullnessFromRunning(argumentPath, state.context);
+      refinedNullness = nullnessAnalysis.getNullnessFromRunning(exprPath, state.context);
     } else {
-      refinedNullness = nullnessAnalysis.getNullness(argumentPath, state.context);
+      refinedNullness = nullnessAnalysis.getNullness(exprPath, state.context);
     }
     // TODO if we did the dataflow analysis for a lambda, always remove the analysis result from the
     //  cache for safety
     if (refinedNullness == null) {
-      return argumentType;
+      return exprType;
     }
-    return updateTypeWithNullness(state, argumentType, refinedNullness);
+    return updateTypeWithNullness(state, exprType, refinedNullness);
   }
 
   /**
