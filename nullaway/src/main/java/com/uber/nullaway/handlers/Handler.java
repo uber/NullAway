@@ -72,8 +72,10 @@ public interface Handler {
    * @param state The current visitor state.
    * @param classSymbol The class symbol for the class being matched.
    */
-  void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol);
+  default void onMatchTopLevelClass(
+      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+    // NoOp
+  }
 
   /**
    * Called when NullAway first matches a particular method node.
@@ -81,7 +83,9 @@ public interface Handler {
    * @param tree The AST node for the method being matched.
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext);
+  default void onMatchMethod(MethodTree tree, MethodAnalysisContext methodAnalysisContext) {
+    // NoOp
+  }
 
   /**
    * Called when NullAway first matches a particular method call-site.
@@ -89,8 +93,10 @@ public interface Handler {
    * @param tree The AST node for the method invocation (call-site) being matched.
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  void onMatchMethodInvocation(
-      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext);
+  default void onMatchMethodInvocation(
+      MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
+    // NoOp
+  }
 
   /**
    * Called when NullAway first matches a particular lambda expression.
@@ -98,8 +104,10 @@ public interface Handler {
    * @param tree The AST node for the lambda expression being matched.
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  void onMatchLambdaExpression(
-      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext);
+  default void onMatchLambdaExpression(
+      LambdaExpressionTree tree, MethodAnalysisContext methodAnalysisContext) {
+    // NoOp
+  }
 
   /**
    * Called when NullAway first matches a particular method reference expression
@@ -107,8 +115,10 @@ public interface Handler {
    * @param tree The AST node for the method reference expression being matched.
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  void onMatchMethodReference(
-      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext);
+  default void onMatchMethodReference(
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
+    // NoOp
+  }
 
   /**
    * Called when NullAway first matches a return statement.
@@ -117,7 +127,9 @@ public interface Handler {
    * @param tree The AST node for the return statement being matched.
    * @param state The current visitor state.
    */
-  void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state);
+  default void onMatchReturn(NullAway analysis, ReturnTree tree, VisitorState state) {
+    // NoOp
+  }
 
   /**
    * Called after the analysis determines if a expression can be null or not, allowing handlers to
@@ -131,12 +143,15 @@ public interface Handler {
    *     or upstream handlers.
    * @return Whether or not the expression may be null, as updated by this handler.
    */
-  boolean onOverrideMayBeNullExpr(
+  default boolean onOverrideMayBeNullExpr(
       NullAway analysis,
       ExpressionTree expr,
       @Nullable Symbol exprSymbol,
       VisitorState state,
-      boolean exprMayBeNull);
+      boolean exprMayBeNull) {
+    // NoOp
+    return exprMayBeNull;
+  }
 
   /**
    * Called to potentially override the nullability of an annotated or unannotated method's return,
@@ -151,11 +166,14 @@ public interface Handler {
    * @param returnNullness return nullness computed by upstream handlers or NullAway core.
    * @return Updated return nullability computed by this handler.
    */
-  Nullness onOverrideMethodReturnNullability(
+  default Nullness onOverrideMethodReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
       boolean isAnnotated,
-      Nullness returnNullness);
+      Nullness returnNullness) {
+    // NoOp
+    return returnNullness;
+  }
 
   /**
    * Called to potentially override the nullability of a field which is not annotated as @Nullable.
@@ -165,7 +183,10 @@ public interface Handler {
    * @param field The symbol for the field in question.
    * @return true if the field should be treated as @Nullable, false otherwise.
    */
-  boolean onOverrideFieldNullability(Symbol field);
+  default boolean onOverrideFieldNullability(Symbol field) {
+    // NoOp
+    return false;
+  }
 
   /**
    * Called after the analysis determines the nullability of a method's arguments, allowing handlers
@@ -188,11 +209,14 @@ public interface Handler {
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */
-  @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
+  default @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      @Nullable Nullness[] argumentPositionNullness);
+      @Nullable Nullness[] argumentPositionNullness) {
+    // NoOp
+    return argumentPositionNullness;
+  }
 
   /**
    * Called when the Dataflow analysis generates the initial NullnessStore for a method or lambda.
@@ -207,10 +231,12 @@ public interface Handler {
    *     take {@code result} and call {@code setInformation(...)} on it to add additional nullness
    *     facts, or replace it with a new builder altogether.
    */
-  NullnessStore.Builder onDataflowInitialStore(
+  default NullnessStore.Builder onDataflowInitialStore(
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
-      NullnessStore.Builder result);
+      NullnessStore.Builder result) {
+    return result;
+  }
 
   /**
    * Called when the Dataflow analysis visits each method invocation.
@@ -231,7 +257,7 @@ public interface Handler {
    *     NullnessHint and CompositeHandler for more information about how this values get merged
    *     into a final Nullness value.
    */
-  NullnessHint onDataflowVisitMethodInvocation(
+  default NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
       Symbol.MethodSymbol symbol,
       VisitorState state,
@@ -239,7 +265,10 @@ public interface Handler {
       AccessPathNullnessPropagation.SubNodeValues inputs,
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
-      AccessPathNullnessPropagation.Updates bothUpdates);
+      AccessPathNullnessPropagation.Updates bothUpdates) {
+    // NoOp
+    return NullnessHint.UNKNOWN;
+  }
 
   /**
    * Called when the Dataflow analysis visits each field access.
@@ -256,14 +285,17 @@ public interface Handler {
    *     CompositeHandler for more information about how this values get merged into a final
    *     Nullness value.
    */
-  NullnessHint onDataflowVisitFieldAccess(
+  default NullnessHint onDataflowVisitFieldAccess(
       FieldAccessNode node,
       Symbol symbol,
       Types types,
       Context context,
       AccessPath.AccessPathContext apContext,
       AccessPathNullnessPropagation.SubNodeValues inputs,
-      AccessPathNullnessPropagation.Updates updates);
+      AccessPathNullnessPropagation.Updates updates) {
+    // NoOp
+    return NullnessHint.UNKNOWN;
+  }
 
   /**
    * Called when the Dataflow analysis visits a return statement.
@@ -275,8 +307,10 @@ public interface Handler {
    * @param elseStore The NullnessStore for the false case of the expression inside the return
    *     statement.
    */
-  void onDataflowVisitReturn(
-      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore);
+  default void onDataflowVisitReturn(
+      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
+    // NoOp
+  }
 
   /**
    * Called when the Dataflow analysis visits the result expression inside the body of lambda.
@@ -296,8 +330,10 @@ public interface Handler {
    * @param elseStore The NullnessStore for the false case of the expression inside the return
    *     statement.
    */
-  void onDataflowVisitLambdaResultExpression(
-      ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore);
+  default void onDataflowVisitLambdaResultExpression(
+      ExpressionTree tree, NullnessStore thenStore, NullnessStore elseStore) {
+    // NoOp
+  }
 
   /**
    * It should return an error wrapped in Optional if any of the handlers detect an error in
@@ -309,8 +345,10 @@ public interface Handler {
    * @return {@link ErrorMessage} wrapped in {@link Optional} if dereference causes some error,
    *     otherwise returns empty Optional
    */
-  Optional<ErrorMessage> onExpressionDereference(
-      ExpressionTree expr, ExpressionTree baseExpr, VisitorState state);
+  default Optional<ErrorMessage> onExpressionDereference(
+      ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
+    return Optional.empty();
+  }
 
   /**
    * Called when determining which access path nullability information should be preserved when
@@ -322,7 +360,10 @@ public interface Handler {
    * @return A predicate that determines which access paths should be preserved when analyzing the
    *     nested method.
    */
-  Predicate<AccessPath> getAccessPathPredicateForNestedMethod(TreePath path, VisitorState state);
+  default Predicate<AccessPath> getAccessPathPredicateForNestedMethod(
+      TreePath path, VisitorState state) {
+    return AccessPathPredicates.FALSE_AP_PREDICATE;
+  }
 
   /**
    * Called during dataflow analysis initialization to register structurally immutable types.
@@ -336,7 +377,9 @@ public interface Handler {
    *
    * @return A set of fully qualified immutable type names.
    */
-  ImmutableSet<String> onRegisterImmutableTypes();
+  default ImmutableSet<String> onRegisterImmutableTypes() {
+    return ImmutableSet.of();
+  }
 
   /**
    * Called when a method writes a {@code @NonNull} value to a class field.
@@ -345,8 +388,10 @@ public interface Handler {
    * @param analysis nullness dataflow analysis
    * @param state VisitorState.
    */
-  void onNonNullFieldAssignment(
-      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state);
+  default void onNonNullFieldAssignment(
+      Symbol field, AccessPathNullnessAnalysis analysis, VisitorState state) {
+    // NoOp
+  }
 
   /**
    * Called during AST to CFG translation (CFGTranslationPhaseOne) immediately after translating a
@@ -359,10 +404,12 @@ public interface Handler {
    * @return a MethodInvocationNode which might be originalNode or a modified version, this is
    *     passed to the next handler in the chain.
    */
-  MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
+  default MethodInvocationNode onCFGBuildPhase1AfterVisitMethodInvocation(
       NullAwayCFGBuilder.NullAwayCFGTranslationPhaseOne phase,
       MethodInvocationTree tree,
-      MethodInvocationNode originalNode);
+      MethodInvocationNode originalNode) {
+    return originalNode;
+  }
 
   /**
    * Called to determine when a method acts as a cast-to-non-null operation on its parameters.
@@ -379,10 +426,13 @@ public interface Handler {
    *     handler in the chain.
    * @param methodAnalysisContext The MethodAnalysisContext object
    */
-  @Nullable Integer castToNonNullArgumentPositionsForMethod(
+  default @Nullable Integer castToNonNullArgumentPositionsForMethod(
       List<? extends ExpressionTree> actualParams,
       @Nullable Integer previousArgumentPosition,
-      MethodAnalysisContext methodAnalysisContext);
+      MethodAnalysisContext methodAnalysisContext) {
+    // NoOp
+    return previousArgumentPosition;
+  }
 
   /**
    * Method to override the nullability of the upper bound for a generic type variable on a class.
@@ -392,7 +442,9 @@ public interface Handler {
    * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
    *     bound
    */
-  boolean onOverrideClassTypeVariableUpperBound(String className, int index);
+  default boolean onOverrideClassTypeVariableUpperBound(String className, int index) {
+    return false;
+  }
 
   /**
    * Method to override the nullability of the upper bound for a generic type variable on a method.
@@ -413,7 +465,9 @@ public interface Handler {
    * @param className name of the class
    * @return boolean true if the class should be treated as {@code @NullMarked}
    */
-  boolean onOverrideNullMarkedClasses(String className);
+  default boolean onOverrideNullMarkedClasses(String className) {
+    return false;
+  }
 
   /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate

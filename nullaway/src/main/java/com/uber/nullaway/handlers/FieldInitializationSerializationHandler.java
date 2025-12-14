@@ -50,7 +50,7 @@ import javax.lang.model.element.ElementKind;
  *       we are looking for when we look for candidates for {@code @Initializer})
  * </ul>
  */
-public class FieldInitializationSerializationHandler extends BaseNoOpHandler {
+public class FieldInitializationSerializationHandler implements Handler {
 
   private final FixSerializationConfig config;
 

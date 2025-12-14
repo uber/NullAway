@@ -46,7 +46,7 @@ import org.jspecify.annotations.Nullable;
  * Note: all fields that are going to be processed must be the fields of the receiver. (e.g. field
  * or this.field)
  */
-public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
+public abstract class AbstractFieldContractHandler implements Handler {
 
   protected static final String THIS_NOTATION = "this.";
 
@@ -92,7 +92,7 @@ public abstract class AbstractFieldContractHandler extends BaseNoOpHandler {
     }
     validateOverridingRules(
         fieldNames, methodAnalysisContext.analysis(), state, tree, closestOverriddenMethod);
-    super.onMatchMethod(tree, methodAnalysisContext);
+    Handler.super.onMatchMethod(tree, methodAnalysisContext);
   }
 
   /**

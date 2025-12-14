@@ -48,7 +48,7 @@ import org.jspecify.annotations.Nullable;
  * this handler, we learn appropriate nullability facts about the relevant property from these
  * calls.
  */
-public class ApacheThriftIsSetHandler extends BaseNoOpHandler {
+public class ApacheThriftIsSetHandler implements Handler {
 
   private static final String TBASE_NAME = "org.apache.thrift.TBase";
 
