@@ -9,7 +9,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.handlers.BaseNoOpHandler;
+import com.uber.nullaway.handlers.Handler;
 import java.util.Arrays;
 import javax.lang.model.element.Name;
 
@@ -32,7 +32,7 @@ import javax.lang.model.element.Name;
  * workaround handler, to be removed as future NullAway features make them unnecessary. This is a
  * hack, but the best of a bunch of bad options.
  */
-public class FluentFutureHandler extends BaseNoOpHandler {
+public class FluentFutureHandler implements Handler {
 
   private static final String GUAVA_FUNCTION_CLASS_NAME = "com.google.common.base.Function";
   private static final String GUAVA_ASYNC_FUNCTION_CLASS_NAME =

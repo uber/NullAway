@@ -49,7 +49,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.jspecify.annotations.Nullable;
 
-public class GrpcHandler extends BaseNoOpHandler {
+public class GrpcHandler implements Handler {
   private static final String GRPC_METADATA_TNAME = "io.grpc.Metadata";
   private static final String GRPC_METADATA_KEY_TNAME = "io.grpc.Metadata.Key";
   private static final String GRPC_CONTAINSKEY_MNAME = "containsKey";

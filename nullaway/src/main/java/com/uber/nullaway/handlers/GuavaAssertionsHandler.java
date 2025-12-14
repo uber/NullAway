@@ -14,7 +14,7 @@ import org.jspecify.annotations.Nullable;
  * Handler to expose semantics of Guava routines like {@code checkState}, {@code checkArgument}, and
  * {@code verify} that check a boolean condition and fail with an exception if it is false.
  */
-public class GuavaAssertionsHandler extends BaseNoOpHandler {
+public class GuavaAssertionsHandler implements Handler {
 
   private static final String PRECONDITIONS_CLASS_NAME = "com.google.common.base.Preconditions";
   private static final String CHECK_ARGUMENT_METHOD_NAME = "checkArgument";
