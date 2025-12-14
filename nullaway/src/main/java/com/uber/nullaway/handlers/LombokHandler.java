@@ -20,7 +20,7 @@ import org.jspecify.annotations.Nullable;
  * <p>Currently used to propagate @Nullable in cases where the Lombok annotation processor fails to
  * do so consistently.
  */
-public class LombokHandler extends BaseNoOpHandler {
+public class LombokHandler implements Handler {
 
   private static String LOMBOK_GENERATED_ANNOTATION_NAME = "lombok.Generated";
   private static String LOMBOK_BUILDER_DEFAULT_METHOD_PREFIX = "$default$";

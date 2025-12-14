@@ -77,7 +77,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
  * <p>This allows the checker to know, for example, that code like the following has no NPEs:
  * observable.filter(... return o.foo() != null; ...).map(... o.foo.toString() ...)
  */
-class StreamNullabilityPropagator extends BaseNoOpHandler {
+class StreamNullabilityPropagator implements Handler {
 
   /* Terminology for this class internals:
    *

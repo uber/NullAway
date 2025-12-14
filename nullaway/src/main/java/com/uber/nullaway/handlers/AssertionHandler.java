@@ -35,7 +35,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.jspecify.annotations.Nullable;
 
 /** This Handler deals with assertions which ensure that their arguments cannot be null. */
-public class AssertionHandler extends BaseNoOpHandler {
+public class AssertionHandler implements Handler {
 
   private final MethodNameUtil methodNameUtil;
 

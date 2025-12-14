@@ -37,7 +37,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.handlers.BaseNoOpHandler;
+import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
@@ -53,7 +53,7 @@ import org.jspecify.annotations.Nullable;
  * antecedent if the consequent is "!null" and there is a return statement with "nullable" or "null"
  * expression.
  */
-public class ContractCheckHandler extends BaseNoOpHandler {
+public class ContractCheckHandler implements Handler {
 
   private final Config config;
 

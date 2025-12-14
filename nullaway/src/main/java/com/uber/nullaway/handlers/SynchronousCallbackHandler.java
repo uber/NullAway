@@ -22,7 +22,7 @@ import java.util.function.Predicate;
 import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 
-public class SynchronousCallbackHandler extends BaseNoOpHandler {
+public class SynchronousCallbackHandler implements Handler {
 
   /**
    * Maps method name to full information about the corresponding methods and what parameter is the
