@@ -40,7 +40,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.jspecify.annotations.Nullable;
 
-public class RestrictiveAnnotationHandler extends BaseNoOpHandler {
+public class RestrictiveAnnotationHandler implements Handler {
 
   private final Config config;
   private Handler mainHandler;

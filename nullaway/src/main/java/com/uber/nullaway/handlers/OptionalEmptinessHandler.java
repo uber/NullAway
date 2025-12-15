@@ -66,7 +66,7 @@ import org.jspecify.annotations.Nullable;
  * Handler to better handle {@code isPresent()} methods in code generated for Optionals. With this
  * handler, we learn appropriate Emptiness facts about the relevant property from these calls.
  */
-public class OptionalEmptinessHandler extends BaseNoOpHandler {
+public class OptionalEmptinessHandler implements Handler {
 
   private @Nullable ImmutableSet<Type> optionalTypes;
   private @Nullable NullAway analysis;

@@ -120,6 +120,8 @@ public final class AccessPath implements MapKey {
    */
   private final @Nullable MapKey mapGetArg;
 
+  private final int cachedHashCode;
+
   private AccessPath(@Nullable Element root, ImmutableList<AccessPathElement> elements) {
     this(root, elements, null);
   }
@@ -131,6 +133,7 @@ public final class AccessPath implements MapKey {
     this.root = root;
     this.elements = elements;
     this.mapGetArg = mapGetArg;
+    this.cachedHashCode = computeHashCode();
   }
 
   /**
@@ -591,6 +594,10 @@ public final class AccessPath implements MapKey {
 
   @Override
   public int hashCode() {
+    return cachedHashCode;
+  }
+
+  private int computeHashCode() {
     int result = 1;
     result = 31 * result + (root != null ? root.hashCode() : 0);
     result = 31 * result + elements.hashCode();

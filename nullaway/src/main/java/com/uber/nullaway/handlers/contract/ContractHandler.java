@@ -38,7 +38,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
-import com.uber.nullaway.handlers.BaseNoOpHandler;
+import com.uber.nullaway.handlers.Handler;
 import java.util.Optional;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.AbstractNodeVisitor;
@@ -80,7 +80,7 @@ import org.jspecify.annotations.Nullable;
  * clause is given in terms of many. This is not behavior that should be counted on, but it is
  * sound.
  */
-public class ContractHandler extends BaseNoOpHandler {
+public class ContractHandler implements Handler {
 
   private final Config config;
 
