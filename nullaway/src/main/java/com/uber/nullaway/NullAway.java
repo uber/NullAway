@@ -23,7 +23,6 @@
 package com.uber.nullaway;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
-import static com.sun.source.tree.Tree.Kind.OTHER;
 import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.ASTHelpersBackports.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
@@ -332,7 +331,7 @@ public class NullAway extends BugChecker
    * @return true if the expression is a call to an unmarked method, false otherwise
    */
   private boolean isCallToUnmarkedMethod(ExpressionTree expr) {
-    ExpressionTree exprTree = stripParensAndCasts(expr);
+    ExpressionTree exprTree = NullabilityUtil.stripParensAndCasts(expr);
     if (!(exprTree instanceof MethodInvocationTree)) {
       return false;
     }
@@ -2584,7 +2583,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
-    expr = stripParensAndCasts(expr);
+    expr = NullabilityUtil.stripParensAndCasts(expr);
     if (ASTHelpers.constValue(expr) != null) {
       // This should include literals such as "true" or a string
       // obviously not null
@@ -2810,34 +2809,6 @@ public class NullAway extends BugChecker
 
   public ErrorBuilder getErrorBuilder() {
     return errorBuilder;
-  }
-
-  /**
-   * strip out enclosing parentheses, type casts and Nullchk operators.
-   *
-   * @param expr a potentially parenthesised expression.
-   * @return the same expression without parentheses.
-   */
-  public static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
-    boolean someChange = true;
-    while (someChange) {
-      someChange = false;
-      if (expr instanceof ParenthesizedTree) {
-        expr = ((ParenthesizedTree) expr).getExpression();
-        someChange = true;
-      }
-      if (expr instanceof TypeCastTree) {
-        expr = ((TypeCastTree) expr).getExpression();
-        someChange = true;
-      }
-
-      // Strips Nullchk operator
-      if (expr.getKind().equals(OTHER) && expr instanceof JCTree.JCUnary) {
-        expr = ((JCTree.JCUnary) expr).getExpression();
-        someChange = true;
-      }
-    }
-    return expr;
   }
 
   /**

@@ -1045,7 +1045,7 @@ public final class GenericsChecks {
     if (exprType.isPrimitive() || exprType instanceof NullType) {
       return false;
     }
-    expr = NullAway.stripParensAndCasts(expr);
+    expr = NullabilityUtil.stripParensAndCasts(expr);
     switch (expr.getKind()) {
       case ARRAY_ACCESS:
       case MEMBER_SELECT:
