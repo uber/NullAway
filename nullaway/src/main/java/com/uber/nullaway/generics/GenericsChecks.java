@@ -459,7 +459,11 @@ public final class GenericsChecks {
             }
           }
         }
-        result = symbol.type;
+        result = ASTHelpers.getType(tree);
+        // if result is an array type, use the type on the symbol instead
+        if (result != null && result.getKind() == TypeKind.ARRAY) {
+          result = symbol.type;
+        }
       } else if (tree instanceof AssignmentTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
         // the symbol for the assigned location instead, if available

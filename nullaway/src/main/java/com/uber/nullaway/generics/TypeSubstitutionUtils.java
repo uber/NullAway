@@ -64,13 +64,13 @@ public class TypeSubstitutionUtils {
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
     Type receiverType = t;
-    if (t instanceof Type.TypeVar) {
-      Type superType = asSuper(types, t, (Symbol.ClassSymbol) sym.owner, config);
-      if (superType == null) {
-        return origType;
-      }
-      receiverType = superType;
-    }
+    //    if (t instanceof Type.TypeVar) {
+    //      Type superType = asSuper(types, t, (Symbol.ClassSymbol) sym.owner, config);
+    //      if (superType == null) {
+    //        return origType;
+    //      }
+    //      receiverType = superType;
+    //    }
     Type memberType = types.memberType(receiverType, sym);
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
         receiverType instanceof DeclaredType
