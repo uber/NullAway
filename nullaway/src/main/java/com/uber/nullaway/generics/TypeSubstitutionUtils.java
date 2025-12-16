@@ -63,11 +63,19 @@ public class TypeSubstitutionUtils {
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
-    Type memberType = types.memberType(t, sym);
+    Type receiverType = t;
+    if (t instanceof Type.TypeVar) {
+      Type superType = asSuper(types, t, (Symbol.ClassSymbol) sym.owner, config);
+      if (superType == null) {
+        return origType;
+      }
+      receiverType = superType;
+    }
+    Type memberType = types.memberType(receiverType, sym);
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        t instanceof DeclaredType
+        receiverType instanceof DeclaredType
             ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) t, (Symbol.MethodSymbol) sym, types, config)
+                (DeclaredType) receiverType, (Symbol.MethodSymbol) sym, types, config)
             : Map.of();
     return restoreExplicitNullabilityAnnotations(
         origType, memberType, config, annotsOnTypeVarsFromSubtypes);
