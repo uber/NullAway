@@ -460,7 +460,7 @@ public final class GenericsChecks {
           }
         }
         result = ASTHelpers.getType(tree);
-        if (result != null && result.getKind() == TypeKind.ARRAY) {
+        if (result != null && !(result instanceof Type.TypeVar)) {
           // type on the tree itself can be missing nested annotations for arrays; get the type from
           // the symbol for the variable instead
           result = symbol.type;

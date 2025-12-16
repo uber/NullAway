@@ -2783,6 +2783,28 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void annotationsOnTypeVariableTypeArgs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  static final class Foo<T> {",
+            "    final Function<@Nullable T, @Nullable T> func;",
+            "    Foo(Function<@Nullable T, @Nullable T> func) {",
+            "      this.func = func;",
+            "    }",
+            "    @Nullable T test(@Nullable T t) {",
+            "      return func.apply(t);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
