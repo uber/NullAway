@@ -2783,6 +2783,76 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void typeVarReceiverAsSuper() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface Marker {}",
+            "  interface Generic<T extends @Nullable Object> {",
+            "    T get();",
+            "  }",
+            "  static final class Impl implements Generic<@Nullable String>, Marker {",
+            "    @Override",
+            "    public @Nullable String get() {",
+            "      return null;",
+            "    }",
+            "  }",
+            "  static final class Holder<T extends Marker & Generic<@Nullable String>> {",
+            "    final T instance;",
+            "    Holder(T instance) {",
+            "      this.instance = instance;",
+            "    }",
+            "    void test() {",
+            "      // BUG: Diagnostic contains: dereferenced expression instance.get() is @Nullable",
+            "      instance.get().length();",
+            "    }",
+            "  }",
+            "  static void run(Holder<Impl> holder) {",
+            "    holder.test();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void typeVarReceiverArgumentNullabilityMismatch() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  static final class Foo<U extends @Nullable Object> {}",
+            "  interface Generic<T> {",
+            "    void take(Foo<T> arg);",
+            "  }",
+            "  static final class Impl implements Generic<String> {",
+            "    @Override",
+            "    public void take(Foo<String> arg) {}",
+            "  }",
+            "  static final class Holder<T extends Generic<String>> {",
+            "    final T instance;",
+            "    Holder(T instance) {",
+            "      this.instance = instance;",
+            "    }",
+            "    void test(Foo<@Nullable String> badArg) {",
+            "      // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>",
+            "      instance.take(badArg);",
+            "    }",
+            "  }",
+            "  static void run(Holder<Impl> holder, Foo<@Nullable String> badArg) {",
+            "    holder.test(badArg);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
