@@ -2753,6 +2753,30 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1377() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "class Test {",
+            "interface Marker {}",
+            "class Generic<T> {",
+            "    public void method() {}",
+            "}",
+            "class Base<T extends Object & Marker> {",
+            "    T instance;",
+            "}",
+            "class SubClass<T extends Generic<Integer> & Marker> extends Base<T> {",
+            "    void method() {",
+            "        instance.method();",
+            "    }",
+            "}",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
