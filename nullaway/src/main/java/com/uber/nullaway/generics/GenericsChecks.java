@@ -460,9 +460,11 @@ public final class GenericsChecks {
           }
         }
         result = ASTHelpers.getType(tree);
+        // type on the tree itself can be missing nested annotations in certain cases, so use the
+        // type on the symbol instead.  for type variables, we've found that the type on the symbol
+        // can be wrong (which caused https://github.com/uber/NullAway/issues/1377), so we still use
+        // the tree type for type variables
         if (result != null && !(result instanceof Type.TypeVar)) {
-          // type on the tree itself can be missing nested annotations for arrays; get the type from
-          // the symbol for the variable instead
           result = symbol.type;
         }
       } else if (tree instanceof AssignmentTree) {
