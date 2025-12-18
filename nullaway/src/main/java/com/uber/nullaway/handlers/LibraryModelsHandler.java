@@ -1437,10 +1437,8 @@ public class LibraryModelsHandler implements Handler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
           new ImmutableSetMultimap.Builder<>();
       for (Map.Entry<String, Integer> entry : methodTypeParamNullableUpperBoundCache.entries()) {
-        //        String methodSig = entry.getKey();
         String className = entry.getKey().split(":")[0].replace('$', '.');
         String methodSig = getMethodNameAndSignature(entry.getKey());
-
         mapBuilder.put(MethodRef.methodRef(className, methodSig), entry.getValue());
       }
       return mapBuilder.build();
