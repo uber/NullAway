@@ -2753,6 +2753,58 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1377() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "class Test {",
+            "interface Marker {}",
+            "class Generic<T> {",
+            "    public void method() {}",
+            "}",
+            "class Base<T extends Object & Marker> {",
+            "    T instance;",
+            "    Base(T instance) {",
+            "        this.instance = instance;",
+            "    }",
+            "}",
+            "class SubClass<T extends Generic<Integer> & Marker> extends Base<T> {",
+            "    SubClass(T instance) {",
+            "        super(instance);",
+            "    }",
+            "    void method() {",
+            "        instance.method();",
+            "    }",
+            "}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void annotationsOnTypeVariableTypeArgs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  static final class Foo<T> {",
+            "    final Function<@Nullable T, @Nullable T> func;",
+            "    Foo(Function<@Nullable T, @Nullable T> func) {",
+            "      this.func = func;",
+            "    }",
+            "    @Nullable T test(@Nullable T t) {",
+            "      return func.apply(t);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
