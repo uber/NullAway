@@ -32,6 +32,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Multimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
@@ -1385,7 +1386,7 @@ public class LibraryModelsHandler implements Handler {
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
-    private final Map<String, Integer> methodTypeParamNullableUpperBoundCache;
+    private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
 
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
@@ -1413,7 +1414,7 @@ public class LibraryModelsHandler implements Handler {
       nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
       upperBoundsCache = cacheUtil.getUpperBoundCache();
       methodTypeParamNullableUpperBoundCache =
-          cacheUtil.getMethodTypaParamNullableUpperBoundCache();
+          cacheUtil.getMethodTypeParamNullableUpperBoundCache();
     }
 
     @Override
@@ -1435,7 +1436,7 @@ public class LibraryModelsHandler implements Handler {
     public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
       ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
           new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Integer> entry : methodTypeParamNullableUpperBoundCache.entrySet()) {
+      for (Map.Entry<String, Integer> entry : methodTypeParamNullableUpperBoundCache.entries()) {
         //        String methodSig = entry.getKey();
         String className = entry.getKey().split(":")[0].replace('$', '.');
         String methodSig = getMethodNameAndSignature(entry.getKey());

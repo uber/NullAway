@@ -381,6 +381,9 @@ public class JDKIntegrationTest {
             "    ParameterAnnotation.nonNullTypeParam(1);",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
             "    ParameterAnnotation.nonNullTypeParam(null);",
+            "    Object x = ParameterAnnotation.twoNullableTypeParam(null, \"string\");",
+            "    // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
+            "    x.toString();",
             "  }",
             "}")
         .doTest();

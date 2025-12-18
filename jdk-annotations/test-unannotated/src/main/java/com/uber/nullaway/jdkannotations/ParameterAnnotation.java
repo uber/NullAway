@@ -52,5 +52,9 @@ public class ParameterAnnotation {
     return t;
   }
 
+  public static <K, T> K twoNullableTypeParam(K k, T t) {
+    return k;
+  }
+
   public static <T> void nonNullTypeParam(T t) {}
 }

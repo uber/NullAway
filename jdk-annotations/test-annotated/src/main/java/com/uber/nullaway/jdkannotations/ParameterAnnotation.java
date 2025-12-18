@@ -58,5 +58,10 @@ public class ParameterAnnotation {
     return t;
   }
 
+  public static <K extends @Nullable Object, T extends @Nullable Object> K twoNullableTypeParam(
+      K k, T t) {
+    return k;
+  }
+
   public static <T> void nonNullTypeParam(T t) {}
 }
