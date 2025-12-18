@@ -72,7 +72,7 @@ import org.jspecify.annotations.Nullable;
  * <p>It loads the required LibraryModels and inserts their nullability information at the right
  * points through the flow of our analysis.
  */
-public class LibraryModelsHandler extends BaseNoOpHandler {
+public class LibraryModelsHandler implements Handler {
 
   private final Config config;
   private Handler mainHandler;

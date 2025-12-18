@@ -2703,6 +2703,108 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nonNullInReturnTypeArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  interface MaybeNull<T extends @Nullable Object> {",
+            "    T get();",
+            "    default MaybeNull<@NonNull T> asNonNull() {",
+            "      return (MaybeNull<@NonNull T>) this;",
+            "    }",
+            "  }",
+            "  static void accept(MaybeNull<String> nonNullThing) {}",
+            "  static void test(MaybeNull<@Nullable String> nullable) {",
+            "    accept(nullable.asNonNull());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nonNullInFieldTypeArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NonNull;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "class Test {",
+            "  static class Foo<T extends @Nullable Object> {",
+            "    Foo<@NonNull T> nonNullField = new Foo<>();",
+            "    Foo<@Nullable T> nullableField = new Foo<>();",
+            "    static void test(Foo<@Nullable String> nullableFoo, Foo<@NonNull String> nonnullFoo) {",
+            "      // BUG: Diagnostic contains: incompatible types: Foo<@NonNull String> cannot be converted to Foo<@Nullable String>",
+            "      Foo<@Nullable String> f1 = nullableFoo.nonNullField;",
+            "      Foo<String> f2 = nullableFoo.nonNullField;",
+            "      Foo<@Nullable String> f3 = nonnullFoo.nullableField;",
+            "      // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>",
+            "      Foo<String> f4 = nonnullFoo.nullableField;",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void issue1377() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "@NullMarked",
+            "class Test {",
+            "interface Marker {}",
+            "class Generic<T> {",
+            "    public void method() {}",
+            "}",
+            "class Base<T extends Object & Marker> {",
+            "    T instance;",
+            "    Base(T instance) {",
+            "        this.instance = instance;",
+            "    }",
+            "}",
+            "class SubClass<T extends Generic<Integer> & Marker> extends Base<T> {",
+            "    SubClass(T instance) {",
+            "        super(instance);",
+            "    }",
+            "    void method() {",
+            "        instance.method();",
+            "    }",
+            "}",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void annotationsOnTypeVariableTypeArgs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  static final class Foo<T> {",
+            "    final Function<@Nullable T, @Nullable T> func;",
+            "    Foo(Function<@Nullable T, @Nullable T> func) {",
+            "      this.func = func;",
+            "    }",
+            "    @Nullable T test(@Nullable T t) {",
+            "      return func.apply(t);",
+            "    }",
+            "  }",
+            "}")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
