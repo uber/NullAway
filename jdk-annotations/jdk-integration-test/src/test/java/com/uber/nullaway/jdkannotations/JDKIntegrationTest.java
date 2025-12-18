@@ -373,6 +373,7 @@ public class JDKIntegrationTest {
             "import java.util.List;",
             "class Test {",
             "  void testCall() {",
+            "    // BUG: Diagnostic contains: dereferenced expression ParameterAnnotation.nullableTypeParam(1, null) is @Nullable",
             "    ParameterAnnotation.nullableTypeParam(1, null).toString();",
             "    ParameterAnnotation.nullableTypeParam(1, \"string\").toString();",
             "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",

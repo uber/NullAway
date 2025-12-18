@@ -244,7 +244,7 @@ public class AstubxGenerator {
         }
         argumentList[i] = typeSignature;
       }
-      signatureForMethodRecords += String.join(", ", argumentList) + ")";
+      signatureForMethodRecords += String.join(",", argumentList) + ")";
       methodRecords.put(
           signatureForMethodRecords,
           MethodAnnotationsRecord.create(

@@ -311,7 +311,7 @@ public class AstubxTest {
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
-            "PrimitiveType:int multiply(java.lang.Integer, java.lang.Integer)",
+            "PrimitiveType:int multiply(java.lang.Integer,java.lang.Integer)",
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
@@ -337,7 +337,7 @@ public class AstubxTest {
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
-            "VoidReturn:void printMultiply(java.lang.Integer, java.lang.Integer)",
+            "VoidReturn:void printMultiply(java.lang.Integer,java.lang.Integer)",
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
@@ -353,13 +353,13 @@ public class AstubxTest {
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "public class Test {",
-            "  <K, T extends @Nullable Object> void nullableTypeVar() {}",
+            "  <K, T extends @Nullable Object> void nullableTypeVar(K k, T t) {}",
             "  <T> void nonNullTypeVar() {}",
             "}")
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
-            "Test:void <K,T>nullableTypeVar()",
+            "Test:void <K,T>nullableTypeVar(K,T)",
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(), ImmutableSet.of(1), ImmutableMap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
