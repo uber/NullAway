@@ -179,6 +179,32 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void lambdaAccessingNonFinalField() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  static <T extends @Nullable Object> T run(Function<String,T> f) {",
+            "    return f.apply(\"\");",
+            "  }",
+            "  static class Holder { @Nullable String f; }",
+            "  static void test() {",
+            "    final Holder x = new Holder();",
+            "    x.f = \"value\";",
+            "    // Since f is not final, we won't propagate facts about it into the lambda",
+            "    // So, we should infer T -> @Nullable String",
+            "    String t = run(s -> x.f);",
+            "    // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "    t.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedLambdaFromSpring() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
