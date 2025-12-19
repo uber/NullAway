@@ -26,9 +26,9 @@ dependencies {
         rootProject.subprojects { subproject ->
             var path = subproject.path
             if (path == ':nullaway'
-                || path == ':annotations'
-                || path.contains(':jar-infer-')
-                || path.contains(':android-jarinfer-models-')) {
+                    || path == ':annotations'
+                    || path.contains(':jar-infer-')
+                    || path.contains(':android-jarinfer-models-')) {
                 api(subproject)
             }
         }
