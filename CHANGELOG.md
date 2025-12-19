@@ -1,6 +1,22 @@
 Changelog
 =========
 
+Version 0.12.15
+---------------
+
+NullAway now includes a BOM artifact `com.uber.nullaway:nullaway-bom`.  Otherwise, this release contains a few bug
+fixes and improvements to JSpecify support.
+
+* Fix URL for RequireExplicitNullMarking checker (#1369)
+* Handle annotations on type variables in return and field types (#1371)
+* Change how recursive calls to dataflow are detected (#1374)
+* JSpecify: use type on identifier when its type is a type variable (#1378)
+* Include method type parameters in astubx files. by @haewiful (#1370)
+* Create nullaway-bom project (#1130) by @lpireyn (#1380)
+* Run dataflow analysis on bodies of lambdas passed to generic methods (#1375)
+* Maintenance
+  - Remove BaseNoOpHandler and replace with default methods in Handler (#1376)
+
 Version 0.12.14
 ---------------
 
