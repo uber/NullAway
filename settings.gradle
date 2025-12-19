@@ -13,6 +13,7 @@ plugins {
 
 include ':annotations'
 include ':nullaway'
+include ':nullaway-bom'
 include ':sample-library-model'
 include ':sample'
 include ':test-java-lib'
