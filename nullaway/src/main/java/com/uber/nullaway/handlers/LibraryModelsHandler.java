@@ -32,6 +32,7 @@ import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.Multimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
@@ -1385,6 +1386,7 @@ public class LibraryModelsHandler implements Handler {
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
+    private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
 
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
@@ -1411,6 +1413,8 @@ public class LibraryModelsHandler implements Handler {
       argAnnotCache = cacheUtil.getArgAnnotCache();
       nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
       upperBoundsCache = cacheUtil.getUpperBoundCache();
+      methodTypeParamNullableUpperBoundCache =
+          cacheUtil.getMethodTypeParamNullableUpperBoundCache();
     }
 
     @Override
@@ -1424,6 +1428,18 @@ public class LibraryModelsHandler implements Handler {
           new ImmutableSetMultimap.Builder<>();
       for (Map.Entry<String, Integer> entry : upperBoundsCache.entrySet()) {
         mapBuilder.put(entry.getKey(), entry.getValue());
+      }
+      return mapBuilder.build();
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      for (Map.Entry<String, Integer> entry : methodTypeParamNullableUpperBoundCache.entries()) {
+        String className = entry.getKey().split(":")[0].replace('$', '.');
+        String methodSig = getMethodNameAndSignature(entry.getKey());
+        mapBuilder.put(MethodRef.methodRef(className, methodSig), entry.getValue());
       }
       return mapBuilder.build();
     }

@@ -22,6 +22,9 @@ package com.uber.nullaway.handlers;
  * THE SOFTWARE.
  */
 
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.uber.nullaway.jarinfer.JarInferStubxProvider;
 import java.io.DataInputStream;
 import java.io.IOException;
@@ -67,6 +70,8 @@ public class StubxCacheUtil {
 
   private final Set<String> nullMarkedClassesCache;
 
+  private final SetMultimap<String, Integer> methodTypeParamNullableUpperBoundCache;
+
   /**
    * Initializes a new {@code StubxCacheUtil} instance.
    *
@@ -79,6 +84,7 @@ public class StubxCacheUtil {
     argAnnotCache = new LinkedHashMap<>();
     upperBoundCache = new HashMap<>();
     nullMarkedClassesCache = new HashSet<>();
+    methodTypeParamNullableUpperBoundCache = HashMultimap.create();
     this.logCaller = logCaller;
     loadStubxFiles();
   }
@@ -89,6 +95,10 @@ public class StubxCacheUtil {
 
   public Set<String> getNullMarkedClassesCache() {
     return nullMarkedClassesCache;
+  }
+
+  public Multimap<String, Integer> getMethodTypeParamNullableUpperBoundCache() {
+    return methodTypeParamNullableUpperBoundCache;
   }
 
   public Map<String, Map<String, Map<Integer, Set<String>>>> getArgAnnotCache() {
@@ -157,6 +167,13 @@ public class StubxCacheUtil {
       String annotation = strings[in.readInt()];
       LOG(DEBUG, "DEBUG", "method: " + methodSig + ", return annotation: " + annotation);
       cacheAnnotation(methodSig, RETURN, annotation);
+    }
+    // Read the number of (method, nullable type parameter index)
+    int numMethodTypeParams = in.readInt();
+    for (int i = 0; i < numMethodTypeParams; ++i) {
+      String methodSig = strings[in.readInt()];
+      int idx = in.readInt();
+      this.methodTypeParamNullableUpperBoundCache.put(methodSig, idx);
     }
     // Read the number of (method, argument, annotation) entries
     int numArgumentRecords = in.readInt();

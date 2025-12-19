@@ -280,6 +280,7 @@ public class LibraryModelGenerator {
     @Override
     public void visit(MethodDeclaration md, Void arg) {
       ImmutableMap<Integer, ImmutableSet<String>> nullableParameterMap = getNullableParameters(md);
+      ImmutableSet<Integer> nullableTypeVar = getMethodTypeVariableNullableUpperBounds(md);
       boolean isReturnNullable = hasNullableReturn(md);
       ImmutableSet<String> nullableReturn =
           isReturnNullable ? ImmutableSet.of(NULLABLE) : ImmutableSet.of();
@@ -289,14 +290,15 @@ public class LibraryModelGenerator {
       String qualifiedSignature = resolved.getQualifiedSignature();
       String methodSignatureWithQualifiedParameters =
           qualifiedSignature.substring(qualifiedSignature.lastIndexOf(md.getNameAsString()));
-      if (this.isNullMarked && (isReturnNullable || !nullableParameterMap.isEmpty())) {
+      if (this.isNullMarked
+          && (isReturnNullable || !nullableParameterMap.isEmpty() || !nullableTypeVar.isEmpty())) {
         methodRecords.put(
             parentName
                 + ":"
                 + getMethodReturnTypeString(resolved)
                 + " "
                 + methodSignatureWithQualifiedParameters,
-            MethodAnnotationsRecord.create(nullableReturn, nullableParameterMap));
+            MethodAnnotationsRecord.create(nullableReturn, nullableTypeVar, nullableParameterMap));
       }
       super.visit(md, null);
     }
@@ -370,6 +372,21 @@ public class LibraryModelGenerator {
       List<TypeParameter> typeParamList = cid.getTypeParameters();
       for (int i = 0; i < typeParamList.size(); i++) {
         TypeParameter param = typeParamList.get(i);
+        for (ClassOrInterfaceType type : param.getTypeBound()) {
+          Optional<AnnotationExpr> nullableAnnotation = type.getAnnotationByName(NULLABLE);
+          if (nullableAnnotation.isPresent() && isAnnotationNullable(nullableAnnotation.get())) {
+            setBuilder.add(i);
+          }
+        }
+      }
+      return setBuilder.build();
+    }
+
+    private ImmutableSet<Integer> getMethodTypeVariableNullableUpperBounds(MethodDeclaration md) {
+      ImmutableSet.Builder<Integer> setBuilder = ImmutableSet.builder();
+      List<TypeParameter> typeParameterList = md.getTypeParameters();
+      for (int i = 0; i < typeParameterList.size(); i++) {
+        TypeParameter param = typeParameterList.get(i);
         for (ClassOrInterfaceType type : param.getTypeBound()) {
           Optional<AnnotationExpr> nullableAnnotation = type.getAnnotationByName(NULLABLE);
           if (nullableAnnotation.isPresent() && isAnnotationNullable(nullableAnnotation.get())) {

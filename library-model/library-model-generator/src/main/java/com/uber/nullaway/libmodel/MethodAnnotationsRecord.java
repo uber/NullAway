@@ -10,11 +10,15 @@ public abstract class MethodAnnotationsRecord {
 
   public static MethodAnnotationsRecord create(
       ImmutableSet<String> methodAnnotations,
+      ImmutableSet<Integer> typeParamNullableUpperbounds,
       ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations) {
-    return new AutoValue_MethodAnnotationsRecord(methodAnnotations, argumentAnnotations);
+    return new AutoValue_MethodAnnotationsRecord(
+        methodAnnotations, typeParamNullableUpperbounds, argumentAnnotations);
   }
 
   abstract ImmutableSet<String> methodAnnotations();
+
+  abstract ImmutableSet<Integer> typeParamNullableUpperbounds();
 
   abstract ImmutableMap<Integer, ImmutableSet<String>> argumentAnnotations();
 }
