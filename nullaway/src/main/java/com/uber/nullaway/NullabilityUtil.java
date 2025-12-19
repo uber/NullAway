@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.sun.source.tree.Tree.Kind.OTHER;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
@@ -34,7 +36,9 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
@@ -696,5 +700,33 @@ public class NullabilityUtil {
             ? ((JCTree.JCMethodInvocation) tree).varargsElement
             : ((JCTree.JCNewClass) tree).varargsElement;
     return varargsElement != null;
+  }
+
+  /**
+   * strip out enclosing parentheses, type casts and Nullchk operators.
+   *
+   * @param expr a potentially parenthesised expression.
+   * @return the same expression without parentheses.
+   */
+  public static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
+    boolean someChange = true;
+    while (someChange) {
+      someChange = false;
+      if (expr instanceof ParenthesizedTree) {
+        expr = ((ParenthesizedTree) expr).getExpression();
+        someChange = true;
+      }
+      if (expr instanceof TypeCastTree) {
+        expr = ((TypeCastTree) expr).getExpression();
+        someChange = true;
+      }
+
+      // Strips Nullchk operator
+      if (expr.getKind().equals(OTHER) && expr instanceof JCTree.JCUnary) {
+        expr = ((JCTree.JCUnary) expr).getExpression();
+        someChange = true;
+      }
+    }
+    return expr;
   }
 }

@@ -23,6 +23,7 @@ import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrIni
 
 import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.cache.CacheLoader;
 import com.google.common.cache.LoadingCache;
@@ -271,6 +272,28 @@ public final class DataFlow {
       @Nullable S resultBefore(TreePath exprPath, Context context, T transfer) {
     AnalysisResult<A, S> analysisResult = resultFor(exprPath, context, transfer);
     return analysisResult == null ? null : analysisResult.getStoreBefore(exprPath.getLeaf());
+  }
+
+  /**
+   * Like {@link #resultBefore(TreePath, Context, ForwardTransferFunction)} but for the case where
+   * the dataflow analysis is currently running
+   */
+  public <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
+      @Nullable S resultBeforeWithAnalysisRunning(TreePath exprPath, Context context, T transfer) {
+    TreePath enclosingPath = findEnclosingMethodOrLambdaOrInitializer(exprPath);
+    if (enclosingPath == null) {
+      throw new RuntimeException("expression is not inside a method, lambda or initializer block!");
+    }
+
+    Tree enclosing = enclosingPath.getLeaf();
+    if (enclosing instanceof MethodTree && ((MethodTree) enclosing).getBody() == null) {
+      return null;
+    }
+    RunOnceForwardAnalysisImpl<A, S, T> analysis =
+        (RunOnceForwardAnalysisImpl<A, S, T>)
+            dataflow(enclosingPath, context, transfer, false).getAnalysis();
+    Verify.verify(analysis.isRunning(), "Expected analysis to be running for %s", enclosing);
+    return analysis.getStoreBefore(exprPath.getLeaf());
   }
 
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
