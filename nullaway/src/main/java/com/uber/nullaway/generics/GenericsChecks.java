@@ -998,8 +998,6 @@ public final class GenericsChecks {
     } else {
       refinedNullness = nullnessAnalysis.getNullness(exprPath, state.context);
     }
-    // TODO if we did the dataflow analysis for a lambda, always remove the analysis result from the
-    //  cache for safety
     if (refinedNullness == null) {
       return exprType;
     }
