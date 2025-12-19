@@ -157,6 +157,28 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void lambdaReturnEnclosingLocal() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.function.Function;",
+            "@NullMarked",
+            "class Test {",
+            "  static <T extends @Nullable Object> T run(Function<String,T> f) {",
+            "    return f.apply(\"\");",
+            "  }",
+            "  static void test() {",
+            "    final String result = null;",
+            "    String t = run(s -> result);",
+            "    // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
+            "    t.hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nestedLambdaFromSpring() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
