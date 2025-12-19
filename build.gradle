@@ -123,7 +123,7 @@ subprojects { project ->
 
     // Spotless complains when applied to the folders containing projects
     // when they do not have a build.gradle file
-    if (project.name != "jar-infer" && project.name != "library-model" && project.name != "jdk-annotations") {
+    if (project.name != "jar-infer" && project.name != "library-model" && project.name != "jdk-annotations" && project.name != "nullaway-bom") {
         project.apply plugin: "com.diffplug.spotless"
         spotless {
             java {
