@@ -28,6 +28,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -112,6 +113,8 @@ public interface LibraryModels {
    * @return set of library methods that are assumed not to return null
    */
   ImmutableSet<MethodRef> nonNullReturns();
+
+  ImmutableSetMultimap<MethodRef, NestedAnnotationInfo> nestedAnnotationsOnReturns();
 
   /**
    * Get the (className, type argument index) pairs for library classes where the generic type
