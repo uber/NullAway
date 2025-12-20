@@ -114,6 +114,7 @@ public interface LibraryModels {
    */
   ImmutableSet<MethodRef> nonNullReturns();
 
+  // TODO write test for this
   ImmutableSetMultimap<MethodRef, NestedAnnotationInfo> nestedAnnotationsOnReturns();
 
   /**
