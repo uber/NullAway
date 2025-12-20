@@ -20,11 +20,15 @@ import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.handlers.stream.StreamModelBuilder;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry;
 
 @AutoService(LibraryModels.class)
 public class TestLibraryModels implements LibraryModels {
@@ -136,17 +140,37 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
-    return ImmutableSetMultimap.of("com.uber.lib.unannotated.ProviderNullMarkedViaModel", 0);
+    return ImmutableSetMultimap.of(
+        "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
+        0,
+        "com.uber.lib.unannotated.UnannotatedWithModels.Generic",
+        0);
   }
 
   @Override
   public ImmutableSet<String> nullMarkedClasses() {
-    return ImmutableSet.of("com.uber.lib.unannotated.ProviderNullMarkedViaModel");
+    return ImmutableSet.of(
+        "com.uber.lib.unannotated.ProviderNullMarkedViaModel", "com.uber.lib.unannotated.Generic");
   }
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
     return ImmutableSetMultimap.of(
-        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0);
+        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"),
+        0,
+        methodRef("com.uber.lib.unannotated.Generic", "<T>genericMethod(java.lang.Class<T>)"),
+        0);
+  }
+
+  @Override
+  public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+      nestedAnnotationsForMethods() {
+    return ImmutableMap.of(
+        methodRef("com.uber.lib.unannotated.Generic", "<T>genericMethod(java.lang.Class<T>)"),
+        ImmutableSetMultimap.of(
+            0,
+            new NestedAnnotationInfo(
+                Annotation.NONNULL,
+                ImmutableList.of(new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0)))));
   }
 }

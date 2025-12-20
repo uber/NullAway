@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
@@ -114,9 +115,13 @@ public interface LibraryModels {
    */
   ImmutableSet<MethodRef> nonNullReturns();
 
-  // TODO write test for this
-  default ImmutableSetMultimap<MethodRef, NestedAnnotationInfo> nestedAnnotationsOnReturns() {
-    return ImmutableSetMultimap.of();
+  /**
+   * For each library method key, provides a mapping from parameter index to the nested annotation
+   * information for that parameter type. A parameter index of -1 indicates the return type.
+   */
+  default ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+      nestedAnnotationsForMethods() {
+    return ImmutableMap.of();
   }
 
   /**

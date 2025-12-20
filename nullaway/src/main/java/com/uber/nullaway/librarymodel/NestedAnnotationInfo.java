@@ -1,6 +1,7 @@
 package com.uber.nullaway.librarymodel;
 
 import com.google.common.collect.ImmutableList;
+import java.util.Objects;
 
 /**
  * Class to hold information about a nested annotation within a type, including the annotation's
@@ -8,8 +9,8 @@ import com.google.common.collect.ImmutableList;
  */
 public class NestedAnnotationInfo {
 
-  static class TypePathEntry {
-    enum Kind {
+  public static class TypePathEntry {
+    public enum Kind {
       ARRAY_ELEMENT,
       TYPE_ARGUMENT,
       WILDCARD_BOUND
@@ -36,19 +37,36 @@ public class NestedAnnotationInfo {
     }
   }
 
-  private final String annotationClassName;
+  public enum Annotation {
+    NULLABLE,
+    NONNULL
+  }
+
+  private final Annotation annotation;
   private final ImmutableList<TypePathEntry> typePath;
 
-  public NestedAnnotationInfo(String annotationClassName, ImmutableList<TypePathEntry> typePath) {
-    this.annotationClassName = annotationClassName;
+  public NestedAnnotationInfo(Annotation annotation, ImmutableList<TypePathEntry> typePath) {
+    this.annotation = annotation;
     this.typePath = typePath;
   }
 
-  public String getAnnotationClassName() {
-    return annotationClassName;
+  public Annotation getAnnotation() {
+    return annotation;
   }
 
   public ImmutableList<TypePathEntry> getTypePath() {
     return typePath;
+  }
+
+  @Override
+  public boolean equals(Object o) {
+    if (o == null || getClass() != o.getClass()) return false;
+    NestedAnnotationInfo that = (NestedAnnotationInfo) o;
+    return annotation == that.annotation && Objects.equals(typePath, that.typePath);
+  }
+
+  @Override
+  public int hashCode() {
+    return Objects.hash(annotation, typePath);
   }
 }
