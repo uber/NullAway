@@ -17,7 +17,13 @@ public class NestedAnnotationInfo {
     }
 
     private final Kind kind;
-    private final int index; // only for TYPE_ARGUMENT kind
+
+    /**
+     * The index associated with the kind. For TYPE_ARGUMENT, this is the type argument index. For
+     * WILDCARD_BOUND, this is 0 for the upper bound ({@code ? extends Foo}) and 1 for the lower
+     * bound ({@code ? super Foo}). For ARRAY_ELEMENT, this is unused and set to -1.
+     */
+    private final int index;
 
     public TypePathEntry(Kind kind, int index) {
       this.kind = kind;
