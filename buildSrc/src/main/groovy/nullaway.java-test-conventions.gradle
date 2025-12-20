@@ -69,7 +69,7 @@ test {
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
         onlyIf {
             // Only run when using the latest Error Prone version
-            deps.versions.errorProneApi == deps.versions.errorProneLatest
+            errorProneVersionToCompileAgainst == latestErrorProneVersion
         }
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(majorVersion)
