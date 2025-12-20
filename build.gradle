@@ -52,7 +52,7 @@ repositories {
 def currentJavaVersion = JavaVersion.current()
 if (!currentJavaVersion.isCompatibleWith(JavaVersion.VERSION_21)) {
     throw new GradleException(
-            "NullAway only builds on JDK 21 or higher now. Detected ${System.getProperty('java.version')}. Please upgrade to JDK 21 or later."
+    "NullAway only builds on JDK 21 or higher now. Detected ${System.getProperty('java.version')}. Please upgrade to JDK 21 or later."
     )
 }
 
@@ -60,7 +60,7 @@ if (currentJavaVersion == JavaVersion.VERSION_21) {
     def runtimeVersion = Runtime.version()
     if (runtimeVersion.feature() == 21 && runtimeVersion.update() < 8) {
         throw new GradleException(
-                "Building NullAway on JDK 21 requires at least 21.0.8, but found ${runtimeVersion}.  Please upgrade to 21.0.8 or later, or to the most recent JDK release."
+        "Building NullAway on JDK 21 requires at least 21.0.8, but found ${runtimeVersion}.  Please upgrade to 21.0.8 or later, or to the most recent JDK release."
         )
     }
 }
@@ -77,11 +77,11 @@ subprojects { project ->
             languageVersion = JavaLanguageVersion.of(25)
         }
         options.compilerArgs += [
-                "-Xlint:deprecation",
-                "-Xlint:rawtypes",
-                "-Xlint:unchecked",
-                "-Werror",
-                "-parameters",
+            "-Xlint:deprecation",
+            "-Xlint:rawtypes",
+            "-Xlint:unchecked",
+            "-Werror",
+            "-parameters",
         ]
         options.errorprone {
             // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
