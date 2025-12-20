@@ -115,7 +115,9 @@ public interface LibraryModels {
   ImmutableSet<MethodRef> nonNullReturns();
 
   // TODO write test for this
-  ImmutableSetMultimap<MethodRef, NestedAnnotationInfo> nestedAnnotationsOnReturns();
+  default ImmutableSetMultimap<MethodRef, NestedAnnotationInfo> nestedAnnotationsOnReturns() {
+    return ImmutableSetMultimap.of();
+  }
 
   /**
    * Get the (className, type argument index) pairs for library classes where the generic type
