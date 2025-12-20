@@ -17,10 +17,7 @@ jmh = "0.7.1"
 versions-plugin = "0.51.0"
 shellcheck = "1.5.0"
 
-
-error-prone = "2.42.0"
-error-prone-oldest = "2.14.0"
-error-prone-javac = "9+181-r4173-1"
+errorProne = "2.42.0"
 
 semver4j = "3.1.0"
 jakarta-inject = "2.0.0"
@@ -72,10 +69,9 @@ asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
 asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
 
 # Error Prone Libraries
-error-prone-check-api = { module = "com.google.errorprone:error_prone_check_api", version.ref = "error-prone" }
-error-prone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "error-prone" }
-error-prone-test-helpers = { module = "com.google.errorprone:error_prone_test_helpers", version.ref = "error-prone" }
-error-prone-javac = { module = "com.google.errorprone:javac", version.ref = "error-prone-javac" }
+error-prone-check-api = { module = "com.google.errorprone:error_prone_check_api", version.ref = "errorProne" }
+error-prone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorProne" }
+error-prone-test-helpers = { module = "com.google.errorprone:error_prone_test_helpers", version.ref = "errorProne" }
 
 # Dataflow & Utils
 checker-dataflow = { module = "org.checkerframework:dataflow-nullaway", version.ref = "check-framework" }
