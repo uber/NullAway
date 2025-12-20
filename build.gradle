@@ -37,6 +37,13 @@ plugins {
     alias(libs.plugins.shellcheck)
 }
 
+ext {
+    errorProneVersionToCompileAgainst = libs.versions.error.prone.get()
+    latestErrorProneVersion = libs.versions.error.prone.get()
+}
+
+
+
 repositories {
     // to get the google-java-format jar and dependencies
     mavenCentral()
