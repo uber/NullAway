@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -33,55 +33,55 @@ configurations {
 
 dependencies {
     compileOnly project(":annotations")
-    compileOnly deps.apt.autoValueAnnot
-    annotationProcessor deps.apt.autoValue
-    compileOnly deps.apt.autoServiceAnnot
-    annotationProcessor deps.apt.autoService
+    compileOnly libs.auto.value.annotations
+    annotationProcessor libs.auto.value
+    compileOnly libs.auto.service.annotations
+    annotationProcessor libs.auto.service
     // Using api following the guidance at https://jspecify.dev/docs/using#gradle
-    api deps.build.jspecify
-    compileOnly deps.test.jetbrainsAnnotations
-    compileOnly deps.apt.javaxInject
+    api libs.jspecify
+    compileOnly libs.jetbrains.annotations
+    compileOnly libs.javax.inject
 
 
-    compileOnly deps.build.errorProneCheckApi
-    implementation deps.build.checkerDataflow
-    implementation deps.build.guava
+    compileOnly libs.error.prone.check.api
+    implementation libs.checker.dataflow
+    implementation libs.guava
 
     testImplementation project(":annotations")
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.test.jetbrainsAnnotations
-    testImplementation deps.test.junit5Jupiter
-    testImplementation deps.test.cfQual
-    testImplementation deps.test.cfCompatQual
-    testImplementation deps.build.jspecify
+    testImplementation libs.jetbrains.annotations
+    testImplementation libs.bundles.junit.jupiter
+    testImplementation libs.checker.qual
+    testImplementation libs.checker.compat.qual
+    testImplementation libs.jspecify
     testImplementation project(":test-java-lib")
-    testImplementation deps.apt.jakartaInject
-    testImplementation deps.apt.javaxInject
-    testImplementation deps.test.rxjava2
-    testImplementation deps.test.commonsLang
-    testImplementation deps.test.commonsLang3
+    testImplementation libs.jakarta.inject
+    testImplementation libs.javax.inject
+    testImplementation libs.rxjava2
+    testImplementation libs.commons.lang
+    testImplementation libs.commons.lang3
     testImplementation project(":test-library-models")
-    testImplementation deps.test.lombok
-    testImplementation deps.test.springBeans
-    testImplementation deps.test.springContext
-    testImplementation deps.test.grpcCore
+    testImplementation libs.lombok
+    testImplementation libs.spring.beans
+    testImplementation libs.spring.context
+    testImplementation libs.grpc.core
     testImplementation project(":test-java-lib-lombok")
-    testImplementation deps.test.mockito
-    testImplementation deps.test.javaxAnnotationApi
-    testImplementation deps.test.assertJ
-    testImplementation deps.test.amazonUtils
+    testImplementation libs.mockito
+    testImplementation libs.javax.annotation
+    testImplementation libs.assertj
+    testImplementation libs.amazon.utils
     // This is for a test exposing a CFG construction failure in the Checker Framework.  We can probably remove it once
     // the issue is fixed upstream and we update. See https://github.com/typetools/checker-framework/issues/6396.
     testImplementation 'org.apache.spark:spark-sql_2.12:3.3.2'
 
-    errorProneOldest deps.build.errorProneCheckApiOld
-    errorProneOldest(deps.build.errorProneTestHelpersOld) {
+    errorProneOldest "com.google.errorprone:error_prone_check_api:2.14.0"
+    errorProneOldest("com.google.errorprone:error_prone_test_helpers:2.14.0") {
         exclude group: "junit", module: "junit"
     }
-    errorProneOldest deps.build.guava
+    errorProneOldest libs.guava
 }
 
 javadoc {
@@ -94,17 +94,17 @@ apply plugin: 'com.vanniktech.maven.publish'
 // JDK-internal APIs that are not exposed otherwise.
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
     ]
 }
 
@@ -128,18 +128,18 @@ def epOldestTest = tasks.register("testErrorProneOldest", Test) {
     testClassesDirs = testTask.testClassesDirs
 
     jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+            // Accessed by Lombok tests
+            "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
     ]
 }
 
@@ -153,7 +153,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
         // We only do NullAway checks when compiling against the latest
         // version of Error Prone (as nullability annotations on the APIs
         // can change between versions)
-        deps.versions.errorProneApi == deps.versions.errorProneLatest
+        errorProneVersionToCompileAgainst == latestErrorProneVersion
     }
     // Configure compilation to run with Error Prone and NullAway
     source = sourceSets.main.java

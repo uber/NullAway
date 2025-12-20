@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,20 +14,18 @@
  * limitations under the License.
  */
 
-import net.ltgt.gradle.errorprone.CheckSeverity
-
 plugins {
     id('com.android.application')
 }
 
 android {
-    compileSdkVersion deps.build.compileSdkVersion
+    compileSdkVersion Integer.parseInt(libs.versions.compile.sdk.get())
     namespace "com.uber.myapplication"
 
     defaultConfig {
         applicationId "com.uber.myapplication"
-        minSdkVersion deps.build.minSdkVersion
-        targetSdkVersion deps.build.targetSdkVersion
+        minSdkVersion Integer.parseInt(libs.versions.min.sdk.get())
+        targetSdkVersion Integer.parseInt(libs.versions.target.sdk.get())
         versionCode 1
         versionName "1.0"
     }
@@ -42,33 +40,34 @@ android {
 }
 
 dependencies {
-    implementation deps.support.appcompat
-    annotationProcessor deps.build.errorProneCore
+    implementation libs.appcompat
+
+    annotationProcessor libs.error.prone.core
     annotationProcessor project(":nullaway")
     annotationProcessor project(path: ":sample-library-model")
 
-    testImplementation deps.test.junit4
+    testImplementation libs.junit4
 }
 
 // Configure Java compilation for all Android JavaCompile tasks (AGP 8+ compatible)
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += [
-        "-XDcompilePolicy=simple",
-        "--should-stop=ifError=FLOW",
-        "-Xplugin:ErrorProne -XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XDcompilePolicy=simple",
+            "--should-stop=ifError=FLOW",
+            "-Xplugin:ErrorProne -XepOpt:NullAway:AnnotatedPackages=com.uber",
     ]
     options.fork = true
     options.forkOptions.jvmArgs = [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED"
+            "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+            "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+            "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED"
     ]
 }
 

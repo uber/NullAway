@@ -42,18 +42,18 @@ configurations {
 }
 
 dependencies {
-    implementation deps.build.gson
-    implementation deps.build.jspecify
+    implementation libs.gson
+    implementation libs.jspecify
 
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.build.jspecify
-    testImplementation deps.build.gson
-    testImplementation deps.test.assertJ
+    testImplementation libs.jspecify
+    testImplementation libs.gson
+    testImplementation libs.assertj
 
-    testModulePath deps.build.jspecify
+    testModulePath libs.jspecify
 }
 
 tasks.withType(Test).configureEach { test ->

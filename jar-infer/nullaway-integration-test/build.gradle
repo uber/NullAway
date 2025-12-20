@@ -19,8 +19,8 @@ plugins {
 }
 
 dependencies {
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
     testImplementation project(":nullaway")

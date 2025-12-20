@@ -15,6 +15,7 @@
  */
 
 import net.ltgt.gradle.errorprone.CheckSeverity
+
 buildscript {
     repositories {
         mavenCentral()
@@ -22,17 +23,18 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.13.0'
-        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.34.0'
+        classpath libs.android.gradle.plugin
+        classpath libs.gradle.maven.publish.plugin
     }
 }
+
 plugins {
-    id "com.diffplug.spotless" version "8.0.0"
-    id "net.ltgt.errorprone" version "4.3.0" apply false
-    id "com.gradleup.shadow" version "8.3.8" apply false
-    id "me.champeau.jmh" version "0.7.1" apply false
-    id "com.github.ben-manes.versions" version "0.51.0"
-    id "com.felipefzdz.gradle.shellcheck" version "1.5.0"
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.errorprone) apply false
+    alias(libs.plugins.shadow) apply false
+    alias(libs.plugins.jmh) apply false
+    alias(libs.plugins.versions)
+    alias(libs.plugins.shellcheck)
 }
 
 repositories {
@@ -40,12 +42,10 @@ repositories {
     mavenCentral()
 }
 
-apply from: "gradle/dependencies.gradle"
-
 def currentJavaVersion = JavaVersion.current()
 if (!currentJavaVersion.isCompatibleWith(JavaVersion.VERSION_21)) {
     throw new GradleException(
-    "NullAway only builds on JDK 21 or higher now. Detected ${System.getProperty('java.version')}. Please upgrade to JDK 21 or later."
+            "NullAway only builds on JDK 21 or higher now. Detected ${System.getProperty('java.version')}. Please upgrade to JDK 21 or later."
     )
 }
 
@@ -53,7 +53,7 @@ if (currentJavaVersion == JavaVersion.VERSION_21) {
     def runtimeVersion = Runtime.version()
     if (runtimeVersion.feature() == 21 && runtimeVersion.update() < 8) {
         throw new GradleException(
-        "Building NullAway on JDK 21 requires at least 21.0.8, but found ${runtimeVersion}.  Please upgrade to 21.0.8 or later, or to the most recent JDK release."
+                "Building NullAway on JDK 21 requires at least 21.0.8, but found ${runtimeVersion}.  Please upgrade to 21.0.8 or later, or to the most recent JDK release."
         )
     }
 }
@@ -61,7 +61,7 @@ if (currentJavaVersion == JavaVersion.VERSION_21) {
 subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
     project.dependencies {
-        errorprone deps.build.errorProneCore
+        errorprone libs.error.prone.core
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
@@ -70,11 +70,11 @@ subprojects { project ->
             languageVersion = JavaLanguageVersion.of(25)
         }
         options.compilerArgs += [
-            "-Xlint:deprecation",
-            "-Xlint:rawtypes",
-            "-Xlint:unchecked",
-            "-Werror",
-            "-parameters",
+                "-Xlint:deprecation",
+                "-Xlint:rawtypes",
+                "-Xlint:unchecked",
+                "-Werror",
+                "-parameters",
         ]
         options.errorprone {
             // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
@@ -127,7 +127,7 @@ subprojects { project ->
         project.apply plugin: "com.diffplug.spotless"
         spotless {
             java {
-                googleJavaFormat(deps.versions.googlejavaformat)
+                googleJavaFormat(libs.versions.google.java.format.get())
             }
         }
     }
@@ -144,7 +144,7 @@ spotless {
     }
 }
 spotlessPredeclare {
-    java { googleJavaFormat(deps.versions.googlejavaformat) }
+    java { googleJavaFormat(libs.versions.google.java.format.get()) }
     groovyGradle {
         greclipse()
     }

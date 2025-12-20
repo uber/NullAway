@@ -33,15 +33,15 @@ configurations {
 
 dependencies {
     testImplementation project(":nullaway")
-    testImplementation deps.test.junit4
-    testImplementation deps.test.junit5Jupiter
-    testImplementation deps.test.assertJ
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation libs.bundles.junit.jupiter
+    testImplementation libs.assertj
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.test.jsr305Annotations
-    testModulePath deps.test.cfQual
-    testModulePath deps.build.jspecify
+    testImplementation libs.jsr305
+    testModulePath libs.checker.qual
+    testModulePath libs.jspecify
     testModulePath project(":test-java-module")
 }
 
