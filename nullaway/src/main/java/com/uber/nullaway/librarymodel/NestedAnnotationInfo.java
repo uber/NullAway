@@ -60,7 +60,9 @@ public class NestedAnnotationInfo {
 
   @Override
   public boolean equals(Object o) {
-    if (o == null || getClass() != o.getClass()) return false;
+    if (o == null || !(o instanceof NestedAnnotationInfo)) {
+      return false;
+    }
     NestedAnnotationInfo that = (NestedAnnotationInfo) o;
     return annotation == that.annotation && Objects.equals(typePath, that.typePath);
   }

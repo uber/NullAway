@@ -774,13 +774,15 @@ public final class GenericsChecks {
       MethodInvocationTree methodInvocationTree,
       Set<MethodInvocationTree> allInvocations)
       throws UnsatisfiableConstraintsException {
+    Type.MethodType methodType =
+        handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType());
     // first, handle the return type flow
     if (typeFromAssignmentContext != null) {
       solver.addSubtypeConstraint(
-          methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
+          methodType.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     }
     // then, handle parameters
-    new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
+    new InvocationArguments(methodInvocationTree, methodType)
         .forEach(
             (argument, argPos, formalParamType, unused) ->
                 generateConstraintsForPseudoAssignment(
@@ -1310,7 +1312,9 @@ public final class GenericsChecks {
               tree, (Type.ForAll) invokedMethodType, null, state, false);
     }
 
-    new InvocationArguments(tree, invokedMethodType.asMethodType())
+    Type.MethodType finalMethodType =
+        handler.onOverrideMethodType(methodSymbol, invokedMethodType.asMethodType());
+    new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
               if (formalParameter.isRaw()) {

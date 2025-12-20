@@ -143,7 +143,7 @@ public class TestLibraryModels implements LibraryModels {
     return ImmutableSetMultimap.of(
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
         0,
-        "com.uber.lib.unannotated.UnannotatedWithModels.Generic",
+        "com.uber.lib.unannotated.Generic",
         0);
   }
 

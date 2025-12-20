@@ -312,6 +312,27 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void nestedTypeAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.Generic;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void test() {",
+            "    Generic<@Nullable String> g = Generic.genericMethod(String.class);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
