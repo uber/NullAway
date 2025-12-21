@@ -363,6 +363,7 @@ public class LibraryModelsHandler implements Handler {
   @Override
   public boolean onOverrideMethodTypeVariableUpperBound(
       Symbol.MethodSymbol methodSymbol, int index) {
+    // TODO this should use optimized library models like the rest of the methods in this class
     ImmutableSet<Integer> res =
         libraryModels
             .methodTypeVariablesWithNullableUpperBounds()
