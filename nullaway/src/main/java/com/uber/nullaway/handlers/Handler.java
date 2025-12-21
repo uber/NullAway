@@ -458,7 +458,7 @@ public interface Handler {
    *     bound
    */
   default boolean onOverrideMethodTypeVariableUpperBound(
-      Symbol.MethodSymbol methodSymbol, int index) {
+      Symbol.MethodSymbol methodSymbol, int index, VisitorState state) {
     return false;
   }
 

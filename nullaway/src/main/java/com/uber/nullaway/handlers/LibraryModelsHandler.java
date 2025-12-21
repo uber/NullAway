@@ -362,12 +362,10 @@ public class LibraryModelsHandler implements Handler {
 
   @Override
   public boolean onOverrideMethodTypeVariableUpperBound(
-      Symbol.MethodSymbol methodSymbol, int index) {
-    // TODO this should use optimized library models like the rest of the methods in this class
+      Symbol.MethodSymbol methodSymbol, int index, VisitorState state) {
+    OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(state.context);
     ImmutableSet<Integer> res =
-        libraryModels
-            .methodTypeVariablesWithNullableUpperBounds()
-            .get(MethodRef.fromSymbol(methodSymbol));
+        optimizedLibraryModels.methodTypeVariablesWithNullableUpperBounds(methodSymbol);
     return res.contains(index);
   }
 
@@ -1263,6 +1261,7 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<Boolean> nullableRet;
     private final NameIndexedMap<Boolean> nonNullRet;
     private final NameIndexedMap<ImmutableSet<Integer>> castToNonNullMethods;
+    private final NameIndexedMap<ImmutableSet<Integer>> methodTypeVariablesWithNullableUpperBounds;
 
     OptimizedLibraryModels(LibraryModels models, Context context) {
       Names names = Names.instance(context);
@@ -1277,6 +1276,8 @@ public class LibraryModelsHandler implements Handler {
       nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
       nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
       castToNonNullMethods = makeOptimizedIntSetLookup(names, models.castToNonNullMethods());
+      methodTypeVariablesWithNullableUpperBounds =
+          makeOptimizedIntSetLookup(names, models.methodTypeVariablesWithNullableUpperBounds());
     }
 
     boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
@@ -1313,6 +1314,10 @@ public class LibraryModelsHandler implements Handler {
 
     ImmutableSet<Integer> castToNonNullMethod(Symbol.MethodSymbol symbol) {
       return lookupImmutableSet(symbol, castToNonNullMethods);
+    }
+
+    ImmutableSet<Integer> methodTypeVariablesWithNullableUpperBounds(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, methodTypeVariablesWithNullableUpperBounds);
     }
 
     private ImmutableSet<Integer> lookupImmutableSet(

@@ -309,7 +309,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
       //  Investigate further.
       if (typeVarIndex >= 0
-          && handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex)) {
+          && handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex, state)) {
         return true;
       }
     } else if (enclosingElement instanceof Symbol.ClassSymbol) {
