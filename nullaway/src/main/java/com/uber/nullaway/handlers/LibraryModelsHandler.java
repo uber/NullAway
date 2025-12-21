@@ -38,6 +38,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.sun.tools.javac.util.Name;
@@ -372,6 +373,13 @@ public class LibraryModelsHandler implements Handler {
   @Override
   public boolean onOverrideNullMarkedClasses(String className) {
     return libraryModels.nullMarkedClasses().contains(className);
+  }
+
+  @Override
+  public Type.MethodType onOverrideMethodType(
+      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+    // TODO implement this!
+    return methodType;
   }
 
   /**

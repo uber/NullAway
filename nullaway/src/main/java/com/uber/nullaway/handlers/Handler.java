@@ -475,7 +475,7 @@ public interface Handler {
   }
 
   default Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType) {
+      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
     return methodType;
   }
 

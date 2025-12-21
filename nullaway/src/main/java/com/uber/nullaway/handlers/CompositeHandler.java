@@ -353,10 +353,10 @@ class CompositeHandler implements Handler {
 
   @Override
   public Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType) {
+      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
     Type.MethodType currentType = methodType;
     for (Handler h : handlers) {
-      currentType = h.onOverrideMethodType(methodSymbol, currentType);
+      currentType = h.onOverrideMethodType(methodSymbol, currentType, state);
     }
     return currentType;
   }
