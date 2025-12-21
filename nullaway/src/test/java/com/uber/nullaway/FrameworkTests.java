@@ -432,6 +432,34 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void junitTempDir() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import java.io.File;",
+            "import java.nio.file.Path;",
+            "import org.junit.jupiter.api.BeforeAll;",
+            "import org.junit.jupiter.api.Test;",
+            "import org.junit.jupiter.api.io.TempDir;",
+            "public class TestCase {",
+            "  @TempDir",
+            "  static Path staticTempDir;",
+            "  @TempDir",
+            "  File instanceTempDir;",
+            "  @BeforeAll",
+            "  static void staticTest() {",
+            "    staticTempDir.toFile();",
+            "  }",
+            "  @Test",
+            "  void instanceTest() {",
+            "    instanceTempDir.exists();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void springAutowiredConstructorTest() {
     defaultCompilationHelper
         .addSourceLines(
