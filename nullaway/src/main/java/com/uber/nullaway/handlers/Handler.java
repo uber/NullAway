@@ -454,11 +454,12 @@ public interface Handler {
    *
    * @param methodSymbol The method symbol
    * @param index index of the generic type variable (starting at 0)
+   * @param state The current visitor state.
    * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
    *     bound
    */
   default boolean onOverrideMethodTypeVariableUpperBound(
-      Symbol.MethodSymbol methodSymbol, int index) {
+      Symbol.MethodSymbol methodSymbol, int index, VisitorState state) {
     return false;
   }
 
