@@ -432,6 +432,28 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wireMockInjectFieldTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceFile("testdata/springboot-annotations/InjectWireMock.java")
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import org.wiremock.spring.InjectWireMock;",
+            "public class TestCase {",
+            "  @InjectWireMock",
+            "  Object wireMock;", // Initialized by WireMock extension.
+            "  void test() {",
+            "    wireMock.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void junitTempDir() {
     defaultCompilationHelper
         .addSourceLines(

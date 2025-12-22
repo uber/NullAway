@@ -184,6 +184,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
           "org.springframework.boot.test.mock.mockito.SpyBean",
           "org.springframework.test.context.bean.override.mockito.MockitoBean",
           "org.springframework.test.context.bean.override.mockito.MockitoSpyBean",
+          "org.wiremock.spring.InjectWireMock",
           "org.junit.jupiter.api.io.TempDir");
 
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
