@@ -327,6 +327,7 @@ public class CustomLibraryModelsTests {
             "public class Test {",
             "  void test() {",
             "    Generic<@Nullable String> g = Generic.genericMethod(String.class);",
+            "    Generic<Integer> g2 = Generic.genericMethod(Integer.class);",
             "  }",
             "}")
         .doTest();
