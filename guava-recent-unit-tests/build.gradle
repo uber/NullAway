@@ -35,8 +35,8 @@ dependencies {
     testImplementation libs.jsr305
     testImplementation "com.google.guava:guava:33.4.8-jre"
 
-    errorProneOldest "com.google.errorprone:error_prone_check_api:2.14.0"
-    errorProneOldest("com.google.errorprone:error_prone_test_helpers:2.14.0") {
+    errorProneOldest "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}"
+    errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
         exclude group: "junit", module: "junit"
     }
     errorProneOldest libs.guava

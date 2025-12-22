@@ -77,8 +77,8 @@ dependencies {
     // the issue is fixed upstream and we update. See https://github.com/typetools/checker-framework/issues/6396.
     testImplementation 'org.apache.spark:spark-sql_2.12:3.3.2'
 
-    errorProneOldest "com.google.errorprone:error_prone_check_api:2.14.0"
-    errorProneOldest("com.google.errorprone:error_prone_test_helpers:2.14.0") {
+    errorProneOldest "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}"
+    errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
         exclude group: "junit", module: "junit"
     }
     errorProneOldest libs.guava

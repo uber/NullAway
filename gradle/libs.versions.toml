@@ -18,6 +18,7 @@ versions-plugin = "0.51.0"
 shellcheck = "1.5.0"
 
 errorProne = "2.42.0"
+errorProneOldest = "2.14.0"
 
 semver4j = "3.1.0"
 jakarta-inject = "2.0.0"
