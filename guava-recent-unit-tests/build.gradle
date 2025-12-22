@@ -28,18 +28,18 @@ configurations {
 
 dependencies {
     testImplementation project(":nullaway")
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.test.jsr305Annotations
+    testImplementation libs.jsr305
     testImplementation "com.google.guava:guava:33.4.8-jre"
 
-    errorProneOldest deps.build.errorProneCheckApiOld
-    errorProneOldest(deps.build.errorProneTestHelpersOld) {
+    errorProneOldest "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}"
+    errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
         exclude group: "junit", module: "junit"
     }
-    errorProneOldest deps.build.guava
+    errorProneOldest libs.guava
 }
 
 // Create a task to test with the oldest supported version of Error Prone

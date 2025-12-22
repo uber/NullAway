@@ -18,9 +18,9 @@ tasks.withType(JavaCompile).configureEach {
 dependencies {
     testImplementation project(":nullaway")
     testImplementation project(":jdk-annotations:test-unannotated")
-    testImplementation deps.test.junit4
-    testImplementation deps.build.jspecify
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation libs.jspecify
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
 }
