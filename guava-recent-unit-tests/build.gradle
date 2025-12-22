@@ -47,7 +47,7 @@ dependencies {
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 
     description = "Runs the test suite using the oldest supported version of Error Prone"

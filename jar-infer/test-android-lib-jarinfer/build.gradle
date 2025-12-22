@@ -25,9 +25,9 @@ android {
         minSdkVersion Integer.parseInt(libs.versions.min.sdk.get())
     }
 
-    // Use Java 11 to avoid JDK 24 deprecation warnings for source/target 8
+    // to avoid warning when building on JDK 24+
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }

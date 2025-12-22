@@ -112,7 +112,7 @@ tasks.withType(JavaCompile).configureEach {
 // (while still building against the latest supported version)
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 
     description = "Runs the test suite using the oldest supported version of Error Prone"
