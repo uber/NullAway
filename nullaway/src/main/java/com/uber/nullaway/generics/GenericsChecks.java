@@ -262,7 +262,7 @@ public final class GenericsChecks {
         // if type variable's upper bound does not have @Nullable annotation then the instantiation
         // is invalid
         if (!hasNullableAnnotation
-            && !handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, i)) {
+            && !handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, i, state)) {
           reportInvalidTypeArgumentError(
               nullableTypeArguments.get(i), methodSymbol, typeVariable, state);
         }

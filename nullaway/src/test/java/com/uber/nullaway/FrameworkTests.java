@@ -432,6 +432,56 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wireMockInjectFieldTest() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceFile("testdata/springboot-annotations/InjectWireMock.java")
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import org.wiremock.spring.InjectWireMock;",
+            "public class TestCase {",
+            "  @InjectWireMock",
+            "  Object wireMock;", // Initialized by WireMock extension.
+            "  void test() {",
+            "    wireMock.toString();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void junitTempDir() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            "package com.uber;",
+            "import java.io.File;",
+            "import java.nio.file.Path;",
+            "import org.junit.jupiter.api.BeforeAll;",
+            "import org.junit.jupiter.api.Test;",
+            "import org.junit.jupiter.api.io.TempDir;",
+            "public class TestCase {",
+            "  @TempDir",
+            "  static Path staticTempDir;",
+            "  @TempDir",
+            "  File instanceTempDir;",
+            "  @BeforeAll",
+            "  static void staticTest() {",
+            "    staticTempDir.toFile();",
+            "  }",
+            "  @Test",
+            "  void instanceTest() {",
+            "    instanceTempDir.exists();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void springAutowiredConstructorTest() {
     defaultCompilationHelper
         .addSourceLines(
