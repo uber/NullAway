@@ -67,10 +67,6 @@ test {
 // Tasks for testing on other JDK versions; see https://jakewharton.com/build-on-latest-java-test-through-lowest-java/
 [17, 25].each { majorVersion ->
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
-        onlyIf {
-            // Only run when using the latest Error Prone version
-            errorProneVersionToCompileAgainst == latestErrorProneVersion
-        }
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(majorVersion)
         }

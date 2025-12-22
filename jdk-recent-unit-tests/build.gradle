@@ -62,10 +62,6 @@ tasks.getByName('testJdk25').configure {
 }
 
 tasks.getByName('test').configure {
-    // older EP versions don't work on JDK 24+
-    onlyIf {
-        errorProneVersionToCompileAgainst == latestErrorProneVersion
-    }
     // we need this since we don't have an implementation / api dependence on test-java-module
     dependsOn ':test-java-module:jar'
 }

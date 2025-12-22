@@ -38,8 +38,6 @@ plugins {
 }
 
 ext {
-    errorProneVersionToCompileAgainst = libs.versions.errorProne.get()
-    latestErrorProneVersion = libs.versions.errorProne.get()
     oldestErrorProneVersion = libs.versions.errorProneOldest.get()
 }
 

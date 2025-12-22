@@ -149,12 +149,6 @@ tasks.named('check').configure {
 
 // Create a task to build NullAway with NullAway checking enabled
 tasks.register('buildWithNullAway', JavaCompile) {
-    onlyIf {
-        // We only do NullAway checks when compiling against the latest
-        // version of Error Prone (as nullability annotations on the APIs
-        // can change between versions)
-        errorProneVersionToCompileAgainst == latestErrorProneVersion
-    }
     // Configure compilation to run with Error Prone and NullAway
     source = sourceSets.main.java
     classpath = sourceSets.main.compileClasspath
