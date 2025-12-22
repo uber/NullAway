@@ -23,6 +23,7 @@ plugins {
 dependencies {
 }
 
+// Preserve Java 11 compatibility for annotations, as clients may have them in their runtime classpath.
 tasks.withType(JavaCompile).configureEach {
     sourceCompatibility = JavaVersion.VERSION_11
     targetCompatibility = JavaVersion.VERSION_11
