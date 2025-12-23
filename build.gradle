@@ -85,6 +85,12 @@ subprojects { project ->
         options.errorprone {
             // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
             disableWarningsInGeneratedCode = true
+
+            // https://github.com/uber/NullAway/issues/1398
+            check("PatternMatchingInstanceof", CheckSeverity.OFF)
+            check("StatementSwitchToExpressionSwitch", CheckSeverity.OFF)
+            check("MisformattedTestData", CheckSeverity.OFF)
+
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
             // https://github.com/google/error-prone/issues/3366
@@ -114,8 +120,8 @@ subprojects { project ->
     // We need to use the older sourceCompatibility / targetCompatibility settings, rather than the newer "release"
     // option, since we use internal javac APIs, which "release" doesn't allow
     tasks.withType(JavaCompile) {
-        java.sourceCompatibility = JavaVersion.VERSION_11
-        java.targetCompatibility = JavaVersion.VERSION_11
+        java.sourceCompatibility = JavaVersion.VERSION_17
+        java.targetCompatibility = JavaVersion.VERSION_17
     }
 
     tasks.withType(Test).configureEach {
