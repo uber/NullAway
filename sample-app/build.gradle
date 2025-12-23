@@ -29,7 +29,9 @@ android {
         versionCode 1
         versionName "1.0"
     }
-    // to avoid warning when building on JDK 24+
+
+    // This avoids a build-time warning when compiling using JDK 24+.  JDK 8 is the default target for
+    // Android applications, but support for targeting JDK 8 is deprecated in JDK 24+.
     compileOptions {
         sourceCompatibility JavaVersion.VERSION_17
         targetCompatibility JavaVersion.VERSION_17
