@@ -1051,21 +1051,17 @@ public final class GenericsChecks {
       return false;
     }
     expr = NullabilityUtil.stripParensAndCasts(expr);
-    switch (expr.getKind()) {
-      case ARRAY_ACCESS:
-      case MEMBER_SELECT:
-      case METHOD_INVOCATION:
-      case IDENTIFIER:
-      case ASSIGNMENT:
-      case CONDITIONAL_EXPRESSION:
-        return true;
-      default:
-        // match switch expressions by comparing strings, so the code compiles on JDK versions < 12
-        if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
-          return true;
-        }
-        return false;
-    }
+    return switch (expr.getKind()) {
+      case ARRAY_ACCESS,
+          MEMBER_SELECT,
+          METHOD_INVOCATION,
+          IDENTIFIER,
+          ASSIGNMENT,
+          CONDITIONAL_EXPRESSION,
+          SWITCH_EXPRESSION ->
+          true;
+      default -> false;
+    };
   }
 
   private Type updateTypeWithNullness(
