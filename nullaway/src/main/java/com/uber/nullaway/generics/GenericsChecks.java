@@ -2085,7 +2085,7 @@ public final class GenericsChecks {
    *     Symtab}.
    * @return a fake {@code Type} for a synthetic {@code @Nullable} annotation.
    */
-  private Type getSyntheticNullableAnnotType(VisitorState state) {
+  public static Type getSyntheticNullableAnnotType(VisitorState state) {
     if (syntheticNullableAnnotType == null) {
       Names names = Names.instance(state.context);
       Symtab symtab = Symtab.instance(state.context);

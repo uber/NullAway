@@ -474,6 +474,14 @@ public interface Handler {
     return false;
   }
 
+  /**
+   * Method to override the type of a method.
+   *
+   * @param methodSymbol symbol of the method
+   * @param methodType original method type
+   * @param state The current visitor state.
+   * @return the possibly modified method type
+   */
   default Type.MethodType onOverrideMethodType(
       Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
     return methodType;

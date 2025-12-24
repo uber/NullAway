@@ -396,6 +396,7 @@ public class LibraryModelsHandler implements Handler {
       return methodType;
     }
     boolean changed = false;
+    // use a ListBuffer for efficiency, since calling size() on a javac List requires a traversal
     ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
     int index = 0;
     for (com.sun.tools.javac.util.List<Type> l = methodType.argtypes;
@@ -436,37 +437,29 @@ public class LibraryModelsHandler implements Handler {
           info.annotation() == Annotation.NULLABLE
               ? GenericsChecks.getSyntheticNullableAnnotType(state)
               : GenericsChecks.getSyntheticNonNullAnnotType(state);
-      updated = new NestedAnnotationTypeVisitor(info.typePath(), annotType).apply(updated);
+      NestedAnnotationTypeVisitor nestedAnnotationTypeVisitor =
+          new NestedAnnotationTypeVisitor(info.typePath(), annotType);
+      updated = nestedAnnotationTypeVisitor.apply(updated);
     }
     return updated;
   }
 
   @SuppressWarnings("ReferenceEquality")
-  private static final class NestedAnnotationTypeVisitor extends Types.MapVisitor<Type> {
+  private static final class NestedAnnotationTypeVisitor extends Types.MapVisitor<Integer> {
     private final List<TypePathEntry> typePath;
     private final Type annotationType;
-    private int pathIndex;
 
     NestedAnnotationTypeVisitor(List<TypePathEntry> typePath, Type annotationType) {
       this.typePath = typePath;
       this.annotationType = annotationType;
-      this.pathIndex = 0;
     }
 
     Type apply(Type type) {
-      return visitWithPathIndex(type, 0);
-    }
-
-    private Type visitWithPathIndex(Type type, int index) {
-      int previousIndex = pathIndex;
-      pathIndex = index;
-      Type result = visit(type, null);
-      pathIndex = previousIndex;
-      return result;
+      return type.accept(this, 0);
     }
 
     @Override
-    public Type visitClassType(Type.ClassType t, Type unused) {
+    public Type visitClassType(Type.ClassType t, Integer pathIndex) {
       if (pathIndex >= typePath.size()) {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
@@ -480,7 +473,7 @@ public class LibraryModelsHandler implements Handler {
         return t;
       }
       Type oldTypeArg = typeArgs.get(argIndex);
-      Type newTypeArg = visitWithPathIndex(oldTypeArg, pathIndex + 1);
+      Type newTypeArg = oldTypeArg.accept(this, pathIndex + 1);
       if (newTypeArg == oldTypeArg) {
         return t;
       }
@@ -495,7 +488,7 @@ public class LibraryModelsHandler implements Handler {
     }
 
     @Override
-    public Type visitArrayType(Type.ArrayType t, Type unused) {
+    public Type visitArrayType(Type.ArrayType t, Integer pathIndex) {
       if (pathIndex >= typePath.size()) {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
@@ -503,7 +496,7 @@ public class LibraryModelsHandler implements Handler {
       if (entry.kind() != TypePathEntry.Kind.ARRAY_ELEMENT) {
         return t;
       }
-      Type newElemType = visitWithPathIndex(t.elemtype, pathIndex + 1);
+      Type newElemType = t.elemtype.accept(this, pathIndex + 1);
       if (newElemType == t.elemtype) {
         return t;
       }
@@ -511,7 +504,7 @@ public class LibraryModelsHandler implements Handler {
     }
 
     @Override
-    public Type visitWildcardType(Type.WildcardType t, Type unused) {
+    public Type visitWildcardType(Type.WildcardType t, Integer pathIndex) {
       if (pathIndex >= typePath.size()) {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
@@ -524,18 +517,18 @@ public class LibraryModelsHandler implements Handler {
         return t;
       }
       if (boundIndex == 0 && t.kind == BoundKind.EXTENDS) {
-        Type newBound = visitWithPathIndex(t.type, pathIndex + 1);
+        Type newBound = t.type.accept(this, pathIndex + 1);
         return newBound == t.type ? t : TYPE_METADATA_BUILDER.createWildcardType(t, newBound);
       }
       if (boundIndex == 1 && t.kind == BoundKind.SUPER) {
-        Type newBound = visitWithPathIndex(t.type, pathIndex + 1);
+        Type newBound = t.type.accept(this, pathIndex + 1);
         return newBound == t.type ? t : TYPE_METADATA_BUILDER.createWildcardType(t, newBound);
       }
       return t;
     }
 
     @Override
-    public Type visitTypeVar(Type.TypeVar t, Type unused) {
+    public Type visitTypeVar(Type.TypeVar t, Integer pathIndex) {
       if (pathIndex >= typePath.size()) {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
@@ -543,7 +536,7 @@ public class LibraryModelsHandler implements Handler {
     }
 
     @Override
-    public Type visitType(Type t, Type unused) {
+    public Type visitType(Type t, Integer pathIndex) {
       if (pathIndex >= typePath.size()) {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
