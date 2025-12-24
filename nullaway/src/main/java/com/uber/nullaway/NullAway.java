@@ -2700,16 +2700,12 @@ public class NullAway extends BugChecker
         break;
       case CONDITIONAL_EXPRESSION:
       case ASSIGNMENT:
+      case SWITCH_EXPRESSION:
         exprMayBeNull = true;
         break;
       default:
-        // match switch expressions by comparing strings, so the code compiles on JDK versions < 12
-        if (expr.getKind().name().equals("SWITCH_EXPRESSION")) {
-          exprMayBeNull = true;
-        } else {
-          throw new RuntimeException(
-              "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
-        }
+        throw new RuntimeException(
+            "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
     return exprMayBeNull && nullnessFromDataflow(state, expr);
