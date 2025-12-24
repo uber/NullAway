@@ -489,9 +489,8 @@ public final class GenericsChecks {
             MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
             Type.MethodType methodType =
-                handler.onOverrideMethodType(symbol, (Type.MethodType) symbol.type, state);
+                handler.onOverrideMethodType(symbol, symbol.type.asMethodType(), state);
             Type returnType = methodType.getReturnType();
-            // TODO we need to also restore explicit nullability annotations from class types
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
                     returnType, result, config, Collections.emptyMap());
