@@ -83,7 +83,7 @@ public class TypeSubstitutionUtils {
    * @param extraTypeVariableAnnotations Additional annotations to consider for type variables. If
    *     there is no explicit nullability annotation on a type variable {@code X} in {@code
    *     origType}, but {@code X} is present as a key in this map, the corresponding annotation will
-   *     use when substituting in {@code newType}. If {@code X} has an explicit nullability
+   *     be used when substituting in {@code newType}. If {@code X} has an explicit nullability
    *     annotation in {@code origType}, that takes precedence over this map.
    * @return the new type with explicit nullability annotations restored
    */
@@ -109,8 +109,8 @@ public class TypeSubstitutionUtils {
     /**
      * Additional annotations to consider for type variables. If there is no explicit nullability
      * annotation on a type variable {@code X}, but {@code X} is present as a key in this map, the
-     * corresponding annotation will use when substituting in the visited type. If {@code X} has an
-     * explicit nullability annotation, that takes precedence over this map.
+     * corresponding annotation will be used when substituting in the visited type. If {@code X} has
+     * an explicit nullability annotation, that takes precedence over this map.
      */
     private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations;
 
