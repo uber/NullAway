@@ -78,6 +78,7 @@ public final class NestedAnnotationTypeVisitor extends Types.MapVisitor<Integer>
       return t;
     }
     int boundIndex = entry.index();
+    // TODO this logic is wrong; it should introduce a bound if there is none there
     if (t.type == null) {
       return t;
     }
@@ -88,14 +89,6 @@ public final class NestedAnnotationTypeVisitor extends Types.MapVisitor<Integer>
     if (boundIndex == 1 && t.kind == BoundKind.SUPER) {
       Type newBound = t.type.accept(this, pathIndex + 1);
       return newBound == t.type ? t : TYPE_METADATA_BUILDER.createWildcardType(t, newBound);
-    }
-    return t;
-  }
-
-  @Override
-  public Type visitTypeVar(Type.TypeVar t, Integer pathIndex) {
-    if (pathIndex >= typePath.size()) {
-      return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
     }
     return t;
   }
