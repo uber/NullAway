@@ -146,8 +146,8 @@ public class ErrorDisplayV1 implements Display {
     return values -> {
       Preconditions.checkArgument(
           values.length == 10,
-          "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
-              + values.length);
+          "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: %s",
+          values.length);
       return new ErrorDisplayV1(
           values[0],
           values[1],

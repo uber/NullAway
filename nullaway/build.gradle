@@ -82,6 +82,9 @@ dependencies {
         exclude group: "junit", module: "junit"
     }
     errorProneOldest libs.guava
+
+    // without this, some other version of the JetBrains annotations gets pulled in via transitive dependencies
+    errorProneJdk17 libs.jetbrains.annotations
 }
 
 javadoc {

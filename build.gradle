@@ -39,6 +39,7 @@ plugins {
 
 ext {
     oldestErrorProneVersion = libs.versions.errorProneOldest.get()
+    errorProneJdk17Version = libs.versions.errorProneJdk17.get()
 }
 
 

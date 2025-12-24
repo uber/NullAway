@@ -52,7 +52,7 @@ public class AnnotationChecker {
    */
   public static boolean checkMethodAnnotationsInAar(
       String aarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
-    Preconditions.checkArgument(aarFile.endsWith(".aar"), "invalid aar file: " + aarFile);
+    Preconditions.checkArgument(aarFile.endsWith(".aar"), "invalid aar file: %s", aarFile);
     ZipFile zip = new ZipFile(aarFile);
     Iterator<? extends ZipEntry> zipIterator = zip.stream().iterator();
     while (zipIterator.hasNext()) {
@@ -87,7 +87,7 @@ public class AnnotationChecker {
    */
   public static boolean checkMethodAnnotationsInJar(
       String jarFile, Map<String, String> expectedToActualAnnotations) throws IOException {
-    Preconditions.checkArgument(jarFile.endsWith(".jar"), "invalid jar file: " + jarFile);
+    Preconditions.checkArgument(jarFile.endsWith(".jar"), "invalid jar file: %s", jarFile);
     JarFile jar = new JarFile(jarFile);
     for (JarEntry entry : (Iterable<JarEntry>) jar.stream()::iterator) {
       if (entry.getName().endsWith(".class")

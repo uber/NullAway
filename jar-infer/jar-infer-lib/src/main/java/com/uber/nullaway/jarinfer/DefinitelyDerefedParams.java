@@ -212,7 +212,8 @@ public class DefinitelyDerefedParams {
           } else {
             Preconditions.checkArgument(
                 !NULL_TEST_APIS.containsKey(sign),
-                "Add support for non-static NULL_TEST_APIS : " + sign);
+                "Add support for non-static NULL_TEST_APIS : %s",
+                sign);
             derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
           }
         }

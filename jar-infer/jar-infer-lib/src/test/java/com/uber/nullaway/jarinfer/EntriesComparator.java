@@ -41,8 +41,8 @@ public class EntriesComparator {
    * @throws IOException if an error happens when reading jar files.
    */
   public static boolean compareEntriesInJars(String jarFile1, String jarFile2) throws IOException {
-    Preconditions.checkArgument(jarFile1.endsWith(".jar"), "invalid jar file: " + jarFile1);
-    Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: " + jarFile2);
+    Preconditions.checkArgument(jarFile1.endsWith(".jar"), "invalid jar file: %s", jarFile1);
+    Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: %s", jarFile2);
     JarFile jar1 = new JarFile(jarFile1);
     JarFile jar2 = new JarFile(jarFile2);
     ImmutableSet<String> jar1Entries =
@@ -63,8 +63,8 @@ public class EntriesComparator {
    * @throws IOException if an error happens when reading aar files.
    */
   public static boolean compareEntriesInAars(String aarFile1, String aarFile2) throws IOException {
-    Preconditions.checkArgument(aarFile1.endsWith(".aar"), "invalid aar file: " + aarFile1);
-    Preconditions.checkArgument(aarFile2.endsWith(".aar"), "invalid aar file: " + aarFile2);
+    Preconditions.checkArgument(aarFile1.endsWith(".aar"), "invalid aar file: %s", aarFile1);
+    Preconditions.checkArgument(aarFile2.endsWith(".aar"), "invalid aar file: %s", aarFile2);
     ZipFile zip1 = new ZipFile(aarFile1);
     ZipFile zip2 = new ZipFile(aarFile2);
     ImmutableSet<String> zip1Entries =
@@ -129,8 +129,8 @@ public class EntriesComparator {
    */
   public static boolean compareManifestContents(String jarFile1, String jarFile2)
       throws IOException {
-    Preconditions.checkArgument(jarFile1.endsWith(".jar"), "invalid jar file: " + jarFile1);
-    Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: " + jarFile2);
+    Preconditions.checkArgument(jarFile1.endsWith(".jar"), "invalid jar file: %s", jarFile1);
+    Preconditions.checkArgument(jarFile2.endsWith(".jar"), "invalid jar file: %s", jarFile2);
     String manifest1 = readManifestFromJar(jarFile1);
     String manifest2 = readManifestFromJar(jarFile2);
     return manifest1.equals(manifest2);

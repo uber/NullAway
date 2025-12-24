@@ -321,7 +321,7 @@ public class LibraryModelsHandler implements Handler {
       AccessPath.AccessPathContext apContext) {
     List<AccessPath> result = new ArrayList<>();
     for (Integer i : indexes) {
-      Preconditions.checkArgument(i >= 0 && i < arguments.size(), "Invalid argument index: " + i);
+      Preconditions.checkArgument(i >= 0 && i < arguments.size(), "Invalid argument index: %s", i);
       if (i >= 0 && i < arguments.size()) {
         Node argument = arguments.get(i);
         AccessPath ap = AccessPath.getAccessPathForNode(argument, state, apContext);

@@ -44,6 +44,19 @@ configurations.create('transitiveSourcesElements') {
     }
 }
 
+
+configurations {
+    // A configuration holding the jars for the Error Prone version to use when testing with JDK 17
+    errorProneJdk17
+}
+
+dependencies {
+    errorProneJdk17 "com.google.errorprone:error_prone_check_api:${errorProneJdk17Version}"
+    errorProneJdk17("com.google.errorprone:error_prone_test_helpers:${errorProneJdk17Version}") {
+        exclude group: "junit", module: "junit"
+    }
+}
+
 // to expose necessary JDK types on JDK 16+; see https://errorprone.info/docs/installation#java-9-and-newer
 def commonJavacOpens = [
     "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
@@ -65,7 +78,7 @@ test {
 }
 
 // Tasks for testing on other JDK versions; see https://jakewharton.com/build-on-latest-java-test-through-lowest-java/
-[17, 25].each { majorVersion ->
+[25].each { majorVersion ->
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(majorVersion)
@@ -85,6 +98,44 @@ test {
     tasks.named('check').configure {
         dependsOn jdkTest
     }
+}
+
+// Create a task to test with JDK 17 and the supported version of Error Prone for that JDK
+def epJdk17Test = tasks.register("testJdk17", Test) {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(17)
+    }
+
+    description = "Runs the test suite using the oldest supported version of Error Prone"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+
+    // Copy inputs from normal Test task.
+    def testTask = tasks.getByName("test")
+    // A bit of a hack: we add the dependencies of the JDK17-supporting Error Prone version to the _beginning_ of the
+    // classpath, so that they are used instead of the latest version.  This exercises the scenario of building
+    // NullAway against the latest supported Error Prone version but then running on JDK 17.
+    classpath = configurations.errorProneJdk17 + testTask.classpath
+
+    testClassesDirs = testTask.testClassesDirs
+
+    jvmArgs += [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        // Accessed by Lombok tests
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
+}
+
+tasks.named('check').configure {
+    dependsOn(epJdk17Test)
 }
 
 // Share the coverage data to be aggregated for the whole product
