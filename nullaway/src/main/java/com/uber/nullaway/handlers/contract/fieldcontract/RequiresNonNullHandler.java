@@ -147,7 +147,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     for (String fieldName : fieldNames) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       Preconditions.checkNotNull(
-          classSymbol, "Could not find the enclosing class for method symbol: " + methodSymbol);
+          classSymbol, "Could not find the enclosing class for method symbol: %s", methodSymbol);
       VariableElement field = getFieldOfClass(classSymbol, fieldName);
       if (field == null) {
         // we will report an error on the method declaration

@@ -387,7 +387,8 @@ public class DefinitelyDerefedParamsDriver {
   private static InputStream getInputStream(String libPath) throws IOException {
     Preconditions.checkArgument(
         (libPath.endsWith(".jar") || libPath.endsWith(".aar")) && Files.exists(Paths.get(libPath)),
-        "invalid library path! " + libPath);
+        "invalid library path! %s",
+        libPath);
     LOG(VERBOSE, "Info", "opening library: " + libPath + "...");
     InputStream jarIS = null;
     if (libPath.endsWith(".jar")) {
@@ -407,7 +408,7 @@ public class DefinitelyDerefedParamsDriver {
    */
   private void writeModelJAR(String outPath) throws IOException {
     Preconditions.checkArgument(
-        outPath.endsWith(ASTUBX_JAR_SUFFIX), "invalid model file path! " + outPath);
+        outPath.endsWith(ASTUBX_JAR_SUFFIX), "invalid model file path! %s", outPath);
     ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outPath));
     if (!nonnullParams.isEmpty()) {
       ZipEntry entry = new ZipEntry(DEFAULT_ASTUBX_LOCATION);
@@ -478,7 +479,8 @@ public class DefinitelyDerefedParamsDriver {
   private void writeAnnotations(String inPath, String outFile) throws IOException {
     Preconditions.checkArgument(
         inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
-        "invalid input path - " + inPath);
+        "invalid input path - %s",
+        inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outFile);
 
     new File(outFile).getParentFile().mkdirs();

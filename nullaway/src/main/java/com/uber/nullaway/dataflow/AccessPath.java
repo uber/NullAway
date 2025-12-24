@@ -368,7 +368,8 @@ public final class AccessPath implements MapKey {
   public static AccessPath fromFieldElement(VariableElement element) {
     Preconditions.checkArgument(
         element.getKind().isField(),
-        "element must be of type: FIELD but received: " + element.getKind());
+        "element must be of type: FIELD but received: %s",
+        element.getKind());
     return new AccessPath(null, ImmutableList.of(new FieldOrMethodCallElement(element)));
   }
 
@@ -381,7 +382,8 @@ public final class AccessPath implements MapKey {
   public static AccessPath fromStaticField(VariableElement element) {
     Preconditions.checkArgument(
         element.getKind().isField() && element.getModifiers().contains(Modifier.STATIC),
-        "element must be a static field but received: " + element.getKind());
+        "element must be a static field but received: %s",
+        element.getKind());
     return new AccessPath(element, ImmutableList.of(), null);
   }
 
