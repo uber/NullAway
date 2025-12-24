@@ -433,10 +433,10 @@ public class LibraryModelsHandler implements Handler {
     Type updated = type;
     for (NestedAnnotationInfo info : annotations) {
       Type annotType =
-          info.getAnnotation() == Annotation.NULLABLE
+          info.annotation() == Annotation.NULLABLE
               ? GenericsChecks.getSyntheticNullableAnnotType(state)
               : GenericsChecks.getSyntheticNonNullAnnotType(state);
-      updated = new NestedAnnotationTypeVisitor(info.getTypePath(), annotType).apply(updated);
+      updated = new NestedAnnotationTypeVisitor(info.typePath(), annotType).apply(updated);
     }
     return updated;
   }
@@ -471,11 +471,11 @@ public class LibraryModelsHandler implements Handler {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
       TypePathEntry entry = typePath.get(pathIndex);
-      if (entry.getKind() != TypePathEntry.Kind.TYPE_ARGUMENT) {
+      if (entry.kind() != TypePathEntry.Kind.TYPE_ARGUMENT) {
         return t;
       }
       com.sun.tools.javac.util.List<Type> typeArgs = t.getTypeArguments();
-      int argIndex = entry.getIndex();
+      int argIndex = entry.index();
       if (argIndex < 0 || argIndex >= typeArgs.size()) {
         return t;
       }
@@ -500,7 +500,7 @@ public class LibraryModelsHandler implements Handler {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
       TypePathEntry entry = typePath.get(pathIndex);
-      if (entry.getKind() != TypePathEntry.Kind.ARRAY_ELEMENT) {
+      if (entry.kind() != TypePathEntry.Kind.ARRAY_ELEMENT) {
         return t;
       }
       Type newElemType = visitWithPathIndex(t.elemtype, pathIndex + 1);
@@ -516,10 +516,10 @@ public class LibraryModelsHandler implements Handler {
         return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
       }
       TypePathEntry entry = typePath.get(pathIndex);
-      if (entry.getKind() != TypePathEntry.Kind.WILDCARD_BOUND) {
+      if (entry.kind() != TypePathEntry.Kind.WILDCARD_BOUND) {
         return t;
       }
-      int boundIndex = entry.getIndex();
+      int boundIndex = entry.index();
       if (t.type == null) {
         return t;
       }
