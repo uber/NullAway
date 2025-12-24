@@ -144,3 +144,8 @@ tasks.withType(Test).configureEach { test ->
     // pass the extra JVM args so we can compile benchmarks in unit tests
     test.jvmArgs += extraJVMArgs
 }
+
+// Don't test on JDK 17 as it doesn't support the latest version of Error Prone
+tasks.named("testJdk17").configure {
+    onlyIf { false }
+}
