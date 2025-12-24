@@ -334,6 +334,31 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void deeplyNestedTypeAnnot() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testPositive(NestedAnnots<NestedAnnots<String>> p) {",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    NestedAnnots.deeplyNested(p);",
+            "  }",
+            "  void testNegative(NestedAnnots<NestedAnnots<@Nullable String>> p) {",
+            "    NestedAnnots.deeplyNested(p);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
