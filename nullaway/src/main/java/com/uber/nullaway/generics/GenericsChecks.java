@@ -1071,7 +1071,8 @@ public final class GenericsChecks {
       if (isNullableAnnotated(argumentType)) {
         return argumentType;
       }
-      return TypeSubstitutionUtils.typeWithAnnot(argumentType, getSyntheticNullAnnotType(state));
+      return TypeSubstitutionUtils.typeWithAnnot(
+          argumentType, getSyntheticNullableAnnotType(state));
     } else {
       // refine to @NonNull, by removing the top-level @Nullable annotation if present.
       if (!isNullableAnnotated(argumentType)) {
@@ -1113,7 +1114,7 @@ public final class GenericsChecks {
         for (Type.TypeVar tv : tvc.getMatches()) {
           typeVars.append(tv);
           inferredTypes.append(
-              TypeSubstitutionUtils.typeWithAnnot(tv, getSyntheticNullAnnotType(state)));
+              TypeSubstitutionUtils.typeWithAnnot(tv, getSyntheticNullableAnnotType(state)));
         }
       }
     }
@@ -2064,7 +2065,7 @@ public final class GenericsChecks {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
-  private @Nullable Type syntheticNullAnnotType;
+  private @Nullable Type syntheticNullableAnnotType;
 
   /**
    * Returns a "fake" {@link Type} object representing a synthetic {@code @Nullable} annotation.
@@ -2079,15 +2080,15 @@ public final class GenericsChecks {
    *     Symtab}.
    * @return a fake {@code Type} for a synthetic {@code @Nullable} annotation.
    */
-  private Type getSyntheticNullAnnotType(VisitorState state) {
-    if (syntheticNullAnnotType == null) {
+  private Type getSyntheticNullableAnnotType(VisitorState state) {
+    if (syntheticNullableAnnotType == null) {
       Names names = Names.instance(state.context);
       Symtab symtab = Symtab.instance(state.context);
       Name name = names.fromString("nullaway.synthetic");
       Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
       Name simpleName = names.fromString("Nullable");
-      syntheticNullAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+      syntheticNullableAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
     }
-    return syntheticNullAnnotType;
+    return syntheticNullableAnnotType;
   }
 }
