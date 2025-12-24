@@ -487,7 +487,11 @@ public final class GenericsChecks {
           // the return / field type that need to be restored
           if (tree instanceof MethodInvocationTree) {
             MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
-            Type returnType = castToNonNull(ASTHelpers.getSymbol(invocationTree)).getReturnType();
+            Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
+            Type.MethodType methodType =
+                handler.onOverrideMethodType(symbol, (Type.MethodType) symbol.type, state);
+            Type returnType = methodType.getReturnType();
+            // TODO we need to also restore explicit nullability annotations from class types
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
                     returnType, result, config, Collections.emptyMap());

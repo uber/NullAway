@@ -190,7 +190,7 @@ public class TestLibraryModels implements LibraryModels {
                 Annotation.NULLABLE,
                 ImmutableList.of(
                     new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0),
-                    new TypePathEntry(TypePathEntry.Kind.ARRAY_ELEMENT, 0),
+                    new TypePathEntry(TypePathEntry.Kind.ARRAY_ELEMENT, -1),
                     new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0)))));
   }
 }
