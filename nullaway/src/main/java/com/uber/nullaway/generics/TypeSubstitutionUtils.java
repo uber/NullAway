@@ -80,15 +80,19 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
-   * @param annotsOnTypeVarsFromSubtypes annotations on type variables added by subtypes
+   * @param extraTypeVariableAnnotations Additional annotations to consider for type variables. If
+   *     there is no explicit nullability annotation on a type variable {@code X} in {@code
+   *     origType}, but {@code X} is present as a key in this map, the corresponding annotation will
+   *     be used when substituting in {@code newType}. If {@code X} has an explicit nullability
+   *     annotation in {@code origType}, that takes precedence over this map.
    * @return the new type with explicit nullability annotations restored
    */
   public static Type restoreExplicitNullabilityAnnotations(
       Type origType,
       Type newType,
       Config config,
-      Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
-    return new RestoreNullnessAnnotationsVisitor(config, annotsOnTypeVarsFromSubtypes)
+      Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
+    return new RestoreNullnessAnnotationsVisitor(config, extraTypeVariableAnnotations)
         .visit(newType, origType);
   }
 
@@ -101,13 +105,20 @@ public class TypeSubstitutionUtils {
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
     private final Config config;
-    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes;
+
+    /**
+     * Additional annotations to consider for type variables. If there is no explicit nullability
+     * annotation on a type variable {@code X}, but {@code X} is present as a key in this map, the
+     * corresponding annotation will be used when substituting in the visited type. If {@code X} has
+     * an explicit nullability annotation, that takes precedence over this map.
+     */
+    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations;
 
     RestoreNullnessAnnotationsVisitor(
         Config config,
-        Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
+        Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
       this.config = config;
-      this.annotsOnTypeVarsFromSubtypes = annotsOnTypeVarsFromSubtypes;
+      this.extraTypeVariableAnnotations = extraTypeVariableAnnotations;
     }
 
     @Override
@@ -203,9 +214,9 @@ public class TypeSubstitutionUtils {
           return typeWithAnnot(t, annot);
         }
       }
-      // then see if any annotations were added from subtypes
+      // then see if there are any extra annotations to consider
       Attribute.TypeCompound typeArgAnnot =
-          (Attribute.TypeCompound) annotsOnTypeVarsFromSubtypes.get(other.tsym);
+          (Attribute.TypeCompound) extraTypeVariableAnnotations.get(other.tsym);
       if (typeArgAnnot != null) {
         return typeWithAnnot(t, typeArgAnnot);
       }
