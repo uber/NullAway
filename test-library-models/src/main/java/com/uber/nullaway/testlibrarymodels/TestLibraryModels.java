@@ -143,14 +143,15 @@ public class TestLibraryModels implements LibraryModels {
     return ImmutableSetMultimap.of(
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
         0,
-        "com.uber.lib.unannotated.Generic",
+        "com.uber.lib.unannotated.NestedAnnots",
         0);
   }
 
   @Override
   public ImmutableSet<String> nullMarkedClasses() {
     return ImmutableSet.of(
-        "com.uber.lib.unannotated.ProviderNullMarkedViaModel", "com.uber.lib.unannotated.Generic");
+        "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
+        "com.uber.lib.unannotated.NestedAnnots");
   }
 
   @Override
@@ -158,7 +159,7 @@ public class TestLibraryModels implements LibraryModels {
     return ImmutableSetMultimap.of(
         methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"),
         0,
-        methodRef("com.uber.lib.unannotated.Generic", "<T>genericMethod(java.lang.Class<T>)"),
+        methodRef("com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
         0);
   }
 
@@ -166,7 +167,7 @@ public class TestLibraryModels implements LibraryModels {
   public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
       nestedAnnotationsForMethods() {
     return ImmutableMap.of(
-        methodRef("com.uber.lib.unannotated.Generic", "<T>genericMethod(java.lang.Class<T>)"),
+        methodRef("com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
         ImmutableSetMultimap.of(
             0,
             new NestedAnnotationInfo(

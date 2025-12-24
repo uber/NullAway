@@ -321,13 +321,13 @@ public class CustomLibraryModelsTests {
                     "-XepOpt:NullAway:OnlyNullMarked=true")))
         .addSourceLines(
             "Test.java",
-            "import com.uber.lib.unannotated.Generic;",
+            "import com.uber.lib.unannotated.NestedAnnots;",
             "import org.jspecify.annotations.*;",
             "@NullMarked",
             "public class Test {",
             "  void test() {",
-            "    Generic<@Nullable String> g = Generic.genericMethod(String.class);",
-            "    Generic<Integer> g2 = Generic.genericMethod(Integer.class);",
+            "    NestedAnnots<@Nullable String> g = NestedAnnots.genericMethod(String.class);",
+            "    NestedAnnots<Integer> g2 = NestedAnnots.genericMethod(Integer.class);",
             "  }",
             "}")
         .doTest();
