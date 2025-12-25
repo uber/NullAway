@@ -24,18 +24,21 @@ import java.util.Deque;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
+import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
 /**
  * A Javac plugin that serializes nullness annotations from Java source files into a JSON file.
  * Primarily intended for serializing annotations from the JSpecify JDK models.
  */
+@NullMarked
 public class NullnessAnnotationSerializer implements Plugin {
 
   private static final String NULLMARKED_NAME = "org.jspecify.annotations.NullMarked";
@@ -80,14 +83,14 @@ public class NullnessAnnotationSerializer implements Plugin {
           public void finished(com.sun.source.util.TaskEvent e) {
             if (e.getKind() == com.sun.source.util.TaskEvent.Kind.ANALYZE) {
               CompilationUnitTree cu = e.getCompilationUnit();
-              new TreePathScanner<Void, Void>() {
+              new TreePathScanner<@Nullable Void, @Nullable Void>() {
                 /** keep a stack of class contexts to handle nested classes */
-                Deque<ClassInfo> classStack = new ArrayDeque<>();
+                final Deque<ClassInfo> classStack = new ArrayDeque<>();
 
-                ClassInfo currentClass = null;
+                @Nullable ClassInfo currentClass = null;
 
                 @Override
-                public Void visitClass(ClassTree classTree, Void unused) {
+                public @Nullable Void visitClass(ClassTree classTree, @Nullable Void unused) {
                   Name simpleName = classTree.getSimpleName();
                   if (simpleName.contentEquals("")) {
                     return null; // skip anonymous
@@ -95,7 +98,9 @@ public class NullnessAnnotationSerializer implements Plugin {
                   ClassSymbol classSym = (ClassSymbol) trees.getElement(getCurrentPath());
                   @SuppressWarnings("ASTHelpersSuggestions")
                   String moduleName =
-                      classSym.packge().getEnclosingElement().getQualifiedName().toString();
+                      Objects.requireNonNull(classSym.packge().getEnclosingElement())
+                          .getQualifiedName()
+                          .toString();
                   if (moduleName.isEmpty()) { // unnamed module
                     moduleName = "unnamed";
                   }
@@ -142,7 +147,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                 }
 
                 @Override
-                public Void visitMethod(MethodTree methodTree, Void unused) {
+                public @Nullable Void visitMethod(MethodTree methodTree, @Nullable Void unused) {
                   MethodSymbol mSym = (MethodSymbol) trees.getElement(getCurrentPath());
                   if (mSym.getModifiers().contains(Modifier.PRIVATE)) {
                     return super.visitMethod(methodTree, null);

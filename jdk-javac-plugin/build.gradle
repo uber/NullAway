@@ -1,3 +1,5 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+
 plugins {
     id 'java'
     // we use the shadow jar when building the JDK
@@ -33,6 +35,15 @@ tasks.withType(JavaCompile).configureEach {
         "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
     ]
+    if (!name.toLowerCase().contains("test")) {
+        options.errorprone {
+            check("NullAway", CheckSeverity.ERROR)
+            option("NullAway:OnlyNullMarked")
+            option("NullAway:JSpecifyMode")
+            option("NullAway:AcknowledgeRestrictiveAnnotations")
+            check("RequireExplicitNullMarking", CheckSeverity.ERROR)
+        }
+    }
 }
 
 configurations {
@@ -42,6 +53,8 @@ configurations {
 }
 
 dependencies {
+    annotationProcessor project(":nullaway")
+
     implementation libs.gson
     implementation libs.jspecify
 
