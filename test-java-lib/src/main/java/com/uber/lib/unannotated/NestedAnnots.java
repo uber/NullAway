@@ -13,4 +13,12 @@ public class NestedAnnots<T /* extends @Nullable Object */> {
   public static NestedAnnots<NestedAnnots</* @Nullable */ String>[]> nestedArray1() {
     throw new RuntimeException();
   }
+
+  public static NestedAnnots<String /* @Nullable */[]> nestedArray2() {
+    throw new RuntimeException();
+  }
+
+  public static void wildcardUpper(NestedAnnots<? extends /* @NonNull */ String> t) {}
+
+  public static void wildcardLower(NestedAnnots<? super /* @Nullable */ String> t) {}
 }

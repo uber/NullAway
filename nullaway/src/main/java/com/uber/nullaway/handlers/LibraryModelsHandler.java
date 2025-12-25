@@ -57,9 +57,9 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
+import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
-import com.uber.nullaway.librarymodel.NestedAnnotationTypeVisitor;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -434,9 +434,9 @@ public class LibraryModelsHandler implements Handler {
           info.annotation() == Annotation.NULLABLE
               ? GenericsChecks.getSyntheticNullableAnnotType(state)
               : GenericsChecks.getSyntheticNonNullAnnotType(state);
-      NestedAnnotationTypeVisitor nestedAnnotationTypeVisitor =
-          new NestedAnnotationTypeVisitor(info.typePath(), annotType);
-      updated = nestedAnnotationTypeVisitor.apply(updated);
+      AddAnnotationToNestedTypeVisitor addAnnotationToNestedTypeVisitor =
+          new AddAnnotationToNestedTypeVisitor(info.typePath(), annotType);
+      updated = addAnnotationToNestedTypeVisitor.apply(updated);
     }
     return updated;
   }

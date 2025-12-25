@@ -17,6 +17,9 @@ package com.uber.nullaway.testlibrarymodels;
 
 import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
+import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
+import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
+import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -171,8 +174,7 @@ public class TestLibraryModels implements LibraryModels {
         ImmutableSetMultimap.of(
             0,
             new NestedAnnotationInfo(
-                Annotation.NONNULL,
-                ImmutableList.of(new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0)))),
+                Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))),
         methodRef(
             "com.uber.lib.unannotated.NestedAnnots",
             "deeplyNested(com.uber.lib.unannotated.NestedAnnots<com.uber.lib.unannotated.NestedAnnots<java.lang.String>>)"),
@@ -181,16 +183,38 @@ public class TestLibraryModels implements LibraryModels {
             new NestedAnnotationInfo(
                 Annotation.NULLABLE,
                 ImmutableList.of(
-                    new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0),
-                    new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0)))),
+                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(TYPE_ARGUMENT, 0)))),
         methodRef("com.uber.lib.unannotated.NestedAnnots", "nestedArray1()"),
         ImmutableSetMultimap.of(
             -1,
             new NestedAnnotationInfo(
                 Annotation.NULLABLE,
                 ImmutableList.of(
-                    new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0),
-                    new TypePathEntry(TypePathEntry.Kind.ARRAY_ELEMENT, -1),
-                    new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, 0)))));
+                    new TypePathEntry(TYPE_ARGUMENT, 0),
+                    new TypePathEntry(ARRAY_ELEMENT, -1),
+                    new TypePathEntry(TYPE_ARGUMENT, 0)))),
+        methodRef("com.uber.lib.unannotated.NestedAnnots", "nestedArray2()"),
+        ImmutableSetMultimap.of(
+            -1,
+            new NestedAnnotationInfo(
+                Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))),
+        methodRef(
+            "com.uber.lib.unannotated.NestedAnnots",
+            "wildcardUpper(com.uber.lib.unannotated.NestedAnnots<? extends java.lang.String>)"),
+        ImmutableSetMultimap.of(
+            0,
+            new NestedAnnotationInfo(
+                Annotation.NONNULL,
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 0)))),
+        methodRef(
+            "com.uber.lib.unannotated.NestedAnnots",
+            "wildcardLower(com.uber.lib.unannotated.NestedAnnots<? super java.lang.String>)"),
+        ImmutableSetMultimap.of(
+            0,
+            new NestedAnnotationInfo(
+                Annotation.NULLABLE,
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 1)))));
   }
 }

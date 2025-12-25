@@ -376,8 +376,59 @@ public class CustomLibraryModelsTests {
             "    // BUG: Diagnostic contains: incompatible types",
             "    NestedAnnots<NestedAnnots<String>[]> unused = NestedAnnots.nestedArray1();",
             "  }",
-            "  void testNegative(NestedAnnots<NestedAnnots<@Nullable String>> p) {",
+            "  void testNegative() {",
             "    NestedAnnots<NestedAnnots<@Nullable String>[]> unused = NestedAnnots.nestedArray1();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedArray2() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testPositive() {",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    NestedAnnots<String[]> unused = NestedAnnots.nestedArray2();",
+            "  }",
+            "  void testNegative() {",
+            "    NestedAnnots<String @Nullable []> unused = NestedAnnots.nestedArray2();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedWildcards() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testUpper(NestedAnnots<@Nullable String> t) {",
+            "    // TODO report an error here when we support wildcards",
+            "    NestedAnnots.wildcardUpper(t);",
+            "  }",
+            "  void testLower(NestedAnnots<String> t) {",
+            "    // TODO report an error here when we support wildcards",
+            "    NestedAnnots.wildcardLower(t);",
             "  }",
             "}")
         .doTest();
