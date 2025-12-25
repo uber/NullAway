@@ -382,6 +382,7 @@ public class LibraryModelsHandler implements Handler {
     return libraryModels.nullMarkedClasses().contains(className);
   }
 
+  /** Updates method types based on nested annotation information from library models. */
   @Override
   @SuppressWarnings("ReferenceEquality")
   public Type.MethodType onOverrideMethodType(
@@ -392,6 +393,7 @@ public class LibraryModelsHandler implements Handler {
     if (nestedAnnotations.isEmpty()) {
       return methodType;
     }
+    // update argument types, tracking if anything changed
     boolean changed = false;
     // use a ListBuffer for efficiency, since calling size() on a javac List requires a traversal
     ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
@@ -410,6 +412,7 @@ public class LibraryModelsHandler implements Handler {
         changed = true;
       }
     }
+    // update return type
     Type returnType = methodType.restype;
     ImmutableSet<NestedAnnotationInfo> returnAnnotations = nestedAnnotations.get(-1);
     Type updatedReturnType =
@@ -419,6 +422,7 @@ public class LibraryModelsHandler implements Handler {
     if (updatedReturnType != returnType) {
       changed = true;
     }
+    // only return a new MethodType if there was some change
     if (!changed) {
       return methodType;
     }
@@ -426,6 +430,14 @@ public class LibraryModelsHandler implements Handler {
         updatedArgTypes.toList(), updatedReturnType, methodType.thrown, methodType.tsym);
   }
 
+  /**
+   * Applies a set of nested annotation updates to the given type, returning an updated type.
+   *
+   * @param type the original type
+   * @param annotations the set of nested annotations to apply
+   * @param state the visitor state
+   * @return the updated type with the nested annotations applied
+   */
   private static Type applyNestedAnnotations(
       Type type, ImmutableSet<NestedAnnotationInfo> annotations, VisitorState state) {
     Type updated = type;
