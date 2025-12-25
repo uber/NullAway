@@ -485,9 +485,11 @@ public final class GenericsChecks {
         if (result != null) {
           // for method invocations and field reads, there may be annotations on type variables in
           // the return / field type that need to be restored
-          if (tree instanceof MethodInvocationTree) {
-            MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
-            Type returnType = castToNonNull(ASTHelpers.getSymbol(invocationTree)).getReturnType();
+          if (tree instanceof MethodInvocationTree invocationTree) {
+            Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
+            Type.MethodType methodType =
+                handler.onOverrideMethodType(symbol, symbol.type.asMethodType(), state);
+            Type returnType = methodType.getReturnType();
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
                     returnType, result, config, Collections.emptyMap());
@@ -774,13 +776,15 @@ public final class GenericsChecks {
       MethodInvocationTree methodInvocationTree,
       Set<MethodInvocationTree> allInvocations)
       throws UnsatisfiableConstraintsException {
+    Type.MethodType methodType =
+        handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
     // first, handle the return type flow
     if (typeFromAssignmentContext != null) {
       solver.addSubtypeConstraint(
-          methodSymbol.getReturnType(), typeFromAssignmentContext, assignedToLocal);
+          methodType.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     }
     // then, handle parameters
-    new InvocationArguments(methodInvocationTree, methodSymbol.type.asMethodType())
+    new InvocationArguments(methodInvocationTree, methodType)
         .forEach(
             (argument, argPos, formalParamType, unused) ->
                 generateConstraintsForPseudoAssignment(
@@ -1310,7 +1314,9 @@ public final class GenericsChecks {
               tree, (Type.ForAll) invokedMethodType, null, state, false);
     }
 
-    new InvocationArguments(tree, invokedMethodType.asMethodType())
+    Type.MethodType finalMethodType =
+        handler.onOverrideMethodType(methodSymbol, invokedMethodType.asMethodType(), state);
+    new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
               if (formalParameter.isRaw()) {
@@ -2065,7 +2071,8 @@ public final class GenericsChecks {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
-  private @Nullable Type syntheticNullableAnnotType;
+  private static @Nullable Type syntheticNullableAnnotType;
+  private static @Nullable Type syntheticNonNullAnnotType;
 
   /**
    * Returns a "fake" {@link Type} object representing a synthetic {@code @Nullable} annotation.
@@ -2080,7 +2087,7 @@ public final class GenericsChecks {
    *     Symtab}.
    * @return a fake {@code Type} for a synthetic {@code @Nullable} annotation.
    */
-  private Type getSyntheticNullableAnnotType(VisitorState state) {
+  public static Type getSyntheticNullableAnnotType(VisitorState state) {
     if (syntheticNullableAnnotType == null) {
       Names names = Names.instance(state.context);
       Symtab symtab = Symtab.instance(state.context);
@@ -2090,5 +2097,27 @@ public final class GenericsChecks {
       syntheticNullableAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
     }
     return syntheticNullableAnnotType;
+  }
+
+  /**
+   * Returns a "fake" {@link Type} object representing a synthetic {@code @NonNull} annotation.
+   *
+   * <p>This is used when we need to treat a type as non-null, but no actual {@code @NonNull}
+   * annotation exists in source.
+   *
+   * @param state the visitor state, used to access javac internals like {@link Names} and {@link
+   *     Symtab}.
+   * @return a fake {@code Type} for a synthetic {@code @NonNull} annotation.
+   */
+  public static Type getSyntheticNonNullAnnotType(VisitorState state) {
+    if (syntheticNonNullAnnotType == null) {
+      Names names = Names.instance(state.context);
+      Symtab symtab = Symtab.instance(state.context);
+      Name name = names.fromString("nullaway.synthetic");
+      Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
+      Name simpleName = names.fromString("NonNull");
+      syntheticNonNullAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+    }
+    return syntheticNonNullAnnotType;
   }
 }

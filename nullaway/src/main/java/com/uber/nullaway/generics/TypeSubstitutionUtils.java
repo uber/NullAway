@@ -97,7 +97,7 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * A visitor that restores explicit nullability annotations on type variables from another type to
+   * A visitor that restores explicit nullability annotations on types nested within another type to
    * the corresponding positions in the visited type. If no annotations need to be restored, returns
    * the visited type object itself.
    */
@@ -140,23 +140,18 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
-      if (other instanceof Type.TypeVar) {
-        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-        if (updated != null) {
-          return updated;
-        }
-      }
+      Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ClassType)) {
-        return t;
+        return updated;
       }
-      Type outer = t.getEnclosingType();
-      Type outer1 = visit(outer, other.getEnclosingType());
-      List<Type> typarams = t.getTypeArguments();
+      Type outer = updated.getEnclosingType();
+      Type outer1 = outer.accept(this, other.getEnclosingType());
+      List<Type> typarams = updated.getTypeArguments();
       List<Type> typarams1 = visitTypeLists(typarams, other.getTypeArguments());
       if (outer1 == outer && typarams1 == typarams) {
-        return t;
+        return updated;
       } else {
-        return TYPE_METADATA_BUILDER.createClassType(t, outer1, typarams1);
+        return TYPE_METADATA_BUILDER.createClassType(updated, outer1, typarams1);
       }
     }
 
@@ -178,15 +173,14 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitTypeVar(Type.TypeVar t, Type other) {
-      Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-      return updated != null ? updated : t;
+      return updateDirectNullabilityAnnotationsForType(t, other);
     }
 
     @Override
     public Type visitForAll(Type.ForAll t, Type other) {
       Type methodType = t.qtype;
       Type otherMethodType = ((Type.ForAll) other).qtype;
-      Type newMethodType = visit(methodType, otherMethodType);
+      Type newMethodType = methodType.accept(this, otherMethodType);
       if (methodType == newMethodType) {
         return t;
       } else {
@@ -196,13 +190,14 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type variable {@code other} (either direct or from subtypes).
+     * on a type {@code other}. If {@code other} is a type variable, we also check {@code
+     * extraTypeVariableAnnotations} for any additional annotations to consider.
      *
      * @param t the type to update
-     * @param other the type variable to update from
-     * @return the updated type, or {@code null} if no updates were made
+     * @param other the type to update from
+     * @return the updated type, or {@code t} if no updates were made
      */
-    private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
+    private Type updateDirectNullabilityAnnotationsForType(Type t, Type other) {
       // first check for annotations directly on the type variable
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
@@ -220,7 +215,7 @@ public class TypeSubstitutionUtils {
       if (typeArgAnnot != null) {
         return typeWithAnnot(t, typeArgAnnot);
       }
-      return null;
+      return t;
     }
 
     private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
@@ -231,22 +226,17 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitArrayType(Type.ArrayType t, Type other) {
-      if (other instanceof Type.TypeVar) {
-        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-        if (updated != null) {
-          return updated;
-        }
-      }
+      Type.ArrayType updated = (Type.ArrayType) updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ArrayType)) {
-        return t;
+        return updated;
       }
       Type.ArrayType otherArrayType = (Type.ArrayType) other;
-      Type elemtype = t.elemtype;
-      Type newElemType = visit(elemtype, otherArrayType.elemtype);
+      Type elemtype = updated.elemtype;
+      Type newElemType = elemtype.accept(this, otherArrayType.elemtype);
       if (newElemType == elemtype) {
-        return t;
+        return updated;
       } else {
-        return TYPE_METADATA_BUILDER.createArrayType(t, newElemType);
+        return TYPE_METADATA_BUILDER.createArrayType(updated, newElemType);
       }
     }
 

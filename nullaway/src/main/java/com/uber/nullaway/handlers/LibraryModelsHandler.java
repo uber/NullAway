@@ -30,6 +30,7 @@ import static com.uber.nullaway.Nullness.NULLABLE;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
@@ -38,8 +39,10 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
+import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -47,11 +50,16 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
+import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -372,6 +380,77 @@ public class LibraryModelsHandler implements Handler {
   @Override
   public boolean onOverrideNullMarkedClasses(String className) {
     return libraryModels.nullMarkedClasses().contains(className);
+  }
+
+  /** Updates method types based on nested annotation information from library models. */
+  @Override
+  @SuppressWarnings("ReferenceEquality")
+  public Type.MethodType onOverrideMethodType(
+      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+    OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(state.context);
+    ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
+        optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
+    if (nestedAnnotations.isEmpty()) {
+      return methodType;
+    }
+    // update argument types, tracking if anything changed
+    boolean changed = false;
+    // use a ListBuffer for efficiency, since calling size() on a javac List requires a traversal
+    ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
+    int index = 0;
+    for (com.sun.tools.javac.util.List<Type> l = methodType.argtypes;
+        l.nonEmpty();
+        l = l.tail, index++) {
+      Type argType = l.head;
+      ImmutableSet<NestedAnnotationInfo> annotationsForArg = nestedAnnotations.get(index);
+      Type updatedArgType =
+          annotationsForArg.isEmpty()
+              ? argType
+              : applyNestedAnnotations(argType, annotationsForArg, state);
+      updatedArgTypes.append(updatedArgType);
+      if (updatedArgType != argType) {
+        changed = true;
+      }
+    }
+    // update return type
+    Type returnType = methodType.restype;
+    ImmutableSet<NestedAnnotationInfo> returnAnnotations = nestedAnnotations.get(-1);
+    Type updatedReturnType =
+        returnAnnotations.isEmpty()
+            ? returnType
+            : applyNestedAnnotations(returnType, returnAnnotations, state);
+    if (updatedReturnType != returnType) {
+      changed = true;
+    }
+    // only return a new MethodType if there was some change
+    if (!changed) {
+      return methodType;
+    }
+    return new Type.MethodType(
+        updatedArgTypes.toList(), updatedReturnType, methodType.thrown, methodType.tsym);
+  }
+
+  /**
+   * Applies a set of nested annotation updates to the given type, returning an updated type.
+   *
+   * @param type the original type
+   * @param annotations the set of nested annotations to apply
+   * @param state the visitor state
+   * @return the updated type with the nested annotations applied
+   */
+  private static Type applyNestedAnnotations(
+      Type type, ImmutableSet<NestedAnnotationInfo> annotations, VisitorState state) {
+    Type updated = type;
+    for (NestedAnnotationInfo info : annotations) {
+      Type annotType =
+          info.annotation() == Annotation.NULLABLE
+              ? GenericsChecks.getSyntheticNullableAnnotType(state)
+              : GenericsChecks.getSyntheticNonNullAnnotType(state);
+      AddAnnotationToNestedTypeVisitor addAnnotationToNestedTypeVisitor =
+          new AddAnnotationToNestedTypeVisitor(info.typePath(), annotType);
+      updated = addAnnotationToNestedTypeVisitor.apply(updated);
+    }
+    return updated;
   }
 
   /**
@@ -1026,6 +1105,9 @@ public class LibraryModelsHandler implements Handler {
 
     private final ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs;
 
+    private final ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        nestedAnnotationsForMethods;
+
     CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
       this.config = config;
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
@@ -1052,6 +1134,8 @@ public class LibraryModelsHandler implements Handler {
       ImmutableList.Builder<StreamTypeRecord> customStreamNullabilitySpecsBuilder =
           new ImmutableList.Builder<>();
       ImmutableSet.Builder<FieldRef> nullableFieldsBuilder = new ImmutableSet.Builder<>();
+      Map<MethodRef, ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo>>
+          nestedAnnotationsBuilder = new LinkedHashMap<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           if (shouldSkipModel(entry.getKey())) {
@@ -1124,6 +1208,16 @@ public class LibraryModelsHandler implements Handler {
         for (FieldRef fieldRef : libraryModels.nullableFields()) {
           nullableFieldsBuilder.add(fieldRef);
         }
+        for (Map.Entry<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>> entry :
+            libraryModels.nestedAnnotationsForMethods().entrySet()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
+          ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> builder =
+              nestedAnnotationsBuilder.computeIfAbsent(
+                  entry.getKey(), key -> new ImmutableSetMultimap.Builder<>());
+          builder.putAll(entry.getValue());
+        }
       }
       failIfNullParameters = failIfNullParametersBuilder.build();
       explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
@@ -1140,6 +1234,13 @@ public class LibraryModelsHandler implements Handler {
       methodTypeVariablesWithNullableUpperBounds =
           methodTypeVariableNullableUpperBoundsBuilder.build();
       nullMarkedClasses = nullMarkedClassesBuilder.build();
+      ImmutableMap.Builder<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+          nestedAnnotationsForMethodsBuilder = new ImmutableMap.Builder<>();
+      for (Map.Entry<MethodRef, ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo>> entry :
+          nestedAnnotationsBuilder.entrySet()) {
+        nestedAnnotationsForMethodsBuilder.put(entry.getKey(), entry.getValue().build());
+      }
+      nestedAnnotationsForMethods = nestedAnnotationsForMethodsBuilder.build();
     }
 
     private boolean shouldSkipModel(MethodRef key) {
@@ -1215,6 +1316,12 @@ public class LibraryModelsHandler implements Handler {
     public ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs() {
       return customStreamNullabilitySpecs;
     }
+
+    @Override
+    public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        nestedAnnotationsForMethods() {
+      return nestedAnnotationsForMethods;
+    }
   }
 
   /**
@@ -1262,6 +1369,8 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<Boolean> nonNullRet;
     private final NameIndexedMap<ImmutableSet<Integer>> castToNonNullMethods;
     private final NameIndexedMap<ImmutableSet<Integer>> methodTypeVariablesWithNullableUpperBounds;
+    private final NameIndexedMap<ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        nestedAnnotationsForMethods;
 
     OptimizedLibraryModels(LibraryModels models, Context context) {
       Names names = Names.instance(context);
@@ -1278,6 +1387,8 @@ public class LibraryModelsHandler implements Handler {
       castToNonNullMethods = makeOptimizedIntSetLookup(names, models.castToNonNullMethods());
       methodTypeVariablesWithNullableUpperBounds =
           makeOptimizedIntSetLookup(names, models.methodTypeVariablesWithNullableUpperBounds());
+      nestedAnnotationsForMethods =
+          makeOptimizedNestedAnnotationLookup(names, models.nestedAnnotationsForMethods());
     }
 
     boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
@@ -1320,6 +1431,13 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, methodTypeVariablesWithNullableUpperBounds);
     }
 
+    ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotationsForMethods(
+        Symbol.MethodSymbol symbol) {
+      ImmutableSetMultimap<Integer, NestedAnnotationInfo> result =
+          nestedAnnotationsForMethods.get(symbol);
+      return (result == null) ? ImmutableSetMultimap.of() : result;
+    }
+
     private ImmutableSet<Integer> lookupImmutableSet(
         Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<Integer>> lookup) {
       ImmutableSet<Integer> result = lookup.get(symbol);
@@ -1334,6 +1452,14 @@ public class LibraryModelsHandler implements Handler {
     private NameIndexedMap<Boolean> makeOptimizedBoolLookup(
         Names names, ImmutableSet<MethodRef> refs) {
       return makeOptimizedLookup(names, refs, (ref) -> true);
+    }
+
+    private NameIndexedMap<ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        makeOptimizedNestedAnnotationLookup(
+            Names names,
+            ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>> refs) {
+      return makeOptimizedLookup(
+          names, refs.keySet(), ref -> NullabilityUtil.castToNonNull(refs.get(ref)));
     }
 
     private <T> NameIndexedMap<T> makeOptimizedLookup(

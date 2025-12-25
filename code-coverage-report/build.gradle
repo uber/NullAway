@@ -84,4 +84,5 @@ dependencies {
     implementation project(':jdk-javac-plugin')
     implementation project(':jdk-annotations:astubx-generator')
     implementation project(':jdk-annotations:jdk-integration-test')
+    implementation project(':test-library-models')
 }

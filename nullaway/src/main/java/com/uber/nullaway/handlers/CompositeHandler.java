@@ -37,6 +37,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
@@ -348,5 +349,15 @@ class CompositeHandler implements Handler {
       }
     }
     return result;
+  }
+
+  @Override
+  public Type.MethodType onOverrideMethodType(
+      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+    Type.MethodType currentType = methodType;
+    for (Handler h : handlers) {
+      currentType = h.onOverrideMethodType(methodSymbol, currentType, state);
+    }
+    return currentType;
   }
 }
