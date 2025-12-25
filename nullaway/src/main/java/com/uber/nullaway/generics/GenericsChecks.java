@@ -485,8 +485,7 @@ public final class GenericsChecks {
         if (result != null) {
           // for method invocations and field reads, there may be annotations on type variables in
           // the return / field type that need to be restored
-          if (tree instanceof MethodInvocationTree) {
-            MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
+          if (tree instanceof MethodInvocationTree invocationTree) {
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
             Type.MethodType methodType =
                 handler.onOverrideMethodType(symbol, symbol.type.asMethodType(), state);
