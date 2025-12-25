@@ -435,6 +435,35 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void multipleArgs() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testPositive() {",
+            "    NestedAnnots.multipleArgs(",
+            "        // BUG: Diagnostic contains: incompatible types",
+            "        new NestedAnnots<@Nullable String>(),",
+            "        // BUG: Diagnostic contains: incompatible types",
+            "        new NestedAnnots<Integer>());",
+            "  }",
+            "  void testNegative() {",
+            "    NestedAnnots.multipleArgs(",
+            "        new NestedAnnots<String>(), new NestedAnnots<@Nullable Integer>());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())

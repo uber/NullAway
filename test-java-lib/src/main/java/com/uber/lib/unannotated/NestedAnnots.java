@@ -21,4 +21,7 @@ public class NestedAnnots<T /* extends @Nullable Object */> {
   public static void wildcardUpper(NestedAnnots<? extends /* @NonNull */ String> t) {}
 
   public static void wildcardLower(NestedAnnots<? super /* @Nullable */ String> t) {}
+
+  public static void multipleArgs(
+      NestedAnnots<String> t1, NestedAnnots</* @Nullable */ Integer> t2) {}
 }
