@@ -677,7 +677,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             "    return null;",
             "  }",
             "}")
-        // Note: Safe to have same-name files in recent Error Prone, but breaks EP 2.4.0
+        // Note: unsafe to have two source files with the same path in the same test, so use Test2
         .addSourceLines(
             "Test2.java",
             "package com.example.thirdparty.marked;",
