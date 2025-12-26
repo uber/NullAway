@@ -26,6 +26,7 @@ import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
+import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -985,12 +986,39 @@ public class LibraryModelsHandler implements Handler {
             .put("java.util.function.Function", 0)
             .put("java.util.function.Function", 1)
             .put("java.util.concurrent.atomic.AtomicReference", 0)
+            .put("java.util.concurrent.atomic.AtomicReferenceFieldUpdater", 1)
             .build();
+
+    private static final ImmutableSetMultimap<MethodRef, Integer>
+        NULLABLE_METHOD_TYPE_VARIABLE_UPPER_BOUNDS =
+            new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+                .put(
+                    methodRef(
+                        "java.util.concurrent.atomic.AtomicReferenceFieldUpdater",
+                        "<U,W>newUpdater(java.lang.Class<U>,java.lang.Class<W>,java.lang.String)"),
+                    1)
+                .build();
+
+    private static final ImmutableMap<
+            MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        NESTED_ANNOTATIONS_FOR_METHODS =
+            ImmutableMap.of(
+                methodRef(
+                    "java.util.concurrent.atomic.AtomicReferenceFieldUpdater",
+                    "<U,W>newUpdater(java.lang.Class<U>,java.lang.Class<W>,java.lang.String)"),
+                // turns Class<W> into Class<@NonNull W>
+                ImmutableSetMultimap.of(
+                    1,
+                    new NestedAnnotationInfo(
+                        Annotation.NONNULL,
+                        ImmutableList.of(
+                            new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0)))));
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =
         new ImmutableSet.Builder<String>()
             .add("java.util.function.Function")
             .add("java.util.concurrent.atomic.AtomicReference")
+            .add("java.util.concurrent.atomic.AtomicReferenceFieldUpdater")
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NONNULL_METHODS =
@@ -1053,6 +1081,17 @@ public class LibraryModelsHandler implements Handler {
     @Override
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       return NULLABLE_VARIABLE_TYPE_UPPER_BOUNDS;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+      return NULLABLE_METHOD_TYPE_VARIABLE_UPPER_BOUNDS;
+    }
+
+    @Override
+    public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        nestedAnnotationsForMethods() {
+      return NESTED_ANNOTATIONS_FOR_METHODS;
     }
 
     @Override
