@@ -69,10 +69,10 @@ public class FieldInitializationSerializationHandler implements Handler {
       return;
     }
     Symbol symbol = ASTHelpers.getSymbol(pathToMethod.getLeaf());
-    if (!(symbol instanceof Symbol.MethodSymbol)) {
+    if (!(symbol instanceof Symbol.MethodSymbol methodSymbol)) {
       return;
     }
-    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) symbol;
+
     // Check if the method and the field are in the same class.
     if (!field.enclClass().equals(methodSymbol.enclClass())) {
       // We don't want m in A.m() to be a candidate initializer for B.f unless A == B

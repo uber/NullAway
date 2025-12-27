@@ -103,8 +103,8 @@ public class AssertionHandler implements Handler {
   private @Nullable AccessPath getAccessPathForNotNullAssertThatExpr(
       MethodInvocationNode node, VisitorState state, AccessPath.AccessPathContext apContext) {
     Node receiver = node.getTarget().getReceiver();
-    if (receiver instanceof MethodInvocationNode) {
-      MethodInvocationNode receiver_method = (MethodInvocationNode) receiver;
+    if (receiver instanceof MethodInvocationNode receiver_method) {
+
       Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
       if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
         Node arg = receiver_method.getArgument(0);

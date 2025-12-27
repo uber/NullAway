@@ -80,10 +80,10 @@ public class ErrorDisplay implements Display {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof ErrorDisplay)) {
+    if (!(o instanceof ErrorDisplay that)) {
       return false;
     }
-    ErrorDisplay that = (ErrorDisplay) o;
+
     return type.equals(that.type)
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.

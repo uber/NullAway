@@ -255,8 +255,8 @@ class StreamNullabilityPropagator implements Handler {
   private void handleFilterMethod(
       MethodInvocationTree tree, StreamTypeRecord streamType, VisitorState state) {
     ExpressionTree argTree = tree.getArguments().get(0);
-    if (argTree instanceof NewClassTree) {
-      ClassTree anonClassBody = ((NewClassTree) argTree).getClassBody();
+    if (argTree instanceof NewClassTree newClassTree) {
+      ClassTree anonClassBody = newClassTree.getClassBody();
       // Ensure that this `new A() ...` has a custom class body, otherwise, we skip for now.
       // In the future, we could look at the declared type and its inheritance chain, at least
       // for
@@ -264,8 +264,8 @@ class StreamNullabilityPropagator implements Handler {
       if (anonClassBody != null) {
         handleFilterAnonClass(streamType, tree, anonClassBody, state);
       }
-    } else if (argTree instanceof LambdaExpressionTree) {
-      LambdaExpressionTree lambdaTree = (LambdaExpressionTree) argTree;
+    } else if (argTree instanceof LambdaExpressionTree lambdaTree) {
+
       handleFilterLambda(streamType, tree, lambdaTree, state);
     }
   }
@@ -273,8 +273,8 @@ class StreamNullabilityPropagator implements Handler {
   private void handleMapMethod(
       MethodInvocationTree tree, StreamTypeRecord streamType, Symbol.MethodSymbol methodSymbol) {
     ExpressionTree argTree = tree.getArguments().get(0);
-    if (argTree instanceof NewClassTree) {
-      ClassTree annonClassBody = ((NewClassTree) argTree).getClassBody();
+    if (argTree instanceof NewClassTree newClassTree) {
+      ClassTree annonClassBody = newClassTree.getClassBody();
       // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
       if (annonClassBody != null) {
         MapLikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
@@ -301,10 +301,10 @@ class StreamNullabilityPropagator implements Handler {
   private boolean handleCollectCall(
       MethodInvocationTree collectInvocationTree, CollectLikeMethodRecord collectlikeMethodRecord) {
     ExpressionTree argTree = collectInvocationTree.getArguments().get(0);
-    if (argTree instanceof MethodInvocationTree) {
+    if (argTree instanceof MethodInvocationTree collectInvokeArg) {
       // the argument passed to the collect method.  We check if this is a call to the collector
       // factory method from the record
-      MethodInvocationTree collectInvokeArg = (MethodInvocationTree) argTree;
+
       Symbol.MethodSymbol collectInvokeArgSymbol = ASTHelpers.getSymbol(collectInvokeArg);
       if (collectInvokeArgSymbol
               .owner
@@ -318,8 +318,8 @@ class StreamNullabilityPropagator implements Handler {
           ExpressionTree factoryMethodArg = arguments.get(ind);
           // TODO eventually, support method references, though this is likely only useful in
           // JSpecify mode with generics checking
-          if (factoryMethodArg instanceof NewClassTree) {
-            ClassTree anonClassBody = ((NewClassTree) factoryMethodArg).getClassBody();
+          if (factoryMethodArg instanceof NewClassTree newClassTree) {
+            ClassTree anonClassBody = newClassTree.getClassBody();
             // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
             if (anonClassBody != null) {
               handleMapOrCollectAnonClassBody(
@@ -344,10 +344,10 @@ class StreamNullabilityPropagator implements Handler {
 
   private void buildObservableCallChain(MethodInvocationTree tree) {
     ExpressionTree methodSelect = tree.getMethodSelect();
-    if (methodSelect instanceof MemberSelectTree) {
-      ExpressionTree receiverExpression = ((MemberSelectTree) methodSelect).getExpression();
-      if (receiverExpression instanceof MethodInvocationTree) {
-        observableOuterCallInChain.put((MethodInvocationTree) receiverExpression, tree);
+    if (methodSelect instanceof MemberSelectTree memberSelectTree) {
+      ExpressionTree receiverExpression = memberSelectTree.getExpression();
+      if (receiverExpression instanceof MethodInvocationTree methodInvocationTree) {
+        observableOuterCallInChain.put(methodInvocationTree, tree);
       }
     } // ToDo: What else can be here? If there are other cases than MemberSelectTree, handle them.
   }
@@ -398,7 +398,7 @@ class StreamNullabilityPropagator implements Handler {
       ClassTree annonClassBody,
       VisitorState state) {
     for (Tree t : annonClassBody.getMembers()) {
-      if (t instanceof MethodTree && ((MethodTree) t).getName().toString().equals("test")) {
+      if (t instanceof MethodTree methodTree && methodTree.getName().toString().equals("test")) {
         filterMethodOrLambdaSet.add(t);
         observableCallToInnerMethodOrLambda.put(observableDotFilter, t);
         handleChainFromFilter(streamType, observableDotFilter, t, state);
@@ -423,8 +423,8 @@ class StreamNullabilityPropagator implements Handler {
   private void handleMapOrCollectAnonClassBody(
       MapOrCollectLikeMethodRecord methodRecord, ClassTree anonClassBody, Consumer<Tree> consumer) {
     for (Tree t : anonClassBody.getMembers()) {
-      if (t instanceof MethodTree
-          && ((MethodTree) t).getName().toString().equals(methodRecord.innerMethodName())) {
+      if (t instanceof MethodTree methodTree
+          && methodTree.getName().toString().equals(methodRecord.innerMethodName())) {
         consumer.accept(t);
       }
     }
@@ -508,8 +508,8 @@ class StreamNullabilityPropagator implements Handler {
   }
 
   private boolean canBooleanExpressionEvalToTrue(ExpressionTree expressionTree) {
-    if (expressionTree instanceof LiteralTree) {
-      LiteralTree expressionAsLiteral = (LiteralTree) expressionTree;
+    if (expressionTree instanceof LiteralTree expressionAsLiteral) {
+
       if (expressionAsLiteral.getValue() instanceof Boolean) {
         return (boolean) expressionAsLiteral.getValue();
       } else {
@@ -569,14 +569,14 @@ class StreamNullabilityPropagator implements Handler {
       for (int argIdx : methodRecord.argsFromStream()) {
         LocalVariableNode filterLocalName;
         LocalVariableNode mapLocalName;
-        if (filterTree instanceof MethodTree) {
-          filterLocalName = new LocalVariableNode(((MethodTree) filterTree).getParameters().get(0));
+        if (filterTree instanceof MethodTree methodTree) {
+          filterLocalName = new LocalVariableNode(methodTree.getParameters().get(0));
         } else {
           filterLocalName =
               new LocalVariableNode(((LambdaExpressionTree) filterTree).getParameters().get(0));
         }
-        if (tree instanceof MethodTree) {
-          mapLocalName = new LocalVariableNode(((MethodTree) tree).getParameters().get(argIdx));
+        if (tree instanceof MethodTree methodTree) {
+          mapLocalName = new LocalVariableNode(methodTree.getParameters().get(argIdx));
         } else {
           mapLocalName =
               new LocalVariableNode(((LambdaExpressionTree) tree).getParameters().get(argIdx));

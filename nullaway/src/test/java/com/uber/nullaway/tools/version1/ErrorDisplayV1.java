@@ -76,10 +76,10 @@ public class ErrorDisplayV1 implements Display {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof ErrorDisplayV1)) {
+    if (!(o instanceof ErrorDisplayV1 that)) {
       return false;
     }
-    ErrorDisplayV1 that = (ErrorDisplayV1) o;
+
     return type.equals(that.type)
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.

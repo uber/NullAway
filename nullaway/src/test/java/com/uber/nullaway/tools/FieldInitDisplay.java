@@ -51,10 +51,10 @@ public class FieldInitDisplay implements Display {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof FieldInitDisplay)) {
+    if (!(o instanceof FieldInitDisplay that)) {
       return false;
     }
-    FieldInitDisplay that = (FieldInitDisplay) o;
+
     return Objects.equals(method, that.method)
         && Objects.equals(param, that.param)
         && Objects.equals(location, that.location)

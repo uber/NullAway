@@ -197,14 +197,15 @@ public class DefinitelyDerefedParams {
         }
         LOG(DEBUG, "DEBUG", "\tinst: " + instr.toString());
         int derefValueNumber = -1;
-        if (instr instanceof SSAGetInstruction && !((SSAGetInstruction) instr).isStatic()) {
-          derefValueNumber = ((SSAGetInstruction) instr).getRef();
-        } else if (instr instanceof SSAPutInstruction && !((SSAPutInstruction) instr).isStatic()) {
-          derefValueNumber = ((SSAPutInstruction) instr).getRef();
-        } else if (instr instanceof SSAAbstractInvokeInstruction) {
-          SSAAbstractInvokeInstruction callInst = (SSAAbstractInvokeInstruction) instr;
+        if (instr instanceof SSAGetInstruction ssaGetInstruction && !ssaGetInstruction.isStatic()) {
+          derefValueNumber = ssaGetInstruction.getRef();
+        } else if (instr instanceof SSAPutInstruction ssaPutInstruction
+            && !ssaPutInstruction.isStatic()) {
+          derefValueNumber = ssaPutInstruction.getRef();
+        } else if (instr instanceof SSAAbstractInvokeInstruction callInst) {
+
           String sign = callInst.getDeclaredTarget().getSignature();
-          if (((SSAAbstractInvokeInstruction) instr).isStatic()) {
+          if (callInst.isStatic()) {
             // All supported Null testing APIs are static methods
             if (NULL_TEST_APIS.containsKey(sign)) {
               derefValueNumber = callInst.getUse(NULL_TEST_APIS.get(sign));
@@ -214,7 +215,7 @@ public class DefinitelyDerefedParams {
                 !NULL_TEST_APIS.containsKey(sign),
                 "Add support for non-static NULL_TEST_APIS : %s",
                 sign);
-            derefValueNumber = ((SSAAbstractInvokeInstruction) instr).getReceiver();
+            derefValueNumber = callInst.getReceiver();
           }
         }
         if (derefValueNumber >= firstParamIndex && derefValueNumber <= numParam) {
@@ -257,8 +258,8 @@ public class DefinitelyDerefedParams {
     for (ISSABasicBlock bb : prunedCFG.getNormalPredecessors(prunedCFG.exit())) {
       for (int i = bb.getFirstInstructionIndex(); i <= bb.getLastInstructionIndex(); i++) {
         SSAInstruction instr = ir.getInstructions()[i];
-        if (instr instanceof SSAReturnInstruction) {
-          SSAReturnInstruction retInstr = (SSAReturnInstruction) instr;
+        if (instr instanceof SSAReturnInstruction retInstr) {
+
           if (ir.getSymbolTable().isNullConstant(retInstr.getResult())) {
             LOG(DEBUG, "DEBUG", "Nullable return in method: " + method.getSignature());
             return NullnessHint.NULLABLE;

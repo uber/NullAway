@@ -144,8 +144,8 @@ public final class GenericsChecks {
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
-      if (curTypeArg instanceof AnnotatedTypeTree) {
-        AnnotatedTypeTree annotatedType = (AnnotatedTypeTree) curTypeArg;
+      if (curTypeArg instanceof AnnotatedTypeTree annotatedType) {
+
         for (AnnotationTree annotation : annotatedType.getAnnotations()) {
           Type annotationType = ASTHelpers.getType(annotation);
           if (annotationType != null
@@ -232,8 +232,8 @@ public final class GenericsChecks {
     Map<Integer, Tree> nullableTypeArguments = new HashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
-      if (curTypeArg instanceof AnnotatedTypeTree) {
-        AnnotatedTypeTree annotatedType = (AnnotatedTypeTree) curTypeArg;
+      if (curTypeArg instanceof AnnotatedTypeTree annotatedType) {
+
         for (AnnotationTree annotation : annotatedType.getAnnotations()) {
           Type annotationType = ASTHelpers.getType(annotation);
           if (annotationType != null
@@ -320,10 +320,9 @@ public final class GenericsChecks {
         && lhsType.getKind() == TypeKind.DECLARED
         && rhsType.getKind() == TypeKind.DECLARED) {
       Symbol.TypeSymbol lhsSym = lhsType.asElement();
-      if (lhsSym instanceof Symbol.ClassSymbol) {
+      if (lhsSym instanceof Symbol.ClassSymbol classSymbol) {
         Type asSuper =
-            TypeSubstitutionUtils.asSuper(
-                state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsSym, config);
+            TypeSubstitutionUtils.asSuper(state.getTypes(), rhsType, classSymbol, config);
         if (asSuper != null) {
           result +=
               String.format(
@@ -534,12 +533,12 @@ public final class GenericsChecks {
     }
     ExpressionTree rhsTree;
     boolean assignedToLocal;
-    if (tree instanceof VariableTree) {
-      VariableTree varTree = (VariableTree) tree;
+    if (tree instanceof VariableTree varTree) {
+
       rhsTree = varTree.getInitializer();
       assignedToLocal = isAssignmentToLocalVariable(varTree);
-    } else if (tree instanceof AssignmentTree) {
-      AssignmentTree assignmentTree = (AssignmentTree) tree;
+    } else if (tree instanceof AssignmentTree assignmentTree) {
+
       rhsTree = assignmentTree.getExpression();
       assignedToLocal = isAssignmentToLocalVariable(assignmentTree);
     } else {
@@ -566,10 +565,10 @@ public final class GenericsChecks {
 
   private static boolean isAssignmentToLocalVariable(Tree tree) {
     Symbol treeSymbol;
-    if (tree instanceof VariableTree) {
-      treeSymbol = ASTHelpers.getSymbol((VariableTree) tree);
-    } else if (tree instanceof AssignmentTree) {
-      AssignmentTree assignmentTree = (AssignmentTree) tree;
+    if (tree instanceof VariableTree variableTree) {
+      treeSymbol = ASTHelpers.getSymbol(variableTree);
+    } else if (tree instanceof AssignmentTree assignmentTree) {
+
       treeSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
@@ -684,10 +683,10 @@ public final class GenericsChecks {
       new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
           .forEach(
               (argument, argPos, formalParamType, unused) -> {
-                if (argument instanceof LambdaExpressionTree) {
+                if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
                   Type inferredType =
                       getTypeWithInferredNullability(state, formalParamType, typeVarNullability);
-                  inferredLambdaTypes.put((LambdaExpressionTree) argument, inferredType);
+                  inferredLambdaTypes.put(lambdaExpressionTree, inferredType);
                 }
               });
 
@@ -871,9 +870,9 @@ public final class GenericsChecks {
       path = state.getPath();
     }
     TreePath lambdaPath = new TreePath(path, lambda);
-    if (body instanceof ExpressionTree) {
+    if (body instanceof ExpressionTree returnedExpression) {
       // Case 1: Expression body, e.g., () -> null
-      ExpressionTree returnedExpression = (ExpressionTree) body;
+
       generateConstraintsForPseudoAssignment(
           state, lambdaPath, solver, allInvocations, returnedExpression, fiReturnType);
     } else if (body instanceof BlockTree) {
@@ -1089,8 +1088,8 @@ public final class GenericsChecks {
   private static boolean isGenericCallNeedingInference(ExpressionTree argument) {
     // For now, we only support calls to generic methods.
     // TODO also support calls to generic constructors that use the diamond operator
-    if (argument instanceof MethodInvocationTree) {
-      MethodInvocationTree methodInvocation = (MethodInvocationTree) argument;
+    if (argument instanceof MethodInvocationTree methodInvocation) {
+
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
       // true for generic method calls with no explicit type arguments
       return methodSymbol != null
@@ -1541,8 +1540,8 @@ public final class GenericsChecks {
       List<? extends Tree> typeArgumentTrees) {
     List<Type> types = new ArrayList<>();
     for (Tree tree : typeArgumentTrees) {
-      if (tree instanceof JCTree.JCExpression) {
-        JCTree.JCExpression expression = (JCTree.JCExpression) tree;
+      if (tree instanceof JCTree.JCExpression expression) {
+
         types.add(expression.type); // Retrieve the Type
       }
     }
@@ -1568,17 +1567,17 @@ public final class GenericsChecks {
     Type.MethodType methodType = forAllType.asMethodType();
 
     List<? extends Tree> typeArgumentTrees =
-        (tree instanceof MethodInvocationTree)
-            ? ((MethodInvocationTree) tree).getTypeArguments()
+        (tree instanceof MethodInvocationTree methodInvocationTree)
+            ? methodInvocationTree.getTypeArguments()
             : ((NewClassTree) tree).getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
 
     // There are no explicit type arguments, so use the inferred types
-    if (explicitTypeArgs.isEmpty() && tree instanceof MethodInvocationTree) {
+    if (explicitTypeArgs.isEmpty() && tree instanceof MethodInvocationTree invocationTree) {
       MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
       if (result == null) {
         // have not yet attempted inference for this call
-        MethodInvocationTree invocationTree = (MethodInvocationTree) tree;
+
         InvocationAndContext invocationAndType =
             path == null
                 ? new InvocationAndContext(invocationTree, null, false)
@@ -1666,8 +1665,8 @@ public final class GenericsChecks {
       // could be a parameter to another method call, or part of a conditional expression, etc.
       // in any case, just return the type of the parent expression
       ExpressionTree exprParent = (ExpressionTree) parent;
-      if (exprParent instanceof MethodInvocationTree) {
-        MethodInvocationTree parentInvocation = (MethodInvocationTree) exprParent;
+      if (exprParent instanceof MethodInvocationTree parentInvocation) {
+
         if (isGenericCallNeedingInference(parentInvocation)) {
           // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
           // we want to find the outermost invocation that requires inference, since that is
@@ -1691,8 +1690,8 @@ public final class GenericsChecks {
           // id(x).foo() (note that foo() need not be generic)
           ExpressionTree methodSelect =
               ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
-          if (methodSelect instanceof MemberSelectTree) {
-            MemberSelectTree mst = (MemberSelectTree) methodSelect;
+          if (methodSelect instanceof MemberSelectTree mst) {
+
             if (ASTHelpers.stripParentheses(mst.getExpression()) == invocation) {
               // the invocation is the receiver expression, so we want the enclosing type of the
               // parent invocation
@@ -1810,12 +1809,12 @@ public final class GenericsChecks {
       VisitorState state,
       boolean calledFromDataflow) {
     Type enclosingType = null;
-    if (tree instanceof MethodInvocationTree) {
+    if (tree instanceof MethodInvocationTree methodInvocationTree) {
       if (invokedMethodSymbol.isStatic()) {
         return null;
       }
       ExpressionTree methodSelect =
-          ASTHelpers.stripParentheses(((MethodInvocationTree) tree).getMethodSelect());
+          ASTHelpers.stripParentheses(methodInvocationTree.getMethodSelect());
       if (methodSelect instanceof IdentifierTree) {
         // implicit this parameter, or a super call.  in either case, use the type of the enclosing
         // class.
@@ -1824,9 +1823,8 @@ public final class GenericsChecks {
         if (enclosingClassTree != null) {
           enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
         }
-      } else if (methodSelect instanceof MemberSelectTree) {
-        ExpressionTree receiver =
-            ASTHelpers.stripParentheses(((MemberSelectTree) methodSelect).getExpression());
+      } else if (methodSelect instanceof MemberSelectTree memberSelectTree) {
+        ExpressionTree receiver = ASTHelpers.stripParentheses(memberSelectTree.getExpression());
         if (isGenericCallNeedingInference(receiver)) {
           var receiverPath = path == null ? null : new TreePath(path, receiver);
           enclosingType =
@@ -2049,9 +2047,8 @@ public final class GenericsChecks {
     }
     verify(path != null, "did not find lambda or method reference tree in TreePath");
     Tree parentOfLambdaTree = path.getParentPath().getLeaf();
-    if (parentOfLambdaTree instanceof MethodInvocationTree) {
-      Symbol.MethodSymbol parentMethodSymbol =
-          ASTHelpers.getSymbol((MethodInvocationTree) parentOfLambdaTree);
+    if (parentOfLambdaTree instanceof MethodInvocationTree methodInvocationTree) {
+      Symbol.MethodSymbol parentMethodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
       callingUnannotated =
           codeAnnotationInfo.isSymbolUnannotated(parentMethodSymbol, config, handler);
     }

@@ -160,7 +160,7 @@ public class ErrorBuilder {
 
   private static boolean canHaveSuppressWarningsAnnotation(Tree tree) {
     return tree instanceof MethodTree
-        || (tree instanceof ClassTree && ((ClassTree) tree).getSimpleName().length() != 0)
+        || (tree instanceof ClassTree classTree && classTree.getSimpleName().length() != 0)
         || tree instanceof VariableTree;
   }
 
@@ -287,8 +287,8 @@ public class ErrorBuilder {
       suppressions.add(suppressionName);
       // find the existing annotation, so we can replace it
       ModifiersTree modifiers =
-          (suggestTree instanceof MethodTree)
-              ? ((MethodTree) suggestTree).getModifiers()
+          (suggestTree instanceof MethodTree methodTree)
+              ? methodTree.getModifiers()
               : ((VariableTree) suggestTree).getModifiers();
       List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
       // noinspection ConstantConditions
@@ -436,12 +436,11 @@ public class ErrorBuilder {
   }
 
   private boolean symbolIsExcludedClassSymbol(Symbol symbol) {
-    if (symbol instanceof Symbol.ClassSymbol) {
+    if (symbol instanceof Symbol.ClassSymbol classSymbol) {
       ImmutableSet<String> excludedClassAnnotations = config.getExcludedClassAnnotations();
-      return ((Symbol.ClassSymbol) symbol)
-          .getAnnotationMirrors().stream()
-              .map(anno -> anno.getAnnotationType().toString())
-              .anyMatch(excludedClassAnnotations::contains);
+      return classSymbol.getAnnotationMirrors().stream()
+          .map(anno -> anno.getAnnotationType().toString())
+          .anyMatch(excludedClassAnnotations::contains);
     }
     return false;
   }

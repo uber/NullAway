@@ -212,11 +212,11 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder result) {
-    if (!(underlyingAST instanceof UnderlyingAST.CFGMethod)) {
+    if (!(underlyingAST instanceof UnderlyingAST.CFGMethod cfgMethod)) {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
     }
-    MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
-    ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
+    MethodTree methodTree = cfgMethod.getMethod();
+    ClassTree classTree = cfgMethod.getClassTree();
     Set<String> fieldNames =
         getAnnotationValueArray(ASTHelpers.getSymbol(methodTree), annotName, false);
     if (fieldNames == null) {

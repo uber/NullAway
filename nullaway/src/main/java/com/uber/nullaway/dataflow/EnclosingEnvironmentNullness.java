@@ -51,8 +51,8 @@ public class EnclosingEnvironmentNullness {
     if (t instanceof LambdaExpressionTree) {
       return true;
     }
-    if (t instanceof ClassTree) {
-      NestingKind nestingKind = ASTHelpers.getSymbol((ClassTree) t).getNestingKind();
+    if (t instanceof ClassTree classTree) {
+      NestingKind nestingKind = ASTHelpers.getSymbol(classTree).getNestingKind();
       return nestingKind.equals(NestingKind.ANONYMOUS) || nestingKind.equals(NestingKind.LOCAL);
     }
     return false;

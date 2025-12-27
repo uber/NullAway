@@ -54,14 +54,14 @@ public class ArrayIndexElement implements AccessPathElement {
         + "javaElement="
         + javaElement
         + ", index="
-        + (index instanceof Element ? ((Element) index).getSimpleName() : index)
+        + (index instanceof Element element ? element.getSimpleName() : index)
         + '}';
   }
 
   @Override
   public boolean equals(@Nullable Object obj) {
-    if (obj instanceof ArrayIndexElement) {
-      ArrayIndexElement other = (ArrayIndexElement) obj;
+    if (obj instanceof ArrayIndexElement other) {
+
       return Objects.equals(javaElement, other.javaElement) && Objects.equals(index, other.index);
     }
     return false;
