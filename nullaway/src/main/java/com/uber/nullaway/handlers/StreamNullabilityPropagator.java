@@ -273,12 +273,12 @@ class StreamNullabilityPropagator implements Handler {
       MethodInvocationTree tree, StreamTypeRecord streamType, Symbol.MethodSymbol methodSymbol) {
     ExpressionTree argTree = tree.getArguments().get(0);
     if (argTree instanceof NewClassTree newClassTree) {
-      ClassTree annonClassBody = newClassTree.getClassBody();
+      ClassTree anonClassBody = newClassTree.getClassBody();
       // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
-      if (annonClassBody != null) {
+      if (anonClassBody != null) {
         MapLikeMethodRecord methodRecord = streamType.getMaplikeMethodRecord(methodSymbol);
         handleMapOrCollectAnonClassBody(
-            methodRecord, annonClassBody, t -> observableCallToInnerMethodOrLambda.put(tree, t));
+            methodRecord, anonClassBody, t -> observableCallToInnerMethodOrLambda.put(tree, t));
       }
     } else if (argTree instanceof LambdaExpressionTree) {
       observableCallToInnerMethodOrLambda.put(tree, argTree);
