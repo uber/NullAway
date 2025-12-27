@@ -332,11 +332,10 @@ public class NullAway extends BugChecker
    */
   private boolean isCallToUnmarkedMethod(ExpressionTree expr) {
     ExpressionTree exprTree = NullabilityUtil.stripParensAndCasts(expr);
-    if (!(exprTree instanceof MethodInvocationTree)) {
+    if (!(exprTree instanceof MethodInvocationTree methodInvoke)) {
       return false;
     }
 
-    MethodInvocationTree methodInvoke = (MethodInvocationTree) exprTree;
     Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(methodInvoke);
 
     if (methodSymbol == null) {
@@ -420,8 +419,7 @@ public class NullAway extends BugChecker
     Tree leaf = enclosingMethodOrLambda.getLeaf();
     Symbol.MethodSymbol methodSymbol;
     LambdaExpressionTree lambdaTree = null;
-    if (leaf instanceof MethodTree) {
-      MethodTree enclosingMethod = (MethodTree) leaf;
+    if (leaf instanceof MethodTree enclosingMethod) {
       methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
     } else {
       // we have a lambda
@@ -516,10 +514,10 @@ public class NullAway extends BugChecker
     // there should be exactly one statement, which is an invocation of the super constructor
     if (statements.size() == 1) {
       StatementTree stmt = statements.get(0);
-      if (stmt instanceof ExpressionStatementTree) {
-        ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
-        if (expression instanceof MethodInvocationTree) {
-          return ASTHelpers.getSymbol((MethodInvocationTree) expression);
+      if (stmt instanceof ExpressionStatementTree expressionStatementTree) {
+        ExpressionTree expression = expressionStatementTree.getExpression();
+        if (expression instanceof MethodInvocationTree methodInvocationTree) {
+          return ASTHelpers.getSymbol(methodInvocationTree);
         }
       }
     }
@@ -1248,10 +1246,10 @@ public class NullAway extends BugChecker
     // for static fields, make sure the enclosing init is a static method or block
     if (isStatic(symbol)) {
       Tree enclosing = enclosingBlockPath.getLeaf();
-      if (enclosing instanceof MethodTree
-          && !ASTHelpers.getSymbol((MethodTree) enclosing).isStatic()) {
+      if (enclosing instanceof MethodTree methodTree
+          && !ASTHelpers.getSymbol(methodTree).isStatic()) {
         return Description.NO_MATCH;
-      } else if (enclosing instanceof BlockTree && !((BlockTree) enclosing).isStatic()) {
+      } else if (enclosing instanceof BlockTree blockTree && !blockTree.isStatic()) {
         return Description.NO_MATCH;
       }
     }
@@ -1291,8 +1289,7 @@ public class NullAway extends BugChecker
     Tree methodLambdaOrBlock = enclosingBlockPath.getLeaf();
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
       return false;
-    } else if (methodLambdaOrBlock instanceof MethodTree) {
-      MethodTree methodTree = (MethodTree) methodLambdaOrBlock;
+    } else if (methodLambdaOrBlock instanceof MethodTree methodTree) {
       if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
         return true;
       }
@@ -1381,8 +1378,8 @@ public class NullAway extends BugChecker
     }
     ImmutableSet.Builder<Element> resultBuilder = ImmutableSet.builder();
     BlockTree blockTree =
-        enclosingBlockOrMethod instanceof BlockTree
-            ? (BlockTree) enclosingBlockOrMethod
+        enclosingBlockOrMethod instanceof BlockTree bt
+            ? bt
             : ((MethodTree) enclosingBlockOrMethod).getBody();
     List<? extends StatementTree> statements = blockTree.getStatements();
     Tree readExprTree = pathToRead.getLeaf();
@@ -1406,8 +1403,7 @@ public class NullAway extends BugChecker
           safeInitMethods.add(privMethodElem);
         }
         // Hack: Handling try{...}finally{...} statement, see getSafeInitMethods
-        if (curStmt instanceof TryTree) {
-          TryTree tryTree = (TryTree) curStmt;
+        if (curStmt instanceof TryTree tryTree) {
           // ToDo: Should we check initialization inside tryTree.getResources ? What is the scope of
           // that initialization?
           if (tryTree.getCatches().size() == 0) {
@@ -1475,8 +1471,7 @@ public class NullAway extends BugChecker
         // putAll does not keep a reference to initThusFar, so we don't need to make a copy here
         builder.putAll(memberTree, initThusFar);
       }
-      if (memberTree instanceof BlockTree) {
-        BlockTree blockTree = (BlockTree) memberTree;
+      if (memberTree instanceof BlockTree blockTree) {
         // add whatever gets initialized here
         TreePath memberPath = new TreePath(enclosingClassPath, memberTree);
         if (blockTree.isStatic()) {
@@ -1487,8 +1482,7 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
         }
       }
-      if (memberTree instanceof MethodTree) {
-        MethodTree methodTree = (MethodTree) memberTree;
+      if (memberTree instanceof MethodTree methodTree) {
         if (isConstructor(methodTree)) {
           constructors.add(methodTree);
         }
@@ -1527,13 +1521,11 @@ public class NullAway extends BugChecker
     TreePath parentPath = path.getParentPath();
     Tree leaf = path.getLeaf();
     Tree parent = parentPath.getLeaf();
-    if (parent instanceof AssignmentTree) {
+    if (parent instanceof AssignmentTree assignment) {
       // ok if it's actually a write
-      AssignmentTree assignment = (AssignmentTree) parent;
       return assignment.getVariable().equals(leaf);
-    } else if (parent instanceof BinaryTree) {
+    } else if (parent instanceof BinaryTree binaryTree) {
       // ok if we're comparing to null
-      BinaryTree binaryTree = (BinaryTree) parent;
       Tree.Kind kind = binaryTree.getKind();
       if (kind.equals(Tree.Kind.EQUAL_TO) || kind.equals(Tree.Kind.NOT_EQUAL_TO)) {
         ExpressionTree left = binaryTree.getLeftOperand();
@@ -1541,9 +1533,8 @@ public class NullAway extends BugChecker
         return (left.equals(leaf) && right.getKind().equals(Tree.Kind.NULL_LITERAL))
             || (right.equals(leaf) && left.getKind().equals(Tree.Kind.NULL_LITERAL));
       }
-    } else if (parent instanceof MethodInvocationTree) {
+    } else if (parent instanceof MethodInvocationTree methodInvoke) {
       // ok if it's invoking castToNonNull and the read is the argument
-      MethodInvocationTree methodInvoke = (MethodInvocationTree) parent;
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
       String qualifiedName =
           ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
@@ -1638,13 +1629,13 @@ public class NullAway extends BugChecker
       List<? extends AnnotationTree> annotations, Tree type, VisitorState state) {
 
     // Early return if the type is not a nested or inner class reference.
-    if (!(type instanceof MemberSelectTree)) {
+    if (!(type instanceof MemberSelectTree memberSelectTree)) {
       return;
     }
 
     // Get the end position of the outer type expression. Any nullable annotation before this
     // position is considered to be on the outer type, which is incorrect.
-    int endOfOuterType = state.getEndPosition(((MemberSelectTree) type).getExpression());
+    int endOfOuterType = state.getEndPosition(memberSelectTree.getExpression());
     int startOfType = ((JCTree) type).getStartPosition();
 
     for (AnnotationTree annotation : annotations) {
@@ -2388,8 +2379,7 @@ public class NullAway extends BugChecker
       // as "top level" for the purposes of finding initialization methods. Any exception happening
       // there is also an
       // exception of the full method.
-      if (stmt instanceof TryTree) {
-        TryTree tryTree = (TryTree) stmt;
+      if (stmt instanceof TryTree tryTree) {
         if (tryTree.getCatches().size() == 0) {
           if (tryTree.getBlock() != null) {
             result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
@@ -2416,10 +2406,9 @@ public class NullAway extends BugChecker
       StatementTree stmt, Symbol.ClassSymbol enclosingClassSymbol, VisitorState state) {
     Matcher<ExpressionTree> invokeMatcher =
         (expressionTree, s) -> {
-          if (!(expressionTree instanceof MethodInvocationTree)) {
+          if (!(expressionTree instanceof MethodInvocationTree methodInvocationTree)) {
             return false;
           }
-          MethodInvocationTree methodInvocationTree = (MethodInvocationTree) expressionTree;
           Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
           Set<Modifier> modifiers = symbol.getModifiers();
           Set<Modifier> classModifiers = enclosingClassSymbol.getModifiers();
@@ -2437,8 +2426,8 @@ public class NullAway extends BugChecker
           }
           return false;
         };
-    if (stmt instanceof ExpressionStatementTree) {
-      ExpressionTree expression = ((ExpressionStatementTree) stmt).getExpression();
+    if (stmt instanceof ExpressionStatementTree expressionStatementTree) {
+      ExpressionTree expression = expressionStatementTree.getExpression();
       if (invokeMatcher.matches(expression, state)) {
         return ASTHelpers.getSymbol(expression);
       }
@@ -2447,8 +2436,8 @@ public class NullAway extends BugChecker
   }
 
   private boolean isThisCall(StatementTree statementTree, VisitorState state) {
-    if (statementTree instanceof ExpressionStatementTree) {
-      ExpressionTree expression = ((ExpressionStatementTree) statementTree).getExpression();
+    if (statementTree instanceof ExpressionStatementTree expressionStatementTree) {
+      ExpressionTree expression = expressionStatementTree.getExpression();
       return Matchers.methodInvocation(THIS_MATCHER).matches(expression, state);
     }
     return false;
@@ -2794,8 +2783,8 @@ public class NullAway extends BugChecker
   }
 
   private static boolean isThisIdentifier(ExpressionTree expressionTree) {
-    return expressionTree instanceof IdentifierTree
-        && ((IdentifierTree) expressionTree).getName().toString().equals("this");
+    return expressionTree instanceof IdentifierTree identifierTree
+        && identifierTree.getName().toString().equals("this");
   }
 
   private static boolean isThisIdentifierMatcher(

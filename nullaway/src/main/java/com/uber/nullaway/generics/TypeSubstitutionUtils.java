@@ -40,9 +40,8 @@ public class TypeSubstitutionUtils {
       return null;
     }
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        subtype instanceof DeclaredType
-            ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) subtype, superTypeSymbol, types, config)
+        subtype instanceof DeclaredType declaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(declaredType, superTypeSymbol, types, config)
             : Map.of();
     // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
     // same type variables as asSuper; we use it to find the positions corresponding to type
@@ -65,9 +64,9 @@ public class TypeSubstitutionUtils {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        t instanceof DeclaredType
+        t instanceof DeclaredType declaredType
             ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) t, (Symbol.MethodSymbol) sym, types, config)
+                declaredType, (Symbol.MethodSymbol) sym, types, config)
             : Map.of();
     return restoreExplicitNullabilityAnnotations(
         origType, memberType, config, annotsOnTypeVarsFromSubtypes);
@@ -157,12 +156,12 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
-      if (!(other instanceof Type.WildcardType)) {
+      if (!(other instanceof Type.WildcardType wildcardType)) {
         return wt;
       }
       Type t = wt.type;
       if (t != null) {
-        t = visit(t, ((Type.WildcardType) other).type);
+        t = visit(t, wildcardType.type);
       }
       if (t == wt.type) {
         return wt;
@@ -227,10 +226,9 @@ public class TypeSubstitutionUtils {
     @Override
     public Type visitArrayType(Type.ArrayType t, Type other) {
       Type.ArrayType updated = (Type.ArrayType) updateDirectNullabilityAnnotationsForType(t, other);
-      if (!(other instanceof Type.ArrayType)) {
+      if (!(other instanceof Type.ArrayType otherArrayType)) {
         return updated;
       }
-      Type.ArrayType otherArrayType = (Type.ArrayType) other;
       Type elemtype = updated.elemtype;
       Type newElemType = elemtype.accept(this, otherArrayType.elemtype);
       if (newElemType == elemtype) {

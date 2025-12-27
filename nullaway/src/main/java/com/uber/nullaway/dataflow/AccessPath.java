@@ -330,14 +330,14 @@ public final class AccessPath implements MapKey {
    */
   public static @Nullable AccessPath getAccessPathForNode(
       Node node, VisitorState state, AccessPathContext apContext) {
-    if (node instanceof LocalVariableNode) {
-      return fromLocal((LocalVariableNode) node);
-    } else if (node instanceof FieldAccessNode) {
-      return fromFieldAccess((FieldAccessNode) node, apContext);
-    } else if (node instanceof MethodInvocationNode) {
-      return fromMethodCall((MethodInvocationNode) node, state, apContext);
-    } else if (node instanceof ArrayAccessNode) {
-      return fromArrayAccess((ArrayAccessNode) node, apContext);
+    if (node instanceof LocalVariableNode localVariableNode) {
+      return fromLocal(localVariableNode);
+    } else if (node instanceof FieldAccessNode fieldAccessNode) {
+      return fromFieldAccess(fieldAccessNode, apContext);
+    } else if (node instanceof MethodInvocationNode methodInvocationNode) {
+      return fromMethodCall(methodInvocationNode, state, apContext);
+    } else if (node instanceof ArrayAccessNode arrayAccessNode) {
+      return fromArrayAccess(arrayAccessNode, apContext);
     } else {
       return null;
     }
@@ -349,10 +349,10 @@ public final class AccessPath implements MapKey {
   }
 
   private static @Nullable Element getElementFromArrayNode(Node arrayNode) {
-    if (arrayNode instanceof LocalVariableNode) {
-      return ((LocalVariableNode) arrayNode).getElement();
-    } else if (arrayNode instanceof FieldAccessNode) {
-      return ((FieldAccessNode) arrayNode).getElement();
+    if (arrayNode instanceof LocalVariableNode localVariableNode) {
+      return localVariableNode.getElement();
+    } else if (arrayNode instanceof FieldAccessNode fieldAccessNode) {
+      return fieldAccessNode.getElement();
     } else {
       return null;
     }
@@ -410,8 +410,7 @@ public final class AccessPath implements MapKey {
       AccessPathContext apContext,
       @Nullable MapKey mapKey) {
     AccessPath result;
-    if (node instanceof FieldAccessNode) {
-      FieldAccessNode fieldAccess = (FieldAccessNode) node;
+    if (node instanceof FieldAccessNode fieldAccess) {
       if (fieldAccess.isStatic()) {
         // this is the root
         result = new AccessPath(fieldAccess.getElement(), ImmutableList.copyOf(elements), mapKey);
@@ -422,8 +421,7 @@ public final class AccessPath implements MapKey {
             buildAccessPathRecursive(
                 stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
       }
-    } else if (node instanceof ArrayAccessNode) {
-      ArrayAccessNode arrayAccess = (ArrayAccessNode) node;
+    } else if (node instanceof ArrayAccessNode arrayAccess) {
       Node arrayNode = stripCasts(arrayAccess.getArray());
       Node indexNode = arrayAccess.getIndex();
       Element arrayElement = getElementFromArrayNode(arrayNode);
@@ -431,8 +429,7 @@ public final class AccessPath implements MapKey {
       if (arrayElement == null) {
         return null;
       }
-      if (indexNode instanceof IntegerLiteralNode) {
-        IntegerLiteralNode intIndexNode = (IntegerLiteralNode) indexNode;
+      if (indexNode instanceof IntegerLiteralNode intIndexNode) {
         elements.push(ArrayIndexElement.withIntegerIndex(arrayElement, intIndexNode.getValue()));
       } else {
         if (indexElement != null) {
@@ -442,8 +439,7 @@ public final class AccessPath implements MapKey {
         }
       }
       result = buildAccessPathRecursive(arrayNode, elements, apContext, mapKey);
-    } else if (node instanceof MethodInvocationNode) {
-      MethodInvocationNode invocation = (MethodInvocationNode) node;
+    } else if (node instanceof MethodInvocationNode invocation) {
       AccessPathElement accessPathElement;
       MethodAccessNode accessNode = invocation.getTarget();
       if (invocation.getArguments().size() == 0) {
@@ -485,9 +481,8 @@ public final class AccessPath implements MapKey {
             case IDENTIFIER: // check for CONST
               // Check for a constant field (static final)
               Symbol symbol = ASTHelpers.getSymbol(tree);
-              if (symbol instanceof Symbol.VarSymbol
+              if (symbol instanceof Symbol.VarSymbol varSymbol
                   && symbol.getKind().equals(ElementKind.FIELD)) {
-                Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) symbol;
                 // From docs: getConstantValue() returns the value of this variable if this is a
                 // static final field initialized to a compile-time constant. Returns null
                 // otherwise.
@@ -528,10 +523,9 @@ public final class AccessPath implements MapKey {
       result =
           buildAccessPathRecursive(
               stripCasts(accessNode.getReceiver()), elements, apContext, mapKey);
-    } else if (node instanceof LocalVariableNode) {
+    } else if (node instanceof LocalVariableNode localVariableNode) {
       result =
-          new AccessPath(
-              ((LocalVariableNode) node).getElement(), ImmutableList.copyOf(elements), mapKey);
+          new AccessPath(localVariableNode.getElement(), ImmutableList.copyOf(elements), mapKey);
     } else if (node instanceof ClassNameNode) {
       // It is useful to make an access path if elements.size() > 1 and elements.getFirst() is
       // "this".  In this case, we may have an access of a field of an enclosing class from a nested
@@ -667,8 +661,8 @@ public final class AccessPath implements MapKey {
 
     @Override
     public boolean equals(@Nullable Object obj) {
-      if (obj instanceof StringMapKey) {
-        return this.key.equals(((StringMapKey) obj).key);
+      if (obj instanceof StringMapKey stringMapKey) {
+        return this.key.equals(stringMapKey.key);
       }
       return false;
     }
@@ -696,8 +690,8 @@ public final class AccessPath implements MapKey {
     @Override
     @JacocoIgnoreGenerated
     public boolean equals(@Nullable Object obj) {
-      if (obj instanceof NumericMapKey) {
-        return this.key == ((NumericMapKey) obj).key;
+      if (obj instanceof NumericMapKey numericMapKey) {
+        return this.key == numericMapKey.key;
       }
       return false;
     }

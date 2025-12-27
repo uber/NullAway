@@ -90,8 +90,8 @@ public class OptionalEmptinessHandler implements Handler {
       return true;
     }
     if (expr instanceof MethodInvocationTree
-        && exprSymbol instanceof Symbol.MethodSymbol
-        && optionalIsGetCall((Symbol.MethodSymbol) exprSymbol, state.getTypes())) {
+        && exprSymbol instanceof Symbol.MethodSymbol methodSymbol
+        && optionalIsGetCall(methodSymbol, state.getTypes())) {
       return true;
     }
     return false;
@@ -141,8 +141,8 @@ public class OptionalEmptinessHandler implements Handler {
       ExpressionTree expr, ExpressionTree baseExpr, VisitorState state) {
     Preconditions.checkNotNull(analysis);
     Symbol symbol = ASTHelpers.getSymbol(expr);
-    if (symbol instanceof Symbol.MethodSymbol
-        && optionalIsGetCall((Symbol.MethodSymbol) symbol, state.getTypes())
+    if (symbol instanceof Symbol.MethodSymbol methodSymbol
+        && optionalIsGetCall(methodSymbol, state.getTypes())
         && isOptionalContentNullable(state, baseExpr, analysis.getNullnessAnalysis(state))) {
       String message = "Invoking get() on possibly empty Optional " + baseExpr;
       return Optional.of(
@@ -231,8 +231,7 @@ public class OptionalEmptinessHandler implements Handler {
 
   private Optional<Node> getNodeWrappedByAssertThat(MethodInvocationNode node) {
     Node receiver = node.getTarget().getReceiver();
-    if (receiver instanceof MethodInvocationNode) {
-      MethodInvocationNode receiverMethod = (MethodInvocationNode) receiver;
+    if (receiver instanceof MethodInvocationNode receiverMethod) {
       if (receiverMethod.getArguments().size() == 1) {
         Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
         if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {
@@ -252,8 +251,8 @@ public class OptionalEmptinessHandler implements Handler {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(node.getTree());
       if (methodNameUtil.isMethodBooleanValueOf(symbol)) {
         Node unwrappedArg = node.getArgument(0);
-        if (unwrappedArg instanceof MethodInvocationNode) {
-          return (MethodInvocationNode) unwrappedArg;
+        if (unwrappedArg instanceof MethodInvocationNode methodInvocationNode) {
+          return methodInvocationNode;
         }
       }
     }

@@ -299,8 +299,7 @@ class MethodNameUtil {
   }
 
   private boolean matchesMatcherMethod(Node node, Name matcherName, Name matcherClass) {
-    if (node instanceof MethodInvocationNode) {
-      MethodInvocationNode methodInvocationNode = (MethodInvocationNode) node;
+    if (node instanceof MethodInvocationNode methodInvocationNode) {
       Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodInvocationNode.getTree());
       return matchesMethod(callee, matcherName, matcherClass);
     }

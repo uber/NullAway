@@ -112,8 +112,8 @@ public class DefinitelyDerefedParamsDriver {
    */
   private void accountCodeBytes(IMethod mtd) {
     // Get method bytecode size
-    if (mtd instanceof ShrikeCTMethod) {
-      analyzedBytes += ((ShrikeCTMethod) mtd).getBytecodes().length;
+    if (mtd instanceof ShrikeCTMethod shrikeCtMethod) {
+      analyzedBytes += shrikeCtMethod.getBytecodes().length;
     }
   }
 

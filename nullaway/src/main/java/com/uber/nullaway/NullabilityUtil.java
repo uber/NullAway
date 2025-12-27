@@ -122,10 +122,9 @@ public class NullabilityUtil {
         continue;
       }
       for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
-        if (!(m instanceof Symbol.MethodSymbol)) {
+        if (!(m instanceof Symbol.MethodSymbol msym)) {
           continue;
         }
-        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
         if (msym.isStatic()) {
           continue;
         }
@@ -250,8 +249,8 @@ public class NullabilityUtil {
       ExecutableElement elem = entry.getKey();
       if (elem.getSimpleName().contentEquals("value")) {
         Object value = entry.getValue().getValue();
-        if (value instanceof String) {
-          return (String) value;
+        if (value instanceof String string) {
+          return string;
         }
       }
     }
@@ -696,8 +695,8 @@ public class NullabilityUtil {
   public static boolean isVarArgsCall(Tree tree) {
     // javac sets the varargsElement field to a non-null value if the invocation is a varargs call
     Type varargsElement =
-        tree instanceof JCTree.JCMethodInvocation
-            ? ((JCTree.JCMethodInvocation) tree).varargsElement
+        tree instanceof JCTree.JCMethodInvocation jcMethodInvocation
+            ? jcMethodInvocation.varargsElement
             : ((JCTree.JCNewClass) tree).varargsElement;
     return varargsElement != null;
   }

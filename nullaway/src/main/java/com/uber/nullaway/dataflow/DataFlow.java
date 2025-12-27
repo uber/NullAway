@@ -286,7 +286,7 @@ public final class DataFlow {
     }
 
     Tree enclosing = enclosingPath.getLeaf();
-    if (enclosing instanceof MethodTree && ((MethodTree) enclosing).getBody() == null) {
+    if (enclosing instanceof MethodTree methodTree && methodTree.getBody() == null) {
       return null;
     }
     RunOnceForwardAnalysisImpl<A, S, T> analysis =
@@ -315,7 +315,7 @@ public final class DataFlow {
     }
 
     Tree method = enclosingPath.getLeaf();
-    if (method instanceof MethodTree && ((MethodTree) method).getBody() == null) {
+    if (method instanceof MethodTree methodTree && methodTree.getBody() == null) {
       // expressions can occur in abstract methods, for example {@code Map.Entry} in:
       //
       //   abstract Set<Map.Entry<K, V>> entries();
