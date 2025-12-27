@@ -145,7 +145,6 @@ public final class GenericsChecks {
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
       if (curTypeArg instanceof AnnotatedTypeTree annotatedType) {
-
         for (AnnotationTree annotation : annotatedType.getAnnotations()) {
           Type annotationType = ASTHelpers.getType(annotation);
           if (annotationType != null
@@ -233,7 +232,6 @@ public final class GenericsChecks {
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
       if (curTypeArg instanceof AnnotatedTypeTree annotatedType) {
-
         for (AnnotationTree annotation : annotatedType.getAnnotations()) {
           Type annotationType = ASTHelpers.getType(annotation);
           if (annotationType != null
@@ -534,11 +532,9 @@ public final class GenericsChecks {
     ExpressionTree rhsTree;
     boolean assignedToLocal;
     if (tree instanceof VariableTree varTree) {
-
       rhsTree = varTree.getInitializer();
       assignedToLocal = isAssignmentToLocalVariable(varTree);
     } else if (tree instanceof AssignmentTree assignmentTree) {
-
       rhsTree = assignmentTree.getExpression();
       assignedToLocal = isAssignmentToLocalVariable(assignmentTree);
     } else {
@@ -568,7 +564,6 @@ public final class GenericsChecks {
     if (tree instanceof VariableTree variableTree) {
       treeSymbol = ASTHelpers.getSymbol(variableTree);
     } else if (tree instanceof AssignmentTree assignmentTree) {
-
       treeSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
@@ -872,7 +867,6 @@ public final class GenericsChecks {
     TreePath lambdaPath = new TreePath(path, lambda);
     if (body instanceof ExpressionTree returnedExpression) {
       // Case 1: Expression body, e.g., () -> null
-
       generateConstraintsForPseudoAssignment(
           state, lambdaPath, solver, allInvocations, returnedExpression, fiReturnType);
     } else if (body instanceof BlockTree) {
@@ -1089,7 +1083,6 @@ public final class GenericsChecks {
     // For now, we only support calls to generic methods.
     // TODO also support calls to generic constructors that use the diamond operator
     if (argument instanceof MethodInvocationTree methodInvocation) {
-
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
       // true for generic method calls with no explicit type arguments
       return methodSymbol != null
@@ -1541,7 +1534,6 @@ public final class GenericsChecks {
     List<Type> types = new ArrayList<>();
     for (Tree tree : typeArgumentTrees) {
       if (tree instanceof JCTree.JCExpression expression) {
-
         types.add(expression.type); // Retrieve the Type
       }
     }
@@ -1577,7 +1569,6 @@ public final class GenericsChecks {
       MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
       if (result == null) {
         // have not yet attempted inference for this call
-
         InvocationAndContext invocationAndType =
             path == null
                 ? new InvocationAndContext(invocationTree, null, false)
@@ -1666,7 +1657,6 @@ public final class GenericsChecks {
       // in any case, just return the type of the parent expression
       ExpressionTree exprParent = (ExpressionTree) parent;
       if (exprParent instanceof MethodInvocationTree parentInvocation) {
-
         if (isGenericCallNeedingInference(parentInvocation)) {
           // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
           // we want to find the outermost invocation that requires inference, since that is
@@ -1691,7 +1681,6 @@ public final class GenericsChecks {
           ExpressionTree methodSelect =
               ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
           if (methodSelect instanceof MemberSelectTree mst) {
-
             if (ASTHelpers.stripParentheses(mst.getExpression()) == invocation) {
               // the invocation is the receiver expression, so we want the enclosing type of the
               // parent invocation

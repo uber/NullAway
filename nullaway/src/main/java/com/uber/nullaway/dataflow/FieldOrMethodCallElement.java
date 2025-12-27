@@ -40,7 +40,6 @@ public class FieldOrMethodCallElement implements AccessPathElement {
   @Override
   public boolean equals(@Nullable Object obj) {
     if (obj instanceof FieldOrMethodCallElement other) {
-
       return this.javaElement.equals(other.javaElement)
           && Objects.equals(this.constantArguments, other.constantArguments);
     }

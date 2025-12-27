@@ -125,7 +125,6 @@ public class NullabilityUtil {
         if (!(m instanceof Symbol.MethodSymbol msym)) {
           continue;
         }
-
         if (msym.isStatic()) {
           continue;
         }

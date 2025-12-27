@@ -522,7 +522,6 @@ public class AccessPathNullnessPropagation
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
-
       updates.set(localVariableNode, value);
       handleEnhancedForOverKeySet(localVariableNode, rhs, input, updates);
     }
@@ -532,7 +531,6 @@ public class AccessPathNullnessPropagation
     }
 
     if (target instanceof FieldAccessNode fieldAccessNode) {
-
       Node receiver = fieldAccessNode.getReceiver();
       setNonnullIfAnalyzeable(updates, receiver);
       if (fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)
@@ -595,7 +593,6 @@ public class AccessPathNullnessPropagation
       // Check for an assignment lhs = iter#numX.next().  From the structure of Checker Framework
       // CFGs, we know that if iter#numX is the receiver of a call on the rhs of an assignment, it
       // must be a call to next().
-
       Node receiver = methodInv.getTarget().getReceiver();
       if (receiver instanceof LocalVariableNode localVariableNode
           && isEnhancedForIteratorVariable(localVariableNode)) {
@@ -625,7 +622,6 @@ public class AccessPathNullnessPropagation
   private @Nullable Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
     Node receiver = invocationNode.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode baseInvocation) {
-
       // Check for a call to java.util.Map.keySet()
       if (NullabilityUtil.isMapMethod(
           ASTHelpers.getSymbol(baseInvocation.getTree()), state, "keySet", 0)) {

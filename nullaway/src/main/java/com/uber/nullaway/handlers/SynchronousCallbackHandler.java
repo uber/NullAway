@@ -59,7 +59,6 @@ public class SynchronousCallbackHandler implements Handler {
         leafNode.getClass());
     Tree parentNode = path.getParentPath().getLeaf();
     if (parentNode instanceof MethodInvocationTree methodInvocationTree) {
-
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
       if (symbol == null) {
         return FALSE_AP_PREDICATE;

@@ -411,7 +411,6 @@ public final class AccessPath implements MapKey {
       @Nullable MapKey mapKey) {
     AccessPath result;
     if (node instanceof FieldAccessNode fieldAccess) {
-
       if (fieldAccess.isStatic()) {
         // this is the root
         result = new AccessPath(fieldAccess.getElement(), ImmutableList.copyOf(elements), mapKey);
@@ -423,7 +422,6 @@ public final class AccessPath implements MapKey {
                 stripCasts(fieldAccess.getReceiver()), elements, apContext, mapKey);
       }
     } else if (node instanceof ArrayAccessNode arrayAccess) {
-
       Node arrayNode = stripCasts(arrayAccess.getArray());
       Node indexNode = arrayAccess.getIndex();
       Element arrayElement = getElementFromArrayNode(arrayNode);
@@ -432,7 +430,6 @@ public final class AccessPath implements MapKey {
         return null;
       }
       if (indexNode instanceof IntegerLiteralNode intIndexNode) {
-
         elements.push(ArrayIndexElement.withIntegerIndex(arrayElement, intIndexNode.getValue()));
       } else {
         if (indexElement != null) {
@@ -443,7 +440,6 @@ public final class AccessPath implements MapKey {
       }
       result = buildAccessPathRecursive(arrayNode, elements, apContext, mapKey);
     } else if (node instanceof MethodInvocationNode invocation) {
-
       AccessPathElement accessPathElement;
       MethodAccessNode accessNode = invocation.getTarget();
       if (invocation.getArguments().size() == 0) {
@@ -487,7 +483,6 @@ public final class AccessPath implements MapKey {
               Symbol symbol = ASTHelpers.getSymbol(tree);
               if (symbol instanceof Symbol.VarSymbol varSymbol
                   && symbol.getKind().equals(ElementKind.FIELD)) {
-
                 // From docs: getConstantValue() returns the value of this variable if this is a
                 // static final field initialized to a compile-time constant. Returns null
                 // otherwise.

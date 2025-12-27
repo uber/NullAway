@@ -57,7 +57,6 @@ public class MethodAnalysisContext {
     if (o == null || !(o instanceof MethodAnalysisContext that)) {
       return false;
     }
-
     return analysis.equals(that.analysis)
         && state.equals(that.state)
         && methodSymbol.equals(that.methodSymbol);

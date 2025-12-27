@@ -203,7 +203,6 @@ public class DefinitelyDerefedParams {
             && !ssaPutInstruction.isStatic()) {
           derefValueNumber = ssaPutInstruction.getRef();
         } else if (instr instanceof SSAAbstractInvokeInstruction callInst) {
-
           String sign = callInst.getDeclaredTarget().getSignature();
           if (callInst.isStatic()) {
             // All supported Null testing APIs are static methods
@@ -259,7 +258,6 @@ public class DefinitelyDerefedParams {
       for (int i = bb.getFirstInstructionIndex(); i <= bb.getLastInstructionIndex(); i++) {
         SSAInstruction instr = ir.getInstructions()[i];
         if (instr instanceof SSAReturnInstruction retInstr) {
-
           if (ir.getSymbolTable().isNullConstant(retInstr.getResult())) {
             LOG(DEBUG, "DEBUG", "Nullable return in method: " + method.getSignature());
             return NullnessHint.NULLABLE;

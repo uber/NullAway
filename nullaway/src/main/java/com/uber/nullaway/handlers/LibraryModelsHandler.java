@@ -180,7 +180,6 @@ public class LibraryModelsHandler implements Handler {
       return exprMayBeNull;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-
     // When looking up library models of annotated code, we match the exact method signature only;
     // overriding methods in subclasses must be explicitly given their own library model.
     // When dealing with unannotated code, we default to generality: a model applies to a method
@@ -288,7 +287,6 @@ public class LibraryModelsHandler implements Handler {
       return false;
     }
     if (symbol instanceof Symbol.VarSymbol varSymbol && symbol.getKind().isField()) {
-
       Symbol.ClassSymbol classSymbol = varSymbol.enclClass();
       if (classSymbol == null) {
         // e.g. .class expressions

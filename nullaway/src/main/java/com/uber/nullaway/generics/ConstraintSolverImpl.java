@@ -133,7 +133,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     @Override
     public @Nullable Void visitArrayType(Type.ArrayType subtype, Type supertype) {
       if (supertype instanceof Type.ArrayType superArrayType) {
-
         // recursing, so set localVariableType to false
         localVariableType = false;
         Type subtypeComponentType = subtype.elemtype;
@@ -274,7 +273,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   private boolean isTypeVariable(Type t) {
     if (t instanceof TypeVar tv) {
-
       // For now ignore capture variables, like "capture#1 of ? extends X".  Also, only treat as a
       // type variable if it _doesn't_ have an explicit @Nullable or @NonNull annotation.
       return !tv.isCaptured()
@@ -302,7 +300,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     // first, check if library model overrides the upper bound nullability
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol) {
-
       int typeVarIndex =
           methodSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
       // TODO typeVarIndex is -1 in some cases; see test
@@ -313,7 +310,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         return true;
       }
     } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol) {
-
       int typeVarIndex =
           classSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
       if (typeVarIndex >= 0

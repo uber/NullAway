@@ -104,7 +104,6 @@ public class AssertionHandler implements Handler {
       MethodInvocationNode node, VisitorState state, AccessPath.AccessPathContext apContext) {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode receiver_method) {
-
       Symbol.MethodSymbol receiver_symbol = ASTHelpers.getSymbol(receiver_method.getTree());
       if (methodNameUtil.isMethodAssertThat(receiver_symbol)) {
         Node arg = receiver_method.getArgument(0);

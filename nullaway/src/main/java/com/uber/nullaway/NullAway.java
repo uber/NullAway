@@ -420,7 +420,6 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol methodSymbol;
     LambdaExpressionTree lambdaTree = null;
     if (leaf instanceof MethodTree enclosingMethod) {
-
       methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
     } else {
       // we have a lambda
@@ -1291,7 +1290,6 @@ public class NullAway extends BugChecker
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree methodTree) {
-
       if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
         return true;
       }
@@ -1406,7 +1404,6 @@ public class NullAway extends BugChecker
         }
         // Hack: Handling try{...}finally{...} statement, see getSafeInitMethods
         if (curStmt instanceof TryTree tryTree) {
-
           // ToDo: Should we check initialization inside tryTree.getResources ? What is the scope of
           // that initialization?
           if (tryTree.getCatches().size() == 0) {
@@ -1475,7 +1472,6 @@ public class NullAway extends BugChecker
         builder.putAll(memberTree, initThusFar);
       }
       if (memberTree instanceof BlockTree blockTree) {
-
         // add whatever gets initialized here
         TreePath memberPath = new TreePath(enclosingClassPath, memberTree);
         if (blockTree.isStatic()) {
@@ -1487,7 +1483,6 @@ public class NullAway extends BugChecker
         }
       }
       if (memberTree instanceof MethodTree methodTree) {
-
         if (isConstructor(methodTree)) {
           constructors.add(methodTree);
         }
@@ -1528,11 +1523,9 @@ public class NullAway extends BugChecker
     Tree parent = parentPath.getLeaf();
     if (parent instanceof AssignmentTree assignment) {
       // ok if it's actually a write
-
       return assignment.getVariable().equals(leaf);
     } else if (parent instanceof BinaryTree binaryTree) {
       // ok if we're comparing to null
-
       Tree.Kind kind = binaryTree.getKind();
       if (kind.equals(Tree.Kind.EQUAL_TO) || kind.equals(Tree.Kind.NOT_EQUAL_TO)) {
         ExpressionTree left = binaryTree.getLeftOperand();
@@ -1542,7 +1535,6 @@ public class NullAway extends BugChecker
       }
     } else if (parent instanceof MethodInvocationTree methodInvoke) {
       // ok if it's invoking castToNonNull and the read is the argument
-
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
       String qualifiedName =
           ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
@@ -2388,7 +2380,6 @@ public class NullAway extends BugChecker
       // there is also an
       // exception of the full method.
       if (stmt instanceof TryTree tryTree) {
-
         if (tryTree.getCatches().size() == 0) {
           if (tryTree.getBlock() != null) {
             result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
@@ -2418,7 +2409,6 @@ public class NullAway extends BugChecker
           if (!(expressionTree instanceof MethodInvocationTree methodInvocationTree)) {
             return false;
           }
-
           Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
           Set<Modifier> modifiers = symbol.getModifiers();
           Set<Modifier> classModifiers = enclosingClassSymbol.getModifiers();

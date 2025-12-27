@@ -265,7 +265,6 @@ class StreamNullabilityPropagator implements Handler {
         handleFilterAnonClass(streamType, tree, anonClassBody, state);
       }
     } else if (argTree instanceof LambdaExpressionTree lambdaTree) {
-
       handleFilterLambda(streamType, tree, lambdaTree, state);
     }
   }
@@ -304,7 +303,6 @@ class StreamNullabilityPropagator implements Handler {
     if (argTree instanceof MethodInvocationTree collectInvokeArg) {
       // the argument passed to the collect method.  We check if this is a call to the collector
       // factory method from the record
-
       Symbol.MethodSymbol collectInvokeArgSymbol = ASTHelpers.getSymbol(collectInvokeArg);
       if (collectInvokeArgSymbol
               .owner
@@ -509,7 +507,6 @@ class StreamNullabilityPropagator implements Handler {
 
   private boolean canBooleanExpressionEvalToTrue(ExpressionTree expressionTree) {
     if (expressionTree instanceof LiteralTree expressionAsLiteral) {
-
       if (expressionAsLiteral.getValue() instanceof Boolean) {
         return (boolean) expressionAsLiteral.getValue();
       } else {

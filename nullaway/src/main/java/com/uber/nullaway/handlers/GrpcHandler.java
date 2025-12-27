@@ -103,7 +103,6 @@ public class GrpcHandler implements Handler {
       if (getter != null
           && keyArgSymbol instanceof Symbol.VarSymbol varSymbol
           && keyArgSymbol.getKind().equals(ElementKind.FIELD)) {
-
         String immutableFieldFQN =
             varSymbol.enclClass().flatName().toString() + "." + varSymbol.flatName().toString();
         String keyStr = AccessPath.immutableFieldNameAsConstantArgument(immutableFieldFQN);

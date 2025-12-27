@@ -130,7 +130,6 @@ public class NullnessStore implements Store<NullnessStore> {
     for (AccessPath accessPath : contents.keySet()) {
       MapKey mapGetArg = accessPath.getMapGetArg();
       if (mapGetArg instanceof IteratorContentsKey iteratorContentsKey) {
-
         if (iteratorContentsKey.getIteratorVarElement().equals(iteratorVar.getElement())) {
           return accessPath;
         }
@@ -210,7 +209,6 @@ public class NullnessStore implements Store<NullnessStore> {
     if (!(o instanceof NullnessStore other)) {
       return false;
     }
-
     return contents.equals(other.contents);
   }
 

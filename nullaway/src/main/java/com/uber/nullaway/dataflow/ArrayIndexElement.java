@@ -61,7 +61,6 @@ public class ArrayIndexElement implements AccessPathElement {
   @Override
   public boolean equals(@Nullable Object obj) {
     if (obj instanceof ArrayIndexElement other) {
-
       return Objects.equals(javaElement, other.javaElement) && Objects.equals(index, other.index);
     }
     return false;

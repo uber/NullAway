@@ -232,7 +232,6 @@ public class OptionalEmptinessHandler implements Handler {
   private Optional<Node> getNodeWrappedByAssertThat(MethodInvocationNode node) {
     Node receiver = node.getTarget().getReceiver();
     if (receiver instanceof MethodInvocationNode receiverMethod) {
-
       if (receiverMethod.getArguments().size() == 1) {
         Symbol.MethodSymbol receiverSymbol = ASTHelpers.getSymbol(receiverMethod.getTree());
         if (methodNameUtil.isMethodAssertThat(receiverSymbol)) {

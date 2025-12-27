@@ -79,7 +79,6 @@ public class ErrorDisplayV1 implements Display {
     if (!(o instanceof ErrorDisplayV1 that)) {
       return false;
     }
-
     return type.equals(that.type)
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.

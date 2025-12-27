@@ -229,7 +229,6 @@ public class TypeSubstitutionUtils {
       if (!(other instanceof Type.ArrayType otherArrayType)) {
         return updated;
       }
-
       Type elemtype = updated.elemtype;
       Type newElemType = elemtype.accept(this, otherArrayType.elemtype);
       if (newElemType == elemtype) {
