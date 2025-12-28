@@ -535,7 +535,6 @@ public class NullabilityUtil {
     return switch (nullness) {
       case BOTTOM, NONNULL -> false;
       case NULL, NULLABLE -> true;
-      default -> throw new AssertionError("Impossible: " + nullness);
     };
   }
 

@@ -133,11 +133,9 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public Nullness deducedValueWhenNotEqual() {
     return switch (this) {
-      case NULLABLE -> NULLABLE;
-      case NONNULL -> NULLABLE;
+      case NULLABLE, NONNULL -> NULLABLE;
       case NULL -> NONNULL;
       case BOTTOM -> BOTTOM;
-      default -> throw new AssertionError("Inverse of " + this + " not defined");
     };
   }
 

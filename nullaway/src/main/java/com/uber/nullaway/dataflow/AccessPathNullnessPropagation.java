@@ -750,9 +750,6 @@ public class AccessPathNullnessPropagation
           case UNKNOWN ->
               NullabilityUtil.mayBeNullFieldFromType(
                   symbol, config, handler, getCodeAnnotationInfo(state));
-          default ->
-              // Should be unreachable unless NullnessHint changes, cases above are exhaustive!
-              throw new RuntimeException("Unexpected NullnessHint from handler!");
         };
     if (!fieldMayBeNull) {
       nullness = NONNULL;
