@@ -182,7 +182,7 @@ public class XMLUtil {
                   throw new IllegalArgumentException(
                       "Cannot extract values of type: "
                           + klass
-                          + ", only Double|Boolean|String accepted.");
+                          + ", only Integer|Boolean|String accepted.");
             };
       }
     }
