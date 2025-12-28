@@ -189,15 +189,10 @@ public class Serializer {
     if (symbol == null) {
       return "null";
     }
-    switch (symbol.getKind()) {
-      case FIELD:
-      case PARAMETER:
-        return symbol.name.toString();
-      case METHOD:
-      case CONSTRUCTOR:
-        return adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
-      default:
-        return symbol.flatName().toString();
-    }
+    return switch (symbol.getKind()) {
+      case FIELD, PARAMETER -> symbol.name.toString();
+      case METHOD, CONSTRUCTOR -> adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
+      default -> symbol.flatName().toString();
+    };
   }
 }

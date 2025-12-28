@@ -79,21 +79,19 @@ public interface SerializationAdapter {
    * @return Adapter for the given version.
    */
   static SerializationAdapter getAdapterForVersion(int version) {
-    switch (version) {
-      case 1:
-        return new SerializationV1Adapter();
-      case 2:
-        throw new RuntimeException(
-            "Serialization version v2 is skipped and was used for an alpha version of the auto-annotator tool. Please use version 3 instead.");
-      case 3:
-        return new SerializationV3Adapter();
-      default:
-        throw new RuntimeException(
-            "Unrecognized NullAway serialization version: "
-                + version
-                + ". Supported versions: 1 to "
-                + SerializationAdapter.LATEST_VERSION
-                + ".");
-    }
+    return switch (version) {
+      case 1 -> new SerializationV1Adapter();
+      case 2 ->
+          throw new RuntimeException(
+              "Serialization version v2 is skipped and was used for an alpha version of the auto-annotator tool. Please use version 3 instead.");
+      case 3 -> new SerializationV3Adapter();
+      default ->
+          throw new RuntimeException(
+              "Unrecognized NullAway serialization version: "
+                  + version
+                  + ". Supported versions: 1 to "
+                  + SerializationAdapter.LATEST_VERSION
+                  + ".");
+    };
   }
 }

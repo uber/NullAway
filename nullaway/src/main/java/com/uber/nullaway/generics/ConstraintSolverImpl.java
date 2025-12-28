@@ -170,27 +170,26 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       VarState st = castToNonNull(vars.get(typeVarElement));
 
       switch (st.nullness) {
-        case NONNULL:
+        case NONNULL -> {
           /* S <: tv  &  tv NONNULL  ⇒  S NONNULL */
           for (Element sub : st.subtypes) {
             if (updateNullness(sub, NullnessState.NONNULL)) {
               work.add(sub);
             }
           }
-          break;
-
-        case NULLABLE:
+        }
+        case NULLABLE -> {
           /* tv <: T  &  tv NULLABLE  ⇒  T NULLABLE */
           for (Element sup : st.supertypes) {
             if (updateNullness(sup, NullnessState.NULLABLE)) {
               work.add(sup);
             }
           }
-          break;
-
-        default: // UNKNOWN
-          throw new RuntimeException(
-              "Unexpected nullness state: " + st.nullness + " for " + typeVarElement);
+        }
+        default ->
+            // UNKNOWN
+            throw new RuntimeException(
+                "Unexpected nullness state: " + st.nullness + " for " + typeVarElement);
       }
     }
 

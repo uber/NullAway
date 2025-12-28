@@ -672,15 +672,11 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   private static String sourceLevelWildcardType(String typeName) {
-    switch (typeName.charAt(0)) {
-      case '*':
-        return "?";
-      case '+':
-        return "? extends " + getSourceLevelQualifiedTypeName(typeName.substring(1));
-      case '-':
-        return "? super " + getSourceLevelQualifiedTypeName(typeName.substring(1));
-      default:
-        throw new RuntimeException("unexpected wildcard type name" + typeName);
-    }
+    return switch (typeName.charAt(0)) {
+      case '*' -> "?";
+      case '+' -> "? extends " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      case '-' -> "? super " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      default -> throw new RuntimeException("unexpected wildcard type name" + typeName);
+    };
   }
 }

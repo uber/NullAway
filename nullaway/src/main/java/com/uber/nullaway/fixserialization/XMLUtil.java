@@ -173,22 +173,17 @@ public class XMLUtil {
         this.value = null;
       } else {
         String content = value.toString();
-        switch (klass.getSimpleName()) {
-          case "Integer":
-            this.value = Integer.valueOf(content);
-            break;
-          case "Boolean":
-            this.value = Boolean.valueOf(content);
-            break;
-          case "String":
-            this.value = String.valueOf(content);
-            break;
-          default:
-            throw new IllegalArgumentException(
-                "Cannot extract values of type: "
-                    + klass
-                    + ", only Double|Boolean|String accepted.");
-        }
+        this.value =
+            switch (klass.getSimpleName()) {
+              case "Integer" -> Integer.valueOf(content);
+              case "Boolean" -> Boolean.valueOf(content);
+              case "String" -> String.valueOf(content);
+              default ->
+                  throw new IllegalArgumentException(
+                      "Cannot extract values of type: "
+                          + klass
+                          + ", only Double|Boolean|String accepted.");
+            };
       }
     }
 

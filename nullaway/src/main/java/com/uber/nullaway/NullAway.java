@@ -346,16 +346,11 @@ public class NullAway extends BugChecker
   }
 
   private boolean withinAnnotatedCode(VisitorState state) {
-    switch (nullMarkingForTopLevelClass) {
-      case FULLY_MARKED:
-        return true;
-      case FULLY_UNMARKED:
-        return false;
-      case PARTIALLY_MARKED:
-        return checkMarkingForPath(state);
-    }
-    // unreachable but needed to make code compile
-    throw new IllegalStateException("unexpected marking state " + nullMarkingForTopLevelClass);
+    return switch (nullMarkingForTopLevelClass) {
+      case FULLY_MARKED -> true;
+      case FULLY_UNMARKED -> false;
+      case PARTIALLY_MARKED -> checkMarkingForPath(state);
+    };
   }
 
   private boolean checkMarkingForPath(VisitorState state) {
@@ -659,20 +654,20 @@ public class NullAway extends BugChecker
     boolean markedMethodInUnmarkedContext = false;
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     switch (nullMarkingForTopLevelClass) {
-      case FULLY_MARKED:
+      case FULLY_MARKED -> {
         if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
           nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
         }
-        break;
-      case FULLY_UNMARKED:
+      }
+      case FULLY_UNMARKED -> {
         if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
           nullMarkingForTopLevelClass = NullMarking.PARTIALLY_MARKED;
           markedMethodInUnmarkedContext = true;
         }
-        break;
-      case PARTIALLY_MARKED:
+      }
+      case PARTIALLY_MARKED -> {
         if (hasDirectAnnotationWithSimpleName(
             methodSymbol, NullabilityUtil.NULLMARKED_SIMPLE_NAME)) {
           // We still care here if this is a transition between @NullUnmarked and @NullMarked code,
@@ -681,7 +676,7 @@ public class NullAway extends BugChecker
             markedMethodInUnmarkedContext = true;
           }
         }
-        break;
+      }
     }
     if (markedMethodInUnmarkedContext) {
       // If this is a @NullMarked method of a @NullUnmarked local or anonymous class, we need to set
@@ -2460,7 +2455,7 @@ public class NullAway extends BugChecker
         continue;
       }
       switch (memberTree.getKind()) {
-        case METHOD:
+        case METHOD -> {
           // check if it is a constructor or an @Initializer method
           MethodTree methodTree = (MethodTree) memberTree;
           Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodTree);
@@ -2473,8 +2468,8 @@ public class NullAway extends BugChecker
               instanceInitializerMethods.add(methodTree);
             }
           }
-          break;
-        case VARIABLE:
+        }
+        case VARIABLE -> {
           // field declaration
           VariableTree varTree = (VariableTree) memberTree;
           Symbol fieldSymbol = ASTHelpers.getSymbol(varTree);
@@ -2492,8 +2487,8 @@ public class NullAway extends BugChecker
           } else {
             nonnullInstanceFields.add(fieldSymbol);
           }
-          break;
-        case BLOCK:
+        }
+        case BLOCK -> {
           // initializer block
           BlockTree blockTree = (BlockTree) memberTree;
           if (blockTree.isStatic()) {
@@ -2501,10 +2496,10 @@ public class NullAway extends BugChecker
           } else {
             instanceInitializerBlocks.add(blockTree);
           }
-          break;
-        default:
-          throw new RuntimeException(
-              memberTree.getKind().toString() + " " + state.getSourceForNode(memberTree));
+        }
+        default ->
+            throw new RuntimeException(
+                memberTree.getKind().toString() + " " + state.getSourceForNode(memberTree));
       }
     }
 
@@ -2580,67 +2575,68 @@ public class NullAway extends BugChecker
     }
     // return early for expressions that no handler overrides and will not need dataflow analysis
     switch (expr.getKind()) {
-      case NULL_LITERAL:
+      case NULL_LITERAL -> {
         // obviously null
         return true;
-      case NEW_CLASS:
-      case NEW_ARRAY:
-      case ARRAY_TYPE:
-      // Lambdas may return null, but the lambda literal itself should not be null
-      case LAMBDA_EXPRESSION:
-      // These cannot be null; the compiler would catch it
-      case MEMBER_REFERENCE:
-      // result of compound assignment cannot be null
-      case MULTIPLY_ASSIGNMENT:
-      case DIVIDE_ASSIGNMENT:
-      case REMAINDER_ASSIGNMENT:
-      case PLUS_ASSIGNMENT:
-      case MINUS_ASSIGNMENT:
-      case LEFT_SHIFT_ASSIGNMENT:
-      case RIGHT_SHIFT_ASSIGNMENT:
-      case UNSIGNED_RIGHT_SHIFT_ASSIGNMENT:
-      case AND_ASSIGNMENT:
-      case XOR_ASSIGNMENT:
-      case OR_ASSIGNMENT:
-      // rest are for auto-boxing
-      case PLUS:
-      case MINUS:
-      case MULTIPLY:
-      case DIVIDE:
-      case REMAINDER:
-      case CONDITIONAL_AND:
-      case CONDITIONAL_OR:
-      case BITWISE_COMPLEMENT:
-      case LOGICAL_COMPLEMENT:
-      case INSTANCE_OF:
-      case PREFIX_INCREMENT:
-      case PREFIX_DECREMENT:
-      case POSTFIX_DECREMENT:
-      case POSTFIX_INCREMENT:
-      case EQUAL_TO:
-      case NOT_EQUAL_TO:
-      case GREATER_THAN:
-      case GREATER_THAN_EQUAL:
-      case LESS_THAN:
-      case LESS_THAN_EQUAL:
-      case UNARY_MINUS:
-      case UNARY_PLUS:
-      case AND:
-      case OR:
-      case XOR:
-      case LEFT_SHIFT:
-      case RIGHT_SHIFT:
-      case UNSIGNED_RIGHT_SHIFT:
+      }
+      case NEW_CLASS,
+          NEW_ARRAY,
+          ARRAY_TYPE,
+          // Lambdas may return null, but the lambda literal itself should not be null
+          LAMBDA_EXPRESSION,
+          // These cannot be null; the compiler would catch it
+          MEMBER_REFERENCE,
+          // result of compound assignment cannot be null
+          MULTIPLY_ASSIGNMENT,
+          DIVIDE_ASSIGNMENT,
+          REMAINDER_ASSIGNMENT,
+          PLUS_ASSIGNMENT,
+          MINUS_ASSIGNMENT,
+          LEFT_SHIFT_ASSIGNMENT,
+          RIGHT_SHIFT_ASSIGNMENT,
+          UNSIGNED_RIGHT_SHIFT_ASSIGNMENT,
+          AND_ASSIGNMENT,
+          XOR_ASSIGNMENT,
+          OR_ASSIGNMENT,
+          // rest are for auto-boxing
+          PLUS,
+          MINUS,
+          MULTIPLY,
+          DIVIDE,
+          REMAINDER,
+          CONDITIONAL_AND,
+          CONDITIONAL_OR,
+          BITWISE_COMPLEMENT,
+          LOGICAL_COMPLEMENT,
+          INSTANCE_OF,
+          PREFIX_INCREMENT,
+          PREFIX_DECREMENT,
+          POSTFIX_DECREMENT,
+          POSTFIX_INCREMENT,
+          EQUAL_TO,
+          NOT_EQUAL_TO,
+          GREATER_THAN,
+          GREATER_THAN_EQUAL,
+          LESS_THAN,
+          LESS_THAN_EQUAL,
+          UNARY_MINUS,
+          UNARY_PLUS,
+          AND,
+          OR,
+          XOR,
+          LEFT_SHIFT,
+          RIGHT_SHIFT,
+          UNSIGNED_RIGHT_SHIFT -> {
         // clearly not null
         return false;
-      default:
-        break;
+      }
+      default -> {}
     }
     // the logic here is to avoid doing dataflow analysis whenever possible
     Symbol exprSymbol = ASTHelpers.getSymbol(expr);
     boolean exprMayBeNull;
     switch (expr.getKind()) {
-      case ARRAY_ACCESS:
+      case ARRAY_ACCESS -> {
         // Outside JSpecify mode, we assume array contents are always non-null
         exprMayBeNull = false;
         if (config.isJSpecifyMode()) {
@@ -2652,16 +2648,16 @@ public class NullAway extends BugChecker
             exprMayBeNull = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
           }
         }
-        break;
-      case MEMBER_SELECT:
+      }
+      case MEMBER_SELECT -> {
         if (exprSymbol == null) {
           throw new IllegalStateException(
               "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
         }
         exprMayBeNull =
             NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, handler, codeAnnotationInfo);
-        break;
-      case IDENTIFIER:
+      }
+      case IDENTIFIER -> {
         if (exprSymbol == null) {
           throw new IllegalStateException(
               "unexpected null symbol for identifier " + state.getSourceForNode(expr));
@@ -2674,27 +2670,21 @@ public class NullAway extends BugChecker
           // rely on dataflow analysis for local variables
           exprMayBeNull = true;
         }
-        break;
-      case METHOD_INVOCATION:
-        if (!(exprSymbol instanceof Symbol.MethodSymbol)) {
+      }
+      case METHOD_INVOCATION -> {
+        if (!(exprSymbol instanceof Symbol.MethodSymbol methodSymbol)) {
           throw new IllegalStateException(
               "unexpected symbol "
                   + exprSymbol
                   + " for method invocation "
                   + state.getSourceForNode(expr));
         }
-        exprMayBeNull =
-            mayBeNullMethodCall(
-                (Symbol.MethodSymbol) exprSymbol, (MethodInvocationTree) expr, state);
-        break;
-      case CONDITIONAL_EXPRESSION:
-      case ASSIGNMENT:
-      case SWITCH_EXPRESSION:
-        exprMayBeNull = true;
-        break;
-      default:
-        throw new RuntimeException(
-            "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
+        exprMayBeNull = mayBeNullMethodCall(methodSymbol, (MethodInvocationTree) expr, state);
+      }
+      case CONDITIONAL_EXPRESSION, ASSIGNMENT, SWITCH_EXPRESSION -> exprMayBeNull = true;
+      default ->
+          throw new RuntimeException(
+              "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
     return exprMayBeNull && nullnessFromDataflow(state, expr);
