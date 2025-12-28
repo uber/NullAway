@@ -382,15 +382,17 @@ public class NullabilityUtil {
   // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L128
   private static boolean targetTypeMatches(Symbol sym, TypeAnnotationPosition position) {
     switch (sym.getKind()) {
-      case LOCAL_VARIABLE:
+      case LOCAL_VARIABLE -> {
         return position.type == TargetType.LOCAL_VARIABLE;
-      case FIELD:
-      case ENUM_CONSTANT: // treated like a field
+      }
+      case FIELD, ENUM_CONSTANT -> {
+        // treated like a field
         return position.type == TargetType.FIELD;
-      case CONSTRUCTOR:
-      case METHOD:
+      }
+      case CONSTRUCTOR, METHOD -> {
         return position.type == TargetType.METHOD_RETURN;
-      case PARAMETER:
+      }
+      case PARAMETER -> {
         if (position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)) {
           int parameterIndex = position.parameter_index;
           if (position.onLambda != null) {
@@ -404,19 +406,17 @@ public class NullabilityUtil {
         } else {
           return false;
         }
-      case CLASS:
-      case ENUM: // treated like a class
-        // There are no type annotations on the top-level type of the class/enum being declared,
+      }
+      case CLASS, ENUM, RECORD -> {
+        // treated like a class
+        // There are no type annotations on the top-level type of the class/enum/record being
+        // declared,
         // only on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
         return false;
-      default:
-        // Compare with toString() to preserve compatibility with JDK 11
-        if (sym.getKind().toString().equals("RECORD")) {
-          // Records are treated like classes
-          return false;
-        } else {
-          throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
-        }
+      }
+      default -> {
+        throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
+      }
     }
   }
 
@@ -463,21 +463,22 @@ public class NullabilityUtil {
     int nestingDepth = getNestingDepth(symbol.type);
     for (TypePathEntry entry : t.position.location) {
       switch (entry.tag) {
-        case INNER_TYPE:
+        case INNER_TYPE -> {
           locationHasInnerTypes = true;
           innerTypeCount++;
-          break;
-        case ARRAY:
+        }
+        case ARRAY -> {
           if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
             // Annotations on array element types do not apply to the top-level
             // type outside of legacy mode
             return false;
           }
           locationHasArray = true;
-          break;
-        default:
+        }
+        default -> {
           // Wildcard or type argument!
           return false;
+        }
       }
     }
     if (config.isLegacyAnnotationLocation()) {
@@ -531,16 +532,10 @@ public class NullabilityUtil {
    *     Nullness#NULLABLE}.
    */
   public static boolean nullnessToBool(Nullness nullness) {
-    switch (nullness) {
-      case BOTTOM:
-      case NONNULL:
-        return false;
-      case NULL:
-      case NULLABLE:
-        return true;
-      default:
-        throw new AssertionError("Impossible: " + nullness);
-    }
+    return switch (nullness) {
+      case BOTTOM, NONNULL -> false;
+      case NULL, NULLABLE -> true;
+    };
   }
 
   /**

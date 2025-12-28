@@ -213,17 +213,13 @@ public final class GenericsChecks {
    * @param state visitor state
    */
   public void checkGenericMethodCallTypeArguments(Tree tree, VisitorState state) {
-    List<? extends Tree> typeArguments;
-    switch (tree.getKind()) {
-      case METHOD_INVOCATION:
-        typeArguments = ((MethodInvocationTree) tree).getTypeArguments();
-        break;
-      case NEW_CLASS:
-        typeArguments = ((NewClassTree) tree).getTypeArguments();
-        break;
-      default:
-        throw new RuntimeException("Unexpected tree kind: " + tree.getKind());
-    }
+
+    List<? extends Tree> typeArguments =
+        switch (tree.getKind()) {
+          case METHOD_INVOCATION -> ((MethodInvocationTree) tree).getTypeArguments();
+          case NEW_CLASS -> ((NewClassTree) tree).getTypeArguments();
+          default -> throw new RuntimeException("Unexpected tree kind: " + tree.getKind());
+        };
     if (typeArguments.isEmpty()) {
       return;
     }
