@@ -21,10 +21,6 @@ plugins {
 dependencies {
     implementation libs.guava
 
-    implementation libs.javaparser.core
-
-    implementation libs.javaparser.symbol.solver.core
-
     compileOnly libs.auto.value.annotations
     annotationProcessor libs.auto.value
 
