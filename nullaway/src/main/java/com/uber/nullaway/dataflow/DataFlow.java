@@ -358,8 +358,7 @@ public final class DataFlow {
      */
     private final TreePath codePath;
 
-    @Nullable
-    private ProcessingEnvironment environment;
+    private @Nullable ProcessingEnvironment environment;
 
     private CfgParams(TreePath codePath) {
       this.codePath = codePath;
