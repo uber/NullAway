@@ -33,7 +33,6 @@ import static java.lang.annotation.ElementType.TYPE_PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import com.google.auto.service.AutoService;
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -2817,8 +2816,14 @@ public class NullAway extends BugChecker
     computedNullnessMap.put(e, nullness);
   }
 
-  @AutoValue
-  abstract static class FieldInitEntities {
+  record FieldInitEntities(Symbol.ClassSymbol classSymbol,
+                           ImmutableSet<Symbol> nonnullInstanceFields,
+                           ImmutableSet<Symbol> nonnullStaticFields,
+                           ImmutableList<BlockTree> instanceInitializerBlocks,
+                           ImmutableList<BlockTree> staticInitializerBlocks,
+                           ImmutableSet<MethodTree> constructors,
+                           ImmutableSet<MethodTree> instanceInitializerMethods,
+                           ImmutableSet<MethodTree> staticInitializerMethods) {
 
     static FieldInitEntities create(
         Symbol.ClassSymbol classSymbol,
@@ -2829,7 +2834,7 @@ public class NullAway extends BugChecker
         Set<MethodTree> constructors,
         Set<MethodTree> instanceInitializerMethods,
         Set<MethodTree> staticInitializerMethods) {
-      return new AutoValue_NullAway_FieldInitEntities(
+      return new FieldInitEntities(
           classSymbol,
           ImmutableSet.copyOf(nonnullInstanceFields),
           ImmutableSet.copyOf(nonnullStaticFields),
@@ -2840,47 +2845,39 @@ public class NullAway extends BugChecker
           ImmutableSet.copyOf(staticInitializerMethods));
     }
 
-    /** Returns symbol for class. */
-    abstract Symbol.ClassSymbol classSymbol();
-
     /**
-     * Returns <code>@NonNull</code> instance fields that are not directly initialized at
-     * declaration.
-     */
-    abstract ImmutableSet<Symbol> nonnullInstanceFields();
-
-    /**
+     * Generates by Record
+     *
+     * Returns symbol for class.
+     * Symbol.ClassSymbol classSymbol()
+     *
+     * Returns <code>@NonNull</code> instance fields that are not directly initialized at declaration.
+     * ImmutableSet<Symbol> nonnullInstanceFields()
+     *
      * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
-     */
-    abstract ImmutableSet<Symbol> nonnullStaticFields();
-
-    /**
+     * ImmutableSet<Symbol> nonnullStaticFields();
+     *
      * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
      * } } ), in the order in which they appear in the class.
-     */
-    abstract ImmutableList<BlockTree> instanceInitializerBlocks();
-
-    /**
+     * ImmutableList<BlockTree> instanceInitializerBlocks();
+     *
      * Returns the list of static initializer blocks (e.g. blocks of the form `class X { static {
      * //Code } } ), in the order in which they appear in the class.
-     */
-    abstract ImmutableList<BlockTree> staticInitializerBlocks();
-
-    /** Returns constructors in the class. */
-    abstract ImmutableSet<MethodTree> constructors();
-
-    /**
+     * ImmutableList<BlockTree> staticInitializerBlocks();
+     *
+     * Returns constructors in the class.
+     * ImmutableSet<MethodTree> constructors();
+     *
      * Returns the list of non-static (instance) initializer methods. This includes methods
      * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
      * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
-     */
-    abstract ImmutableSet<MethodTree> instanceInitializerMethods();
-
-    /**
+     * ImmutableSet<MethodTree> instanceInitializerMethods();
+     *
      * Returns the list of static initializer methods. This includes static methods
      * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
      * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+     * ImmutableSet<MethodTree> staticInitializerMethods();
      */
-    abstract ImmutableSet<MethodTree> staticInitializerMethods();
+
   }
 }
