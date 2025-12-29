@@ -2816,6 +2816,39 @@ public class NullAway extends BugChecker
     computedNullnessMap.put(e, nullness);
   }
 
+  /**
+   * Generates by Record
+   * <p>
+   * Returns symbol for class.
+   * Symbol.ClassSymbol classSymbol()
+   * <p>
+   * Returns <code>@NonNull</code> instance fields that are not directly initialized at declaration.
+   * ImmutableSet<Symbol> nonnullInstanceFields()
+   * <p>
+   * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
+   * ImmutableSet<Symbol> nonnullStaticFields();
+   * <p>
+   * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
+   * } } ), in the order in which they appear in the class.
+   * ImmutableList<BlockTree> instanceInitializerBlocks();
+   * <p>
+   * Returns the list of static initializer blocks (e.g. blocks of the form `class X { static {
+   * //Code } } ), in the order in which they appear in the class.
+   * ImmutableList<BlockTree> staticInitializerBlocks();
+   * <p>
+   * Returns constructors in the class.
+   * ImmutableSet<MethodTree> constructors();
+   * <p>
+   * Returns the list of non-static (instance) initializer methods. This includes methods
+   * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+   * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+   * ImmutableSet<MethodTree> instanceInitializerMethods();
+   * <p>
+   * Returns the list of static initializer methods. This includes static methods
+   * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+   * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+   * ImmutableSet<MethodTree> staticInitializerMethods();
+   */
   record FieldInitEntities(Symbol.ClassSymbol classSymbol,
                            ImmutableSet<Symbol> nonnullInstanceFields,
                            ImmutableSet<Symbol> nonnullStaticFields,
@@ -2844,40 +2877,6 @@ public class NullAway extends BugChecker
           ImmutableSet.copyOf(instanceInitializerMethods),
           ImmutableSet.copyOf(staticInitializerMethods));
     }
-
-    /**
-     * Generates by Record
-     *
-     * Returns symbol for class.
-     * Symbol.ClassSymbol classSymbol()
-     *
-     * Returns <code>@NonNull</code> instance fields that are not directly initialized at declaration.
-     * ImmutableSet<Symbol> nonnullInstanceFields()
-     *
-     * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
-     * ImmutableSet<Symbol> nonnullStaticFields();
-     *
-     * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
-     * } } ), in the order in which they appear in the class.
-     * ImmutableList<BlockTree> instanceInitializerBlocks();
-     *
-     * Returns the list of static initializer blocks (e.g. blocks of the form `class X { static {
-     * //Code } } ), in the order in which they appear in the class.
-     * ImmutableList<BlockTree> staticInitializerBlocks();
-     *
-     * Returns constructors in the class.
-     * ImmutableSet<MethodTree> constructors();
-     *
-     * Returns the list of non-static (instance) initializer methods. This includes methods
-     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
-     * ImmutableSet<MethodTree> instanceInitializerMethods();
-     *
-     * Returns the list of static initializer methods. This includes static methods
-     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
-     * ImmutableSet<MethodTree> staticInitializerMethods();
-     */
 
   }
 }
