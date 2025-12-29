@@ -370,18 +370,13 @@ public final class DataFlow {
     abstract TreePath codePath();
   }
 
-  @AutoValue
-  abstract static class AnalysisParams {
+  record AnalysisParams(ForwardTransferFunction<?, ?> transferFunction, ControlFlowGraph cfg) {
 
     private static AnalysisParams create(
         ForwardTransferFunction<?, ?> transferFunction, ControlFlowGraph cfg) {
-      AnalysisParams ap = new AutoValue_DataFlow_AnalysisParams(transferFunction, cfg);
-      return ap;
+      return new AnalysisParams(transferFunction, cfg);
     }
 
-    abstract ForwardTransferFunction<?, ?> transferFunction();
-
-    abstract ControlFlowGraph cfg();
   }
 
   /** A pair of Analysis and ControlFlowGraph. */
