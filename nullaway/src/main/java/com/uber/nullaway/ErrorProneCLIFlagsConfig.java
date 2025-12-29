@@ -609,11 +609,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
     return warnOnInferenceFailure;
   }
 
-  @AutoValue
-  abstract static class MethodClassAndName {
+  record MethodClassAndName(String enclosingClass,
+                            String methodName) {
 
     static MethodClassAndName create(String enclosingClass, String methodName) {
-      return new AutoValue_ErrorProneCLIFlagsConfig_MethodClassAndName(enclosingClass, methodName);
+      return new MethodClassAndName(enclosingClass, methodName);
     }
 
     static MethodClassAndName fromClassDotMethod(String classDotMethod) {
@@ -623,8 +623,5 @@ final class ErrorProneCLIFlagsConfig implements Config {
       return MethodClassAndName.create(className, methodName);
     }
 
-    abstract String enclosingClass();
-
-    abstract String methodName();
   }
 }
