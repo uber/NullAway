@@ -52,41 +52,28 @@ public record CollectLikeMethodRecord(String collectorFactoryMethodClass,
         argsFromStream);
   }
 
-  /**
+  /*
+   * Generate by Record
+   *
    * The fully qualified name of the class that contains the collector factory method, e.g., {@code
    * java.util.stream.Collectors}.
-   * Generate by Record
-   */
-
-  /**
+   *
    * The signature of the factory method that creates the {@link Collector} instance passed to the
    * collect method, e.g., the signature of {@link java.util.stream.Collectors#toMap(Function,
    * Function)}
-   * Generate by Record
-   */
-
-  /**
+   *
    * The indices of the arguments to the collector factory method that are lambdas (or anonymous
    * classes) which get invoked with the elements of the stream
-   * Generate by Record
-   */
-
-  /**
+   *
    * Name of the method that gets passed the elements of the stream, e.g., "apply" for an anonymous
    * class implementing {@link Function}. We assume that all such methods have the same name.
-   * Generate by Record
-   */
-
-  /**
+   *
    * Argument indices to which stream elements are directly passed. We assume the same indices are
    * used for all methods getting passed elements from the stream.
-   * Generate by Record
-   */
-
-  /**
+   *
    * below methods will Generate by Record
    * boolean equals(@Nullable Object o)
    * int hashCode()
-  */
+   */
 
 }

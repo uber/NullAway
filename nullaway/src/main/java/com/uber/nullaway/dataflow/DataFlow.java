@@ -378,7 +378,7 @@ public final class DataFlow {
     TreePath codePath() {
       return codePath;
     }
-    /**
+    /*
      * If needed, need to override these methods
      * @Override
      * public boolean equals(Object o) { ...codePath... }
