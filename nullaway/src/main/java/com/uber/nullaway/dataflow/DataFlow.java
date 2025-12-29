@@ -21,7 +21,6 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
@@ -352,13 +351,22 @@ public final class DataFlow {
     return analysis.isRunning();
   }
 
-  @AutoValue
-  abstract static class CfgParams {
-    // Should not be used for hashCode or equals
-    private @Nullable ProcessingEnvironment environment;
+  static final class CfgParams {
+    /**
+     * Records cannot declare extra instance fields (environment).
+     * Used direct replacement approach to migrate from AutoValue
+     */
+    private final TreePath codePath;
 
-    private static CfgParams create(TreePath codePath, ProcessingEnvironment environment) {
-      CfgParams cp = new AutoValue_DataFlow_CfgParams(codePath);
+    @Nullable
+    private ProcessingEnvironment environment;
+
+    private CfgParams(TreePath codePath) {
+      this.codePath = codePath;
+    }
+
+    static CfgParams create(TreePath codePath, ProcessingEnvironment environment) {
+      CfgParams cp = new CfgParams(codePath);
       cp.environment = environment;
       return cp;
     }
@@ -367,7 +375,17 @@ public final class DataFlow {
       return castToNonNull(environment);
     }
 
-    abstract TreePath codePath();
+    TreePath codePath() {
+      return codePath;
+    }
+    /**
+     * If needed, need to override these methods
+     * @Override
+     * public boolean equals(Object o) { ...codePath... }
+     *
+     * @Override
+     * public int hashCode() { ...codePath... }
+     */
   }
 
   record AnalysisParams(ForwardTransferFunction<?, ?> transferFunction, ControlFlowGraph cfg) {
