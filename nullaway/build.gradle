@@ -33,8 +33,6 @@ configurations {
 
 dependencies {
     compileOnly project(":annotations")
-    compileOnly libs.auto.value.annotations
-    annotationProcessor libs.auto.value
     compileOnly libs.auto.service.annotations
     annotationProcessor libs.auto.service
     // Using api following the guidance at https://jspecify.dev/docs/using#gradle

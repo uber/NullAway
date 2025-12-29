@@ -84,7 +84,7 @@ subprojects { project ->
             "-parameters",
         ]
         options.errorprone {
-            // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
+            // disable warnings in generated code; fails UnnecessaryParentheses check
             disableWarningsInGeneratedCode = true
 
             // https://github.com/uber/NullAway/issues/1398
