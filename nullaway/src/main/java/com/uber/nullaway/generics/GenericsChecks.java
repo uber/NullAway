@@ -666,8 +666,8 @@ public final class GenericsChecks {
     // substituted in.  So, if the method returns List<T>, and we inferred T to be nullable, then
     // methodReturnTypeWithInferredNullability will be List<@Nullable T>.
     Type methodReturnTypeWithInferredNullability =
-        getTypeWithInferredNullability(state, ((Type.ForAll) type).qtype, typeVarNullability)
-            .getReturnType();
+        getTypeWithInferredNullability(
+            state, ((Type.ForAll) type).qtype.getReturnType(), typeVarNullability);
     Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
     // then, we apply those nullability annotations to the return type at the call site.
     // So, continuing the above example, if javac inferred the type of the call to be List<String>,
@@ -729,15 +729,11 @@ public final class GenericsChecks {
                 if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
                   Type inferredType =
                       getTypeWithInferredNullability(state, formalParamType, typeVarNullability);
-                  Type lambdaTreeType = getTreeType(argument, state);
-                  // lambdaTreeType can be null in some cases like raw types; in that case, don't
-                  // store an inferred type
-                  if (lambdaTreeType != null) {
-                    Type restored =
-                        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                            inferredType, lambdaTreeType, config, Collections.emptyMap());
-                    inferredLambdaTypes.put(lambdaExpressionTree, restored);
-                  }
+                  Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
+                  Type restored =
+                      TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                          inferredType, lambdaTreeType, config, Collections.emptyMap());
+                  inferredLambdaTypes.put(lambdaExpressionTree, restored);
                 }
               });
 
