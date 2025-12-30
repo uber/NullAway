@@ -729,11 +729,15 @@ public final class GenericsChecks {
                 if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
                   Type inferredType =
                       getTypeWithInferredNullability(state, formalParamType, typeVarNullability);
-                  Type lambdaTreeType = castToNonNull(getTreeType(argument, state));
-                  Type restored =
-                      TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                          inferredType, lambdaTreeType, config, Collections.emptyMap());
-                  inferredLambdaTypes.put(lambdaExpressionTree, restored);
+                  Type lambdaTreeType = getTreeType(argument, state);
+                  // lambdaTreeType can be null in some cases like raw types; in that case, don't
+                  // store an inferred type
+                  if (lambdaTreeType != null) {
+                    Type restored =
+                        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                            inferredType, lambdaTreeType, config, Collections.emptyMap());
+                    inferredLambdaTypes.put(lambdaExpressionTree, restored);
+                  }
                 }
               });
 
