@@ -662,22 +662,38 @@ public final class GenericsChecks {
     if (result instanceof InferenceSuccess) {
       typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
     }
-    // we get the return type of the method call with inferred nullability of type variables
-    // substituted in.  So, if the method returns List<T>, and we inferred T to be nullable, then
-    // methodReturnTypeWithInferredNullability will be List<@Nullable T>.
-    Type methodReturnTypeWithInferredNullability =
-        getTypeWithInferredNullability(
-            state, ((Type.ForAll) type).qtype.getReturnType(), typeVarNullability);
+    Type methodReturnType = ((Type.ForAll) type).qtype.getReturnType();
     Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
-    // then, we apply those nullability annotations to the return type at the call site.
-    // So, continuing the above example, if javac inferred the type of the call to be List<String>,
-    // we will return List<@Nullable String>, correcting its nullability based on our own inference.
-    // TODO optimize the above steps to avoid doing so many substitutions in the future, if needed
+    return updateWithInferredNullability(
+        returnTypeAtCallSite, methodReturnType, typeVarNullability, state);
+  }
+
+  private Type updateWithInferredNullability(
+      Type typeToUpdate,
+      Type origType,
+      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state) {
+    if (typeVarNullability == null) {
+      return origType;
+    }
+    // we get the original generic type with inferred nullability of type variables
+    // substituted in.  So, if the original type was List<T>, and we inferred T to be nullable, then
+    // methodReturnTypeWithInferredNullability will be List<@Nullable T>.
+    Type inferredNullabilitySubstituted =
+        substituteInferredNullabilityForTypeVariables(state, origType, typeVarNullability);
+    // next, we restore any explicit nullability annotations that were present on the original
+    // type.  So, continuing the above example, if origType was List<@NonNull T>, then
+    // origExplicitAnnotationsRestored will be List<@NonNull T> even if T was inferred to be
+    // nullable.
+    Type origExplicitAnnotationsRestored =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            origType, inferredNullabilitySubstituted, config, Collections.emptyMap());
+    // finally, we apply the nullability annotations to the type at the use site.
+    // So, if the original type was List<T>, and we inferred T to be nullable, if javac inferred the
+    // type at the use to be List<String>, we will return List<@Nullable String>.
+    // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
     return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-        methodReturnTypeWithInferredNullability,
-        returnTypeAtCallSite,
-        config,
-        Collections.emptyMap());
+        origExplicitAnnotationsRestored, typeToUpdate, config, Collections.emptyMap());
   }
 
   /**
@@ -727,12 +743,10 @@ public final class GenericsChecks {
           .forEach(
               (argument, argPos, formalParamType, unused) -> {
                 if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
-                  Type inferredType =
-                      getTypeWithInferredNullability(state, formalParamType, typeVarNullability);
                   Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
                   Type restored =
-                      TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                          inferredType, lambdaTreeType, config, Collections.emptyMap());
+                      updateWithInferredNullability(
+                          lambdaTreeType, formalParamType, typeVarNullability, state);
                   inferredLambdaTypes.put(lambdaExpressionTree, restored);
                 }
               });
@@ -1635,6 +1649,7 @@ public final class GenericsChecks {
                 calledFromDataflow);
       }
       if (result instanceof InferenceSuccess) {
+        // TODO this should call updateWithInferredNullability
         return getTypeWithInferredNullability(
             state, methodType, ((InferenceSuccess) result).typeVarNullability);
       }
