@@ -674,7 +674,8 @@ public final class GenericsChecks {
       @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
       VisitorState state) {
     if (typeVarNullability == null) {
-      return origType;
+      // no updates to perform
+      return typeToUpdate;
     }
     // we get the original generic type with inferred nullability of type variables
     // substituted in.  So, if the original type was List<T>, and we inferred T to be nullable, then
