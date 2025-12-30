@@ -1363,6 +1363,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void lambdaWithRawType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Consumer;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T register(Consumer consumer, T... others) {
+                throw new UnsupportedOperationException("TODO");
+              }
+                void use() {
+                    register((t) -> {}, "a");
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void instanceGenericMethodWithMethodRefArgument() {
     makeHelper()
         .addSourceLines(

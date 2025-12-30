@@ -732,29 +732,6 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Test
-  public void lambdaWithRawType() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            import java.util.function.Consumer;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-
-            @NullMarked
-            class Test {
-              static <T extends @Nullable Object> T register(Consumer consumer, T... others) {
-                throw new UnsupportedOperationException("TODO");
-              }
-                void use() {
-                    register((t) -> {}, "a");
-                }
-            }
-            """)
-        .doTest();
-  }
-
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
