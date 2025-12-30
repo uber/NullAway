@@ -200,11 +200,11 @@ public class AccessPathNullnessPropagation
    * @return if node is an {@link AssignmentNode} unwraps it to its LHS. otherwise returns node
    */
   private static Node unwrapAssignExpr(Node node) {
-    if (node instanceof AssignmentNode) {
+    if (node instanceof AssignmentNode assignmentNode) {
       // in principle, we could separately handle the LHS and RHS and add new facts
       // about both.  For now, just handle the LHS as that seems like the more common
       // case (see https://github.com/uber/NullAway/issues/97)
-      return ((AssignmentNode) node).getTarget();
+      return assignmentNode.getTarget();
     } else {
       return node;
     }
@@ -520,19 +520,17 @@ public class AccessPathNullnessPropagation
     Nullness value = values(input).valueOfSubNode(rhs);
     Node target = node.getTarget();
 
-    if (target instanceof LocalVariableNode
+    if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
-      LocalVariableNode localVariableNode = (LocalVariableNode) target;
       updates.set(localVariableNode, value);
       handleEnhancedForOverKeySet(localVariableNode, rhs, input, updates);
     }
 
-    if (target instanceof ArrayAccessNode) {
-      setNonnullIfAnalyzeable(updates, ((ArrayAccessNode) target).getArray());
+    if (target instanceof ArrayAccessNode arrayAccessNode) {
+      setNonnullIfAnalyzeable(updates, arrayAccessNode.getArray());
     }
 
-    if (target instanceof FieldAccessNode) {
-      FieldAccessNode fieldAccessNode = (FieldAccessNode) target;
+    if (target instanceof FieldAccessNode fieldAccessNode) {
       Node receiver = fieldAccessNode.getReceiver();
       setNonnullIfAnalyzeable(updates, receiver);
       if (fieldAccessNode.getElement().getKind().equals(ElementKind.FIELD)
@@ -591,21 +589,18 @@ public class AccessPathNullnessPropagation
           updates.set(mapWithIteratorContentsKey, NONNULL);
         }
       }
-    } else if (rhs instanceof MethodInvocationNode) {
+    } else if (rhs instanceof MethodInvocationNode methodInv) {
       // Check for an assignment lhs = iter#numX.next().  From the structure of Checker Framework
       // CFGs, we know that if iter#numX is the receiver of a call on the rhs of an assignment, it
       // must be a call to next().
-      MethodInvocationNode methodInv = (MethodInvocationNode) rhs;
       Node receiver = methodInv.getTarget().getReceiver();
-      if (receiver instanceof LocalVariableNode
-          && isEnhancedForIteratorVariable((LocalVariableNode) receiver)) {
+      if (receiver instanceof LocalVariableNode localVariableNode
+          && isEnhancedForIteratorVariable(localVariableNode)) {
         // See if we are tracking an access path e.get(iteratorContents(receiver)).  If so, since
         // lhs is being assigned from the iterator contents, propagate NONNULL for an access path
         // e.get(lhs)
         AccessPath mapGetPath =
-            input
-                .getRegularStore()
-                .getMapGetIteratorContentsAccessPath((LocalVariableNode) receiver);
+            input.getRegularStore().getMapGetIteratorContentsAccessPath(localVariableNode);
         if (mapGetPath != null) {
           // put sanity check here to minimize perf impact
           if (!isCallToMethod(methodInv, ITERATOR_TYPE_SUPPLIER, "next")) {
@@ -626,8 +621,7 @@ public class AccessPathNullnessPropagation
    */
   private @Nullable Node getMapNodeForKeySetIteratorCall(MethodInvocationNode invocationNode) {
     Node receiver = invocationNode.getTarget().getReceiver();
-    if (receiver instanceof MethodInvocationNode) {
-      MethodInvocationNode baseInvocation = (MethodInvocationNode) receiver;
+    if (receiver instanceof MethodInvocationNode baseInvocation) {
       // Check for a call to java.util.Map.keySet()
       if (NullabilityUtil.isMapMethod(
           ASTHelpers.getSymbol(baseInvocation.getTree()), state, "keySet", 0)) {
@@ -741,30 +735,22 @@ public class AccessPathNullnessPropagation
     Symbol symbol = Preconditions.checkNotNull(ASTHelpers.getSymbol(fieldAccessNode.getTree()));
     setReceiverNonnull(updates, fieldAccessNode.getReceiver(), symbol);
     Nullness nullness = NULLABLE;
-    boolean fieldMayBeNull;
-    switch (handler.onDataflowVisitFieldAccess(
-        fieldAccessNode,
-        symbol,
-        state.getTypes(),
-        state.context,
-        apContext,
-        values(input),
-        updates)) {
-      case HINT_NULLABLE:
-        fieldMayBeNull = true;
-        break;
-      case FORCE_NONNULL:
-        fieldMayBeNull = false;
-        break;
-      case UNKNOWN:
-        fieldMayBeNull =
-            NullabilityUtil.mayBeNullFieldFromType(
-                symbol, config, handler, getCodeAnnotationInfo(state));
-        break;
-      default:
-        // Should be unreachable unless NullnessHint changes, cases above are exhaustive!
-        throw new RuntimeException("Unexpected NullnessHint from handler!");
-    }
+
+    boolean fieldMayBeNull =
+        switch (handler.onDataflowVisitFieldAccess(
+            fieldAccessNode,
+            symbol,
+            state.getTypes(),
+            state.context,
+            apContext,
+            values(input),
+            updates)) {
+          case HINT_NULLABLE -> true;
+          case FORCE_NONNULL -> false;
+          case UNKNOWN ->
+              NullabilityUtil.mayBeNullFieldFromType(
+                  symbol, config, handler, getCodeAnnotationInfo(state));
+        };
     if (!fieldMayBeNull) {
       nullness = NONNULL;
     } else {
@@ -934,14 +920,13 @@ public class AccessPathNullnessPropagation
     Node condition = assertionErrorNode.getCondition();
 
     if (condition == null
-        || !(condition instanceof NotEqualNode)
-        || !(((NotEqualNode) condition).getRightOperand() instanceof NullLiteralNode)) {
+        || !(condition instanceof NotEqualNode notEqualNode)
+        || !(notEqualNode.getRightOperand() instanceof NullLiteralNode)) {
       return noStoreChanges(NULLABLE, input);
     }
 
     AccessPath accessPath =
-        AccessPath.getAccessPathForNode(
-            ((NotEqualNode) condition).getLeftOperand(), state, apContext);
+        AccessPath.getAccessPathForNode(notEqualNode.getLeftOperand(), state, apContext);
 
     if (accessPath == null) {
       return noStoreChanges(NULLABLE, input);
@@ -1021,9 +1006,9 @@ public class AccessPathNullnessPropagation
         for (Node operand : caseNode.getCaseOperands()) {
           Symbol operandSymbol = ASTHelpers.getSymbol(operand.getTree());
           Symbol varSymbol = ASTHelpers.getSymbol(varTree);
-          if (operand instanceof LocalVariableNode) {
+          if (operand instanceof LocalVariableNode localVariableNode) {
             if (operandSymbol != null && operandSymbol.equals(varSymbol)) {
-              return (LocalVariableNode) operand;
+              return localVariableNode;
             }
           }
         }

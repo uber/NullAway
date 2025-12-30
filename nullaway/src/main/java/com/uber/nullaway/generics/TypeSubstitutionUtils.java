@@ -40,9 +40,8 @@ public class TypeSubstitutionUtils {
       return null;
     }
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        subtype instanceof DeclaredType
-            ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) subtype, superTypeSymbol, types, config)
+        subtype instanceof DeclaredType declaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(declaredType, superTypeSymbol, types, config)
             : Map.of();
     // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
     // same type variables as asSuper; we use it to find the positions corresponding to type
@@ -65,9 +64,9 @@ public class TypeSubstitutionUtils {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        t instanceof DeclaredType
+        t instanceof DeclaredType declaredType
             ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) t, (Symbol.MethodSymbol) sym, types, config)
+                declaredType, (Symbol.MethodSymbol) sym, types, config)
             : Map.of();
     return restoreExplicitNullabilityAnnotations(
         origType, memberType, config, annotsOnTypeVarsFromSubtypes);
@@ -80,20 +79,24 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
-   * @param annotsOnTypeVarsFromSubtypes annotations on type variables added by subtypes
+   * @param extraTypeVariableAnnotations Additional annotations to consider for type variables. If
+   *     there is no explicit nullability annotation on a type variable {@code X} in {@code
+   *     origType}, but {@code X} is present as a key in this map, the corresponding annotation will
+   *     be used when substituting in {@code newType}. If {@code X} has an explicit nullability
+   *     annotation in {@code origType}, that takes precedence over this map.
    * @return the new type with explicit nullability annotations restored
    */
   public static Type restoreExplicitNullabilityAnnotations(
       Type origType,
       Type newType,
       Config config,
-      Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
-    return new RestoreNullnessAnnotationsVisitor(config, annotsOnTypeVarsFromSubtypes)
+      Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
+    return new RestoreNullnessAnnotationsVisitor(config, extraTypeVariableAnnotations)
         .visit(newType, origType);
   }
 
   /**
-   * A visitor that restores explicit nullability annotations on type variables from another type to
+   * A visitor that restores explicit nullability annotations on types nested within another type to
    * the corresponding positions in the visited type. If no annotations need to be restored, returns
    * the visited type object itself.
    */
@@ -101,13 +104,20 @@ public class TypeSubstitutionUtils {
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
     private final Config config;
-    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes;
+
+    /**
+     * Additional annotations to consider for type variables. If there is no explicit nullability
+     * annotation on a type variable {@code X}, but {@code X} is present as a key in this map, the
+     * corresponding annotation will be used when substituting in the visited type. If {@code X} has
+     * an explicit nullability annotation, that takes precedence over this map.
+     */
+    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations;
 
     RestoreNullnessAnnotationsVisitor(
         Config config,
-        Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
+        Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
       this.config = config;
-      this.annotsOnTypeVarsFromSubtypes = annotsOnTypeVarsFromSubtypes;
+      this.extraTypeVariableAnnotations = extraTypeVariableAnnotations;
     }
 
     @Override
@@ -129,34 +139,29 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
-      if (other instanceof Type.TypeVar) {
-        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-        if (updated != null) {
-          return updated;
-        }
-      }
+      Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ClassType)) {
-        return t;
+        return updated;
       }
-      Type outer = t.getEnclosingType();
-      Type outer1 = visit(outer, other.getEnclosingType());
-      List<Type> typarams = t.getTypeArguments();
+      Type outer = updated.getEnclosingType();
+      Type outer1 = outer.accept(this, other.getEnclosingType());
+      List<Type> typarams = updated.getTypeArguments();
       List<Type> typarams1 = visitTypeLists(typarams, other.getTypeArguments());
       if (outer1 == outer && typarams1 == typarams) {
-        return t;
+        return updated;
       } else {
-        return TYPE_METADATA_BUILDER.createClassType(t, outer1, typarams1);
+        return TYPE_METADATA_BUILDER.createClassType(updated, outer1, typarams1);
       }
     }
 
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
-      if (!(other instanceof Type.WildcardType)) {
+      if (!(other instanceof Type.WildcardType wildcardType)) {
         return wt;
       }
       Type t = wt.type;
       if (t != null) {
-        t = visit(t, ((Type.WildcardType) other).type);
+        t = visit(t, wildcardType.type);
       }
       if (t == wt.type) {
         return wt;
@@ -167,15 +172,14 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitTypeVar(Type.TypeVar t, Type other) {
-      Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-      return updated != null ? updated : t;
+      return updateDirectNullabilityAnnotationsForType(t, other);
     }
 
     @Override
     public Type visitForAll(Type.ForAll t, Type other) {
       Type methodType = t.qtype;
       Type otherMethodType = ((Type.ForAll) other).qtype;
-      Type newMethodType = visit(methodType, otherMethodType);
+      Type newMethodType = methodType.accept(this, otherMethodType);
       if (methodType == newMethodType) {
         return t;
       } else {
@@ -185,13 +189,14 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type variable {@code other} (either direct or from subtypes).
+     * on a type {@code other}. If {@code other} is a type variable, we also check {@code
+     * extraTypeVariableAnnotations} for any additional annotations to consider.
      *
      * @param t the type to update
-     * @param other the type variable to update from
-     * @return the updated type, or {@code null} if no updates were made
+     * @param other the type to update from
+     * @return the updated type, or {@code t} if no updates were made
      */
-    private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
+    private Type updateDirectNullabilityAnnotationsForType(Type t, Type other) {
       // first check for annotations directly on the type variable
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
@@ -203,13 +208,13 @@ public class TypeSubstitutionUtils {
           return typeWithAnnot(t, annot);
         }
       }
-      // then see if any annotations were added from subtypes
+      // then see if there are any extra annotations to consider
       Attribute.TypeCompound typeArgAnnot =
-          (Attribute.TypeCompound) annotsOnTypeVarsFromSubtypes.get(other.tsym);
+          (Attribute.TypeCompound) extraTypeVariableAnnotations.get(other.tsym);
       if (typeArgAnnot != null) {
         return typeWithAnnot(t, typeArgAnnot);
       }
-      return null;
+      return t;
     }
 
     private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
@@ -220,22 +225,16 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitArrayType(Type.ArrayType t, Type other) {
-      if (other instanceof Type.TypeVar) {
-        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-        if (updated != null) {
-          return updated;
-        }
+      Type.ArrayType updated = (Type.ArrayType) updateDirectNullabilityAnnotationsForType(t, other);
+      if (!(other instanceof Type.ArrayType otherArrayType)) {
+        return updated;
       }
-      if (!(other instanceof Type.ArrayType)) {
-        return t;
-      }
-      Type.ArrayType otherArrayType = (Type.ArrayType) other;
-      Type elemtype = t.elemtype;
-      Type newElemType = visit(elemtype, otherArrayType.elemtype);
+      Type elemtype = updated.elemtype;
+      Type newElemType = elemtype.accept(this, otherArrayType.elemtype);
       if (newElemType == elemtype) {
-        return t;
+        return updated;
       } else {
-        return TYPE_METADATA_BUILDER.createArrayType(t, newElemType);
+        return TYPE_METADATA_BUILDER.createArrayType(updated, newElemType);
       }
     }
 

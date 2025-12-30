@@ -147,7 +147,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     for (String fieldName : fieldNames) {
       Symbol.ClassSymbol classSymbol = ASTHelpers.enclosingClass(methodSymbol);
       Preconditions.checkNotNull(
-          classSymbol, "Could not find the enclosing class for method symbol: " + methodSymbol);
+          classSymbol, "Could not find the enclosing class for method symbol: %s", methodSymbol);
       VariableElement field = getFieldOfClass(classSymbol, fieldName);
       if (field == null) {
         // we will report an error on the method declaration
@@ -212,11 +212,11 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
       UnderlyingAST underlyingAST,
       List<LocalVariableNode> parameters,
       NullnessStore.Builder result) {
-    if (!(underlyingAST instanceof UnderlyingAST.CFGMethod)) {
+    if (!(underlyingAST instanceof UnderlyingAST.CFGMethod cfgMethod)) {
       return super.onDataflowInitialStore(underlyingAST, parameters, result);
     }
-    MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
-    ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
+    MethodTree methodTree = cfgMethod.getMethod();
+    ClassTree classTree = cfgMethod.getClassTree();
     Set<String> fieldNames =
         getAnnotationValueArray(ASTHelpers.getSymbol(methodTree), annotName, false);
     if (fieldNames == null) {

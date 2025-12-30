@@ -73,7 +73,8 @@ public class SerializationTest extends NullAwayTestsBase {
         values -> {
           Preconditions.checkArgument(
               values.length == 12,
-              "Needs exactly 12 values to create ErrorDisplay object but found: " + values.length);
+              "Needs exactly 12 values to create ErrorDisplay object but found: %s",
+              values.length);
           return new ErrorDisplay(
               values[0],
               values[1],
@@ -92,8 +93,8 @@ public class SerializationTest extends NullAwayTestsBase {
         values -> {
           Preconditions.checkArgument(
               values.length == 7,
-              "Needs exactly 7 values to create FieldInitDisplay object but found: "
-                  + values.length);
+              "Needs exactly 7 values to create FieldInitDisplay object but found: %s",
+              values.length);
           return new FieldInitDisplay(
               values[6],
               values[2],

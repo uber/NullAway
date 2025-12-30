@@ -40,8 +40,8 @@ dependencies {
     implementation project(':nullaway')
     // use the same version of Error Prone Core that we are compiling NullAway against, so we can
     // benchmark against different versions of Error Prone
-    implementation deps.build.errorProneCoreForApi
-    api deps.build.jspecify
+    implementation libs.error.prone.core
+    api libs.jspecify
 
 
     // Source jars for our desired benchmarks
@@ -67,7 +67,7 @@ dependencies {
     // To run AutoValue during NullAway compilation
     nullawayReleaseProcessors "com.google.auto.value:auto-value:1.9"
 
-    testImplementation deps.test.junit4
+    testImplementation libs.junit4
 }
 
 def caffeineSourceDir = project.layout.buildDirectory.dir('caffeineSources')
@@ -143,4 +143,9 @@ jmh {
 tasks.withType(Test).configureEach { test ->
     // pass the extra JVM args so we can compile benchmarks in unit tests
     test.jvmArgs += extraJVMArgs
+}
+
+// Don't test on JDK 17 as it doesn't support the latest version of Error Prone
+tasks.named("testJdk17").configure {
+    onlyIf { false }
 }

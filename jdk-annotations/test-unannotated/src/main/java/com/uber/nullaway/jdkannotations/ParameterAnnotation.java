@@ -47,4 +47,14 @@ public class ParameterAnnotation {
   public static void takesNonNullGenericArray(Generic<String>[] objects) {
     System.out.println(objects);
   }
+
+  public static <K, T extends String> T nullableTypeParam(K k, T t) {
+    return t;
+  }
+
+  public static <K, T> K twoNullableTypeParam(K k, T t) {
+    return k;
+  }
+
+  public static <T> void nonNullTypeParam(T t) {}
 }

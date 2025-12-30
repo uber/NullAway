@@ -55,13 +55,10 @@ public interface SymbolLocation {
    * @return subtype of {@link SymbolLocation} matching target's type.
    */
   static SymbolLocation createLocationFromSymbol(Symbol target) {
-    switch (target.getKind()) {
-      case PARAMETER:
-        return new MethodParameterLocation(target);
-      case METHOD:
-        return new MethodLocation(target);
-      case FIELD:
-        return new FieldLocation(target);
+    return switch (target.getKind()) {
+      case PARAMETER -> new MethodParameterLocation(target);
+      case METHOD -> new MethodLocation(target);
+      case FIELD -> new FieldLocation(target);
       // The case where a local variable is declared inside a lambda expression is currently not
       // handled. This will require changes to how LocalVariableLocation is created.
       // An example of the case :
@@ -75,10 +72,8 @@ public interface SymbolLocation {
       //             l[0] = null;
       //           });
       // }
-      case LOCAL_VARIABLE:
-        return new LocalVariableLocation(target);
-      default:
-        throw new IllegalArgumentException("Cannot locate node: " + target);
-    }
+      case LOCAL_VARIABLE -> new LocalVariableLocation(target);
+      default -> throw new IllegalArgumentException("Cannot locate node: " + target);
+    };
   }
 }

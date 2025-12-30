@@ -23,6 +23,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.List;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ElementKind;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 
 /**
@@ -131,18 +132,11 @@ public enum Nullness implements AbstractValue<Nullness> {
    * get the set of all values, or {@code NULLABLE}.
    */
   public Nullness deducedValueWhenNotEqual() {
-    switch (this) {
-      case NULLABLE:
-        return NULLABLE;
-      case NONNULL:
-        return NULLABLE;
-      case NULL:
-        return NONNULL;
-      case BOTTOM:
-        return BOTTOM;
-      default:
-        throw new AssertionError("Inverse of " + this + " not defined");
-    }
+    return switch (this) {
+      case NULLABLE, NONNULL -> NULLABLE;
+      case NULL -> NONNULL;
+      case BOTTOM -> BOTTOM;
+    };
   }
 
   @Override
@@ -260,9 +254,7 @@ public enum Nullness implements AbstractValue<Nullness> {
   }
 
   private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
-    // Here we compare with toString() to preserve compatibility with JDK 11 (records only
-    // introduced in JDK 16)
-    if (!symbol.owner.getKind().toString().equals("RECORD")) {
+    if (!symbol.owner.getKind().equals(ElementKind.RECORD)) {
       return false;
     }
     if (!symbol.getSimpleName().contentEquals("equals")) {

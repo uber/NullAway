@@ -112,8 +112,8 @@ public class DefinitelyDerefedParamsDriver {
    */
   private void accountCodeBytes(IMethod mtd) {
     // Get method bytecode size
-    if (mtd instanceof ShrikeCTMethod) {
-      analyzedBytes += ((ShrikeCTMethod) mtd).getBytecodes().length;
+    if (mtd instanceof ShrikeCTMethod shrikeCtMethod) {
+      analyzedBytes += shrikeCtMethod.getBytecodes().length;
     }
   }
 
@@ -387,7 +387,8 @@ public class DefinitelyDerefedParamsDriver {
   private static InputStream getInputStream(String libPath) throws IOException {
     Preconditions.checkArgument(
         (libPath.endsWith(".jar") || libPath.endsWith(".aar")) && Files.exists(Paths.get(libPath)),
-        "invalid library path! " + libPath);
+        "invalid library path! %s",
+        libPath);
     LOG(VERBOSE, "Info", "opening library: " + libPath + "...");
     InputStream jarIS = null;
     if (libPath.endsWith(".jar")) {
@@ -407,7 +408,7 @@ public class DefinitelyDerefedParamsDriver {
    */
   private void writeModelJAR(String outPath) throws IOException {
     Preconditions.checkArgument(
-        outPath.endsWith(ASTUBX_JAR_SUFFIX), "invalid model file path! " + outPath);
+        outPath.endsWith(ASTUBX_JAR_SUFFIX), "invalid model file path! %s", outPath);
     ZipOutputStream zos = new ZipOutputStream(new FileOutputStream(outPath));
     if (!nonnullParams.isEmpty()) {
       ZipEntry entry = new ZipEntry(DEFAULT_ASTUBX_LOCATION);
@@ -455,13 +456,15 @@ public class DefinitelyDerefedParamsDriver {
           sign,
           MethodAnnotationsRecord.create(
               nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
+              ImmutableSet.of(),
               ImmutableMap.copyOf(argAnnotation)));
       nullableReturns.remove(sign);
     }
     for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
       methodRecords.put(
           nullableReturnMethodSign,
-          MethodAnnotationsRecord.create(ImmutableSet.of("Nullable"), ImmutableMap.of()));
+          MethodAnnotationsRecord.create(
+              ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
     }
     StubxWriter.write(
         out,
@@ -476,7 +479,8 @@ public class DefinitelyDerefedParamsDriver {
   private void writeAnnotations(String inPath, String outFile) throws IOException {
     Preconditions.checkArgument(
         inPath.endsWith(".jar") || inPath.endsWith(".aar") || inPath.endsWith(".class"),
-        "invalid input path - " + inPath);
+        "invalid input path - %s",
+        inPath);
     LOG(DEBUG, "DEBUG", "Writing Annotations to " + outFile);
 
     new File(outFile).getParentFile().mkdirs();
@@ -668,15 +672,11 @@ public class DefinitelyDerefedParamsDriver {
   }
 
   private static String sourceLevelWildcardType(String typeName) {
-    switch (typeName.charAt(0)) {
-      case '*':
-        return "?";
-      case '+':
-        return "? extends " + getSourceLevelQualifiedTypeName(typeName.substring(1));
-      case '-':
-        return "? super " + getSourceLevelQualifiedTypeName(typeName.substring(1));
-      default:
-        throw new RuntimeException("unexpected wildcard type name" + typeName);
-    }
+    return switch (typeName.charAt(0)) {
+      case '*' -> "?";
+      case '+' -> "? extends " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      case '-' -> "? super " + getSourceLevelQualifiedTypeName(typeName.substring(1));
+      default -> throw new RuntimeException("unexpected wildcard type name" + typeName);
+    };
   }
 }

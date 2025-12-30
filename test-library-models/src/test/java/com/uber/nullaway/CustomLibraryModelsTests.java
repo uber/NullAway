@@ -312,6 +312,158 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void nestedTypeAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void test() {",
+            "    NestedAnnots<@Nullable String> g = NestedAnnots.genericMethod(String.class);",
+            "    NestedAnnots<Integer> g2 = NestedAnnots.genericMethod(Integer.class);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void deeplyNestedTypeAnnot() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testPositive(NestedAnnots<NestedAnnots<String>> p) {",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    NestedAnnots.deeplyNested(p);",
+            "  }",
+            "  void testNegative(NestedAnnots<NestedAnnots<@Nullable String>> p) {",
+            "    NestedAnnots.deeplyNested(p);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedArray1() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testPositive() {",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    NestedAnnots<NestedAnnots<String>[]> unused = NestedAnnots.nestedArray1();",
+            "  }",
+            "  void testNegative() {",
+            "    NestedAnnots<NestedAnnots<@Nullable String>[]> unused = NestedAnnots.nestedArray1();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedArray2() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testPositive() {",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    NestedAnnots<String[]> unused = NestedAnnots.nestedArray2();",
+            "  }",
+            "  void testNegative() {",
+            "    NestedAnnots<String @Nullable []> unused = NestedAnnots.nestedArray2();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void nestedWildcards() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testUpper(NestedAnnots<@Nullable String> t) {",
+            "    // TODO report an error here when we support wildcards",
+            "    NestedAnnots.wildcardUpper(t);",
+            "  }",
+            "  void testLower(NestedAnnots<String> t) {",
+            "    // TODO report an error here when we support wildcards",
+            "    NestedAnnots.wildcardLower(t);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void multipleArgs() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            "import com.uber.lib.unannotated.NestedAnnots;",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  void testPositive() {",
+            "    NestedAnnots.multipleArgs(",
+            "        // BUG: Diagnostic contains: incompatible types",
+            "        new NestedAnnots<@Nullable String>(),",
+            "        // BUG: Diagnostic contains: incompatible types",
+            "        new NestedAnnots<Integer>());",
+            "  }",
+            "  void testNegative() {",
+            "    NestedAnnots.multipleArgs(",
+            "        new NestedAnnots<String>(), new NestedAnnots<@Nullable Integer>());",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())

@@ -48,11 +48,9 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
   public AbstractSymbolLocation(ElementKind type, Symbol target) {
     Preconditions.checkArgument(
         type.equals(target.getKind()),
-        "Cannot instantiate element of type: "
-            + target.getKind()
-            + " with location type of: "
-            + type
-            + ".");
+        "Cannot instantiate element of type: %s with location type of: %s.",
+        target.getKind(),
+        type);
     this.type = type;
     this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
     URI pathInURI = enclosingClass.sourcefile != null ? enclosingClass.sourcefile.toUri() : null;

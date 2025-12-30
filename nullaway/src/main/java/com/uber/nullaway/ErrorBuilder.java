@@ -160,7 +160,7 @@ public class ErrorBuilder {
 
   private static boolean canHaveSuppressWarningsAnnotation(Tree tree) {
     return tree instanceof MethodTree
-        || (tree instanceof ClassTree && ((ClassTree) tree).getSimpleName().length() != 0)
+        || (tree instanceof ClassTree classTree && classTree.getSimpleName().length() != 0)
         || tree instanceof VariableTree;
   }
 
@@ -192,12 +192,12 @@ public class ErrorBuilder {
       Description.Builder builder,
       VisitorState state) {
     switch (errorMessage.messageType) {
-      case DEREFERENCE_NULLABLE:
-      case RETURN_NULLABLE:
-      case PASS_NULLABLE:
-      case ASSIGN_FIELD_NULLABLE:
-      case SWITCH_EXPRESSION_NULLABLE:
-      case UNBOX_NULLABLE:
+      case DEREFERENCE_NULLABLE,
+          RETURN_NULLABLE,
+          PASS_NULLABLE,
+          ASSIGN_FIELD_NULLABLE,
+          SWITCH_EXPRESSION_NULLABLE,
+          UNBOX_NULLABLE -> {
         if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree)) {
           builder = addCastToNonNullFix(suggestTree, builder, state);
         } else {
@@ -209,24 +209,17 @@ public class ErrorBuilder {
             builder = addSuppressWarningsFix(suppressibleNode, builder, suppressionName);
           }
         }
-        break;
-      case CAST_TO_NONNULL_ARG_NONNULL:
-        builder = removeCastToNonNullFix(suggestTree, builder, state);
-        break;
-      case WRONG_OVERRIDE_RETURN:
-        builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
-        break;
-      case WRONG_OVERRIDE_PARAM:
-        builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
-        break;
-      case METHOD_NO_INIT:
-      case FIELD_NO_INIT:
-        builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
-        break;
-      case ANNOTATION_VALUE_INVALID:
-        break;
-      default:
-        builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+      }
+      case CAST_TO_NONNULL_ARG_NONNULL ->
+          builder = removeCastToNonNullFix(suggestTree, builder, state);
+      case WRONG_OVERRIDE_RETURN ->
+          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+      case WRONG_OVERRIDE_PARAM ->
+          builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
+      case METHOD_NO_INIT, FIELD_NO_INIT ->
+          builder = addSuppressWarningsFix(suggestTree, builder, INITIALIZATION_CHECK_NAME);
+      case ANNOTATION_VALUE_INVALID -> {}
+      default -> builder = addSuppressWarningsFix(suggestTree, builder, suppressionName);
     }
     return builder;
   }
@@ -287,8 +280,8 @@ public class ErrorBuilder {
       suppressions.add(suppressionName);
       // find the existing annotation, so we can replace it
       ModifiersTree modifiers =
-          (suggestTree instanceof MethodTree)
-              ? ((MethodTree) suggestTree).getModifiers()
+          (suggestTree instanceof MethodTree methodTree)
+              ? methodTree.getModifiers()
               : ((VariableTree) suggestTree).getModifiers();
       List<? extends AnnotationTree> annotations = modifiers.getAnnotations();
       // noinspection ConstantConditions
@@ -336,10 +329,11 @@ public class ErrorBuilder {
    */
   private boolean canBeCastToNonNull(Tree tree) {
     switch (tree.getKind()) {
-      case NULL_LITERAL:
+      case NULL_LITERAL -> {
         // never do castToNonNull(null)
         return false;
-      case IDENTIFIER:
+      }
+      case IDENTIFIER -> {
         // Don't wrap a @Nullable parameter in castToNonNull, as this misleads callers into thinking
         // they can pass in null without causing an NPE.  A more appropriate fix would likely be to
         // make the parameter @NonNull and add casts at call sites, but that is beyond the scope of
@@ -348,8 +342,10 @@ public class ErrorBuilder {
         return !(symbol != null
             && symbol.getKind().equals(ElementKind.PARAMETER)
             && hasNullableAnnotation(symbol, config));
-      default:
+      }
+      default -> {
         return true;
+      }
     }
   }
 
@@ -436,12 +432,11 @@ public class ErrorBuilder {
   }
 
   private boolean symbolIsExcludedClassSymbol(Symbol symbol) {
-    if (symbol instanceof Symbol.ClassSymbol) {
+    if (symbol instanceof Symbol.ClassSymbol classSymbol) {
       ImmutableSet<String> excludedClassAnnotations = config.getExcludedClassAnnotations();
-      return ((Symbol.ClassSymbol) symbol)
-          .getAnnotationMirrors().stream()
-              .map(anno -> anno.getAnnotationType().toString())
-              .anyMatch(excludedClassAnnotations::contains);
+      return classSymbol.getAnnotationMirrors().stream()
+          .map(anno -> anno.getAnnotationType().toString())
+          .anyMatch(excludedClassAnnotations::contains);
     }
     return false;
   }

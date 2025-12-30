@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -14,26 +14,27 @@
  * limitations under the License.
  */
 
-import net.ltgt.gradle.errorprone.CheckSeverity
-
 plugins {
     id('com.android.application')
 }
 
 android {
-    compileSdkVersion deps.build.compileSdkVersion
+    compileSdkVersion Integer.parseInt(libs.versions.compile.sdk.get())
     namespace "com.uber.myapplication"
 
     defaultConfig {
         applicationId "com.uber.myapplication"
-        minSdkVersion deps.build.minSdkVersion
-        targetSdkVersion deps.build.targetSdkVersion
+        minSdkVersion Integer.parseInt(libs.versions.min.sdk.get())
+        targetSdkVersion Integer.parseInt(libs.versions.target.sdk.get())
         versionCode 1
         versionName "1.0"
     }
+
+    // This avoids a build-time warning when compiling using JDK 24+.  JDK 8 is the default target for
+    // Android applications, but support for targeting JDK 8 is deprecated in JDK 24+.
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 
     lint {
@@ -42,12 +43,13 @@ android {
 }
 
 dependencies {
-    implementation deps.support.appcompat
-    annotationProcessor deps.build.errorProneCore
+    implementation libs.appcompat
+
+    annotationProcessor libs.error.prone.core
     annotationProcessor project(":nullaway")
     annotationProcessor project(path: ":sample-library-model")
 
-    testImplementation deps.test.junit4
+    testImplementation libs.junit4
 }
 
 // Configure Java compilation for all Android JavaCompile tasks (AGP 8+ compatible)

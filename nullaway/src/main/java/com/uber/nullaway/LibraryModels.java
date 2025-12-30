@@ -24,10 +24,12 @@ package com.uber.nullaway;
 
 import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -112,6 +114,15 @@ public interface LibraryModels {
    * @return set of library methods that are assumed not to return null
    */
   ImmutableSet<MethodRef> nonNullReturns();
+
+  /**
+   * For each library method key, provides a mapping from parameter index to the nested annotation
+   * information for that parameter type. A parameter index of -1 indicates the return type.
+   */
+  default ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+      nestedAnnotationsForMethods() {
+    return ImmutableMap.of();
+  }
 
   /**
    * Get the (className, type argument index) pairs for library classes where the generic type

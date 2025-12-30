@@ -33,6 +33,7 @@ import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
@@ -454,11 +455,12 @@ public interface Handler {
    *
    * @param methodSymbol The method symbol
    * @param index index of the generic type variable (starting at 0)
+   * @param state The current visitor state.
    * @return boolean true if the variable should be treated as having a {@code @Nullable} upper
    *     bound
    */
   default boolean onOverrideMethodTypeVariableUpperBound(
-      Symbol.MethodSymbol methodSymbol, int index) {
+      Symbol.MethodSymbol methodSymbol, int index, VisitorState state) {
     return false;
   }
 
@@ -470,6 +472,19 @@ public interface Handler {
    */
   default boolean onOverrideNullMarkedClasses(String className) {
     return false;
+  }
+
+  /**
+   * Method to override the type of a method.
+   *
+   * @param methodSymbol symbol of the method
+   * @param methodType original method type
+   * @param state The current visitor state.
+   * @return the possibly modified method type
+   */
+  default Type.MethodType onOverrideMethodType(
+      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+    return methodType;
   }
 
   /**

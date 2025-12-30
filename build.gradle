@@ -15,6 +15,7 @@
  */
 
 import net.ltgt.gradle.errorprone.CheckSeverity
+
 buildscript {
     repositories {
         mavenCentral()
@@ -22,25 +23,31 @@ buildscript {
     }
 
     dependencies {
-        classpath 'com.android.tools.build:gradle:8.13.0'
-        classpath 'com.vanniktech:gradle-maven-publish-plugin:0.34.0'
+        classpath libs.android.gradle.plugin
+        classpath libs.gradle.maven.publish.plugin
     }
 }
+
 plugins {
-    id "com.diffplug.spotless" version "8.0.0"
-    id "net.ltgt.errorprone" version "4.3.0" apply false
-    id "com.gradleup.shadow" version "8.3.8" apply false
-    id "me.champeau.jmh" version "0.7.1" apply false
-    id "com.github.ben-manes.versions" version "0.51.0"
-    id "com.felipefzdz.gradle.shellcheck" version "1.5.0"
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.errorprone) apply false
+    alias(libs.plugins.shadow) apply false
+    alias(libs.plugins.jmh) apply false
+    alias(libs.plugins.versions)
+    alias(libs.plugins.shellcheck)
 }
+
+ext {
+    oldestErrorProneVersion = libs.versions.errorProneOldest.get()
+    errorProneJdk17Version = libs.versions.errorProneJdk17.get()
+}
+
+
 
 repositories {
     // to get the google-java-format jar and dependencies
     mavenCentral()
 }
-
-apply from: "gradle/dependencies.gradle"
 
 def currentJavaVersion = JavaVersion.current()
 if (!currentJavaVersion.isCompatibleWith(JavaVersion.VERSION_21)) {
@@ -61,7 +68,7 @@ if (currentJavaVersion == JavaVersion.VERSION_21) {
 subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
     project.dependencies {
-        errorprone deps.build.errorProneCore
+        errorprone libs.error.prone.core
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
@@ -79,6 +86,10 @@ subprojects { project ->
         options.errorprone {
             // disable warnings in generated code; AutoValue code fails UnnecessaryParentheses check
             disableWarningsInGeneratedCode = true
+
+            // https://github.com/uber/NullAway/issues/1398
+            check("MisformattedTestData", CheckSeverity.OFF)
+
             // this check is too noisy
             check("StringSplitter", CheckSeverity.OFF)
             // https://github.com/google/error-prone/issues/3366
@@ -108,8 +119,8 @@ subprojects { project ->
     // We need to use the older sourceCompatibility / targetCompatibility settings, rather than the newer "release"
     // option, since we use internal javac APIs, which "release" doesn't allow
     tasks.withType(JavaCompile) {
-        java.sourceCompatibility = JavaVersion.VERSION_11
-        java.targetCompatibility = JavaVersion.VERSION_11
+        java.sourceCompatibility = JavaVersion.VERSION_17
+        java.targetCompatibility = JavaVersion.VERSION_17
     }
 
     tasks.withType(Test).configureEach {
@@ -123,11 +134,11 @@ subprojects { project ->
 
     // Spotless complains when applied to the folders containing projects
     // when they do not have a build.gradle file
-    if (project.name != "jar-infer" && project.name != "library-model" && project.name != "jdk-annotations") {
+    if (project.name != "jar-infer" && project.name != "library-model" && project.name != "jdk-annotations" && project.name != "nullaway-bom") {
         project.apply plugin: "com.diffplug.spotless"
         spotless {
             java {
-                googleJavaFormat(deps.versions.googlejavaformat)
+                googleJavaFormat(libs.versions.google.java.format.get())
             }
         }
     }
@@ -144,7 +155,7 @@ spotless {
     }
 }
 spotlessPredeclare {
-    java { googleJavaFormat(deps.versions.googlejavaformat) }
+    java { googleJavaFormat(libs.versions.google.java.format.get()) }
     groovyGradle {
         greclipse()
     }

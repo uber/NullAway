@@ -45,10 +45,10 @@ public class InvocationArguments {
 
     // Cache args as array (fast indexed access)
     List<? extends ExpressionTree> argsList;
-    if (invocationTree instanceof MethodInvocationTree) {
-      argsList = ((MethodInvocationTree) invocationTree).getArguments();
-    } else if (invocationTree instanceof NewClassTree) {
-      argsList = ((NewClassTree) invocationTree).getArguments();
+    if (invocationTree instanceof MethodInvocationTree methodInvocationTree) {
+      argsList = methodInvocationTree.getArguments();
+    } else if (invocationTree instanceof NewClassTree newClassTree) {
+      argsList = newClassTree.getArguments();
     } else {
       throw new IllegalStateException(
           "Unexpected invocation tree type " + invocationTree.getClass());

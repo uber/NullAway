@@ -9,13 +9,13 @@ repositories {
 }
 
 dependencies {
-    implementation deps.build.commonscli
-    implementation deps.build.guava
+    implementation libs.commons.cli
+    implementation libs.guava
     implementation project(":jar-infer:jar-infer-lib")
     implementation project(":library-model:library-model-generator")
 
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
 }

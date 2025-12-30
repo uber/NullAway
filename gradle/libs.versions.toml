@@ -1,0 +1,124 @@
+[versions]
+asm = "9.3"
+check-framework = "3.49.2"
+support = "27.1.1"
+wala = "1.6.12"
+commons-cli = "1.4"
+auto-value = "1.11.1"
+auto-service = "1.1.1"
+google-java-format = "1.30.0"
+android-gradle-plugin = "8.13.0"
+gradle-maven-publish-plugin = "0.34.0"
+spotless = "8.1.0"
+errorprone-plugin = "4.3.0"
+shadow = "8.3.8"
+jmh = "0.7.3"
+versions-plugin = "0.53.0"
+shellcheck = "1.5.0"
+
+errorProne = "2.45.0"
+errorProneJdk17 = "2.42.0"
+errorProneOldest = "2.14.0"
+
+semver4j = "3.1.0"
+jakarta-inject = "2.0.0"
+javax-inject = "1"
+gson = "2.13.1"
+guava = "31.1-jre"
+javax-validation = "2.0.1.Final"
+jspecify = "1.0.0"
+commons-io = "2.11.0"
+junit4 = "4.13.2"
+junit-jupiter = "5.14.0"
+apiguardian = "1.0.0"
+jetbrains-annotations = "24.1.0"
+checker-compat-qual = "2.5.5"
+rxjava2 = "2.1.2"
+commons-lang3 = "3.8.1"
+commons-lang = "2.6"
+jsr305 = "3.0.2"
+lombok = "1.18.38"
+spring-beans = "5.3.7"
+spring-context = "5.3.7"
+grpc-core = "1.15.1"
+mockito = "5.19.0"
+javax-annotation = "1.3.2"
+assertj = "3.23.1"
+amazon-utils = "2.32.19"
+
+# --- Android SDK Versions ---
+compile-sdk = "30"
+min-sdk = "16"
+target-sdk = "30"
+
+[libraries]
+# --- Build Script Dependencies ---
+semver4j = { module = "com.vdurmont:semver4j", version.ref = "semver4j" }
+android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref = "android-gradle-plugin" }
+gradle-maven-publish-plugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "gradle-maven-publish-plugin" }
+
+# --- APT (Annotation Processing) ---
+auto-value = { module = "com.google.auto.value:auto-value", version.ref = "auto-value" }
+auto-value-annotations = { module = "com.google.auto.value:auto-value-annotations", version.ref = "auto-value" }
+auto-service = { module = "com.google.auto.service:auto-service", version.ref = "auto-service" }
+auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "auto-service" }
+jakarta-inject = { module = "jakarta.inject:jakarta.inject-api", version.ref = "jakarta-inject" }
+javax-inject = { module = "javax.inject:javax.inject", version.ref = "javax-inject" }
+
+# --- Build / Implementation ---
+asm = { module = "org.ow2.asm:asm", version.ref = "asm" }
+asm-tree = { module = "org.ow2.asm:asm-tree", version.ref = "asm" }
+
+# Error Prone Libraries
+error-prone-check-api = { module = "com.google.errorprone:error_prone_check_api", version.ref = "errorProne" }
+error-prone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorProne" }
+error-prone-test-helpers = { module = "com.google.errorprone:error_prone_test_helpers", version.ref = "errorProne" }
+
+# Dataflow & Utils
+checker-dataflow = { module = "org.checkerframework:dataflow-nullaway", version.ref = "check-framework" }
+gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
+guava = { module = "com.google.guava:guava", version.ref = "guava" }
+javax-validation = { module = "javax.validation:validation-api", version.ref = "javax-validation" }
+jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
+commons-cli = { module = "commons-cli:commons-cli", version.ref = "commons-cli" }
+
+# Wala Bundle
+wala-util = { module = "com.ibm.wala:com.ibm.wala.util", version.ref = "wala" }
+wala-shrike = { module = "com.ibm.wala:com.ibm.wala.shrike", version.ref = "wala" }
+wala-core = { module = "com.ibm.wala:com.ibm.wala.core", version.ref = "wala" }
+
+# --- Support ---
+appcompat = { module = "com.android.support:appcompat-v7", version.ref = "support" }
+
+# --- Test ---
+junit4 = { module = "junit:junit", version.ref = "junit4" }
+junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
+apiguardian = { module = "org.apiguardian:apiguardian-api", version.ref = "apiguardian" }
+jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
+checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "check-framework" }
+checker-compat-qual = { module = "org.checkerframework:checker-compat-qual", version.ref = "checker-compat-qual" }
+rxjava2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava2" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
+commons-lang = { module = "commons-lang:commons-lang", version.ref = "commons-lang" }
+jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
+lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
+spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring-beans" }
+spring-context = { module = "org.springframework:spring-context", version.ref = "spring-context" }
+grpc-core = { module = "io.grpc:grpc-core", version.ref = "grpc-core" }
+mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
+javax-annotation = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation" }
+assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
+amazon-utils = { module = "software.amazon.awssdk:utils", version.ref = "amazon-utils" }
+
+[bundles]
+wala = ["wala-util", "wala-shrike", "wala-core"]
+junit-jupiter = ["junit-jupiter-api", "apiguardian"]
+
+[plugins]
+spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
+errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }
+shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
+jmh = { id = "me.champeau.jmh", version.ref = "jmh" }
+versions = { id = "com.github.ben-manes.versions", version.ref = "versions-plugin" }
+shellcheck = { id = "com.felipefzdz.gradle.shellcheck", version.ref = "shellcheck" }

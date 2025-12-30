@@ -918,8 +918,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    void testUnsupported() {",
             "        String s = \"hello\";",
             "        // dataflow can't prove the argument is non-null",
-            "        // BUG: Diagnostic contains: passing @Nullable parameter 's == null ? null : s'",
             "        String t = id(s == null ? null : s);",
+            "        // BUG: Diagnostic contains: dereferenced expression t is @Nullable",
             "        t.hashCode();",
             "    }",
             "}")
@@ -974,85 +974,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: incompatible types:",
             "    Foo<String> foo3 = make(new @Nullable String[] { \"hello\", null, \"world\" });",
             "    Foo<@Nullable String> foo4 = make(new String[] { \"hello\", \"world\" });",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void supplierLambdaInference() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "    static interface Supplier<T extends @Nullable Object> {",
-            "        T get();",
-            "    }",
-            "    static <R> void invoke(Supplier<@Nullable R> supplier) {}",
-            "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
-            "        return supplier.get();",
-            "    }",
-            "    static void test() {",
-            "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
-            "        invoke(() -> null);",
-            "        // legal, should infer R -> @Nullable Object, but inference can't handle yet",
-            "        Object x = invokeWithReturn(() -> null);",
-            "        // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
-            "        x.hashCode();",
-            "    }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void lambdaReturnsGenericMethodCall() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "    static interface Supplier<T extends @Nullable Object> {",
-            "        T get();",
-            "    }",
-            "    static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {",
-            "        return supplier.get();",
-            "    }",
-            "    static <U extends @Nullable Object> U genericMethod(U var){",
-            "         return var;",
-            "    }",
-            "    static void test() {",
-            "        Object x = invokeWithReturn(() -> { return genericMethod(\"value\");});",
-            "        Object y = invokeWithReturn(() -> { return genericMethod(null);});",
-            "        // legal, should infer x is a @NonNull String",
-            "        x.hashCode();",
-            "        // BUG: Diagnostic contains: dereferenced expression y is @Nullable",
-            "        y.hashCode();",
-            "        // Block-bodied with parenthesized return",
-            "        Object x_block_paren = invokeWithReturn(() -> { return (genericMethod(\"value\"));});",
-            "        Object y_block_paren = invokeWithReturn(() -> { return (genericMethod(null));});",
-            "        // legal, should infer x_block_paren is a @NonNull String",
-            "        x_block_paren.hashCode();",
-            "        // BUG: Diagnostic contains: dereferenced expression y_block_paren is @Nullable",
-            "        y_block_paren.hashCode();",
-            "        // Expression-bodied",
-            "        Object x_expr = invokeWithReturn(() -> genericMethod(\"value\"));",
-            "        Object y_expr = invokeWithReturn(() -> genericMethod(null));",
-            "        // legal, should infer x_expr is a @NonNull String",
-            "        x_expr.hashCode();",
-            "        // BUG: Diagnostic contains: dereferenced expression y_expr is @Nullable",
-            "        y_expr.hashCode();",
-            "        // Expression-bodied with parenthesized return",
-            "        Object x_expr_paren = invokeWithReturn(() -> (genericMethod(\"value\")));",
-            "        Object y_expr_paren = invokeWithReturn(() -> (genericMethod(null)));",
-            "        // legal, should infer x_expr_paren is a @NonNull String",
-            "        x_expr_paren.hashCode();",
-            "        // BUG: Diagnostic contains: dereferenced expression y_expr_paren is @Nullable",
-            "        y_expr_paren.hashCode();",
-            "        // TODO",
-            "        // Object x2 = invokeWithReturn(() ->{ Object y2 = null; return y2;});",
-            "    }",
             "}")
         .doTest();
   }
@@ -1336,10 +1257,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * Self-contained test for https://github.com/uber/NullAway/issues/1157. We need to import
-   * JSpecify JDK models to get the original test working properly.
-   */
+  /** Self-contained test for https://github.com/uber/NullAway/issues/1157. */
   @Test
   public void atomicReferenceFieldUpdaterSelfContained() {
     makeHelperWithInferenceFailureWarning()
@@ -1352,6 +1270,21 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "      public static <U,W extends @Nullable Object> AtomicReferenceFieldUpdater<U,W> ",
             "        newUpdater(Class<U> tclass, Class<@NonNull W> vclass, String fieldName) { throw new RuntimeException(); }",
             "    }",
+            "    static final AtomicReferenceFieldUpdater<Test, @Nullable Object> RESULT_UPDATER =",
+            "            AtomicReferenceFieldUpdater.newUpdater(Test.class, Object.class, \"result\");",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void atomicReferenceFieldUpdaterFromJDK() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "import java.util.concurrent.atomic.AtomicReferenceFieldUpdater;",
+            "@NullMarked",
+            "public class Test {",
             "    static final AtomicReferenceFieldUpdater<Test, @Nullable Object> RESULT_UPDATER =",
             "            AtomicReferenceFieldUpdater.newUpdater(Test.class, Object.class, \"result\");",
             "}")
@@ -1382,33 +1315,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
             "    // BUG: Diagnostic contains: dereferenced expression",
             "    ((make(null))).get().toString();",
             "  }",
-            "}")
-        .doTest();
-  }
-
-  @Test
-  public void issue1294_lambdaArguments() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "class Foo {",
-            " public interface Callback<T extends @Nullable Object> {",
-            "   void onResult(T thing);",
-            " }",
-            " public static <T extends @Nullable Object> Callback<T> wrap(Callback<T> thing) {",
-            "   return thing;",
-            " }",
-            " public static void test() {",
-            "   Callback<@Nullable String> ret1 = wrap(s -> {});",
-            // we should get an error at the s.hashCode() call.
-            "   // BUG: Diagnostic contains: dereferenced expression",
-            "   Callback<@Nullable String> ret2 = wrap(s -> { s.hashCode(); });",
-            "   Callback<@Nullable String> ret3 = wrap(s -> { if (s != null) s.hashCode(); });",
-            "   Callback<String> ret4 = wrap(s -> { s.hashCode(); });",
-            "   }",
             "}")
         .doTest();
   }

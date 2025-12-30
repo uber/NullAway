@@ -5,7 +5,7 @@
  * you may not use this file except in compliance with the License.
  * You may obtain a copy of the License at
  *
- *    http://www.apache.org/licenses/LICENSE-2.0
+ * http://www.apache.org/licenses/LICENSE-2.0
  *
  * Unless required by applicable law or agreed to in writing, software
  * distributed under the License is distributed on an "AS IS" BASIS,
@@ -17,16 +17,18 @@
 apply plugin: 'com.android.library'
 
 android {
-    compileSdkVersion deps.build.compileSdkVersion
+    compileSdkVersion Integer.parseInt(libs.versions.compile.sdk.get())
+
     namespace "com.uber.testandroidlibjarinfer"
 
     defaultConfig {
-        minSdkVersion deps.build.minSdkVersion
+        minSdkVersion Integer.parseInt(libs.versions.min.sdk.get())
     }
 
-    // Use Java 11 to avoid JDK 24 deprecation warnings for source/target 8
+    // This avoids a build-time warning when compiling using JDK 24+.  JDK 8 is the default target for
+    // Android libraries, but support for targeting JDK 8 is deprecated in JDK 24+.
     compileOptions {
-        sourceCompatibility JavaVersion.VERSION_11
-        targetCompatibility JavaVersion.VERSION_11
+        sourceCompatibility JavaVersion.VERSION_17
+        targetCompatibility JavaVersion.VERSION_17
     }
 }

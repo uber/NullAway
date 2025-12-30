@@ -21,11 +21,11 @@ plugins {
 }
 
 dependencies {
-    compileOnly deps.apt.autoService
-    annotationProcessor deps.apt.autoService
+    compileOnly libs.auto.service
+    annotationProcessor libs.auto.service
     compileOnly project(":nullaway")
     annotationProcessor project(":nullaway")
-    compileOnly deps.build.guava
+    compileOnly libs.guava
 }
 
 tasks.withType(JavaCompile) {
