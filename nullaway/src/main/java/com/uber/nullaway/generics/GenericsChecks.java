@@ -697,6 +697,50 @@ public final class GenericsChecks {
         origExplicitAnnotationsRestored, typeToUpdate, config, Collections.emptyMap());
   }
 
+  @SuppressWarnings("ReferenceEquality")
+  private Type.MethodType updateMethodTypeWithInferredNullability(
+      Type.MethodType typeToUpdate,
+      Type.MethodType origType,
+      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state) {
+    com.sun.tools.javac.util.List<Type> argtypes = typeToUpdate.argtypes;
+    Type restype = typeToUpdate.restype;
+    com.sun.tools.javac.util.List<Type> thrown = typeToUpdate.thrown;
+    com.sun.tools.javac.util.List<Type> argtypes1 =
+        updateTypeList(argtypes, origType.argtypes, typeVarNullability, state);
+    Type restype1 =
+        updateWithInferredNullability(restype, origType.restype, typeVarNullability, state);
+    com.sun.tools.javac.util.List<Type> thrown1 =
+        updateTypeList(thrown, origType.thrown, typeVarNullability, state);
+    if (argtypes1 == argtypes && restype1 == restype && thrown1 == thrown) {
+      return typeToUpdate;
+    } else {
+      return new Type.MethodType(argtypes1, restype1, thrown1, typeToUpdate.tsym);
+    }
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private com.sun.tools.javac.util.List<Type> updateTypeList(
+      com.sun.tools.javac.util.List<Type> typesToUpdate,
+      com.sun.tools.javac.util.List<Type> origTypes,
+      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state) {
+    ListBuffer<Type> buf = new ListBuffer<>();
+    boolean changed = false;
+    for (com.sun.tools.javac.util.List<Type> l = typesToUpdate, l1 = origTypes;
+        l.nonEmpty();
+        l = l.tail, l1 = l1.tail) {
+      Type toUpdate = l.head;
+      Type orig = l1.head;
+      Type t2 = updateWithInferredNullability(toUpdate, orig, typeVarNullability, state);
+      buf.append(t2);
+      if (t2 != toUpdate) {
+        changed = true;
+      }
+    }
+    return changed ? buf.toList() : typesToUpdate;
+  }
+
   /**
    * Runs inference for a generic method call, side-effecting the
    * #inferredTypeVarNullabilityForGenericCalls map with the result.
@@ -796,6 +840,7 @@ public final class GenericsChecks {
    * @param typeVarNullability a map from type variables their nullability
    * @return the type with nullability of type variable occurrences updated
    */
+  @SuppressWarnings("UnusedMethod")
   private Type getTypeWithInferredNullability(
       VisitorState state,
       Type type,
@@ -1649,10 +1694,14 @@ public final class GenericsChecks {
                 invocationAndType.assignedToLocal,
                 calledFromDataflow);
       }
-      if (result instanceof InferenceSuccess) {
-        // TODO this should call updateWithInferredNullability
-        return getTypeWithInferredNullability(
-            state, methodType, ((InferenceSuccess) result).typeVarNullability);
+      Type.MethodType methodTypeAtCallSite =
+          castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
+      if (result instanceof InferenceSuccess successResult) {
+        return updateMethodTypeWithInferredNullability(
+            methodTypeAtCallSite, methodType, successResult.typeVarNullability, state);
+      } else {
+        // inference failed; just return the method type at the call site with no substitutions
+        return methodTypeAtCallSite;
       }
     }
     return TypeSubstitutionUtils.subst(
