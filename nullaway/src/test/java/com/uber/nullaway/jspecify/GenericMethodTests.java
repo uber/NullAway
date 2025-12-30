@@ -1363,6 +1363,30 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferenceAndMismatchedTypeParamsForParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              class Box<T extends @Nullable Object> {}
+              <U extends @Nullable Object> void swapBoxes(Box<U> box1, Box<U> box2) {}
+              void testPositive(Box<String> box1, Box<@Nullable String> box2) {
+                // BUG: Diagnostic contains: incompatible types: Test.Box<@Nullable String> cannot be converted to Test.Box<String>
+                swapBoxes(box1, box2);
+              }
+              void TestNegative(Box<@Nullable String> box1, Box<@Nullable String> box2) {
+                swapBoxes(box1, box2);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void instanceGenericMethodWithMethodRefArgument() {
     makeHelper()
         .addSourceLines(
