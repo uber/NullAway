@@ -337,11 +337,6 @@ public class NullAway extends BugChecker
     }
 
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
-
-    if (methodSymbol == null) {
-      return false;
-    }
-
     return codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
   }
 
@@ -442,9 +437,6 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    if (methodSymbol == null) {
-      throw new RuntimeException("not expecting unresolved method here");
-    }
     ExpressionTree enclosingExpression = tree.getEnclosingExpression();
     if (enclosingExpression != null) {
       // technically this is not a dereference; there is a requireNonNull() call in the
@@ -1257,7 +1249,7 @@ public class NullAway extends BugChecker
       Tree parent = enclosingBlockPath.getParentPath().getLeaf();
       return ASTHelpers.getSymbol((ClassTree) parent);
     } else {
-      return castToNonNull(ASTHelpers.enclosingClass(ASTHelpers.getSymbol(leaf)));
+      return castToNonNull(ASTHelpers.enclosingClass(castToNonNull(ASTHelpers.getSymbol(leaf))));
     }
   }
 
