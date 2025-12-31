@@ -2,7 +2,6 @@ package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -36,7 +35,6 @@ import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -664,81 +662,8 @@ public final class GenericsChecks {
     }
     Type methodReturnType = ((Type.ForAll) type).qtype.getReturnType();
     Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
-    return updateWithInferredNullability(
-        returnTypeAtCallSite, methodReturnType, typeVarNullability, state);
-  }
-
-  private Type updateWithInferredNullability(
-      Type typeToUpdate,
-      Type origType,
-      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
-      VisitorState state) {
-    if (typeVarNullability == null) {
-      // no updates to perform
-      return typeToUpdate;
-    }
-    // we get the original generic type with inferred nullability of type variables
-    // substituted in.  So, if the original type was List<T>, and we inferred T to be nullable, then
-    // methodReturnTypeWithInferredNullability will be List<@Nullable T>.
-    Type inferredNullabilitySubstituted =
-        substituteInferredNullabilityForTypeVariables(state, origType, typeVarNullability);
-    // next, we restore any explicit nullability annotations that were present on the original
-    // type.  So, continuing the above example, if origType was List<@NonNull T>, then
-    // origExplicitAnnotationsRestored will be List<@NonNull T> even if T was inferred to be
-    // nullable.
-    Type origExplicitAnnotationsRestored =
-        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            origType, inferredNullabilitySubstituted, config, Collections.emptyMap());
-    // finally, we apply the nullability annotations to the type at the use site.
-    // So, if the original type was List<T>, and we inferred T to be nullable, if javac inferred the
-    // type at the use to be List<String>, we will return List<@Nullable String>.
-    // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
-    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-        origExplicitAnnotationsRestored, typeToUpdate, config, Collections.emptyMap());
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private Type.MethodType updateMethodTypeWithInferredNullability(
-      Type.MethodType typeToUpdate,
-      Type.MethodType origType,
-      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
-      VisitorState state) {
-    com.sun.tools.javac.util.List<Type> argtypes = typeToUpdate.argtypes;
-    Type restype = typeToUpdate.restype;
-    com.sun.tools.javac.util.List<Type> thrown = typeToUpdate.thrown;
-    com.sun.tools.javac.util.List<Type> argtypes1 =
-        updateTypeList(argtypes, origType.argtypes, typeVarNullability, state);
-    Type restype1 =
-        updateWithInferredNullability(restype, origType.restype, typeVarNullability, state);
-    com.sun.tools.javac.util.List<Type> thrown1 =
-        updateTypeList(thrown, origType.thrown, typeVarNullability, state);
-    if (argtypes1 == argtypes && restype1 == restype && thrown1 == thrown) {
-      return typeToUpdate;
-    } else {
-      return new Type.MethodType(argtypes1, restype1, thrown1, typeToUpdate.tsym);
-    }
-  }
-
-  @SuppressWarnings("ReferenceEquality")
-  private com.sun.tools.javac.util.List<Type> updateTypeList(
-      com.sun.tools.javac.util.List<Type> typesToUpdate,
-      com.sun.tools.javac.util.List<Type> origTypes,
-      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
-      VisitorState state) {
-    ListBuffer<Type> buf = new ListBuffer<>();
-    boolean changed = false;
-    for (com.sun.tools.javac.util.List<Type> l = typesToUpdate, l1 = origTypes;
-        l.nonEmpty();
-        l = l.tail, l1 = l1.tail) {
-      Type toUpdate = l.head;
-      Type orig = l1.head;
-      Type t2 = updateWithInferredNullability(toUpdate, orig, typeVarNullability, state);
-      buf.append(t2);
-      if (t2 != toUpdate) {
-        changed = true;
-      }
-    }
-    return changed ? buf.toList() : typesToUpdate;
+    return TypeSubstitutionUtils.updateWithInferredNullability(
+        returnTypeAtCallSite, methodReturnType, typeVarNullability, state, config);
   }
 
   /**
@@ -790,8 +715,8 @@ public final class GenericsChecks {
                 if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
                   Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
                   Type restored =
-                      updateWithInferredNullability(
-                          lambdaTreeType, formalParamType, typeVarNullability, state);
+                      TypeSubstitutionUtils.updateWithInferredNullability(
+                          lambdaTreeType, formalParamType, typeVarNullability, state, config);
                   inferredLambdaTypes.put(lambdaExpressionTree, restored);
                 }
               });
@@ -828,30 +753,6 @@ public final class GenericsChecks {
       }
       return failureResult;
     }
-  }
-
-  /**
-   * Creates an updated version of type with nullability of type variable occurrences matching those
-   * indicated in typeVarNullability, while preserving explicit nullability annotations on type
-   * variable occurrences.
-   *
-   * @param state the visitor state
-   * @param type the type to update
-   * @param typeVarNullability a map from type variables their nullability
-   * @return the type with nullability of type variable occurrences updated
-   */
-  @SuppressWarnings("UnusedMethod")
-  private Type getTypeWithInferredNullability(
-      VisitorState state,
-      Type type,
-      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability) {
-    if (typeVarNullability == null) {
-      return type;
-    }
-    Type withInferredNullability =
-        substituteInferredNullabilityForTypeVariables(state, type, typeVarNullability);
-    return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-        type, withInferredNullability, config, Collections.emptyMap());
   }
 
   /**
@@ -1202,37 +1103,6 @@ public final class GenericsChecks {
           && methodInvocation.getTypeArguments().isEmpty();
     }
     return false;
-  }
-
-  private Type substituteInferredNullabilityForTypeVariables(
-      VisitorState state,
-      Type targetType,
-      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability) {
-    ListBuffer<Type> typeVars = new ListBuffer<>();
-    ListBuffer<Type> inferredTypes = new ListBuffer<>();
-    for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
-        typeVarNullability.entrySet()) {
-      if (entry.getValue() == NULLABLE) {
-        // find all TypeVars occurring in targetType with the same symbol and substitute for those.
-        // we can have multiple such TypeVars due to previous substitutions that modified the type
-        // in some way, e.g., by changing its bounds
-        Element symbol = entry.getKey();
-        TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
-        targetType.accept(tvc, null);
-        for (Type.TypeVar tv : tvc.getMatches()) {
-          typeVars.append(tv);
-          inferredTypes.append(
-              TypeSubstitutionUtils.typeWithAnnot(tv, getSyntheticNullableAnnotType(state)));
-        }
-      }
-    }
-    com.sun.tools.javac.util.List<Type> typeVarsToReplace = typeVars.toList();
-    if (!typeVarsToReplace.isEmpty()) {
-      return TypeSubstitutionUtils.subst(
-          state.getTypes(), targetType, typeVarsToReplace, inferredTypes.toList(), config);
-    } else {
-      return targetType;
-    }
   }
 
   /**
@@ -1697,8 +1567,8 @@ public final class GenericsChecks {
       Type.MethodType methodTypeAtCallSite =
           castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
       if (result instanceof InferenceSuccess successResult) {
-        return updateMethodTypeWithInferredNullability(
-            methodTypeAtCallSite, methodType, successResult.typeVarNullability, state);
+        return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
+            methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
         // inference failed; just return the method type at the call site with no substitutions
         return methodTypeAtCallSite;
