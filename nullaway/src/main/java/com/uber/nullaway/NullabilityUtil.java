@@ -647,12 +647,12 @@ public class NullabilityUtil {
     if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
         .anyMatch(
             t -> {
-              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
-                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-                  if (typeUseCheck.test(t.type.toString(), config)) {
-                    return true;
-                  }
-                }
+              // the location list should be of length 1 and the entry tag should be ARRAY
+              com.sun.tools.javac.util.List<TypePathEntry> location = t.position.location;
+              TypePathEntry head = location.head;
+              boolean singleElementList = head != null && location.tail.isEmpty();
+              if (singleElementList && head.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                return typeUseCheck.test(t.type.toString(), config);
               }
               return false;
             })) {
