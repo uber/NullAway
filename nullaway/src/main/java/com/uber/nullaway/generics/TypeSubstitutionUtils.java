@@ -111,7 +111,7 @@ public class TypeSubstitutionUtils {
    * List<@NonNull T>}, even if T was inferred to be nullable.
    *
    * <p>3 . Apply the nullability annotations from the result of 2 to {@code typeToUpdate}. So, if
-   * {@code typeToUpdate} is {@code List<String>}, ane the result of 2 is {@code List<@Nullable T>},
+   * {@code typeToUpdate} is {@code List<String>}, and the result of 2 is {@code List<@Nullable T>},
    * the final result will be {@code List<@Nullable String>}.
    *
    * @param typeToUpdate the type to update
