@@ -23,8 +23,8 @@
 package com.uber.nullaway;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
-import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
-import static com.uber.nullaway.ASTHelpersBackports.isStatic;
+import static com.google.errorprone.util.ASTHelpers.hasDirectAnnotationWithSimpleName;
+import static com.google.errorprone.util.ASTHelpers.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.isArrayElementNullable;
@@ -336,7 +336,7 @@ public class NullAway extends BugChecker
       return false;
     }
 
-    Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(methodInvoke);
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
 
     if (methodSymbol == null) {
       return false;
@@ -429,29 +429,11 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
-    Symbol.MethodSymbol methodSymbol = getSymbolForMethodInvocation(tree);
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     handler.onMatchMethodInvocation(tree, new MethodAnalysisContext(this, state, methodSymbol));
     // assuming this list does not include the receiver
     List<? extends ExpressionTree> actualParams = tree.getArguments();
     return handleInvocation(tree, state, methodSymbol, actualParams);
-  }
-
-  private static Symbol.MethodSymbol getSymbolForMethodInvocation(MethodInvocationTree tree) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
-    Verify.verify(methodSymbol != null, "not expecting unresolved method here");
-    // In certain cases, we need to get the base symbol for the method rather than the symbol
-    // attached to the call.
-    // For interface methods, if the method is an implicit method corresponding to a method from
-    // java.lang.Object, the base symbol is for the java.lang.Object method.  We need this to
-    // properly treat the method as unannotated, which is particularly important for equals()
-    // methods.  This is an adaptation to a change in JDK 18; see
-    // https://bugs.openjdk.org/browse/JDK-8272564
-    // Also, sometimes we need the base symbol to properly deal with static imports; see
-    // https://github.com/uber/NullAway/issues/764
-    // We can remove this workaround once we require the version of Error Prone released after
-    // 2.24.1, to get
-    // https://github.com/google/error-prone/commit/e5a6d0d8f9f96bda8e9952b7817cd0d2b63e51be
-    return (Symbol.MethodSymbol) methodSymbol.baseSymbol();
   }
 
   @Override
