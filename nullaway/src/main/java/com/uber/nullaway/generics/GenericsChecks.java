@@ -662,7 +662,7 @@ public final class GenericsChecks {
     }
     Type methodReturnType = ((Type.ForAll) type).qtype.getReturnType();
     Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
-    return TypeSubstitutionUtils.updateWithInferredNullability(
+    return TypeSubstitutionUtils.updateTypeWithInferredNullability(
         returnTypeAtCallSite, methodReturnType, typeVarNullability, state, config);
   }
 
@@ -715,7 +715,7 @@ public final class GenericsChecks {
                 if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
                   Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
                   Type restored =
-                      TypeSubstitutionUtils.updateWithInferredNullability(
+                      TypeSubstitutionUtils.updateTypeWithInferredNullability(
                           lambdaTreeType, formalParamType, typeVarNullability, state, config);
                   inferredLambdaTypes.put(lambdaExpressionTree, restored);
                 }
