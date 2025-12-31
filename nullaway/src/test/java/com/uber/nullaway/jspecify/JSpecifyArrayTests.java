@@ -732,6 +732,31 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1417() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class NullableGenericInArray {
+                interface Container<T extends @Nullable Object> {}
+                Container<@Nullable Void> partOf(Container<@Nullable Void>[] tasks) {
+                    return tasks[0];
+                }
+                Container<@Nullable Void> partOfWrong(@Nullable Container<@Nullable Void>[] tasks) {
+                    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                    return tasks[0];
+                }
+                @Nullable Container<@Nullable Void>[] partOfMulti(@Nullable Container<@Nullable Void>[][] tasks) {
+                    return tasks[0];
+                }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
