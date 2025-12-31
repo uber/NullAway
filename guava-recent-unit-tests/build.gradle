@@ -39,7 +39,7 @@ dependencies {
     errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
         exclude group: "junit", module: "junit"
     }
-    errorProneOldest libs.guava
+    errorProneOldest "com.google.guava:guava:33.4.8-jre"
 }
 
 // Create a task to test with the oldest supported version of Error Prone
