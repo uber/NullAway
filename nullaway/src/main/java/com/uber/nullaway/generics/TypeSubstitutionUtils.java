@@ -157,7 +157,7 @@ public class TypeSubstitutionUtils {
    * @param typeVarNullability a map from type variable elements to their inferred nullability
    * @param state the visitor state
    * @param config the NullAway config
-   * @return
+   * @return the updated method type with inferred nullability applied
    */
   @SuppressWarnings("ReferenceEquality")
   public static Type.MethodType updateMethodTypeWithInferredNullability(
