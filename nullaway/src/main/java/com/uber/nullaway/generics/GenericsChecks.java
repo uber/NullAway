@@ -714,10 +714,10 @@ public final class GenericsChecks {
               (argument, argPos, formalParamType, unused) -> {
                 if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
                   Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
-                  Type restored =
+                  Type lambdaTypeWithInferredNullability =
                       TypeSubstitutionUtils.updateTypeWithInferredNullability(
                           lambdaTreeType, formalParamType, typeVarNullability, state, config);
-                  inferredLambdaTypes.put(lambdaExpressionTree, restored);
+                  inferredLambdaTypes.put(lambdaExpressionTree, lambdaTypeWithInferredNullability);
                 }
               });
 
