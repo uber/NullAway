@@ -28,13 +28,15 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
     makeTestHelperWithArgs(List.of("-XepOpt:NullAway:OnlyNullMarked"))
         .addSourceLines(
             "Test.java",
-            "package foo.baz;",
-            "import org.jspecify.annotations.NullMarked;",
-            "@NullMarked",
-            "class Marked {",
-            "  // BUG: Diagnostic contains: @NonNull field uninit not initialized",
-            "  Object uninit;",
-            "}")
+            """
+            package foo.baz;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Marked {
+              // BUG: Diagnostic contains: @NonNull field uninit not initialized
+              Object uninit;
+            }
+            """)
         .doTest();
   }
 

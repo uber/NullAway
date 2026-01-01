@@ -36,23 +36,25 @@ public class Java8Tests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import java.util.Arrays;",
-            "import java.util.stream.Collectors;",
-            "class Test {",
-            "  public static boolean testPositive(@Nullable String text, java.util.Set<String> s) {",
-            "    // BUG: Diagnostic contains: dereferenced expression text is @Nullable",
-            "    return s.stream().anyMatch(text::contains);",
-            "  }",
-            "  public static String[] testNegative(Object[] arr) {",
-            "    // also tests we don't crash when the qualifier expression of a method reference is a type",
-            "    return Arrays.stream(arr).map(Object::toString).toArray(String[]::new);",
-            "  }",
-            "  public static <T> boolean testNegativeWithTypeVariable(T[] arr) {",
-            "    return Arrays.stream(arr).map(T::toString).collect(Collectors.toList()).isEmpty();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Arrays;
+            import java.util.stream.Collectors;
+            class Test {
+              public static boolean testPositive(@Nullable String text, java.util.Set<String> s) {
+                // BUG: Diagnostic contains: dereferenced expression text is @Nullable
+                return s.stream().anyMatch(text::contains);
+              }
+              public static String[] testNegative(Object[] arr) {
+                // also tests we don't crash when the qualifier expression of a method reference is a type
+                return Arrays.stream(arr).map(Object::toString).toArray(String[]::new);
+              }
+              public static <T> boolean testNegativeWithTypeVariable(T[] arr) {
+                return Arrays.stream(arr).map(T::toString).collect(Collectors.toList()).isEmpty();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -62,18 +64,20 @@ public class Java8Tests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "    @FunctionalInterface",
-            "    interface NullableParamFunctionTypeUse<T, U> {",
-            "      U takeVal(@Nullable T x);",
-            "    }",
-            "    static void testParamTypeUse() {",
-            "      NullableParamFunctionTypeUse n3 = (@Nullable Object x) -> (x == null) ? \"null\" : x.toString();",
-            "      NullableParamFunctionTypeUse n4 = (x) -> (x == null) ? \"null\" : x.toString();",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+                @FunctionalInterface
+                interface NullableParamFunctionTypeUse<T, U> {
+                  U takeVal(@Nullable T x);
+                }
+                static void testParamTypeUse() {
+                  NullableParamFunctionTypeUse n3 = (@Nullable Object x) -> (x == null) ? "null" : x.toString();
+                  NullableParamFunctionTypeUse n4 = (x) -> (x == null) ? "null" : x.toString();
+                }
+            }
+            """)
         .doTest();
   }
 }

@@ -15,17 +15,19 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static com.google.common.truth.Truth.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object o) {",
-            "    assertThat(o).isNotNull();",
-            "    o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static com.google.common.truth.Truth.assertThat;
+            class Test {
+              private void foo(@Nullable Object o) {
+                assertThat(o).isNotNull();
+                o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -39,16 +41,18 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static com.google.common.truth.Truth.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable String s) {",
-            "    assertThat(s).isNotNull();",
-            "    s.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static com.google.common.truth.Truth.assertThat;
+            class Test {
+              private void foo(@Nullable String s) {
+                assertThat(s).isNotNull();
+                s.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -62,16 +66,18 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import javax.annotation.Nullable;",
-            "import static com.google.common.truth.Truth.assertThat;",
-            "class Test {",
-            "  private void foo(Map<String,Object> m) {",
-            "    assertThat(m.get(\"foo\")).isNotNull();",
-            "    m.get(\"foo\").toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            import static com.google.common.truth.Truth.assertThat;
+            class Test {
+              private void foo(Map<String,Object> m) {
+                assertThat(m.get("foo")).isNotNull();
+                m.get("foo").toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -85,18 +91,20 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static com.google.common.truth.Truth.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object o) {",
-            "    // inInstanceOf => isNotNull!",
-            "    assertThat(o).isInstanceOf(Object.class);",
-            "    o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static com.google.common.truth.Truth.assertThat;
+            class Test {
+              private void foo(@Nullable Object o) {
+                // inInstanceOf => isNotNull!
+                assertThat(o).isInstanceOf(Object.class);
+                o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -110,18 +118,20 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static com.google.common.truth.Truth.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object a) {",
-            "    assertThat(a).isNotNull();",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    a.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static com.google.common.truth.Truth.assertThat;
+            class Test {
+              private void foo(@Nullable Object a) {
+                assertThat(a).isNotNull();
+                // BUG: Diagnostic contains: dereferenced expression
+                a.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -135,20 +145,22 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.hamcrest.MatcherAssert.assertThat;",
-            "import static org.hamcrest.Matchers.*;",
-            "class Test {",
-            "  private void foo(@Nullable Object a, @Nullable Object b) {",
-            "    assertThat(a, is(notNullValue()));",
-            "    a.toString();",
-            "    assertThat(b, is(not(nullValue())));",
-            "    b.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.hamcrest.MatcherAssert.assertThat;
+            import static org.hamcrest.Matchers.*;
+            class Test {
+              private void foo(@Nullable Object a, @Nullable Object b) {
+                assertThat(a, is(notNullValue()));
+                a.toString();
+                assertThat(b, is(not(nullValue())));
+                b.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -162,19 +174,21 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.hamcrest.MatcherAssert.assertThat;",
-            "import static org.hamcrest.Matchers.*;",
-            "class Test {",
-            "  private void foo(@Nullable Object a) {",
-            "    assertThat(a, is(notNullValue()));",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    a.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.hamcrest.MatcherAssert.assertThat;
+            import static org.hamcrest.Matchers.*;
+            class Test {
+              private void foo(@Nullable Object a) {
+                assertThat(a, is(notNullValue()));
+                // BUG: Diagnostic contains: dereferenced expression
+                a.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -188,20 +202,22 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.hamcrest.MatcherAssert.assertThat;",
-            "import static org.hamcrest.CoreMatchers.*;",
-            "class Test {",
-            "  private void foo(@Nullable Object a, @Nullable Object b) {",
-            "    assertThat(a, is(notNullValue()));",
-            "    a.toString();",
-            "    assertThat(b, is(not(nullValue())));",
-            "    b.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.hamcrest.MatcherAssert.assertThat;
+            import static org.hamcrest.CoreMatchers.*;
+            class Test {
+              private void foo(@Nullable Object a, @Nullable Object b) {
+                assertThat(a, is(notNullValue()));
+                a.toString();
+                assertThat(b, is(not(nullValue())));
+                b.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -215,21 +231,23 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.hamcrest.MatcherAssert.assertThat;",
-            "import static org.hamcrest.CoreMatchers.*;",
-            "import org.hamcrest.core.IsNull;",
-            "class Test {",
-            "  private void foo(@Nullable Object a, @Nullable Object b) {",
-            "    assertThat(a, is(IsNull.notNullValue()));",
-            "    a.toString();",
-            "    assertThat(b, is(not(IsNull.nullValue())));",
-            "    b.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.hamcrest.MatcherAssert.assertThat;
+            import static org.hamcrest.CoreMatchers.*;
+            import org.hamcrest.core.IsNull;
+            class Test {
+              private void foo(@Nullable Object a, @Nullable Object b) {
+                assertThat(a, is(IsNull.notNullValue()));
+                a.toString();
+                assertThat(b, is(not(IsNull.nullValue())));
+                b.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -243,21 +261,23 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.hamcrest.MatcherAssert.assertThat;",
-            "import static org.hamcrest.CoreMatchers.*;",
-            "import org.hamcrest.core.IsNull;",
-            "class Test {",
-            "  private void foo(@Nullable Object a, @Nullable Object b) {",
-            "    assertThat(a, is(instanceOf(Object.class)));",
-            "    a.toString();",
-            "    assertThat(b, isA(Object.class));",
-            "    b.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.hamcrest.MatcherAssert.assertThat;
+            import static org.hamcrest.CoreMatchers.*;
+            import org.hamcrest.core.IsNull;
+            class Test {
+              private void foo(@Nullable Object a, @Nullable Object b) {
+                assertThat(a, is(instanceOf(Object.class)));
+                a.toString();
+                assertThat(b, isA(Object.class));
+                b.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -271,20 +291,22 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.junit.Assert.assertThat;",
-            "import static org.hamcrest.Matchers.*;",
-            "class Test {",
-            "  private void foo(@Nullable Object a, @Nullable Object b) {",
-            "    assertThat(a, is(notNullValue()));",
-            "    a.toString();",
-            "    assertThat(b, is(not(nullValue())));",
-            "    b.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.junit.Assert.assertThat;
+            import static org.hamcrest.Matchers.*;
+            class Test {
+              private void foo(@Nullable Object a, @Nullable Object b) {
+                assertThat(a, is(notNullValue()));
+                a.toString();
+                assertThat(b, is(not(nullValue())));
+                b.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -298,20 +320,22 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.junit.Assert.assertThat;",
-            "import static org.hamcrest.Matchers.*;",
-            "class Test {",
-            "  private void foo(@Nullable Object a, @Nullable Object b) {",
-            "    assertThat(a, is(instanceOf(Object.class)));",
-            "    a.toString();",
-            "    assertThat(b, isA(Object.class));",
-            "    b.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.junit.Assert.assertThat;
+            import static org.hamcrest.Matchers.*;
+            class Test {
+              private void foo(@Nullable Object a, @Nullable Object b) {
+                assertThat(a, is(instanceOf(Object.class)));
+                a.toString();
+                assertThat(b, isA(Object.class));
+                b.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -325,19 +349,21 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.junit.Assert.assertThat;",
-            "import static org.hamcrest.Matchers.*;",
-            "class Test {",
-            "  private void foo(@Nullable Object a) {",
-            "    assertThat(a, is(notNullValue()));",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    a.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.junit.Assert.assertThat;
+            import static org.hamcrest.Matchers.*;
+            class Test {
+              private void foo(@Nullable Object a) {
+                assertThat(a, is(notNullValue()));
+                // BUG: Diagnostic contains: dereferenced expression
+                a.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -351,17 +377,19 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object o) {",
-            "    assertThat(o).isNotNull();",
-            "    o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.assertj.core.api.Assertions.assertThat;
+            class Test {
+              private void foo(@Nullable Object o) {
+                assertThat(o).isNotNull();
+                o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -375,25 +403,27 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object o) {",
-            "    assertThat(o).as(\"test\").isNotNull();",
-            "    o.toString();",
-            "  }",
-            "  private void foo2(@Nullable Object o) {",
-            "    assertThat(o).describedAs(\"test\").isNotNull();",
-            "    o.toString();",
-            "  }",
-            "  private void foo3(@Nullable Object o) {",
-            "    assertThat(o).describedAs(\"test1\").as(\"test2\").isNotNull();",
-            "    o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.assertj.core.api.Assertions.assertThat;
+            class Test {
+              private void foo(@Nullable Object o) {
+                assertThat(o).as("test").isNotNull();
+                o.toString();
+              }
+              private void foo2(@Nullable Object o) {
+                assertThat(o).describedAs("test").isNotNull();
+                o.toString();
+              }
+              private void foo3(@Nullable Object o) {
+                assertThat(o).describedAs("test1").as("test2").isNotNull();
+                o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -407,26 +437,28 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object o) {",
-            "    org.assertj.core.api.ObjectAssert t = assertThat(o);",
-            "    t.isNotNull();",
-            "    // False positive",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    o.toString();",
-            "  }",
-            "  private void foo2(@Nullable Object o) {",
-            "    assertThat(o).isEqualToIgnoringNullFields(o).describedAs(\"test\").isNotNull();",
-            "    // False positive",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.assertj.core.api.Assertions.assertThat;
+            class Test {
+              private void foo(@Nullable Object o) {
+                org.assertj.core.api.ObjectAssert t = assertThat(o);
+                t.isNotNull();
+                // False positive
+                // BUG: Diagnostic contains: dereferenced expression
+                o.toString();
+              }
+              private void foo2(@Nullable Object o) {
+                assertThat(o).isEqualToIgnoringNullFields(o).describedAs("test").isNotNull();
+                // False positive
+                // BUG: Diagnostic contains: dereferenced expression
+                o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -440,16 +472,18 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable String s) {",
-            "    assertThat(s).isNotNull();",
-            "    s.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.assertj.core.api.Assertions.assertThat;
+            class Test {
+              private void foo(@Nullable String s) {
+                assertThat(s).isNotNull();
+                s.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -463,16 +497,18 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import javax.annotation.Nullable;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "class Test {",
-            "  private void foo(Map<String,Object> m) {",
-            "    assertThat(m.get(\"foo\")).isNotNull();",
-            "    m.get(\"foo\").toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            import static org.assertj.core.api.Assertions.assertThat;
+            class Test {
+              private void foo(Map<String,Object> m) {
+                assertThat(m.get("foo")).isNotNull();
+                m.get("foo").toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -486,19 +522,21 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object a, @Nullable Object b) {",
-            "    assertThat(a).isInstanceOf(Object.class);",
-            "    a.toString();",
-            "    assertThat(b).isInstanceOfAny(String.class, Exception.class);",
-            "    b.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.assertj.core.api.Assertions.assertThat;
+            class Test {
+              private void foo(@Nullable Object a, @Nullable Object b) {
+                assertThat(a).isInstanceOf(Object.class);
+                a.toString();
+                assertThat(b).isInstanceOfAny(String.class, Exception.class);
+                b.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -512,18 +550,20 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=false"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.lang.Object;",
-            "import java.util.Objects;",
-            "import javax.annotation.Nullable;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "class Test {",
-            "  private void foo(@Nullable Object a) {",
-            "    assertThat(a).isNotNull();",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    a.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.lang.Object;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            import static org.assertj.core.api.Assertions.assertThat;
+            class Test {
+              private void foo(@Nullable Object a) {
+                assertThat(a).isNotNull();
+                // BUG: Diagnostic contains: dereferenced expression
+                a.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -537,16 +577,18 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.Collection;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "@NullMarked",
-            "class Test {",
-            "  void test(@Nullable Collection<String> c) {",
-            "    assertThat(c).isNotNull();",
-            "    c.size();",
-            "  }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            import java.util.Collection;
+            import static org.assertj.core.api.Assertions.assertThat;
+            @NullMarked
+            class Test {
+              void test(@Nullable Collection<String> c) {
+                assertThat(c).isNotNull();
+                c.size();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -560,16 +602,18 @@ public class AssertionLibsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:HandleTestAssertionLibraries=true"))
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.Collection;",
-            "import static org.assertj.core.api.Assertions.assertThat;",
-            "@NullMarked",
-            "class Test {",
-            "  void test(@Nullable Collection<String> c) {",
-            "    assertThat(c).hasSize(1);",
-            "    c.size();",
-            "  }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            import java.util.Collection;
+            import static org.assertj.core.api.Assertions.assertThat;
+            @NullMarked
+            class Test {
+              void test(@Nullable Collection<String> c) {
+                assertThat(c).hasSize(1);
+                c.size();
+              }
+            }
+            """)
         .doTest();
   }
 }

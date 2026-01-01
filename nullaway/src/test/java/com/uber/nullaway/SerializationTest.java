@@ -136,23 +136,25 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/SubClass.java",
-            "package com.uber;",
-            "public class SubClass {",
-            "   Object test(boolean flag) {",
-            "       if(flag) {",
-            "           return new Object();",
-            "       } ",
-            "       // BUG: Diagnostic contains: returning @Nullable",
-            "       else return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            public class SubClass {
+               Object test(boolean flag) {
+                   if(flag) {
+                       return new Object();
+                   }
+                   // BUG: Diagnostic contains: returning @Nullable
+                   else return null;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method with @NonNull return type",
                 "com.uber.SubClass",
                 "test(boolean)",
-                201,
+                200,
                 "com/uber/SubClass.java",
                 "METHOD",
                 "com.uber.SubClass",
@@ -178,28 +180,32 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Super {",
-            "   Object test(boolean flag) {",
-            "     return new Object();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class Super {
+               Object test(boolean flag) {
+                 return new Object();
+               }
+            }
+            """)
         .addSourceLines(
             "com/uber/test/SubClass.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class SubClass extends Super {",
-            "   // BUG: Diagnostic contains: returns @Nullable",
-            "   @Nullable Object test(boolean flag) {",
-            "       if(flag) {",
-            "           return new Object();",
-            "       } ",
-            "       else return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class SubClass extends Super {
+               // BUG: Diagnostic contains: returns @Nullable
+               @Nullable Object test(boolean flag) {
+                   if(flag) {
+                       return new Object();
+                   }
+                   else return null;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "WRONG_OVERRIDE_RETURN",
@@ -232,18 +238,20 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Test {",
-            "   Object run(int i, Object h) {",
-            "     return h;",
-            "   }",
-            "   Object test_param(@Nullable String o) {",
-            "     // BUG: Diagnostic contains: passing @Nullable",
-            "     return run(0, o);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class Test {
+               Object run(int i, Object h) {
+                 return h;
+               }
+               Object test_param(@Nullable String o) {
+                 // BUG: Diagnostic contains: passing @Nullable
+                 return run(0, o);
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
@@ -276,28 +284,32 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Super {",
-            "   @Nullable String test(@Nullable Object o) {",
-            "     if(o != null) {",
-            "       return o.toString();",
-            "     }",
-            "     return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class Super {
+               @Nullable String test(@Nullable Object o) {
+                 if(o != null) {
+                   return o.toString();
+                 }
+                 return null;
+               }
+            }
+            """)
         .addSourceLines(
             "com/uber/test/SubClass.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class SubClass extends Super {",
-            "   // BUG: Diagnostic contains: parameter o is @NonNull",
-            "   @Nullable String test(Object o) {",
-            "     return o.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class SubClass extends Super {
+               // BUG: Diagnostic contains: parameter o is @NonNull
+               @Nullable String test(Object o) {
+                 return o.toString();
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "WRONG_OVERRIDE_PARAM",
@@ -330,19 +342,21 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/test/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Test {",
-            "   Test () {",
-            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
-            "       this(null);",
-            "   }",
-            "   Test (Object o) {",
-            "      System.out.println(o.toString());",
-            "   }",
-            "",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class Test {
+               Test () {
+                   // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                   this(null);
+               }
+               Test (Object o) {
+                  System.out.println(o.toString());
+               }
+
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
@@ -375,24 +389,28 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Super.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "class Super<T extends Object> {",
-            "   public boolean newStatement(",
-            "     T lhs, ArrayList<T> operator, boolean toWorkList, boolean eager) {",
-            "       return false;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            class Super<T extends Object> {
+               public boolean newStatement(
+                 T lhs, ArrayList<T> operator, boolean toWorkList, boolean eager) {
+                   return false;
+               }
+            }
+            """)
         .addSourceLines(
             "com/uber/Child.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "public class Child extends Super<String>{",
-            "   public void newSideEffect(ArrayList<String> op) {",
-            "     // BUG: Diagnostic contains: passing @Nullable",
-            "     newStatement(null, op, true, true);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            public class Child extends Super<String>{
+               public void newSideEffect(ArrayList<String> op) {
+                 // BUG: Diagnostic contains: passing @Nullable
+                 newStatement(null, op, true, true);
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
@@ -425,16 +443,18 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Super {",
-            "   Object h = new Object();",
-            "   public void test(@Nullable Object f) {",
-            "   // BUG: Diagnostic contains: assigning @Nullable",
-            "      h = f;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class Super {
+               Object h = new Object();
+               public void test(@Nullable Object f) {
+               // BUG: Diagnostic contains: assigning @Nullable
+                  h = f;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
@@ -467,18 +487,20 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Super {",
-            "   // BUG: Diagnostic contains: assigning @Nullable",
-            "   Object f = foo();",
-            "   void test() {",
-            "     System.out.println(f.toString());",
-            "   }",
-            "   @Nullable Object foo() {",
-            "     return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Super {
+               // BUG: Diagnostic contains: assigning @Nullable
+               Object f = foo();
+               void test() {
+                 System.out.println(f.toString());
+               }
+               @Nullable Object foo() {
+                 return null;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
@@ -511,36 +533,38 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import javax.annotation.Nonnull;",
-            "public class Test {",
-            "   Object h, f, g, i, k;",
-            "   // BUG: Diagnostic contains: initializer method",
-            "   public Test(boolean b) {",
-            "      g = new Object();",
-            "      k = new Object();",
-            "      i = g;",
-            "      if(b) {",
-            "         h = new Object();",
-            "      }",
-            "      else{",
-            "         f = new Object();",
-            "      }",
-            "   }",
-            "   // BUG: Diagnostic contains: initializer method",
-            "   public Test(boolean b, boolean a) {",
-            "      f = new Object();",
-            "      k = new Object();",
-            "      h = f;",
-            "      if(a) {",
-            "         g = new Object();",
-            "      }",
-            "      else{",
-            "         i = new Object();",
-            "      }",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import javax.annotation.Nonnull;
+            public class Test {
+               Object h, f, g, i, k;
+               // BUG: Diagnostic contains: initializer method
+               public Test(boolean b) {
+                  g = new Object();
+                  k = new Object();
+                  i = g;
+                  if(b) {
+                     h = new Object();
+                  }
+                  else{
+                     f = new Object();
+                  }
+               }
+               // BUG: Diagnostic contains: initializer method
+               public Test(boolean b, boolean a) {
+                  f = new Object();
+                  k = new Object();
+                  h = f;
+                  if(a) {
+                     g = new Object();
+                  }
+                  else{
+                     i = new Object();
+                  }
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "METHOD_NO_INIT",
@@ -586,11 +610,13 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/android/Test.java",
-            "package com.uber;",
-            "public class Test {",
-            "   // BUG: Diagnostic contains: field f not initialized",
-            "   Object f;",
-            "}")
+            """
+            package com.uber;
+            public class Test {
+               // BUG: Diagnostic contains: field f not initialized
+               Object f;
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "FIELD_NO_INIT",
@@ -623,44 +649,48 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Super {",
-            "   Object foo;",
-            "   // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo",
-            "   Super(boolean b) {",
-            "   }",
-            "   String test(@Nullable Object o) {",
-            "     // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull",
-            "     foo = null;",
-            "     if(o == null) {",
-            "       // BUG: Diagnostic contains: dereferenced expression",
-            "       return o.toString();",
-            "     }",
-            "     // BUG: Diagnostic contains: returning @Nullable expression",
-            "     return null;",
-            "   }",
-            "   protected void expectNonNull(Object o) {",
-            "     System.out.println(o);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Super {
+               Object foo;
+               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo
+               Super(boolean b) {
+               }
+               String test(@Nullable Object o) {
+                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull
+                 foo = null;
+                 if(o == null) {
+                   // BUG: Diagnostic contains: dereferenced expression
+                   return o.toString();
+                 }
+                 // BUG: Diagnostic contains: returning @Nullable expression
+                 return null;
+               }
+               protected void expectNonNull(Object o) {
+                 System.out.println(o);
+               }
+            }
+            """)
         .addSourceLines(
             "com/uber/SubClass.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class SubClass extends Super{",
-            "   SubClass(boolean b) {",
-            "      super(b);",
-            "      // BUG: Diagnostic contains: passing @Nullable parameter",
-            "      test(null);",
-            "      // BUG: Diagnostic contains: passing @Nullable parameter",
-            "      expectNonNull(null);",
-            "   }",
-            "   // BUG: Diagnostic contains: method returns @Nullable, but superclass",
-            "   @Nullable String test(Object o) {",
-            "     return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class SubClass extends Super{
+               SubClass(boolean b) {
+                  super(b);
+                  // BUG: Diagnostic contains: passing @Nullable parameter
+                  test(null);
+                  // BUG: Diagnostic contains: passing @Nullable parameter
+                  expectNonNull(null);
+               }
+               // BUG: Diagnostic contains: method returns @Nullable, but superclass
+               @Nullable String test(Object o) {
+                 return null;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "METHOD_NO_INIT",
@@ -761,17 +791,19 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Test.java",
-            "package com.uber;",
-            "public class Test {",
-            "   Object m = new Object();",
-            "   public void run() {",
-            "     // BUG: Diagnostic contains: passing @Nullable parameter 'm.hashCode()",
-            "     foo(m.hashCode() == 2 || m.toString().equals('\\t') ? \t",
-            "\t",
-            " new Object() : null);",
-            "   }",
-            "   public void foo(Object o) { }",
-            "}")
+            """
+            package com.uber;
+            public class Test {
+               Object m = new Object();
+               public void run() {
+                 // BUG: Diagnostic contains: passing @Nullable parameter 'm.hashCode()
+                 foo(m.hashCode() == 2 || m.toString().equals('\\t') ? \t
+            \t
+             new Object() : null);
+               }
+               public void foo(Object o) { }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
@@ -817,33 +849,35 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "   Object foo;",
-            "   Object bar;",
-            "   @Nullable Object nullableFoo;",
-            "   // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo",
-            "   Test() {",
-            "       // We are not tracing initializations in constructors.",
-            "       bar = new Object();",
-            "   }",
-            "   void notInit() {",
-            "     if(foo == null){",
-            "         throw new RuntimeException();",
-            "     }",
-            "   }",
-            "   void actualInit() {",
-            "     foo = new Object();",
-            "     // We are not tracing initialization of @Nullable fields.",
-            "     nullableFoo = new Object();",
-            "   }",
-            "   void notInit2(@Nullable Object bar) {",
-            "     foo = new Object();",
-            "     // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "     foo = bar;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+               Object foo;
+               Object bar;
+               @Nullable Object nullableFoo;
+               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo
+               Test() {
+                   // We are not tracing initializations in constructors.
+                   bar = new Object();
+               }
+               void notInit() {
+                 if(foo == null){
+                     throw new RuntimeException();
+                 }
+               }
+               void actualInit() {
+                 foo = new Object();
+                 // We are not tracing initialization of @Nullable fields.
+                 nullableFoo = new Object();
+               }
+               void notInit2(@Nullable Object bar) {
+                 foo = new Object();
+                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                 foo = bar;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new FieldInitDisplay(
                 "foo", "actualInit()", "null", "METHOD", "com.uber.Test", "com/uber/Test.java"))
@@ -865,26 +899,28 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithAnonymousRunnable.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class TestWithAnonymousRunnable {",
-            "   void takesNonNull(String s) { }",
-            "   void test(Object o) {",
-            "     Runnable r = new Runnable() {",
-            "         public String returnsNullable() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "         @Override",
-            "         public void run() {",
-            "             takesNonNull(this.returnsNullable());",
-            "             // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
-            "             takesNonNull(null);",
-            "         }",
-            "     };",
-            "     r.run();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class TestWithAnonymousRunnable {
+               void takesNonNull(String s) { }
+               void test(Object o) {
+                 Runnable r = new Runnable() {
+                     public String returnsNullable() {
+                         // BUG: Diagnostic contains: returning @Nullable expression
+                         return null;
+                     }
+                     @Override
+                     public void run() {
+                         takesNonNull(this.returnsNullable());
+                         // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                         takesNonNull(null);
+                     }
+                 };
+                 r.run();
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -930,20 +966,22 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithLocalType.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class TestWithLocalType {",
-            "   @Nullable String test(Object o) {",
-            "     class LocalType {",
-            "         public String returnsNullable() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     LocalType local = new LocalType();",
-            "     return local.returnsNullable();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class TestWithLocalType {
+               @Nullable String test(Object o) {
+                 class LocalType {
+                     public String returnsNullable() {
+                         // BUG: Diagnostic contains: returning @Nullable expression
+                         return null;
+                     }
+                 }
+                 LocalType local = new LocalType();
+                 return local.returnsNullable();
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -976,40 +1014,42 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithLocalTypes.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class TestWithLocalTypes {",
-            "   @Nullable String test(Object o) {",
-            "     class LocalType {",
-            "         public String returnsNullable() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     LocalType local = new LocalType();",
-            "     return local.returnsNullable();",
-            "   }",
-            "   @Nullable String test2(Object o) {",
-            "     class LocalType {",
-            "         public String returnsNullable2() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     LocalType local = new LocalType();",
-            "     return local.returnsNullable2();",
-            "   }",
-            "   @Nullable String test2() {",
-            "     class LocalType {",
-            "         public String returnsNullable2() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     LocalType local = new LocalType();",
-            "     return local.returnsNullable2();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class TestWithLocalTypes {
+               @Nullable String test(Object o) {
+                 class LocalType {
+                     public String returnsNullable() {
+                         // BUG: Diagnostic contains: returning @Nullable expression
+                         return null;
+                     }
+                 }
+                 LocalType local = new LocalType();
+                 return local.returnsNullable();
+               }
+               @Nullable String test2(Object o) {
+                 class LocalType {
+                     public String returnsNullable2() {
+                         // BUG: Diagnostic contains: returning @Nullable expression
+                         return null;
+                     }
+                 }
+                 LocalType local = new LocalType();
+                 return local.returnsNullable2();
+               }
+               @Nullable String test2() {
+                 class LocalType {
+                     public String returnsNullable2() {
+                         // BUG: Diagnostic contains: returning @Nullable expression
+                         return null;
+                     }
+                 }
+                 LocalType local = new LocalType();
+                 return local.returnsNullable2();
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -1068,27 +1108,29 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithLocalType.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class TestWithLocalType {",
-            "   @Nullable String test(Object o) {",
-            "     class LocalTypeA {",
-            "         @Nullable",
-            "         public String returnsNullable() {",
-            "             class LocalTypeB {",
-            "                 public String returnsNullable() {",
-            "                     // BUG: Diagnostic contains: returning @Nullable expression",
-            "                     return null;",
-            "                 }",
-            "             }",
-            "             LocalTypeB local = new LocalTypeB();",
-            "             return local.returnsNullable();",
-            "         }",
-            "     }",
-            "     LocalTypeA local = new LocalTypeA();",
-            "     return local.returnsNullable();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class TestWithLocalType {
+               @Nullable String test(Object o) {
+                 class LocalTypeA {
+                     @Nullable
+                     public String returnsNullable() {
+                         class LocalTypeB {
+                             public String returnsNullable() {
+                                 // BUG: Diagnostic contains: returning @Nullable expression
+                                 return null;
+                             }
+                         }
+                         LocalTypeB local = new LocalTypeB();
+                         return local.returnsNullable();
+                     }
+                 }
+                 LocalTypeA local = new LocalTypeA();
+                 return local.returnsNullable();
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -1121,41 +1163,43 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/TestWithLocalTypes.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class TestWithLocalTypes {",
-            "   private Object o1;",
-            "   private Object o2;",
-            "   private Object o3;",
-            "   {",
-            "     class LocalType {",
-            "         public String returnsNullable() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     o1 = new LocalType();",
-            "   }",
-            "   {",
-            "     class LocalType {",
-            "         public String returnsNullable() {",
-            "             return \"\";",
-            "         }",
-            "     }",
-            "     o2 = new LocalType();",
-            "   }",
-            "   {",
-            "     class LocalType {",
-            "         public String returnsNullable() {",
-            "             // BUG: Diagnostic contains: returning @Nullable expression",
-            "             return null;",
-            "         }",
-            "     }",
-            "     o3 = new LocalType();",
-            "   }",
-            "   void test(Object o) {",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class TestWithLocalTypes {
+               private Object o1;
+               private Object o2;
+               private Object o3;
+               {
+                 class LocalType {
+                     public String returnsNullable() {
+                         // BUG: Diagnostic contains: returning @Nullable expression
+                         return null;
+                     }
+                 }
+                 o1 = new LocalType();
+               }
+               {
+                 class LocalType {
+                     public String returnsNullable() {
+                         return "";
+                     }
+                 }
+                 o2 = new LocalType();
+               }
+               {
+                 class LocalType {
+                     public String returnsNullable() {
+                         // BUG: Diagnostic contains: returning @Nullable expression
+                         return null;
+                     }
+                 }
+                 o3 = new LocalType();
+               }
+               void test(Object o) {
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -1201,24 +1245,28 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public interface Foo {",
-            "   void bar(@Nullable Object o);",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface Foo {
+               void bar(@Nullable Object o);
+            }
+            """)
         .addSourceLines(
             "com/uber/Main.java",
-            "package com.uber;",
-            "public class Main {",
-            "   public void run(){",
-            "     Foo foo = new Foo() {",
-            "       @Override",
-            "       // BUG: Diagnostic contains: parameter o is @NonNull",
-            "       public void bar(Object o) {",
-            "       }",
-            "     };",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            public class Main {
+               public void run(){
+                 Foo foo = new Foo() {
+                   @Override
+                   // BUG: Diagnostic contains: parameter o is @NonNull
+                   public void bar(Object o) {
+                   }
+                 };
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "WRONG_OVERRIDE_PARAM",
@@ -1251,26 +1299,30 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "public interface Foo {",
-            "   Object bar();",
-            "}")
+            """
+            package com.uber;
+            public interface Foo {
+               Object bar();
+            }
+            """)
         .addSourceLines(
             "com/uber/Main.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Main {",
-            "   public void run(){",
-            "     Foo foo = new Foo() {",
-            "       @Override",
-            "       @Nullable",
-            "       // BUG: Diagnostic contains: method returns @Nullable, but superclass",
-            "       public Object bar() {",
-            "           return null;",
-            "       }",
-            "     };",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Main {
+               public void run(){
+                 Foo foo = new Foo() {
+                   @Override
+                   @Nullable
+                   // BUG: Diagnostic contains: method returns @Nullable, but superclass
+                   public Object bar() {
+                       return null;
+                   }
+                 };
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "WRONG_OVERRIDE_RETURN",
@@ -1304,16 +1356,18 @@ public class SerializationTest extends NullAwayTestsBase {
         .addSourceLines("com/uber/Foo.java", "package com.uber;", "public interface Foo { }")
         .addSourceLines(
             "com/uber/Main.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Main {",
-            "   public void run(){",
-            "     Foo foo = new Foo() {",
-            "       // BUG: Diagnostic contains: @NonNull field Main$1.bar not initialized",
-            "       Object bar;",
-            "     };",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Main {
+               public void run(){
+                 Foo foo = new Foo() {
+                   // BUG: Diagnostic contains: @NonNull field Main$1.bar not initialized
+                   Object bar;
+                 };
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "FIELD_NO_INIT",
@@ -1346,16 +1400,18 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Main.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Main {",
-            "   public void run(){",
-            "     class Foo {",
-            "       // BUG: Diagnostic contains: @NonNull field Main$1Foo.bar not initialized",
-            "       Object bar;",
-            "     };",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Main {
+               public void run(){
+                 class Foo {
+                   // BUG: Diagnostic contains: @NonNull field Main$1Foo.bar not initialized
+                   Object bar;
+                 };
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "FIELD_NO_INIT",
@@ -1397,31 +1453,35 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Main.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Main {",
-            "   // BUG: Diagnostic contains: passing @Nullable parameter",
-            "   Foo f = new Foo(null);", // Member should be "f"
-            "   // BUG: Diagnostic contains: assigning @Nullable expression",
-            "   Foo f1 = null;", // Member should be "f1"
-            "   // BUG: Diagnostic contains: assigning @Nullable expression",
-            "   static Foo f2 = null;", // Member should be "f2"
-            "   static {",
-            "       // BUG: Diagnostic contains: assigning @Nullable expression",
-            "       f2 = null;", // Member should be "null" (not field or method)
-            "   }",
-            "   class Inner {",
-            "       // BUG: Diagnostic contains: passing @Nullable parameter",
-            "       Foo f = new Foo(null);", // Member should be "f" but class is Main$Inner
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Main {
+               // BUG: Diagnostic contains: passing @Nullable parameter
+               Foo f = new Foo(null); // Member should be "f"
+               // BUG: Diagnostic contains: assigning @Nullable expression
+               Foo f1 = null; // Member should be "f1"
+               // BUG: Diagnostic contains: assigning @Nullable expression
+               static Foo f2 = null; // Member should be "f2"
+               static {
+                   // BUG: Diagnostic contains: assigning @Nullable expression
+                   f2 = null; // Member should be "null" (not field or method)
+               }
+               class Inner {
+                   // BUG: Diagnostic contains: passing @Nullable parameter
+                   Foo f = new Foo(null); // Member should be "f" but class is Main$Inner
+               }
+            }
+            """)
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "public class Foo {",
-            "   public Foo(Object foo){",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            public class Foo {
+               public Foo(Object foo){
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
@@ -1441,7 +1501,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Main",
                 "f1",
-                224,
+                248,
                 "com/uber/Main.java",
                 "FIELD",
                 "com.uber.Main",
@@ -1454,7 +1514,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Main",
                 "f2",
-                305,
+                354,
                 "com/uber/Main.java",
                 "FIELD",
                 "com.uber.Main",
@@ -1467,7 +1527,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Main",
                 "null",
-                413,
+                487,
                 "com/uber/Main.java",
                 "FIELD",
                 "com.uber.Main",
@@ -1480,7 +1540,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "passing @Nullable parameter",
                 "com.uber.Main$Inner",
                 "f",
-                525,
+                648,
                 "com/uber/Main.java",
                 "PARAMETER",
                 "com.uber.Foo",
@@ -1508,14 +1568,16 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/UsesUnannotated.java",
-            "package com.uber;",
-            "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
-            "public class UsesUnannotated {",
-            "   Object test(boolean flag) {",
-            "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "       return MinimalUnannotatedClass.foo(null);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;
+            public class UsesUnannotated {
+               Object test(boolean flag) {
+                   // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                   return MinimalUnannotatedClass.foo(null);
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "PASS_NULLABLE",
@@ -1570,14 +1632,16 @@ public class SerializationTest extends NullAwayTestsBase {
                   "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
           .addSourceLines(
               "com/uber/UsesUnannotated.java",
-              "package com.uber;",
-              "import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;",
-              "public class UsesUnannotated {",
-              "   Object test(boolean flag) {",
-              "       // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-              "       return MinimalUnannotatedClass.foo(null);",
-              "   }",
-              "}")
+              """
+              package com.uber;
+              import com.uber.nullaway.testdata.unannotated.MinimalUnannotatedClass;
+              public class UsesUnannotated {
+                 Object test(boolean flag) {
+                     // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                     return MinimalUnannotatedClass.foo(null);
+                 }
+              }
+              """)
           .setExpectedOutputs(
               new ErrorDisplay(
                   "PASS_NULLABLE",
@@ -1611,28 +1675,30 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class A {",
-            "   B b1 = new B();",
-            "   @Nullable B b2 = null;",
-            "   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "   Object baz1 = b1.foo;",
-            "   // BUG: Diagnostic contains: dereferenced expression b2 is @Nullable",
-            "   Object baz2 = b2.foo;",
-            "   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "   Object baz3 = b1.nonnullC.val;",
-            "   // BUG: Diagnostic contains: dereferenced expression b1.nullableC is @Nullable",
-            "   @Nullable Object baz4 = b1.nullableC.val;",
-            "}",
-            "class B {",
-            "   @Nullable Object foo;",
-            "   C nonnullC = new C();",
-            "   @Nullable C nullableC = new C();",
-            "}",
-            "class C {",
-            "   @Nullable Object val;",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class A {
+               B b1 = new B();
+               @Nullable B b2 = null;
+               // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+               Object baz1 = b1.foo;
+               // BUG: Diagnostic contains: dereferenced expression b2 is @Nullable
+               Object baz2 = b2.foo;
+               // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+               Object baz3 = b1.nonnullC.val;
+               // BUG: Diagnostic contains: dereferenced expression b1.nullableC is @Nullable
+               @Nullable Object baz4 = b1.nullableC.val;
+            }
+            class B {
+               @Nullable Object foo;
+               C nonnullC = new C();
+               @Nullable C nullableC = new C();
+            }
+            class C {
+               @Nullable Object val;
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
@@ -1705,19 +1771,21 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class A {",
-            "   @Nullable Object f;",
-            "   A(Object p){",
-            "       // BUG: Diagnostic contains: dereferenced expression",
-            "       Integer hashCode = f.hashCode();",
-            "   }",
-            "   public void bar(){",
-            "       // BUG: Diagnostic contains: passing @Nullable parameter",
-            "       A a = new A(null);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class A {
+               @Nullable Object f;
+               A(Object p){
+                   // BUG: Diagnostic contains: dereferenced expression
+                   Integer hashCode = f.hashCode();
+               }
+               public void bar(){
+                   // BUG: Diagnostic contains: passing @Nullable parameter
+                   A a = new A(null);
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
@@ -1757,23 +1825,25 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/A.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class A {",
-            "   Other other1 = new Other();",
-            "   @Nullable Other other2 = null;",
-            "   public void bar(){",
-            "      class Foo {",
-            "          // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "          Object baz1 = other1.foo;",
-            "          // BUG: Diagnostic contains: dereferenced expression other2 is @Nullable",
-            "          Object baz2 = other2.foo;",
-            "      }",
-            "   }",
-            "}",
-            "class Other {",
-            "   @Nullable Object foo;",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class A {
+               Other other1 = new Other();
+               @Nullable Other other2 = null;
+               public void bar(){
+                  class Foo {
+                      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                      Object baz1 = other1.foo;
+                      // BUG: Diagnostic contains: dereferenced expression other2 is @Nullable
+                      Object baz2 = other2.foo;
+                  }
+               }
+            }
+            class Other {
+               @Nullable Object foo;
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
@@ -1827,44 +1897,48 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Super.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Super {",
-            "   Object foo;",
-            "   // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo",
-            "   Super(boolean b) {",
-            "   }",
-            "   String test(@Nullable Object o) {",
-            "     // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull",
-            "     foo = null;",
-            "     if(o == null) {",
-            "       // BUG: Diagnostic contains: dereferenced expression",
-            "       return o.toString();",
-            "     }",
-            "     // BUG: Diagnostic contains: returning @Nullable expression",
-            "     return null;",
-            "   }",
-            "   protected void expectNonNull(Object o) {",
-            "     System.out.println(o);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Super {
+               Object foo;
+               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo
+               Super(boolean b) {
+               }
+               String test(@Nullable Object o) {
+                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull
+                 foo = null;
+                 if(o == null) {
+                   // BUG: Diagnostic contains: dereferenced expression
+                   return o.toString();
+                 }
+                 // BUG: Diagnostic contains: returning @Nullable expression
+                 return null;
+               }
+               protected void expectNonNull(Object o) {
+                 System.out.println(o);
+               }
+            }
+            """)
         .addSourceLines(
             "com/uber/SubClass.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class SubClass extends Super{",
-            "   SubClass(boolean b) {",
-            "      super(b);",
-            "      // BUG: Diagnostic contains: passing @Nullable parameter",
-            "      test(null);",
-            "      // BUG: Diagnostic contains: passing @Nullable parameter",
-            "      expectNonNull(null);",
-            "   }",
-            "   // BUG: Diagnostic contains: method returns @Nullable, but superclass",
-            "   @Nullable String test(Object o) {",
-            "     return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class SubClass extends Super{
+               SubClass(boolean b) {
+                  super(b);
+                  // BUG: Diagnostic contains: passing @Nullable parameter
+                  test(null);
+                  // BUG: Diagnostic contains: passing @Nullable parameter
+                  expectNonNull(null);
+               }
+               // BUG: Diagnostic contains: method returns @Nullable, but superclass
+               @Nullable String test(Object o) {
+                 return null;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplayV1(
                 "METHOD_NO_INIT",
@@ -1951,14 +2025,16 @@ public class SerializationTest extends NullAwayTestsBase {
                 "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
         .addSourceLines(
             "com/uber/Foo.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "public class Foo {",
-            "   String test(Map<Object, String> o) {",
-            "       // BUG: Diagnostic contains: returning @Nullable expression",
-            "       return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            public class Foo {
+               String test(Map<Object, String> o) {
+                   // BUG: Diagnostic contains: returning @Nullable expression
+                   return null;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplayV1(
                 "RETURN_NULLABLE",
@@ -2041,19 +2117,21 @@ public class SerializationTest extends NullAwayTestsBase {
             "public @interface Custom { }")
         .addSourceLines(
             "com/uber/Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import java.util.List;",
-            "public class Test {",
-            "   Object m1(@Custom List<Map<String, ?>>[] p2, @Custom Map<? extends String, ?> ... p) {",
-            "      // BUG: Diagnostic contains: returning @Nullable expression",
-            "      return null;",
-            "   }",
-            "   Object m2(@Custom List<?>[] p) {",
-            "      // BUG: Diagnostic contains: returning @Nullable expression",
-            "      return null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            import java.util.List;
+            public class Test {
+               Object m1(@Custom List<Map<String, ?>>[] p2, @Custom Map<? extends String, ?> ... p) {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+               }
+               Object m2(@Custom List<?>[] p) {
+                  // BUG: Diagnostic contains: returning @Nullable expression
+                  return null;
+               }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "RETURN_NULLABLE",
@@ -2143,15 +2221,17 @@ public class SerializationTest extends NullAwayTestsBase {
                     "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
         .addSourceLines(
             "com/uber/A.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class A {",
-            "  String [] foo = {\"SomeRandomWords\"};",
-            "  void spin() {",
-            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
-            "    foo[1] = null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class A {
+              String [] foo = {"SomeRandomWords"};
+              void spin() {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.
+                foo[1] = null;
+              }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
@@ -2185,15 +2265,17 @@ public class SerializationTest extends NullAwayTestsBase {
                     "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
         .addSourceLines(
             "com/uber/A.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class A {",
-            "  void spin() {",
-            "    String [] foo = {\"SomeRandomWords\"};",
-            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
-            "    foo[1] = null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class A {
+              void spin() {
+                String [] foo = {"SomeRandomWords"};
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.
+                foo[1] = null;
+              }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",
@@ -2227,48 +2309,50 @@ public class SerializationTest extends NullAwayTestsBase {
                     "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
         .addSourceLines(
             "com/uber/A.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class A {",
-            "  A a = new A();",
-            "  public void f() {",
-            "    final Object[] l = new Object[10];",
-            "    class B {",
-            "      void b() {",
-            "        // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
-            "        l[0] = null;",
-            "      }",
-            "      void shadowInLambda() {",
-            "        a.exec(",
-            "                () -> {",
-            "                  Object[] l = new Object[10];",
-            "                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
-            "                  l[0] = null;",
-            "                });",
-            "      }",
-            "      void useFieldInLambda(A a) {",
-            "        Object[] l = new Object[10];",
-            "        a.exec(",
-            "                () -> {",
-            "                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
-            "                  l[0] = null;",
-            "                });",
-            "      }",
-            "    }",
-            "    a.exec(new Runnable() {",
-            "      @Override",
-            "      public void run() {",
-            "        // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
-            "        l[0] = null;",
-            "      }",
-            "    });",
-            "    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.",
-            "    l[0] = null;",
-            "  }",
-            "  void exec(Runnable runnable) {",
-            "    runnable.run();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class A {
+              A a = new A();
+              public void f() {
+                final Object[] l = new Object[10];
+                class B {
+                  void b() {
+                    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.
+                    l[0] = null;
+                  }
+                  void shadowInLambda() {
+                    a.exec(
+                            () -> {
+                              Object[] l = new Object[10];
+                              // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.
+                              l[0] = null;
+                            });
+                  }
+                  void useFieldInLambda(A a) {
+                    Object[] l = new Object[10];
+                    a.exec(
+                            () -> {
+                              // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.
+                              l[0] = null;
+                            });
+                  }
+                }
+                a.exec(new Runnable() {
+                  @Override
+                  public void run() {
+                    // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.
+                    l[0] = null;
+                  }
+                });
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents.
+                l[0] = null;
+              }
+              void exec(Runnable runnable) {
+                runnable.run();
+              }
+            }
+            """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "ASSIGN_NULLABLE_TO_NONNULL_ARRAY",

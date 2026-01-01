@@ -35,18 +35,20 @@ public class ArrayTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static @Nullable String [] fizz = {\"1\"};",
-            "  static Object o1 = new Object();",
-            "  static void foo() {",
-            "      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "      o1 = fizz;",
-            "      // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
-            "      o1 = fizz.length;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static @Nullable String [] fizz = {"1"};
+              static Object o1 = new Object();
+              static void foo() {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  o1 = fizz;
+                  // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable
+                  o1 = fizz.length;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -55,18 +57,20 @@ public class ArrayTests extends NullAwayTestsBase {
     makeLegacyModeHelper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static @Nullable String [] fizz = {\"1\"};",
-            "  static Object o1 = new Object();",
-            "  static void foo() {",
-            "      // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "      o1 = fizz;",
-            "      // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable",
-            "      o1 = fizz.length;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static @Nullable String [] fizz = {"1"};
+              static Object o1 = new Object();
+              static void foo() {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  o1 = fizz;
+                  // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable
+                  o1 = fizz.length;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -75,22 +79,24 @@ public class ArrayTests extends NullAwayTestsBase {
     makeLegacyModeHelper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  // ok only for backwards compat",
-            "  @Nullable Object[] foo1 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable[] foo2 = null;",
-            "  // ok, but elements are not treated as @Nullable outside of JSpecify mode",
-            "  @Nullable Object @Nullable[] foo3 = null;",
-            "  // ok only for backwards compat",
-            "  @Nullable Object [][] foo4 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable [][] foo5 = null;",
-            "  // ok, but @Nullable applies to first array dimension not the elements or the array ref",
-            "  Object [] @Nullable [] foo6 = null;",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              // ok only for backwards compat
+              @Nullable Object[] foo1 = null;
+              // ok according to spec
+              Object @Nullable[] foo2 = null;
+              // ok, but elements are not treated as @Nullable outside of JSpecify mode
+              @Nullable Object @Nullable[] foo3 = null;
+              // ok only for backwards compat
+              @Nullable Object [][] foo4 = null;
+              // ok according to spec
+              Object @Nullable [][] foo5 = null;
+              // ok, but @Nullable applies to first array dimension not the elements or the array ref
+              Object [] @Nullable [] foo6 = null;
+            }
+            """)
         .doTest();
   }
 
@@ -99,25 +105,27 @@ public class ArrayTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  // @Nullable is not applied on top-level of array",
-            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "  @Nullable Object[] foo1 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable[] foo2 = null;",
-            "  // ok according to spec",
-            "  @Nullable Object @Nullable [] foo3 = null;",
-            "  // @Nullable is not applied on top-level of array",
-            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "  @Nullable Object [][] foo4 = null;",
-            "  // ok according to spec",
-            "  Object @Nullable [][] foo5 = null;",
-            "  // @Nullable is not applied on top-level of array",
-            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "  Object [] @Nullable [] foo6 = null;",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              // @Nullable is not applied on top-level of array
+              // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+              @Nullable Object[] foo1 = null;
+              // ok according to spec
+              Object @Nullable[] foo2 = null;
+              // ok according to spec
+              @Nullable Object @Nullable [] foo3 = null;
+              // @Nullable is not applied on top-level of array
+              // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+              @Nullable Object [][] foo4 = null;
+              // ok according to spec
+              Object @Nullable [][] foo5 = null;
+              // @Nullable is not applied on top-level of array
+              // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+              Object [] @Nullable [] foo6 = null;
+            }
+            """)
         .doTest();
   }
 
@@ -126,23 +134,27 @@ public class ArrayTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Nullable.java",
-            "package com.uber;",
-            "import java.lang.annotation.ElementType;",
-            "import java.lang.annotation.Target;",
-            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
-            "public @interface Nullable {}")
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            @Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})
+            public @interface Nullable {}
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  @Nullable Object[] foo1 = null;",
-            "  Object @Nullable[] foo2 = null;",
-            "  @Nullable Object @Nullable [] foo3 = null;",
-            "  @Nullable Object [][] foo4 = null;",
-            "  Object @Nullable [][] foo5 = null;",
-            "  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field",
-            "  Object [] @Nullable [] foo6 = null;",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              @Nullable Object[] foo1 = null;
+              Object @Nullable[] foo2 = null;
+              @Nullable Object @Nullable [] foo3 = null;
+              @Nullable Object [][] foo4 = null;
+              Object @Nullable [][] foo5 = null;
+              // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+              Object [] @Nullable [] foo6 = null;
+            }
+            """)
         .doTest();
   }
 
@@ -151,22 +163,26 @@ public class ArrayTests extends NullAwayTestsBase {
     makeLegacyModeHelper()
         .addSourceLines(
             "Nullable.java",
-            "package com.uber;",
-            "import java.lang.annotation.ElementType;",
-            "import java.lang.annotation.Target;",
-            "@Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})",
-            "public @interface Nullable {}")
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            @Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})
+            public @interface Nullable {}
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  @Nullable Object[] foo1 = null;",
-            "  Object @Nullable[] foo2 = null;",
-            "  @Nullable Object @Nullable [] foo3 = null;",
-            "  @Nullable Object [][] foo4 = null;",
-            "  Object @Nullable [][] foo5 = null;",
-            "  Object [] @Nullable [] foo6 = null;",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              @Nullable Object[] foo1 = null;
+              Object @Nullable[] foo2 = null;
+              @Nullable Object @Nullable [] foo3 = null;
+              @Nullable Object [][] foo4 = null;
+              Object @Nullable [][] foo5 = null;
+              Object [] @Nullable [] foo6 = null;
+            }
+            """)
         .doTest();
   }
 

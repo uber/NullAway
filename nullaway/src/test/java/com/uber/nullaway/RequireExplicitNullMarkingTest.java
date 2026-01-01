@@ -26,12 +26,14 @@ public class RequireExplicitNullMarkingTest {
     compilationHelper
         .addSourceLines(
             "test/MissingAnnotation.java",
-            "package test;",
-            "// BUG: Diagnostic contains: Top-level classes must either be directly annotated",
-            "class MissingAnnotation {",
-            "  // no report on nested class",
-            "  class NestedClass {}",
-            "}")
+            """
+            package test;
+            // BUG: Diagnostic contains: Top-level classes must either be directly annotated
+            class MissingAnnotation {
+              // no report on nested class
+              class NestedClass {}
+            }
+            """)
         .doTest();
   }
 
@@ -40,10 +42,12 @@ public class RequireExplicitNullMarkingTest {
     compilationHelper
         .addSourceLines(
             "test/MissingAnnotation.java",
-            "package test;",
-            "// BUG: Diagnostic contains: https://github.com/uber/NullAway/wiki/JSpecify-Support#requireexplicitnullmarking-checker",
-            "class MissingAnnotation {",
-            "}")
+            """
+            package test;
+            // BUG: Diagnostic contains: https://github.com/uber/NullAway/wiki/JSpecify-Support#requireexplicitnullmarking-checker
+            class MissingAnnotation {
+            }
+            """)
         .doTest();
   }
 
@@ -53,10 +57,12 @@ public class RequireExplicitNullMarkingTest {
     compilationHelperSuggestionLevel
         .addSourceLines(
             "test/MissingAnnotation.java",
-            "package test;",
-            "// no warning here since we're at the default SUGGESTION level",
-            "class MissingAnnotation {",
-            "}")
+            """
+            package test;
+            // no warning here since we're at the default SUGGESTION level
+            class MissingAnnotation {
+            }
+            """)
         .doTest();
   }
 
@@ -65,10 +71,12 @@ public class RequireExplicitNullMarkingTest {
     compilationHelper
         .addSourceLines(
             "test/DirectMarked.java",
-            "package test;",
-            "import org.jspecify.annotations.NullMarked;",
-            "@NullMarked",
-            "class DirectMarked {}")
+            """
+            package test;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class DirectMarked {}
+            """)
         .doTest();
   }
 
@@ -77,10 +85,12 @@ public class RequireExplicitNullMarkingTest {
     compilationHelper
         .addSourceLines(
             "test/DirectUnmarked.java",
-            "package test;",
-            "import org.jspecify.annotations.NullUnmarked;",
-            "@NullUnmarked",
-            "class DirectUnmarked {}")
+            """
+            package test;
+            import org.jspecify.annotations.NullUnmarked;
+            @NullUnmarked
+            class DirectUnmarked {}
+            """)
         .doTest();
   }
 

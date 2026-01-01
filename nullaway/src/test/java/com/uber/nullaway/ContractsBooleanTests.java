@@ -11,30 +11,32 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.util.Map;",
-            "class Test {",
-            "  String test1(@Nullable Object o1) {",
-            "    Validation.checkTrue(o1 != null);",
-            "    return o1.toString();",
-            "  }",
-            "  String test1WithMsg(@Nullable Object o1) {",
-            "    Validation.checkTrue(o1 != null, \"o1 should not be null!\");",
-            "    return o1.toString();",
-            "  }",
-            "  String test2(Map<String, String> map) {",
-            "    Validation.checkTrue(map.get(\"key\") != null);",
-            "    return map.get(\"key\").toString();",
-            "  }",
-            "  interface HasNullableGetter {",
-            "    @Nullable Object get();",
-            "  }",
-            "  String test3(HasNullableGetter obj) {",
-            "    Validation.checkTrue(obj.get() != null);",
-            "    return obj.get().toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.util.Map;
+            class Test {
+              String test1(@Nullable Object o1) {
+                Validation.checkTrue(o1 != null);
+                return o1.toString();
+              }
+              String test1WithMsg(@Nullable Object o1) {
+                Validation.checkTrue(o1 != null, "o1 should not be null!");
+                return o1.toString();
+              }
+              String test2(Map<String, String> map) {
+                Validation.checkTrue(map.get("key") != null);
+                return map.get("key").toString();
+              }
+              interface HasNullableGetter {
+                @Nullable Object get();
+              }
+              String test3(HasNullableGetter obj) {
+                Validation.checkTrue(obj.get() != null);
+                return obj.get().toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -43,26 +45,28 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.util.Map;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkTrue(null != o1);",
-            "    return o1.toString();",
-            "  }",
-            "  String test2(Map<String, String> map) {",
-            "    Validation.checkTrue(null != map.get(\"key\"));",
-            "    return map.get(\"key\").toString();",
-            "  }",
-            "  interface HasNullableGetter {",
-            "    @Nullable Object get();",
-            "  }",
-            "  String test3(HasNullableGetter obj) {",
-            "    Validation.checkTrue(null != obj.get());",
-            "    return obj.get().toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.util.Map;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkTrue(null != o1);
+                return o1.toString();
+              }
+              String test2(Map<String, String> map) {
+                Validation.checkTrue(null != map.get("key"));
+                return map.get("key").toString();
+              }
+              interface HasNullableGetter {
+                @Nullable Object get();
+              }
+              String test3(HasNullableGetter obj) {
+                Validation.checkTrue(null != obj.get());
+                return obj.get().toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -71,14 +75,16 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkFalse(o1 == null);",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkFalse(o1 == null);
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -87,14 +93,16 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkFalse(null == o1);",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkFalse(null == o1);
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -103,15 +111,17 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkTrue(o1 == null);",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkTrue(o1 == null);
+                // BUG: Diagnostic contains: dereferenced expression
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -120,15 +130,17 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkTrue(null == o1);",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkTrue(null == o1);
+                // BUG: Diagnostic contains: dereferenced expression
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -137,15 +149,17 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkFalse(o1 != null);",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkFalse(o1 != null);
+                // BUG: Diagnostic contains: dereferenced expression
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -154,15 +168,17 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkFalse(null != o1);",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkFalse(null != o1);
+                // BUG: Diagnostic contains: dereferenced expression
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -171,25 +187,27 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.util.Map;",
-            "class Test {",
-            "  String test1(@Nullable Object o1) {",
-            "    Validation.checkTrue(o1 != null && o1.toString().equals(\"\"));",
-            "    return o1.toString();",
-            "  }",
-            "  String test2(@Nullable Object o1) {",
-            "    Validation.checkTrue(o1 != null ||",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      o1.toString().equals(\"\"));",
-            "    return o1.toString();",
-            "  }",
-            "  String test3(Map<String, String> map) {",
-            "    Validation.checkTrue(map.get(\"key\") != null && map.get(\"key\").toString().equals(\"\"));",
-            "    return map.get(\"key\").toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.util.Map;
+            class Test {
+              String test1(@Nullable Object o1) {
+                Validation.checkTrue(o1 != null && o1.toString().equals(""));
+                return o1.toString();
+              }
+              String test2(@Nullable Object o1) {
+                Validation.checkTrue(o1 != null ||
+                  // BUG: Diagnostic contains: dereferenced expression
+                  o1.toString().equals(""));
+                return o1.toString();
+              }
+              String test3(Map<String, String> map) {
+                Validation.checkTrue(map.get("key") != null && map.get("key").toString().equals(""));
+                return map.get("key").toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -198,14 +216,16 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1, @Nullable Object o2) {",
-            "    Validation.checkTrue(o1 != null && o2 != null);",
-            "    return o1.toString() + o2.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1, @Nullable Object o2) {
+                Validation.checkTrue(o1 != null && o2 != null);
+                return o1.toString() + o2.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -214,14 +234,16 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    Validation.checkFalse(o1 == null || o1.toString().equals(\"\"));",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                Validation.checkFalse(o1 == null || o1.toString().equals(""));
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -230,21 +252,23 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test1(@Nullable Object o1, @Nullable Object o2) {",
-            "    Validation.checkFalse(o1 == null || o2 == null);",
-            "    return o1.toString() + o2.toString();",
-            "  }",
-            "  String test2(@Nullable Object o1, @Nullable Object o2) {",
-            "    Validation.checkFalse(o1 == null && o2 == null);",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    return o1.toString()",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      + o2.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test1(@Nullable Object o1, @Nullable Object o2) {
+                Validation.checkFalse(o1 == null || o2 == null);
+                return o1.toString() + o2.toString();
+              }
+              String test2(@Nullable Object o1, @Nullable Object o2) {
+                Validation.checkFalse(o1 == null && o2 == null);
+                // BUG: Diagnostic contains: dereferenced expression
+                return o1.toString()
+                  // BUG: Diagnostic contains: dereferenced expression
+                  + o2.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -253,42 +277,44 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test1(@Nullable Object o1) {",
-            "    if (o1 == null) {",
-            "      Validation.fail(\"o1 should not be null\");",
-            "    }",
-            "    return o1.toString();",
-            "  }",
-            "  String test2(@Nullable Object o1) {",
-            "    if (o1 != null) {",
-            "      Validation.fail(\"o1 should be null\");",
-            "    }",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    return o1.toString();",
-            "  }",
-            "  String test3(@Nullable Object o1) {",
-            "    Validation.fail(\"always fail\");",
-            "    // this is unreachable code, so we do not report an error",
-            "    return o1.toString();",
-            "  }",
-            "  String test4(@Nullable Object o1) {",
-            "    if (o1 != null) {",
-            "      System.out.println(o1.toString());",
-            "    } else {",
-            "      Validation.fail(\"o1 should not be null\");",
-            "    }",
-            "    return o1.toString();",
-            "  }",
-            "  String test5(@Nullable Object o1) {",
-            "    if (o1 == null) {",
-            "      Validation.fail();",
-            "    }",
-            "    return o1.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test1(@Nullable Object o1) {
+                if (o1 == null) {
+                  Validation.fail("o1 should not be null");
+                }
+                return o1.toString();
+              }
+              String test2(@Nullable Object o1) {
+                if (o1 != null) {
+                  Validation.fail("o1 should be null");
+                }
+                // BUG: Diagnostic contains: dereferenced expression
+                return o1.toString();
+              }
+              String test3(@Nullable Object o1) {
+                Validation.fail("always fail");
+                // this is unreachable code, so we do not report an error
+                return o1.toString();
+              }
+              String test4(@Nullable Object o1) {
+                if (o1 != null) {
+                  System.out.println(o1.toString());
+                } else {
+                  Validation.fail("o1 should not be null");
+                }
+                return o1.toString();
+              }
+              String test5(@Nullable Object o1) {
+                if (o1 == null) {
+                  Validation.fail();
+                }
+                return o1.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -297,18 +323,20 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    if (Validation.identity(null != o1)) {",
-            "      return o1.toString();",
-            "    } else {",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      return o1.toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                if (Validation.identity(null != o1)) {
+                  return o1.toString();
+                } else {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  return o1.toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -317,18 +345,20 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1, Object o2) {",
-            "    if (Validation.identity(null != o1, o2)) {",
-            "      return o1.toString();",
-            "    } else {",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      return o1.toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1, Object o2) {
+                if (Validation.identity(null != o1, o2)) {
+                  return o1.toString();
+                } else {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  return o1.toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -337,18 +367,20 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1) {",
-            "    if (Validation.identity(null == o1)) {",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      return o1.toString();",
-            "    } else {",
-            "      return o1.toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1) {
+                if (Validation.identity(null == o1)) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  return o1.toString();
+                } else {
+                  return o1.toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -357,18 +389,20 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o1, Object o2) {",
-            "    if (Validation.identity(null == o1, o2)) {",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      return o1.toString();",
-            "    } else {",
-            "      return o1.toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o1, Object o2) {
+                if (Validation.identity(null == o1, o2)) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  return o1.toString();
+                } else {
+                  return o1.toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -377,35 +411,37 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import org.jetbrains.annotations.Contract;",
-            "class Test {",
-            "  @Contract(\"false -> fail\")",
-            "  static boolean checkAndReturn(boolean value) {",
-            "    if (!value) {",
-            "      throw new RuntimeException();",
-            "    }",
-            "    return true;",
-            "  }",
-            "  String test1(@Nullable Object o1, @Nullable Object o2) {",
-            "    if (checkAndReturn(o1 != null) && o2 != null) {",
-            "      return o1.toString() + o2.toString();",
-            "    } else {",
-            "      return o1.toString() + ",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "        o2.toString();",
-            "    }",
-            "  }",
-            "  boolean test2(@Nullable Object o1, @Nullable Object o2) {",
-            "    return checkAndReturn(o1 != null) && o1.toString().isEmpty();",
-            "  }",
-            "  boolean test3(@Nullable Object o1, @Nullable Object o2) {",
-            "    return checkAndReturn(o1 == null) ",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      && o1.toString().isEmpty();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            class Test {
+              @Contract("false -> fail")
+              static boolean checkAndReturn(boolean value) {
+                if (!value) {
+                  throw new RuntimeException();
+                }
+                return true;
+              }
+              String test1(@Nullable Object o1, @Nullable Object o2) {
+                if (checkAndReturn(o1 != null) && o2 != null) {
+                  return o1.toString() + o2.toString();
+                } else {
+                  return o1.toString() +
+                  // BUG: Diagnostic contains: dereferenced expression
+                    o2.toString();
+                }
+              }
+              boolean test2(@Nullable Object o1, @Nullable Object o2) {
+                return checkAndReturn(o1 != null) && o1.toString().isEmpty();
+              }
+              boolean test3(@Nullable Object o1, @Nullable Object o2) {
+                return checkAndReturn(o1 == null)
+                  // BUG: Diagnostic contains: dereferenced expression
+                  && o1.toString().isEmpty();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -414,35 +450,37 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import org.jetbrains.annotations.Contract;",
-            "class Test {",
-            "  @Contract(\"false, _ -> fail\")",
-            "  static boolean checkAndReturn(boolean value, Object other) {",
-            "    if (!value) {",
-            "      throw new RuntimeException();",
-            "    }",
-            "    return true;",
-            "  }",
-            "  String test1(@Nullable Object o1, @Nullable Object o2, Object other) {",
-            "    if (checkAndReturn(o1 != null, other) && o2 != null) {",
-            "      return o1.toString() + o2.toString();",
-            "    } else {",
-            "      return o1.toString() + ",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "        o2.toString();",
-            "    }",
-            "  }",
-            "  boolean test2(@Nullable Object o1, @Nullable Object o2, Object other) {",
-            "    return checkAndReturn(o1 != null, other) && o1.toString().isEmpty();",
-            "  }",
-            "  boolean test3(@Nullable Object o1, @Nullable Object o2, Object other) {",
-            "    return checkAndReturn(o1 == null, other) ",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      && o1.toString().isEmpty();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            class Test {
+              @Contract("false, _ -> fail")
+              static boolean checkAndReturn(boolean value, Object other) {
+                if (!value) {
+                  throw new RuntimeException();
+                }
+                return true;
+              }
+              String test1(@Nullable Object o1, @Nullable Object o2, Object other) {
+                if (checkAndReturn(o1 != null, other) && o2 != null) {
+                  return o1.toString() + o2.toString();
+                } else {
+                  return o1.toString() +
+                  // BUG: Diagnostic contains: dereferenced expression
+                    o2.toString();
+                }
+              }
+              boolean test2(@Nullable Object o1, @Nullable Object o2, Object other) {
+                return checkAndReturn(o1 != null, other) && o1.toString().isEmpty();
+              }
+              boolean test3(@Nullable Object o1, @Nullable Object o2, Object other) {
+                return checkAndReturn(o1 == null, other)
+                  // BUG: Diagnostic contains: dereferenced expression
+                  && o1.toString().isEmpty();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -451,14 +489,16 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  String test(Object required) {",
-            "    return Validation.identity(required == null)",
-            "      ? required.toString()",
-            "      : required.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              String test(Object required) {
+                return Validation.identity(required == null)
+                  ? required.toString()
+                  : required.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -467,14 +507,16 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  String test(Object required, Object other) {",
-            "    return Validation.identity(required == null, other)",
-            "      ? required.toString()",
-            "      : required.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              String test(Object required, Object other) {
+                return Validation.identity(required == null, other)
+                  ? required.toString()
+                  : required.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -483,21 +525,23 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o) {",
-            "    Validation.checkTrue(o == null);",
-            "    return Validation.identity(o == null)",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      ? o.toString()",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o) {
+                Validation.checkTrue(o == null);
+                return Validation.identity(o == null)
+                  // BUG: Diagnostic contains: dereferenced expression
+                  ? o.toString()
             // This path is unreachable because o is guaranteed to be null
             // after checkTrue(o == null). No failures should be reported.
             // Note that we're not doing general reachability analysis,
             // rather ensuring that we don't incorrectly produce errors.
-            "      : o.toString();",
-            "  }",
-            "}")
+                  : o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -506,20 +550,22 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o) {",
-            "    return Validation.identity(o == null)",
-            "      ? (Validation.identity(o != null)",
-            "        ? o.toString()",
-            "        // BUG: Diagnostic contains: dereferenced expression",
-            "        : o.toString())",
-            "      : (Validation.identity(o != null)",
-            "        ? o.toString()",
-            "        : o.toString());",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o) {
+                return Validation.identity(o == null)
+                  ? (Validation.identity(o != null)
+                    ? o.toString()
+                    // BUG: Diagnostic contains: dereferenced expression
+                    : o.toString())
+                  : (Validation.identity(o != null)
+                    ? o.toString()
+                    : o.toString());
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -528,20 +574,22 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  String test(@Nullable Object o, Object other) {",
-            "    return Validation.identity(o == null, other)",
-            "      ? (Validation.identity(o != null, other)",
-            "        ? o.toString()",
-            "        // BUG: Diagnostic contains: dereferenced expression",
-            "        : o.toString())",
-            "      : (Validation.identity(o != null, other)",
-            "        ? o.toString()",
-            "        : o.toString());",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object o, Object other) {
+                return Validation.identity(o == null, other)
+                  ? (Validation.identity(o != null, other)
+                    ? o.toString()
+                    // BUG: Diagnostic contains: dereferenced expression
+                    : o.toString())
+                  : (Validation.identity(o != null, other)
+                    ? o.toString()
+                    : o.toString());
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -550,38 +598,40 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
     helper()
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import org.jetbrains.annotations.Contract;",
-            "class Test {",
-            "  @Contract(\"false, false -> fail\")",
-            "  static void falseFalseFail(boolean b1, boolean b2) {",
-            "    if (!b1 && !b2) {",
-            "      throw new RuntimeException();",
-            "    }",
-            "  }",
-            "  String test1(@Nullable Object maybe, Object required) {",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            class Test {
+              @Contract("false, false -> fail")
+              static void falseFalseFail(boolean b1, boolean b2) {
+                if (!b1 && !b2) {
+                  throw new RuntimeException();
+                }
+              }
+              String test1(@Nullable Object maybe, Object required) {
             // 'required == null' is known to be false, so if we go past this line,
             // we know 'maybe != null' evaluates to true, hence both args are @NonNull.
-            "    falseFalseFail(maybe != null, required == null);",
-            "    return maybe.toString() + required.toString();",
-            "  }",
-            "  String test2(@Nullable Object maybe) {",
-            "    String ref = null;",
+                falseFalseFail(maybe != null, required == null);
+                return maybe.toString() + required.toString();
+              }
+              String test2(@Nullable Object maybe) {
+                String ref = null;
             // 'ref != null' is known to be false, so if we go past this line,
             // we know 'maybe != null' evaluates to true.
-            "    falseFalseFail(maybe != null, ref != null);",
-            "    return maybe.toString();",
-            "  }",
-            "  String test3(@Nullable Object maybe) {",
-            "    String ref = \"\";",
-            "    ref = null;",
+                falseFalseFail(maybe != null, ref != null);
+                return maybe.toString();
+              }
+              String test3(@Nullable Object maybe) {
+                String ref = "";
+                ref = null;
             // 'ref != null' is known to be false, so if we go past this line,
             // we know 'maybe != null' evaluates to true.
-            "    falseFalseFail(maybe != null, ref != null);",
-            "    return maybe.toString();",
-            "  }",
-            "}")
+                falseFalseFail(maybe != null, ref != null);
+                return maybe.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -593,38 +643,40 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "Validation.java",
-            "package com.uber;",
-            "import org.jetbrains.annotations.Contract;",
-            "import javax.annotation.Nullable;",
-            "public final class Validation {",
-            "  @Contract(\"false -> fail\")",
-            "  static void checkTrue(boolean value) {",
-            "    if (!value) throw new RuntimeException();",
-            "  }",
-            "  @Contract(\"false, _ -> fail\")",
-            "  static void checkTrue(boolean value, String msg) {",
-            "    if (!value) throw new RuntimeException(msg);",
-            "  }",
-            "  @Contract(\"true -> fail\")",
-            "  static void checkFalse(boolean value) {",
-            "    if (value) throw new RuntimeException();",
-            "  }",
-            "  @Contract(\"_ -> fail\")",
-            "  static void fail(String msg) {",
-            "    throw new RuntimeException(msg);",
-            "  }",
-            "  @Contract(\" -> fail\")",
-            "  static void fail() {",
-            "    throw new RuntimeException(\"something failed\");",
-            "  }",
-            "  @Contract(\"true -> true; false -> false\")",
-            "  static boolean identity(boolean value) {",
-            "    return value;",
-            "  }",
-            "  @Contract(\"true, _ -> true; false, _ -> false\")",
-            "  static boolean identity(boolean value, @Nullable Object other) {",
-            "    return value;",
-            "  }",
-            "}");
+            """
+            package com.uber;
+            import org.jetbrains.annotations.Contract;
+            import javax.annotation.Nullable;
+            public final class Validation {
+              @Contract("false -> fail")
+              static void checkTrue(boolean value) {
+                if (!value) throw new RuntimeException();
+              }
+              @Contract("false, _ -> fail")
+              static void checkTrue(boolean value, String msg) {
+                if (!value) throw new RuntimeException(msg);
+              }
+              @Contract("true -> fail")
+              static void checkFalse(boolean value) {
+                if (value) throw new RuntimeException();
+              }
+              @Contract("_ -> fail")
+              static void fail(String msg) {
+                throw new RuntimeException(msg);
+              }
+              @Contract(" -> fail")
+              static void fail() {
+                throw new RuntimeException("something failed");
+              }
+              @Contract("true -> true; false -> false")
+              static boolean identity(boolean value) {
+                return value;
+              }
+              @Contract("true, _ -> true; false, _ -> false")
+              static boolean identity(boolean value, @Nullable Object other) {
+                return value;
+              }
+            }
+            """);
   }
 }

@@ -13,20 +13,22 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
     makeHelper()
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.concurrent.atomic.AtomicReference;",
-            "@NullMarked",
-            "class Test {",
-            "  void testNegative() {",
-            "    AtomicReference<Integer> x = new AtomicReference<>(Integer.valueOf(3));",
-            "    x.get().hashCode();",
-            "  }",
-            "  void testPositive() {",
-            "    AtomicReference<@Nullable Integer> x = new AtomicReference<>(Integer.valueOf(3));",
-            "    // BUG: Diagnostic contains: dereferenced expression x.get() is @Nullable",
-            "    x.get().hashCode();",
-            "  }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            import java.util.concurrent.atomic.AtomicReference;
+            @NullMarked
+            class Test {
+              void testNegative() {
+                AtomicReference<Integer> x = new AtomicReference<>(Integer.valueOf(3));
+                x.get().hashCode();
+              }
+              void testPositive() {
+                AtomicReference<@Nullable Integer> x = new AtomicReference<>(Integer.valueOf(3));
+                // BUG: Diagnostic contains: dereferenced expression x.get() is @Nullable
+                x.get().hashCode();
+              }
+            }
+            """)
         .doTest();
   }
 

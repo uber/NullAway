@@ -80,27 +80,31 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "GenericSuper.java",
-            "package com.uber;",
-            "class GenericSuper<T> {",
-            "  T x;",
-            "  GenericSuper(T y) {",
-            "    this.x = y;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class GenericSuper<T> {
+              T x;
+              GenericSuper(T y) {
+                this.x = y;
+              }
+            }
+            """)
         .addSourceLines(
             "AnonSub.java",
-            "package com.uber;",
-            "import java.util.List;",
-            "import javax.annotation.Nullable;",
-            "class AnonSub {",
-            "  static GenericSuper<List<String>> makeSuper(List<String> list) {",
-            "    return new GenericSuper<List<String>>(list) {};",
-            "  }",
-            "  static GenericSuper<List<String>> makeSuperBad(@Nullable List<String> list) {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'list' where @NonNull",
-            "    return new GenericSuper<List<String>>(list) {};",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.List;
+            import javax.annotation.Nullable;
+            class AnonSub {
+              static GenericSuper<List<String>> makeSuper(List<String> list) {
+                return new GenericSuper<List<String>>(list) {};
+              }
+              static GenericSuper<List<String>> makeSuperBad(@Nullable List<String> list) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'list' where @NonNull
+                return new GenericSuper<List<String>>(list) {};
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -110,29 +114,31 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.*;",
-            "class Test {",
-            "  static class Foo implements Iterable {",
-            "    public Iterator iterator() {",
-            "      return new Iterator() {",
-            "        @Override",
-            "        public boolean hasNext() {",
-            "          return false;",
-            "        }",
-            "        @Override",
-            "        public Iterator next() {",
-            "          throw new NoSuchElementException();",
-            "        }",
-            "      };",
-            "    }",
-            "  }",
-            "  static void testErasedIterator(Foo foo) {",
-            "    for (Object x : foo) {",
-            "      x.hashCode();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.*;
+            class Test {
+              static class Foo implements Iterable {
+                public Iterator iterator() {
+                  return new Iterator() {
+                    @Override
+                    public boolean hasNext() {
+                      return false;
+                    }
+                    @Override
+                    public Iterator next() {
+                      throw new NoSuchElementException();
+                    }
+                  };
+                }
+              }
+              static void testErasedIterator(Foo foo) {
+                for (Object x : foo) {
+                  x.hashCode();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -141,20 +147,22 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  static void assignments() {",
-            "    String x = null; x += \"hello\";",
-            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
-            "    Integer y = null; y += 3;",
-            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
-            "    boolean b = false; Boolean c = null; b |= c;",
-            "  }",
-            "  static Integer returnCompound() {",
-            "    Integer z = 7;",
-            "    return (z += 10);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              static void assignments() {
+                String x = null; x += "hello";
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                Integer y = null; y += 3;
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                boolean b = false; Boolean c = null; b |= c;
+              }
+              static Integer returnCompound() {
+                Integer z = 7;
+                return (z += 10);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -163,14 +171,16 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  static void indexUnbox() {",
-            "    Integer x = null; int[] fizz = { 0, 1 };",
-            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
-            "    int y = fizz[x];",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              static void indexUnbox() {
+                Integer x = null; int[] fizz = { 0, 1 };
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                int y = fizz[x];
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -179,17 +189,19 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "  @NullUnmarked",
-            "  static void foo(int x) {}",
-            "  void bar() {",
-            "    Integer y = null;",
-            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
-            "    foo(y);",
-            "  }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              static void foo(int x) {}
+              void bar() {
+                Integer y = null;
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                foo(y);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -198,21 +210,23 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static class Foo {",
-            "    @Nullable String f;",
-            "  }",
-            "  static Foo[] arr = new Foo[10];",
-            "  static void fizz() {",
-            "    int i = 0;",
-            "    if (arr[i].f != null) {",
-            "      //TODO: This should raise an error in non-JSpecify mode",
-            "      arr[i].f.toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static class Foo {
+                @Nullable String f;
+              }
+              static Foo[] arr = new Foo[10];
+              static void fizz() {
+                int i = 0;
+                if (arr[i].f != null) {
+                  //TODO: This should raise an error in non-JSpecify mode
+                  arr[i].f.toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -221,12 +235,14 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "CFNullable.java",
-            "package com.uber;",
-            "import org.checkerframework.checker.nullness.qual.Nullable;",
-            "import java.util.List;",
-            "abstract class CFNullable<E> {",
-            "  List<E> @Nullable [] table;",
-            "}")
+            """
+            package com.uber;
+            import org.checkerframework.checker.nullness.qual.Nullable;
+            import java.util.List;
+            abstract class CFNullable<E> {
+              List<E> @Nullable [] table;
+            }
+            """)
         .doTest();
   }
 
@@ -235,49 +251,53 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "TestPositive.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "enum Level {",
-            " HIGH, MEDIUM, LOW }",
-            "class TestPositive {",
-            "   void foo(@Nullable Integer s) {",
-            "    // BUG: Diagnostic contains: switch expression s is @Nullable",
-            "    switch(s) {",
-            "      case 5: break;",
-            "    }",
-            "    String x = null;",
-            "    // BUG: Diagnostic contains: switch expression x is @Nullable",
-            "    switch(x) {",
-            "      default: break;",
-            "    }",
-            "    Level level = null;",
-            "    // BUG: Diagnostic contains: switch expression level is @Nullable",
-            "    switch (level) {",
-            "      default: break; }",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            enum Level {
+             HIGH, MEDIUM, LOW }
+            class TestPositive {
+               void foo(@Nullable Integer s) {
+                // BUG: Diagnostic contains: switch expression s is @Nullable
+                switch(s) {
+                  case 5: break;
+                }
+                String x = null;
+                // BUG: Diagnostic contains: switch expression x is @Nullable
+                switch(x) {
+                  default: break;
+                }
+                Level level = null;
+                // BUG: Diagnostic contains: switch expression level is @Nullable
+                switch (level) {
+                  default: break; }
+                }
+            }
+            """)
         .addSourceLines(
             "TestNegative.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class TestNegative {",
-            "   void foo(Integer s, short y) {",
-            "    switch(s) {",
-            "      case 5: break;",
-            "    }",
-            "    String x = \"irrelevant\";",
-            "    switch(x) {",
-            "      default: break;",
-            "    }",
-            "    switch(y) {",
-            "      default: break;",
-            "    }",
-            "    Level level = Level.HIGH;",
-            "    switch (level) {",
-            "      default: break;",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class TestNegative {
+               void foo(Integer s, short y) {
+                switch(s) {
+                  case 5: break;
+                }
+                String x = "irrelevant";
+                switch(x) {
+                  default: break;
+                }
+                switch(y) {
+                  default: break;
+                }
+                Level level = Level.HIGH;
+                switch (level) {
+                  default: break;
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -288,18 +308,20 @@ public class CoreTests extends NullAwayTestsBase {
         .addSourceFile("testdata/Util.java")
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
-            "class Test {",
-            "  Object test1(@Nullable Object o) {",
-            "    return castToNonNull(o);",
-            "  }",
-            "  Object test2(Object o) {",
-            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
-            "    return castToNonNull(o);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import static com.uber.nullaway.testdata.Util.castToNonNull;
+            class Test {
+              Object test1(@Nullable Object o) {
+                return castToNonNull(o);
+              }
+              Object test2(Object o) {
+                // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod
+                return castToNonNull(o);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -310,27 +332,29 @@ public class CoreTests extends NullAwayTestsBase {
         .addSourceFile("testdata/Util.java")
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import static com.uber.nullaway.testdata.Util.castToNonNull;",
-            "class Test {",
-            "  Object test1(Object o) {",
-            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
-            "    return castToNonNull(o, \"o should be @Nullable but never actually null\");",
-            "  }",
-            "  Object test2(Object o) {",
-            "    // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod",
-            "    return castToNonNull(\"o should be @Nullable but never actually null\", o, 0);",
-            "  }",
-            "  Object test3(@Nullable Object o) {",
-            "    // Expected use of cast",
-            "    return castToNonNull(o, \"o should be @Nullable but never actually null\");",
-            "  }",
-            "  Object test4(@Nullable Object o) {",
-            "    // Expected use of cast",
-            "    return castToNonNull(o, \"o should be @Nullable but never actually null\");",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import static com.uber.nullaway.testdata.Util.castToNonNull;
+            class Test {
+              Object test1(Object o) {
+                // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod
+                return castToNonNull(o, "o should be @Nullable but never actually null");
+              }
+              Object test2(Object o) {
+                // BUG: Diagnostic contains: passing known @NonNull parameter 'o' to CastToNonNullMethod
+                return castToNonNull("o should be @Nullable but never actually null", o, 0);
+              }
+              Object test3(@Nullable Object o) {
+                // Expected use of cast
+                return castToNonNull(o, "o should be @Nullable but never actually null");
+              }
+              Object test4(@Nullable Object o) {
+                // Expected use of cast
+                return castToNonNull(o, "o should be @Nullable but never actually null");
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -339,18 +363,20 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  // BUG: Diagnostic contains: @NonNull static field o not initialized",
-            "  static Object o;",
-            "  Object f, g;",
-            "  public Test() {",
-            "    f = new String(\"hi\");",
-            "    o = new Object();",
-            "    g = o;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              // BUG: Diagnostic contains: @NonNull static field o not initialized
+              static Object o;
+              Object f, g;
+              public Test() {
+                f = new String("hi");
+                o = new Object();
+                g = o;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -364,13 +390,15 @@ public class CoreTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:ErrorURL=http://mydomain.com/nullaway"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  static void foo() {",
-            "    // BUG: Diagnostic contains: mydomain.com",
-            "    Object x = null; x.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              static void foo() {
+                // BUG: Diagnostic contains: mydomain.com
+                Object x = null; x.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -383,13 +411,15 @@ public class CoreTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  static void foo() {",
-            "    // BUG: Diagnostic contains: t.uber.com/nullaway",
-            "    Object x = null; x.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              static void foo() {
+                // BUG: Diagnostic contains: t.uber.com/nullaway
+                Object x = null; x.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -398,15 +428,17 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  Object f;",
-            "  private native void foo();",
-            "  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f",
-            "  Test() {",
-            "    foo();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              Object f;
+              private native void foo();
+              // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f
+              Test() {
+                foo();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -421,15 +453,17 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.util.List;",
-            "public class Test {",
-            "  public void testEnhancedFor(@Nullable List<String> l) {",
-            "    // BUG: Diagnostic contains: enhanced-for expression l is @Nullable",
-            "    for (String x: l) {}",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.util.List;
+            public class Test {
+              public void testEnhancedFor(@Nullable List<String> l) {
+                // BUG: Diagnostic contains: enhanced-for expression l is @Nullable
+                for (String x: l) {}
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -438,43 +472,49 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Item.java",
-            "package com.uber.lib.unannotated.collections;",
-            "public class Item<K,V> {",
-            " public final K key;",
-            " public final V value;",
-            " public Item(K k, V v) {",
-            "  this.key = k;",
-            "  this.value = v;",
-            " }",
-            "}")
+            """
+            package com.uber.lib.unannotated.collections;
+            public class Item<K,V> {
+             public final K key;
+             public final V value;
+             public Item(K k, V v) {
+              this.key = k;
+              this.value = v;
+             }
+            }
+            """)
         .addSourceLines(
             "MapLike.java",
-            "package com.uber.lib.unannotated.collections;",
-            "import java.util.HashMap;",
-            "// Too much work to implement java.util.Map from scratch",
-            "public class MapLike<K,V> extends HashMap<K,V> {",
-            " public MapLike() {",
-            "   super();",
-            " }",
-            " public void put(Item<K,V> item) {",
-            "   put(item.key, item.value);",
-            " }",
-            "}")
+            """
+            package com.uber.lib.unannotated.collections;
+            import java.util.HashMap;
+            // Too much work to implement java.util.Map from scratch
+            public class MapLike<K,V> extends HashMap<K,V> {
+             public MapLike() {
+               super();
+             }
+             public void put(Item<K,V> item) {
+               put(item.key, item.value);
+             }
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import com.uber.lib.unannotated.collections.Item;",
-            "import com.uber.lib.unannotated.collections.MapLike;",
-            "public class Test {",
-            " public static MapLike test_389(@Nullable Item<String, String> item) {",
-            "  MapLike<String, String> map = new MapLike<String, String>();",
-            "  if (item != null) {", // Required to trigger dataflow analysis
-            "    map.put(item);",
-            "  }",
-            "  return map;",
-            " }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.lib.unannotated.collections.Item;
+            import com.uber.lib.unannotated.collections.MapLike;
+            public class Test {
+             public static MapLike test_389(@Nullable Item<String, String> item) {
+              MapLike<String, String> map = new MapLike<String, String>();
+              if (item != null) { // Required to trigger dataflow analysis
+                map.put(item);
+              }
+              return map;
+             }
+            }
+            """)
         .doTest();
   }
 
@@ -483,18 +523,20 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "public class Test {",
-            "  public void derefTernary(boolean b) {",
-            "    Object o1 = null, o2 = new Object();",
-            "    // BUG: Diagnostic contains: dereferenced expression (b ? o1 : o2) is @Nullable",
-            "    (b ? o1 : o2).toString();",
-            "    // BUG: Diagnostic contains: dereferenced expression (b ? o2 : o1) is @Nullable",
-            "    (b ? o2 : o1).toString();",
-            "    // This case is safe",
-            "    (b ? o2 : o2).toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            public class Test {
+              public void derefTernary(boolean b) {
+                Object o1 = null, o2 = new Object();
+                // BUG: Diagnostic contains: dereferenced expression (b ? o1 : o2) is @Nullable
+                (b ? o1 : o2).toString();
+                // BUG: Diagnostic contains: dereferenced expression (b ? o2 : o1) is @Nullable
+                (b ? o2 : o1).toString();
+                // This case is safe
+                (b ? o2 : o2).toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -509,19 +551,21 @@ public class CoreTests extends NullAwayTestsBase {
         .addSourceLines("qual/Null.java", "package qual;", "public @interface Null {", "}")
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import qual.Null;",
-            "class Test {",
-            "   @Null Object foo;", // No error, should detect @Null
-            "   @Null Object baz(){",
-            "     bar(foo);",
-            "     return null;", // No error, should detect @Null
-            "   }",
-            "   String bar(@Null Object item){",
-            "     // BUG: Diagnostic contains: dereferenced expression item is @Nullable",
-            "     return item.toString();",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import qual.Null;
+            class Test {
+               @Null Object foo; // No error, should detect @Null
+               @Null Object baz(){
+                 bar(foo);
+                 return null; // No error, should detect @Null
+               }
+               String bar(@Null Object item){
+                 // BUG: Diagnostic contains: dereferenced expression item is @Nullable
+                 return item.toString();
+               }
+            }
+            """)
         .doTest();
   }
 
@@ -538,21 +582,25 @@ public class CoreTests extends NullAwayTestsBase {
         .addSourceLines("qual/NoNull.java", "package qual;", "public @interface NoNull {", "}")
         .addSourceLines(
             "Other.java",
-            "package com.uber;",
-            "import qual.NoNull;",
-            "public class Other {",
-            "   void bar(@NoNull Object item) { }",
-            "}")
+            """
+            package com.uber;
+            import qual.NoNull;
+            public class Other {
+               void bar(@NoNull Object item) { }
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "   Other other = new Other();",
-            "   void foo(){",
-            "     // BUG: Diagnostic contains: passing @Nullable parameter 'null'",
-            "     other.bar(null);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+               Other other = new Other();
+               void foo(){
+                 // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                 other.bar(null);
+               }
+            }
+            """)
         .doTest();
   }
 
@@ -561,30 +609,34 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Constants.java",
-            "package com.uber;",
-            "public class Constants {",
-            "   public static final String KEY_1 = \"key1\";",
-            "   public static final String KEY_2 = \"key2\";",
-            "   public static final String KEY_3 = \"key3\";",
-            "}")
+            """
+            package com.uber;
+            public class Constants {
+               public static final String KEY_1 = "key1";
+               public static final String KEY_2 = "key2";
+               public static final String KEY_3 = "key3";
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "class Test {",
-            "   boolean withoutCast(Map<String, Map<String, Map<String, Object>>> topLevelMap){",
-            "     return topLevelMap.get(Constants.KEY_1) == null ",
-            "       || topLevelMap.get(Constants.KEY_1).get(Constants.KEY_2) == null",
-            "       || topLevelMap.get(Constants.KEY_1).get(Constants.KEY_2).get(Constants.KEY_3) == null;",
-            "   }",
-            "   boolean withCast(Map<String, Object> topLevelMap){",
-            "     return topLevelMap.get(Constants.KEY_1) == null ",
-            "       || ((Map<String,Object>) topLevelMap.get(Constants.KEY_1)).get(Constants.KEY_2) == null",
-            "       || ((Map<String,Object>) ",
-            "              ((Map<String,Object>) topLevelMap.get(Constants.KEY_1)).get(Constants.KEY_2))",
-            "                .get(Constants.KEY_3) == null;",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+               boolean withoutCast(Map<String, Map<String, Map<String, Object>>> topLevelMap){
+                 return topLevelMap.get(Constants.KEY_1) == null
+                   || topLevelMap.get(Constants.KEY_1).get(Constants.KEY_2) == null
+                   || topLevelMap.get(Constants.KEY_1).get(Constants.KEY_2).get(Constants.KEY_3) == null;
+               }
+               boolean withCast(Map<String, Object> topLevelMap){
+                 return topLevelMap.get(Constants.KEY_1) == null
+                   || ((Map<String,Object>) topLevelMap.get(Constants.KEY_1)).get(Constants.KEY_2) == null
+                   || ((Map<String,Object>)
+                          ((Map<String,Object>) topLevelMap.get(Constants.KEY_1)).get(Constants.KEY_2))
+                            .get(Constants.KEY_3) == null;
+               }
+            }
+            """)
         .doTest();
   }
 
@@ -593,18 +645,20 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "class Test {",
-            "   Object testPut(String key, Object o, Map<String, Object> m){",
-            "     m.put(key, o);",
-            "     return m.get(key);",
-            "   }",
-            "   Object testPutIfAbsent(String key, Object o, Map<String, Object> m){",
-            "     m.putIfAbsent(key, o);",
-            "     return m.get(key);",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+               Object testPut(String key, Object o, Map<String, Object> m){
+                 m.put(key, o);
+                 return m.get(key);
+               }
+               Object testPutIfAbsent(String key, Object o, Map<String, Object> m){
+                 m.putIfAbsent(key, o);
+                 return m.get(key);
+               }
+            }
+            """)
         .doTest();
   }
 
@@ -613,31 +667,33 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import java.util.function.Function;",
+            """
+            package com.uber;
+            import java.util.Map;
+            import java.util.function.Function;
             // Need JSpecify (vs javax) for annotating generics
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "   Object testComputeIfAbsent(String key, Function<String, Object> f, Map<String, Object> m){",
-            "     m.computeIfAbsent(key, f);",
-            "     return m.get(key);",
-            "   }",
-            "   Object testComputeIfAbsentLambda(String key, Map<String, Object> m){",
-            "     m.computeIfAbsent(key, k -> k);",
-            "     return m.get(key);",
-            "   }",
-            "   Object testComputeIfAbsentNull(String key, Function<String, @Nullable Object> f, Map<String, Object> m){",
-            "     m.computeIfAbsent(key, f);",
-            "     // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type",
-            "     return m.get(key);",
-            "   }",
-            "   // ToDo: should error somewhere, but doesn't, due to limited checking of generics",
-            "   Object testComputeIfAbsentNullLambda(String key, Map<String, Object> m){",
-            "     m.computeIfAbsent(key, k -> null);",
-            "     return m.get(key);",
-            "   }",
-            "}")
+            import org.jspecify.annotations.Nullable;
+            class Test {
+               Object testComputeIfAbsent(String key, Function<String, Object> f, Map<String, Object> m){
+                 m.computeIfAbsent(key, f);
+                 return m.get(key);
+               }
+               Object testComputeIfAbsentLambda(String key, Map<String, Object> m){
+                 m.computeIfAbsent(key, k -> k);
+                 return m.get(key);
+               }
+               Object testComputeIfAbsentNull(String key, Function<String, @Nullable Object> f, Map<String, Object> m){
+                 m.computeIfAbsent(key, f);
+                 // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                 return m.get(key);
+               }
+               // ToDo: should error somewhere, but doesn't, due to limited checking of generics
+               Object testComputeIfAbsentNullLambda(String key, Map<String, Object> m){
+                 m.computeIfAbsent(key, k -> null);
+                 return m.get(key);
+               }
+            }
+            """)
         .doTest();
   }
 
@@ -646,19 +702,21 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import java.util.function.Function;",
-            "class Test {",
-            "   String testMapWithMapGetKey(Map<String,String> m1, Map<String,String> m2) {",
-            "     if (m1.containsKey(\"s1\")) {",
-            "       if (m2.containsKey(m1.get(\"s1\"))) {",
-            "         return m2.get(m1.get(\"s1\")).toString();",
-            "       }",
-            "     }",
-            "     return \"no\";",
-            "   }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            import java.util.function.Function;
+            class Test {
+               String testMapWithMapGetKey(Map<String,String> m1, Map<String,String> m2) {
+                 if (m1.containsKey("s1")) {
+                   if (m2.containsKey(m1.get("s1"))) {
+                     return m2.get(m1.get("s1")).toString();
+                   }
+                 }
+                 return "no";
+               }
+            }
+            """)
         .doTest();
   }
 
@@ -673,22 +731,24 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.io.BufferedReader;",
-            "import java.io.FileReader;",
-            "import java.io.IOException;",
-            "class Test {",
-            "  String foo(String path, @Nullable String s, @Nullable Object o) throws IOException {",
-            "    try (BufferedReader br = new BufferedReader(new FileReader(path))) {",
-            "      // Code inside try-resource gets analyzed",
-            "      // BUG: Diagnostic contains: dereferenced expression",
-            "      o.toString();",
-            "      s = br.readLine();",
-            "      return s;",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.io.BufferedReader;
+            import java.io.FileReader;
+            import java.io.IOException;
+            class Test {
+              String foo(String path, @Nullable String s, @Nullable Object o) throws IOException {
+                try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+                  // Code inside try-resource gets analyzed
+                  // BUG: Diagnostic contains: dereferenced expression
+                  o.toString();
+                  s = br.readLine();
+                  return s;
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -697,21 +757,23 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.io.BufferedReader;",
-            "import java.io.FileReader;",
-            "import java.io.IOException;",
-            "class Test {",
-            "  private String path;",
-            "  private String f;",
-            "  Test(String p) throws IOException {",
-            "    path = p;",
-            "    try (BufferedReader br = new BufferedReader(new FileReader(path))) {",
-            "      f = br.readLine();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.io.BufferedReader;
+            import java.io.FileReader;
+            import java.io.IOException;
+            class Test {
+              private String path;
+              private String f;
+              Test(String p) throws IOException {
+                path = p;
+                try (BufferedReader br = new BufferedReader(new FileReader(path))) {
+                  f = br.readLine();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -720,24 +782,26 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import java.io.BufferedReader;",
-            "import java.io.FileReader;",
-            "import java.io.IOException;",
-            "class Test {",
-            "  private String path;",
-            "  private String f;",
-            "  Test(String p) throws IOException {",
-            "    path = p;",
-            "    try {",
-            "      BufferedReader br = new BufferedReader(new FileReader(path));",
-            "      f = br.readLine();",
-            "    } finally {",
-            "      f = \"DEFAULT\";",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.io.BufferedReader;
+            import java.io.FileReader;
+            import java.io.IOException;
+            class Test {
+              private String path;
+              private String f;
+              Test(String p) throws IOException {
+                path = p;
+                try {
+                  BufferedReader br = new BufferedReader(new FileReader(path));
+                  f = br.readLine();
+                } finally {
+                  f = "DEFAULT";
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -746,17 +810,19 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  Void foo1() {",
-            "    // temporarily, we treat a Void return type as if it was @Nullable Void",
-            "    return null;",
-            "  }",
-            "  @Nullable Void foo2() {",
-            "    return null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              Void foo1() {
+                // temporarily, we treat a Void return type as if it was @Nullable Void
+                return null;
+              }
+              @Nullable Void foo2() {
+                return null;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -765,28 +831,30 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  // Currently unhandled. In fact, it *should* produce an error. This entire test case",
-            "  // needs to be rethought once we properly support generics, such that it works on T v",
-            "  // when T == @Nullable Void, but not when T == Void. Without generics, though, this is the",
-            "  // best we can do.",
-            "  @SuppressWarnings(\"NullAway\")",
-            "  private Void v = (Void)null;",
-            "  Void foo1() {",
-            "    // temporarily, we treat a Void return type as if it was @Nullable Void",
-            "    return (Void)null;",
-            "  }",
-            "  // Temporarily, we treat any Void formal as if it were @Nullable Void",
-            "  void consumeVoid(Void v) {",
-            "  }",
-            "  @Nullable Void foo2() {",
-            "    consumeVoid(null); // See comment on consumeVoid for why this is allowed",
-            "    consumeVoid((Void)null);",
-            "    return (Void)null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              // Currently unhandled. In fact, it *should* produce an error. This entire test case
+              // needs to be rethought once we properly support generics, such that it works on T v
+              // when T == @Nullable Void, but not when T == Void. Without generics, though, this is the
+              // best we can do.
+              @SuppressWarnings("NullAway")
+              private Void v = (Void)null;
+              Void foo1() {
+                // temporarily, we treat a Void return type as if it was @Nullable Void
+                return (Void)null;
+              }
+              // Temporarily, we treat any Void formal as if it were @Nullable Void
+              void consumeVoid(Void v) {
+              }
+              @Nullable Void foo2() {
+                consumeVoid(null); // See comment on consumeVoid for why this is allowed
+                consumeVoid((Void)null);
+                return (Void)null;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -795,25 +863,27 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable static Object nullableReturn() { return new Object(); }",
-            "  void foo() {",
-            "    if (nullableReturn() != null) {",
-            "      nullableReturn().toString();",
-            "    }",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    nullableReturn().toString();",
-            "  }",
-            "  void foo2() {",
-            "    if (Test.nullableReturn() != null) {",
-            "      nullableReturn().toString();",
-            "    }",
-            "    // BUG: Diagnostic contains: dereferenced expression",
-            "    Test.nullableReturn().toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable static Object nullableReturn() { return new Object(); }
+              void foo() {
+                if (nullableReturn() != null) {
+                  nullableReturn().toString();
+                }
+                // BUG: Diagnostic contains: dereferenced expression
+                nullableReturn().toString();
+              }
+              void foo2() {
+                if (Test.nullableReturn() != null) {
+                  nullableReturn().toString();
+                }
+                // BUG: Diagnostic contains: dereferenced expression
+                Test.nullableReturn().toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -822,25 +892,27 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "    static void foo(int i) { }",
-            "    static void m() {",
-            "        Integer i = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i2 = (int) i;",
-            "        // this is fine",
-            "        int i3 = (int) Integer.valueOf(3);",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i4 = ((int) i) + 1;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        foo((int) i);",
-            "        // try another type",
-            "        Double d = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        double d2 = (double) d;",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+                static void foo(int i) { }
+                static void m() {
+                    Integer i = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int i2 = (int) i;
+                    // this is fine
+                    int i3 = (int) Integer.valueOf(3);
+                    // BUG: Diagnostic contains: unboxing
+                    int i4 = ((int) i) + 1;
+                    // BUG: Diagnostic contains: unboxing
+                    foo((int) i);
+                    // try another type
+                    Double d = null;
+                    // BUG: Diagnostic contains: unboxing
+                    double d2 = (double) d;
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -849,110 +921,112 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "    static void m1() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i2 = i + j;",
-            "    }",
-            "    static void m2() {",
-            "        Integer i = null;",
-            "        // this is fine",
-            "        String s = i + \"hi\";",
-            "    }",
-            "    static void m3() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i3 = i - j;",
-            "    }",
-            "    static void m4() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i4 = i * j;",
-            "    }",
-            "    static void m5() {",
-            "        Integer i = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i5 = i << 2;",
-            "    }",
-            "    static void m6() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        boolean b1 = i <= j;",
-            "    }",
-            "    static void m7() {",
-            "        Boolean x = null;",
-            "        Boolean y = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        boolean b2 = x && y;",
-            "    }",
-            "    static void m8() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        // this is fine",
-            "        boolean b = i == j;",
-            "    }",
-            "    static void m9() {",
-            "        Integer i = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        boolean b = i != 0;",
-            "    }",
-            "    static void m10() {",
-            "        Integer i = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int j = 3 - i;",
-            "    }",
-            "    static void m11() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i2 = i",
-            "          +",
-            "          // BUG: Diagnostic contains: unboxing",
-            "          j;",
-            "    }",
-            "    static void m12() {",
-            "        Integer i = null;",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i2 = i",
-            "          +",
-            "          // no error here, due to previous unbox of i",
-            "          i;",
-            "    }",
-            "    static void m13() {",
-            "        int[] arr = null;",
-            "        Integer i = null;",
-            "        // BUG: Diagnostic contains: dereferenced",
-            "        int i2 = arr[",
-            "          // BUG: Diagnostic contains: unboxing",
-            "          i];",
-            "    }",
-            "    static void primitiveArgs(int x, int y) {}",
-            "    static void m14() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        primitiveArgs(",
-            "          // BUG: Diagnostic contains: unboxing",
-            "          i,",
-            "          // BUG: Diagnostic contains: unboxing",
-            "          j);",
-            "    }",
-            "    static void primitiveVarArgs(int... args) {}",
-            "    static void m15() {",
-            "        Integer i = null;",
-            "        Integer j = null;",
-            "        primitiveVarArgs(",
-            "          // BUG: Diagnostic contains: unboxing",
-            "          i,",
-            "          // BUG: Diagnostic contains: unboxing",
-            "          j);",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+                static void m1() {
+                    Integer i = null;
+                    Integer j = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int i2 = i + j;
+                }
+                static void m2() {
+                    Integer i = null;
+                    // this is fine
+                    String s = i + "hi";
+                }
+                static void m3() {
+                    Integer i = null;
+                    Integer j = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int i3 = i - j;
+                }
+                static void m4() {
+                    Integer i = null;
+                    Integer j = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int i4 = i * j;
+                }
+                static void m5() {
+                    Integer i = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int i5 = i << 2;
+                }
+                static void m6() {
+                    Integer i = null;
+                    Integer j = null;
+                    // BUG: Diagnostic contains: unboxing
+                    boolean b1 = i <= j;
+                }
+                static void m7() {
+                    Boolean x = null;
+                    Boolean y = null;
+                    // BUG: Diagnostic contains: unboxing
+                    boolean b2 = x && y;
+                }
+                static void m8() {
+                    Integer i = null;
+                    Integer j = null;
+                    // this is fine
+                    boolean b = i == j;
+                }
+                static void m9() {
+                    Integer i = null;
+                    // BUG: Diagnostic contains: unboxing
+                    boolean b = i != 0;
+                }
+                static void m10() {
+                    Integer i = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int j = 3 - i;
+                }
+                static void m11() {
+                    Integer i = null;
+                    Integer j = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int i2 = i
+                      +
+                      // BUG: Diagnostic contains: unboxing
+                      j;
+                }
+                static void m12() {
+                    Integer i = null;
+                    // BUG: Diagnostic contains: unboxing
+                    int i2 = i
+                      +
+                      // no error here, due to previous unbox of i
+                      i;
+                }
+                static void m13() {
+                    int[] arr = null;
+                    Integer i = null;
+                    // BUG: Diagnostic contains: dereferenced
+                    int i2 = arr[
+                      // BUG: Diagnostic contains: unboxing
+                      i];
+                }
+                static void primitiveArgs(int x, int y) {}
+                static void m14() {
+                    Integer i = null;
+                    Integer j = null;
+                    primitiveArgs(
+                      // BUG: Diagnostic contains: unboxing
+                      i,
+                      // BUG: Diagnostic contains: unboxing
+                      j);
+                }
+                static void primitiveVarArgs(int... args) {}
+                static void m15() {
+                    Integer i = null;
+                    Integer j = null;
+                    primitiveVarArgs(
+                      // BUG: Diagnostic contains: unboxing
+                      i,
+                      // BUG: Diagnostic contains: unboxing
+                      j);
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -961,66 +1035,68 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.Map;",
-            "import javax.annotation.Nullable;",
-            "import com.google.common.base.Preconditions;",
-            "class Test {",
-            "    static void foo(int i) { }",
-            "    static void m1(@Nullable Integer i) {",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i1 = (int) i;",
-            "    }",
-            "    static void m2(@Nullable Integer i) {",
-            "        if (i != null) {",
-            "            // this is fine",
-            "            int i2 = (int) i;",
-            "        }",
-            "    }",
-            "    static void m3(@Nullable Integer i) {",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        int i3 = (int) i;",
-            "    }",
-            "    static void m4(@Nullable Integer i) {",
-            "        Preconditions.checkNotNull(i);",
-            "        // this is fine",
-            "        int i4 = (int) i;",
-            "    }",
-            "    static private void consumeInt(int i) { }",
-            "    static void m5(@Nullable Integer i) {",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        consumeInt((int) i);",
-            "    }",
-            "    static void m6(@Nullable Integer i) {",
-            "        Preconditions.checkNotNull(i);",
-            "        // this is fine",
-            "        consumeInt((int) i);",
-            "    }",
-            "    static void m7(@Nullable Object o) {",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        consumeInt((int) o);",
-            "    }",
-            "    static void m8(@Nullable Object o) {",
-            "        Preconditions.checkNotNull(o);",
-            "        // this is fine",
-            "        consumeInt((int) o);",
-            "    }",
-            "    static void m9(Map<String,Object> m) {",
-            "        // BUG: Diagnostic contains: unboxing",
-            "        consumeInt((int) m.get(\"foo\"));",
-            "    }",
-            "    static void m10(Map<String,Object> m) {",
-            "        if(m.get(\"bar\") != null) {",
-            "            // this is fine",
-            "            consumeInt((int) m.get(\"bar\"));",
-            "        }",
-            "    }",
-            "    static void m11(Map<String,Object> m) {",
-            "        Preconditions.checkNotNull(m.get(\"bar\"));",
-            "        // this is fine",
-            "        consumeInt((int) m.get(\"bar\"));",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            import com.google.common.base.Preconditions;
+            class Test {
+                static void foo(int i) { }
+                static void m1(@Nullable Integer i) {
+                    // BUG: Diagnostic contains: unboxing
+                    int i1 = (int) i;
+                }
+                static void m2(@Nullable Integer i) {
+                    if (i != null) {
+                        // this is fine
+                        int i2 = (int) i;
+                    }
+                }
+                static void m3(@Nullable Integer i) {
+                    // BUG: Diagnostic contains: unboxing
+                    int i3 = (int) i;
+                }
+                static void m4(@Nullable Integer i) {
+                    Preconditions.checkNotNull(i);
+                    // this is fine
+                    int i4 = (int) i;
+                }
+                static private void consumeInt(int i) { }
+                static void m5(@Nullable Integer i) {
+                    // BUG: Diagnostic contains: unboxing
+                    consumeInt((int) i);
+                }
+                static void m6(@Nullable Integer i) {
+                    Preconditions.checkNotNull(i);
+                    // this is fine
+                    consumeInt((int) i);
+                }
+                static void m7(@Nullable Object o) {
+                    // BUG: Diagnostic contains: unboxing
+                    consumeInt((int) o);
+                }
+                static void m8(@Nullable Object o) {
+                    Preconditions.checkNotNull(o);
+                    // this is fine
+                    consumeInt((int) o);
+                }
+                static void m9(Map<String,Object> m) {
+                    // BUG: Diagnostic contains: unboxing
+                    consumeInt((int) m.get("foo"));
+                }
+                static void m10(Map<String,Object> m) {
+                    if(m.get("bar") != null) {
+                        // this is fine
+                        consumeInt((int) m.get("bar"));
+                    }
+                }
+                static void m11(Map<String,Object> m) {
+                    Preconditions.checkNotNull(m.get("bar"));
+                    // this is fine
+                    consumeInt((int) m.get("bar"));
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -1034,18 +1110,20 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.apache.spark.sql.SparkSession;",
-            "class Test {",
-            "  static class X {",
-            "    X(SparkSession session) {}",
-            "  }",
-            "  X run() {",
-            "    try (SparkSession session = SparkSession.builder().getOrCreate()) {",
-            "      return new X(session);",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.apache.spark.sql.SparkSession;
+            class Test {
+              static class X {
+                X(SparkSession session) {}
+              }
+              X run() {
+                try (SparkSession session = SparkSession.builder().getOrCreate()) {
+                  return new X(session);
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -1054,14 +1132,16 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  public interface AnInterface {}",
-            "  public static boolean foo(AnInterface a, @Nullable AnInterface b) {",
-            "    return a.equals(b);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              public interface AnInterface {}
+              public static boolean foo(AnInterface a, @Nullable AnInterface b) {
+                return a.equals(b);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -1070,27 +1150,31 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Superclass.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Superclass {",
-            "    public static String foo(@Nullable Object ignored) { return \"\"; };",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Superclass {
+                public static String foo(@Nullable Object ignored) { return ""; };
+            }
+            """)
         .addSourceLines(
             "Subclass.java", "package com.uber;", "class Subclass extends Superclass {}")
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import static com.uber.Subclass.foo;",
-            "class Test {",
-            "    static void m() {",
-            "        // Calling foo() the obvious way: safe because @Nullable arg",
-            "        System.out.println(Superclass.foo(null));",
-            "        // Calling foo() through Subclass: also safe",
-            "        System.out.println(Subclass.foo(null));",
-            "        // Static import from Subclass: also safe",
-            "        System.out.println(foo(null));",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import static com.uber.Subclass.foo;
+            class Test {
+                static void m() {
+                    // Calling foo() the obvious way: safe because @Nullable arg
+                    System.out.println(Superclass.foo(null));
+                    // Calling foo() through Subclass: also safe
+                    System.out.println(Subclass.foo(null));
+                    // Static import from Subclass: also safe
+                    System.out.println(foo(null));
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -1100,13 +1184,15 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "TestCase.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class TestCase {",
-            "    public static @Nullable String foo(String x) {",
-            "        return x.isEmpty() ? null : null;",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class TestCase {
+                public static @Nullable String foo(String x) {
+                    return x.isEmpty() ? null : null;
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -1115,17 +1201,19 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "TestCase.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class TestCase {",
-            "  public static void testPositive(@Nullable Object lock) {",
-            "    // BUG: Diagnostic contains: synchronized block expression \"lock\" is @Nullable",
-            "    synchronized (lock) {}",
-            "  }",
-            "  public static void testNegative(Object lock) {",
-            "    synchronized (lock) {}",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class TestCase {
+              public static void testPositive(@Nullable Object lock) {
+                // BUG: Diagnostic contains: synchronized block expression "lock" is @Nullable
+                synchronized (lock) {}
+              }
+              public static void testNegative(Object lock) {
+                synchronized (lock) {}
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -1134,14 +1222,16 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "public class Foo {",
-            "    void foo() {",
-            "        Runnable runnable = () -> {",
-            "            Object lock = new Object();",
-            "            synchronized (lock) {}",
-            "        };",
-            "    }",
-            "}")
+            """
+            public class Foo {
+                void foo() {
+                    Runnable runnable = () -> {
+                        Object lock = new Object();
+                        synchronized (lock) {}
+                    };
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -1150,18 +1240,20 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Outer.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Outer {",
-            "    class Inner {}",
-            "    static Inner testNegative(Outer outer) {",
-            "        return outer.new Inner() {};",
-            "    }",
-            "    static Inner testPositive(@Nullable Outer outer) {",
-            "        // BUG: Diagnostic contains: dereferenced expression outer is @Nullable",
-            "        return outer.new Inner() {};",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Outer {
+                class Inner {}
+                static Inner testNegative(Outer outer) {
+                    return outer.new Inner() {};
+                }
+                static Inner testPositive(@Nullable Outer outer) {
+                    // BUG: Diagnostic contains: dereferenced expression outer is @Nullable
+                    return outer.new Inner() {};
+                }
+            }
+            """)
         .doTest();
   }
 }
