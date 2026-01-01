@@ -173,7 +173,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
               @Nullable static Object nullRetSameClass() { return null; }
               void test() {
                 UnAnnot.retNull().toString();
-            // make sure other classes in the package still get analyzed
+                // make sure other classes in the package still get analyzed
                 Object x = nullRetSameClass();
                 // BUG: Diagnostic contains: dereferenced expression x is @Nullable
                 x.hashCode();
@@ -186,17 +186,25 @@ public class UnannotatedTests extends NullAwayTestsBase {
   @Test
   public void overrideFailsOnExplicitlyNullableLibraryModelParam() {
     defaultCompilationHelper
-        .addSourceLines( // Dummy android.view.GestureDetector.OnGestureListener interface
+        // Dummy android.view.GestureDetector.OnGestureListener interface
+        .addSourceLines(
             "GestureDetector.java",
-            "package android.view;",
-            "public class GestureDetector {",
-            "  public static interface OnGestureListener {",
-            // Ignore other methods for this test, to make code shorter on both files:
-            "    boolean onScroll(MotionEvent me1, MotionEvent me2, float f1, float f2);",
-            "  }",
-            "}")
-        .addSourceLines( // Dummy android.view.MotionEvent class
-            "MotionEvent.java", "package android.view;", "public class MotionEvent { }")
+            """
+            package android.view;
+            public class GestureDetector {
+              public static interface OnGestureListener {
+                // Ignore other methods for this test, to make code shorter on both files:
+                boolean onScroll(MotionEvent me1, MotionEvent me2, float f1, float f2);
+              }
+            }
+            """)
+        // Dummy android.view.MotionEvent class
+        .addSourceLines(
+            "MotionEvent.java",
+            """
+            package android.view;
+            public class MotionEvent { }
+            """)
         .addSourceLines(
             "Test.java",
             """
