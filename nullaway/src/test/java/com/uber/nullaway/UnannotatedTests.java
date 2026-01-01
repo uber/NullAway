@@ -3,7 +3,7 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
+@SuppressWarnings("deprecation") // due to calls to addSourceFile
 public class UnannotatedTests extends NullAwayTestsBase {
 
   @Test
