@@ -23,7 +23,7 @@
 package com.uber.nullaway;
 
 import static com.google.errorprone.util.ASTHelpers.enclosingClass;
-import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
+import static com.google.errorprone.util.ASTHelpers.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
