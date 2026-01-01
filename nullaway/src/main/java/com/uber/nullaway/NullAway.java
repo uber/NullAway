@@ -316,7 +316,7 @@ public class NullAway extends BugChecker
     genericsChecks = new GenericsChecks(this, config, handler);
   }
 
-  public boolean isMethodUnannotated(MethodInvocationNode invocationNode) {
+  public boolean isMethodUnannotated(@Nullable MethodInvocationNode invocationNode) {
     return invocationNode == null
         || codeAnnotationInfo.isSymbolUnannotated(
             ASTHelpers.getSymbol(invocationNode.getTree()), config, handler);
@@ -518,9 +518,8 @@ public class NullAway extends BugChecker
       genericsChecks.checkTypeParameterNullnessForAssignability(tree, state);
     }
 
-    if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree) {
+    if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree arrayAccess) {
       // check for a write of a @Nullable value into @NonNull array contents
-      ArrayAccessTree arrayAccess = (ArrayAccessTree) tree.getVariable();
       ExpressionTree arrayExpr = arrayAccess.getExpression();
       ExpressionTree expression = tree.getExpression();
       Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
@@ -856,7 +855,7 @@ public class NullAway extends BugChecker
               + "functional interface method "
               + ASTHelpers.enclosingClass(overriddenMethod)
               + "."
-              + overriddenMethod.toString()
+              + overriddenMethod
               + " is @Nullable";
       return errorBuilder.createErrorDescription(
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
@@ -898,7 +897,7 @@ public class NullAway extends BugChecker
                 + "method "
                 + ASTHelpers.enclosingClass(overriddenMethod)
                 + "."
-                + overriddenMethod.toString()
+                + overriddenMethod
                 + " is @Nullable";
         Tree errorTree;
         if (memberReferenceTree != null) {
@@ -1109,14 +1108,14 @@ public class NullAway extends BugChecker
             "referenced method returns @Nullable, but functional interface method "
                 + ASTHelpers.enclosingClass(overriddenMethod)
                 + "."
-                + overriddenMethod.toString()
+                + overriddenMethod
                 + " returns @NonNull";
       } else {
         message =
             "method returns @Nullable, but superclass method "
                 + ASTHelpers.enclosingClass(overriddenMethod)
                 + "."
-                + overriddenMethod.toString()
+                + overriddenMethod
                 + " returns @NonNull";
       }
 
@@ -1375,7 +1374,7 @@ public class NullAway extends BugChecker
         if (curStmt instanceof TryTree tryTree) {
           // ToDo: Should we check initialization inside tryTree.getResources ? What is the scope of
           // that initialization?
-          if (tryTree.getCatches().size() == 0) {
+          if (tryTree.getCatches().isEmpty()) {
             if (tryTree.getBlock() != null) {
               resultBuilder.addAll(
                   safeInitByCalleeBefore(
@@ -1458,7 +1457,7 @@ public class NullAway extends BugChecker
       }
     }
     // all the initializer blocks have run before any code inside a constructor
-    constructors.stream().forEach((c) -> builder.putAll(c, initThusFar));
+    constructors.forEach((c) -> builder.putAll(c, initThusFar));
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(enclosingClass);
     FieldInitEntities entities = castToNonNull(class2Entities.get(classSymbol));
     if (entities.instanceInitializerMethods().size() == 1) {
@@ -1506,7 +1505,7 @@ public class NullAway extends BugChecker
       // ok if it's invoking castToNonNull and the read is the argument
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvoke);
       String qualifiedName =
-          ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+          ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName();
       List<? extends ExpressionTree> arguments = methodInvoke.getArguments();
       Integer castToNonNullArg;
       if (qualifiedName.equals(config.getCastToNonNullMethod())
@@ -1517,10 +1516,7 @@ public class NullAway extends BugChecker
             handler.castToNonNullArgumentPositionsForMethod(
                 arguments, null, new MethodAnalysisContext(this, state, methodSymbol));
       }
-      if (castToNonNullArg != null && leaf.equals(arguments.get(castToNonNullArg))) {
-        return true;
-      }
-      return false;
+      return castToNonNullArg != null && leaf.equals(arguments.get(castToNonNullArg));
     }
     return false;
   }
@@ -2034,7 +2030,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol methodSymbol,
       List<? extends ExpressionTree> actualParams) {
     String qualifiedName =
-        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName().toString();
+        ASTHelpers.enclosingClass(methodSymbol) + "." + methodSymbol.getSimpleName();
     Integer castToNonNullPosition;
     if (qualifiedName.equals(config.getCastToNonNullMethod())
         && methodSymbol.getParameters().size() == 1) {
@@ -2055,8 +2051,7 @@ public class NullAway extends BugChecker
         throw new RuntimeException("no enclosing method, lambda or initializer!");
       } else if (enclosingMethodOrLambda.getLeaf() instanceof LambdaExpressionTree) {
         isInitializer = false;
-      } else if (enclosingMethodOrLambda.getLeaf() instanceof MethodTree) {
-        MethodTree enclosingMethod = (MethodTree) enclosingMethodOrLambda.getLeaf();
+      } else if (enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         isInitializer = isInitializerMethod(state, ASTHelpers.getSymbol(enclosingMethod));
       } else {
         // Initializer block
@@ -2239,7 +2234,7 @@ public class NullAway extends BugChecker
       if (constructorInvokesAnother(constructor, state)) {
         continue;
       }
-      if (constructor.getParameters().size() == 0
+      if (constructor.getParameters().isEmpty()
           && (isExternalInitClass
               || symbolHasExternalInitAnnotation(ASTHelpers.getSymbol(constructor)))) {
         // external framework initializes fields in this case
@@ -2281,18 +2276,16 @@ public class NullAway extends BugChecker
   private boolean constructorInvokesAnother(MethodTree constructor, VisitorState state) {
     BlockTree body = constructor.getBody();
     List<? extends StatementTree> statements = body.getStatements();
-    if (statements.size() > 0) {
+    if (!statements.isEmpty()) {
       StatementTree statementTree = statements.get(0);
-      if (isThisCall(statementTree, state)) {
-        return true;
-      }
+      return isThisCall(statementTree, state);
     }
     return false;
   }
 
   private Set<Symbol> notInitializedStatic(FieldInitEntities entities, VisitorState state) {
     ImmutableSet<Symbol> nonNullStaticFields = entities.nonnullStaticFields();
-    Set<Element> initializedInStaticInitializers = new LinkedHashSet<Element>();
+    Set<Element> initializedInStaticInitializers = new LinkedHashSet<>();
     AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
     for (BlockTree initializer : entities.staticInitializerBlocks()) {
       Set<Element> nonnullAtExit =
@@ -2306,7 +2299,7 @@ public class NullAway extends BugChecker
               new TreePath(state.getPath(), initializerMethod), state.context);
       initializedInStaticInitializers.addAll(nonnullAtExit);
     }
-    Set<Symbol> notInitializedStaticFields = new LinkedHashSet<Symbol>();
+    Set<Symbol> notInitializedStaticFields = new LinkedHashSet<>();
     for (Symbol field : nonNullStaticFields) {
       if (!initializedInStaticInitializers.contains(field)) {
         notInitializedStaticFields.add(field);
@@ -2349,7 +2342,7 @@ public class NullAway extends BugChecker
       // there is also an
       // exception of the full method.
       if (stmt instanceof TryTree tryTree) {
-        if (tryTree.getCatches().size() == 0) {
+        if (tryTree.getCatches().isEmpty()) {
           if (tryTree.getBlock() != null) {
             result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
           }
@@ -2683,12 +2676,10 @@ public class NullAway extends BugChecker
           "%s not found as a descendant of %s",
           invocationTree,
           path.getLeaf());
-      if (genericsChecks
+      return genericsChecks
           .getGenericReturnNullnessAtInvocation(
               exprSymbol, invocationTree, invocationPath, state, false)
-          .equals(Nullness.NULLABLE)) {
-        return true;
-      }
+          .equals(Nullness.NULLABLE);
     }
     return false;
   }
