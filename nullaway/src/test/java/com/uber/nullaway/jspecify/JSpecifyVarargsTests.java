@@ -131,10 +131,6 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
 
   @Test
   public void testNonNullVarargsFromHandler() {
-    String generatedAnnot =
-        (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
-            ? "@javax.annotation.processing.Generated"
-            : "@javax.annotation.Generated";
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
@@ -144,18 +140,20 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
         .addSourceLines(
             "Generated.java",
-            "package com.uber;",
-            "import javax.annotation.Nonnull;",
-            generatedAnnot + "(\"foo\")",
-            "public class Generated {",
-            " public static String takesNonNullVarargs(@Nonnull Object o, @Nonnull Object... others) {",
-            "  String s = o.toString() + \" \";",
-            "  for (Object other : others) {",
-            "    s += other.toString() + \" \";",
-            "  }",
-            "  return s;",
-            " }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nonnull;
+            @javax.annotation.processing.Generated("foo")
+            public class Generated {
+             public static String takesNonNullVarargs(@Nonnull Object o, @Nonnull Object... others) {
+              String s = o.toString() + " ";
+              for (Object other : others) {
+                s += other.toString() + " ";
+              }
+              return s;
+             }
+            }
+            """)
         .addSourceLines(
             "Test.java",
             """

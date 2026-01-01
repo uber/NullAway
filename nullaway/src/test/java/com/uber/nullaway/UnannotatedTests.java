@@ -78,10 +78,6 @@ public class UnannotatedTests extends NullAwayTestsBase {
 
   @Test
   public void generatedAsUnannotated() {
-    String generatedAnnot =
-        (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
-            ? "@javax.annotation.processing.Generated"
-            : "@javax.annotation.Generated";
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
@@ -90,9 +86,11 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
         .addSourceLines(
             "Generated.java",
-            "package com.uber;",
-            generatedAnnot + "(\"foo\")",
-            "public class Generated { public void takeObj(Object o) {} }")
+            """
+            package com.uber;
+            @javax.annotation.processing.Generated("foo")
+            public class Generated { public void takeObj(Object o) {} }
+            """)
         .addSourceLines(
             "Test.java",
             """

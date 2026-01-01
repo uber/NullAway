@@ -7,10 +7,6 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
 
   @Test
   public void generatedAsUnannotatedPlusRestrictive() {
-    String generatedAnnot =
-        (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
-            ? "@javax.annotation.processing.Generated"
-            : "@javax.annotation.Generated";
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
@@ -20,14 +16,16 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
         .addSourceLines(
             "Generated.java",
-            "package com.uber;",
-            generatedAnnot + "(\"foo\")",
-            "public class Generated {",
-            "  @javax.annotation.Nullable",
-            "  public Object retNull() {",
-            "    return null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            @javax.annotation.processing.Generated("foo")
+            public class Generated {
+              @javax.annotation.Nullable
+              public Object retNull() {
+                return null;
+              }
+            }
+            """)
         .addSourceLines(
             "Test.java",
             """
