@@ -25,19 +25,21 @@ public class UnsoundnessTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.*;",
-            "public class Test {",
-            "  public void mapReassignUnsound(Map m, Object o) {",
-            "    if (m.containsKey(o)) {",
-            "      // NullAway is currently unsound for this case.  It ignores",
-            "      // the re-assignment of m and still assumes m.get(o) is non-null",
-            "      // on the subsequent line.",
-            "      m = new HashMap();",
-            "      m.get(o).toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.*;
+            public class Test {
+              public void mapReassignUnsound(Map m, Object o) {
+                if (m.containsKey(o)) {
+                  // NullAway is currently unsound for this case.  It ignores
+                  // the re-assignment of m and still assumes m.get(o) is non-null
+                  // on the subsequent line.
+                  m = new HashMap();
+                  m.get(o).toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 }
