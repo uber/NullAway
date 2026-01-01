@@ -21,7 +21,7 @@
  */
 package com.uber.nullaway.handlers;
 
-import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
+import static com.google.errorprone.util.ASTHelpers.getEnclosedElements;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.collect.ImmutableSet;

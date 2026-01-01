@@ -85,6 +85,7 @@ dependencies {
 
     // without this, some other version of the JetBrains annotations gets pulled in via transitive dependencies
     errorProneJdk17 libs.jetbrains.annotations
+    errorProneOldest libs.jetbrains.annotations
 }
 
 javadoc {
