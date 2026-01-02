@@ -3,16 +3,71 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
 public class UnannotatedTests extends NullAwayTestsBase {
 
   @Test
   public void coreNullabilitySkipClass() {
     defaultCompilationHelper
-        .addSourceFile("testdata/Shape_Stuff.java")
-        .addSourceFile("testdata/excluded/Shape_Stuff2.java")
-        .addSourceFile("testdata/AnnotatedClass.java")
-        .addSourceFile("testdata/TestAnnot.java")
+        .addSourceLines(
+            "Shape_Stuff.java",
+            "package com.uber.nullaway.testdata;",
+            "/** to test exclusions functionality */",
+            "public class Shape_Stuff {",
+            "  static class C {",
+            "    Object f = new Object();",
+            "  }",
+            "  private static void callee(Object x) {",
+            "    x.toString();",
+            "  }",
+            "  // we should report no errors",
+            "  public static Object doBadStuff() {",
+            "    Object x = null;",
+            "    x.toString();",
+            "    (new C()).f = x;",
+            "    callee(x);",
+            "    return x;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "Shape_Stuff2.java",
+            "package com.uber.nullaway.testdata.excluded;",
+            "/** to test exclusions functionality */",
+            "public class Shape_Stuff2 {",
+            "  static class C {",
+            "    Object f = new Object();",
+            "  }",
+            "  private static void callee(Object x) {",
+            "    x.toString();",
+            "  }",
+            "  // we should report no errors",
+            "  public static Object doBadStuff() {",
+            "    Object x = null;",
+            "    x.toString();",
+            "    (new C()).f = x;",
+            "    callee(x);",
+            "    return x;",
+            "  }",
+            "}")
+        .addSourceLines(
+            "AnnotatedClass.java",
+            "package com.uber.nullaway.testdata;",
+            "/** Created by msridhar on 3/9/17. */",
+            "@TestAnnot",
+            "public class AnnotatedClass {",
+            "  public static void foo() {",
+            "    Object x = null;",
+            "    x.toString();",
+            "  }",
+            "}")
+        .addSourceLines(
+            "TestAnnot.java",
+            "package com.uber.nullaway.testdata;",
+            "import static java.lang.annotation.RetentionPolicy.CLASS;",
+            "import java.lang.annotation.Retention;",
+            "@Retention(CLASS)",
+            "public @interface TestAnnot {",
+            "  String TEST_STR = \"test_str\";",
+            "}")
         .doTest();
   }
 
