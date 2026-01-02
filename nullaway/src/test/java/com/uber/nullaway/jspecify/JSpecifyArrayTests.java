@@ -704,6 +704,59 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1416() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void use(AsyncTask<AsyncTask<@Nullable Void>[]> tasks) {
+                tasks.flatMap(readyTasks -> consume(readyTasks));
+              }
+              interface AsyncTask<T extends @Nullable Object> {
+                <U extends @Nullable Object> AsyncTask<U> flatMap(
+                    Function<T, ? extends AsyncTask<U>> mapper
+                );
+              }
+              AsyncTask<@Nullable Void> consume(AsyncTask<@Nullable Void>[] tasks) {
+                throw new UnsupportedOperationException("TODO");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1417() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class NullableGenericInArray {
+                interface Container<T extends @Nullable Object> {}
+                Container<@Nullable Void> partOf(Container<@Nullable Void>[] tasks) {
+                    return tasks[0];
+                }
+                Container<@Nullable Void> partOfWrong(@Nullable Container<@Nullable Void>[] tasks) {
+                    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                    return tasks[0];
+                }
+                @Nullable Container<@Nullable Void>[] partOfMulti(@Nullable Container<@Nullable Void>[][] tasks) {
+                    return tasks[0];
+                }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

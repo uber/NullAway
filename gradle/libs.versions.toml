@@ -17,13 +17,14 @@ shellcheck = "1.5.0"
 
 errorProne = "2.45.0"
 errorProneJdk17 = "2.42.0"
-errorProneOldest = "2.14.0"
+errorProneOldest = "2.25.0"
 
 semver4j = "3.1.0"
 jakarta-inject = "2.0.0"
 javax-inject = "1"
 gson = "2.13.1"
 guava = "31.1-jre"
+guava-latest = "33.5.0-jre"
 javax-validation = "2.0.1.Final"
 jspecify = "1.0.0"
 commons-io = "2.11.0"
@@ -75,6 +76,7 @@ error-prone-test-helpers = { module = "com.google.errorprone:error_prone_test_he
 checker-dataflow = { module = "org.checkerframework:dataflow-nullaway", version.ref = "check-framework" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+guava-latest = { module = "com.google.guava:guava", version.ref = "guava-latest" }
 javax-validation = { module = "javax.validation:validation-api", version.ref = "javax-validation" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
 commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }

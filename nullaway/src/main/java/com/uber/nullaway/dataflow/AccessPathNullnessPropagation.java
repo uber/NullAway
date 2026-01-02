@@ -16,7 +16,7 @@
 package com.uber.nullaway.dataflow;
 
 import static com.google.common.base.Preconditions.checkNotNull;
-import static com.uber.nullaway.ASTHelpersBackports.isStatic;
+import static com.google.errorprone.util.ASTHelpers.isStatic;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
 import static com.uber.nullaway.Nullness.NONNULL;

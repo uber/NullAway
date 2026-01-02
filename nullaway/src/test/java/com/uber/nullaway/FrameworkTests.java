@@ -432,6 +432,71 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mockitoAnnotationsOnFieldTest() {
+    defaultCompilationHelper
+        .addSourceFile("testdata/mockito/Captor.java")
+        .addSourceFile("testdata/mockito/InjectMocks.java")
+        .addSourceFile("testdata/mockito/Mock.java")
+        .addSourceFile("testdata/mockito/Spy.java")
+        .addSourceLines(
+            "ArticleManager.java",
+            // language=java
+            """
+            package com.uber;
+
+            public class ArticleManager {
+              private ArticleCalculator articleCalculator;
+              private ArticleDatabase articleDatabase;
+              public ArticleManager(ArticleCalculator articleCalculator, ArticleDatabase articleDatabase) {
+                  this.articleCalculator = articleCalculator;
+                  this.articleDatabase = articleDatabase;
+              }
+            }
+            """)
+        .addSourceLines(
+            "ArticleCalculator.java",
+            // language=java
+            """
+            package com.uber;
+
+            public class ArticleCalculator { }
+            """)
+        .addSourceLines(
+            "ArticleDatabase.java",
+            // language=java
+            """
+            package com.uber;
+
+            public class ArticleDatabase { }
+            """)
+        .addSourceLines(
+            "TestCase.java",
+            // language=java
+            """
+            package com.uber;
+
+            import org.junit.jupiter.api.Test;
+            import org.mockito.ArgumentCaptor;
+            import org.mockito.Captor;
+            import org.mockito.InjectMocks;
+            import org.mockito.Mock;
+            import org.mockito.Spy;
+
+            class TestCase {
+              @Captor
+              private ArgumentCaptor<String> captor; // Initialized by mockito
+              @Mock
+              private ArticleCalculator articleCalculator; // Initialized by mockito
+              @Spy
+              private ArticleDatabase articleDatabase; // Initialized by mockito
+              @InjectMocks
+              private ArticleManager articleManager; // Initialized by mockito
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void wireMockInjectFieldTest() {
     makeTestHelperWithArgs(
             Arrays.asList(
