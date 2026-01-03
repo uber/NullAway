@@ -2782,37 +2782,14 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Generates by Record
-   * <p>
-   * Returns symbol for class.
-   * Symbol.ClassSymbol classSymbol()
-   * <p>
-   * Returns <code>@NonNull</code> instance fields that are not directly initialized at declaration.
-   * ImmutableSet<Symbol> nonnullInstanceFields()
-   * <p>
-   * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
-   * ImmutableSet<Symbol> nonnullStaticFields();
-   * <p>
-   * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
-   * } } ), in the order in which they appear in the class.
-   * ImmutableList<BlockTree> instanceInitializerBlocks();
-   * <p>
-   * Returns the list of static initializer blocks (e.g. blocks of the form `class X { static {
-   * //Code } } ), in the order in which they appear in the class.
-   * ImmutableList<BlockTree> staticInitializerBlocks();
-   * <p>
-   * Returns constructors in the class.
-   * ImmutableSet<MethodTree> constructors();
-   * <p>
-   * Returns the list of non-static (instance) initializer methods. This includes methods
-   * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-   * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
-   * ImmutableSet<MethodTree> instanceInitializerMethods();
-   * <p>
-   * Returns the list of static initializer methods. This includes static methods
-   * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-   * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
-   * ImmutableSet<MethodTree> staticInitializerMethods();
+   * Aggregates all entities involved in field initialization for a class.
+   *
+   * <p>This record captures information needed to reason about initialization of
+   * {@code @NonNull} fields, including initializer blocks, constructors, and
+   * initializer methods, both instance-level and static.
+   *
+   * <p>The data is extracted from a class symbol and used during NullAway analysis
+   * to verify that all required fields are properly initialized.
    */
   record FieldInitEntities(Symbol.ClassSymbol classSymbol,
                            ImmutableSet<Symbol> nonnullInstanceFields,
@@ -2823,6 +2800,25 @@ public class NullAway extends BugChecker
                            ImmutableSet<MethodTree> instanceInitializerMethods,
                            ImmutableSet<MethodTree> staticInitializerMethods) {
 
+    /**
+     * Creates an immutable {@link FieldInitEntities} instance from mutable inputs.
+     *
+     * @param classSymbol symbol for class.
+     * @param nonnullInstanceFields <code>@NonNull</code> instance fields that are not directly initialized at declaration.
+     * @param nonnullStaticFields  <code>@NonNull</code> static fields that are not directly initialized at declaration.
+     * @param instanceInitializerBlocks the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
+     * } } ), in the order in which they appear in the class.
+     * @param staticInitializerBlocks the list of static initializer blocks (e.g. blocks of the form `class X { static {
+     * //Code } } ), in the order in which they appear in the class.
+     * @param constructors constructors in the class.
+     * @param instanceInitializerMethods the list of non-static (instance) initializer methods. This includes methods
+     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+     * @param staticInitializerMethods the list of static initializer methods. This includes static methods
+     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+     * @return an immutable {@link FieldInitEntities} instance
+     */
     static FieldInitEntities create(
         Symbol.ClassSymbol classSymbol,
         Set<Symbol> nonnullInstanceFields,

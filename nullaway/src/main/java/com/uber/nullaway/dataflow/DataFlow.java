@@ -352,39 +352,127 @@ public final class DataFlow {
   }
 
   static final class CfgParams {
+
     /**
-     * Records cannot declare extra instance fields (environment).
-     * Used direct replacement approach to migrate from AutoValue
+     * The {@link TreePath} representing the code location for which CFG-related
+     * parameters are being computed.
+     *
+     * <p>This field defines the logical identity of {@code CfgParams}. Equality,
+     * hash code computation, and string representation are all based solely on
+     * this field.
      */
     private final TreePath codePath;
 
+    /**
+     * The {@link ProcessingEnvironment} associated with the current analysis.
+     *
+     * <p>This field is intentionally <em>not</em> final and is excluded from
+     * {@link #equals(Object)} and {@link #hashCode()} because:
+     * <ul>
+     *   <li>It is injected after construction</li>
+     *   <li>It is mutable</li>
+     *   <li>It does not contribute to logical identity</li>
+     * </ul>
+     */
     private @Nullable ProcessingEnvironment environment;
 
+    /**
+     * Private constructor used internally to enforce controlled creation via
+     * {@link #create(TreePath, ProcessingEnvironment)}.
+     *
+     * @param codePath the {@link TreePath} identifying the analyzed code location
+     */
     private CfgParams(TreePath codePath) {
       this.codePath = codePath;
     }
 
+    /**
+     * Creates a new {@code CfgParams} instance.
+     *
+     * <p>The {@link ProcessingEnvironment} is assigned after construction to
+     * preserve immutability of the identity-defining fields while still allowing
+     * environment injection.
+     *
+     * @param codePath the {@link TreePath} identifying the analyzed code location
+     * @param environment the {@link ProcessingEnvironment} for the current
+     *     annotation processing round
+     * @return a fully initialized {@code CfgParams} instance
+     */
     static CfgParams create(TreePath codePath, ProcessingEnvironment environment) {
       CfgParams cp = new CfgParams(codePath);
       cp.environment = environment;
       return cp;
     }
 
+    /**
+     * Returns the {@link ProcessingEnvironment} associated with this instance.
+     *
+     * <p>This method guarantees a non-null return value. It is an error to call
+     * this method before the environment has been set via {@link #create}.
+     *
+     * @return the non-null {@link ProcessingEnvironment}
+     */
     ProcessingEnvironment environment() {
       return castToNonNull(environment);
     }
 
+    /**
+     * Returns the {@link TreePath} that defines the identity of this instance.
+     *
+     * @return the {@link TreePath} associated with this configuration
+     */
     TreePath codePath() {
       return codePath;
     }
-    /*
-     * If needed, need to override these methods
-     * @Override
-     * public boolean equals(Object o) { ...codePath... }
+
+    /**
+     * Indicates whether some other object is equal to this one.
      *
-     * @Override
-     * public int hashCode() { ...codePath... }
+     * <p>Equality is based solely on {@link #codePath}. The
+     * {@link ProcessingEnvironment} is intentionally excluded.
+     *
+     * @param o the reference object with which to compare
+     * @return {@code true} if this object is equal to the given object;
+     *     {@code false} otherwise
      */
+    @Override
+    public boolean equals(Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof CfgParams)) {
+        return false;
+      }
+      CfgParams that = (CfgParams) o;
+      return java.util.Objects.equals(this.codePath, that.codePath);
+    }
+
+    /**
+     * Returns a hash code value for this object.
+     *
+     * <p>The hash code is computed solely from {@link #codePath} to remain
+     * consistent with {@link #equals(Object)}.
+     *
+     * @return a hash code value for this object
+     */
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(codePath);
+    }
+
+    /**
+     * Returns a string representation of this object.
+     *
+     * <p>The returned string includes only the identity-defining fields and omits
+     * the {@link ProcessingEnvironment} to keep the output stable and readable.
+     *
+     * @return a string representation of this {@code CfgParams}
+     */
+    @Override
+    public String toString() {
+      return "CfgParams{codePath=" + codePath + "}";
+    }
+
   }
 
   record AnalysisParams(ForwardTransferFunction<?, ?> transferFunction, ControlFlowGraph cfg) {

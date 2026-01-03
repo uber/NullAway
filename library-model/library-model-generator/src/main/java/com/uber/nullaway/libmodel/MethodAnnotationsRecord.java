@@ -4,7 +4,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 
 /** A record describing the annotations associated with a java method and its arguments.
- * Generates by Record
  */
 
 public record MethodAnnotationsRecord(ImmutableSet<String> methodAnnotations,
