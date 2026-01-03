@@ -64,8 +64,6 @@ dependencies {
     nullawayReleaseDeps "com.facebook.infer.annotation:infer-annotation:0.11.0"
     nullawayReleaseDeps "org.jetbrains:annotations:13.0"
 
-    // To run AutoValue during NullAway compilation
-    nullawayReleaseProcessors "com.google.auto.value:auto-value:1.9"
 
     testImplementation libs.junit4
 }
