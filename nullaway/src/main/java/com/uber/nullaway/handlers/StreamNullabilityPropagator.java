@@ -24,7 +24,6 @@ package com.uber.nullaway.handlers;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.LinkedHashMultimap;
@@ -128,18 +127,15 @@ class StreamNullabilityPropagator implements Handler {
   private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
       new LinkedHashMap<>();
 
-  @AutoValue
-  abstract static class CollectRecordAndInnerMethod {
+  record CollectRecordAndInnerMethod(CollectLikeMethodRecord collectlikeMethodRecord,
+                                     Tree innerMethodOrLambda) {
 
     static CollectRecordAndInnerMethod create(
         CollectLikeMethodRecord collectlikeMethodRecord, Tree innerMethodOrLambda) {
-      return new AutoValue_StreamNullabilityPropagator_CollectRecordAndInnerMethod(
+      return new CollectRecordAndInnerMethod(
           collectlikeMethodRecord, innerMethodOrLambda);
     }
 
-    abstract CollectLikeMethodRecord getCollectLikeMethodRecord();
-
-    abstract Tree getInnerMethodOrLambda();
   }
 
   // Maps collect calls in the observable call chain to the relevant (collect record, inner method
@@ -380,9 +376,9 @@ class StreamNullabilityPropagator implements Handler {
             collectCallToRecordsAndInnerMethodsOrLambdas.get(castToNonNull(outerCallInChain))) {
           MapOrCollectMethodToFilterInstanceRecord record =
               new MapOrCollectMethodToFilterInstanceRecord(
-                  collectRecordAndInnerMethod.getCollectLikeMethodRecord(), filterMethodOrLambda);
+                  collectRecordAndInnerMethod.collectlikeMethodRecord(), filterMethodOrLambda);
           mapOrCollectRecordToFilterMap.put(
-              collectRecordAndInnerMethod.getInnerMethodOrLambda(), record);
+              collectRecordAndInnerMethod.innerMethodOrLambda(), record);
         }
       }
     } while (outerCallInChain != null

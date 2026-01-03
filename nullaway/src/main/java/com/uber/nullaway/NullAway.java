@@ -33,7 +33,6 @@ import static java.lang.annotation.ElementType.TYPE_PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
 
 import com.google.auto.service.AutoService;
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMultimap;
@@ -2782,9 +2781,44 @@ public class NullAway extends BugChecker
     computedNullnessMap.put(e, nullness);
   }
 
-  @AutoValue
-  abstract static class FieldInitEntities {
+  /**
+   * Aggregates all entities involved in field initialization for a class.
+   *
+   * <p>This record captures information needed to reason about initialization of
+   * {@code @NonNull} fields, including initializer blocks, constructors, and
+   * initializer methods, both instance-level and static.
+   *
+   * <p>The data is extracted from a class symbol and used during NullAway analysis
+   * to verify that all required fields are properly initialized.
+   */
+  record FieldInitEntities(Symbol.ClassSymbol classSymbol,
+                           ImmutableSet<Symbol> nonnullInstanceFields,
+                           ImmutableSet<Symbol> nonnullStaticFields,
+                           ImmutableList<BlockTree> instanceInitializerBlocks,
+                           ImmutableList<BlockTree> staticInitializerBlocks,
+                           ImmutableSet<MethodTree> constructors,
+                           ImmutableSet<MethodTree> instanceInitializerMethods,
+                           ImmutableSet<MethodTree> staticInitializerMethods) {
 
+    /**
+     * Creates an immutable {@link FieldInitEntities} instance from mutable inputs.
+     *
+     * @param classSymbol symbol for class.
+     * @param nonnullInstanceFields <code>@NonNull</code> instance fields that are not directly initialized at declaration.
+     * @param nonnullStaticFields  <code>@NonNull</code> static fields that are not directly initialized at declaration.
+     * @param instanceInitializerBlocks the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
+     * } } ), in the order in which they appear in the class.
+     * @param staticInitializerBlocks the list of static initializer blocks (e.g. blocks of the form `class X { static {
+     * //Code } } ), in the order in which they appear in the class.
+     * @param constructors constructors in the class.
+     * @param instanceInitializerMethods the list of non-static (instance) initializer methods. This includes methods
+     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+     * @param staticInitializerMethods the list of static initializer methods. This includes static methods
+     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
+     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
+     * @return an immutable {@link FieldInitEntities} instance
+     */
     static FieldInitEntities create(
         Symbol.ClassSymbol classSymbol,
         Set<Symbol> nonnullInstanceFields,
@@ -2794,7 +2828,7 @@ public class NullAway extends BugChecker
         Set<MethodTree> constructors,
         Set<MethodTree> instanceInitializerMethods,
         Set<MethodTree> staticInitializerMethods) {
-      return new AutoValue_NullAway_FieldInitEntities(
+      return new FieldInitEntities(
           classSymbol,
           ImmutableSet.copyOf(nonnullInstanceFields),
           ImmutableSet.copyOf(nonnullStaticFields),
@@ -2805,47 +2839,5 @@ public class NullAway extends BugChecker
           ImmutableSet.copyOf(staticInitializerMethods));
     }
 
-    /** Returns symbol for class. */
-    abstract Symbol.ClassSymbol classSymbol();
-
-    /**
-     * Returns <code>@NonNull</code> instance fields that are not directly initialized at
-     * declaration.
-     */
-    abstract ImmutableSet<Symbol> nonnullInstanceFields();
-
-    /**
-     * Returns <code>@NonNull</code> static fields that are not directly initialized at declaration.
-     */
-    abstract ImmutableSet<Symbol> nonnullStaticFields();
-
-    /**
-     * Returns the list of instance initializer blocks (e.g. blocks of the form `class X { { //Code
-     * } } ), in the order in which they appear in the class.
-     */
-    abstract ImmutableList<BlockTree> instanceInitializerBlocks();
-
-    /**
-     * Returns the list of static initializer blocks (e.g. blocks of the form `class X { static {
-     * //Code } } ), in the order in which they appear in the class.
-     */
-    abstract ImmutableList<BlockTree> staticInitializerBlocks();
-
-    /** Returns constructors in the class. */
-    abstract ImmutableSet<MethodTree> constructors();
-
-    /**
-     * Returns the list of non-static (instance) initializer methods. This includes methods
-     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
-     */
-    abstract ImmutableSet<MethodTree> instanceInitializerMethods();
-
-    /**
-     * Returns the list of static initializer methods. This includes static methods
-     * annotated @Initializer, as well as those specified by -XepOpt:NullAway:KnownInitializers or
-     * annotated with annotations passed to -XepOpt:NullAway:CustomInitializerAnnotations.
-     */
-    abstract ImmutableSet<MethodTree> staticInitializerMethods();
   }
 }
