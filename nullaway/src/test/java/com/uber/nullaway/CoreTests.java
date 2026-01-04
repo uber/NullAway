@@ -509,7 +509,6 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @SuppressWarnings("deprecation")
   @Test
   public void nullabilityAnonymousClass() {
     defaultCompilationHelper
