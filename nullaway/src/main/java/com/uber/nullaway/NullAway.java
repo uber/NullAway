@@ -77,6 +77,7 @@ import com.sun.source.tree.ParameterizedTypeTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.StatementTree;
+import com.sun.source.tree.SwitchExpressionTree;
 import com.sun.source.tree.SwitchTree;
 import com.sun.source.tree.SynchronizedTree;
 import com.sun.source.tree.Tree;
@@ -182,6 +183,7 @@ public class NullAway extends BugChecker
         BugChecker.MemberReferenceTreeMatcher,
         BugChecker.CompoundAssignmentTreeMatcher,
         BugChecker.SwitchTreeMatcher,
+        BugChecker.SwitchExpressionTreeMatcher,
         BugChecker.TypeCastTreeMatcher,
         BugChecker.ParameterizedTypeTreeMatcher,
         BugChecker.SynchronizedTreeMatcher {
@@ -707,16 +709,32 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
 
-    ExpressionTree switchSelectorExpression = tree.getExpression();
-    // For a statement `switch (e) { ... }`, javac returns `(e)` as the selector expression.  We
-    // strip the outermost parentheses for a nicer-looking error message.
+    return checkSwitchSelectorExpression(
+        tree.getExpression(), TreeUtils.hasNullCaseLabel(tree), state);
+  }
+
+  @Override
+  public Description matchSwitchExpression(SwitchExpressionTree tree, VisitorState state) {
+    if (!withinAnnotatedCode(state)) {
+      return Description.NO_MATCH;
+    }
+
+    return checkSwitchSelectorExpression(
+        tree.getExpression(), TreeUtils.hasNullCaseLabel(tree), state);
+  }
+
+  private Description checkSwitchSelectorExpression(
+      ExpressionTree switchSelectorExpression, boolean hasNullCaseLabel, VisitorState state) {
+    // For `switch (e) { ... }`, javac returns `(e)` as the selector expression. We strip the
+    // outermost parentheses for a nicer-looking error message.
     if (switchSelectorExpression instanceof ParenthesizedTree) {
       switchSelectorExpression = ((ParenthesizedTree) switchSelectorExpression).getExpression();
     }
-
-    if (!TreeUtils.hasNullCaseLabel(tree) && mayBeNullExpr(state, switchSelectorExpression)) {
+    if (!hasNullCaseLabel && mayBeNullExpr(state, switchSelectorExpression)) {
       String message =
-          "switch expression " + state.getSourceForNode(switchSelectorExpression) + " is @Nullable";
+          "switch selector expression "
+              + state.getSourceForNode(switchSelectorExpression)
+              + " is @Nullable";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
 
