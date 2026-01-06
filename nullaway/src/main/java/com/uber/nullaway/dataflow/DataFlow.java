@@ -41,6 +41,7 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import com.uber.nullaway.handlers.Handler;
+import java.util.HashMap;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
@@ -293,7 +294,7 @@ public final class DataFlow {
         (RunOnceForwardAnalysisImpl<A, S, T>)
             dataflow(enclosingPath, context, transfer, false).getAnalysis();
     Verify.verify(analysis.isRunning(), "Expected analysis to be running for %s", enclosing);
-    return analysis.getStoreBefore(exprPath.getLeaf());
+    return analysis.getStoreBefore(exprPath.getLeaf(), new HashMap<>());
   }
 
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
