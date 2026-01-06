@@ -616,18 +616,14 @@ public final class GenericsChecks {
   }
 
   private static boolean isAssignmentToLocalVariable(Tree tree) {
-    Symbol treeSymbol;
-    if (tree instanceof VariableTree variableTree) {
-      treeSymbol = ASTHelpers.getSymbol(variableTree);
-    } else if (tree instanceof AssignmentTree assignmentTree) {
-      treeSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
-    } else {
-      throw new RuntimeException("Unexpected tree type: " + tree.getKind());
-    }
-    return treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
+    return isAssignmentToKind(tree, ElementKind.LOCAL_VARIABLE);
   }
 
   private static boolean isAssignmentToField(Tree tree) {
+    return isAssignmentToKind(tree, ElementKind.FIELD);
+  }
+
+  private static boolean isAssignmentToKind(Tree tree, ElementKind kind) {
     Symbol treeSymbol;
     if (tree instanceof VariableTree variableTree) {
       treeSymbol = ASTHelpers.getSymbol(variableTree);
@@ -636,7 +632,7 @@ public final class GenericsChecks {
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
-    return treeSymbol != null && treeSymbol.getKind().equals(ElementKind.FIELD);
+    return treeSymbol != null && treeSymbol.getKind().equals(kind);
   }
 
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
