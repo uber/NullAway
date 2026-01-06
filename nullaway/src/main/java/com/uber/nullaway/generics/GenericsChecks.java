@@ -2064,11 +2064,15 @@ public final class GenericsChecks {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
+  /**
+   * Store a lambda's target type with explicit type-variable nullability from the assignment
+   * context, when the lambda's type has not already been cached.
+   *
+   * <p>This is used to compensate for javac dropping annotations on type variables in lambda target
+   * types, so later checks use the correctly annotated functional interface type.
+   */
   private void maybeStoreLambdaTypeFromTarget(
       LambdaExpressionTree lambdaExpressionTree, Type targetType) {
-    if (!config.isJSpecifyMode()) {
-      return;
-    }
     if (targetType.isRaw() || inferredLambdaTypes.containsKey(lambdaExpressionTree)) {
       return;
     }
