@@ -21,7 +21,7 @@
  */
 package com.uber.nullaway.handlers;
 
-import static com.uber.nullaway.ASTHelpersBackports.getEnclosedElements;
+import static com.google.errorprone.util.ASTHelpers.getEnclosedElements;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.collect.ImmutableSet;
@@ -101,9 +101,8 @@ public class GrpcHandler implements Handler {
       // Argument list and types should be already checked by grpcIsMetadataContainsKeyCall
       Symbol keyArgSymbol = ASTHelpers.getSymbol(tree.getArguments().get(0));
       if (getter != null
-          && keyArgSymbol instanceof Symbol.VarSymbol
+          && keyArgSymbol instanceof Symbol.VarSymbol varSymbol
           && keyArgSymbol.getKind().equals(ElementKind.FIELD)) {
-        Symbol.VarSymbol varSymbol = (Symbol.VarSymbol) keyArgSymbol;
         String immutableFieldFQN =
             varSymbol.enclClass().flatName().toString() + "." + varSymbol.flatName().toString();
         String keyStr = AccessPath.immutableFieldNameAsConstantArgument(immutableFieldFQN);

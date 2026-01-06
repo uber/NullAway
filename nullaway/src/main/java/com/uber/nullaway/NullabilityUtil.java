@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.sun.source.tree.Tree.Kind.OTHER;
+
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
@@ -34,7 +36,9 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
@@ -118,10 +122,9 @@ public class NullabilityUtil {
         continue;
       }
       for (Symbol m : s.tsym.members().getSymbolsByName(method.name)) {
-        if (!(m instanceof Symbol.MethodSymbol)) {
+        if (!(m instanceof Symbol.MethodSymbol msym)) {
           continue;
         }
-        Symbol.MethodSymbol msym = (Symbol.MethodSymbol) m;
         if (msym.isStatic()) {
           continue;
         }
@@ -246,8 +249,8 @@ public class NullabilityUtil {
       ExecutableElement elem = entry.getKey();
       if (elem.getSimpleName().contentEquals("value")) {
         Object value = entry.getValue().getValue();
-        if (value instanceof String) {
-          return (String) value;
+        if (value instanceof String string) {
+          return string;
         }
       }
     }
@@ -379,15 +382,17 @@ public class NullabilityUtil {
   // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L128
   private static boolean targetTypeMatches(Symbol sym, TypeAnnotationPosition position) {
     switch (sym.getKind()) {
-      case LOCAL_VARIABLE:
+      case LOCAL_VARIABLE -> {
         return position.type == TargetType.LOCAL_VARIABLE;
-      case FIELD:
-      case ENUM_CONSTANT: // treated like a field
+      }
+      case FIELD, ENUM_CONSTANT -> {
+        // treated like a field
         return position.type == TargetType.FIELD;
-      case CONSTRUCTOR:
-      case METHOD:
+      }
+      case CONSTRUCTOR, METHOD -> {
         return position.type == TargetType.METHOD_RETURN;
-      case PARAMETER:
+      }
+      case PARAMETER -> {
         if (position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)) {
           int parameterIndex = position.parameter_index;
           if (position.onLambda != null) {
@@ -401,19 +406,17 @@ public class NullabilityUtil {
         } else {
           return false;
         }
-      case CLASS:
-      case ENUM: // treated like a class
-        // There are no type annotations on the top-level type of the class/enum being declared,
+      }
+      case CLASS, ENUM, RECORD -> {
+        // treated like a class
+        // There are no type annotations on the top-level type of the class/enum/record being
+        // declared,
         // only on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
         return false;
-      default:
-        // Compare with toString() to preserve compatibility with JDK 11
-        if (sym.getKind().toString().equals("RECORD")) {
-          // Records are treated like classes
-          return false;
-        } else {
-          throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
-        }
+      }
+      default -> {
+        throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
+      }
     }
   }
 
@@ -460,21 +463,22 @@ public class NullabilityUtil {
     int nestingDepth = getNestingDepth(symbol.type);
     for (TypePathEntry entry : t.position.location) {
       switch (entry.tag) {
-        case INNER_TYPE:
+        case INNER_TYPE -> {
           locationHasInnerTypes = true;
           innerTypeCount++;
-          break;
-        case ARRAY:
+        }
+        case ARRAY -> {
           if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
             // Annotations on array element types do not apply to the top-level
             // type outside of legacy mode
             return false;
           }
           locationHasArray = true;
-          break;
-        default:
+        }
+        default -> {
           // Wildcard or type argument!
           return false;
+        }
       }
     }
     if (config.isLegacyAnnotationLocation()) {
@@ -528,16 +532,10 @@ public class NullabilityUtil {
    *     Nullness#NULLABLE}.
    */
   public static boolean nullnessToBool(Nullness nullness) {
-    switch (nullness) {
-      case BOTTOM:
-      case NONNULL:
-        return false;
-      case NULL:
-      case NULLABLE:
-        return true;
-      default:
-        throw new AssertionError("Impossible: " + nullness);
-    }
+    return switch (nullness) {
+      case BOTTOM, NONNULL -> false;
+      case NULL, NULLABLE -> true;
+    };
   }
 
   /**
@@ -649,12 +647,12 @@ public class NullabilityUtil {
     if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
         .anyMatch(
             t -> {
-              for (TypeAnnotationPosition.TypePathEntry entry : t.position.location) {
-                if (entry.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-                  if (typeUseCheck.test(t.type.toString(), config)) {
-                    return true;
-                  }
-                }
+              // the location list should be of length 1 and the entry tag should be ARRAY
+              com.sun.tools.javac.util.List<TypePathEntry> location = t.position.location;
+              TypePathEntry head = location.head;
+              boolean singleElementList = head != null && location.tail.isEmpty();
+              if (singleElementList && head.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
+                return typeUseCheck.test(t.type.toString(), config);
               }
               return false;
             })) {
@@ -692,9 +690,37 @@ public class NullabilityUtil {
   public static boolean isVarArgsCall(Tree tree) {
     // javac sets the varargsElement field to a non-null value if the invocation is a varargs call
     Type varargsElement =
-        tree instanceof JCTree.JCMethodInvocation
-            ? ((JCTree.JCMethodInvocation) tree).varargsElement
+        tree instanceof JCTree.JCMethodInvocation jcMethodInvocation
+            ? jcMethodInvocation.varargsElement
             : ((JCTree.JCNewClass) tree).varargsElement;
     return varargsElement != null;
+  }
+
+  /**
+   * strip out enclosing parentheses, type casts and Nullchk operators.
+   *
+   * @param expr a potentially parenthesised expression.
+   * @return the same expression without parentheses.
+   */
+  public static ExpressionTree stripParensAndCasts(ExpressionTree expr) {
+    boolean someChange = true;
+    while (someChange) {
+      someChange = false;
+      if (expr instanceof ParenthesizedTree) {
+        expr = ((ParenthesizedTree) expr).getExpression();
+        someChange = true;
+      }
+      if (expr instanceof TypeCastTree) {
+        expr = ((TypeCastTree) expr).getExpression();
+        someChange = true;
+      }
+
+      // Strips Nullchk operator
+      if (expr.getKind().equals(OTHER) && expr instanceof JCTree.JCUnary) {
+        expr = ((JCTree.JCUnary) expr).getExpression();
+        someChange = true;
+      }
+    }
+    return expr;
   }
 }

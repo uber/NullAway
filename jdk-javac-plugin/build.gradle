@@ -1,3 +1,5 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+
 plugins {
     id 'java'
     // we use the shadow jar when building the JDK
@@ -33,6 +35,15 @@ tasks.withType(JavaCompile).configureEach {
         "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
         "--add-exports=jdk.compiler/com.sun.source.tree=ALL-UNNAMED",
     ]
+    if (!name.toLowerCase().contains("test")) {
+        options.errorprone {
+            check("NullAway", CheckSeverity.ERROR)
+            option("NullAway:OnlyNullMarked")
+            option("NullAway:JSpecifyMode")
+            option("NullAway:AcknowledgeRestrictiveAnnotations")
+            check("RequireExplicitNullMarking", CheckSeverity.ERROR)
+        }
+    }
 }
 
 configurations {
@@ -42,18 +53,20 @@ configurations {
 }
 
 dependencies {
-    implementation deps.build.gson
-    implementation deps.build.jspecify
+    annotationProcessor project(":nullaway")
 
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    implementation libs.gson
+    implementation libs.jspecify
+
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.build.jspecify
-    testImplementation deps.build.gson
-    testImplementation deps.test.assertJ
+    testImplementation libs.jspecify
+    testImplementation libs.gson
+    testImplementation libs.assertj
 
-    testModulePath deps.build.jspecify
+    testModulePath libs.jspecify
 }
 
 tasks.withType(Test).configureEach { test ->

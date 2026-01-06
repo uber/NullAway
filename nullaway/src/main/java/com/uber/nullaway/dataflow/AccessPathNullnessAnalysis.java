@@ -204,6 +204,41 @@ public final class AccessPathNullnessAnalysis {
       TreePath pathToNestedMethodNode, VisitorState state, Handler handler) {
     NullnessStore store =
         dataFlow.resultBefore(pathToNestedMethodNode, state.context, nullnessPropagation);
+    return getAccessPathsForNestedMethod(pathToNestedMethodNode, state, handler, store);
+  }
+
+  /**
+   * Like {@link #getNullnessInfoBeforeNestedMethodNode(TreePath, VisitorState, Handler)}, but works
+   * for a dataflow analysis that is currently running
+   *
+   * @param pathToNestedMethodNode tree path to some AST node representing a nested method
+   * @param state visitor state
+   * @param handler handler instance
+   * @return nullness info for local variables just before the leaf of the tree path
+   */
+  public NullnessStore getNullnessInfoBeforeNestedMethodWithAnalysisRunning(
+      TreePath pathToNestedMethodNode, VisitorState state, Handler handler) {
+    NullnessStore store =
+        dataFlow.resultBeforeWithAnalysisRunning(
+            pathToNestedMethodNode, state.context, nullnessPropagation);
+    return getAccessPathsForNestedMethod(pathToNestedMethodNode, state, handler, store);
+  }
+
+  /**
+   * Get access paths for local variables and final (or {@code @MonotonicNonNull}) fields in the
+   * store before some nested method node.
+   *
+   * @param pathToNestedMethodNode tree path to some AST node representing a nested method
+   * @param state visitor state
+   * @param handler handler instance
+   * @param store nullness store before the nested method node
+   * @return filtered nullness store
+   */
+  private static NullnessStore getAccessPathsForNestedMethod(
+      TreePath pathToNestedMethodNode,
+      VisitorState state,
+      Handler handler,
+      @Nullable NullnessStore store) {
     if (store == null) {
       return NullnessStore.empty();
     }

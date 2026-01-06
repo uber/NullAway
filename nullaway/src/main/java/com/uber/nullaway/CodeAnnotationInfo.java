@@ -23,7 +23,7 @@
 package com.uber.nullaway;
 
 import static com.google.errorprone.util.ASTHelpers.enclosingClass;
-import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
+import static com.google.errorprone.util.ASTHelpers.hasDirectAnnotationWithSimpleName;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
@@ -163,8 +163,8 @@ public final class CodeAnnotationInfo {
    */
   public boolean isSymbolUnannotated(Symbol symbol, Config config, Handler handler) {
     Symbol.ClassSymbol classSymbol;
-    if (symbol instanceof Symbol.ClassSymbol) {
-      classSymbol = (Symbol.ClassSymbol) symbol;
+    if (symbol instanceof Symbol.ClassSymbol cs) {
+      classSymbol = cs;
     } else if (isClassFieldOfPrimitiveType(symbol)) {
       // As a special case, int.class, boolean.class, etc, cause ASTHelpers.enclosingClass(...) to
       // return null, even though int/boolean/etc. are technically ClassSymbols. We consider this

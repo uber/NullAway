@@ -18,7 +18,7 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
-// Use JDK 24 for this module, via a toolchain
+// Use JDK 25 for this module, via a toolchain
 // We must null out sourceCompatibility and targetCompatibility to use toolchains.
 java.sourceCompatibility = null
 java.targetCompatibility = null
@@ -33,15 +33,15 @@ configurations {
 
 dependencies {
     testImplementation project(":nullaway")
-    testImplementation deps.test.junit4
-    testImplementation deps.test.junit5Jupiter
-    testImplementation deps.test.assertJ
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation libs.bundles.junit.jupiter
+    testImplementation libs.assertj
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.test.jsr305Annotations
-    testModulePath deps.test.cfQual
-    testModulePath deps.build.jspecify
+    testImplementation libs.jsr305
+    testModulePath libs.checker.qual
+    testModulePath libs.jspecify
     testModulePath project(":test-java-module")
 }
 
@@ -57,15 +57,11 @@ tasks.withType(Test).configureEach { test ->
 tasks.getByName('testJdk17').configure {
     onlyIf { false }
 }
-tasks.getByName('testJdk25').configure {
+tasks.getByName('testJdk21').configure {
     onlyIf { false }
 }
 
 tasks.getByName('test').configure {
-    // older EP versions don't work on JDK 24+
-    onlyIf {
-        deps.versions.errorProneApi == deps.versions.errorProneLatest
-    }
     // we need this since we don't have an implementation / api dependence on test-java-module
     dependsOn ':test-java-module:jar'
 }

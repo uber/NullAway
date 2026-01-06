@@ -28,18 +28,20 @@ configurations {
 
 dependencies {
     testImplementation project(":nullaway")
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
-    testImplementation deps.test.jsr305Annotations
-    testImplementation "com.google.guava:guava:33.4.8-jre"
+    testImplementation libs.jsr305
+    testImplementation libs.guava.latest
 
-    errorProneOldest deps.build.errorProneCheckApiOld
-    errorProneOldest(deps.build.errorProneTestHelpersOld) {
+    errorProneOldest "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}"
+    errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
         exclude group: "junit", module: "junit"
     }
-    errorProneOldest deps.build.guava
+    errorProneOldest libs.guava.latest
+
+    errorProneJdk17 libs.guava.latest
 }
 
 // Create a task to test with the oldest supported version of Error Prone
@@ -47,7 +49,7 @@ dependencies {
 def epOldestTest = tasks.register("testErrorProneOldest", Test) {
 
     javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(11)
+        languageVersion = JavaLanguageVersion.of(17)
     }
 
     description = "Runs the test suite using the oldest supported version of Error Prone"

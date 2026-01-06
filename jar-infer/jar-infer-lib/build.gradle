@@ -25,32 +25,25 @@ repositories {
 }
 
 dependencies {
-    api deps.build.asm
-    api deps.build.asmTree
-    api deps.build.wala
-    api deps.build.guava
-    api deps.build.commonsIO
-    compileOnly deps.build.errorProneCheckApi
+    api libs.asm
+    api libs.asm.tree
+    api libs.bundles.wala
+    api libs.guava
+    api libs.commons.io
+    compileOnly libs.error.prone.check.api
     implementation project(":library-model:library-model-generator")
 
-    testImplementation deps.test.junit4
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
     testImplementation project(":jar-infer:test-java-lib-jarinfer")
     testImplementation files("${System.properties['java.home']}/../lib/tools.jar") // is there a better way?
-    testRuntimeOnly deps.build.errorProneCheckApi
+    testRuntimeOnly libs.error.prone.check.api
 }
 
 tasks.withType(Test).configureEach {
     dependsOn ':jar-infer:test-android-lib-jarinfer:bundleReleaseAar'
-}
-
-tasks.getByName('testJdk25').configure {
-    javaLauncher = javaToolchains.launcherFor {
-        languageVersion = JavaLanguageVersion.of(25)
-        vendor = org.gradle.jvm.toolchain.JvmVendorSpec.AZUL
-    }
 }
 
 tasks.withType(JavaCompile).configureEach {

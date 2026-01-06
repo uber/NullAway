@@ -29,12 +29,12 @@ tasks.withType(Test).configureEach { test ->
 dependencies {
     implementation project(":library-model:library-model-generator")
     implementation project(":jdk-javac-plugin")
-    implementation deps.build.gson
-    implementation deps.build.guava
+    implementation libs.gson
+    implementation libs.guava
 
-    testImplementation deps.test.junit4
-    testImplementation deps.build.jspecify
-    testImplementation(deps.build.errorProneTestHelpers) {
+    testImplementation libs.junit4
+    testImplementation libs.jspecify
+    testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }
 }

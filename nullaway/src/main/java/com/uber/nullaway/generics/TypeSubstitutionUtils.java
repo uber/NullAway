@@ -1,9 +1,11 @@
 package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotsOnTypeVarsFromSubtypes;
+import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
+import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -16,6 +18,7 @@ import com.uber.nullaway.Nullness;
 import java.util.Collections;
 import java.util.Map;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.Element;
 import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
 
@@ -40,9 +43,8 @@ public class TypeSubstitutionUtils {
       return null;
     }
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        subtype instanceof DeclaredType
-            ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) subtype, superTypeSymbol, types, config)
+        subtype instanceof DeclaredType declaredType
+            ? getAnnotsOnTypeVarsFromSubtypes(declaredType, superTypeSymbol, types, config)
             : Map.of();
     // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
     // same type variables as asSuper; we use it to find the positions corresponding to type
@@ -65,9 +67,9 @@ public class TypeSubstitutionUtils {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
     Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        t instanceof DeclaredType
+        t instanceof DeclaredType declaredType
             ? getAnnotsOnTypeVarsFromSubtypes(
-                (DeclaredType) t, (Symbol.MethodSymbol) sym, types, config)
+                declaredType, (Symbol.MethodSymbol) sym, types, config)
             : Map.of();
     return restoreExplicitNullabilityAnnotations(
         origType, memberType, config, annotsOnTypeVarsFromSubtypes);
@@ -80,20 +82,172 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
-   * @param annotsOnTypeVarsFromSubtypes annotations on type variables added by subtypes
+   * @param extraTypeVariableAnnotations Additional annotations to consider for type variables. If
+   *     there is no explicit nullability annotation on a type variable {@code X} in {@code
+   *     origType}, but {@code X} is present as a key in this map, the corresponding annotation will
+   *     be used when substituting in {@code newType}. If {@code X} has an explicit nullability
+   *     annotation in {@code origType}, that takes precedence over this map.
    * @return the new type with explicit nullability annotations restored
    */
   public static Type restoreExplicitNullabilityAnnotations(
       Type origType,
       Type newType,
       Config config,
-      Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
-    return new RestoreNullnessAnnotationsVisitor(config, annotsOnTypeVarsFromSubtypes)
+      Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
+    return new RestoreNullnessAnnotationsVisitor(config, extraTypeVariableAnnotations)
         .visit(newType, origType);
   }
 
   /**
-   * A visitor that restores explicit nullability annotations on type variables from another type to
+   * Updates a type {@code typeToUpdate} by applying inferred nullability for type variables. The
+   * update proceeds in three steps:
+   *
+   * <p>1. Substitute inferred nullability for type variables in the original type {@code origType}.
+   * So, if the {@code origType} is {@code List<T>}, and we inferred T to be nullable, the result
+   * will be {@code List<@Nullable T>}.
+   *
+   * <p>2. Restore any explicit nullability annotations that were present on {@code origType} to the
+   * result of 1. So, if {@code origType} was {@code List<@NonNull T>}, the result will be {@code
+   * List<@NonNull T>}, even if T was inferred to be nullable.
+   *
+   * <p>3 . Apply the nullability annotations from the result of 2 to {@code typeToUpdate}. So, if
+   * {@code typeToUpdate} is {@code List<String>}, and the result of 2 is {@code List<@Nullable T>},
+   * the final result will be {@code List<@Nullable String>}.
+   *
+   * @param typeToUpdate the type to update
+   * @param origType the original type with type variables and possibly explicit nullability
+   *     annotations
+   * @param typeVarNullability a map from type variable elements to their inferred nullability
+   * @param state the visitor state
+   * @param config the NullAway config
+   * @return the updated type with inferred nullability applied
+   */
+  static Type updateTypeWithInferredNullability(
+      Type typeToUpdate,
+      Type origType,
+      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state,
+      Config config) {
+    if (typeVarNullability == null) {
+      // no updates to perform
+      return typeToUpdate;
+    }
+    // step 1
+    Type inferredNullabilitySubstituted =
+        substituteInferredNullabilityForTypeVariables(origType, typeVarNullability, state, config);
+    // step 2
+    Type origExplicitAnnotationsRestored =
+        restoreExplicitNullabilityAnnotations(
+            origType, inferredNullabilitySubstituted, config, Collections.emptyMap());
+    // step 3
+    // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
+    return restoreExplicitNullabilityAnnotations(
+        origExplicitAnnotationsRestored, typeToUpdate, config, Collections.emptyMap());
+  }
+
+  /**
+   * Updates a method type {@code typeToUpdate} by applying inferred nullability for type variables.
+   * The update is applied to the argument types, return type, and thrown types of the method type,
+   * using {@link #updateMethodTypeWithInferredNullability(Type.MethodType, Type.MethodType, Map,
+   * VisitorState, Config)}
+   *
+   * @param methodTypeToUpdate method type to update
+   * @param origMethodType original method type, with type variables and possibly explicit
+   *     nullability annotations
+   * @param typeVarNullability a map from type variable elements to their inferred nullability
+   * @param state the visitor state
+   * @param config the NullAway config
+   * @return the updated method type with inferred nullability applied
+   */
+  @SuppressWarnings("ReferenceEquality")
+  public static Type.MethodType updateMethodTypeWithInferredNullability(
+      Type.MethodType methodTypeToUpdate,
+      Type.MethodType origMethodType,
+      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state,
+      Config config) {
+    List<Type> argtypes = methodTypeToUpdate.argtypes;
+    Type restype = methodTypeToUpdate.restype;
+    List<Type> thrown = methodTypeToUpdate.thrown;
+    List<Type> argtypes1 =
+        updateTypeListNullability(
+            argtypes, origMethodType.argtypes, typeVarNullability, state, config);
+    Type restype1 =
+        updateTypeWithInferredNullability(
+            restype, origMethodType.restype, typeVarNullability, state, config);
+    List<Type> thrown1 =
+        updateTypeListNullability(thrown, origMethodType.thrown, typeVarNullability, state, config);
+    if (argtypes1 == argtypes && restype1 == restype && thrown1 == thrown) {
+      return methodTypeToUpdate;
+    } else {
+      return new Type.MethodType(argtypes1, restype1, thrown1, methodTypeToUpdate.tsym);
+    }
+  }
+
+  @SuppressWarnings("ReferenceEquality")
+  private static List<Type> updateTypeListNullability(
+      List<Type> typesToUpdate,
+      List<Type> origTypes,
+      @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state,
+      Config config) {
+    ListBuffer<Type> buf = new ListBuffer<>();
+    boolean changed = false;
+    for (List<Type> l = typesToUpdate, l1 = origTypes; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
+      Type toUpdate = l.head;
+      Type orig = l1.head;
+      Type t2 =
+          updateTypeWithInferredNullability(toUpdate, orig, typeVarNullability, state, config);
+      buf.append(t2);
+      if (t2 != toUpdate) {
+        changed = true;
+      }
+    }
+    return changed ? buf.toList() : typesToUpdate;
+  }
+
+  /**
+   * Substitutes inferred nullability for type variables in the given target type.
+   *
+   * @param targetType type to which to apply substitutions
+   * @param typeVarNullability a map from type variable elements to their inferred nullability
+   * @param state the visitor state
+   * @param config the NullAway config
+   * @return the type resulting from applying inferred nullability substitutions
+   */
+  private static Type substituteInferredNullabilityForTypeVariables(
+      Type targetType,
+      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+      VisitorState state,
+      Config config) {
+    ListBuffer<Type> typeVars = new ListBuffer<>();
+    ListBuffer<Type> inferredTypes = new ListBuffer<>();
+    for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
+        typeVarNullability.entrySet()) {
+      if (entry.getValue() == NULLABLE) {
+        // find all TypeVars occurring in targetType with the same symbol and substitute for those.
+        // we can have multiple such TypeVars due to previous substitutions that modified the type
+        // in some way, e.g., by changing its bounds
+        Element symbol = entry.getKey();
+        TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
+        targetType.accept(tvc, null);
+        for (Type.TypeVar tv : tvc.getMatches()) {
+          typeVars.append(tv);
+          inferredTypes.append(
+              typeWithAnnot(tv, GenericsChecks.getSyntheticNullableAnnotType(state)));
+        }
+      }
+    }
+    List<Type> typeVarsToReplace = typeVars.toList();
+    if (!typeVarsToReplace.isEmpty()) {
+      return subst(state.getTypes(), targetType, typeVarsToReplace, inferredTypes.toList(), config);
+    } else {
+      return targetType;
+    }
+  }
+
+  /**
+   * A visitor that restores explicit nullability annotations on types nested within another type to
    * the corresponding positions in the visited type. If no annotations need to be restored, returns
    * the visited type object itself.
    */
@@ -101,13 +255,20 @@ public class TypeSubstitutionUtils {
   private static class RestoreNullnessAnnotationsVisitor extends Types.MapVisitor<Type> {
 
     private final Config config;
-    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes;
+
+    /**
+     * Additional annotations to consider for type variables. If there is no explicit nullability
+     * annotation on a type variable {@code X}, but {@code X} is present as a key in this map, the
+     * corresponding annotation will be used when substituting in the visited type. If {@code X} has
+     * an explicit nullability annotation, that takes precedence over this map.
+     */
+    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations;
 
     RestoreNullnessAnnotationsVisitor(
         Config config,
-        Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes) {
+        Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
       this.config = config;
-      this.annotsOnTypeVarsFromSubtypes = annotsOnTypeVarsFromSubtypes;
+      this.extraTypeVariableAnnotations = extraTypeVariableAnnotations;
     }
 
     @Override
@@ -129,34 +290,29 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
-      if (other instanceof Type.TypeVar) {
-        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-        if (updated != null) {
-          return updated;
-        }
-      }
+      Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ClassType)) {
-        return t;
+        return updated;
       }
-      Type outer = t.getEnclosingType();
-      Type outer1 = visit(outer, other.getEnclosingType());
-      List<Type> typarams = t.getTypeArguments();
+      Type outer = updated.getEnclosingType();
+      Type outer1 = outer.accept(this, other.getEnclosingType());
+      List<Type> typarams = updated.getTypeArguments();
       List<Type> typarams1 = visitTypeLists(typarams, other.getTypeArguments());
       if (outer1 == outer && typarams1 == typarams) {
-        return t;
+        return updated;
       } else {
-        return TYPE_METADATA_BUILDER.createClassType(t, outer1, typarams1);
+        return TYPE_METADATA_BUILDER.createClassType(updated, outer1, typarams1);
       }
     }
 
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
-      if (!(other instanceof Type.WildcardType)) {
+      if (!(other instanceof Type.WildcardType wildcardType)) {
         return wt;
       }
       Type t = wt.type;
       if (t != null) {
-        t = visit(t, ((Type.WildcardType) other).type);
+        t = visit(t, wildcardType.type);
       }
       if (t == wt.type) {
         return wt;
@@ -167,15 +323,14 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitTypeVar(Type.TypeVar t, Type other) {
-      Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-      return updated != null ? updated : t;
+      return updateDirectNullabilityAnnotationsForType(t, other);
     }
 
     @Override
     public Type visitForAll(Type.ForAll t, Type other) {
       Type methodType = t.qtype;
       Type otherMethodType = ((Type.ForAll) other).qtype;
-      Type newMethodType = visit(methodType, otherMethodType);
+      Type newMethodType = methodType.accept(this, otherMethodType);
       if (methodType == newMethodType) {
         return t;
       } else {
@@ -185,13 +340,14 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type variable {@code other} (either direct or from subtypes).
+     * on a type {@code other}. If {@code other} is a type variable, we also check {@code
+     * extraTypeVariableAnnotations} for any additional annotations to consider.
      *
      * @param t the type to update
-     * @param other the type variable to update from
-     * @return the updated type, or {@code null} if no updates were made
+     * @param other the type to update from
+     * @return the updated type, or {@code t} if no updates were made
      */
-    private @Nullable Type updateNullabilityAnnotationsForType(Type t, Type.TypeVar other) {
+    private Type updateDirectNullabilityAnnotationsForType(Type t, Type other) {
       // first check for annotations directly on the type variable
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
@@ -203,13 +359,13 @@ public class TypeSubstitutionUtils {
           return typeWithAnnot(t, annot);
         }
       }
-      // then see if any annotations were added from subtypes
+      // then see if there are any extra annotations to consider
       Attribute.TypeCompound typeArgAnnot =
-          (Attribute.TypeCompound) annotsOnTypeVarsFromSubtypes.get(other.tsym);
+          (Attribute.TypeCompound) extraTypeVariableAnnotations.get(other.tsym);
       if (typeArgAnnot != null) {
         return typeWithAnnot(t, typeArgAnnot);
       }
-      return null;
+      return t;
     }
 
     private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
@@ -220,22 +376,16 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitArrayType(Type.ArrayType t, Type other) {
-      if (other instanceof Type.TypeVar) {
-        Type updated = updateNullabilityAnnotationsForType(t, (Type.TypeVar) other);
-        if (updated != null) {
-          return updated;
-        }
+      Type.ArrayType updated = (Type.ArrayType) updateDirectNullabilityAnnotationsForType(t, other);
+      if (!(other instanceof Type.ArrayType otherArrayType)) {
+        return updated;
       }
-      if (!(other instanceof Type.ArrayType)) {
-        return t;
-      }
-      Type.ArrayType otherArrayType = (Type.ArrayType) other;
-      Type elemtype = t.elemtype;
-      Type newElemType = visit(elemtype, otherArrayType.elemtype);
+      Type elemtype = updated.elemtype;
+      Type newElemType = elemtype.accept(this, otherArrayType.elemtype);
       if (newElemType == elemtype) {
-        return t;
+        return updated;
       } else {
-        return TYPE_METADATA_BUILDER.createArrayType(t, newElemType);
+        return TYPE_METADATA_BUILDER.createArrayType(updated, newElemType);
       }
     }
 

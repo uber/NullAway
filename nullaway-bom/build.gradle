@@ -1,5 +1,5 @@
 /*
- * Copyright (C) 2024. Uber Technologies
+ * Copyright (C) 2017. Uber Technologies
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -13,21 +13,24 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
+
 plugins {
-    id "java-library"
-    id "nullaway.java-test-conventions"
+    id 'java-platform'
+    id 'com.vanniktech.maven.publish'
 }
 
+description = 'NullAway Bill of Materials (BOM)'
+
 dependencies {
-    testImplementation project(":nullaway")
-    testImplementation project(":library-model:test-library-model-generator")
-    testImplementation deps.test.junit4
-    testImplementation deps.build.jspecify
-    testImplementation(deps.build.errorProneTestHelpers) {
-        exclude group: "junit", module: "junit"
+    constraints {
+        rootProject.subprojects { subproject ->
+            var path = subproject.path
+            if (path == ':nullaway'
+                    || path == ':annotations'
+                    || path.contains(':jar-infer-')
+                    || path.contains(':android-jarinfer-models-')) {
+                api(subproject)
+            }
+        }
     }
-    implementation deps.build.guava
-    implementation deps.build.javaparser
-    compileOnly deps.apt.autoValueAnnot
-    annotationProcessor deps.apt.autoValue
 }

@@ -58,8 +58,7 @@ public class SynchronousCallbackHandler implements Handler {
         "Unexpected leaf type: %s",
         leafNode.getClass());
     Tree parentNode = path.getParentPath().getLeaf();
-    if (parentNode instanceof MethodInvocationTree) {
-      MethodInvocationTree methodInvocationTree = (MethodInvocationTree) parentNode;
+    if (parentNode instanceof MethodInvocationTree methodInvocationTree) {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
       if (symbol == null) {
         return FALSE_AP_PREDICATE;

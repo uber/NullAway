@@ -76,10 +76,9 @@ public class ErrorDisplayV1 implements Display {
     if (this == o) {
       return true;
     }
-    if (!(o instanceof ErrorDisplayV1)) {
+    if (!(o instanceof ErrorDisplayV1 that)) {
       return false;
     }
-    ErrorDisplayV1 that = (ErrorDisplayV1) o;
     return type.equals(that.type)
         // To increase readability, a shorter version of the actual message might be present in the
         // expected output of tests.
@@ -146,8 +145,8 @@ public class ErrorDisplayV1 implements Display {
     return values -> {
       Preconditions.checkArgument(
           values.length == 10,
-          "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: "
-              + values.length);
+          "Needs exactly 10 values to create ErrorDisplay for version 1 object but found: %s",
+          values.length);
       return new ErrorDisplayV1(
           values[0],
           values[1],
