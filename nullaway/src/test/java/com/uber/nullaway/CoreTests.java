@@ -49,8 +49,47 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceFile("testdata/NullAwayNegativeCases.java")
         .addSourceFile("testdata/OtherStuff.java")
-        .addSourceFile("testdata/TestAnnot.java")
-        .addSourceFile("testdata/unannotated/UnannotatedClass.java")
+        .addSourceLines(
+            "TestAnnot.java",
+            """
+            package com.uber.nullaway.testdata;
+            import static java.lang.annotation.RetentionPolicy.CLASS;
+            import java.lang.annotation.Retention;
+            @Retention(CLASS)
+            public @interface TestAnnot {
+              String TEST_STR = "test_str";
+            }
+            """)
+        .addSourceLines(
+            "UnannotatedClass.java",
+            """
+                package com.uber.nullaway.testdata.unannotated;
+                import javax.annotation.Nullable;
+                public class UnannotatedClass {
+                private Object field;
+                @Nullable public Object maybeNull;
+                // should get no initialization error
+                public UnannotatedClass() {}
+                  /**
+                   * This is an identity method, without Nullability annotations.
+                   *
+                   * @param x
+                   * @return
+                   */
+                   public static Object foo(Object x) {
+                     return x;
+                   }
+
+                   /**
+                    * This invokes foo() with null, with would not be allowed in an annotated package.
+                    *
+                    * @return
+                    */
+                    public static Object bar() {
+                      return foo(null);
+                    }
+                 }
+                 """)
         .doTest();
   }
 
