@@ -596,7 +596,9 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    if (rhsTree instanceof LambdaExpressionTree lambdaExpressionTree) {
+    if (!assignedToLocal
+        && rhsTree instanceof LambdaExpressionTree lambdaExpressionTree
+        && isAssignmentToField(tree)) {
       maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, lhsType);
     }
     Type rhsType = getTreeType(rhsTree, state);
@@ -623,6 +625,18 @@ public final class GenericsChecks {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
     return treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
+  }
+
+  private static boolean isAssignmentToField(Tree tree) {
+    Symbol treeSymbol;
+    if (tree instanceof VariableTree variableTree) {
+      treeSymbol = ASTHelpers.getSymbol(variableTree);
+    } else if (tree instanceof AssignmentTree assignmentTree) {
+      treeSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
+    } else {
+      throw new RuntimeException("Unexpected tree type: " + tree.getKind());
+    }
+    return treeSymbol != null && treeSymbol.getKind().equals(ElementKind.FIELD);
   }
 
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
@@ -1131,9 +1145,6 @@ public final class GenericsChecks {
     if (formalReturnType.isRaw()) {
       // bail out of any checking involving raw types for now
       return;
-    }
-    if (retExpr instanceof LambdaExpressionTree lambdaExpressionTree) {
-      maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, formalReturnType);
     }
     Type returnExpressionType = getTreeType(retExpr, state);
     if (returnExpressionType != null) {
