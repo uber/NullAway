@@ -51,8 +51,8 @@ public class GenericLambdaTests extends NullAwayTestsBase {
             class Test {
               static class Box<T extends @Nullable CharSequence> {
                 @Nullable Function<@Nullable T, T> field;
-                void assignField() {
-                  field = t -> {
+                void assignField(Box<String> box) {
+                  box.field = t -> {
                     // BUG: Diagnostic contains: dereferenced expression t is @Nullable
                     t.length();
                     return t;
