@@ -34,24 +34,24 @@ public class UnannotatedTests extends NullAwayTestsBase {
             "Shape_Stuff2.java",
             """
             package com.uber.nullaway.testdata.excluded;
-             /** to test exclusions functionality */
+            /** to test exclusions functionality */
             public class Shape_Stuff2 {
-               static class C {
-                 Object f = new Object();
-                }
-                private static void callee(Object x) {
-                  x.toString();
-                }
-                // we should report no errors
-                public static Object doBadStuff() {
-                  Object x = null;
-                  x.toString();
-                  (new C()).f = x;
-                  callee(x);
-                  return x;
-                }
+              static class C {
+                Object f = new Object();
               }
-             """)
+              private static void callee(Object x) {
+                x.toString();
+              }
+              // we should report no errors
+              public static Object doBadStuff() {
+                Object x = null;
+                x.toString();
+                (new C()).f = x;
+                callee(x);
+                return x;
+              }
+            }
+            """)
         .addSourceLines(
             "AnnotatedClass.java",
             """
@@ -143,30 +143,30 @@ public class UnannotatedTests extends NullAwayTestsBase {
             package com.uber.nullaway.testdata.unannotated;
             import javax.annotation.Nullable;
             public class UnannotatedClass {
-            private Object field;
-            @Nullable public Object maybeNull;
-            // should get no initialization error
-            public UnannotatedClass() {}
+              private Object field;
+              @Nullable public Object maybeNull;
+              // should get no initialization error
+              public UnannotatedClass() {}
               /**
                * This is an identity method, without Nullability annotations.
                *
                * @param x
                * @return
                */
-               public static Object foo(Object x) {
-                 return x;
-               }
+              public static Object foo(Object x) {
+                return x;
+              }
 
-               /**
-                * This invokes foo() with null, with would not be allowed in an annotated package.
-                *
-                * @return
-                */
-                public static Object bar() {
-                  return foo(null);
-                }
-             }
-             """)
+              /**
+               * This invokes foo() with null, with would not be allowed in an annotated package.
+               *
+               * @return
+               */
+              public static Object bar() {
+                return foo(null);
+              }
+            }
+            """)
         .doTest();
   }
 

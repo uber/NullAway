@@ -66,30 +66,30 @@ public class CoreTests extends NullAwayTestsBase {
             package com.uber.nullaway.testdata.unannotated;
             import javax.annotation.Nullable;
             public class UnannotatedClass {
-            private Object field;
-            @Nullable public Object maybeNull;
-            // should get no initialization error
-            public UnannotatedClass() {}
+              private Object field;
+              @Nullable public Object maybeNull;
+              // should get no initialization error
+              public UnannotatedClass() {}
               /**
                * This is an identity method, without Nullability annotations.
                *
                * @param x
                * @return
                */
-               public static Object foo(Object x) {
-                 return x;
-               }
+              public static Object foo(Object x) {
+                return x;
+              }
 
-               /**
-                * This invokes foo() with null, with would not be allowed in an annotated package.
-                *
-                * @return
-                */
-                public static Object bar() {
-                  return foo(null);
-                }
-             }
-             """)
+              /**
+               * This invokes foo() with null, with would not be allowed in an annotated package.
+               *
+               * @return
+               */
+              public static Object bar() {
+                return foo(null);
+              }
+            }
+            """)
         .doTest();
   }
 
