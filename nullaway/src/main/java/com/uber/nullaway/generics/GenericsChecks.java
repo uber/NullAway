@@ -419,6 +419,16 @@ public final class GenericsChecks {
    */
   private @Nullable Type getTreeType(Tree tree, VisitorState state) {
     tree = ASTHelpers.stripParentheses(tree);
+    if (tree instanceof LambdaExpressionTree lambdaExpressionTree) {
+      Type result = inferredLambdaTypes.get(lambdaExpressionTree);
+      if (result == null) {
+        result = ASTHelpers.getType(tree);
+      }
+      if (result != null && result.isRaw()) {
+        return null;
+      }
+      return result;
+    }
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree paramTypedTree) {
       if (paramTypedTree.getTypeArguments().isEmpty()) {
@@ -585,6 +595,9 @@ public final class GenericsChecks {
     // if rhsTree is the null literal
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
+    }
+    if (rhsTree instanceof LambdaExpressionTree lambdaExpressionTree) {
+      maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, lhsType);
     }
     Type rhsType = getTreeType(rhsTree, state);
     if (rhsType != null) {
@@ -1119,6 +1132,9 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
+    if (retExpr instanceof LambdaExpressionTree lambdaExpressionTree) {
+      maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, formalReturnType);
+    }
     Type returnExpressionType = getTreeType(retExpr, state);
     if (returnExpressionType != null) {
       if (isGenericCallNeedingInference(retExpr)) {
@@ -1293,7 +1309,8 @@ public final class GenericsChecks {
               }
 
               Type actualParameterType = null;
-              if ((currentActualParam instanceof LambdaExpressionTree)) {
+              if ((currentActualParam instanceof LambdaExpressionTree lambdaExpressionTree)) {
+                maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, formalParameter);
                 Type lambdaInferredType = inferredLambdaTypes.get(currentActualParam);
                 if (lambdaInferredType != null) {
                   actualParameterType = lambdaInferredType;
@@ -2034,6 +2051,21 @@ public final class GenericsChecks {
 
   public boolean isNullableAnnotated(Type type) {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+  }
+
+  private void maybeStoreLambdaTypeFromTarget(
+      LambdaExpressionTree lambdaExpressionTree, Type targetType) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    if (targetType.isRaw() || inferredLambdaTypes.containsKey(lambdaExpressionTree)) {
+      return;
+    }
+    Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
+    Type lambdaTypeWithTargetAnnotations =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            targetType, lambdaTreeType, config, Collections.emptyMap());
+    inferredLambdaTypes.put(lambdaExpressionTree, lambdaTypeWithTargetAnnotations);
   }
 
   private static @Nullable Type syntheticNullableAnnotType;
