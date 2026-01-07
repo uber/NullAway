@@ -815,8 +815,8 @@ public class NullAway extends BugChecker
           // Check if the parameter type is a type variable and the corresponding generic type
           // argument is @Nullable
           if (memberReferenceTree != null || lambdaExpressionTree != null) {
-            // For a method reference or lambda, we get generic type arguments from the javac's
-            // inferred type for the tree, which seems to properly preserve type-use annotations
+            // For a method reference or lambda, try to use a type we inferred for the tree.  If we
+            // did not infer a type, use the type inferred by javac.
             Type functionalInterfaceType;
             if (memberReferenceTree != null) {
               functionalInterfaceType =
@@ -824,8 +824,11 @@ public class NullAway extends BugChecker
               if (functionalInterfaceType == null) {
                 functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
               }
-            } else {
-              functionalInterfaceType = ASTHelpers.getType(lambdaExpressionTree);
+            } else { // lambdaExpressionTree != null
+              functionalInterfaceType = genericsChecks.getInferredLambdaType(lambdaExpressionTree);
+              if (functionalInterfaceType == null) {
+                functionalInterfaceType = ASTHelpers.getType(lambdaExpressionTree);
+              }
             }
             paramNullness =
                 genericsChecks.getGenericMethodParameterNullness(

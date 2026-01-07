@@ -98,6 +98,35 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void explicitlyAnnotatedLambdaArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable CharSequence> {
+                T doSomething(Function<@Nullable T, T> f) {
+                  return f.apply(null);
+                }
+              }
+              void test(Foo<String> foo) {
+                foo.doSomething(
+                    // BUG: Diagnostic contains: parameter t is @NonNull, but parameter in functional interface method
+                    (String t) -> {
+                      return "length: " + t.length();
+                    });
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
