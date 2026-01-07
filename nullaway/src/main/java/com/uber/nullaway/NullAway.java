@@ -825,6 +825,7 @@ public class NullAway extends BugChecker
                 functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
               }
             } else { // lambdaExpressionTree != null
+              Objects.requireNonNull(lambdaExpressionTree);
               functionalInterfaceType = genericsChecks.getInferredLambdaType(lambdaExpressionTree);
               if (functionalInterfaceType == null) {
                 functionalInterfaceType = ASTHelpers.getType(lambdaExpressionTree);
