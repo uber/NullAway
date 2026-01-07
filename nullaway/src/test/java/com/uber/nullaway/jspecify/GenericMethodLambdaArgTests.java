@@ -144,6 +144,61 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericMethodRefWithNullableReturnTypeArg() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default @Nullable String get() {
+                  return null;
+                }
+              }
+              @Nullable String createWrapper() {
+                return create(Foo::get);
+              }
+              private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
+                return factory.apply(new Foo() {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodRefNonNullReturnTypeArgMismatch() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String get() {
+                  throw new RuntimeException();
+                }
+              }
+              @Nullable String createWrapper() {
+                // BUG: Diagnostic contains: referenced method returns @NonNull, but functional interface method
+                return create(Foo::get);
+              }
+              private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
+                return factory.apply(new Foo() {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaWithReturnStmtNullable() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(

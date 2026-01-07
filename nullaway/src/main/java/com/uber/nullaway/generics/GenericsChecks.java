@@ -16,6 +16,7 @@ import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LambdaExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
@@ -110,8 +111,18 @@ public final class GenericsChecks {
    */
   private final Map<LambdaExpressionTree, Type> inferredLambdaTypes = new LinkedHashMap<>();
 
+  /**
+   * Maps each {@code MemberReferenceTree} passed as a parameter to a generic method to its inferred
+   * type, if inference for the generic method call succeeded.
+   */
+  private final Map<MemberReferenceTree, Type> inferredMethodReferenceTypes = new LinkedHashMap<>();
+
   public @Nullable Type getInferredLambdaType(LambdaExpressionTree tree) {
     return inferredLambdaTypes.get(tree);
+  }
+
+  public @Nullable Type getInferredMethodReferenceType(MemberReferenceTree tree) {
+    return inferredMethodReferenceTypes.get(tree);
   }
 
   private final NullAway analysis;
@@ -736,6 +747,19 @@ public final class GenericsChecks {
                       TypeSubstitutionUtils.updateTypeWithInferredNullability(
                           lambdaTreeType, formalParamType, typeVarNullability, state, config);
                   inferredLambdaTypes.put(lambdaExpressionTree, lambdaTypeWithInferredNullability);
+                } else if (argument instanceof MemberReferenceTree memberReferenceTree) {
+                  Type methodReferenceType = ASTHelpers.getType(memberReferenceTree);
+                  if (methodReferenceType != null) {
+                    Type methodRefTypeWithInferredNullability =
+                        TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                            methodReferenceType,
+                            formalParamType,
+                            typeVarNullability,
+                            state,
+                            config);
+                    inferredMethodReferenceTypes.put(
+                        memberReferenceTree, methodRefTypeWithInferredNullability);
+                  }
                 }
               });
 
@@ -837,6 +861,10 @@ public final class GenericsChecks {
       ExpressionTree rhsExpr,
       Type lhsType) {
     rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
+    if (rhsExpr instanceof MemberReferenceTree) {
+      // Don't generate constraints from method reference argument types.
+      return;
+    }
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isGenericCallNeedingInference(rhsExpr)) {
@@ -1322,7 +1350,16 @@ public final class GenericsChecks {
                 if (lambdaInferredType != null) {
                   actualParameterType = lambdaInferredType;
                 }
+              } else if (currentActualParam instanceof MemberReferenceTree) {
+                Type methodRefInferredType = inferredMethodReferenceTypes.get(currentActualParam);
+                if (methodRefInferredType != null) {
+                  actualParameterType = methodRefInferredType;
+                }
               } else {
+                actualParameterType = getTreeType(currentActualParam, state);
+              }
+              if (actualParameterType == null
+                  && currentActualParam instanceof MemberReferenceTree) {
                 actualParameterType = getTreeType(currentActualParam, state);
               }
               if (actualParameterType != null) {
@@ -2054,6 +2091,7 @@ public final class GenericsChecks {
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
     inferredLambdaTypes.clear();
+    inferredMethodReferenceTypes.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {

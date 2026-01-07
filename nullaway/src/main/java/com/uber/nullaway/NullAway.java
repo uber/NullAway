@@ -817,13 +817,19 @@ public class NullAway extends BugChecker
           if (memberReferenceTree != null || lambdaExpressionTree != null) {
             // For a method reference or lambda, we get generic type arguments from the javac's
             // inferred type for the tree, which seems to properly preserve type-use annotations
+            Type functionalInterfaceType;
+            if (memberReferenceTree != null) {
+              functionalInterfaceType =
+                  genericsChecks.getInferredMethodReferenceType(memberReferenceTree);
+              if (functionalInterfaceType == null) {
+                functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
+              }
+            } else {
+              functionalInterfaceType = ASTHelpers.getType(lambdaExpressionTree);
+            }
             paramNullness =
                 genericsChecks.getGenericMethodParameterNullness(
-                    i,
-                    overriddenMethod,
-                    ASTHelpers.getType(
-                        memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree),
-                    state);
+                    i, overriddenMethod, functionalInterfaceType, state);
           } else {
             // Use the enclosing class of the overriding method to find generic type arguments
             paramNullness =
@@ -1129,6 +1135,33 @@ public class NullAway extends BugChecker
           state,
           overriddenMethod);
     }
+    if (config.isJSpecifyMode()
+        && memberReferenceTree != null
+        && memberReferenceTree.getMode() != MemberReferenceTree.ReferenceMode.NEW) {
+      Type inferredMethodRefType =
+          genericsChecks.getInferredMethodReferenceType(memberReferenceTree);
+      if (inferredMethodRefType != null
+          && overriddenMethod.getReturnType().getKind() != TypeKind.VOID
+          && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
+              .equals(Nullness.NONNULL)) {
+        Nullness overriddenMethodReturnNullness =
+            genericsChecks.getGenericMethodReturnTypeNullness(
+                overriddenMethod, inferredMethodRefType, state);
+        if (overriddenMethodReturnNullness.equals(Nullness.NULLABLE)) {
+          String message =
+              "referenced method returns @NonNull, but functional interface method "
+                  + ASTHelpers.enclosingClass(overriddenMethod)
+                  + "."
+                  + overriddenMethod
+                  + " returns @Nullable";
+          return errorBuilder.createErrorDescription(
+              new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
+              buildDescription(memberReferenceTree),
+              state,
+              overriddenMethod);
+        }
+      }
+    }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
     return checkParamOverriding(
@@ -1156,9 +1189,14 @@ public class NullAway extends BugChecker
       if (memberReferenceTree != null) {
         // For a method reference, we get generic type arguments from javac's inferred type for the
         // tree, which properly preserves type-use annotations
+        Type functionalInterfaceType =
+            genericsChecks.getInferredMethodReferenceType(memberReferenceTree);
+        if (functionalInterfaceType == null) {
+          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
+        }
         return genericsChecks
                 .getGenericMethodReturnTypeNullness(
-                    overriddenMethod, ASTHelpers.getType(memberReferenceTree), state)
+                    overriddenMethod, functionalInterfaceType, state)
                 .equals(Nullness.NONNULL)
             && !genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
                 overriddenMethod, memberReferenceTree, state, codeAnnotationInfo);
