@@ -199,6 +199,40 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void methodRefWithArgument() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Callback<T extends @Nullable Object> {
+                void onResult(T thing);
+              }
+              void receiver(Callback<@Nullable Object> value) {
+              }
+              void target(@Nullable Object thing) {
+              }
+              void targetNonNullParam(Object thing) {
+              }
+              public <T extends @Nullable Object> Callback<T> makeCancelable(Callback<T> callback) {
+                return callback;
+              }
+              void testNegative() {
+                receiver(makeCancelable(this::target));
+              }
+              void testPositive() {
+                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
+                receiver(makeCancelable(this::targetNonNullParam));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaWithReturnStmtNullable() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
