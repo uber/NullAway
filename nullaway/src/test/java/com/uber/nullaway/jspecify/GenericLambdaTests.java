@@ -115,11 +115,17 @@ public class GenericLambdaTests extends NullAwayTestsBase {
                   return f.apply(null);
                 }
               }
-              void test(Foo<String> foo) {
+              void testPositive(Foo<String> foo) {
                 foo.doSomething(
                     // BUG: Diagnostic contains: parameter t is @NonNull, but parameter in functional interface method
                     (String t) -> {
                       return "length: " + t.length();
+                    });
+              }
+              void testNegative(Foo<String> foo) {
+                foo.doSomething(
+                    (@Nullable String t) -> {
+                      return "hello";
                     });
               }
             }
