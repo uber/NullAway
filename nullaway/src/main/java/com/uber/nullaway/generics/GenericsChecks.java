@@ -106,23 +106,17 @@ public final class GenericsChecks {
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
   /**
-   * Maps each {@code LambdaExpressionTree} passed as a parameter to a generic method to its
-   * inferred type, if inference for the generic method call succeeded.
+   * Maps each poly expression ({@code LambdaExpressionTree} or {@code MemberReferenceTree}) passed
+   * as a parameter to a generic method to its inferred type, if inference succeeded.
    */
-  private final Map<LambdaExpressionTree, Type> inferredLambdaTypes = new LinkedHashMap<>();
+  private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
-  /**
-   * Maps each {@code MemberReferenceTree} passed as a parameter to a generic method to its inferred
-   * type, if inference for the generic method call succeeded.
-   */
-  private final Map<MemberReferenceTree, Type> inferredMethodReferenceTypes = new LinkedHashMap<>();
-
-  public @Nullable Type getInferredLambdaType(LambdaExpressionTree tree) {
-    return inferredLambdaTypes.get(tree);
-  }
-
-  public @Nullable Type getInferredMethodReferenceType(MemberReferenceTree tree) {
-    return inferredMethodReferenceTypes.get(tree);
+  public @Nullable Type getInferredPolyExpressionType(Tree tree) {
+    Preconditions.checkArgument(
+        tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
+        "Expected lambda or method reference tree but got: %s",
+        tree.getKind());
+    return inferredPolyExpressionTypes.get(tree);
   }
 
   private final NullAway analysis;
@@ -430,8 +424,8 @@ public final class GenericsChecks {
    */
   private @Nullable Type getTreeType(Tree tree, VisitorState state) {
     tree = ASTHelpers.stripParentheses(tree);
-    if (tree instanceof LambdaExpressionTree lambdaExpressionTree) {
-      Type result = inferredLambdaTypes.get(lambdaExpressionTree);
+    if (tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree) {
+      Type result = inferredPolyExpressionTypes.get(tree);
       if (result == null) {
         result = ASTHelpers.getType(tree);
       }
@@ -545,7 +539,7 @@ public final class GenericsChecks {
         LambdaExpressionTree lambdaTree =
             ASTHelpers.findEnclosingNode(state.getPath(), LambdaExpressionTree.class);
         if (lambdaTree != null) {
-          Type inferredLambdaType = inferredLambdaTypes.get(lambdaTree);
+          Type inferredLambdaType = inferredPolyExpressionTypes.get(lambdaTree);
           if (inferredLambdaType != null) {
             // type of lambda was inferred
             var params = lambdaTree.getParameters();
@@ -746,7 +740,8 @@ public final class GenericsChecks {
                   Type lambdaTypeWithInferredNullability =
                       TypeSubstitutionUtils.updateTypeWithInferredNullability(
                           lambdaTreeType, formalParamType, typeVarNullability, state, config);
-                  inferredLambdaTypes.put(lambdaExpressionTree, lambdaTypeWithInferredNullability);
+                  inferredPolyExpressionTypes.put(
+                      lambdaExpressionTree, lambdaTypeWithInferredNullability);
                 } else if (argument instanceof MemberReferenceTree memberReferenceTree) {
                   Type methodReferenceType = ASTHelpers.getType(memberReferenceTree);
                   if (methodReferenceType != null) {
@@ -757,7 +752,7 @@ public final class GenericsChecks {
                             typeVarNullability,
                             state,
                             config);
-                    inferredMethodReferenceTypes.put(
+                    inferredPolyExpressionTypes.put(
                         memberReferenceTree, methodRefTypeWithInferredNullability);
                   }
                 }
@@ -1346,15 +1341,10 @@ public final class GenericsChecks {
               Type actualParameterType = null;
               if ((currentActualParam instanceof LambdaExpressionTree lambdaExpressionTree)) {
                 maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, formalParameter);
-                Type lambdaInferredType = inferredLambdaTypes.get(currentActualParam);
-                if (lambdaInferredType != null) {
-                  actualParameterType = lambdaInferredType;
-                }
-              } else if (currentActualParam instanceof MemberReferenceTree) {
-                Type methodRefInferredType = inferredMethodReferenceTypes.get(currentActualParam);
-                if (methodRefInferredType != null) {
-                  actualParameterType = methodRefInferredType;
-                }
+              }
+              Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);
+              if (inferredPolyType != null) {
+                actualParameterType = inferredPolyType;
               } else {
                 actualParameterType = getTreeType(currentActualParam, state);
               }
@@ -2086,8 +2076,7 @@ public final class GenericsChecks {
    */
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
-    inferredLambdaTypes.clear();
-    inferredMethodReferenceTypes.clear();
+    inferredPolyExpressionTypes.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
@@ -2103,14 +2092,14 @@ public final class GenericsChecks {
    */
   private void maybeStoreLambdaTypeFromTarget(
       LambdaExpressionTree lambdaExpressionTree, Type targetType) {
-    if (targetType.isRaw() || inferredLambdaTypes.containsKey(lambdaExpressionTree)) {
+    if (targetType.isRaw() || inferredPolyExpressionTypes.containsKey(lambdaExpressionTree)) {
       return;
     }
     Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
     Type lambdaTypeWithTargetAnnotations =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
             targetType, lambdaTreeType, config, Collections.emptyMap());
-    inferredLambdaTypes.put(lambdaExpressionTree, lambdaTypeWithTargetAnnotations);
+    inferredPolyExpressionTypes.put(lambdaExpressionTree, lambdaTypeWithTargetAnnotations);
   }
 
   private static @Nullable Type syntheticNullableAnnotType;

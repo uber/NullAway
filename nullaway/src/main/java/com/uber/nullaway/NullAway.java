@@ -817,19 +817,13 @@ public class NullAway extends BugChecker
           if (memberReferenceTree != null || lambdaExpressionTree != null) {
             // For a method reference or lambda, try to use a type inferred by GenericsChecks for
             // the tree.  Fall back on the type inferred by javac.
-            Type functionalInterfaceType;
-            if (memberReferenceTree != null) {
-              functionalInterfaceType =
-                  genericsChecks.getInferredMethodReferenceType(memberReferenceTree);
-              if (functionalInterfaceType == null) {
-                functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-              }
-            } else { // lambdaExpressionTree != null
-              Objects.requireNonNull(lambdaExpressionTree); // to avoid NullAway warning
-              functionalInterfaceType = genericsChecks.getInferredLambdaType(lambdaExpressionTree);
-              if (functionalInterfaceType == null) {
-                functionalInterfaceType = ASTHelpers.getType(lambdaExpressionTree);
-              }
+            Tree relevantTree =
+                castToNonNull(
+                    memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
+            Type functionalInterfaceType =
+                genericsChecks.getInferredPolyExpressionType(relevantTree);
+            if (functionalInterfaceType == null) {
+              functionalInterfaceType = ASTHelpers.getType(relevantTree);
             }
             paramNullness =
                 genericsChecks.getGenericMethodParameterNullness(
@@ -998,7 +992,7 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
       Type lambdaType = ASTHelpers.getType(lambdaTree);
-      Type inferredType = genericsChecks.getInferredLambdaType(lambdaTree);
+      Type inferredType = genericsChecks.getInferredPolyExpressionType(lambdaTree);
       if (inferredType != null) {
         lambdaType = inferredType;
       }
@@ -1167,7 +1161,7 @@ public class NullAway extends BugChecker
         // For a method reference, we get generic type arguments from javac's inferred type for the
         // tree, which properly preserves type-use annotations
         Type functionalInterfaceType =
-            genericsChecks.getInferredMethodReferenceType(memberReferenceTree);
+            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
         if (functionalInterfaceType == null) {
           functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
         }
