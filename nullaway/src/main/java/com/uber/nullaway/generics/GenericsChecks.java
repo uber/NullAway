@@ -862,7 +862,7 @@ public final class GenericsChecks {
       Type lhsType) {
     rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
     if (rhsExpr instanceof MemberReferenceTree) {
-      // Don't generate constraints from method reference argument types.
+      // TODO generate constraints from method reference argument types
       return;
     }
     // if the parameter is itself a generic call requiring inference, generate constraints for
@@ -1356,10 +1356,6 @@ public final class GenericsChecks {
                   actualParameterType = methodRefInferredType;
                 }
               } else {
-                actualParameterType = getTreeType(currentActualParam, state);
-              }
-              if (actualParameterType == null
-                  && currentActualParam instanceof MemberReferenceTree) {
                 actualParameterType = getTreeType(currentActualParam, state);
               }
               if (actualParameterType != null) {
