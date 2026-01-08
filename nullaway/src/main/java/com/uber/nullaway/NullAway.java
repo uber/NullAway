@@ -1139,33 +1139,6 @@ public class NullAway extends BugChecker
           state,
           overriddenMethod);
     }
-    if (config.isJSpecifyMode()
-        && memberReferenceTree != null
-        && memberReferenceTree.getMode() != MemberReferenceTree.ReferenceMode.NEW) {
-      Type inferredMethodRefType =
-          genericsChecks.getInferredMethodReferenceType(memberReferenceTree);
-      if (inferredMethodRefType != null
-          && overriddenMethod.getReturnType().getKind() != TypeKind.VOID
-          && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
-              .equals(Nullness.NONNULL)) {
-        Nullness overriddenMethodReturnNullness =
-            genericsChecks.getGenericMethodReturnTypeNullness(
-                overriddenMethod, inferredMethodRefType, state);
-        if (overriddenMethodReturnNullness.equals(Nullness.NULLABLE)) {
-          String message =
-              "referenced method returns @NonNull, but functional interface method "
-                  + ASTHelpers.enclosingClass(overriddenMethod)
-                  + "."
-                  + overriddenMethod
-                  + " returns @Nullable";
-          return errorBuilder.createErrorDescription(
-              new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
-              buildDescription(memberReferenceTree),
-              state,
-              overriddenMethod);
-        }
-      }
-    }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
     return checkParamOverriding(

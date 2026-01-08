@@ -185,13 +185,22 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
                 default String get() {
                   throw new RuntimeException();
                 }
-              }
-              @Nullable String createWrapper() {
-                // BUG: Diagnostic contains: referenced method returns @NonNull, but functional interface method
-                return create(Foo::get);
+                default @Nullable String getNullable() {
+                  return null;
+                }
               }
               private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
                 return factory.apply(new Foo() {});
+              }
+              private <T> T createNonNull(Function<Foo, T> factory) {
+                return factory.apply(new Foo() {});
+              }
+              String testPositive() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method
+                return createNonNull(Foo::getNullable);
+              }
+              @Nullable String testNegative() {
+                return create(Foo::get);
               }
             }
             """)
