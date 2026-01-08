@@ -6,7 +6,7 @@ import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import org.junit.Test;
 
-public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
+public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void lambdaReturnsGenericMethodCall() {
@@ -144,104 +144,6 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodRefWithNullableReturnTypeArg() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            import java.util.function.Function;
-            @NullMarked
-            class Test {
-              interface Foo {
-                default @Nullable String get() {
-                  return null;
-                }
-              }
-              @Nullable String createWrapper() {
-                return create(Foo::get);
-              }
-              private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
-                return factory.apply(new Foo() {});
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void genericMethodRefNonNullReturnTypeArgMismatch() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            import java.util.function.Function;
-            @NullMarked
-            class Test {
-              interface Foo {
-                default String get() {
-                  throw new RuntimeException();
-                }
-                default @Nullable String getNullable() {
-                  return null;
-                }
-              }
-              private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
-                return factory.apply(new Foo() {});
-              }
-              private <T> T createNonNull(Function<Foo, T> factory) {
-                return factory.apply(new Foo() {});
-              }
-              String testPositive() {
-                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method
-                return createNonNull(Foo::getNullable);
-              }
-              @Nullable String testNegative() {
-                return create(Foo::get);
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void methodRefWithArgument() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            @NullMarked
-            class Test {
-              interface Callback<T extends @Nullable Object> {
-                void onResult(T thing);
-              }
-              void receiver(Callback<@Nullable Object> value) {
-              }
-              void target(@Nullable Object thing) {
-              }
-              void targetNonNullParam(Object thing) {
-              }
-              public <T extends @Nullable Object> Callback<T> makeCancelable(Callback<T> callback) {
-                return callback;
-              }
-              void testNegative() {
-                receiver(makeCancelable(this::target));
-              }
-              void testPositive() {
-                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
-                receiver(makeCancelable(this::targetNonNullParam));
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void lambdaWithReturnStmtNullable() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
@@ -371,6 +273,105 @@ public class GenericMethodLambdaArgTests extends NullAwayTestsBase {
                 void use() {
                     register((t) -> {}, "a");
                 }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodRefWithMatchingReturnNullability() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default @Nullable String get() {
+                  return null;
+                }
+              }
+              @Nullable String createWrapper() {
+                return create(Foo::get);
+              }
+              private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
+                return factory.apply(new Foo() {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodRefWithDifferentReturnNullability() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String get() {
+                  throw new RuntimeException();
+                }
+                default @Nullable String getNullable() {
+                  return null;
+                }
+              }
+              private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
+                return factory.apply(new Foo() {});
+              }
+              private <T> T createNonNull(Function<Foo, T> factory) {
+                return factory.apply(new Foo() {});
+              }
+              String testPositive() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method
+                return createNonNull(Foo::getNullable);
+              }
+              @Nullable String testNegative() {
+                // Expecting a Function returning @Nullable and Foo::get returns @NonNull, which is safe
+                return create(Foo::get);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodRefWithArgument() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Callback<T extends @Nullable Object> {
+                void onResult(T thing);
+              }
+              void receiver(Callback<@Nullable Object> value) {
+              }
+              void target(@Nullable Object thing) {
+              }
+              void targetNonNullParam(Object thing) {
+              }
+              public <T extends @Nullable Object> Callback<T> makeCancelable(Callback<T> callback) {
+                return callback;
+              }
+              void testNegative() {
+                receiver(makeCancelable(this::target));
+              }
+              void testPositive() {
+                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
+                receiver(makeCancelable(this::targetNonNullParam));
+              }
             }
             """)
         .doTest();
