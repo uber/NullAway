@@ -735,25 +735,14 @@ public final class GenericsChecks {
       new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
           .forEach(
               (argument, argPos, formalParamType, unused) -> {
-                if (argument instanceof LambdaExpressionTree lambdaExpressionTree) {
-                  Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
-                  Type lambdaTypeWithInferredNullability =
-                      TypeSubstitutionUtils.updateTypeWithInferredNullability(
-                          lambdaTreeType, formalParamType, typeVarNullability, state, config);
-                  inferredPolyExpressionTypes.put(
-                      lambdaExpressionTree, lambdaTypeWithInferredNullability);
-                } else if (argument instanceof MemberReferenceTree memberReferenceTree) {
-                  Type methodReferenceType = ASTHelpers.getType(memberReferenceTree);
-                  if (methodReferenceType != null) {
-                    Type methodRefTypeWithInferredNullability =
+                if (argument instanceof LambdaExpressionTree
+                    || argument instanceof MemberReferenceTree) {
+                  Type polyExprTreeType = ASTHelpers.getType(argument);
+                  if (polyExprTreeType != null) {
+                    Type typeWithInferredNullability =
                         TypeSubstitutionUtils.updateTypeWithInferredNullability(
-                            methodReferenceType,
-                            formalParamType,
-                            typeVarNullability,
-                            state,
-                            config);
-                    inferredPolyExpressionTypes.put(
-                        memberReferenceTree, methodRefTypeWithInferredNullability);
+                            polyExprTreeType, formalParamType, typeVarNullability, state, config);
+                    inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
                   }
                 }
               });
