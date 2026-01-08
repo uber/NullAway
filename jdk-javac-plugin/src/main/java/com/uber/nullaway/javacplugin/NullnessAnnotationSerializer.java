@@ -14,6 +14,7 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -25,6 +26,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
@@ -54,7 +56,8 @@ public class NullnessAnnotationSerializer implements Plugin {
       String name,
       boolean nullMarked,
       boolean nullUnmarked,
-      List<TypeParamInfo> typeParams) {}
+      List<TypeParamInfo> typeParams,
+      Map<Integer, Set<NestedAnnotationInfo>> nestedAnnotationsList) {}
 
   public record ClassInfo(
       String name,
@@ -153,11 +156,21 @@ public class NullnessAnnotationSerializer implements Plugin {
                     return super.visitMethod(methodTree, null);
                   }
                   boolean methodHasAnnotations = false;
+                  //                  ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo>
+                  // nestedAnnotationsBuilder = ImmutableSetMultimap.builder();
+                  Map<Integer, Set<NestedAnnotationInfo>> nestedAnnotationsMap = new HashMap<>();
+                  if (nestedAnnotationsMap == null) {}
                   String returnType = "";
                   if (methodTree.getReturnType() != null) {
                     returnType += mSym.getReturnType().toString();
                     if (hasJSpecifyAnnotationDeep(mSym.getReturnType())) {
                       methodHasAnnotations = true;
+                    }
+                    Set<NestedAnnotationInfo> nested =
+                        mSym.getReturnType().accept(new CreateNestedAnnotationInfoVisitor(), null);
+                    if (nested != null && !nested.isEmpty()) {
+                      nestedAnnotationsMap.put(
+                          -1, nested); // use visitor to get NestedAnnotationInfo instances
                     }
                   }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
@@ -165,10 +178,17 @@ public class NullnessAnnotationSerializer implements Plugin {
                   methodHasAnnotations = methodHasAnnotations || hasNullMarked || hasNullUnmarked;
                   // check each parameter annotations
                   if (!methodHasAnnotations) {
-                    for (Symbol.VarSymbol vSym : mSym.getParameters()) {
+                    for (int idx = 0; idx < mSym.getParameters().size(); idx++) {
+                      Symbol.VarSymbol vSym = mSym.getParameters().get(idx);
                       if (hasJSpecifyAnnotationDeep(vSym.asType())) {
                         methodHasAnnotations = true;
-                        break;
+                        Set<NestedAnnotationInfo> nested =
+                            vSym.asType().accept(new CreateNestedAnnotationInfoVisitor(), null);
+                        if (nested != null && !nested.isEmpty()) {
+                          nestedAnnotationsMap.put(idx, nested);
+                        }
+                        //                        break; // need to run on all parameters regardless
+                        // of the number of JSpecify annotations
                       }
                     }
                   }
@@ -185,7 +205,8 @@ public class NullnessAnnotationSerializer implements Plugin {
                           mSym.toString(),
                           hasNullMarked,
                           hasNullUnmarked,
-                          methodTypeParams);
+                          methodTypeParams,
+                          nestedAnnotationsMap);
                   // only add this method if it uses JSpecify annotations
                   if (currentClass != null && methodHasAnnotations) {
                     currentClass.methods().add(methodInfo);
