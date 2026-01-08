@@ -78,7 +78,7 @@ test {
 }
 
 // Tasks for testing on other JDK versions; see https://jakewharton.com/build-on-latest-java-test-through-lowest-java/
-[25].each { majorVersion ->
+[21].each { majorVersion ->
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(majorVersion)
@@ -106,7 +106,7 @@ def epJdk17Test = tasks.register("testJdk17", Test) {
         languageVersion = JavaLanguageVersion.of(17)
     }
 
-    description = "Runs the test suite using the oldest supported version of Error Prone"
+    description = "Runs the test suite on JDK 17"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
 
     // Copy inputs from normal Test task.
@@ -118,20 +118,7 @@ def epJdk17Test = tasks.register("testJdk17", Test) {
 
     testClassesDirs = testTask.testClassesDirs
 
-    jvmArgs += [
-        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
-        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
-        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
-        // Accessed by Lombok tests
-        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
-    ]
+    jvmArgs += commonJavacOpens
 }
 
 tasks.named('check').configure {

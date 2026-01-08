@@ -22,8 +22,8 @@
 
 package com.uber.nullaway;
 
-import static com.uber.nullaway.ASTHelpersBackports.hasDirectAnnotationWithSimpleName;
-import static com.uber.nullaway.ASTHelpersBackports.isStatic;
+import static com.google.errorprone.util.ASTHelpers.hasDirectAnnotationWithSimpleName;
+import static com.google.errorprone.util.ASTHelpers.isStatic;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
