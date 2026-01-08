@@ -187,8 +187,6 @@ public class NullnessAnnotationSerializer implements Plugin {
                         if (nested != null && !nested.isEmpty()) {
                           nestedAnnotationsMap.put(idx, nested);
                         }
-                        //                        break; // need to run on all parameters regardless
-                        // of the number of JSpecify annotations
                       }
                     }
                   }
