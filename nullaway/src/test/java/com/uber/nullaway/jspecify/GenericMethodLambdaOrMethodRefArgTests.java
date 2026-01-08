@@ -4,6 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
@@ -371,6 +372,41 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               void testPositive() {
                 // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
                 receiver(makeCancelable(this::targetNonNullParam));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1431")
+  @Test
+  public void inferFromMethodRef() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String get() {
+                  throw new RuntimeException();
+                }
+                default @Nullable String getNullable() {
+                  return null;
+                }
+              }
+              private <T extends @Nullable Object> T create(Function<Foo, T> factory) {
+                return factory.apply(new Foo() {});
+              }
+              void test() {
+                String s1 = create(Foo::get);
+                s1.hashCode(); // should be legal
+                String s2 = create(Foo::getNullable);
+                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                s2.hashCode();
               }
             }
             """)
