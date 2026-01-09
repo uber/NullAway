@@ -115,8 +115,7 @@ public class CreateNestedAnnotationInfoVisitor
 
   @Override
   public @Nullable Set<NestedAnnotationInfo> visitType(Type t, @Nullable Void unused) {
-    // just return null (no nested types)
-    return null;
+    return nestedAnnotationInfoList;
   }
 
   private boolean hasNullableAnnotation(TypeMirror type) {
