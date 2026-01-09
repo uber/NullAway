@@ -515,18 +515,14 @@ public class NullnessAnnotationSerializerTest {
   private Map<String, List<ClassInfo>> getParsedJSON() {
     String tempPath = temporaryFolder.getRoot().getAbsolutePath();
 
-    // 1. Define the Adapter for ImmutableList
-    // This works for ImmutableList<String>, ImmutableList<Integer>, etc.
+    // Define the Adapter for ImmutableList
     JsonDeserializer<ImmutableList<?>> immutableListAdapter =
         (json, typeOfT, context) -> {
           ImmutableList.Builder<Object> builder = ImmutableList.builder();
 
-          // Ensure the JSON is actually an array
           if (json.isJsonArray()) {
             JsonArray array = json.getAsJsonArray();
-
-            // Critical Step: Find out what type is inside the list!
-            // e.g., if typeOfT is ImmutableList<String>, contentClass will be String.class
+            // Get the component type of list
             Type contentClass = ((ParameterizedType) typeOfT).getActualTypeArguments()[0];
 
             for (JsonElement element : array) {
