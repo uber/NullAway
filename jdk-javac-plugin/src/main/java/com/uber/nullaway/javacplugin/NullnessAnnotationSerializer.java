@@ -156,10 +156,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                     return super.visitMethod(methodTree, null);
                   }
                   boolean methodHasAnnotations = false;
-                  //                  ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo>
-                  // nestedAnnotationsBuilder = ImmutableSetMultimap.builder();
                   Map<Integer, Set<NestedAnnotationInfo>> nestedAnnotationsMap = new HashMap<>();
-                  if (nestedAnnotationsMap == null) {}
                   String returnType = "";
                   if (methodTree.getReturnType() != null) {
                     returnType += mSym.getReturnType().toString();
@@ -169,24 +166,21 @@ public class NullnessAnnotationSerializer implements Plugin {
                     Set<NestedAnnotationInfo> nested =
                         mSym.getReturnType().accept(new CreateNestedAnnotationInfoVisitor(), null);
                     if (nested != null && !nested.isEmpty()) {
-                      nestedAnnotationsMap.put(
-                          -1, nested); // use visitor to get NestedAnnotationInfo instances
+                      nestedAnnotationsMap.put(-1, nested);
                     }
                   }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
                   methodHasAnnotations = methodHasAnnotations || hasNullMarked || hasNullUnmarked;
                   // check each parameter annotations
-                  if (!methodHasAnnotations) {
-                    for (int idx = 0; idx < mSym.getParameters().size(); idx++) {
-                      Symbol.VarSymbol vSym = mSym.getParameters().get(idx);
-                      if (hasJSpecifyAnnotationDeep(vSym.asType())) {
-                        methodHasAnnotations = true;
-                        Set<NestedAnnotationInfo> nested =
-                            vSym.asType().accept(new CreateNestedAnnotationInfoVisitor(), null);
-                        if (nested != null && !nested.isEmpty()) {
-                          nestedAnnotationsMap.put(idx, nested);
-                        }
+                  for (int idx = 0; idx < mSym.getParameters().size(); idx++) {
+                    Symbol.VarSymbol vSym = mSym.getParameters().get(idx);
+                    if (hasJSpecifyAnnotationDeep(vSym.asType())) {
+                      methodHasAnnotations = true;
+                      Set<NestedAnnotationInfo> nested =
+                          vSym.asType().accept(new CreateNestedAnnotationInfoVisitor(), null);
+                      if (nested != null && !nested.isEmpty()) {
+                        nestedAnnotationsMap.put(idx, nested);
                       }
                     }
                   }
