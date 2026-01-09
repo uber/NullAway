@@ -522,8 +522,11 @@ public class NullnessAnnotationSerializerTest {
 
           if (json.isJsonArray()) {
             JsonArray array = json.getAsJsonArray();
-            // Get the component type of list
-            Type contentClass = ((ParameterizedType) typeOfT).getActualTypeArguments()[0];
+            // Get the component type of list (with defensive check)
+            if (!(typeOfT instanceof ParameterizedType paramType)) {
+              throw new IllegalArgumentException("Expected parameterized ImmutableList type");
+            }
+            Type contentClass = paramType.getActualTypeArguments()[0];
 
             for (JsonElement element : array) {
               // Deserialize the inner element using Gson's context

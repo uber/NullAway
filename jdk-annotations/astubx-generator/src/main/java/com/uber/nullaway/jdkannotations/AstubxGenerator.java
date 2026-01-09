@@ -174,8 +174,16 @@ public class AstubxGenerator {
                 ImmutableList.class,
                 (JsonDeserializer<ImmutableList<?>>)
                     (json, type, context) -> {
+                      if (json.isJsonNull()) {
+                        return ImmutableList.of();
+                      }
+                      if (!(type instanceof ParameterizedType paramType)) {
+                        // Raw ImmutableList, deserialize as List<Object>
+                        List<?> list = context.deserialize(json, List.class);
+                        return list == null ? ImmutableList.of() : ImmutableList.copyOf(list);
+                      }
                       // Get type inside the list
-                      Type[] typeArgs = ((ParameterizedType) type).getActualTypeArguments();
+                      Type[] typeArgs = paramType.getActualTypeArguments();
                       Type innerType = typeArgs.length > 0 ? typeArgs[0] : Object.class;
 
                       // Get as ArrayList
@@ -184,7 +192,9 @@ public class AstubxGenerator {
                               json, TypeToken.getParameterized(List.class, innerType).getType());
 
                       // Convert to Guava ImmutableList
-                      return ImmutableList.copyOf(standardList);
+                      return standardList == null
+                          ? ImmutableList.of()
+                          : ImmutableList.copyOf(standardList);
                     })
             .create();
     Type parsedType = new TypeToken<Map<String, List<ClassInfo>>>() {}.getType();

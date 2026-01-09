@@ -20,17 +20,21 @@ import org.jspecify.annotations.Nullable;
 public class CreateNestedAnnotationInfoVisitor
     extends Types.DefaultTypeVisitor<Set<NestedAnnotationInfo>, @Nullable Void> {
 
-  private ArrayDeque<TypePathEntry> path;
-  private Set<NestedAnnotationInfo> nestedAnnotationInfoList;
+  private final ArrayDeque<TypePathEntry> path;
+  private final Set<NestedAnnotationInfo> nestedAnnotationInfoSet;
+
+  private static final String NULLABLE_QNAME = "org.jspecify.annotations.Nullable";
+  private static final String NONNULL_QNAME = "org.jspecify.annotations.NonNull";
 
   public CreateNestedAnnotationInfoVisitor() {
     path = new ArrayDeque<>();
-    nestedAnnotationInfoList = new HashSet<>();
+    nestedAnnotationInfoSet = new HashSet<>();
   }
 
   @Override
   public @Nullable Set<NestedAnnotationInfo> visitClassType(
       Type.ClassType classType, @Nullable Void unused) {
+    // only processes type arguments
     List<Type> typeArguments = classType.getTypeArguments();
     if (!typeArguments.isEmpty()) {
       for (int idx = 0; idx < typeArguments.size(); idx++) {
@@ -44,13 +48,13 @@ public class CreateNestedAnnotationInfoVisitor
           nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
         }
         if (nestedAnnotationInfo != null) {
-          nestedAnnotationInfoList.add(nestedAnnotationInfo);
+          nestedAnnotationInfoSet.add(nestedAnnotationInfo);
         }
         typeArg.accept(this, null);
         path.removeLast();
       }
     }
-    return nestedAnnotationInfoList;
+    return nestedAnnotationInfoSet;
   }
 
   @Override
@@ -65,19 +69,19 @@ public class CreateNestedAnnotationInfoVisitor
       nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
     }
     if (nestedAnnotationInfo != null) {
-      nestedAnnotationInfoList.add(nestedAnnotationInfo);
+      nestedAnnotationInfoSet.add(nestedAnnotationInfo);
     }
     t.elemtype.accept(this, null);
     path.removeLast();
-    return nestedAnnotationInfoList;
+    return nestedAnnotationInfoSet;
   }
 
   @Override
   public @Nullable Set<NestedAnnotationInfo> visitWildcardType(
       Type.WildcardType t, @Nullable Void unused) {
     // Upper Bound (? extends T)
-    NestedAnnotationInfo nestedAnnotationInfo = null;
     if (t.getExtendsBound() != null) {
+      NestedAnnotationInfo nestedAnnotationInfo = null;
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 0));
       ImmutableList<TypePathEntry> typePath = getTypePath();
       Type upperBound = t.getExtendsBound();
@@ -87,7 +91,7 @@ public class CreateNestedAnnotationInfoVisitor
         nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
       }
       if (nestedAnnotationInfo != null) {
-        nestedAnnotationInfoList.add(nestedAnnotationInfo);
+        nestedAnnotationInfoSet.add(nestedAnnotationInfo);
       }
       t.getExtendsBound().accept(this, null);
       path.removeLast();
@@ -95,6 +99,7 @@ public class CreateNestedAnnotationInfoVisitor
 
     // Lower Bound (? super T)
     if (t.getSuperBound() != null) {
+      NestedAnnotationInfo nestedAnnotationInfo = null;
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 1));
       ImmutableList<TypePathEntry> typePath = getTypePath();
       Type lowerBound = t.getSuperBound();
@@ -104,46 +109,40 @@ public class CreateNestedAnnotationInfoVisitor
         nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
       }
       if (nestedAnnotationInfo != null) {
-        nestedAnnotationInfoList.add(nestedAnnotationInfo);
+        nestedAnnotationInfoSet.add(nestedAnnotationInfo);
       }
       t.getSuperBound().accept(this, null);
       path.removeLast();
     }
 
-    return nestedAnnotationInfoList;
+    return nestedAnnotationInfoSet;
   }
 
   @Override
   public @Nullable Set<NestedAnnotationInfo> visitType(Type t, @Nullable Void unused) {
-    return nestedAnnotationInfoList;
+    return nestedAnnotationInfoSet;
+  }
+
+  private static boolean hasAnnotation(TypeMirror type, String qname) {
+    if (type == null) {
+      return false;
+    }
+    for (AnnotationMirror annotation : type.getAnnotationMirrors()) {
+      String qualifiedName =
+          ((TypeElement) annotation.getAnnotationType().asElement()).getQualifiedName().toString();
+      if (qualifiedName.equals(qname)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   private boolean hasNullableAnnotation(TypeMirror type) {
-    if (type == null) {
-      return false;
-    }
-    for (AnnotationMirror annotation : type.getAnnotationMirrors()) {
-      String qualifiedName =
-          ((TypeElement) annotation.getAnnotationType().asElement()).getQualifiedName().toString();
-      if (qualifiedName.equals("org.jspecify.annotations.Nullable")) {
-        return true;
-      }
-    }
-    return false;
+    return hasAnnotation(type, NULLABLE_QNAME);
   }
 
   private boolean hasNonNullAnnotation(TypeMirror type) {
-    if (type == null) {
-      return false;
-    }
-    for (AnnotationMirror annotation : type.getAnnotationMirrors()) {
-      String qualifiedName =
-          ((TypeElement) annotation.getAnnotationType().asElement()).getQualifiedName().toString();
-      if (qualifiedName.equals("org.jspecify.annotations.NonNull")) {
-        return true;
-      }
-    }
-    return false;
+    return hasAnnotation(type, NONNULL_QNAME);
   }
 
   private ImmutableList<TypePathEntry> getTypePath() {

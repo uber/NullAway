@@ -162,11 +162,12 @@ public class NullnessAnnotationSerializer implements Plugin {
                     returnType += mSym.getReturnType().toString();
                     if (hasJSpecifyAnnotationDeep(mSym.getReturnType())) {
                       methodHasAnnotations = true;
-                    }
-                    Set<NestedAnnotationInfo> nested =
-                        mSym.getReturnType().accept(new CreateNestedAnnotationInfoVisitor(), null);
-                    if (nested != null && !nested.isEmpty()) {
-                      nestedAnnotationsMap.put(-1, nested);
+                      Set<NestedAnnotationInfo> nested =
+                          mSym.getReturnType()
+                              .accept(new CreateNestedAnnotationInfoVisitor(), null);
+                      if (nested != null && !nested.isEmpty()) {
+                        nestedAnnotationsMap.put(-1, nested);
+                      }
                     }
                   }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
