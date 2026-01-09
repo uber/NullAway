@@ -20,8 +20,8 @@ import org.jspecify.annotations.Nullable;
 public class CreateNestedAnnotationInfoVisitor
     extends Types.DefaultTypeVisitor<Set<NestedAnnotationInfo>, @Nullable Void> {
 
-  ArrayDeque<TypePathEntry> path;
-  Set<NestedAnnotationInfo> nestedAnnotationInfoList;
+  private ArrayDeque<TypePathEntry> path;
+  private Set<NestedAnnotationInfo> nestedAnnotationInfoList;
 
   public CreateNestedAnnotationInfoVisitor() {
     path = new ArrayDeque<>();
