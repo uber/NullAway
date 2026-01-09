@@ -1,8 +1,11 @@
 package com.uber.nullaway.jdkannotations;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
+import com.google.gson.JsonDeserializer;
 import com.google.gson.reflect.TypeToken;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.ClassInfo;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.MethodInfo;
@@ -13,6 +16,7 @@ import java.io.DataOutputStream;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
+import java.lang.reflect.ParameterizedType;
 import java.lang.reflect.Type;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -164,7 +168,25 @@ public class AstubxGenerator {
       throw new IllegalStateException("No JSON files found in: " + jsonDirPath);
     }
 
-    Gson gson = new Gson();
+    Gson gson =
+        new GsonBuilder()
+            .registerTypeAdapter(
+                ImmutableList.class,
+                (JsonDeserializer<ImmutableList<?>>)
+                    (json, type, context) -> {
+                      // Get type inside the list
+                      Type[] typeArgs = ((ParameterizedType) type).getActualTypeArguments();
+                      Type innerType = typeArgs.length > 0 ? typeArgs[0] : Object.class;
+
+                      // Get as ArrayList
+                      List<?> standardList =
+                          context.deserialize(
+                              json, TypeToken.getParameterized(List.class, innerType).getType());
+
+                      // Convert to Guava ImmutableList
+                      return ImmutableList.copyOf(standardList);
+                    })
+            .create();
     Type parsedType = new TypeToken<Map<String, List<ClassInfo>>>() {}.getType();
 
     // parse JSON file
