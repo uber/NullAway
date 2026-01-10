@@ -127,15 +127,13 @@ class StreamNullabilityPropagator implements Handler {
   private final Map<MethodInvocationTree, Tree> observableCallToInnerMethodOrLambda =
       new LinkedHashMap<>();
 
-  record CollectRecordAndInnerMethod(CollectLikeMethodRecord collectlikeMethodRecord,
-                                     Tree innerMethodOrLambda) {
+  record CollectRecordAndInnerMethod(
+      CollectLikeMethodRecord collectlikeMethodRecord, Tree innerMethodOrLambda) {
 
     static CollectRecordAndInnerMethod create(
         CollectLikeMethodRecord collectlikeMethodRecord, Tree innerMethodOrLambda) {
-      return new CollectRecordAndInnerMethod(
-          collectlikeMethodRecord, innerMethodOrLambda);
+      return new CollectRecordAndInnerMethod(collectlikeMethodRecord, innerMethodOrLambda);
     }
-
   }
 
   // Maps collect calls in the observable call chain to the relevant (collect record, inner method

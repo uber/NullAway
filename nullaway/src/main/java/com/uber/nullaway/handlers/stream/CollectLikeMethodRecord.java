@@ -26,38 +26,43 @@ import java.util.function.Function;
 import java.util.stream.Collector;
 
 /**
- * An immutable model describing a collect-like method from a stream-based API,
- * such as {@link java.util.stream.Stream#collect(Collector)}.
+ * An immutable model describing a collect-like method from a stream-based API, such as {@link
+ * java.util.stream.Stream#collect(Collector)}.
  *
- * <p>Collect-like methods are distinguished from map-like methods in that they
- * accept a {@link Collector} instance as an argument. This record captures the
- * metadata necessary to identify such methods, match specific collector factory
- * methods, and track how stream elements flow into those factories.
+ * <p>Collect-like methods are distinguished from map-like methods in that they accept a {@link
+ * Collector} instance as an argument. This record captures the metadata necessary to identify such
+ * methods, match specific collector factory methods, and track how stream elements flow into those
+ * factories.
  */
+public record CollectLikeMethodRecord(
+    String collectorFactoryMethodClass,
+    String collectorFactoryMethodSignature,
+    ImmutableSet<Integer> argsToCollectorFactoryMethod,
+    String innerMethodName,
+    ImmutableSet<Integer> argsFromStream)
+    implements MapOrCollectLikeMethodRecord {
 
-public record CollectLikeMethodRecord(String collectorFactoryMethodClass,
-                                      String collectorFactoryMethodSignature,
-                                      ImmutableSet<Integer> argsToCollectorFactoryMethod,
-                                      String innerMethodName,
-                                      ImmutableSet<Integer> argsFromStream) implements MapOrCollectLikeMethodRecord {
-
-    /**
-     * Creates a {@link CollectLikeMethodRecord} instance.
-     * <p>This factory method exists primarily for call-site clarity and symmetry
-     * with other model types.
-     *
-     * @param collectorFactoryMethodClass The fully qualified name of the class that contains the collector factory method,
-     * e.g., {@code java.util.stream.Collectors}.
-     * @param collectorFactoryMethodSignature The signature of the factory method that creates the {@link Collector} instance passed to the collect method,
-     * e.g., the signature of {@link java.util.stream.Collectors#toMap(Function, Function)}
-     * @param argsToCollectorFactoryMethod The indices of the arguments to the collector factory method that are lambdas
-     * (or anonymous classes) which get invoked with the elements of the stream
-     * @param innerMethodName Name of the method that gets passed the elements of the stream, e.g., "apply" for an anonymous
-     * class implementing {@link Function}. We assume that all such methods have the same name.
-     * @param argsFromStream Argument indices to which stream elements are directly passed. We assume the same indices are
-     * used for all methods getting passed elements from the stream.
-     * @return a new {@link CollectLikeMethodRecord} instance
-     */
+  /**
+   * Creates a {@link CollectLikeMethodRecord} instance.
+   *
+   * <p>This factory method exists primarily for call-site clarity and symmetry with other model
+   * types.
+   *
+   * @param collectorFactoryMethodClass The fully qualified name of the class that contains the
+   *     collector factory method, e.g., {@code java.util.stream.Collectors}.
+   * @param collectorFactoryMethodSignature The signature of the factory method that creates the
+   *     {@link Collector} instance passed to the collect method, e.g., the signature of {@link
+   *     java.util.stream.Collectors#toMap(Function, Function)}
+   * @param argsToCollectorFactoryMethod The indices of the arguments to the collector factory
+   *     method that are lambdas (or anonymous classes) which get invoked with the elements of the
+   *     stream
+   * @param innerMethodName Name of the method that gets passed the elements of the stream, e.g.,
+   *     "apply" for an anonymous class implementing {@link Function}. We assume that all such
+   *     methods have the same name.
+   * @param argsFromStream Argument indices to which stream elements are directly passed. We assume
+   *     the same indices are used for all methods getting passed elements from the stream.
+   * @return a new {@link CollectLikeMethodRecord} instance
+   */
   public static CollectLikeMethodRecord create(
       String collectorFactoryMethodClass,
       String collectorFactoryMethodSignature,
@@ -71,5 +76,4 @@ public record CollectLikeMethodRecord(String collectorFactoryMethodClass,
         innerMethodName,
         argsFromStream);
   }
-
 }

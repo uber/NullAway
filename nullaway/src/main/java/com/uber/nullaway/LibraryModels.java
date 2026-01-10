@@ -324,9 +324,7 @@ public interface LibraryModels {
   }
 
   /** Representation of a field as a qualified class name + a field name */
-
-  record FieldRef(String enclosingClassName,
-                  String fieldName) {
+  record FieldRef(String enclosingClassName, String fieldName) {
 
     public static FieldRef fieldRef(String enclosingClass, String fieldName) {
       return new FieldRef(enclosingClass, fieldName);

@@ -612,8 +612,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
     return warnOnInferenceFailure;
   }
 
-  record MethodClassAndName(String enclosingClass,
-                            String methodName) {
+  record MethodClassAndName(String enclosingClass, String methodName) {
 
     static MethodClassAndName create(String enclosingClass, String methodName) {
       return new MethodClassAndName(enclosingClass, methodName);
@@ -625,6 +624,5 @@ final class ErrorProneCLIFlagsConfig implements Config {
       String className = classDotMethod.substring(0, lastDot);
       return MethodClassAndName.create(className, methodName);
     }
-
   }
 }
