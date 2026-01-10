@@ -435,14 +435,13 @@ public final class DataFlow {
      * @return {@code true} if this object is equal to the given object; {@code false} otherwise
      */
     @Override
-    public boolean equals(Object o) {
+    public boolean equals(@Nullable Object o) {
       if (this == o) {
         return true;
       }
-      if (!(o instanceof CfgParams)) {
+      if (!(o instanceof CfgParams that)) {
         return false;
       }
-      CfgParams that = (CfgParams) o;
       return java.util.Objects.equals(this.codePath, that.codePath);
     }
 
