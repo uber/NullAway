@@ -419,6 +419,16 @@ public final class GenericsChecks {
    */
   private @Nullable Type getTreeType(Tree tree, VisitorState state) {
     tree = ASTHelpers.stripParentheses(tree);
+    if (tree instanceof LambdaExpressionTree lambdaExpressionTree) {
+      Type result = inferredLambdaTypes.get(lambdaExpressionTree);
+      if (result == null) {
+        result = ASTHelpers.getType(tree);
+      }
+      if (result != null && result.isRaw()) {
+        return null;
+      }
+      return result;
+    }
     if (tree instanceof NewClassTree
         && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree paramTypedTree) {
       if (paramTypedTree.getTypeArguments().isEmpty()) {
@@ -586,6 +596,11 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
+    if (!assignedToLocal
+        && rhsTree instanceof LambdaExpressionTree lambdaExpressionTree
+        && isAssignmentToField(tree)) {
+      maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, lhsType);
+    }
     Type rhsType = getTreeType(rhsTree, state);
     if (rhsType != null) {
       if (isGenericCallNeedingInference(rhsTree)) {
@@ -601,6 +616,14 @@ public final class GenericsChecks {
   }
 
   private static boolean isAssignmentToLocalVariable(Tree tree) {
+    return isAssignmentToKind(tree, ElementKind.LOCAL_VARIABLE);
+  }
+
+  private static boolean isAssignmentToField(Tree tree) {
+    return isAssignmentToKind(tree, ElementKind.FIELD);
+  }
+
+  private static boolean isAssignmentToKind(Tree tree, ElementKind kind) {
     Symbol treeSymbol;
     if (tree instanceof VariableTree variableTree) {
       treeSymbol = ASTHelpers.getSymbol(variableTree);
@@ -609,7 +632,7 @@ public final class GenericsChecks {
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
-    return treeSymbol != null && treeSymbol.getKind().equals(ElementKind.LOCAL_VARIABLE);
+    return treeSymbol != null && treeSymbol.getKind().equals(kind);
   }
 
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
@@ -1293,7 +1316,8 @@ public final class GenericsChecks {
               }
 
               Type actualParameterType = null;
-              if ((currentActualParam instanceof LambdaExpressionTree)) {
+              if ((currentActualParam instanceof LambdaExpressionTree lambdaExpressionTree)) {
+                maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, formalParameter);
                 Type lambdaInferredType = inferredLambdaTypes.get(currentActualParam);
                 if (lambdaInferredType != null) {
                   actualParameterType = lambdaInferredType;
@@ -2034,6 +2058,25 @@ public final class GenericsChecks {
 
   public boolean isNullableAnnotated(Type type) {
     return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+  }
+
+  /**
+   * Store a lambda's target type with explicit type-variable nullability from the assignment
+   * context, when the lambda's type has not already been cached.
+   *
+   * <p>This is used to compensate for javac dropping annotations on type variables in lambda target
+   * types, so later checks use the correctly annotated functional interface type.
+   */
+  private void maybeStoreLambdaTypeFromTarget(
+      LambdaExpressionTree lambdaExpressionTree, Type targetType) {
+    if (targetType.isRaw() || inferredLambdaTypes.containsKey(lambdaExpressionTree)) {
+      return;
+    }
+    Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
+    Type lambdaTypeWithTargetAnnotations =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            targetType, lambdaTreeType, config, Collections.emptyMap());
+    inferredLambdaTypes.put(lambdaExpressionTree, lambdaTypeWithTargetAnnotations);
   }
 
   private static @Nullable Type syntheticNullableAnnotType;
