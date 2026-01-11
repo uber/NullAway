@@ -845,8 +845,8 @@ public final class GenericsChecks {
       ExpressionTree rhsExpr,
       Type lhsType) {
     rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
-    if (rhsExpr instanceof MemberReferenceTree) {
-      // TODO generate constraints from method reference argument types
+    if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
+      handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
       return;
     }
     // if the parameter is itself a generic call requiring inference, generate constraints for
@@ -918,6 +918,74 @@ public final class GenericsChecks {
         generateConstraintsForPseudoAssignment(
             state, lambdaPath, solver, allInvocations, returnExpr, fiReturnType);
       }
+    }
+  }
+
+  /**
+   * Generate constraints for a method reference argument by comparing functional interface method
+   * parameter and return types against the referenced method.
+   *
+   * @param state the visitor state
+   * @param solver the constraint solver
+   * @param lhsType the type to which the method reference is being assigned
+   * @param memberReferenceTree the method reference argument
+   */
+  private void handleMethodRefInGenericMethodInference(
+      VisitorState state,
+      ConstraintSolver solver,
+      Type lhsType,
+      MemberReferenceTree memberReferenceTree) {
+    if (lhsType.isRaw()) {
+      return;
+    }
+    Types types = state.getTypes();
+    Symbol.MethodSymbol fiMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
+    Type.MethodType fiMethodTypeAsMember =
+        TypeSubstitutionUtils.memberType(types, lhsType, fiMethod, config).asMethodType();
+    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+    if (referencedMethod == null || referencedMethod.isConstructor()) {
+      return;
+    }
+    Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+    if (qualifierType == null || qualifierType.isRaw()) {
+      return;
+    }
+    Type.MethodType referencedMethodTypeAsMember =
+        TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
+            .asMethodType();
+    referencedMethodTypeAsMember =
+        handler.onOverrideMethodType(referencedMethod, referencedMethodTypeAsMember, state);
+    Type referencedReturnType = referencedMethodTypeAsMember.getReturnType();
+    if (fiReturnType.getKind() != TypeKind.VOID
+        && referencedReturnType.getKind() != TypeKind.VOID) {
+      solver.addSubtypeConstraint(referencedReturnType, fiReturnType, false);
+    }
+
+    boolean isUnboundMethodRef = false;
+    if (memberReferenceTree instanceof JCTree.JCMemberReference jcMemberReference) {
+      isUnboundMethodRef = jcMemberReference.kind.isUnbound();
+    }
+    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
+    com.sun.tools.javac.util.List<Type> referencedParamTypes =
+        referencedMethodTypeAsMember.getParameterTypes();
+    int fiStartIndex = 0;
+    if (isUnboundMethodRef) {
+      if (fiParamTypes.isEmpty()) {
+        return;
+      }
+      Type receiverType = fiParamTypes.get(0);
+      solver.addSubtypeConstraint(receiverType, qualifierType, false);
+      fiStartIndex = 1;
+    }
+    if (fiParamTypes.size() - fiStartIndex != referencedParamTypes.size()) {
+      return;
+    }
+    for (int i = 0; i < referencedParamTypes.size(); i++) {
+      solver.addSubtypeConstraint(
+          fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
     }
   }
 
