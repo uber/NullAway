@@ -3,7 +3,6 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
 public class ContractsTests extends NullAwayTestsBase {
 
   @Test
@@ -14,7 +13,63 @@ public class ContractsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CheckContracts=true"))
-        .addSourceFile("testdata/CheckContractPositiveCases.java")
+        .addSourceLines(
+            "CheckContractPositiveCases.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            public class CheckContractPositiveCases {
+              @Contract("_, !null -> !null")
+              @Nullable
+              Object foo(Object a, @Nullable Object b) {
+                if (a.hashCode() % 2 == 0) {
+                  // BUG: Diagnostic contains: Method foo has @Contract
+                  return null;
+                }
+                return new Object();
+              }
+              @Contract("_, !null -> !null")
+              @Nullable
+              Object fooTwo(Object a, @Nullable Object b) {
+                if (b != null) {
+                  // BUG: Diagnostic contains: Method fooTwo has @Contract(_, !null -> !null), but this appears
+                  // to be violated, as a @Nullable value may be returned when parameter b is non-null.
+                  return null;
+                }
+                return new Object();
+              }
+              @Contract("_, !null, _ -> !null")
+              @Nullable
+              Object fooThree(Object a, @Nullable Object b, Object c) {
+                if (b != null) {
+                  // BUG: Diagnostic contains:  Method fooThree has @Contract(_, !null, _ -> !null), but this
+                  // appears to be violated, as a @Nullable value may be returned when parameter b is non-null.
+                  return null;
+                }
+                return new Object();
+              }
+              @Contract("_, !null, !null, _ -> !null")
+              @Nullable
+              Object fooFour(Object a, @Nullable Object b, Object c, Object d) {
+                if (b != null) {
+                  // BUG: Diagnostic contains: Method fooFour has @Contract(_, !null, !null, _ -> !null), but
+                  // this appears to be violated, as a @Nullable value may be returned when the contract
+                  // preconditions are true.
+                  return null;
+                }
+                return new Object();
+              }
+              @Nullable Object value = null;
+              @Contract("_ -> !null")
+              public @Nullable Object orElse(@Nullable Object other) {
+                // Both contract and method signature assume 'other' is NULLABLE
+                // BUG: Diagnostic contains: Method orElse has @Contract(_ -> !null), but this appears to be
+                // violated, as a @Nullable value may be returned when the contract preconditions are true.
+                return value != null ? value : other;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -54,7 +109,37 @@ public class ContractsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CheckContracts=true"))
-        .addSourceFile("testdata/CheckContractNegativeCases.java")
+        .addSourceLines(
+            "CheckContractNegativeCases.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            public class CheckContractNegativeCases {
+              @Contract("_, !null -> !null")
+              @Nullable
+              Object foo(Object a, @Nullable Object b) {
+                if (a.hashCode() % 2 == 0) {
+                  return b;
+                }
+                return new Object();
+              }
+              @Contract("_, !null -> !null")
+              @Nullable
+              Object fooTwo(Object a, @Nullable Object b) {
+                if (b != null) {
+                  return b;
+                }
+                return new Object();
+              }
+              @Nullable Object value = null;
+              @Contract("_ -> !null")
+              public @Nullable Object orElse(Object other) {
+                // 'other' is assumed to NONNULL using the information from method signature
+                return value != null ? value : other;
+              }
+            }
+            """)
         .doTest();
   }
 
