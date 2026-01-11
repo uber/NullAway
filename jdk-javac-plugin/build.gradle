@@ -57,7 +57,6 @@ dependencies {
 
     implementation libs.gson
     implementation libs.jspecify
-    implementation project(':nullaway')
     implementation libs.guava
 
     testImplementation libs.junit4
