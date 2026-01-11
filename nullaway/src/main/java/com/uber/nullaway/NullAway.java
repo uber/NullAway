@@ -2790,6 +2790,23 @@ public class NullAway extends BugChecker
    *
    * <p>The data is extracted from a class symbol and used during NullAway analysis to verify that
    * all required fields are properly initialized.
+   *
+   * <p>Components:
+   *
+   * <ul>
+   *   <li><b>classSymbol</b>: the symbol of the class being analyzed
+   *   <li><b>nonnullInstanceFields</b>: {@code @NonNull} instance fields not directly initialized
+   *       at declaration
+   *   <li><b>nonnullStaticFields</b>: {@code @NonNull} static fields not directly initialized at
+   *       declaration
+   *   <li><b>instanceInitializerBlocks</b>: instance initializer blocks, in source order
+   *   <li><b>staticInitializerBlocks</b>: static initializer blocks, in source order
+   *   <li><b>constructors</b>: constructors declared in the class
+   *   <li><b>instanceInitializerMethods</b>: non-static initializer methods, including those
+   *       annotated with {@code @Initializer} or specified via NullAway options
+   *   <li><b>staticInitializerMethods</b>: static initializer methods, including those annotated
+   *       with {@code @Initializer} or specified via NullAway options
+   * </ul>
    */
   record FieldInitEntities(
       Symbol.ClassSymbol classSymbol,
@@ -2804,25 +2821,8 @@ public class NullAway extends BugChecker
     /**
      * Creates an immutable {@link FieldInitEntities} instance from mutable inputs.
      *
-     * @param classSymbol symbol for class.
-     * @param nonnullInstanceFields <code>@NonNull</code> instance fields that are not directly
-     *     initialized at declaration.
-     * @param nonnullStaticFields <code>@NonNull</code> static fields that are not directly
-     *     initialized at declaration.
-     * @param instanceInitializerBlocks the list of instance initializer blocks (e.g. blocks of the
-     *     form `class X { { //Code } } ), in the order in which they appear in the class.
-     * @param staticInitializerBlocks the list of static initializer blocks (e.g. blocks of the form
-     *     `class X { static { //Code } } ), in the order in which they appear in the class.
-     * @param constructors constructors in the class.
-     * @param instanceInitializerMethods the list of non-static (instance) initializer methods. This
-     *     includes methods annotated @Initializer, as well as those specified by
-     *     -XepOpt:NullAway:KnownInitializers or annotated with annotations passed to
-     *     -XepOpt:NullAway:CustomInitializerAnnotations.
-     * @param staticInitializerMethods the list of static initializer methods. This includes static
-     *     methods annotated @Initializer, as well as those specified by
-     *     -XepOpt:NullAway:KnownInitializers or annotated with annotations passed to
-     *     -XepOpt:NullAway:CustomInitializerAnnotations.
-     * @return an immutable {@link FieldInitEntities} instance
+     * <p>This factory exists for convenience when collecting data incrementally. The returned
+     * record is fully immutable.
      */
     static FieldInitEntities create(
         Symbol.ClassSymbol classSymbol,
