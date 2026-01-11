@@ -21,8 +21,5 @@ plugins {
 dependencies {
     implementation libs.guava
 
-    compileOnly libs.auto.value.annotations
-    annotationProcessor libs.auto.value
-
     testImplementation libs.junit4
 }

@@ -22,7 +22,6 @@
 
 package com.uber.nullaway;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -325,15 +324,10 @@ public interface LibraryModels {
   }
 
   /** Representation of a field as a qualified class name + a field name */
-  @AutoValue
-  abstract class FieldRef {
-
-    public abstract String getEnclosingClassName();
-
-    public abstract String getFieldName();
+  record FieldRef(String enclosingClassName, String fieldName) {
 
     public static FieldRef fieldRef(String enclosingClass, String fieldName) {
-      return new AutoValue_LibraryModels_FieldRef(enclosingClass, fieldName);
+      return new FieldRef(enclosingClass, fieldName);
     }
   }
 }
