@@ -4,7 +4,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
@@ -370,7 +369,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 receiver(makeCancelable(this::target));
               }
               void testPositive() {
-                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
+                // BUG: Diagnostic contains: incompatible types: Callback<Object> cannot be converted to Callback<@Nullable Object>
                 receiver(makeCancelable(this::targetNonNullParam));
               }
             }
@@ -378,7 +377,6 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1431")
   @Test
   public void inferFromMethodRef() {
     makeHelperWithInferenceFailureWarning()
@@ -405,6 +403,40 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 String s1 = create(Foo::get);
                 s1.hashCode(); // should be legal
                 String s2 = create(Foo::getNullable);
+                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                s2.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromUnboundMethodRefWithParams() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.BiFunction;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String take(String s) {
+                  return s;
+                }
+                default @Nullable String takeNullable(@Nullable String s) {
+                  return null;
+                }
+              }
+              private <T extends @Nullable Object> T create(BiFunction<Foo, String, T> factory) {
+                return factory.apply(new Foo() {}, "x");
+              }
+              void test() {
+                String s1 = create(Foo::take);
+                s1.hashCode(); // should be legal
+                String s2 = create(Foo::takeNullable);
                 // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
                 s2.hashCode();
               }
