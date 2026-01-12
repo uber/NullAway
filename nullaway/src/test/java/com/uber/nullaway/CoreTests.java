@@ -1295,4 +1295,28 @@ public class CoreTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void wrongOverrideParamSuppressionOnParameter() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestInterface.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface TestInterface {
+              void foo(@Nullable Object param);
+            }
+            """)
+        .addSourceLines(
+            "TestImpl.java",
+            """
+                  package com.uber;
+                  public class TestImpl implements TestInterface {
+                    @Override
+                    public void foo(@SuppressWarnings("NullAway") Object param) {}
+                  }
+                  """)
+        .doTest();
+  }
 }

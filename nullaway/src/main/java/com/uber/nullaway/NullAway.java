@@ -908,7 +908,7 @@ public class NullAway extends BugChecker
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
-            state,
+            state.withPath(getTreesInstance(state).getPath(paramSymbol)),
             paramSymbol);
       }
     }
