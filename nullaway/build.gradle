@@ -149,6 +149,16 @@ tasks.named('check').configure {
     dependsOn(epOldestTest)
 }
 
+['test', 'testJdk21'].each { taskName ->
+    tasks.named(taskName).configure {
+        filter {
+            // On Error Prone 2.46.0 and above, this test will not pass, since CompilationTestHelper passes the
+            // -XDaddTypeAnnotationsToSymbol flag by default.  The test is still run on JDK 17.
+            excludeTestsMatching "com.uber.nullaway.ErrorProneCLIFlagsConfigTest.missingTypeAnnotationSymbolFlagForJSpecifyModeOnOlderJDK"
+        }
+    }
+}
+
 // Create a task to build NullAway with NullAway checking enabled
 tasks.register('buildWithNullAway', JavaCompile) {
     // Configure compilation to run with Error Prone and NullAway
