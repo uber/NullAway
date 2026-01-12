@@ -1321,6 +1321,43 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wrongOverrideParamSuppressionOnLambdaUsage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestInterface.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface TestInterface {
+              void foo(@Nullable Object param);
+            }
+            """)
+        .addSourceLines(
+            "TestImpl.java",
+            """
+            package com.uber;
+            public class TestImpl {
+              public void doFoo(Object param) {}
+            }
+            """)
+        .addSourceLines(
+            "TestDriver.java",
+            """
+            package com.uber;
+            public class TestDriver {
+              public int bar(TestInterface param) {
+                return 0;
+              }
+              public void doTest(TestImpl impl) {
+                @SuppressWarnings("NullAway")
+                int res = bar(impl::doFoo);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void wrongOverrideParamNoSuppression() {
     defaultCompilationHelper
         .addSourceLines(
@@ -1340,6 +1377,43 @@ public class CoreTests extends NullAwayTestsBase {
               @Override
               // BUG: Diagnostic contains: parameter param is @NonNull, but parameter in superclass method
               public void foo(Object param) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void wrongOverrideParamOnLambdaUsageNoSuppression() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestInterface.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface TestInterface {
+              void foo(@Nullable Object param);
+            }
+            """)
+        .addSourceLines(
+            "TestImpl.java",
+            """
+            package com.uber;
+            public class TestImpl {
+              public void doFoo(Object param) {}
+            }
+            """)
+        .addSourceLines(
+            "TestDriver.java",
+            """
+            package com.uber;
+            public class TestDriver {
+              public int bar(TestInterface param) {
+                return 0;
+              }
+              public void doTest(TestImpl impl) {
+                // BUG: Diagnostic contains: parameter param of referenced method is @NonNull, but parameter in functional interface method
+                int res = bar(impl::doFoo);
+              }
             }
             """)
         .doTest();

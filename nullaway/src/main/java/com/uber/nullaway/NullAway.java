@@ -905,11 +905,19 @@ public class NullAway extends BugChecker
         } else {
           errorTree = getTreesInstance(state).getTree(paramSymbol);
         }
-        TreePath path = getTreesInstance(state).getPath(paramSymbol);
+        VisitorState paramState;
+        if (memberReferenceTree != null) {
+          // For nullability issues related to functional interfaces, the suppression should be on
+          // the use site
+          paramState = state;
+        } else {
+          TreePath path = getTreesInstance(state).getPath(paramSymbol);
+          paramState = path != null ? state.withPath(path) : state;
+        }
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
-            path != null ? state.withPath(path) : state,
+            paramState,
             paramSymbol);
       }
     }
