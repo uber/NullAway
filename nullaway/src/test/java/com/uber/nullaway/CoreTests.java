@@ -1311,12 +1311,12 @@ public class CoreTests extends NullAwayTestsBase {
         .addSourceLines(
             "TestImpl.java",
             """
-                  package com.uber;
-                  public class TestImpl implements TestInterface {
-                    @Override
-                    public void foo(@SuppressWarnings("NullAway") Object param) {}
-                  }
-                  """)
+            package com.uber;
+            public class TestImpl implements TestInterface {
+              @Override
+              public void foo(@SuppressWarnings("NullAway") Object param) {}
+            }
+            """)
         .doTest();
   }
 }
