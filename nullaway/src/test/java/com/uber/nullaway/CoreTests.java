@@ -1319,4 +1319,29 @@ public class CoreTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void wrongOverrideParamNoSuppression() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestInterface.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface TestInterface {
+              void foo(@Nullable Object param);
+            }
+            """)
+        .addSourceLines(
+            "TestImpl.java",
+            """
+            package com.uber;
+            public class TestImpl implements TestInterface {
+              @Override
+              // BUG: Diagnostic contains: parameter param is @NonNull, but parameter in superclass method
+              public void foo(Object param) {}
+            }
+            """)
+        .doTest();
+  }
 }

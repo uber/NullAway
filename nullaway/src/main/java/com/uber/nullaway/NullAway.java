@@ -905,10 +905,11 @@ public class NullAway extends BugChecker
         } else {
           errorTree = getTreesInstance(state).getTree(paramSymbol);
         }
+        TreePath path = getTreesInstance(state).getPath(paramSymbol);
         return errorBuilder.createErrorDescription(
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
-            state.withPath(getTreesInstance(state).getPath(paramSymbol)),
+            path != null ? state.withPath(path) : state,
             paramSymbol);
       }
     }
