@@ -8,7 +8,7 @@ NullAway is *fast*.  It is built as a plugin to [Error Prone](http://errorprone.
 
 ### Overview
 
-NullAway requires that you build your code with [Error Prone](http://errorprone.info), version 2.25.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.  If you are building with JSpecify mode enabled, we recommend building with the most recent JDK available; see [the wiki docs on JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support) for more details.
+NullAway requires that you build your code with JDK 17 or higher and [Error Prone](http://errorprone.info), version 2.36.0 or higher.  See the [Error Prone documentation](http://errorprone.info/docs/installation) for instructions on getting started with Error Prone and integration with your build system.  The instructions below assume you are using Gradle; see [the docs](https://github.com/uber/NullAway/wiki/Configuration#other-build-systems) for discussion of other build systems.  If you are building with JSpecify mode enabled, we recommend building with the most recent JDK available; see [the wiki docs on JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support) for more details.
 
 ### Gradle
 

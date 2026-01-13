@@ -17,7 +17,7 @@ shellcheck = "1.5.0"
 
 errorProne = "2.46.0"
 errorProneJdk17 = "2.42.0"
-errorProneOldest = "2.25.0"
+errorProneOldest = "2.36.0"
 
 semver4j = "3.1.0"
 jakarta-inject = "2.0.0"
