@@ -21,7 +21,6 @@ package com.uber.nullaway.dataflow;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer;
 
-import com.google.auto.value.AutoValue;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.cache.CacheBuilder;
@@ -41,6 +40,7 @@ import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import com.uber.nullaway.handlers.Handler;
+import java.util.HashMap;
 import javax.annotation.processing.ProcessingEnvironment;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 import org.checkerframework.nullaway.dataflow.analysis.Analysis;
@@ -293,7 +293,7 @@ public final class DataFlow {
         (RunOnceForwardAnalysisImpl<A, S, T>)
             dataflow(enclosingPath, context, transfer, false).getAnalysis();
     Verify.verify(analysis.isRunning(), "Expected analysis to be running for %s", enclosing);
-    return analysis.getStoreBefore(exprPath.getLeaf());
+    return analysis.getStoreBefore(exprPath.getLeaf(), new HashMap<>());
   }
 
   <A extends AbstractValue<A>, S extends Store<S>, T extends ForwardTransferFunction<A, S>>
@@ -352,36 +352,132 @@ public final class DataFlow {
     return analysis.isRunning();
   }
 
-  @AutoValue
-  abstract static class CfgParams {
-    // Should not be used for hashCode or equals
+  static final class CfgParams {
+
+    /**
+     * The {@link TreePath} representing the code location for which CFG-related parameters are
+     * being computed.
+     *
+     * <p>This field defines the logical identity of {@code CfgParams}. Equality, hash code
+     * computation, and string representation are all based solely on this field.
+     */
+    private final TreePath codePath;
+
+    /**
+     * The {@link ProcessingEnvironment} associated with the current analysis.
+     *
+     * <p>This field is intentionally <em>not</em> final and is excluded from {@link
+     * #equals(Object)} and {@link #hashCode()} because:
+     *
+     * <ul>
+     *   <li>It is injected after construction
+     *   <li>It is mutable
+     *   <li>It does not contribute to logical identity
+     * </ul>
+     */
     private @Nullable ProcessingEnvironment environment;
 
-    private static CfgParams create(TreePath codePath, ProcessingEnvironment environment) {
-      CfgParams cp = new AutoValue_DataFlow_CfgParams(codePath);
+    /**
+     * Private constructor used internally to enforce controlled creation via {@link
+     * #create(TreePath, ProcessingEnvironment)}.
+     *
+     * @param codePath the {@link TreePath} identifying the analyzed code location
+     */
+    private CfgParams(TreePath codePath) {
+      this.codePath = codePath;
+    }
+
+    /**
+     * Creates a new {@code CfgParams} instance.
+     *
+     * <p>The {@link ProcessingEnvironment} is assigned after construction to preserve immutability
+     * of the identity-defining fields while still allowing environment injection.
+     *
+     * @param codePath the {@link TreePath} identifying the analyzed code location
+     * @param environment the {@link ProcessingEnvironment} for the current annotation processing
+     *     round
+     * @return a fully initialized {@code CfgParams} instance
+     */
+    static CfgParams create(TreePath codePath, ProcessingEnvironment environment) {
+      CfgParams cp = new CfgParams(codePath);
       cp.environment = environment;
       return cp;
     }
 
+    /**
+     * Returns the {@link ProcessingEnvironment} associated with this instance.
+     *
+     * <p>This method guarantees a non-null return value. It is an error to call this method before
+     * the environment has been set via {@link #create}.
+     *
+     * @return the non-null {@link ProcessingEnvironment}
+     */
     ProcessingEnvironment environment() {
       return castToNonNull(environment);
     }
 
-    abstract TreePath codePath();
+    /**
+     * Returns the {@link TreePath} that defines the identity of this instance.
+     *
+     * @return the {@link TreePath} associated with this configuration
+     */
+    TreePath codePath() {
+      return codePath;
+    }
+
+    /**
+     * Indicates whether some other object is equal to this one.
+     *
+     * <p>Equality is based solely on {@link #codePath}. The {@link ProcessingEnvironment} is
+     * intentionally excluded.
+     *
+     * @param o the reference object with which to compare
+     * @return {@code true} if this object is equal to the given object; {@code false} otherwise
+     */
+    @Override
+    public boolean equals(@Nullable Object o) {
+      if (this == o) {
+        return true;
+      }
+      if (!(o instanceof CfgParams that)) {
+        return false;
+      }
+      return java.util.Objects.equals(this.codePath, that.codePath);
+    }
+
+    /**
+     * Returns a hash code value for this object.
+     *
+     * <p>The hash code is computed solely from {@link #codePath} to remain consistent with {@link
+     * #equals(Object)}.
+     *
+     * @return a hash code value for this object
+     */
+    @Override
+    public int hashCode() {
+      return java.util.Objects.hash(codePath);
+    }
+
+    /**
+     * Returns a string representation of this object.
+     *
+     * <p>The returned string includes only the identity-defining fields and omits the {@link
+     * ProcessingEnvironment} to keep the output stable and readable.
+     *
+     * @return a string representation of this {@code CfgParams}
+     */
+    @Override
+    public String toString() {
+      return "CfgParams{codePath=" + codePath + "}";
+    }
   }
 
-  @AutoValue
-  abstract static class AnalysisParams {
+  record AnalysisParams(ForwardTransferFunction<?, ?> transferFunction, ControlFlowGraph cfg) {
 
     private static AnalysisParams create(
         ForwardTransferFunction<?, ?> transferFunction, ControlFlowGraph cfg) {
-      AnalysisParams ap = new AutoValue_DataFlow_AnalysisParams(transferFunction, cfg);
-      return ap;
+      return new AnalysisParams(transferFunction, cfg);
     }
-
-    abstract ForwardTransferFunction<?, ?> transferFunction();
-
-    abstract ControlFlowGraph cfg();
   }
 
   /** A pair of Analysis and ControlFlowGraph. */

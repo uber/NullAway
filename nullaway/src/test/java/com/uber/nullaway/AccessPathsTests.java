@@ -9,32 +9,36 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "NullableContainer.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public interface NullableContainer<K, V> {",
-            " @Nullable public V get(K k);",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface NullableContainer<K, V> {
+             @Nullable public V get(K k);
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  public void testSingleStringCheck(NullableContainer<String, Object> c) {",
-            "    if (c.get(\"KEY_STR\") != null) {",
-            "      c.get(\"KEY_STR\").toString(); // is safe",
-            "    }",
-            "  }",
-            "  public void testSingleIntCheck(NullableContainer<Integer, Object> c) {",
-            "    if (c.get(42) != null) {",
-            "      c.get(42).toString(); // is safe",
-            "    }",
-            "  }",
-            "  public void testMultipleChecks(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
-            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(42) != null) {",
-            "      c.get(\"KEY_STR\").get(42).toString(); // is safe",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              public void testSingleStringCheck(NullableContainer<String, Object> c) {
+                if (c.get("KEY_STR") != null) {
+                  c.get("KEY_STR").toString(); // is safe
+                }
+              }
+              public void testSingleIntCheck(NullableContainer<Integer, Object> c) {
+                if (c.get(42) != null) {
+                  c.get(42).toString(); // is safe
+                }
+              }
+              public void testMultipleChecks(NullableContainer<String, NullableContainer<Integer, Object>> c) {
+                if (c.get("KEY_STR") != null && c.get("KEY_STR").get(42) != null) {
+                  c.get("KEY_STR").get(42).toString(); // is safe
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -43,23 +47,27 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "NullableContainer.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public interface NullableContainer<K, V> {",
-            " @Nullable public V get(K k);",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface NullableContainer<K, V> {
+             @Nullable public V get(K k);
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
-            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(0) != null) {",
-            "      // BUG: Diagnostic contains: dereferenced expression c.get(\"KEY_STR\").get(42)",
-            "      c.get(\"KEY_STR\").get(42).toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {
+                if (c.get("KEY_STR") != null && c.get("KEY_STR").get(0) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression c.get("KEY_STR").get(42)
+                  c.get("KEY_STR").get(42).toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -68,31 +76,35 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "NullableContainer.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public interface NullableContainer<K, V> {",
-            " @Nullable public V get(K k);",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface NullableContainer<K, V> {
+             @Nullable public V get(K k);
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  private static final int INT_KEY = 42;", // Guaranteed constant!
-            "  // Guaranteed constant after class loading",
-            "  private static final int INT_KEY_HC = \"teststr\".hashCode();",
-            "  public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
-            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(INT_KEY) != null) {",
-            "      c.get(\"KEY_STR\").get(INT_KEY).toString();",
-            "      c.get(\"KEY_STR\").get(Test.INT_KEY).toString();",
-            "      c.get(\"KEY_STR\").get(42).toString();", // Extra magic!
-            "    }",
-            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(INT_KEY_HC) != null) {",
-            "      c.get(\"KEY_STR\").get(INT_KEY_HC).toString();",
-            "      c.get(\"KEY_STR\").get(Test.INT_KEY_HC).toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              private static final int INT_KEY = 42; // Guaranteed constant!
+              // Guaranteed constant after class loading
+              private static final int INT_KEY_HC = "teststr".hashCode();
+              public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {
+                if (c.get("KEY_STR") != null && c.get("KEY_STR").get(INT_KEY) != null) {
+                  c.get("KEY_STR").get(INT_KEY).toString();
+                  c.get("KEY_STR").get(Test.INT_KEY).toString();
+                  c.get("KEY_STR").get(42).toString(); // Extra magic!
+                }
+                if (c.get("KEY_STR") != null && c.get("KEY_STR").get(INT_KEY_HC) != null) {
+                  c.get("KEY_STR").get(INT_KEY_HC).toString();
+                  c.get("KEY_STR").get(Test.INT_KEY_HC).toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -101,24 +113,28 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "NullableContainer.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public interface NullableContainer<K, V> {",
-            " @Nullable public V get(K k);",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public interface NullableContainer<K, V> {
+             @Nullable public V get(K k);
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  private Integer intKey = 42;", // No guarantee it's a constant
-            "  public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {",
-            "    if (c.get(\"KEY_STR\") != null && c.get(\"KEY_STR\").get(this.intKey) != null) {",
-            "      // BUG: Diagnostic contains: dereferenced expression c.get(\"KEY_STR\").get",
-            "      c.get(\"KEY_STR\").get(this.intKey).toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              private Integer intKey = 42; // No guarantee it's a constant
+              public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {
+                if (c.get("KEY_STR") != null && c.get("KEY_STR").get(this.intKey) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression c.get("KEY_STR").get
+                  c.get("KEY_STR").get(this.intKey).toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -127,24 +143,28 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            " @Nullable public Object o;",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+             @Nullable public Object o;
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  public String testFieldCheck(Foo foo) {",
-            "    if (foo.o == null) {",
-            "      foo.o = new Object();",
-            "    }",
-            "    return foo.o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import javax.annotation.Nullable;
+            public class Test {
+              public String testFieldCheck(Foo foo) {
+                if (foo.o == null) {
+                  foo.o = new Object();
+                }
+                return foo.o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -153,25 +173,29 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import java.util.List;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            " @Nullable public List<Object> list;",
-            "}")
+            """
+            package com.uber;
+            import java.util.List;
+            import javax.annotation.Nullable;
+            public class Foo {
+             @Nullable public List<Object> list;
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  public Object testFieldCheck(Foo foo) {",
-            "    if (foo.list == null) {",
-            "      foo.list = new ArrayList<Object>();",
-            "    }",
-            "    return foo.list.get(0);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import javax.annotation.Nullable;
+            public class Test {
+              public Object testFieldCheck(Foo foo) {
+                if (foo.list == null) {
+                  foo.list = new ArrayList<Object>();
+                }
+                return foo.list.get(0);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -180,25 +204,29 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            " @Nullable public Object o;",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+             @Nullable public Object o;
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  public String testFieldCheck(Foo foo) {",
-            "    if (foo.o == null) {",
-            "      (new Foo()).o = new Object();",
-            "    }",
-            "    // BUG: Diagnostic contains: dereferenced expression foo.o is @Nullable",
-            "    return foo.o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import javax.annotation.Nullable;
+            public class Test {
+              public String testFieldCheck(Foo foo) {
+                if (foo.o == null) {
+                  (new Foo()).o = new Object();
+                }
+                // BUG: Diagnostic contains: dereferenced expression foo.o is @Nullable
+                return foo.o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -207,25 +235,29 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            " public Foo nonNull;",
-            " public Foo() {",
-            "   nonNull = this;",
-            " }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+             public Foo nonNull;
+             public Foo() {
+               nonNull = this;
+             }
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.ArrayList;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  public String testFieldCheck(Foo foo) {",
-            "    // Just checking that NullAway doesn't crash on a long but ultimately rootless access path",
-            "    return (new Foo()).nonNull.nonNull.toString().toLowerCase();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import javax.annotation.Nullable;
+            public class Test {
+              public String testFieldCheck(Foo foo) {
+                // Just checking that NullAway doesn't crash on a long but ultimately rootless access path
+                return (new Foo()).nonNull.nonNull.toString().toLowerCase();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -234,155 +266,161 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            " @Nullable public final Bar bar;",
-            " @Nullable public Bar mutableBar;",
-            " public Foo(@Nullable Bar bar) {",
-            "   this.bar = bar;",
-            "   this.mutableBar = bar;",
-            " }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+             @Nullable public final Bar bar;
+             @Nullable public Bar mutableBar;
+             public Foo(@Nullable Bar bar) {
+               this.bar = bar;
+               this.mutableBar = bar;
+             }
+            }
+            """)
         .addSourceLines(
             "Bar.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Bar {",
-            " @Nullable public final Foo foo;",
-            " @Nullable public Foo mutableFoo;",
-            " public Bar(@Nullable Foo foo) {",
-            "   this.foo = foo;",
-            "   this.mutableFoo = foo;",
-            " }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Bar {
+             @Nullable public final Foo foo;
+             @Nullable public Foo mutableFoo;
+             public Bar(@Nullable Foo foo) {
+               this.foo = foo;
+               this.mutableFoo = foo;
+             }
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.google.common.base.Preconditions;",
-            "import java.util.ArrayList;",
-            "import java.util.function.Predicate;",
-            "import java.util.function.Function;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  @Nullable private final Foo foo;",
-            "  @Nullable private Foo mutableFoo;",
-            "  public Test(@Nullable Foo foo) {",
-            "    this.foo = foo;",
-            "    this.mutableFoo = foo;",
-            "  }",
-            "  public Predicate<String> testReadFinalFromLambdaNoCheck() {",
-            "    // BUG: Diagnostic contains: dereferenced expression foo is @Nullable",
-            "    return (s -> foo.toString().equals(s));",
-            "  }",
-            "  public Predicate<String> testReadFinalFromLambdaAfterCheck() {",
-            "    Preconditions.checkNotNull(foo);",
-            "    // safe!",
-            "    return (s -> foo.toString().equals(s));",
-            "  }",
-            "  public Predicate<String> testReadMutableFromLambdaAfterCheck() {",
-            "    Preconditions.checkNotNull(mutableFoo);",
-            "    // BUG: Diagnostic contains: dereferenced expression mutableFoo is @Nullable",
-            "    return (s -> mutableFoo.toString().equals(s));",
-            "  }",
-            "  public Function<String, Predicate<String>> testReadFinalFromLambdaAfterCheckDeepContext() {",
-            "    Preconditions.checkNotNull(foo);",
-            "    // safe!",
-            "    return (s1 -> (s2 -> foo.toString().equals(s1 + s2)));",
-            "  }",
-            "  public Predicate<String> testReadFinalFromLambdaAfterCheckDeepAP() {",
-            "    Preconditions.checkNotNull(foo);",
-            "    Preconditions.checkNotNull(foo.bar);",
-            "    Preconditions.checkNotNull(foo.bar.foo);",
-            "    // safe!",
-            "    return (s -> foo.bar.foo.toString().equals(s));",
-            "  }",
-            "  public Predicate<String> testReadFinalFromLambdaAfterCheckDeepAPIncomplete() {",
-            "    Preconditions.checkNotNull(foo);",
-            "    Preconditions.checkNotNull(foo.bar);",
-            "    // BUG: Diagnostic contains: dereferenced expression foo.bar.foo is @Nullable",
-            "    return (s -> foo.bar.foo.toString().equals(s));",
-            "  }",
-            "  public Predicate<String> testReadMutableFromLambdaAfterCheckDeepAP1() {",
-            "    Preconditions.checkNotNull(foo);",
-            "    Preconditions.checkNotNull(foo.mutableBar);",
-            "    Preconditions.checkNotNull(foo.mutableBar.foo);",
-            "    // BUG: Diagnostic contains: dereferenced expression foo.mutableBar is @Nullable",
-            "    return (s -> foo.mutableBar.foo.toString().equals(s));",
-            "  }",
-            "  public Predicate<String> testReadMutableFromLambdaAfterCheckDeepAP2() {",
-            "    Preconditions.checkNotNull(foo);",
-            "    Preconditions.checkNotNull(foo.bar);",
-            "    Preconditions.checkNotNull(foo.bar.mutableFoo);",
-            "    // BUG: Diagnostic contains: dereferenced expression foo.bar.mutableFoo is @Nullable",
-            "    return (s -> foo.bar.mutableFoo.toString().equals(s));",
-            "  }",
-            "  public boolean testReadFinalFromLambdaAfterCheckLocalClass(String s) {",
-            "    Preconditions.checkNotNull(foo);",
-            "    // safe!",
-            "    class Inner {",
-            "       public Inner() { }",
-            "       public boolean doTest(String s) { return foo.toString().equals(s); }",
-            "    }",
-            "    return (new Inner()).doTest(s);",
-            "  }",
-            "  public boolean testReadFinalFromLambdaCheckBeforeUseLocalClass(String s) {",
-            "    class Inner {",
-            "       public Inner() { }",
-            "       // At the time of declaring this, foo is not known to be non-null!",
-            "       public boolean doTest(String s)  {",
-            "         // BUG: Diagnostic contains: dereferenced expression foo is @Nullable",
-            "         return foo.toString().equals(s);",
-            "       }",
-            "    }",
-            "    // Technically safe, but hard to reason about: needs to be aware of *when* doTest() can be",
-            "    // called which is generally _beyond_ NullAway.",
-            "    Preconditions.checkNotNull(foo);",
-            "    return (new Inner()).doTest(s);",
-            "  }",
-            "  public boolean testReadMutableFromLambdaAfterCheckLocalClass(String s) {",
-            "    Preconditions.checkNotNull(mutableFoo);",
-            "    class Inner {",
-            "       public Inner() { }",
-            "       public boolean doTest(String s) {",
-            "         // BUG: Diagnostic contains: dereferenced expression mutableFoo is @Nullable",
-            "         return mutableFoo.toString().equals(s);",
-            "       }",
-            "       public boolean doTestSafe(String s) {",
-            "         Preconditions.checkNotNull(mutableFoo);",
-            "         return mutableFoo.toString().equals(s);",
-            "       }",
-            "    }",
-            "    if (s.length() % 2 == 0) {",
-            "      return (new Inner()).doTest(s);",
-            "    } else {",
-            "       // safe!",
-            "      return (new Inner()).doTestSafe(s);",
-            "    }",
-            "  }",
-            "  public boolean testReadFinalFromLambdaAfterCheckLocalClassWithNameCollision(String s) {",
-            "    Preconditions.checkNotNull(foo);",
-            "    class Inner {",
-            "       @Nullable private Foo foo;",
-            "       public Inner() { this.foo = null; }",
-            "       public boolean doTest(String s)  {",
-            "         // BUG: Diagnostic contains: dereferenced expression foo is @Nullable",
-            "         return foo.toString().equals(s);",
-            "       }",
-            "       public boolean doTestSafe(String s)  {",
-            "         // TODO: Technically safe, but it would need recognizing Test.this.[...] as the same AP as",
-            "         //       that from the closure.",
-            "         // BUG: Diagnostic contains: dereferenced expression Test.this.foo is @Nullable",
-            "         return Test.this.foo.toString().equals(s);",
-            "       }",
-            "    }",
-            "    if (s.length() % 2 == 0) {",
-            "      return (new Inner()).doTest(s);",
-            "    } else {",
-            "      return (new Inner()).doTestSafe(s);",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.google.common.base.Preconditions;
+            import java.util.ArrayList;
+            import java.util.function.Predicate;
+            import java.util.function.Function;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable private final Foo foo;
+              @Nullable private Foo mutableFoo;
+              public Test(@Nullable Foo foo) {
+                this.foo = foo;
+                this.mutableFoo = foo;
+              }
+              public Predicate<String> testReadFinalFromLambdaNoCheck() {
+                // BUG: Diagnostic contains: dereferenced expression foo is @Nullable
+                return (s -> foo.toString().equals(s));
+              }
+              public Predicate<String> testReadFinalFromLambdaAfterCheck() {
+                Preconditions.checkNotNull(foo);
+                // safe!
+                return (s -> foo.toString().equals(s));
+              }
+              public Predicate<String> testReadMutableFromLambdaAfterCheck() {
+                Preconditions.checkNotNull(mutableFoo);
+                // BUG: Diagnostic contains: dereferenced expression mutableFoo is @Nullable
+                return (s -> mutableFoo.toString().equals(s));
+              }
+              public Function<String, Predicate<String>> testReadFinalFromLambdaAfterCheckDeepContext() {
+                Preconditions.checkNotNull(foo);
+                // safe!
+                return (s1 -> (s2 -> foo.toString().equals(s1 + s2)));
+              }
+              public Predicate<String> testReadFinalFromLambdaAfterCheckDeepAP() {
+                Preconditions.checkNotNull(foo);
+                Preconditions.checkNotNull(foo.bar);
+                Preconditions.checkNotNull(foo.bar.foo);
+                // safe!
+                return (s -> foo.bar.foo.toString().equals(s));
+              }
+              public Predicate<String> testReadFinalFromLambdaAfterCheckDeepAPIncomplete() {
+                Preconditions.checkNotNull(foo);
+                Preconditions.checkNotNull(foo.bar);
+                // BUG: Diagnostic contains: dereferenced expression foo.bar.foo is @Nullable
+                return (s -> foo.bar.foo.toString().equals(s));
+              }
+              public Predicate<String> testReadMutableFromLambdaAfterCheckDeepAP1() {
+                Preconditions.checkNotNull(foo);
+                Preconditions.checkNotNull(foo.mutableBar);
+                Preconditions.checkNotNull(foo.mutableBar.foo);
+                // BUG: Diagnostic contains: dereferenced expression foo.mutableBar is @Nullable
+                return (s -> foo.mutableBar.foo.toString().equals(s));
+              }
+              public Predicate<String> testReadMutableFromLambdaAfterCheckDeepAP2() {
+                Preconditions.checkNotNull(foo);
+                Preconditions.checkNotNull(foo.bar);
+                Preconditions.checkNotNull(foo.bar.mutableFoo);
+                // BUG: Diagnostic contains: dereferenced expression foo.bar.mutableFoo is @Nullable
+                return (s -> foo.bar.mutableFoo.toString().equals(s));
+              }
+              public boolean testReadFinalFromLambdaAfterCheckLocalClass(String s) {
+                Preconditions.checkNotNull(foo);
+                // safe!
+                class Inner {
+                   public Inner() { }
+                   public boolean doTest(String s) { return foo.toString().equals(s); }
+                }
+                return (new Inner()).doTest(s);
+              }
+              public boolean testReadFinalFromLambdaCheckBeforeUseLocalClass(String s) {
+                class Inner {
+                   public Inner() { }
+                   // At the time of declaring this, foo is not known to be non-null!
+                   public boolean doTest(String s)  {
+                     // BUG: Diagnostic contains: dereferenced expression foo is @Nullable
+                     return foo.toString().equals(s);
+                   }
+                }
+                // Technically safe, but hard to reason about: needs to be aware of *when* doTest() can be
+                // called which is generally _beyond_ NullAway.
+                Preconditions.checkNotNull(foo);
+                return (new Inner()).doTest(s);
+              }
+              public boolean testReadMutableFromLambdaAfterCheckLocalClass(String s) {
+                Preconditions.checkNotNull(mutableFoo);
+                class Inner {
+                   public Inner() { }
+                   public boolean doTest(String s) {
+                     // BUG: Diagnostic contains: dereferenced expression mutableFoo is @Nullable
+                     return mutableFoo.toString().equals(s);
+                   }
+                   public boolean doTestSafe(String s) {
+                     Preconditions.checkNotNull(mutableFoo);
+                     return mutableFoo.toString().equals(s);
+                   }
+                }
+                if (s.length() % 2 == 0) {
+                  return (new Inner()).doTest(s);
+                } else {
+                   // safe!
+                  return (new Inner()).doTestSafe(s);
+                }
+              }
+              public boolean testReadFinalFromLambdaAfterCheckLocalClassWithNameCollision(String s) {
+                Preconditions.checkNotNull(foo);
+                class Inner {
+                   @Nullable private Foo foo;
+                   public Inner() { this.foo = null; }
+                   public boolean doTest(String s)  {
+                     // BUG: Diagnostic contains: dereferenced expression foo is @Nullable
+                     return foo.toString().equals(s);
+                   }
+                   public boolean doTestSafe(String s)  {
+                     // TODO: Technically safe, but it would need recognizing Test.this.[...] as the same AP as
+                     //       that from the closure.
+                     // BUG: Diagnostic contains: dereferenced expression Test.this.foo is @Nullable
+                     return Test.this.foo.toString().equals(s);
+                   }
+                }
+                if (s.length() % 2 == 0) {
+                  return (new Inner()).doTest(s);
+                } else {
+                  return (new Inner()).doTestSafe(s);
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -391,53 +429,55 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Foo {",
-            "  @Nullable public Object bar;",
-            "  public class Nested {",
-            "    @Nullable public Object bar;",
-            "    public void testNegative1() {",
-            "      if (Foo.this.bar != null) {",
-            "        Foo.this.bar.toString();",
-            "      }",
-            "    }",
-            "    public void testNegative2() {",
-            "      // Foo.this can never be null",
-            "      Foo.this.toString();",
-            "    }",
-            "    public void testPositive() {",
-            "      if (Foo.this.bar != null) {",
-            "        // BUG: Diagnostic contains: dereferenced expression this.bar is @Nullable",
-            "        this.bar.toString();",
-            "      }",
-            "      if (this.bar != null) {",
-            "        // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable",
-            "        Foo.this.bar.toString();",
-            "      }",
-            "    }",
-            "  }",
-            "  public void testUnhandled1() {",
-            "    if (bar != null) {",
-            "      // This is safe but we don't currently handle it",
-            "      // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable",
-            "      Foo.this.bar.toString();",
-            "    }",
-            "  }",
-            "  public void testUnhandled2() {",
-            "    if (Foo.this.bar != null) {",
-            "      // This is safe but we don't currently handle it",
-            "      // BUG: Diagnostic contains: dereferenced expression bar is @Nullable",
-            "      bar.toString();",
-            "    }",
-            "  }",
-            "  public void testNegative1() {",
-            "    if (bar != null) {",
-            "      // This is safe and handled",
-            "      this.bar.toString();",
-            "    }",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Foo {
+              @Nullable public Object bar;
+              public class Nested {
+                @Nullable public Object bar;
+                public void testNegative1() {
+                  if (Foo.this.bar != null) {
+                    Foo.this.bar.toString();
+                  }
+                }
+                public void testNegative2() {
+                  // Foo.this can never be null
+                  Foo.this.toString();
+                }
+                public void testPositive() {
+                  if (Foo.this.bar != null) {
+                    // BUG: Diagnostic contains: dereferenced expression this.bar is @Nullable
+                    this.bar.toString();
+                  }
+                  if (this.bar != null) {
+                    // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable
+                    Foo.this.bar.toString();
+                  }
+                }
+              }
+              public void testUnhandled1() {
+                if (bar != null) {
+                  // This is safe but we don't currently handle it
+                  // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable
+                  Foo.this.bar.toString();
+                }
+              }
+              public void testUnhandled2() {
+                if (Foo.this.bar != null) {
+                  // This is safe but we don't currently handle it
+                  // BUG: Diagnostic contains: dereferenced expression bar is @Nullable
+                  bar.toString();
+                }
+              }
+              public void testNegative1() {
+                if (bar != null) {
+                  // This is safe and handled
+                  this.bar.toString();
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -446,33 +486,35 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import java.util.HashMap;",
-            "import java.util.Map;",
-            "public class Foo {",
-            "  private final Map<Integer, Object> map = new HashMap<>();",
-            "  private final Map<Long, Object> longMap = new HashMap<>();",
-            "  static Integer valueOf(int i) { return 0; }",
-            "  static Integer valueOf(int i, int j) { return i+j; }",
-            "  public void putThenGetIntegerValueOf() {",
-            "    map.put(Integer.valueOf(10), new Object());",
-            "    map.get(Integer.valueOf(10)).toString();",
-            "  }",
-            "  public void putThenGetLongValueOf() {",
-            "    longMap.put(Long.valueOf(10), new Object());",
-            "    longMap.get(Long.valueOf(10)).toString();",
-            "  }",
-            "  public void putThenGetFooValueOf() {",
-            "    map.put(valueOf(10), new Object());",
-            "    // Unknown valueOf method so we report a warning",
-            "    // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10)) is @Nullable",
-            "    map.get(valueOf(10)).toString();",
-            "    map.put(valueOf(10,20), new Object());",
-            "    // Unknown valueOf method so we report a warning",
-            "    // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10,20)) is @Nullable",
-            "    map.get(valueOf(10,20)).toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.HashMap;
+            import java.util.Map;
+            public class Foo {
+              private final Map<Integer, Object> map = new HashMap<>();
+              private final Map<Long, Object> longMap = new HashMap<>();
+              static Integer valueOf(int i) { return 0; }
+              static Integer valueOf(int i, int j) { return i+j; }
+              public void putThenGetIntegerValueOf() {
+                map.put(Integer.valueOf(10), new Object());
+                map.get(Integer.valueOf(10)).toString();
+              }
+              public void putThenGetLongValueOf() {
+                longMap.put(Long.valueOf(10), new Object());
+                longMap.get(Long.valueOf(10)).toString();
+              }
+              public void putThenGetFooValueOf() {
+                map.put(valueOf(10), new Object());
+                // Unknown valueOf method so we report a warning
+                // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10)) is @Nullable
+                map.get(valueOf(10)).toString();
+                map.put(valueOf(10,20), new Object());
+                // Unknown valueOf method so we report a warning
+                // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10,20)) is @Nullable
+                map.get(valueOf(10,20)).toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -481,17 +523,19 @@ public class AccessPathsTests extends NullAwayTestsBase {
     defaultCompilationHelper
         .addSourceLines(
             "Foo.java",
-            "package com.uber;",
-            "import java.util.HashMap;",
-            "import java.util.Map;",
-            "import static java.lang.Integer.valueOf;",
-            "public class Foo {",
-            "  private final Map<Integer, Object> map = new HashMap<>();",
-            "  public void putThenGet() {",
-            "    map.put(valueOf(10), new Object());",
-            "    map.get(valueOf(10)).toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.HashMap;
+            import java.util.Map;
+            import static java.lang.Integer.valueOf;
+            public class Foo {
+              private final Map<Integer, Object> map = new HashMap<>();
+              public void putThenGet() {
+                map.put(valueOf(10), new Object());
+                map.get(valueOf(10)).toString();
+              }
+            }
+            """)
         .doTest();
   }
 }

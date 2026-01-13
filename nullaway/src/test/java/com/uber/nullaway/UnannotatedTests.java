@@ -3,16 +3,79 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
 public class UnannotatedTests extends NullAwayTestsBase {
 
   @Test
   public void coreNullabilitySkipClass() {
     defaultCompilationHelper
-        .addSourceFile("testdata/Shape_Stuff.java")
-        .addSourceFile("testdata/excluded/Shape_Stuff2.java")
-        .addSourceFile("testdata/AnnotatedClass.java")
-        .addSourceFile("testdata/TestAnnot.java")
+        .addSourceLines(
+            "Shape_Stuff.java",
+            """
+            package com.uber.nullaway.testdata;
+            /** to test exclusions functionality */
+            public class Shape_Stuff {
+              static class C {
+                Object f = new Object();
+              }
+              private static void callee(Object x) {
+                x.toString();
+              }
+              // we should report no errors
+              public static Object doBadStuff() {
+                Object x = null;
+                x.toString();
+                (new C()).f = x;
+                callee(x);
+                return x;
+              }
+            }
+            """)
+        .addSourceLines(
+            "Shape_Stuff2.java",
+            """
+            package com.uber.nullaway.testdata.excluded;
+            /** to test exclusions functionality */
+            public class Shape_Stuff2 {
+              static class C {
+                Object f = new Object();
+              }
+              private static void callee(Object x) {
+                x.toString();
+              }
+              // we should report no errors
+              public static Object doBadStuff() {
+                Object x = null;
+                x.toString();
+                (new C()).f = x;
+                callee(x);
+                return x;
+              }
+            }
+            """)
+        .addSourceLines(
+            "AnnotatedClass.java",
+            """
+            package com.uber.nullaway.testdata;
+            /** Created by msridhar on 3/9/17. */
+            @TestAnnot
+            public class AnnotatedClass {
+              public static void foo() {
+                 Object x = null;
+                 x.toString();
+              }
+            }
+            """)
+        .addSourceLines(
+            "TestAnnot.java",
+            """
+            package com.uber.nullaway.testdata;
+            import static java.lang.annotation.RetentionPolicy.CLASS;
+            import java.lang.annotation.Retention;
+            @Retention(CLASS)
+            public @interface TestAnnot {
+              String TEST_STR = "test_str";
+            }
+            """)
         .doTest();
   }
 
@@ -26,15 +89,17 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.lib.MyExcluded"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "@com.uber.lib.MyExcluded",
-            "public class Test {",
-            "  static void bar() {",
-            "    // No error",
-            "    Object x = null; x.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            @com.uber.lib.MyExcluded
+            public class Test {
+              static void bar() {
+                // No error
+                Object x = null; x.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -48,36 +113,65 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:ExcludedClassAnnotations=com.uber.lib.MyExcluded"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class Test {",
-            "  @com.uber.lib.MyExcluded",
-            "  static class Inner {",
-            "    @Nullable",
-            "    static Object foo() {",
-            "      Object x = null; x.toString();",
-            "      return x;",
-            "    }",
-            "  }",
-            "  static void bar() {",
-            "    // BUG: Diagnostic contains: dereferenced expression Inner.foo()",
-            "    Inner.foo().toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @com.uber.lib.MyExcluded
+              static class Inner {
+                @Nullable
+                static Object foo() {
+                  Object x = null; x.toString();
+                  return x;
+                }
+              }
+              static void bar() {
+                // BUG: Diagnostic contains: dereferenced expression Inner.foo()
+                Inner.foo().toString();
+              }
+            }
+            """)
         .doTest();
   }
 
   @Test
   public void coreNullabilitySkipPackage() {
-    defaultCompilationHelper.addSourceFile("testdata/unannotated/UnannotatedClass.java").doTest();
+    defaultCompilationHelper
+        .addSourceLines(
+            "UnannotatedClass.java",
+            """
+            package com.uber.nullaway.testdata.unannotated;
+            import javax.annotation.Nullable;
+            public class UnannotatedClass {
+              private Object field;
+              @Nullable public Object maybeNull;
+              // should get no initialization error
+              public UnannotatedClass() {}
+              /**
+               * This is an identity method, without Nullability annotations.
+               *
+               * @param x
+               * @return
+               */
+              public static Object foo(Object x) {
+                return x;
+              }
+
+              /**
+               * This invokes foo() with null, with would not be allowed in an annotated package.
+               *
+               * @return
+               */
+              public static Object bar() {
+                return foo(null);
+              }
+            }
+            """)
+        .doTest();
   }
 
   @Test
   public void generatedAsUnannotated() {
-    String generatedAnnot =
-        (Double.parseDouble(System.getProperty("java.specification.version")) >= 11)
-            ? "@javax.annotation.processing.Generated"
-            : "@javax.annotation.Generated";
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
@@ -86,15 +180,19 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
         .addSourceLines(
             "Generated.java",
-            "package com.uber;",
-            generatedAnnot + "(\"foo\")",
-            "public class Generated { public void takeObj(Object o) {} }")
+            """
+            package com.uber;
+            @javax.annotation.processing.Generated("foo")
+            public class Generated { public void takeObj(Object o) {} }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  void foo() { (new Generated()).takeObj(null); }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              void foo() { (new Generated()).takeObj(null); }
+            }
+            """)
         .doTest();
   }
 
@@ -109,29 +207,35 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
         .addSourceLines(
             "MyGeneratedMarkerAnnotation.java",
-            "package com.uber;",
-            "import java.lang.annotation.Retention;",
-            "import java.lang.annotation.Target;",
-            "import static java.lang.annotation.ElementType.CONSTRUCTOR;",
-            "import static java.lang.annotation.ElementType.FIELD;",
-            "import static java.lang.annotation.ElementType.TYPE;",
-            "import static java.lang.annotation.ElementType.METHOD;",
-            "import static java.lang.annotation.ElementType.PACKAGE;",
-            "import static java.lang.annotation.RetentionPolicy.SOURCE;",
-            "@Retention(SOURCE)",
-            "@Target({PACKAGE, TYPE, METHOD, CONSTRUCTOR, FIELD})",
-            "public @interface MyGeneratedMarkerAnnotation {}")
+            """
+            package com.uber;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.Target;
+            import static java.lang.annotation.ElementType.CONSTRUCTOR;
+            import static java.lang.annotation.ElementType.FIELD;
+            import static java.lang.annotation.ElementType.TYPE;
+            import static java.lang.annotation.ElementType.METHOD;
+            import static java.lang.annotation.ElementType.PACKAGE;
+            import static java.lang.annotation.RetentionPolicy.SOURCE;
+            @Retention(SOURCE)
+            @Target({PACKAGE, TYPE, METHOD, CONSTRUCTOR, FIELD})
+            public @interface MyGeneratedMarkerAnnotation {}
+            """)
         .addSourceLines(
             "Generated.java",
-            "package com.uber;",
-            "@MyGeneratedMarkerAnnotation",
-            "public class Generated { public void takeObj(Object o) {} }")
+            """
+            package com.uber;
+            @MyGeneratedMarkerAnnotation
+            public class Generated { public void takeObj(Object o) {} }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  void foo() { (new Generated()).takeObj(null); }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              void foo() { (new Generated()).takeObj(null); }
+            }
+            """)
         .doTest();
   }
 
@@ -145,68 +249,84 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:UnannotatedClasses=com.uber.UnAnnot"))
         .addSourceLines(
             "UnAnnot.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "public class UnAnnot {",
-            "  @Nullable static Object retNull() { return null; }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class UnAnnot {
+              @Nullable static Object retNull() { return null; }
+            }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable static Object nullRetSameClass() { return null; }",
-            "  void test() {",
-            "    UnAnnot.retNull().toString();",
-            // make sure other classes in the package still get analyzed
-            "    Object x = nullRetSameClass();",
-            "    // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
-            "    x.hashCode();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable static Object nullRetSameClass() { return null; }
+              void test() {
+                UnAnnot.retNull().toString();
+                // make sure other classes in the package still get analyzed
+                Object x = nullRetSameClass();
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.hashCode();
+              }
+            }
+            """)
         .doTest();
   }
 
   @Test
   public void overrideFailsOnExplicitlyNullableLibraryModelParam() {
     defaultCompilationHelper
-        .addSourceLines( // Dummy android.view.GestureDetector.OnGestureListener interface
+        // Dummy android.view.GestureDetector.OnGestureListener interface
+        .addSourceLines(
             "GestureDetector.java",
-            "package android.view;",
-            "public class GestureDetector {",
-            "  public static interface OnGestureListener {",
-            // Ignore other methods for this test, to make code shorter on both files:
-            "    boolean onScroll(MotionEvent me1, MotionEvent me2, float f1, float f2);",
-            "  }",
-            "}")
-        .addSourceLines( // Dummy android.view.MotionEvent class
-            "MotionEvent.java", "package android.view;", "public class MotionEvent { }")
+            """
+            package android.view;
+            public class GestureDetector {
+              public static interface OnGestureListener {
+                // Ignore other methods for this test, to make code shorter on both files:
+                boolean onScroll(MotionEvent me1, MotionEvent me2, float f1, float f2);
+              }
+            }
+            """)
+        // Dummy android.view.MotionEvent class
+        .addSourceLines(
+            "MotionEvent.java",
+            """
+            package android.view;
+            public class MotionEvent { }
+            """)
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import android.view.GestureDetector;",
-            "import android.view.MotionEvent;",
-            "class Test implements GestureDetector.OnGestureListener {",
-            "  Test() {  }",
-            "  @Override",
-            "  // BUG: Diagnostic contains: parameter me1 is @NonNull",
-            "  public boolean onScroll(MotionEvent me1, MotionEvent me2, float f1, float f2) {",
-            "    return false; // NoOp",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import android.view.GestureDetector;
+            import android.view.MotionEvent;
+            class Test implements GestureDetector.OnGestureListener {
+              Test() {  }
+              @Override
+              // BUG: Diagnostic contains: parameter me1 is @NonNull
+              public boolean onScroll(MotionEvent me1, MotionEvent me2, float f1, float f2) {
+                return false; // NoOp
+              }
+            }
+            """)
         .addSourceLines(
             "Test2.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "import android.view.GestureDetector;",
-            "import android.view.MotionEvent;",
-            "class Test2 implements GestureDetector.OnGestureListener {",
-            "  Test2() {  }",
-            "  @Override",
-            "  public boolean onScroll(@Nullable MotionEvent me1, MotionEvent me2, float f1, float f2) {",
-            "    return false; // NoOp",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import android.view.GestureDetector;
+            import android.view.MotionEvent;
+            class Test2 implements GestureDetector.OnGestureListener {
+              Test2() {  }
+              @Override
+              public boolean onScroll(@Nullable MotionEvent me1, MotionEvent me2, float f1, float f2) {
+                return false; // NoOp
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -223,16 +343,18 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.other"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import java.util.function.Consumer;",
-            "import org.junit.Assert;",
-            "class Test {",
-            "  private void verifyCountZero() {",
-            "    verifyData((count) -> Assert.assertEquals(0, (long) count));",
-            "  }",
-            "  private void verifyData(Consumer<Long> assertFunction) {",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.function.Consumer;
+            import org.junit.Assert;
+            class Test {
+              private void verifyCountZero() {
+                verifyData((count) -> Assert.assertEquals(0, (long) count));
+              }
+              private void verifyData(Consumer<Long> assertFunction) {
+              }
+            }
+            """)
         .doTest();
   }
 }
