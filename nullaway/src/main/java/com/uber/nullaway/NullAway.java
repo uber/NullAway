@@ -2791,22 +2791,18 @@ public class NullAway extends BugChecker
    * <p>The data is extracted from a class symbol and used during NullAway analysis to verify that
    * all required fields are properly initialized.
    *
-   * <p>Components:
-   *
-   * <ul>
-   *   <li><b>classSymbol</b>: the symbol of the class being analyzed
-   *   <li><b>nonnullInstanceFields</b>: {@code @NonNull} instance fields not directly initialized
-   *       at declaration
-   *   <li><b>nonnullStaticFields</b>: {@code @NonNull} static fields not directly initialized at
-   *       declaration
-   *   <li><b>instanceInitializerBlocks</b>: instance initializer blocks, in source order
-   *   <li><b>staticInitializerBlocks</b>: static initializer blocks, in source order
-   *   <li><b>constructors</b>: constructors declared in the class
-   *   <li><b>instanceInitializerMethods</b>: non-static initializer methods, including those
-   *       annotated with {@code @Initializer} or specified via NullAway options
-   *   <li><b>staticInitializerMethods</b>: static initializer methods, including those annotated
-   *       with {@code @Initializer} or specified via NullAway options
-   * </ul>
+   * @param classSymbol the symbol of the class being analyzed
+   * @param nonnullInstanceFields {@code @NonNull} instance fields not directly initialized at
+   *     declaration
+   * @param nonnullStaticFields {@code @NonNull} static fields not directly initialized at
+   *     declaration
+   * @param instanceInitializerBlocks instance initializer blocks, in source order
+   * @param staticInitializerBlocks static initializer blocks, in source order
+   * @param constructors constructors declared in the class
+   * @param instanceInitializerMethods non-static initializer methods, including those annotated
+   *     with {@code @Initializer} or specified via NullAway options
+   * @param staticInitializerMethods static initializer methods, including those annotated with
+   *     {@code @Initializer} or specified via NullAway options
    */
   record FieldInitEntities(
       Symbol.ClassSymbol classSymbol,

@@ -34,21 +34,17 @@ import java.util.stream.Collector;
  * methods, match specific collector factory methods, and track how stream elements flow into those
  * factories.
  *
- * <p>Components:
- *
- * <ul>
- *   <li><b>collectorFactoryMethodClass</b>: fully qualified name of the class that contains the
- *       collector factory method (e.g. {@code java.util.stream.Collectors})
- *   <li><b>collectorFactoryMethodSignature</b>: signature of the factory method that creates the
- *       {@link Collector} instance passed to the collect method (e.g. {@link
- *       java.util.stream.Collectors#toMap(Function, Function)})
- *   <li><b>argsToCollectorFactoryMethod</b>: indices of arguments to the collector factory method
- *       that are lambdas or anonymous classes invoked with stream elements
- *   <li><b>innerMethodName</b>: name of the method that receives stream elements (e.g. {@code
- *       "apply"} for {@link Function}); assumed to be consistent across all such call sites
- *   <li><b>argsFromStream</b>: argument indices to which stream elements are directly passed;
- *       assumed consistent across all such methods
- * </ul>
+ * @param collectorFactoryMethodClass fully qualified name of the class that contains the collector
+ *     factory method (e.g. {@code java.util.stream.Collectors})
+ * @param collectorFactoryMethodSignature signature of the factory method that creates the {@link
+ *     Collector} instance passed to the collect method (e.g. {@link
+ *     java.util.stream.Collectors#toMap(Function, Function)})
+ * @param argsToCollectorFactoryMethod indices of arguments to the collector factory method that are
+ *     lambdas or anonymous classes invoked with stream elements
+ * @param innerMethodName name of the method that receives stream elements (e.g. {@code "apply"} for
+ *     {@link Function}); assumed to be consistent across all such call sites
+ * @param argsFromStream argument indices to which stream elements are directly passed; assumed
+ *     consistent across all such methods
  */
 public record CollectLikeMethodRecord(
     String collectorFactoryMethodClass,
