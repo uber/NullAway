@@ -4,7 +4,6 @@ check-framework = "3.53.0"
 support = "27.1.1"
 wala = "1.6.12"
 commons-cli = "1.4"
-auto-value = "1.11.1"
 auto-service = "1.1.1"
 google-java-format = "1.30.0"
 android-gradle-plugin = "8.13.0"
@@ -59,8 +58,6 @@ android-gradle-plugin = { module = "com.android.tools.build:gradle", version.ref
 gradle-maven-publish-plugin = { module = "com.vanniktech:gradle-maven-publish-plugin", version.ref = "gradle-maven-publish-plugin" }
 
 # --- APT (Annotation Processing) ---
-auto-value = { module = "com.google.auto.value:auto-value", version.ref = "auto-value" }
-auto-value-annotations = { module = "com.google.auto.value:auto-value-annotations", version.ref = "auto-value" }
 auto-service = { module = "com.google.auto.service:auto-service", version.ref = "auto-service" }
 auto-service-annotations = { module = "com.google.auto.service:auto-service-annotations", version.ref = "auto-service" }
 jakarta-inject = { module = "jakarta.inject:jakarta.inject-api", version.ref = "jakarta-inject" }
