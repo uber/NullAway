@@ -40,14 +40,10 @@ public class CreateNestedAnnotationInfoVisitor
         path.addLast(new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, idx));
         Type typeArg = typeArguments.get(idx);
         ImmutableList<TypePathEntry> typePath = getTypePath();
-        NestedAnnotationInfo nestedAnnotationInfo = null;
         if (hasNullableAnnotation(typeArg)) {
-          nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NULLABLE, typePath);
+          nestedAnnotationInfoSet.add(new NestedAnnotationInfo(Annotation.NULLABLE, getTypePath()));
         } else if (hasNonNullAnnotation(typeArg)) {
-          nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
-        }
-        if (nestedAnnotationInfo != null) {
-          nestedAnnotationInfoSet.add(nestedAnnotationInfo);
+          nestedAnnotationInfoSet.add(new NestedAnnotationInfo(Annotation.NONNULL, getTypePath())));
         }
         typeArg.accept(this, null);
         path.removeLast();
