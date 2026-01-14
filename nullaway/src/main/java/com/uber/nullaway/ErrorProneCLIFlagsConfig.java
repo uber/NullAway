@@ -190,6 +190,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
           "org.wiremock.spring.InjectWireMock",
           "org.junit.jupiter.api.io.TempDir");
 
+  static final ImmutableSet<String> DEFAULT_SUPPRESS_NAMES = ImmutableSet.of("nullness");
+
   private static final String DEFAULT_URL = "http://t.uber.com/nullaway";
 
   /**
@@ -325,7 +327,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
       throw new IllegalStateException(
           "Invalid -XepOpt:" + FL_SUPPRESS_COMMENT + " value. Comment must be single line.");
     }
-    suppressionNameAliases = getFlagStringSet(flags, FL_SUPPRESS_NAMES);
+    suppressionNameAliases = getFlagStringSet(flags, FL_SUPPRESS_NAMES, DEFAULT_SUPPRESS_NAMES);
     skippedLibraryModels = getFlagStringSet(flags, FL_SKIP_LIBRARY_MODELS);
     extraFuturesClasses = getFlagStringSet(flags, FL_EXTRA_FUTURES);
 
