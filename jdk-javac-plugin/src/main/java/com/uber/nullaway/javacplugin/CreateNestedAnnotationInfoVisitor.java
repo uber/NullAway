@@ -17,7 +17,7 @@ import org.jspecify.annotations.Nullable;
 
 @NullMarked
 public class CreateNestedAnnotationInfoVisitor
-    extends Types.DefaultTypeVisitor<Set<NestedAnnotationInfo>, @Nullable Void> {
+    extends Types.DefaultTypeVisitor<@Nullable Void, @Nullable Void> {
 
   private final ArrayDeque<TypePathEntry> path;
   private final Set<NestedAnnotationInfo> nestedAnnotationInfoSet;
@@ -31,8 +31,7 @@ public class CreateNestedAnnotationInfoVisitor
   }
 
   @Override
-  public @Nullable Set<NestedAnnotationInfo> visitClassType(
-      Type.ClassType classType, @Nullable Void unused) {
+  public @Nullable Void visitClassType(Type.ClassType classType, @Nullable Void unused) {
     // only processes type arguments
     List<Type> typeArguments = classType.getTypeArguments();
     if (!typeArguments.isEmpty()) {
@@ -44,22 +43,20 @@ public class CreateNestedAnnotationInfoVisitor
         path.removeLast();
       }
     }
-    return nestedAnnotationInfoSet;
+    return null;
   }
 
   @Override
-  public @Nullable Set<NestedAnnotationInfo> visitArrayType(
-      Type.ArrayType arrayType, @Nullable Void unused) {
+  public @Nullable Void visitArrayType(Type.ArrayType arrayType, @Nullable Void unused) {
     path.addLast(new TypePathEntry(TypePathEntry.Kind.ARRAY_ELEMENT, -1));
     addNestedAnnotationInfo(arrayType.elemtype);
     arrayType.elemtype.accept(this, null);
     path.removeLast();
-    return nestedAnnotationInfoSet;
+    return null;
   }
 
   @Override
-  public @Nullable Set<NestedAnnotationInfo> visitWildcardType(
-      Type.WildcardType wildcardTypet, @Nullable Void unused) {
+  public @Nullable Void visitWildcardType(Type.WildcardType wildcardTypet, @Nullable Void unused) {
     // Upper Bound (? extends T)
     if (wildcardTypet.getExtendsBound() != null) {
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 0));
@@ -78,11 +75,15 @@ public class CreateNestedAnnotationInfoVisitor
       path.removeLast();
     }
 
-    return nestedAnnotationInfoSet;
+    return null;
   }
 
   @Override
-  public @Nullable Set<NestedAnnotationInfo> visitType(Type type, @Nullable Void unused) {
+  public @Nullable Void visitType(Type type, @Nullable Void unused) {
+    return null;
+  }
+
+  public Set<NestedAnnotationInfo> getNestedAnnotationInfoSet() {
     return nestedAnnotationInfoSet;
   }
 
