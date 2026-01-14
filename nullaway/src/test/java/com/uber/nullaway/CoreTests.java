@@ -1321,7 +1321,7 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void wrongOverrideParamSuppressionOnLambdaUsage() {
+  public void wrongOverrideParamSuppressionOnMethodReferenceUsage() {
     defaultCompilationHelper
         .addSourceLines(
             "TestInterface.java",
@@ -1383,7 +1383,7 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void wrongOverrideParamOnLambdaUsageNoSuppression() {
+  public void wrongOverrideParamOnMethodReferenceUsageNoSuppression() {
     defaultCompilationHelper
         .addSourceLines(
             "TestInterface.java",
