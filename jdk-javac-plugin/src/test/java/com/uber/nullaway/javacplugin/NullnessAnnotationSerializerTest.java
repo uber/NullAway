@@ -319,7 +319,7 @@ public class NullnessAnnotationSerializerTest {
             "@NullMarked",
             "public class Foo {",
             "  interface Bar {}",
-            "  public void arrayType(@Nullable String[] arr) {}",
+            "  public void arrayType(String @Nullable [] arr) {}",
             "  public void wildcard(List<? super @Nullable Integer> list) {}",
             "  public <U extends @Nullable Object> void typeVariable(U u) {}",
             "  public <T extends @Nullable String & Bar> void intersection(T t) {}",
@@ -341,7 +341,7 @@ public class NullnessAnnotationSerializerTest {
                         List.of(
                             new MethodInfo(
                                 "void",
-                                "arrayType(java.lang.@org.jspecify.annotations.Nullable String[])",
+                                "arrayType(java.lang.String @org.jspecify.annotations.Nullable [])",
                                 false,
                                 false,
                                 List.of(),
@@ -403,7 +403,7 @@ public class NullnessAnnotationSerializerTest {
             "public abstract class Foo {",
             "  public abstract <E extends @Nullable Object> Collection<E> checkedCollection(Collection<E> c, Class<@NonNull E> type);",
             "  public abstract List<@Nullable String> nestedReturnType();",
-            "  public abstract void nestedParameterType(String @Nullable [] arr, List<@NonNull String>[] s);",
+            "  public abstract void nestedParameterType(@Nullable String [] arr, List<@NonNull String>[] s);",
             "  public abstract List<? extends @Nullable String> wildcardUpperBound();",
             "}")
         .doTest();
@@ -450,7 +450,7 @@ public class NullnessAnnotationSerializerTest {
                                                     TypePathEntry.Kind.TYPE_ARGUMENT, 0)))))),
                             new MethodInfo(
                                 "void",
-                                "nestedParameterType(java.lang.String @org.jspecify.annotations.Nullable [],java.util.List<java.lang.@org.jspecify.annotations.NonNull String>[])",
+                                "nestedParameterType(java.lang.@org.jspecify.annotations.Nullable String[],java.util.List<java.lang.@org.jspecify.annotations.NonNull String>[])",
                                 false,
                                 false,
                                 List.of(),

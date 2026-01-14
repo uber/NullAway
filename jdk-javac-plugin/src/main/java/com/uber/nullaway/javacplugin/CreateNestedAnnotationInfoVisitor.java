@@ -51,7 +51,7 @@ public class CreateNestedAnnotationInfoVisitor
   public @Nullable Set<NestedAnnotationInfo> visitArrayType(
       Type.ArrayType arrayType, @Nullable Void unused) {
     path.addLast(new TypePathEntry(TypePathEntry.Kind.ARRAY_ELEMENT, -1));
-    addNestedAnnotationInfo(arrayType);
+    addNestedAnnotationInfo(arrayType.elemtype);
     arrayType.elemtype.accept(this, null);
     path.removeLast();
     return nestedAnnotationInfoSet;
