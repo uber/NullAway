@@ -419,31 +419,31 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             """
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
-            import java.util.function.BiFunction;
+            import java.util.function.Function;
             @NullMarked
             class Test {
               interface Foo {
-                default String take(String s) {
-                  return s;
+                default String create() {
+                  return "hi";
                 }
-                default @Nullable String takeNullable(@Nullable String s) {
+                default @Nullable String createNullable() {
                   return null;
                 }
               }
-              private <T extends @Nullable Object> T create(BiFunction<Foo, String, T> factory) {
-                return factory.apply(new Foo() {}, "x");
+              private <T extends @Nullable Object> T create(Function<Foo, T> factory) {
+                return factory.apply(new Foo() {});
               }
-              private <T extends @Nullable Object> T createWithNullable(BiFunction<@Nullable Foo, String, T> factory) {
-                return factory.apply(null, "x");
+              private <T extends @Nullable Object> T createWithNullable(Function<@Nullable Foo, T> factory) {
+                return factory.apply(null);
               }
               void test() {
-                String s1 = create(Foo::take);
+                String s1 = create(Foo::create);
                 s1.hashCode(); // should be legal
-                String s2 = create(Foo::takeNullable);
+                String s2 = create(Foo::createNullable);
                 // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
                 s2.hashCode();
-                // BUG: Diagnostic contains:
-                String s3 = createWithNullable(Foo::take);
+                // BUG: Diagnostic contains: unbound instance method reference
+                String s3 = createWithNullable(Foo::create);
               }
             }
             """)
