@@ -25,8 +25,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
-import java.util.HashMap;
-import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -119,7 +117,7 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>()))))));
+                                Map.of()))))));
   }
 
   @Test
@@ -154,7 +152,7 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>()))))));
+                                Map.of()))))));
   }
 
   @Test
@@ -213,7 +211,7 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(new TypeParamInfo("U", List.of("@Nullable Object"))),
-                                new HashMap<>()))))));
+                                Map.of()))))));
   }
 
   @Test
@@ -250,7 +248,7 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>()))),
+                                Map.of()))),
                     new ClassInfo(
                         "AnnotatedGeneric",
                         "Foo.AnnotatedGeneric<T>",
@@ -294,21 +292,21 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(new TypeParamInfo("T", List.of("@Nullable Object"))),
-                                new HashMap<>()),
+                                Map.of()),
                             new MethodInfo(
                                 "java.lang.@org.jspecify.annotations.Nullable String",
                                 "annotatedReturnType()",
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>()),
+                                Map.of()),
                             new MethodInfo(
                                 "void",
                                 "annotatedParameter(java.lang.@org.jspecify.annotations.Nullable String)",
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>()))))));
+                                Map.of()))))));
   }
 
   @Test
@@ -347,57 +345,51 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>()),
+                                Map.of()),
                             new MethodInfo(
                                 "void",
                                 "wildcard(java.util.List<? super java.lang.@org.jspecify.annotations.Nullable Integer>)",
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>(
-                                    Map.of(
-                                        0,
-                                        new HashSet<>(
-                                            Set.of(
-                                                new NestedAnnotationInfo(
-                                                    Annotation.NULLABLE,
-                                                    ImmutableList.of(
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.TYPE_ARGUMENT, 0),
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.WILDCARD_BOUND,
-                                                            1)))))))),
+                                Map.of(
+                                    0,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.TYPE_ARGUMENT, 0),
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.WILDCARD_BOUND, 1)))))),
                             new MethodInfo(
                                 "void",
                                 "<U>typeVariable(U)",
                                 false,
                                 false,
                                 List.of(new TypeParamInfo("U", List.of("@Nullable Object"))),
-                                new HashMap<>()),
+                                Map.of()),
                             new MethodInfo(
                                 "void",
                                 "<T>intersection(T)",
                                 false,
                                 false,
                                 List.of(new TypeParamInfo("T", List.of("@Nullable String", "Bar"))),
-                                new HashMap<>()),
+                                Map.of()),
                             new MethodInfo(
                                 "void",
                                 "<T>nullableOnTypeVar(java.util.List<@org.jspecify.annotations.Nullable T>)",
                                 false,
                                 false,
                                 List.of(new TypeParamInfo("T", List.of())),
-                                new HashMap<>(
-                                    Map.of(
-                                        0,
-                                        new HashSet<>(
-                                            Set.of(
-                                                new NestedAnnotationInfo(
-                                                    Annotation.NULLABLE,
-                                                    ImmutableList.of(
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.TYPE_ARGUMENT,
-                                                            0)))))))))))));
+                                Map.of(
+                                    0,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.TYPE_ARGUMENT, 0)))))))))));
   }
 
   @Test
@@ -434,81 +426,67 @@ public class NullnessAnnotationSerializerTest {
                                 false,
                                 false,
                                 List.of(new TypeParamInfo("E", List.of("@Nullable Object"))),
-                                new HashMap<>(
-                                    Map.of(
-                                        1,
-                                        new HashSet<>(
-                                            Set.of(
-                                                new NestedAnnotationInfo(
-                                                    Annotation.NONNULL,
-                                                    ImmutableList.of(
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.TYPE_ARGUMENT,
-                                                            0)))))))),
+                                Map.of(
+                                    1,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NONNULL,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.TYPE_ARGUMENT, 0)))))),
                             new MethodInfo(
                                 "java.util.List<java.lang.@org.jspecify.annotations.Nullable String>",
                                 "nestedReturnType()",
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>(
-                                    Map.of(
-                                        -1,
-                                        new HashSet<>(
-                                            Set.of(
-                                                new NestedAnnotationInfo(
-                                                    Annotation.NULLABLE,
-                                                    ImmutableList.of(
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.TYPE_ARGUMENT,
-                                                            0)))))))),
+                                Map.of(
+                                    -1,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.TYPE_ARGUMENT, 0)))))),
                             new MethodInfo(
                                 "void",
                                 "nestedParameterType(java.lang.String @org.jspecify.annotations.Nullable [],java.util.List<java.lang.@org.jspecify.annotations.NonNull String>[])",
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>(
-                                    Map.of(
-                                        0,
-                                        new HashSet<>(
-                                            Set.of(
-                                                new NestedAnnotationInfo(
-                                                    Annotation.NULLABLE,
-                                                    ImmutableList.of(
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.ARRAY_ELEMENT,
-                                                            -1))))),
-                                        1,
-                                        new HashSet<>(
-                                            Set.of(
-                                                new NestedAnnotationInfo(
-                                                    Annotation.NONNULL,
-                                                    ImmutableList.of(
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.ARRAY_ELEMENT, -1),
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.TYPE_ARGUMENT,
-                                                            0)))))))),
+                                Map.of(
+                                    0,
+                                        Set.of(
+                                            new NestedAnnotationInfo(
+                                                Annotation.NULLABLE,
+                                                ImmutableList.of(
+                                                    new TypePathEntry(
+                                                        TypePathEntry.Kind.ARRAY_ELEMENT, -1)))),
+                                    1,
+                                        Set.of(
+                                            new NestedAnnotationInfo(
+                                                Annotation.NONNULL,
+                                                ImmutableList.of(
+                                                    new TypePathEntry(
+                                                        TypePathEntry.Kind.ARRAY_ELEMENT, -1),
+                                                    new TypePathEntry(
+                                                        TypePathEntry.Kind.TYPE_ARGUMENT, 0)))))),
                             new MethodInfo(
                                 "java.util.List<? extends java.lang.@org.jspecify.annotations.Nullable String>",
                                 "wildcardUpperBound()",
                                 false,
                                 false,
                                 List.of(),
-                                new HashMap<>(
-                                    Map.of(
-                                        -1,
-                                        new HashSet<>(
-                                            Set.of(
-                                                new NestedAnnotationInfo(
-                                                    Annotation.NULLABLE,
-                                                    ImmutableList.of(
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.TYPE_ARGUMENT, 0),
-                                                        new TypePathEntry(
-                                                            TypePathEntry.Kind.WILDCARD_BOUND,
-                                                            0)))))))))))));
+                                Map.of(
+                                    -1,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.TYPE_ARGUMENT, 0),
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.WILDCARD_BOUND, 0)))))))))));
   }
 
   private Map<String, List<ClassInfo>> getParsedJSON() {

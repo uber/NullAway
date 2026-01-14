@@ -39,12 +39,7 @@ public class CreateNestedAnnotationInfoVisitor
       for (int idx = 0; idx < typeArguments.size(); idx++) {
         path.addLast(new TypePathEntry(TypePathEntry.Kind.TYPE_ARGUMENT, idx));
         Type typeArg = typeArguments.get(idx);
-        ImmutableList<TypePathEntry> typePath = getTypePath();
-        if (hasNullableAnnotation(typeArg)) {
-          nestedAnnotationInfoSet.add(new NestedAnnotationInfo(Annotation.NULLABLE, getTypePath()));
-        } else if (hasNonNullAnnotation(typeArg)) {
-          nestedAnnotationInfoSet.add(new NestedAnnotationInfo(Annotation.NONNULL, getTypePath())));
-        }
+        addNestedAnnotationInfo(typeArg);
         typeArg.accept(this, null);
         path.removeLast();
       }
@@ -54,59 +49,32 @@ public class CreateNestedAnnotationInfoVisitor
 
   @Override
   public @Nullable Set<NestedAnnotationInfo> visitArrayType(
-      Type.ArrayType t, @Nullable Void unused) {
+      Type.ArrayType arrayType, @Nullable Void unused) {
     path.addLast(new TypePathEntry(TypePathEntry.Kind.ARRAY_ELEMENT, -1));
-    ImmutableList<TypePathEntry> typePath = getTypePath();
-    NestedAnnotationInfo nestedAnnotationInfo = null;
-    if (hasNullableAnnotation(t)) {
-      nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NULLABLE, typePath);
-    } else if (hasNonNullAnnotation(t)) {
-      nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
-    }
-    if (nestedAnnotationInfo != null) {
-      nestedAnnotationInfoSet.add(nestedAnnotationInfo);
-    }
-    t.elemtype.accept(this, null);
+    addNestedAnnotationInfo(arrayType);
+    arrayType.elemtype.accept(this, null);
     path.removeLast();
     return nestedAnnotationInfoSet;
   }
 
   @Override
   public @Nullable Set<NestedAnnotationInfo> visitWildcardType(
-      Type.WildcardType t, @Nullable Void unused) {
+      Type.WildcardType wildcardTypet, @Nullable Void unused) {
     // Upper Bound (? extends T)
-    if (t.getExtendsBound() != null) {
-      NestedAnnotationInfo nestedAnnotationInfo = null;
+    if (wildcardTypet.getExtendsBound() != null) {
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 0));
-      ImmutableList<TypePathEntry> typePath = getTypePath();
-      Type upperBound = t.getExtendsBound();
-      if (hasNullableAnnotation(upperBound)) {
-        nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NULLABLE, typePath);
-      } else if (hasNonNullAnnotation(upperBound)) {
-        nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
-      }
-      if (nestedAnnotationInfo != null) {
-        nestedAnnotationInfoSet.add(nestedAnnotationInfo);
-      }
-      t.getExtendsBound().accept(this, null);
+      Type upperBound = wildcardTypet.getExtendsBound();
+      addNestedAnnotationInfo(upperBound);
+      wildcardTypet.getExtendsBound().accept(this, null);
       path.removeLast();
     }
 
     // Lower Bound (? super T)
-    if (t.getSuperBound() != null) {
-      NestedAnnotationInfo nestedAnnotationInfo = null;
+    if (wildcardTypet.getSuperBound() != null) {
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 1));
-      ImmutableList<TypePathEntry> typePath = getTypePath();
-      Type lowerBound = t.getSuperBound();
-      if (hasNullableAnnotation(lowerBound)) {
-        nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NULLABLE, typePath);
-      } else if (hasNonNullAnnotation(lowerBound)) {
-        nestedAnnotationInfo = new NestedAnnotationInfo(Annotation.NONNULL, typePath);
-      }
-      if (nestedAnnotationInfo != null) {
-        nestedAnnotationInfoSet.add(nestedAnnotationInfo);
-      }
-      t.getSuperBound().accept(this, null);
+      Type lowerBound = wildcardTypet.getSuperBound();
+      addNestedAnnotationInfo(lowerBound);
+      wildcardTypet.getSuperBound().accept(this, null);
       path.removeLast();
     }
 
@@ -114,8 +82,16 @@ public class CreateNestedAnnotationInfoVisitor
   }
 
   @Override
-  public @Nullable Set<NestedAnnotationInfo> visitType(Type t, @Nullable Void unused) {
+  public @Nullable Set<NestedAnnotationInfo> visitType(Type type, @Nullable Void unused) {
     return nestedAnnotationInfoSet;
+  }
+
+  private void addNestedAnnotationInfo(Type type) {
+    if (hasNullableAnnotation(type)) {
+      nestedAnnotationInfoSet.add(new NestedAnnotationInfo(Annotation.NULLABLE, getTypePath()));
+    } else if (hasNonNullAnnotation(type)) {
+      nestedAnnotationInfoSet.add(new NestedAnnotationInfo(Annotation.NONNULL, getTypePath()));
+    }
   }
 
   private static boolean hasAnnotation(TypeMirror type, String qname) {
