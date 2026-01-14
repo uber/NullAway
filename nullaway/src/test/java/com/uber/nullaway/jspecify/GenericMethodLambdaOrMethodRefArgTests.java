@@ -433,12 +433,17 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               private <T extends @Nullable Object> T create(BiFunction<Foo, String, T> factory) {
                 return factory.apply(new Foo() {}, "x");
               }
+              private <T extends @Nullable Object> T createWithNullable(BiFunction<@Nullable Foo, String, T> factory) {
+                return factory.apply(null, "x");
+              }
               void test() {
                 String s1 = create(Foo::take);
                 s1.hashCode(); // should be legal
                 String s2 = create(Foo::takeNullable);
                 // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
                 s2.hashCode();
+                // BUG: Diagnostic contains:
+                String s3 = createWithNullable(Foo::take);
               }
             }
             """)
