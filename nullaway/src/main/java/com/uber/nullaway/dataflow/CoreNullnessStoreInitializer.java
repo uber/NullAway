@@ -122,7 +122,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
      * inferred type for the lambda argument will have already been computed and stored.
      */
     Type lambdaType = castToNonNull(ASTHelpers.getType(code));
-    Type inferredType = genericsChecks.getInferredLambdaType(code);
+    Type inferredType = genericsChecks.getInferredPolyExpressionType(code);
     if (inferredType != null) {
       lambdaType = inferredType;
     }
