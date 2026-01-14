@@ -209,7 +209,8 @@ public class SuppressionTests extends NullAwayTestsBase {
                 return 0;
               }
               public void doTest() {
-                int res = bar(Object param) -> {});
+                // BUG: Diagnostic contains: parameter param is @NonNull, but parameter in functional interface method
+                int res = bar((Object param) -> {});
               }
             }
             """)
