@@ -15,6 +15,22 @@ import javax.lang.model.type.TypeMirror;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
 
+/**
+ * Visitor that traverses a {@link Type} structure to discover and record nested JSpecify
+ * annotations.
+ *
+ * <p>This visitor records annotations that occur on:
+ *
+ * <ul>
+ *   <li>Type arguments of parameterized types (e.g. {@code List<@Nullable String>})
+ *   <li>Array element types (e.g. {@code @Nullable String[]})
+ *   <li>Wildcard bounds (e.g. {@code ? extends @Nullable T}, {@code ? super @NonNull T})
+ * </ul>
+ *
+ * <p>After the visitor has completed traversal, callers should invoke {@link
+ * #getNestedAnnotationInfoSet()} to retrieve the set of collected {@link NestedAnnotationInfo}
+ * instances.
+ */
 @NullMarked
 public class CreateNestedAnnotationInfoVisitor
     extends Types.DefaultTypeVisitor<@Nullable Void, @Nullable Void> {
