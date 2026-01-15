@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
@@ -54,7 +55,8 @@ public class NullnessAnnotationSerializer implements Plugin {
       String name,
       boolean nullMarked,
       boolean nullUnmarked,
-      List<TypeParamInfo> typeParams) {}
+      List<TypeParamInfo> typeParams,
+      Map<Integer, Set<NestedAnnotationInfo>> nestedAnnotationsList) {}
 
   public record ClassInfo(
       String name,
@@ -153,22 +155,35 @@ public class NullnessAnnotationSerializer implements Plugin {
                     return super.visitMethod(methodTree, null);
                   }
                   boolean methodHasAnnotations = false;
+                  Map<Integer, Set<NestedAnnotationInfo>> nestedAnnotationsMap = new HashMap<>();
                   String returnType = "";
                   if (methodTree.getReturnType() != null) {
                     returnType += mSym.getReturnType().toString();
                     if (hasJSpecifyAnnotationDeep(mSym.getReturnType())) {
                       methodHasAnnotations = true;
+                      CreateNestedAnnotationInfoVisitor visitor =
+                          new CreateNestedAnnotationInfoVisitor();
+                      mSym.getReturnType().accept(visitor, null);
+                      Set<NestedAnnotationInfo> nested = visitor.getNestedAnnotationInfoSet();
+                      if (!nested.isEmpty()) {
+                        nestedAnnotationsMap.put(-1, nested);
+                      }
                     }
                   }
                   boolean hasNullMarked = hasAnnotation(mSym, NULLMARKED_NAME);
                   boolean hasNullUnmarked = hasAnnotation(mSym, NULLUNMARKED_NAME);
                   methodHasAnnotations = methodHasAnnotations || hasNullMarked || hasNullUnmarked;
                   // check each parameter annotations
-                  if (!methodHasAnnotations) {
-                    for (Symbol.VarSymbol vSym : mSym.getParameters()) {
-                      if (hasJSpecifyAnnotationDeep(vSym.asType())) {
-                        methodHasAnnotations = true;
-                        break;
+                  for (int idx = 0; idx < mSym.getParameters().size(); idx++) {
+                    Symbol.VarSymbol vSym = mSym.getParameters().get(idx);
+                    if (hasJSpecifyAnnotationDeep(vSym.asType())) {
+                      methodHasAnnotations = true;
+                      CreateNestedAnnotationInfoVisitor visitor =
+                          new CreateNestedAnnotationInfoVisitor();
+                      vSym.asType().accept(visitor, null);
+                      Set<NestedAnnotationInfo> nested = visitor.getNestedAnnotationInfoSet();
+                      if (!nested.isEmpty()) {
+                        nestedAnnotationsMap.put(idx, nested);
                       }
                     }
                   }
@@ -185,7 +200,8 @@ public class NullnessAnnotationSerializer implements Plugin {
                           mSym.toString(),
                           hasNullMarked,
                           hasNullUnmarked,
-                          methodTypeParams);
+                          methodTypeParams,
+                          nestedAnnotationsMap);
                   // only add this method if it uses JSpecify annotations
                   if (currentClass != null && methodHasAnnotations) {
                     currentClass.methods().add(methodInfo);
