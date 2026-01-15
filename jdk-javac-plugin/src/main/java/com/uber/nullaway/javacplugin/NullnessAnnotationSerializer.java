@@ -182,7 +182,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                           new CreateNestedAnnotationInfoVisitor();
                       vSym.asType().accept(visitor, null);
                       Set<NestedAnnotationInfo> nested = visitor.getNestedAnnotationInfoSet();
-                      if (nested != null && !nested.isEmpty()) {
+                      if (!nested.isEmpty()) {
                         nestedAnnotationsMap.put(idx, nested);
                       }
                     }
