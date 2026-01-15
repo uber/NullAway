@@ -297,17 +297,17 @@ public class CoreTests extends NullAwayTestsBase {
              HIGH, MEDIUM, LOW }
             class TestPositive {
                void foo(@Nullable Integer s) {
-                // BUG: Diagnostic contains: switch expression s is @Nullable
+                // BUG: Diagnostic contains: switch selector expression s is @Nullable
                 switch(s) {
                   case 5: break;
                 }
                 String x = null;
-                // BUG: Diagnostic contains: switch expression x is @Nullable
+                // BUG: Diagnostic contains: switch selector expression x is @Nullable
                 switch(x) {
                   default: break;
                 }
                 Level level = null;
-                // BUG: Diagnostic contains: switch expression level is @Nullable
+                // BUG: Diagnostic contains: switch selector expression level is @Nullable
                 switch (level) {
                   default: break; }
                 }
