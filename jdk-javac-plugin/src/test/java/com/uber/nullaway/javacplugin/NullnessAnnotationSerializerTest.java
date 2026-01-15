@@ -405,6 +405,7 @@ public class NullnessAnnotationSerializerTest {
             "  public abstract List<@Nullable String> nestedReturnType();",
             "  public abstract void nestedParameterType(@Nullable String [] arr, List<@NonNull String>[] s);",
             "  public abstract List<? extends @Nullable String> wildcardUpperBound();",
+            "  public abstract List<List<String @Nullable []>> nestedArrayType();",
             "}")
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
@@ -486,7 +487,23 @@ public class NullnessAnnotationSerializerTest {
                                                 new TypePathEntry(
                                                     TypePathEntry.Kind.TYPE_ARGUMENT, 0),
                                                 new TypePathEntry(
-                                                    TypePathEntry.Kind.WILDCARD_BOUND, 0)))))))))));
+                                                    TypePathEntry.Kind.WILDCARD_BOUND, 0)))))),
+                            new MethodInfo(
+                                "java.util.List<java.util.List<java.lang.String @org.jspecify.annotations.Nullable []>>",
+                                "nestedArrayType()",
+                                false,
+                                false,
+                                List.of(),
+                                Map.of(
+                                    -1,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.TYPE_ARGUMENT, 0),
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.TYPE_ARGUMENT, 0)))))))))));
   }
 
   private Map<String, List<ClassInfo>> getParsedJSON() {
