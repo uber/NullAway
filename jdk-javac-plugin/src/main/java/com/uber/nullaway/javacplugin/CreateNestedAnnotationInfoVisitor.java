@@ -78,7 +78,7 @@ public class CreateNestedAnnotationInfoVisitor
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 0));
       Type upperBound = wildcardTypet.getExtendsBound();
       addNestedAnnotationInfo(upperBound);
-      wildcardTypet.getExtendsBound().accept(this, null);
+      upperBound.accept(this, null);
       path.removeLast();
     }
 
