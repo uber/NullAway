@@ -845,10 +845,6 @@ public final class GenericsChecks {
       ExpressionTree rhsExpr,
       Type lhsType) {
     rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
-    if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
-      handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
-      return;
-    }
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isGenericCallNeedingInference(rhsExpr)) {
@@ -857,7 +853,11 @@ public final class GenericsChecks {
       allInvocations.add(invTree);
       generateConstraintsForCall(
           state, path, lhsType, false, solver, symbol, invTree, allInvocations);
-    } else if (!(rhsExpr instanceof LambdaExpressionTree lambda)) {
+    } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
+      handleLambdaInGenericMethodInference(state, path, solver, allInvocations, lhsType, lambda);
+    } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
+      handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
+    } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
@@ -865,8 +865,6 @@ public final class GenericsChecks {
       }
       argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, path);
       solver.addSubtypeConstraint(argumentType, lhsType, false);
-    } else {
-      handleLambdaInGenericMethodInference(state, path, solver, allInvocations, lhsType, lambda);
     }
   }
 
