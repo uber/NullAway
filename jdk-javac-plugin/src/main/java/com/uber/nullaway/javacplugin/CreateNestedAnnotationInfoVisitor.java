@@ -72,20 +72,20 @@ public class CreateNestedAnnotationInfoVisitor
   }
 
   @Override
-  public @Nullable Void visitWildcardType(Type.WildcardType wildcardTypet, @Nullable Void unused) {
+  public @Nullable Void visitWildcardType(Type.WildcardType wildcardType, @Nullable Void unused) {
     // Upper Bound (? extends T)
-    if (wildcardTypet.getExtendsBound() != null) {
+    if (wildcardType.getExtendsBound() != null) {
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 0));
-      Type upperBound = wildcardTypet.getExtendsBound();
+      Type upperBound = wildcardType.getExtendsBound();
       addNestedAnnotationInfo(upperBound);
       upperBound.accept(this, null);
       path.removeLast();
     }
 
     // Lower Bound (? super T)
-    if (wildcardTypet.getSuperBound() != null) {
+    if (wildcardType.getSuperBound() != null) {
       path.addLast(new TypePathEntry(TypePathEntry.Kind.WILDCARD_BOUND, 1));
-      Type lowerBound = wildcardTypet.getSuperBound();
+      Type lowerBound = wildcardType.getSuperBound();
       addNestedAnnotationInfo(lowerBound);
       lowerBound.accept(this, null);
       path.removeLast();
