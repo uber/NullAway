@@ -947,6 +947,8 @@ public final class GenericsChecks {
     if (referencedMethod == null || referencedMethod.isConstructor()) {
       return;
     }
+    // get the referenced method type as a member of the qualifier type, this is for bound method
+    // references
     Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
     if (qualifierType == null || qualifierType.isRaw()) {
       return;
