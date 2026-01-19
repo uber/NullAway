@@ -497,7 +497,46 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // TODO more tests for: static method references, constructor references
+  @Test
+  public void inferFromStaticMethodRefParam() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Util {
+                static void take(String thing) {
+                }
+                static <U extends @Nullable Object> void takeGeneric(U thing) {
+                }
+              }
+              static class Box<T extends @Nullable Object> {
+                static <U extends @Nullable Object> void takeGeneric(U thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String sNonNull, @Nullable String sNullable) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable); // illegal
+                consume(Util::takeGeneric, sNonNull); // should be legal
+                consume(Util::takeGeneric, sNullable); // should also be legal
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  //  consume(Box::<String>takeGeneric, sNonNull); // should be legal
+  //  consume(Box::<String>takeGeneric, sNullable); // should be illegal
 
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
