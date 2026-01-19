@@ -524,21 +524,22 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consumer.accept(value);
               }
               void testConsume(String sNonNull, @Nullable String sNullable) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable); // illegal
+                consume(Util::takeGeneric, sNonNull); // should be legal
                 consume(Util::takeGeneric, sNullable); // should also be legal
+                consume(Box::<String>takeGeneric, sNonNull); // should be legal
+                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter
+                consume(Box::<String>takeGeneric, sNullable); // should be illegal
               }
             }
             """)
         .doTest();
   }
 
-  //  consume(Util::take, sNonNull); // should be legal
-  //  // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is
-  // required
-  //  consume(Util::take, sNullable); // illegal
-  //  consume(Util::takeGeneric, sNonNull); // should be legal
-
-  //  consume(Box::<String>takeGeneric, sNonNull); // should be legal
-  //  consume(Box::<String>takeGeneric, sNullable); // should be illegal
+  // TODO test references to generic instance methods, explicit type arguments for generic calls
+  //  taking method ref as argument
 
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
