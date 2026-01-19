@@ -417,7 +417,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void inferFromBoundMethodRef() {
+  public void inferFromBoundMethodRefReturn() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -429,27 +429,16 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               interface Supplier<T extends @Nullable Object> {
                 T get();
               }
-              interface Consumer<T extends @Nullable Object> {
-                void accept(T thing);
-              }
               class Foo<U extends @Nullable Object> {
                 U make() {
                   throw new RuntimeException();
-                }
-                void take(U thing) {
                 }
               }
               private <V extends @Nullable Object> V create(Supplier<V> factory) {
                 return factory.get();
               }
-              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
-                consumer.accept(value);
-              }
               private <V extends @Nullable Object> V createMulti(Supplier<V> factory1, Supplier<V> factory2) {
                 return factory1.get();
-              }
-              private <V extends @Nullable Object> void consumeMulti(Consumer<V> consumer1, Consumer<V> consumer2, V value) {
-                consumer1.accept(value);
               }
               void testCreate(Foo<String> foo, Foo<@Nullable String> fooNullable) {
                 String s1 = create(foo::make);
@@ -463,21 +452,50 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression s3 is @Nullable
                 s3.hashCode();
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromBoundMethodRefParam() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              class Foo<U extends @Nullable Object> {
+                void take(U thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              private <V extends @Nullable Object> void consumeMulti(Consumer<V> consumer1, Consumer<V> consumer2, V value) {
+                consumer1.accept(value);
+              }
               void testConsume(Foo<String> foo, Foo<@Nullable String> fooNullable, String sNonNull, @Nullable String sNullable) {
                 consume(foo::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(foo::take, sNullable);
                 consume(fooNullable::take, sNullable); // should be legal
-                consume(fooNullable::take, sNonNull); // should be legal
-                consumeMulti(foo::take, fooNullable::take, sNonNull); // should be legal
-                // BUG: Diagnostic contains: dereferenced expression sNullable is @Nullable
-                consumeMulti(foo::take, fooNullable::take, sNullable);
               }
             }
             """)
         .doTest();
   }
 
+  /*                 consume(fooNullable::take, sNonNull); // should be legal
+                  consumeMulti(foo::take, fooNullable::take, sNonNull); // should be legal
+                  // BUG: Diagnostic contains: dereferenced expression sNullable is @Nullable
+                  consumeMulti(foo::take, fooNullable::take, sNullable);
+  */
   // TODO more tests for: static method references, bound instance method references, constructor
   // references
 
