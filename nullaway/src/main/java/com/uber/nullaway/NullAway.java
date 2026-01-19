@@ -985,14 +985,21 @@ public class NullAway extends BugChecker
     if (!config.isJSpecifyMode() || overridingMethod == null) {
       return null;
     }
-    Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
-    if (qualifierType == null || qualifierType.isRaw()) {
-      return null;
+    Type.MethodType result = overridingMethod.asType().asMethodType();
+    if (!overridingMethod.isStatic()) {
+      Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      if (qualifierType != null && !qualifierType.isRaw()) {
+        result =
+            TypeSubstitutionUtils.memberType(
+                    state.getTypes(), qualifierType, overridingMethod, config)
+                .asMethodType();
+      }
     }
-    Type.MethodType methodTypeAsMember =
-        TypeSubstitutionUtils.memberType(state.getTypes(), qualifierType, overridingMethod, config)
-            .asMethodType();
-    return handler.onOverrideMethodType(overridingMethod, methodTypeAsMember, state);
+    if (overridingMethod.asType() instanceof Type.ForAll) {
+      // generic method; we need to substitute inferred nullability for type arguments if it exists
+      result = genericsChecks.getInferredMethodTypeForGenericMethodReference(result, state);
+    }
+    return handler.onOverrideMethodType(overridingMethod, result, state);
   }
 
   static Trees getTreesInstance(VisitorState state) {

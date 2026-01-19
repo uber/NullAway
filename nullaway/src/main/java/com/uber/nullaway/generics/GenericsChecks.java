@@ -1427,6 +1427,33 @@ public final class GenericsChecks {
   }
 
   /**
+   * For a generic method reference, if it is being called in a context that requires type argument
+   * nullability inference, return the method type with inferred nullability for type parameters.
+   * Otherwise, return the original method type.
+   *
+   * @param methodType the original method type
+   * @param state the visitor state (generic method reference should be leaf of {@code
+   *     state.getPath()})
+   * @return the method type with inferred nullability for type parameters if inference was
+   *     performed, or the original method type otherwise
+   */
+  public Type.MethodType getInferredMethodTypeForGenericMethodReference(
+      Type.MethodType methodType, VisitorState state) {
+    // TODO multiple levels of parents?
+    Tree parentTree = state.getPath().getParentPath().getLeaf();
+    if (parentTree instanceof MethodInvocationTree methodInvocationTree
+        && isGenericCallNeedingInference(methodInvocationTree)) {
+      MethodInferenceResult inferenceResult =
+          inferredTypeVarNullabilityForGenericCalls.get(methodInvocationTree);
+      if (inferenceResult instanceof InferenceSuccess successResult) {
+        return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
+            methodType, methodType, successResult.typeVarNullability, state, config);
+      }
+    }
+    return methodType;
+  }
+
+  /**
    * Checks that type parameter nullability is consistent between an overriding method and the
    * corresponding overridden method.
    *

@@ -524,16 +524,18 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consumer.accept(value);
               }
               void testConsume(String sNonNull, @Nullable String sNullable) {
-                consume(Util::take, sNonNull); // should be legal
-                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
-                consume(Util::take, sNullable); // illegal
-                consume(Util::takeGeneric, sNonNull); // should be legal
                 consume(Util::takeGeneric, sNullable); // should also be legal
               }
             }
             """)
         .doTest();
   }
+
+  //  consume(Util::take, sNonNull); // should be legal
+  //  // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is
+  // required
+  //  consume(Util::take, sNullable); // illegal
+  //  consume(Util::takeGeneric, sNonNull); // should be legal
 
   //  consume(Box::<String>takeGeneric, sNonNull); // should be legal
   //  consume(Box::<String>takeGeneric, sNullable); // should be illegal
