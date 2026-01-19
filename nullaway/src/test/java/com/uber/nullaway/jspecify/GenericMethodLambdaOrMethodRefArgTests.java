@@ -378,41 +378,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void inferFromMethodRef() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            import java.util.function.Function;
-            @NullMarked
-            class Test {
-              interface Foo {
-                default String get() {
-                  throw new RuntimeException();
-                }
-                default @Nullable String getNullable() {
-                  return null;
-                }
-              }
-              private <T extends @Nullable Object> T create(Function<Foo, T> factory) {
-                return factory.apply(new Foo() {});
-              }
-              void test() {
-                String s1 = create(Foo::get);
-                s1.hashCode(); // should be legal
-                String s2 = create(Foo::getNullable);
-                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
-                s2.hashCode();
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void inferFromUnboundMethodRefWithParams() {
+  public void inferFromUnboundMethodRef() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -444,6 +410,68 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 s2.hashCode();
                 // BUG: Diagnostic contains: unbound instance method reference
                 String s3 = createWithNullable(Foo::create);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromBoundMethodRef() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Supplier<T extends @Nullable Object> {
+                T get();
+              }
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              class Foo<U extends @Nullable Object> {
+                U make() {
+                  throw new RuntimeException();
+                }
+                void take(U thing) {
+                }
+              }
+              private <V extends @Nullable Object> V create(Supplier<V> factory) {
+                return factory.get();
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              private <V extends @Nullable Object> V createMulti(Supplier<V> factory1, Supplier<V> factory2) {
+                return factory1.get();
+              }
+              private <V extends @Nullable Object> void consumeMulti(Consumer<V> consumer1, Consumer<V> consumer2, V value) {
+                consumer1.accept(value);
+              }
+              void testCreate(Foo<String> foo, Foo<@Nullable String> fooNullable) {
+                String s1 = create(foo::make);
+                s1.hashCode(); // should be legal
+                String s2 = create(fooNullable::make);
+                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                s2.hashCode();
+                // this is ok; we can infer V -> @Nullable String; foo::make returns a @NonNull String,
+                // which is compatible
+                String s3 = createMulti(foo::make, fooNullable::make);
+                // BUG: Diagnostic contains: dereferenced expression s3 is @Nullable
+                s3.hashCode();
+              }
+              void testConsume(Foo<String> foo, Foo<@Nullable String> fooNullable, String sNonNull, @Nullable String sNullable) {
+                consume(foo::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(foo::take, sNullable);
+                consume(fooNullable::take, sNullable); // should be legal
+                consume(fooNullable::take, sNonNull); // should be legal
+                consumeMulti(foo::take, fooNullable::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: dereferenced expression sNullable is @Nullable
+                consumeMulti(foo::take, fooNullable::take, sNullable);
               }
             }
             """)
