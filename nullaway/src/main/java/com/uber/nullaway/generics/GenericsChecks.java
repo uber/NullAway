@@ -1988,6 +1988,23 @@ public final class GenericsChecks {
   }
 
   /**
+   * Gets the nullness of a method parameter from a precomputed method type.
+   *
+   * @param parameterIndex index of the parameter
+   * @param method the method symbol
+   * @param methodType the method type as seen in the relevant enclosing type
+   * @return nullness of the relevant parameter type of {@code method} in the context of {@code
+   *     methodType}
+   */
+  public Nullness getGenericMethodParameterNullness(
+      int parameterIndex, Symbol.MethodSymbol method, Type.MethodType methodType) {
+    boolean isVarargsParam =
+        method.isVarArgs() && parameterIndex == method.getParameters().size() - 1;
+    Type paramType = methodType.getParameterTypes().get(parameterIndex);
+    return getParameterTypeNullness(paramType, isVarargsParam);
+  }
+
+  /**
    * This method compares the type parameter annotations for overriding method parameters with
    * corresponding type parameters for the overridden method and reports an error if they don't
    * match

@@ -98,6 +98,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
@@ -808,6 +809,11 @@ public class NullAway extends BugChecker
         (overridingMethod != null
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
+    Type.MethodType methodReferenceMethodType = null;
+    if (memberReferenceTree != null) {
+      methodReferenceMethodType =
+          getMemberReferenceMethodTypeAsMember(memberReferenceTree, overridingMethod, state);
+    }
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
     // null, parameter i is treated as unannotated.
@@ -897,6 +903,10 @@ public class NullAway extends BugChecker
       }
       int methodParamInd = i - startParam;
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
+      boolean paramIsNonNull =
+          paramIsNonNull(paramSymbol, isOverridingMethodAnnotated)
+              && !memberReferenceParamIsNullable(
+                  methodReferenceMethodType, overridingMethod, methodParamInd);
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
       // nullability from the corresponding functional interface method.
@@ -906,7 +916,7 @@ public class NullAway extends BugChecker
           lambdaExpressionTree != null
               && NullabilityUtil.lambdaParamIsImplicitlyTyped(
                   lambdaExpressionTree.getParameters().get(methodParamInd));
-      if (!implicitlyTypedLambdaParam && paramIsNonNull(paramSymbol, isOverridingMethodAnnotated)) {
+      if (!implicitlyTypedLambdaParam && paramIsNonNull) {
         String message =
             "parameter "
                 + paramSymbol.name.toString()
@@ -953,6 +963,36 @@ public class NullAway extends BugChecker
       return Nullness.hasNonNullAnnotation(paramSymbol, config);
     }
     return false;
+  }
+
+  private boolean memberReferenceParamIsNullable(
+      Type.@Nullable MethodType overridingMethodTypeAsMember,
+      Symbol.@Nullable MethodSymbol overridingMethod,
+      int paramIndex) {
+    if (overridingMethodTypeAsMember == null || overridingMethod == null) {
+      return false;
+    }
+    return genericsChecks
+        .getGenericMethodParameterNullness(
+            paramIndex, overridingMethod, overridingMethodTypeAsMember)
+        .equals(Nullness.NULLABLE);
+  }
+
+  private Type.@Nullable MethodType getMemberReferenceMethodTypeAsMember(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.@Nullable MethodSymbol overridingMethod,
+      VisitorState state) {
+    if (!config.isJSpecifyMode() || overridingMethod == null) {
+      return null;
+    }
+    Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+    if (qualifierType == null || qualifierType.isRaw()) {
+      return null;
+    }
+    Type.MethodType methodTypeAsMember =
+        TypeSubstitutionUtils.memberType(state.getTypes(), qualifierType, overridingMethod, config)
+            .asMethodType();
+    return handler.onOverrideMethodType(overridingMethod, methodTypeAsMember, state);
   }
 
   static Trees getTreesInstance(VisitorState state) {
