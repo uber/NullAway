@@ -485,19 +485,19 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(foo::take, sNullable);
                 consume(fooNullable::take, sNullable); // should be legal
+                consume(fooNullable::take, sNonNull); // should be legal
+                // this is ok; we can infer V -> @NonNull String; foo::take takes a @Nullable String,
+                // which is compatible
+                consumeMulti(foo::take, fooNullable::take, sNonNull);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consumeMulti(foo::take, fooNullable::take, sNullable);
               }
             }
             """)
         .doTest();
   }
 
-  /*                 consume(fooNullable::take, sNonNull); // should be legal
-                  consumeMulti(foo::take, fooNullable::take, sNonNull); // should be legal
-                  // BUG: Diagnostic contains: dereferenced expression sNullable is @Nullable
-                  consumeMulti(foo::take, fooNullable::take, sNullable);
-  */
-  // TODO more tests for: static method references, bound instance method references, constructor
-  // references
+  // TODO more tests for: static method references, constructor references
 
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
