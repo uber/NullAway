@@ -5,45 +5,45 @@ Version 0.13.0
 --------------
 
 NullAway now requires a minimum of JDK 17 and Error Prone 2.36.0 to run; we bump the version to 0.13.0 to reflect these
-updated requirements.  There are also many improvements to JSpecify mode support, and many nice changes and improvements
-from first-time contributors.
+updated requirements.  There are also many improvements to JSpecify mode support, and several nice changes and
+improvements from first-time contributors.
 
-* Support added for JUnit's @TempDir by @romainmoreau in https://github.com/uber/NullAway/pull/1387
-* Use OptimizedLibraryModels for method type variable upper bounds by @msridhar in https://github.com/uber/NullAway/pull/1388
-* Add @InjectWireMock as known excluded field annotation by @msridhar in https://github.com/uber/NullAway/pull/1391
-* Require JDK 17 to run NullAway by @msridhar in https://github.com/uber/NullAway/pull/1394
-* Support adding nested nullability annotations in library models by @msridhar in https://github.com/uber/NullAway/pull/1407
-* Add library model for AtomicReferenceFieldUpdater by @msridhar in https://github.com/uber/NullAway/pull/1409
-* Correctly get parameter types for a lambda whose type was inferred by @msridhar in https://github.com/uber/NullAway/pull/1348
-* Add Mockito annotations to default excluded field annotations by @murdos in https://github.com/uber/NullAway/pull/1418
-* Properly identify annotations directly on the array element type of a Symbol by @msridhar in https://github.com/uber/NullAway/pull/1419
-* Update to Checker Framework 3.53.0 by @msridhar in https://github.com/uber/NullAway/pull/1429
-* JSpecify: Apply annotations on type variables to lambdas in more cases by @msridhar in https://github.com/uber/NullAway/pull/1428
-* Migrate AutoValue to  Records by @rishikraj990 in https://github.com/uber/NullAway/pull/1415
-* Bump minimum Error Prone version to 2.36.0, and add detection of nullable dereference by switch expressions by @msridhar in https://github.com/uber/NullAway/pull/1427
-* JSpecify: Improve handling of method references by @msridhar in https://github.com/uber/NullAway/pull/1430
-* Allow suppressing nullaway on individual parameters by @jackwickham in https://github.com/uber/NullAway/pull/1436
-* Update jdk-javac-plugin to contain nested annotations by @haewiful in https://github.com/uber/NullAway/pull/1432
+* Support added for JUnit's @TempDir by @romainmoreau (#1387)
+* Use OptimizedLibraryModels for method type variable upper bounds (#1388)
+* Add @InjectWireMock as known excluded field annotation (#1391)
+* Require JDK 17 to run NullAway (#1394)
+* Support adding nested nullability annotations in library models (#1407)
+* Add library model for AtomicReferenceFieldUpdater (#1409)
+* Correctly get parameter types for a lambda whose type was inferred (#1348)
+* Add Mockito annotations to default excluded field annotations by @murdos (#1418)
+* Properly identify annotations directly on the array element type of a Symbol (#1419)
+* Update to Checker Framework 3.53.0 (#1429)
+* JSpecify: Apply annotations on type variables to lambdas in more cases (#1428)
+* Migrate AutoValue to  Records by @rishikraj990 (#1415)
+* Bump minimum Error Prone version to 2.36.0, and add detection of nullable dereference by switch expressions (#1427)
+* JSpecify: Improve handling of method references (#1430)
+* Allow suppressing nullaway on individual parameters by @jackwickham (#1436)
+* Update jdk-javac-plugin to contain nested annotations by @haewiful (#1432)
 * Maintenance
-  * Delete code to generate library models from source by @msridhar in https://github.com/uber/NullAway/pull/1385
-  * Refactor: Migration to Version Catalog completed by @vitinh0z in https://github.com/uber/NullAway/pull/1386
-  * Bump Gradle to 9.2.1 by @msridhar in https://github.com/uber/NullAway/pull/1392
-  * Update to Error Prone 2.45.0 by @msridhar in https://github.com/uber/NullAway/pull/1401
-  * Stop matching switch expression kind using strings by @msridhar in https://github.com/uber/NullAway/pull/1404
-  * Refactoring: clarify docs and naming for RestoreNullnessAnnotationsVisitor by @msridhar in https://github.com/uber/NullAway/pull/1406
-  * Refactoring: rename method and field by @msridhar in https://github.com/uber/NullAway/pull/1405
-  * Run NullAway on jdk-javac-plugin code by @msridhar in https://github.com/uber/NullAway/pull/1408
-  * Clarify comment in test by @msridhar in https://github.com/uber/NullAway/pull/1411
-  * Enable PatternMatchingInstanceOf check and fix all warnings by @msridhar in https://github.com/uber/NullAway/pull/1412
-  * Enable StatementSwitchToExpressionSwitch check and fix all warnings by @msridhar in https://github.com/uber/NullAway/pull/1413
-  * bump and remove some dependencies by @msridhar in https://github.com/uber/NullAway/pull/1414
-  * Update minimum supported Error Prone version to 2.25.0 by @msridhar in https://github.com/uber/NullAway/pull/1421
-  * Update CI to run builds on JDK 25 by @msridhar in https://github.com/uber/NullAway/pull/1422
-  * Various cleanups suggested by IntelliJ by @msridhar in https://github.com/uber/NullAway/pull/1423
-  * Convert test data in main NullAway tests to use text blocks by @msridhar in https://github.com/uber/NullAway/pull/1424
-  * Refactor CoreTests and UnannotatedTests to use addSourceLines and inline test data by @cobayo in https://github.com/uber/NullAway/pull/1426
-  * Refactor ContractsTests to use Java text blocks by @cobayo in https://github.com/uber/NullAway/pull/1435
-  * Update Error Prone and errorprone-plugin versions by @msridhar in https://github.com/uber/NullAway/pull/1434
+  - Delete code to generate library models from source (#1385)
+  - Refactor: Migration to Version Catalog completed by @vitinh0z (#1386)
+  - Bump Gradle to 9.2.1 (#1392)
+  - Update to Error Prone 2.45.0 (#1401)
+  - Stop matching switch expression kind using strings (#1404)
+  - Refactoring: clarify docs and naming for RestoreNullnessAnnotationsVisitor (#1406)
+  - Refactoring: rename method and field (#1405)
+  - Run NullAway on jdk-javac-plugin code (#1408)
+  - Clarify comment in test (#1411)
+  - Enable PatternMatchingInstanceOf check and fix all warnings (#1412)
+  - Enable StatementSwitchToExpressionSwitch check and fix all warnings (#1413)
+  - bump and remove some dependencies (#1414)
+  - Update minimum supported Error Prone version to 2.25.0 (#1421)
+  - Update CI to run builds on JDK 25 (#1422)
+  - Various cleanups suggested by IntelliJ (#1423)
+  - Convert test data in main NullAway tests to use text blocks (#1424)
+  - Refactor CoreTests and UnannotatedTests to use addSourceLines and inline test data by @cobayo (#1426)
+  - Refactor ContractsTests to use Java text blocks by @cobayo (#1435)
+  - Update Error Prone and errorprone-plugin versions (#1434)
 
 Version 0.12.15
 ---------------
