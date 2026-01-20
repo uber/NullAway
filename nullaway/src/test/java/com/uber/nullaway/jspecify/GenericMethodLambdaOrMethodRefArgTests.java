@@ -530,7 +530,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::takeGeneric, sNonNull); // should be legal
                 consume(Util::takeGeneric, sNullable); // should also be legal
                 consume(Box::<String>takeGeneric, sNonNull); // should be legal
-                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Box::<String>takeGeneric, sNullable);
               }
             }

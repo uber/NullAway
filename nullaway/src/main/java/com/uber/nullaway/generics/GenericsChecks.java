@@ -937,12 +937,8 @@ public final class GenericsChecks {
       return;
     }
     Types types = state.getTypes();
-    Symbol.MethodSymbol fiMethod =
-        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
-    Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(types, lhsType, fiMethod, config).asMethodType();
-    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
 
+    // first, figure out the proper method type to use for the member reference
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     if (referencedMethod == null || referencedMethod.isConstructor()) {
       return;
@@ -950,33 +946,52 @@ public final class GenericsChecks {
     Type.MethodType referencedMethodType = referencedMethod.asType().asMethodType();
     Type qualifierType = null;
     if (!referencedMethod.isStatic()) {
-      // get the referenced method type as a member of the qualifier type
+      // get the referenced method type as a member of the type of the qualifier expression
       qualifierType = getTreeType(memberReferenceTree.getQualifierExpression(), state);
-      if (qualifierType == null || qualifierType.isRaw()) {
-        return;
+      if (qualifierType != null && !qualifierType.isRaw()) {
+        referencedMethodType =
+            TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
+                .asMethodType();
       }
+    }
+    // substitute any explicit type arguments from the member reference
+    List<? extends ExpressionTree> typeArgumentTrees = memberReferenceTree.getTypeArguments();
+    if (typeArgumentTrees != null && !typeArgumentTrees.isEmpty()) {
       referencedMethodType =
-          TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
+          TypeSubstitutionUtils.subst(
+                  state.getTypes(),
+                  referencedMethodType,
+                  ((Type.ForAll) referencedMethod.asType()).tvars,
+                  convertTreesToTypes(typeArgumentTrees),
+                  config)
               .asMethodType();
     }
-
+    // allow for handler overrides
     referencedMethodType =
         handler.onOverrideMethodType(referencedMethod, referencedMethodType, state);
+
+    // now, get the type of the corresponding functional interface method, as a member of lhsType
+    Symbol.MethodSymbol fiMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
+    Type.MethodType fiMethodTypeAsMember =
+        TypeSubstitutionUtils.memberType(types, lhsType, fiMethod, config).asMethodType();
+
+    // constrain returns: method reference return type <: functional interface return type
+    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
     if (fiReturnType.getKind() != TypeKind.VOID
         && referencedReturnType.getKind() != TypeKind.VOID) {
       solver.addSubtypeConstraint(referencedReturnType, fiReturnType, false);
     }
 
-    boolean isUnboundMethodRef = false;
-    if (memberReferenceTree instanceof JCTree.JCMemberReference jcMemberReference) {
-      isUnboundMethodRef = jcMemberReference.kind.isUnbound();
-    }
+    // constrain parameters:
+    //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
+    //  aligned appropriately in the case of unbound method references
     com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
     com.sun.tools.javac.util.List<Type> referencedParamTypes =
         referencedMethodType.getParameterTypes();
     int fiStartIndex = 0;
-    if (isUnboundMethodRef) {
+    if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
       Verify.verify(
           !fiParamTypes.isEmpty(),
           "Expected receiver parameter for unbound method ref %s",
