@@ -526,20 +526,52 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               void testConsume(String sNonNull, @Nullable String sNullable) {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
-                consume(Util::take, sNullable); // illegal
+                consume(Util::take, sNullable);
                 consume(Util::takeGeneric, sNonNull); // should be legal
                 consume(Util::takeGeneric, sNullable); // should also be legal
                 consume(Box::<String>takeGeneric, sNonNull); // should be legal
                 // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter
-                consume(Box::<String>takeGeneric, sNullable); // should be illegal
+                consume(Box::<String>takeGeneric, sNullable);
               }
             }
             """)
         .doTest();
   }
 
-  // TODO test references to generic instance methods, explicit type arguments for generic calls
-  //  taking method ref as argument
+  @Test
+  public void inferFromGenericInstanceMethodRef() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+                    import org.jspecify.annotations.NullMarked;
+                    import org.jspecify.annotations.Nullable;
+                    @NullMarked
+                    class Test {
+                      interface Consumer<T extends @Nullable Object> {
+                        void accept(T thing);
+                      }
+                      static class Box<T extends @Nullable Object> {
+                        <U extends @Nullable Object> void takeGeneric(U thing) {}
+                      }
+                      private static <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                        consumer.accept(value);
+                      }
+                      void testConsume(Box<Integer> box, String sNonNull, @Nullable String sNullable) {
+                        consume(box::takeGeneric, sNonNull); // should be legal
+                        consume(box::takeGeneric, sNullable); // should be legal also
+                      }
+                      void testConsumeExplicitTypeArgs(Box<Integer> box, String sNonNull, @Nullable String sNullable) {
+                        Test.<String>consume(box::takeGeneric, sNonNull); // should be legal
+                        // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                        Test.<String>consume(box::takeGeneric, sNullable);
+                        // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
+                        Test.<@Nullable String>consume(box::<String>takeGeneric, sNullable);
+                      }
+                    }
+                    """)
+        .doTest();
+  }
 
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
