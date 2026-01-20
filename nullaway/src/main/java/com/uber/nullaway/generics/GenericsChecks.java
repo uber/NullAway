@@ -947,18 +947,22 @@ public final class GenericsChecks {
     if (referencedMethod == null || referencedMethod.isConstructor()) {
       return;
     }
-    // get the referenced method type as a member of the qualifier type, this is for bound method
-    // references
-    Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
-    if (qualifierType == null || qualifierType.isRaw()) {
-      return;
+    Type.MethodType referencedMethodType = referencedMethod.asType().asMethodType();
+    Type qualifierType = null;
+    if (!referencedMethod.isStatic()) {
+      // get the referenced method type as a member of the qualifier type
+      qualifierType = getTreeType(memberReferenceTree.getQualifierExpression(), state);
+      if (qualifierType == null || qualifierType.isRaw()) {
+        return;
+      }
+      referencedMethodType =
+          TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
+              .asMethodType();
     }
-    Type.MethodType referencedMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
-            .asMethodType();
-    referencedMethodTypeAsMember =
-        handler.onOverrideMethodType(referencedMethod, referencedMethodTypeAsMember, state);
-    Type referencedReturnType = referencedMethodTypeAsMember.getReturnType();
+
+    referencedMethodType =
+        handler.onOverrideMethodType(referencedMethod, referencedMethodType, state);
+    Type referencedReturnType = referencedMethodType.getReturnType();
     if (fiReturnType.getKind() != TypeKind.VOID
         && referencedReturnType.getKind() != TypeKind.VOID) {
       solver.addSubtypeConstraint(referencedReturnType, fiReturnType, false);
@@ -970,17 +974,19 @@ public final class GenericsChecks {
     }
     com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
     com.sun.tools.javac.util.List<Type> referencedParamTypes =
-        referencedMethodTypeAsMember.getParameterTypes();
+        referencedMethodType.getParameterTypes();
     int fiStartIndex = 0;
     if (isUnboundMethodRef) {
-      if (fiParamTypes.isEmpty()) {
-        return;
-      }
+      Verify.verify(
+          !fiParamTypes.isEmpty(),
+          "Expected receiver parameter for unbound method ref %s",
+          memberReferenceTree);
       Type receiverType = fiParamTypes.get(0);
-      solver.addSubtypeConstraint(receiverType, qualifierType, false);
+      solver.addSubtypeConstraint(receiverType, castToNonNull(qualifierType), false);
       fiStartIndex = 1;
     }
     if (fiParamTypes.size() - fiStartIndex != referencedParamTypes.size()) {
+      // TODO handle references to varargs methods
       return;
     }
     for (int i = 0; i < referencedParamTypes.size(); i++) {
