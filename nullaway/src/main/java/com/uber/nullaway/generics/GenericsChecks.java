@@ -948,7 +948,7 @@ public final class GenericsChecks {
     if (!referencedMethod.isStatic()) {
       // get the referenced method type as a member of the type of the qualifier expression
       qualifierType = getTreeType(memberReferenceTree.getQualifierExpression(), state);
-      if (qualifierType != null && !qualifierType.isRaw()) {
+      if (qualifierType != null) {
         referencedMethodType =
             TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
                 .asMethodType();
@@ -996,8 +996,10 @@ public final class GenericsChecks {
           !fiParamTypes.isEmpty(),
           "Expected receiver parameter for unbound method ref %s",
           memberReferenceTree);
-      Type receiverType = fiParamTypes.get(0);
-      solver.addSubtypeConstraint(receiverType, castToNonNull(qualifierType), false);
+      if (qualifierType != null) {
+        Type receiverType = fiParamTypes.get(0);
+        solver.addSubtypeConstraint(receiverType, qualifierType, false);
+      }
       fiStartIndex = 1;
     }
     if (fiParamTypes.size() - fiStartIndex != referencedParamTypes.size()) {

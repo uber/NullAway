@@ -573,6 +573,30 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void mapStream() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.stream.Collectors;
+            @NullMarked
+            class Test {
+              static Map<String,String> test(Map<String,String> map) {
+                return map.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            Map.Entry::getValue));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
