@@ -1,5 +1,7 @@
 package com.uber.nullaway;
 
+import static com.uber.nullaway.generics.JSpecifyJavacConfig.withJSpecifyModeArgs;
+
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -733,12 +735,12 @@ public class ContractsTests extends NullAwayTestsBase {
   @Test
   public void checkNotNullToNotNullContract() {
     makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XepOpt:NullAway:CheckContracts=true"))
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
         .addSourceLines(
             "Test.java",
             """
@@ -785,12 +787,12 @@ public class ContractsTests extends NullAwayTestsBase {
   @Test
   public void checkNotNullToNotNullContractMultiLevel() {
     makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XepOpt:NullAway:CheckContracts=true"))
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
         .addSourceLines(
             "Test.java",
             """
@@ -822,12 +824,12 @@ public class ContractsTests extends NullAwayTestsBase {
   @Test
   public void checkNotNullToNotNullContractSilly() {
     makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:JSpecifyMode=true",
-                "-XepOpt:NullAway:CheckContracts=true"))
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
         .addSourceLines(
             "Test.java",
             """
