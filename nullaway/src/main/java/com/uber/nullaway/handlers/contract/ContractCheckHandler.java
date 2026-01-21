@@ -28,6 +28,7 @@ import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
@@ -140,14 +141,17 @@ public class ContractCheckHandler implements Handler {
         public @Nullable Void visitReturn(ReturnTree returnTree, @Nullable Void unused) {
 
           VisitorState returnState = state.withPath(getCurrentPath());
+          ExpressionTree returnExpression = returnTree.getExpression();
+          TreePath returnExpressionPath = new TreePath(returnState.getPath(), returnExpression);
           Nullness nullness =
               analysis
                   .getNullnessAnalysis(returnState)
-                  .getNullnessForContractDataflow(
-                      new TreePath(returnState.getPath(), returnTree.getExpression()),
-                      returnState.context);
+                  .getNullnessForContractDataflow(returnExpressionPath, returnState.context);
 
           if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
+
+            // TODO if any part of the nullness store before the return expression is BOTTOM, the
+            //  path is infeasible, and we don't need to warn
 
             String errorMessage;
 
