@@ -748,9 +748,113 @@ public class ContractsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
                 @Contract("!null -> !null")
-                public static @Nullable Integer of(@Nullable String text) {
+                public static @Nullable Integer testNegative1(@Nullable String text) {
                     if (text != null) {
                         return Integer.parseInt(text);
+                    } else {
+                        return null;
+                    }
+                }
+                @Contract("!null -> !null")
+                public static @Nullable Integer testPositive(@Nullable String text) {
+                    if (text == null) {
+                        return Integer.parseInt(text);
+                    } else {
+                        // BUG: Diagnostic contains: Method testPositive has @Contract(!null -> !null), but this appears
+                        return null;
+                    }
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String testNegative2(@Nullable String value) {
+                    if (value == null) return null;
+                    return value;
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String testPositive2(@Nullable String value) {
+                    if (value != null) {
+                        // BUG: Diagnostic contains: Method testPositive2 has @Contract(!null -> !null), but this appears
+                        return null;
+                    }
+                    return value;
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkNotNullToNotNullContractMultiLevel() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable String id(@Nullable String s) { return s; }
+                @Contract("!null -> !null")
+                public static @Nullable String wrapper(@Nullable String s) {
+                    return id(s);
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String wrapper2(@Nullable String s) {
+                    String result = id(s);
+                    if (result != null) {
+                        return result + "wrapped";
+                    }
+                    return null;
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  /** unrealistic cases where we should still be able to verify a contract */
+  @Test
+  public void checkNotNullToNotNullContractSilly() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable String silly1(@Nullable String s) {
+                    if (s != null) {
+                        if (s == null) {
+                            return null;
+                        }
+                        return s;
+                    } else {
+                        return null;
+                    }
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String silly2(@Nullable String s) {
+                    // we can verify this method since we check for BOTTOM anywhere in the store,
+                    // including for x
+                    Object x = new Object();
+                    if (x == null) return null;
+                    if (s != null) {
+                        return s;
                     } else {
                         return null;
                     }

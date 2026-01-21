@@ -38,6 +38,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.util.Set;
@@ -143,15 +144,18 @@ public class ContractCheckHandler implements Handler {
           VisitorState returnState = state.withPath(getCurrentPath());
           ExpressionTree returnExpression = returnTree.getExpression();
           TreePath returnExpressionPath = new TreePath(returnState.getPath(), returnExpression);
+          AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(returnState);
           Nullness nullness =
-              analysis
-                  .getNullnessAnalysis(returnState)
-                  .getNullnessForContractDataflow(returnExpressionPath, returnState.context);
+              nullnessAnalysis.getNullnessForContractDataflow(
+                  returnExpressionPath, returnState.context);
 
           if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
 
-            // TODO if any part of the nullness store before the return expression is BOTTOM, the
-            //  path is infeasible, and we don't need to warn
+            if (nullnessAnalysis.hasBottomAccessPathForContractDataflow(
+                returnExpressionPath, returnState.context)) {
+              // if any access path is mapped to bottom, the return statement is unreachable
+              return null;
+            }
 
             String errorMessage;
 
