@@ -756,11 +756,11 @@ public class ContractsTests extends NullAwayTestsBase {
                     }
                 }
                 @Contract("!null -> !null")
-                public static @Nullable Integer testPositive(@Nullable String text) {
+                public static @Nullable Integer testPositive1(@Nullable String text) {
                     if (text == null) {
                         return Integer.parseInt(text);
                     } else {
-                        // BUG: Diagnostic contains: Method testPositive has @Contract(!null -> !null), but this appears
+                        // BUG: Diagnostic contains: Method testPositive1 has @Contract(!null -> !null), but this appears
                         return null;
                     }
                 }
