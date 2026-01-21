@@ -760,7 +760,7 @@ public class ContractsTests extends NullAwayTestsBase {
                 @Contract("!null -> !null")
                 public static @Nullable Integer testPositive1(@Nullable String text) {
                     if (text == null) {
-                        return Integer.parseInt(text);
+                        return Integer.valueOf(0);
                     } else {
                         // BUG: Diagnostic contains: Method testPositive1 has @Contract(!null -> !null), but this appears
                         return null;
