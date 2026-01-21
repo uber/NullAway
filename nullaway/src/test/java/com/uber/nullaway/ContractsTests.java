@@ -865,4 +865,30 @@ public class ContractsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void checkDontCrashOnVoidReturn() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static void foo(@Nullable String s) {
+                    return;
+                }
+            }
+            """)
+        .doTest();
+  }
 }
