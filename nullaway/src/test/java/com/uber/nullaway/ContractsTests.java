@@ -891,4 +891,43 @@ public class ContractsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void checkReturnTernary() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable String ternary(@Nullable String s) {
+                    return s == null ? null : s;
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String ternaryWithParens(@Nullable String s) {
+                    return (s == null ? null : ((s + "")));
+                }
+                @Contract("!null, _ -> !null")
+                public static @Nullable String nestedTernary(@Nullable String s, boolean b) {
+                    return (s != null ? (b ? s : "hi") : null);
+                }
+                @Contract("!null, _ -> !null")
+                public static @Nullable String nestedTernaryPositive(@Nullable String s, boolean b) {
+                    // Bug: Diagnostic contains: Method nestedTernaryPositive has @Contract(!null, _ -> !null), but
+                    return (s != null ? (b ? s : null) : null);
+                }
+            }
+            """)
+        .doTest();
+  }
 }
