@@ -28,8 +28,10 @@ import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
@@ -41,6 +43,8 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
@@ -150,18 +154,26 @@ public class ContractCheckHandler implements Handler {
           }
           TreePath returnExpressionPath = new TreePath(returnState.getPath(), returnExpression);
           AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(returnState);
-          Nullness nullness =
-              nullnessAnalysis.getNullnessForContractDataflow(
-                  returnExpressionPath, returnState.context);
+          List<TreePath> returnExpressionPaths = new ArrayList<>();
+          collectReturnExpressionPaths(returnExpressionPath, returnExpressionPaths);
 
-          if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
-
-            if (nullnessAnalysis.hasBottomAccessPathForContractDataflow(
-                returnExpressionPath, returnState.context)) {
-              // if any access path is mapped to bottom, the return statement is unreachable
-              return null;
+          boolean contractViolated = false;
+          for (TreePath expressionPath : returnExpressionPaths) {
+            Nullness nullness =
+                nullnessAnalysis.getNullnessForContractDataflow(
+                    expressionPath, returnState.context);
+            if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
+              if (nullnessAnalysis.hasBottomAccessPathForContractDataflow(
+                  expressionPath, returnState.context)) {
+                // if any access path is mapped to bottom, this branch is unreachable
+                continue;
+              }
+              contractViolated = true;
+              break;
             }
+          }
 
+          if (contractViolated) {
             String errorMessage;
 
             // used for error message
@@ -178,7 +190,6 @@ public class ContractCheckHandler implements Handler {
             }
 
             if (nonNullAntecedentCount == 1) {
-
               errorMessage =
                   "Method "
                       + callee.name
@@ -212,5 +223,23 @@ public class ContractCheckHandler implements Handler {
         }
       }.scan(state.getPath(), null);
     }
+  }
+
+  private static void collectReturnExpressionPaths(TreePath expressionPath, List<TreePath> output) {
+    ExpressionTree expression = (ExpressionTree) expressionPath.getLeaf();
+    while (expression instanceof ParenthesizedTree) {
+      ExpressionTree nestedExpression = ((ParenthesizedTree) expression).getExpression();
+      expressionPath = new TreePath(expressionPath, nestedExpression);
+      expression = nestedExpression;
+    }
+    if (expression instanceof ConditionalExpressionTree) {
+      ConditionalExpressionTree conditionalExpression = (ConditionalExpressionTree) expression;
+      TreePath truePath = new TreePath(expressionPath, conditionalExpression.getTrueExpression());
+      TreePath falsePath = new TreePath(expressionPath, conditionalExpression.getFalseExpression());
+      collectReturnExpressionPaths(truePath, output);
+      collectReturnExpressionPaths(falsePath, output);
+      return;
+    }
+    output.add(expressionPath);
   }
 }

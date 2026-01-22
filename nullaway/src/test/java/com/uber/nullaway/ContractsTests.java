@@ -923,7 +923,7 @@ public class ContractsTests extends NullAwayTestsBase {
                 }
                 @Contract("!null, _ -> !null")
                 public static @Nullable String nestedTernaryPositive(@Nullable String s, boolean b) {
-                    // Bug: Diagnostic contains: Method nestedTernaryPositive has @Contract(!null, _ -> !null), but
+                    // BUG: Diagnostic contains: Method nestedTernaryPositive has @Contract(!null, _ -> !null), but
                     return (s != null ? (b ? s : null) : null);
                 }
             }
