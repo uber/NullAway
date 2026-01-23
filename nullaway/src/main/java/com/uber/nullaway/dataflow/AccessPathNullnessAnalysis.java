@@ -145,6 +145,23 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Check if any access path in the store before an expression maps to {@link Nullness#BOTTOM} in
+   * contract dataflow.
+   *
+   * @param exprPath tree path of expression
+   * @param context Javac context
+   * @return true if any access path has {@link Nullness#BOTTOM} before the expression
+   */
+  public boolean hasBottomAccessPathForContractDataflow(TreePath exprPath, Context context) {
+    NullnessStore store =
+        dataFlow.resultBeforeExpr(exprPath, context, castToNonNull(contractNullnessPropagation));
+    if (store == null) {
+      return false;
+    }
+    return !store.getAccessPathsWithValue(Nullness.BOTTOM).isEmpty();
+  }
+
+  /**
    * Get the fields that are guaranteed to be nonnull after a method or initializer block.
    *
    * @param path tree path of method, or initializer block
