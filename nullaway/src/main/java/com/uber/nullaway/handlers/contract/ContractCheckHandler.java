@@ -28,8 +28,10 @@ import static com.uber.nullaway.handlers.contract.ContractUtils.getConsequent;
 import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
@@ -142,6 +144,20 @@ public class ContractCheckHandler implements Handler {
 
       // we scan the method tree for the return nodes and check the contract
       new TreePathScanner<@Nullable Void, @Nullable Void>() {
+
+        @Override
+        public @Nullable Void visitLambdaExpression(
+            LambdaExpressionTree node, @Nullable Void unused) {
+          // do not scan into lambdas
+          return null;
+        }
+
+        @Override
+        public @Nullable Void visitClass(ClassTree node, @Nullable Void unused) {
+          // do not scan into local/anonymous classes
+          return null;
+        }
+
         @Override
         public @Nullable Void visitReturn(ReturnTree returnTree, @Nullable Void unused) {
 

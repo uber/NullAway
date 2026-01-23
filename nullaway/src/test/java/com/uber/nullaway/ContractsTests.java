@@ -930,4 +930,40 @@ public class ContractsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void checkReturnNestedLambdaOrAnonymousClass() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable Function<Integer,Integer> lambda(@Nullable String s) {
+                    return s == null ? null : (i -> { return i + 1; });
+                }
+                @Contract("!null -> !null")
+                public static @Nullable Function<Integer,Integer> anonymousClass(@Nullable String s) {
+                    return s == null ? null : new Function<Integer,Integer>() {
+                        @Override
+                        public Integer apply(Integer i) {
+                            return i + 1;
+                        }
+                    };
+                }
+            }
+            """)
+        .doTest();
+  }
 }
