@@ -163,8 +163,7 @@ public class ContractCheckHandler implements Handler {
 
           ExpressionTree returnExpression = returnTree.getExpression();
           if (returnExpression == null) {
-            // this should only be possible with an invalid @Contract on a void-returning method;
-            // report an error on that in the future?
+            // this should only be possible with an invalid @Contract on a void-returning method
             return null;
           }
           TreePath returnExpressionPath = new TreePath(getCurrentPath(), returnExpression);
