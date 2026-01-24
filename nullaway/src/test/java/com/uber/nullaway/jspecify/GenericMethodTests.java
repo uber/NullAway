@@ -1,5 +1,7 @@
 package com.uber.nullaway.jspecify;
 
+import static com.uber.nullaway.generics.JSpecifyJavacConfig.withJSpecifyModeArgs;
+
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
@@ -1493,6 +1495,43 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     void test(String s1, String s2, List<Object> l) {
                         visitEnum(s1, s2, l::add);
                     }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1444() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.stream.Stream;
+            @NullMarked
+            public class Test {
+                static class DefaultConfiguration {
+                    final @Nullable Stream<? extends String> children;
+
+                    DefaultConfiguration(Stream<? extends String> children) {
+                        this.children = children;
+                    }
+                }
+                final Stream<? extends String> children;
+                Test(DefaultConfiguration configuration) {
+                    this.children = notNull(configuration.children, "children must not be null");
+                }
+                public static <T> T notNull(@Nullable T object, String message) {
+                    throw new RuntimeException("todo");
+                }
             }
             """)
         .doTest();
