@@ -1,7 +1,5 @@
 package com.uber.nullaway.jspecify;
 
-import static com.uber.nullaway.generics.JSpecifyJavacConfig.withJSpecifyModeArgs;
-
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
@@ -1502,13 +1500,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void issue1444() {
-    makeTestHelperWithArgs(
-            withJSpecifyModeArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:OnlyNullMarked=true",
-                    "-XepOpt:NullAway:CheckContracts=true")))
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
