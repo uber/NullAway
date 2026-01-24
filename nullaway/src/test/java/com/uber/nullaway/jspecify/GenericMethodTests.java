@@ -425,7 +425,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 static class Bar<T extends @Nullable Object> {}
                 abstract <U> Bar<U> make(Bar<U> other);
                 void test(Bar<Bar<String>> other) {
-                    // BUG: Diagnostic contains: incompatible types: Bar<Bar<String>> cannot be converted to Bar<Bar<@Nullable String>>
+                    // BUG: Diagnostic contains: incompatible types: Bar<@NonNull Bar<String>> cannot be converted to Bar<Bar<@Nullable String>>
                     Bar<Bar<@Nullable String>> unused = make(other);
                 }
             }
