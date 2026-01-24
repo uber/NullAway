@@ -1512,7 +1512,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             """
-            import org.jetbrains.annotations.Contract;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             import java.util.stream.Stream;
