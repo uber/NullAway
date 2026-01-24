@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotsOnTypeVarsFromSubtypes;
+import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
@@ -234,7 +235,7 @@ public class TypeSubstitutionUtils {
         inferredTypes.append(
             typeWithAnnot(
                 tv,
-                entry.getValue() == ConstraintSolver.InferredNullability.NULLABLE
+                entry.getValue() == NULLABLE
                     ? GenericsChecks.getSyntheticNullableAnnotType(state)
                     : GenericsChecks.getSyntheticNonNullAnnotType(state)));
       }
