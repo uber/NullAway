@@ -224,18 +224,20 @@ public class TypeSubstitutionUtils {
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
     for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
         typeVarNullability.entrySet()) {
-      if (entry.getValue() == NULLABLE) {
-        // find all TypeVars occurring in targetType with the same symbol and substitute for those.
-        // we can have multiple such TypeVars due to previous substitutions that modified the type
-        // in some way, e.g., by changing its bounds
-        Element symbol = entry.getKey();
-        TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
-        targetType.accept(tvc, null);
-        for (Type.TypeVar tv : tvc.getMatches()) {
-          typeVars.append(tv);
-          inferredTypes.append(
-              typeWithAnnot(tv, GenericsChecks.getSyntheticNullableAnnotType(state)));
-        }
+      // find all TypeVars occurring in targetType with the same symbol and substitute for those.
+      // we can have multiple such TypeVars due to previous substitutions that modified the type
+      // in some way, e.g., by changing its bounds
+      Element symbol = entry.getKey();
+      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
+      targetType.accept(tvc, null);
+      for (Type.TypeVar tv : tvc.getMatches()) {
+        typeVars.append(tv);
+        inferredTypes.append(
+            typeWithAnnot(
+                tv,
+                entry.getValue() == NULLABLE
+                    ? GenericsChecks.getSyntheticNullableAnnotType(state)
+                    : GenericsChecks.getSyntheticNonNullAnnotType(state)));
       }
     }
     List<Type> typeVarsToReplace = typeVars.toList();
