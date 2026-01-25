@@ -1,5 +1,7 @@
 package com.uber.nullaway;
 
+import static com.uber.nullaway.generics.JSpecifyJavacConfig.withJSpecifyModeArgs;
+
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -725,6 +727,241 @@ public class ContractsTests extends NullAwayTestsBase {
                   ? required.toString()
                   : required.toString();
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkNotNullToNotNullContract() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable Integer testNegative1(@Nullable String text) {
+                    if (text != null) {
+                        return Integer.parseInt(text);
+                    } else {
+                        return null;
+                    }
+                }
+                @Contract("!null -> !null")
+                public static @Nullable Integer testPositive1(@Nullable String text) {
+                    if (text == null) {
+                        return Integer.valueOf(0);
+                    } else {
+                        // BUG: Diagnostic contains: Method testPositive1 has @Contract(!null -> !null), but this appears
+                        return null;
+                    }
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String testNegative2(@Nullable String value) {
+                    if (value == null) return null;
+                    return value;
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String testPositive2(@Nullable String value) {
+                    if (value != null) {
+                        // BUG: Diagnostic contains: Method testPositive2 has @Contract(!null -> !null), but this appears
+                        return null;
+                    }
+                    return value;
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkNotNullToNotNullContractMultiLevel() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable String id(@Nullable String s) { return s; }
+                @Contract("!null -> !null")
+                public static @Nullable String wrapper(@Nullable String s) {
+                    return id(s);
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String wrapper2(@Nullable String s) {
+                    String result = id(s);
+                    if (result != null) {
+                        return result + "wrapped";
+                    }
+                    return null;
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  /** unrealistic cases where we should still be able to verify a contract */
+  @Test
+  public void checkNotNullToNotNullContractSilly() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable String silly1(@Nullable String s) {
+                    if (s != null) {
+                        if (s == null) {
+                            return null;
+                        }
+                        return s;
+                    } else {
+                        return null;
+                    }
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String silly2(@Nullable String s) {
+                    // we can verify this method since we check for BOTTOM anywhere in the store,
+                    // including for x
+                    Object x = new Object();
+                    if (x == null) return null;
+                    if (s != null) {
+                        return s;
+                    } else {
+                        return null;
+                    }
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkDontCrashOnVoidReturn() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static void foo(@Nullable String s) {
+                    return;
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkReturnTernary() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable String ternary(@Nullable String s) {
+                    return s == null ? null : s;
+                }
+                @Contract("!null -> !null")
+                public static @Nullable String ternaryWithParens(@Nullable String s) {
+                    return (s == null ? null : ((s + "")));
+                }
+                @Contract("!null, _ -> !null")
+                public static @Nullable String nestedTernary(@Nullable String s, boolean b) {
+                    return (s != null ? (b ? s : "hi") : null);
+                }
+                @Contract("!null, _ -> !null")
+                public static @Nullable String nestedTernaryPositive(@Nullable String s, boolean b) {
+                    // BUG: Diagnostic contains: Method nestedTernaryPositive has @Contract(!null, _ -> !null), but
+                    return (s != null ? (b ? s : null) : null);
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkReturnNestedLambdaOrAnonymousClass() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+                @Contract("!null -> !null")
+                public static @Nullable Function<Integer,Integer> lambda(@Nullable String s) {
+                    return s == null ? null : (i -> { return i + 1; });
+                }
+                @Contract("!null -> !null")
+                public static @Nullable Function<Integer,Integer> anonymousClass(@Nullable String s) {
+                    return s == null ? null : new Function<Integer,Integer>() {
+                        @Override
+                        public Integer apply(Integer i) {
+                            return i + 1;
+                        }
+                    };
+                }
             }
             """)
         .doTest();
