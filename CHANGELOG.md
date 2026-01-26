@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version 0.13.1
+--------------
+
+* Improve verification of !null -> !null contracts by @msridhar in https://github.com/uber/NullAway/pull/1441
+* Substitute inferred `@NonNull` types for generic method inference by @msridhar in https://github.com/uber/NullAway/pull/1445
+* Better support for some contracts with boolean argument constraints by @msridhar in https://github.com/uber/NullAway/pull/1447
+* Maintenance
+  * Add junit-framework as another integration test by @msridhar in https://github.com/uber/NullAway/pull/1446
+
 Version 0.13.0
 --------------
 
