@@ -733,6 +733,57 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void booleanToNotNullContract() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+              @Contract("false -> !null")
+              @Nullable String nonNullWhenPassedFalse(boolean returnNull) {
+                  if (returnNull) {
+                      return null;
+                  }
+                  return "foo";
+              }
+              @Contract("true -> !null")
+              @Nullable String nonNullWhenPassedTrue(boolean dontReturnNull) {
+                  if (dontReturnNull) {
+                      return "foo";
+                  }
+                  return null;
+              }
+              void testNegative() {
+                  nonNullWhenPassedFalse(false).hashCode();
+                  nonNullWhenPassedTrue(true).hashCode();
+              }
+              void testPositive(boolean b) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedFalse(true).hashCode();
+                  // false positive expected here since we do not do boolean reasoning
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedFalse(b && !b).hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedTrue(false).hashCode();
+                  // false positive expected here since we do not do boolean reasoning
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedFalse(b || !b).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void checkNotNullToNotNullContract() {
     makeTestHelperWithArgs(
             withJSpecifyModeArgs(
