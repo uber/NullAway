@@ -784,6 +784,57 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void multiArgBooleanToNotNullContract() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+              @Contract("false, _ -> !null")
+              @Nullable String nonNullWhenFirstFalse(boolean returnNull, @Nullable String value) {
+                  if (returnNull) {
+                      return null;
+                  }
+                  return "foo";
+              }
+              @Contract("_, true -> !null")
+              @Nullable String nonNullWhenSecondTrue(@Nullable String value, boolean dontReturnNull) {
+                  if (dontReturnNull) {
+                      return "bar";
+                  }
+                  return null;
+              }
+              void testNegative() {
+                  nonNullWhenFirstFalse(false, null).hashCode();
+                  nonNullWhenSecondTrue(null, true).hashCode();
+              }
+              void testPositive(boolean b) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenFirstFalse(true, null).hashCode();
+                  // false positive expected here since we do not do boolean reasoning
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenFirstFalse(b && !b, null).hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenSecondTrue(null, false).hashCode();
+                  // false positive expected here since we do not do boolean reasoning
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenSecondTrue(null, b || !b).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void checkNotNullToNotNullContract() {
     makeTestHelperWithArgs(
             withJSpecifyModeArgs(
