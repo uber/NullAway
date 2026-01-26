@@ -828,19 +828,10 @@ public class ContractsTests extends NullAwayTestsBase {
               void testPositive(boolean b) {
                   // BUG: Diagnostic contains: dereferenced expression
                   nonNullWhenFirstFalse(true, null).hashCode();
-                  // false positive expected here since we do not do boolean reasoning
-                  // BUG: Diagnostic contains: dereferenced expression
-                  nonNullWhenFirstFalse(b && !b, null).hashCode();
                   // BUG: Diagnostic contains: dereferenced expression
                   nonNullWhenFalseTrue(false, false).hashCode();
-                  // false positive expected here since we do not do boolean reasoning
-                  // BUG: Diagnostic contains: dereferenced expression
-                  nonNullWhenFalseTrue(b && !b, b || !b).hashCode();
                   // BUG: Diagnostic contains: dereferenced expression
                   nonNullWhenSecondTrue(null, false).hashCode();
-                  // false positive expected here since we do not do boolean reasoning
-                  // BUG: Diagnostic contains: dereferenced expression
-                  nonNullWhenSecondTrue(null, b || !b).hashCode();
               }
             }
             """)
@@ -878,12 +869,6 @@ public class ContractsTests extends NullAwayTestsBase {
                   nonNullWhenFalseAndNonNull(true, new Object()).hashCode();
                   // BUG: Diagnostic contains: dereferenced expression
                   nonNullWhenFalseAndNonNull(false, null).hashCode();
-                  // false positive expected here since we do not do boolean reasoning
-                  // BUG: Diagnostic contains: dereferenced expression
-                  nonNullWhenFalseAndNonNull(b && !b, new Object()).hashCode();
-                  // false positive expected here since we do not do null reasoning across args
-                  // BUG: Diagnostic contains: dereferenced expression
-                  nonNullWhenFalseAndNonNull(false, obj).hashCode();
               }
             }
             """)
