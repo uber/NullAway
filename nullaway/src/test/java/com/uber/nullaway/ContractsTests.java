@@ -776,7 +776,7 @@ public class ContractsTests extends NullAwayTestsBase {
                   nonNullWhenPassedTrue(false).hashCode();
                   // false positive expected here since we do not do boolean reasoning
                   // BUG: Diagnostic contains: dereferenced expression
-                  nonNullWhenPassedFalse(b || !b).hashCode();
+                  nonNullWhenPassedTrue(b || !b).hashCode();
               }
             }
             """)
