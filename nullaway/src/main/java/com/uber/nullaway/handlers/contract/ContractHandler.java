@@ -215,10 +215,10 @@ public class ContractHandler implements Handler {
           if (constValue instanceof Boolean booleanValue) {
             boolean booleanConstraintValue = valueConstraint.equals("true");
             if (booleanValue == booleanConstraintValue) {
-              // Antecedent is satisfied by a compile-time boolean constant; no further
-              // inference on arguments is needed for this constraint.
+              // Antecedent is satisfied by a compile-time boolean constant
               continue;
             }
+            // constant passed is opposite of antecedent
             supported = false;
             break;
           }
