@@ -61,6 +61,8 @@ jobs:
             url: https://github.com/ben-manes/caffeine.git
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
+          - project: junit-framework
+            url: https://github.com/junit-team/junit-framework.git
     permissions:
       contents: read
     runs-on: ubuntu-latest

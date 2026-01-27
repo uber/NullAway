@@ -133,6 +133,31 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1448() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package org.example;
+
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+                interface Func<T> {
+                    void apply( @Nullable T t );
+                }
+
+                class Bar {
+                    Func<Integer> baz = ( @Nullable Integer i ) -> {};
+                }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
