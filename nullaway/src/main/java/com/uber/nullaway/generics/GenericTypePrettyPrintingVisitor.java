@@ -90,6 +90,13 @@ final class GenericTypePrettyPrintingVisitor
   }
 
   @Override
+  public String visitErrorType(Type.ErrorType t, @Nullable Void unused) {
+    // this arises for our synthetic @Nullable and @NonNull annotations; we just return the simple
+    // name
+    return t.tsym.getSimpleName().toString();
+  }
+
+  @Override
   public String visitType(Type t, @Nullable Void s) {
     return t.toString();
   }

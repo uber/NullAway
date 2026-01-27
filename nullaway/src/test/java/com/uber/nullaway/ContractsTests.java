@@ -733,6 +733,149 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void booleanToNotNullContract() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+              @Contract("false -> !null")
+              @Nullable String nonNullWhenPassedFalse(boolean returnNull) {
+                  if (returnNull) {
+                      return null;
+                  }
+                  return "foo";
+              }
+              @Contract("true -> !null")
+              @Nullable String nonNullWhenPassedTrue(boolean dontReturnNull) {
+                  if (dontReturnNull) {
+                      return "foo";
+                  }
+                  return null;
+              }
+              void testNegative() {
+                  nonNullWhenPassedFalse(false).hashCode();
+                  nonNullWhenPassedTrue(true).hashCode();
+              }
+              void testPositive(boolean b) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedFalse(true).hashCode();
+                  // false positive expected here since we do not do boolean reasoning
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedFalse(b && !b).hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedTrue(false).hashCode();
+                  // false positive expected here since we do not do boolean reasoning
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenPassedTrue(b || !b).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void multiArgBooleanToNotNullContract() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+              @Contract("false, _ -> !null")
+              @Nullable String nonNullWhenFirstFalse(boolean returnNull, @Nullable String value) {
+                  if (returnNull) {
+                      return null;
+                  }
+                  return "foo";
+              }
+              @Contract("false, true -> !null")
+              @Nullable String nonNullWhenFalseTrue(boolean returnNull, boolean forceNonNull) {
+                  if (returnNull || !forceNonNull) {
+                      return null;
+                  }
+                  return "baz";
+              }
+              @Contract("_, true -> !null")
+              @Nullable String nonNullWhenSecondTrue(@Nullable String value, boolean dontReturnNull) {
+                  if (dontReturnNull) {
+                      return "bar";
+                  }
+                  return null;
+              }
+              void testNegative() {
+                  nonNullWhenFirstFalse(false, null).hashCode();
+                  nonNullWhenFalseTrue(false, true).hashCode();
+                  nonNullWhenSecondTrue(null, true).hashCode();
+              }
+              void testPositive(boolean b) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenFirstFalse(true, null).hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenFalseTrue(false, false).hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenSecondTrue(null, false).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void multiArgBooleanAndNullToNotNullContract() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+              @Contract("false, !null -> !null")
+              @Nullable String nonNullWhenFalseAndNonNull(boolean returnNull, @Nullable Object obj) {
+                  if (returnNull || obj == null) {
+                      return null;
+                  }
+                  return "ok";
+              }
+              void testNegative() {
+                  nonNullWhenFalseAndNonNull(false, new Object()).hashCode();
+              }
+              void testPositive(boolean b, @Nullable Object obj) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenFalseAndNonNull(true, new Object()).hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nonNullWhenFalseAndNonNull(false, null).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void checkNotNullToNotNullContract() {
     makeTestHelperWithArgs(
             withJSpecifyModeArgs(
