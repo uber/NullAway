@@ -1042,7 +1042,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // @Ignore("https://github.com/uber/NullAway/issues/1350")
   @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()

@@ -290,6 +290,13 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
+      // Unwrap wildcard upper bounds
+      if (other instanceof Type.WildcardType wt) {
+        if (wt.isExtendsBound()) {
+          return visit(t, wt.type);
+        }
+      }
+
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ClassType)) {
         return updated;
