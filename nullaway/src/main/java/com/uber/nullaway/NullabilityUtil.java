@@ -211,6 +211,13 @@ public class NullabilityUtil {
         return true;
       }
     }
+    // we need this loop over the type's annotation mirrors in cases like explicitly-annotated
+    // lambda parameters, possibly due to bugs in javac
+    for (AnnotationMirror annotationMirror : symbol.type.getAnnotationMirrors()) {
+      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
+        return true;
+      }
+    }
     // to handle bytecodes, also check direct type-use annotations stored in attributes
     Symbol typeAnnotationOwner =
         symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
