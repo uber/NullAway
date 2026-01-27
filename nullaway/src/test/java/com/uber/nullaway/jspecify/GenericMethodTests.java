@@ -1047,41 +1047,20 @@ public class GenericMethodTests extends NullAwayTestsBase {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.function.Function;",
-            "@NullMarked",
-            "class Test {",
-            "    static <T, R> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {",
-            "        throw new RuntimeException();",
-            "    }",
-            "    static void test() {",
-            "        // legal, should infer R -> Object but then the type of the lambda as ",
-            "        //  Function<Object, @Nullable Object> via wildcard upper bound",
-            "        Object x = invokeWithReturn(t -> null);",
-            "    }",
-            "}")
-        .doTest();
-  }
-
-  @Ignore("https://github.com/uber/NullAway/issues/1350")
-  @Test
-  public void genericMethodLambdaArgWildCard() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.function.Function;",
-            "@NullMarked",
-            "class Test {",
-            "    static <T, R> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {",
-            "        throw new RuntimeException();",
-            "    }",
-            "    static void test() {",
-            "        // legal, should infer R -> Object but then the type of the lambda as ",
-            "        //  Function<Object, @Nullable Object> via wildcard upper bound",
-            "        Object x = invokeWithReturn(t -> null);",
-            "    }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+                static <T, R> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {
+                    throw new RuntimeException();
+                }
+                static void test() {
+                    // legal, should infer R -> Object but then the type of the lambda as
+                    //  Function<Object, @Nullable Object> via wildcard upper bound
+                    Object x = invokeWithReturn(t -> null);
+                }
+            }""")
         .doTest();
   }
 
