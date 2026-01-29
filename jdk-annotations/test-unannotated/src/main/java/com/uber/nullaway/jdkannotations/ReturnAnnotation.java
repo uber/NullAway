@@ -1,5 +1,6 @@
 package com.uber.nullaway.jdkannotations;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
 
@@ -70,5 +71,37 @@ public class ReturnAnnotation {
 
   public static List<? super String> getList(Integer i, Character c) {
     return null;
+  }
+
+  public static List<String> nestedAnnotTypeArg() {
+    List<String> list = new ArrayList<>();
+    list.add("safe");
+    list.add(null);
+    return list;
+  }
+
+  public static List<? extends String> nestedAnnotWildcard() {
+    List<String> list = new ArrayList<>();
+    list.add(null);
+    list.add("string");
+    return list;
+  }
+
+  public static String[] nestedAnnotArrayElement() {
+    return new String[] {"populated", "value", null};
+  }
+
+  @SuppressWarnings({"unchecked", "rawtypes"})
+  public static List<Integer>[] nestedAnnotMixed() {
+    // inner list
+    List<Integer> innerList = new ArrayList<>();
+    innerList.add(null);
+    innerList.add(1);
+
+    List[] rawArray = new List[2];
+    rawArray[0] = innerList;
+    rawArray[1] = null;
+
+    return rawArray;
   }
 }
