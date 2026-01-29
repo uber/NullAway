@@ -2,6 +2,7 @@ package com.uber.nullaway.libmodel;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
+import com.uber.nullaway.javacplugin.NestedAnnotationInfo;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -71,6 +72,23 @@ public final class StubxWriter {
         ++numStringEntries;
       }
     }
+    for (NestedAnnotationInfo.TypePathEntry.Kind kind :
+        NestedAnnotationInfo.TypePathEntry.Kind.values()) {
+      if (encodingDictionary.containsKey(kind.name())) {
+        continue;
+      }
+      strings.add(kind.name());
+      encodingDictionary.put(kind.name(), numStringEntries);
+      ++numStringEntries;
+    }
+    for (NestedAnnotationInfo.Annotation annotation : NestedAnnotationInfo.Annotation.values()) {
+      if (encodingDictionary.containsKey(annotation.name())) {
+        continue;
+      }
+      strings.add(annotation.name());
+      encodingDictionary.put(annotation.name(), numStringEntries);
+      ++numStringEntries;
+    }
     out.writeInt(numStringEntries);
     // Followed by the entries themselves
     for (String s : strings) {
@@ -106,10 +124,12 @@ public final class StubxWriter {
     int methodAnnotationSize = 0;
     int methodTypeParamNullableUpperbounds = 0;
     int methodArgumentRecordsSize = 0;
+    int methodNestedAnnotSize = 0;
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
       methodAnnotationSize += entry.getValue().methodAnnotations().size();
       methodTypeParamNullableUpperbounds += entry.getValue().typeParamNullableUpperbounds().size();
       methodArgumentRecordsSize += entry.getValue().argumentAnnotations().size();
+      methodNestedAnnotSize += entry.getValue().nestedAnnotationInfo().size();
     }
     out.writeInt(methodAnnotationSize);
     // Followed by those records as pairs of ints pointing into the dictionary
@@ -138,6 +158,24 @@ public final class StubxWriter {
           out.writeInt(encodingDictionary.get(entry.getKey()));
           out.writeInt(argEntry.getKey());
           out.writeInt(encodingDictionary.get(importedAnnotations.get(annot)));
+        }
+      }
+    }
+    // Followed by the number of nested annotation information records
+    out.writeInt(methodNestedAnnotSize);
+    // Followed by the nested annotation information
+    for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
+      for (Map.Entry<Integer, NestedAnnotationInfo> nestedInfoEntry :
+          entry.getValue().nestedAnnotationInfo().entries()) {
+        // index, annotation, list size, (TypePathEntry) list of (kind, index)
+        out.writeInt(encodingDictionary.get(entry.getKey()));
+        out.writeInt(nestedInfoEntry.getKey()); // -1: return type, 0+: parameter index
+        NestedAnnotationInfo nestedInfo = nestedInfoEntry.getValue();
+        out.writeInt(encodingDictionary.get(nestedInfo.annotation().name())); // annotation type
+        out.writeInt(nestedInfo.typePath().size()); // length of TypePathEntry
+        for (NestedAnnotationInfo.TypePathEntry typePath : nestedInfoEntry.getValue().typePath()) {
+          out.writeInt(encodingDictionary.get(typePath.kind().name())); // Kind of nested type
+          out.writeInt(typePath.index()); // index related to nested type
         }
       }
     }
