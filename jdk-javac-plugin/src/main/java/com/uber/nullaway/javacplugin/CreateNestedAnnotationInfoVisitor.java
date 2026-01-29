@@ -6,7 +6,7 @@ import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.javacplugin.NestedAnnotationInfo.Annotation;
 import com.uber.nullaway.javacplugin.NestedAnnotationInfo.TypePathEntry;
 import java.util.ArrayDeque;
-import java.util.HashSet;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
@@ -43,7 +43,7 @@ public class CreateNestedAnnotationInfoVisitor
 
   public CreateNestedAnnotationInfoVisitor() {
     path = new ArrayDeque<>();
-    nestedAnnotationInfoSet = new HashSet<>();
+    nestedAnnotationInfoSet = new LinkedHashSet<>();
   }
 
   @Override
