@@ -30,6 +30,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
@@ -209,6 +210,18 @@ public class ContractHandler implements Handler {
         if (valueConstraint.equals("_")) {
           // do nothing
         } else if (valueConstraint.equals("false") || valueConstraint.equals("true")) {
+          ExpressionTree argumentTree = tree.getArguments().get(i);
+          Object constValue = ASTHelpers.constValue(argumentTree);
+          if (constValue instanceof Boolean booleanValue) {
+            boolean booleanConstraintValue = valueConstraint.equals("true");
+            if (booleanValue == booleanConstraintValue) {
+              // Antecedent is satisfied by a compile-time boolean constant
+              continue;
+            }
+            // constant passed is opposite of antecedent
+            supported = false;
+            break;
+          }
           // We handle boolean constraints in the case that the boolean argument is the result
           // of a null or not-null check. For example,
           // '@Contract("true -> true") boolean func(boolean v)'

@@ -3,6 +3,7 @@ package com.uber.nullaway.handlers.contract;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
+import com.google.common.base.Verify;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.MethodTree;
@@ -34,7 +35,10 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
       Context context,
       Types types,
       Config config) {
-    assert underlyingAST.getKind() == UnderlyingAST.Kind.METHOD;
+    Verify.verify(
+        underlyingAST.getKind() == UnderlyingAST.Kind.METHOD,
+        "Expected AST for method but got %s",
+        underlyingAST.getKind());
 
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();

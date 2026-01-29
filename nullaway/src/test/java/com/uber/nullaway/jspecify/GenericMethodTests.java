@@ -425,7 +425,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 static class Bar<T extends @Nullable Object> {}
                 abstract <U> Bar<U> make(Bar<U> other);
                 void test(Bar<Bar<String>> other) {
-                    // BUG: Diagnostic contains: incompatible types: Bar<Bar<String>> cannot be converted to Bar<Bar<@Nullable String>>
+                    // BUG: Diagnostic contains: incompatible types: Bar<@NonNull Bar<String>> cannot be converted to Bar<Bar<@Nullable String>>
                     Bar<Bar<@Nullable String>> unused = make(other);
                 }
             }
@@ -1493,6 +1493,36 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     void test(String s1, String s2, List<Object> l) {
                         visitEnum(s1, s2, l::add);
                     }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1444() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.stream.Stream;
+            @NullMarked
+            public class Test {
+                static class DefaultConfiguration {
+                    final @Nullable Stream<? extends String> children;
+
+                    DefaultConfiguration(Stream<? extends String> children) {
+                        this.children = children;
+                    }
+                }
+                final Stream<? extends String> children;
+                Test(DefaultConfiguration configuration) {
+                    this.children = notNull(configuration.children, "children must not be null");
+                }
+                public static <T> T notNull(@Nullable T object, String message) {
+                    throw new RuntimeException("todo");
+                }
             }
             """)
         .doTest();
