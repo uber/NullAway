@@ -206,13 +206,13 @@ public class NullabilityUtil {
    */
   public static boolean hasAnyAnnotationMatching(
       Symbol symbol, Config config, Predicate<String> predicate) {
+    // check for declaration annotations
     for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
       if (predicate.test(annotationMirror.getAnnotationType().toString())) {
         return true;
       }
     }
-    // we need this loop over the type's annotation mirrors in cases like explicitly-annotated
-    // lambda parameters, possibly due to bugs in javac
+    // check for type use annotations
     for (AnnotationMirror annotationMirror : symbol.type.getAnnotationMirrors()) {
       if (predicate.test(annotationMirror.getAnnotationType().toString())) {
         return true;
