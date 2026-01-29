@@ -4,11 +4,17 @@ import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static org.hamcrest.CoreMatchers.equalTo;
 import static org.hamcrest.MatcherAssert.assertThat;
 
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.bugpatterns.BugChecker;
+import com.uber.nullaway.javacplugin.NestedAnnotationInfo;
+import com.uber.nullaway.javacplugin.NestedAnnotationInfo.Annotation;
+import com.uber.nullaway.javacplugin.NestedAnnotationInfo.TypePathEntry;
+import com.uber.nullaway.javacplugin.NestedAnnotationInfo.TypePathEntry.Kind;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
 import java.nio.file.Files;
 import java.nio.file.Paths;
@@ -66,7 +72,10 @@ public class AstubxTest {
         ImmutableMap.of(
             "AnnotationExample:java.lang.String makeUpperCase(java.lang.String)",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
+                ImmutableSet.of("Nullable"),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("AnnotationExample"));
   }
 
@@ -92,7 +101,10 @@ public class AstubxTest {
         ImmutableMap.of(
             "NullableUpperBound:T withAnnotation()",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
+                ImmutableSet.of("Nullable"),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of()));
     ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
         ImmutableMap.of("NullableUpperBound", ImmutableSet.of(0));
     runTest(
@@ -123,7 +135,10 @@ public class AstubxTest {
         ImmutableMap.of(
             "ReturnAnnotation.UpperBoundExample:T withAnnotation()",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
+                ImmutableSet.of("Nullable"),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of()));
     ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds =
         ImmutableMap.of("ReturnAnnotation.UpperBoundExample", ImmutableSet.of(0));
     runTest(
@@ -181,7 +196,8 @@ public class AstubxTest {
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("NullableParameters"));
   }
 
@@ -208,7 +224,8 @@ public class AstubxTest {
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of());
   }
 
@@ -237,7 +254,8 @@ public class AstubxTest {
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("NullableParameters"));
   }
 
@@ -261,7 +279,8 @@ public class AstubxTest {
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableMap.of(0, ImmutableSet.of("Nullable"))));
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Generic"));
   }
 
@@ -282,13 +301,49 @@ public class AstubxTest {
             "  public List<@Nullable String>[] nullableIdentity(List<@Nullable String>[] listArray) {",
             "    return listArray;",
             "  }",
+            "  public List<? extends @Nullable String> wildcardIdentity(List<? extends @Nullable String> listArray) {",
+            "    return listArray;",
+            "  }",
             "}")
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
             "ParameterizedTypeArray:java.util.List<java.lang.String>[] nullableIdentity(java.util.List<java.lang.String>[])",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of(), ImmutableSet.of(), ImmutableMap.of()));
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    -1,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(
+                            new TypePathEntry(Kind.ARRAY_ELEMENT, -1),
+                            new TypePathEntry(Kind.TYPE_ARGUMENT, 0))),
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(
+                            new TypePathEntry(Kind.ARRAY_ELEMENT, -1),
+                            new TypePathEntry(Kind.TYPE_ARGUMENT, 0))))),
+            "ParameterizedTypeArray:java.util.List<? extends java.lang.String> wildcardIdentity(java.util.List<? extends java.lang.String>)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    -1,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(
+                            new TypePathEntry(Kind.TYPE_ARGUMENT, 0),
+                            new TypePathEntry(Kind.WILDCARD_BOUND, 0))),
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(
+                            new TypePathEntry(Kind.TYPE_ARGUMENT, 0),
+                            new TypePathEntry(Kind.WILDCARD_BOUND, 0))))));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("ParameterizedTypeArray"));
   }
 
@@ -315,7 +370,8 @@ public class AstubxTest {
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("PrimitiveType"));
   }
 
@@ -341,7 +397,8 @@ public class AstubxTest {
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
-                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable"))));
+                ImmutableMap.of(0, ImmutableSet.of("Nullable"), 1, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("VoidReturn"));
   }
 
@@ -361,7 +418,10 @@ public class AstubxTest {
         ImmutableMap.of(
             "Test:void <K,T>nullableTypeVar(K,T)",
             MethodAnnotationsRecord.create(
-                ImmutableSet.of(), ImmutableSet.of(1), ImmutableMap.of()));
+                ImmutableSet.of(),
+                ImmutableSet.of(1),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of()));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
   }
 
