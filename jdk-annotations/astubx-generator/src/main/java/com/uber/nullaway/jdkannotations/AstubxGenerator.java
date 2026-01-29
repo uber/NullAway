@@ -274,7 +274,7 @@ public class AstubxGenerator {
           }
         } else {
           // remove any spaces in Array types
-          typeSignature = typeSignature.replace(" ", "");
+          typeSignature = typeSignature.replace(" []", "[]");
         }
         argumentList[i] = typeSignature;
       }
