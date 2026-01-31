@@ -32,6 +32,7 @@ dependencies {
     api libs.commons.io
     compileOnly libs.error.prone.check.api
     implementation project(":library-model:library-model-generator")
+    compileOnly project(':jdk-javac-plugin')
 
     testImplementation libs.junit4
     testImplementation(libs.error.prone.test.helpers) {

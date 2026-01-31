@@ -388,4 +388,95 @@ public class JDKIntegrationTest {
             "}")
         .doTest();
   }
+
+  @Test
+  public void loadLibraryModuleMethodReturnTypeNestedAnnotation() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
+            "import java.util.*;",
+            "class Test {",
+            "  void testCall() {",
+            "    // -- Type argument nullability",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    List<String> typeArg1 = ReturnAnnotation.nestedAnnotTypeArg();",
+            "    List<@Nullable String> typeArg2 = ReturnAnnotation.nestedAnnotTypeArg();",
+            "    // -- Array Element nullability",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    String[] arrayElement1 = ReturnAnnotation.nestedAnnotArrayElement();",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    String @Nullable [] arrayElement2 = ReturnAnnotation.nestedAnnotArrayElement();",
+            "    @Nullable String [] arrayElement3 = ReturnAnnotation.nestedAnnotArrayElement();",
+            "    // -- mixed type nullability",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    List<Integer>[] mixed1 = ReturnAnnotation.nestedAnnotMixed();",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    @Nullable List<Integer>[] mixed2 = ReturnAnnotation.nestedAnnotMixed();",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    List<@Nullable Integer>[] mixed3 = ReturnAnnotation.nestedAnnotMixed();",
+            "    @Nullable List<@Nullable Integer>[] mixed4 = ReturnAnnotation.nestedAnnotMixed();",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void loadLibraryModuleMethodParameterTypeNestedAnnotation() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true",
+                "-XepOpt:NullAway:JSpecifyMode=true",
+                "-XDaddTypeAnnotationsToSymbol=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "import java.util.*;",
+            "class Test {",
+            "  void testCall() {",
+            "    // -- Type argument",
+            "    List<@Nullable String> nullableTypeArg = new ArrayList<>();",
+            "    nullableTypeArg.add(\"string\");",
+            "    nullableTypeArg.add(null);",
+            "    List<String> nonNullTypeArg = new ArrayList<>(2);",
+            "    // -- Array type",
+            "    @Nullable String[] nullableArray = new String[] {\"populated\", \"value\", null};",
+            "    String[] nonNullArray = new String[] {\"populated\", \"value\"};",
+            "    // -- Multiple nested annotations",
+            "    List<@Nullable Integer> innerList = new ArrayList<>();",
+            "    innerList.add(null);",
+            "    innerList.add(4);",
+            "    @Nullable List<@Nullable Integer>[] nullableMixed = (@Nullable List<@Nullable Integer>[]) new List<?>[3];",
+            "    nullableMixed[0] = innerList;",
+            "    nullableMixed[0] = null;",
+            "    List<@Nullable Integer>[] nonNullArrayMixed = (List<@Nullable Integer>[]) new List<?>[3];",
+            "    @Nullable List<Integer>[] nonNullTypeArgMixed = (@Nullable List<Integer>[]) new List<?>[3];",
+            "    // === test calls",
+            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nullableMixed);",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    ParameterAnnotation.nestedAnnotations(nonNullTypeArg, nullableArray, nullableMixed);",
+            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nonNullArray, nullableMixed);",
+            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullArrayMixed);",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullTypeArgMixed);",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

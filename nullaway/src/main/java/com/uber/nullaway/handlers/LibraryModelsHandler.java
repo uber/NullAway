@@ -35,6 +35,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.collect.Multimap;
+import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
@@ -1557,6 +1558,8 @@ public class LibraryModelsHandler implements Handler {
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
     private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
+    private final SetMultimap<String, SetMultimap<Integer, NestedAnnotationInfo>>
+        nestedAnnotationInfo;
 
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
@@ -1585,11 +1588,28 @@ public class LibraryModelsHandler implements Handler {
       upperBoundsCache = cacheUtil.getUpperBoundCache();
       methodTypeParamNullableUpperBoundCache =
           cacheUtil.getMethodTypeParamNullableUpperBoundCache();
+      nestedAnnotationInfo = cacheUtil.getNestedAnnotationInfoCache();
     }
 
     @Override
     public ImmutableSet<String> nullMarkedClasses() {
       return new ImmutableSet.Builder<String>().addAll(nullMarkedClassesCache).build();
+    }
+
+    @Override
+    public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        nestedAnnotationsForMethods() {
+      ImmutableMap.Builder<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+          mapBuilder = new ImmutableMap.Builder<>();
+      for (Map.Entry<String, SetMultimap<Integer, NestedAnnotationInfo>> entry :
+          nestedAnnotationInfo.entries()) {
+        String className = entry.getKey().split(":")[0].replace('$', '.');
+        String methodSig = getMethodNameAndSignature(entry.getKey());
+        mapBuilder.put(
+            MethodRef.methodRef(className, methodSig),
+            ImmutableSetMultimap.copyOf(entry.getValue()));
+      }
+      return mapBuilder.build();
     }
 
     @Override

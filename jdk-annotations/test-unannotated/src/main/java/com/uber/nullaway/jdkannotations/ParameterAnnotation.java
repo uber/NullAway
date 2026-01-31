@@ -1,5 +1,7 @@
 package com.uber.nullaway.jdkannotations;
 
+import java.util.List;
+
 public class ParameterAnnotation {
   public static Integer add(Integer a, Integer b) {
     return a + b;
@@ -57,4 +59,7 @@ public class ParameterAnnotation {
   }
 
   public static <T> void nonNullTypeParam(T t) {}
+
+  public static void nestedAnnotations(
+      List<String> typeArg, String[] array, List<Integer>[] mixed) {}
 }
