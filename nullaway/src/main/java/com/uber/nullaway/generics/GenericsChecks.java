@@ -845,10 +845,6 @@ public final class GenericsChecks {
       ExpressionTree rhsExpr,
       Type lhsType) {
     rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
-    if (rhsExpr instanceof MemberReferenceTree) {
-      // TODO generate constraints from method reference argument types
-      return;
-    }
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isGenericCallNeedingInference(rhsExpr)) {
@@ -857,7 +853,11 @@ public final class GenericsChecks {
       allInvocations.add(invTree);
       generateConstraintsForCall(
           state, path, lhsType, false, solver, symbol, invTree, allInvocations);
-    } else if (!(rhsExpr instanceof LambdaExpressionTree lambda)) {
+    } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
+      handleLambdaInGenericMethodInference(state, path, solver, allInvocations, lhsType, lambda);
+    } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
+      handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
+    } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
@@ -865,8 +865,6 @@ public final class GenericsChecks {
       }
       argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, path);
       solver.addSubtypeConstraint(argumentType, lhsType, false);
-    } else {
-      handleLambdaInGenericMethodInference(state, path, solver, allInvocations, lhsType, lambda);
     }
   }
 
@@ -918,6 +916,99 @@ public final class GenericsChecks {
         generateConstraintsForPseudoAssignment(
             state, lambdaPath, solver, allInvocations, returnExpr, fiReturnType);
       }
+    }
+  }
+
+  /**
+   * Generate constraints for a method reference argument by comparing functional interface method
+   * parameter and return types against the referenced method.
+   *
+   * @param state the visitor state
+   * @param solver the constraint solver
+   * @param lhsType the type to which the method reference is being assigned
+   * @param memberReferenceTree the method reference argument
+   */
+  private void handleMethodRefInGenericMethodInference(
+      VisitorState state,
+      ConstraintSolver solver,
+      Type lhsType,
+      MemberReferenceTree memberReferenceTree) {
+    if (lhsType.isRaw()) {
+      return;
+    }
+    Types types = state.getTypes();
+
+    // first, figure out the proper method type to use for the member reference
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+    if (referencedMethod == null || referencedMethod.isConstructor()) {
+      return;
+    }
+    Type.MethodType referencedMethodType = referencedMethod.asType().asMethodType();
+    Type qualifierType = null;
+    if (!referencedMethod.isStatic()) {
+      // get the referenced method type as a member of the type of the qualifier expression
+      qualifierType = getTreeType(memberReferenceTree.getQualifierExpression(), state);
+      if (qualifierType != null) {
+        referencedMethodType =
+            TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
+                .asMethodType();
+      }
+    }
+    // substitute any explicit type arguments from the member reference
+    List<? extends ExpressionTree> typeArgumentTrees = memberReferenceTree.getTypeArguments();
+    if (typeArgumentTrees != null && !typeArgumentTrees.isEmpty()) {
+      referencedMethodType =
+          TypeSubstitutionUtils.subst(
+                  state.getTypes(),
+                  referencedMethodType,
+                  ((Type.ForAll) referencedMethod.asType()).tvars,
+                  convertTreesToTypes(typeArgumentTrees),
+                  config)
+              .asMethodType();
+    }
+    // allow for handler overrides
+    referencedMethodType =
+        handler.onOverrideMethodType(referencedMethod, referencedMethodType, state);
+
+    // now, get the type of the corresponding functional interface method, as a member of lhsType
+    Symbol.MethodSymbol fiMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
+    Type.MethodType fiMethodTypeAsMember =
+        TypeSubstitutionUtils.memberType(types, lhsType, fiMethod, config).asMethodType();
+
+    // constrain returns: method reference return type <: functional interface return type
+    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    Type referencedReturnType = referencedMethodType.getReturnType();
+    if (fiReturnType.getKind() != TypeKind.VOID
+        && referencedReturnType.getKind() != TypeKind.VOID) {
+      solver.addSubtypeConstraint(referencedReturnType, fiReturnType, false);
+    }
+
+    // constrain parameters:
+    //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
+    //  aligned appropriately in the case of unbound method references
+    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
+    com.sun.tools.javac.util.List<Type> referencedParamTypes =
+        referencedMethodType.getParameterTypes();
+    int fiStartIndex = 0;
+    if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
+      Verify.verify(
+          !fiParamTypes.isEmpty(),
+          "Expected receiver parameter for unbound method ref %s",
+          memberReferenceTree);
+      if (qualifierType != null) {
+        Type receiverType = fiParamTypes.get(0);
+        solver.addSubtypeConstraint(receiverType, qualifierType, false);
+      }
+      fiStartIndex = 1;
+    }
+    if (fiParamTypes.size() - fiStartIndex != referencedParamTypes.size()) {
+      // TODO handle references to varargs methods
+      return;
+    }
+    for (int i = 0; i < referencedParamTypes.size(); i++) {
+      solver.addSubtypeConstraint(
+          fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
     }
   }
 
@@ -1356,6 +1447,33 @@ public final class GenericsChecks {
                 }
               }
             });
+  }
+
+  /**
+   * For a generic method reference, if it is being called in a context that requires type argument
+   * nullability inference, return the method type with inferred nullability for type parameters.
+   * Otherwise, return the original method type.
+   *
+   * @param methodType the original method type
+   * @param state the visitor state (generic method reference should be leaf of {@code
+   *     state.getPath()})
+   * @return the method type with inferred nullability for type parameters if inference was
+   *     performed, or the original method type otherwise
+   */
+  public Type.MethodType getInferredMethodTypeForGenericMethodReference(
+      Type.MethodType methodType, VisitorState state) {
+    // TODO multiple levels of parents?
+    Tree parentTree = state.getPath().getParentPath().getLeaf();
+    if (parentTree instanceof MethodInvocationTree methodInvocationTree
+        && isGenericCallNeedingInference(methodInvocationTree)) {
+      MethodInferenceResult inferenceResult =
+          inferredTypeVarNullabilityForGenericCalls.get(methodInvocationTree);
+      if (inferenceResult instanceof InferenceSuccess successResult) {
+        return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
+            methodType, methodType, successResult.typeVarNullability, state, config);
+      }
+    }
+    return methodType;
   }
 
   /**
@@ -1915,6 +2033,23 @@ public final class GenericsChecks {
 
     Type methodType =
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
+    Type paramType = methodType.getParameterTypes().get(parameterIndex);
+    return getParameterTypeNullness(paramType, isVarargsParam);
+  }
+
+  /**
+   * Gets the nullness of a method parameter from a precomputed method type.
+   *
+   * @param parameterIndex index of the parameter
+   * @param method the method symbol
+   * @param methodType the method type as seen in the relevant enclosing type
+   * @return nullness of the relevant parameter type of {@code method} in the context of {@code
+   *     methodType}
+   */
+  public Nullness getGenericMethodParameterNullness(
+      int parameterIndex, Symbol.MethodSymbol method, Type.MethodType methodType) {
+    boolean isVarargsParam =
+        method.isVarArgs() && parameterIndex == method.getParameters().size() - 1;
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
     return getParameterTypeNullness(paramType, isVarargsParam);
   }
