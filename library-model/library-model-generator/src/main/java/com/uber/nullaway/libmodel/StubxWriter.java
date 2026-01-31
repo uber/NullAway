@@ -2,7 +2,6 @@ package com.uber.nullaway.libmodel;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.uber.nullaway.javacplugin.NestedAnnotationInfo;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;

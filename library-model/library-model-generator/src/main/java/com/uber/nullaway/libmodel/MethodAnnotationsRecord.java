@@ -3,7 +3,6 @@ package com.uber.nullaway.libmodel;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.uber.nullaway.javacplugin.NestedAnnotationInfo;
 
 /** A record describing the annotations associated with a java method and its arguments. */
 public record MethodAnnotationsRecord(

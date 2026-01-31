@@ -1,7 +1,6 @@
-package com.uber.nullaway.javacplugin;
+package com.uber.nullaway.libmodel;
 
 import com.google.common.collect.ImmutableList;
-import org.jspecify.annotations.NullMarked;
 
 /**
  * Class to hold information about a nested nullability annotation within a type, including the type
@@ -12,7 +11,6 @@ import org.jspecify.annotations.NullMarked;
  *     outermost type. Otherwise, each entry indicates one step in how to navigate to the nested
  *     type.
  */
-@NullMarked
 public record NestedAnnotationInfo(Annotation annotation, ImmutableList<TypePathEntry> typePath) {
 
   /**

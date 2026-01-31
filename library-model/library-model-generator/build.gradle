@@ -20,7 +20,6 @@ plugins {
 
 dependencies {
     implementation libs.guava
-    implementation project(":jdk-javac-plugin")
 
     testImplementation libs.junit4
 }
