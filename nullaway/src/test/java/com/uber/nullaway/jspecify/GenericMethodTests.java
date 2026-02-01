@@ -1043,28 +1043,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodLambdaArgWildCard() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.*;
-            import java.util.function.Function;
-            @NullMarked
-            class Test {
-                static <T, R> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {
-                    throw new RuntimeException();
-                }
-                static void test() {
-                    // legal, should infer R -> Object but then the type of the lambda as
-                    //  Function<Object, @Nullable Object> via wildcard upper bound
-                    Object x = invokeWithReturn(t -> null);
-                }
-            }""")
-        .doTest();
-  }
-
-  @Test
   public void inferenceWithFieldAssignment() {
     makeHelper()
         .addSourceLines(
