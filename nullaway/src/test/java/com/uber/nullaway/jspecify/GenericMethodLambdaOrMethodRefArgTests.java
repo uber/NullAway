@@ -445,7 +445,6 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             import java.util.function.Function;
             @NullMarked
             class Test {
-                class Foo<T extends @Nullable Object> {}
                 static <T, R> R invokeWithReturn(Function <? super T, ? extends @Nullable R> mapper) {
                     throw new RuntimeException();
                 }
