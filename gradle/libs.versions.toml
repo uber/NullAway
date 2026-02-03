@@ -21,6 +21,7 @@ errorProneOldest = "2.36.0"
 
 semver4j = "3.1.0"
 jakarta-inject = "2.0.0"
+jakarta-annotations = "2.1.1"
 javax-inject = "1"
 gson = "2.13.1"
 guava = "31.1-jre"
@@ -109,6 +110,7 @@ mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 javax-annotation = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation" }
 assertj = { module = "org.assertj:assertj-core", version.ref = "assertj" }
 amazon-utils = { module = "software.amazon.awssdk:utils", version.ref = "amazon-utils" }
+jakarta-annotations = { module = "jakarta.annotation:jakarta.annotation-api", version.ref = "jakarta-annotations" }
 
 [bundles]
 wala = ["wala-util", "wala-shrike", "wala-core"]
