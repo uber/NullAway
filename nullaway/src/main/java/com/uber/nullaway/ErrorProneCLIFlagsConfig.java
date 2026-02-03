@@ -161,6 +161,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
   static final ImmutableSet<String> DEFAULT_INITIALIZER_ANNOT =
       ImmutableSet.of(
+          "jakarta.annotation.PostConstruct",
+          "javax.annotation.PostConstruct",
           "org.junit.Before",
           "org.junit.BeforeClass",
           "org.junit.jupiter.api.BeforeAll",
