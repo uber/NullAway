@@ -84,7 +84,7 @@ public class ReturnAnnotation {
   }
 
   public static List<@Nullable String> nestedAnnotTypeArg() {
-    List<String> list = new ArrayList<>();
+    List<@Nullable String> list = new ArrayList<>();
     list.add("safe");
     list.add(null);
     return list;
@@ -98,7 +98,7 @@ public class ReturnAnnotation {
   }
 
   public static @Nullable String[] nestedAnnotArrayElement() {
-    return new String[] {"populated", "value", null};
+    return new @Nullable String[] {"populated", "value", null};
   }
 
   @SuppressWarnings({"unchecked", "rawtypes"})
