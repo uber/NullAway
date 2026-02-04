@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableSet;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,6 +54,10 @@ public final class StubxWriter {
     int numStringEntries = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
     List<String> strings = new ArrayList<String>();
+    List<String> kindNames =
+        Arrays.stream(NestedAnnotationInfo.TypePathEntry.Kind.values()).map(Enum::name).toList();
+    List<String> annotationNames =
+        Arrays.stream(NestedAnnotationInfo.Annotation.values()).map(Enum::name).toList();
     ImmutableList<Collection<String>> keysets =
         ImmutableList.of(
             importedAnnotations.values(),
@@ -60,7 +65,9 @@ public final class StubxWriter {
             typeAnnotations.keySet(),
             methodRecords.keySet(),
             nullMarkedClasses,
-            nullableUpperBounds.keySet());
+            nullableUpperBounds.keySet(),
+            kindNames,
+            annotationNames);
     for (Collection<String> keyset : keysets) {
       for (String key : keyset) {
         if (encodingDictionary.containsKey(key)) {
@@ -70,23 +77,6 @@ public final class StubxWriter {
         encodingDictionary.put(key, numStringEntries);
         ++numStringEntries;
       }
-    }
-    for (NestedAnnotationInfo.TypePathEntry.Kind kind :
-        NestedAnnotationInfo.TypePathEntry.Kind.values()) {
-      if (encodingDictionary.containsKey(kind.name())) {
-        continue;
-      }
-      strings.add(kind.name());
-      encodingDictionary.put(kind.name(), numStringEntries);
-      ++numStringEntries;
-    }
-    for (NestedAnnotationInfo.Annotation annotation : NestedAnnotationInfo.Annotation.values()) {
-      if (encodingDictionary.containsKey(annotation.name())) {
-        continue;
-      }
-      strings.add(annotation.name());
-      encodingDictionary.put(annotation.name(), numStringEntries);
-      ++numStringEntries;
     }
     out.writeInt(numStringEntries);
     // Followed by the entries themselves
