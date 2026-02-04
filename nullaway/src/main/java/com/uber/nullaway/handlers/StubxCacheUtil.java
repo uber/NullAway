@@ -77,8 +77,7 @@ public class StubxCacheUtil {
 
   private final SetMultimap<String, Integer> methodTypeParamNullableUpperBoundCache;
 
-  private final SetMultimap<String, SetMultimap<Integer, NestedAnnotationInfo>>
-      nestedAnnotationInfoCache;
+  private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfoCache;
 
   /**
    * Initializes a new {@code StubxCacheUtil} instance.
@@ -93,7 +92,7 @@ public class StubxCacheUtil {
     upperBoundCache = new HashMap<>();
     nullMarkedClassesCache = new HashSet<>();
     methodTypeParamNullableUpperBoundCache = HashMultimap.create();
-    nestedAnnotationInfoCache = HashMultimap.create();
+    nestedAnnotationInfoCache = new HashMap<>();
     this.logCaller = logCaller;
     loadStubxFiles();
   }
@@ -110,8 +109,7 @@ public class StubxCacheUtil {
     return methodTypeParamNullableUpperBoundCache;
   }
 
-  public SetMultimap<String, SetMultimap<Integer, NestedAnnotationInfo>>
-      getNestedAnnotationInfoCache() {
+  public Map<String, SetMultimap<Integer, NestedAnnotationInfo>> getNestedAnnotationInfoCache() {
     return nestedAnnotationInfoCache;
   }
 
@@ -221,17 +219,9 @@ public class StubxCacheUtil {
       }
       NestedAnnotationInfo nestedAnnotationInfo =
           new NestedAnnotationInfo(Annotation.valueOf(annotation), typePathEntryBuilder.build());
-      Set<SetMultimap<Integer, NestedAnnotationInfo>> existingMaps =
-          this.nestedAnnotationInfoCache.get(methodSig);
-      SetMultimap<Integer, NestedAnnotationInfo> targetMap;
-      if (existingMaps.isEmpty()) {
-        targetMap = HashMultimap.create();
-        targetMap.put(index, nestedAnnotationInfo);
-        this.nestedAnnotationInfoCache.put(methodSig, targetMap);
-      } else {
-        targetMap = existingMaps.iterator().next();
-        targetMap.put(index, nestedAnnotationInfo);
-      }
+      SetMultimap<Integer, NestedAnnotationInfo> targetMap =
+          this.nestedAnnotationInfoCache.computeIfAbsent(methodSig, k -> HashMultimap.create());
+      targetMap.put(index, nestedAnnotationInfo);
     }
     // reading the NullMarked classes
     int numNullMarkedClasses = in.readInt();

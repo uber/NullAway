@@ -1558,8 +1558,7 @@ public class LibraryModelsHandler implements Handler {
     private final Set<String> nullMarkedClassesCache;
     private final Map<String, Integer> upperBoundsCache;
     private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
-    private final SetMultimap<String, SetMultimap<Integer, NestedAnnotationInfo>>
-        nestedAnnotationInfo;
+    private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
 
     ExternalStubxLibraryModels() {
       String libraryModelLogName = "LM";
@@ -1602,7 +1601,7 @@ public class LibraryModelsHandler implements Handler {
       ImmutableMap.Builder<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
           mapBuilder = new ImmutableMap.Builder<>();
       for (Map.Entry<String, SetMultimap<Integer, NestedAnnotationInfo>> entry :
-          nestedAnnotationInfo.entries()) {
+          nestedAnnotationInfo.entrySet()) {
         String className = entry.getKey().split(":")[0].replace('$', '.');
         String methodSig = getMethodNameAndSignature(entry.getKey());
         mapBuilder.put(
