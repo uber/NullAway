@@ -301,8 +301,8 @@ public class AstubxTest {
             "  public List<@Nullable String>[] nullableIdentity(List<@Nullable String>[] listArray) {",
             "    return listArray;",
             "  }",
-            "  public List<? extends @Nullable String> wildcardIdentity(List<? extends @Nullable String> listArray) {",
-            "    return listArray;",
+            "  public List<? extends @Nullable String> wildcardIdentity(List<? super @Nullable String> listArray) {",
+            "    return null;",
             "  }",
             "}")
         .doTest();
@@ -326,7 +326,7 @@ public class AstubxTest {
                         ImmutableList.of(
                             new TypePathEntry(Kind.ARRAY_ELEMENT, -1),
                             new TypePathEntry(Kind.TYPE_ARGUMENT, 0))))),
-            "ParameterizedTypeArray:java.util.List<? extends java.lang.String> wildcardIdentity(java.util.List<? extends java.lang.String>)",
+            "ParameterizedTypeArray:java.util.List<? extends java.lang.String> wildcardIdentity(java.util.List<? super java.lang.String>)",
             MethodAnnotationsRecord.create(
                 ImmutableSet.of(),
                 ImmutableSet.of(),
@@ -343,7 +343,7 @@ public class AstubxTest {
                         Annotation.NULLABLE,
                         ImmutableList.of(
                             new TypePathEntry(Kind.TYPE_ARGUMENT, 0),
-                            new TypePathEntry(Kind.WILDCARD_BOUND, 0))))));
+                            new TypePathEntry(Kind.WILDCARD_BOUND, 1))))));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("ParameterizedTypeArray"));
   }
 
