@@ -31,7 +31,6 @@ shadowJar {
     configurations = [
         project.configurations.runtimeClasspath
     ]
-    from sourceSets.main.output
     archiveClassifier = ""
 }
 shadowJar.dependsOn jar
