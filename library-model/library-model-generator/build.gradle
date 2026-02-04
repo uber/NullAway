@@ -20,7 +20,7 @@ plugins {
 
 dependencies {
     implementation libs.guava
-    implementation libs.jspecify
+    api libs.jspecify
 
     testImplementation libs.junit4
 }
