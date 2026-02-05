@@ -14,6 +14,7 @@ import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
