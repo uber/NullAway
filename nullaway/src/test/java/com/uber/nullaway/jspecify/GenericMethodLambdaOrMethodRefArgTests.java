@@ -4,6 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
@@ -614,6 +615,43 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     // legal, should infer R -> Object but then the type of the lambda as
                     //  Function<Object, @Nullable Object> via wildcard upper bound
                     Object x = invokeWithReturn(t -> null);
+                }
+            }""")
+        .doTest();
+  }
+
+  @Ignore("doesn't work yet; TODO open an issue")
+  @Test
+  public void streamMapNullableTest() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                interface List<T extends @Nullable Object> {
+                    Stream<T> stream();
+                }
+                interface Stream<T extends @Nullable Object> {
+                    <R extends @Nullable Object> Stream<R> map(Function<? super T, ? extends R> mapper);
+                    void forEach(Consumer<? super T> action);
+                }
+                interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                    R apply(T t);
+                }
+                interface Consumer<T extends @Nullable Object> {
+                    void accept(T t);
+                }
+                static @Nullable String mapToNull(String s) {
+                    return null;
+                }
+                static void test(List<String> list) {
+                    // legal, should infer R -> @Nullable String
+                    list.stream().map(Test::mapToNull).forEach(s -> {
+                        // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                        s.hashCode();
+                    });
                 }
             }""")
         .doTest();
