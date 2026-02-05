@@ -620,7 +620,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("doesn't work yet; TODO open an issue")
+  @Ignore("https://github.com/uber/NullAway/issues/1462")
   @Test
   public void streamMapNullableTest() {
     makeHelperWithInferenceFailureWarning()
