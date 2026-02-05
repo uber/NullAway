@@ -1462,8 +1462,11 @@ public final class GenericsChecks {
    */
   public Type.MethodType getInferredMethodTypeForGenericMethodReference(
       Type.MethodType methodType, VisitorState state) {
-    // TODO multiple levels of parents?
-    Tree parentTree = state.getPath().getParentPath().getLeaf();
+    TreePath parentPath = state.getPath().getParentPath();
+    while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+    }
+    Tree parentTree = parentPath != null ? parentPath.getLeaf() : null;
     if (parentTree instanceof MethodInvocationTree methodInvocationTree
         && isGenericCallNeedingInference(methodInvocationTree)) {
       MethodInferenceResult inferenceResult =

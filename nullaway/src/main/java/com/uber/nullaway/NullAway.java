@@ -809,10 +809,11 @@ public class NullAway extends BugChecker
         (overridingMethod != null
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
-    Type.MethodType methodReferenceMethodType = null;
+    Type.MethodType jspecifyMemberReferenceMethodType = null;
     if (memberReferenceTree != null) {
-      methodReferenceMethodType =
-          getMemberReferenceMethodTypeAsMember(memberReferenceTree, overridingMethod, state);
+      jspecifyMemberReferenceMethodType =
+          getJSpecifyMemberReferenceMethodType(
+              memberReferenceTree, castToNonNull(overridingMethod), state);
     }
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
@@ -906,7 +907,7 @@ public class NullAway extends BugChecker
       boolean paramIsNonNull =
           paramIsNonNull(paramSymbol, isOverridingMethodAnnotated)
               && !memberReferenceParamIsNullable(
-                  methodReferenceMethodType, overridingMethod, methodParamInd);
+                  jspecifyMemberReferenceMethodType, overridingMethod, methodParamInd);
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
       // nullability from the corresponding functional interface method.
@@ -978,15 +979,28 @@ public class NullAway extends BugChecker
         .equals(Nullness.NULLABLE);
   }
 
-  private Type.@Nullable MethodType getMemberReferenceMethodTypeAsMember(
+  /**
+   * Gets the method type for a member reference handling generics, in JSpecify mode
+   *
+   * @param memberReferenceTree the member reference tree
+   * @param overridingMethod the method symbol for the method referenced by {@code
+   *     memberReferenceTree}
+   * @param state the visitor state
+   * @return the method type for the member reference, with generics handled, or null if not in
+   *     JSpecify mode
+   */
+  private Type.@Nullable MethodType getJSpecifyMemberReferenceMethodType(
       MemberReferenceTree memberReferenceTree,
-      Symbol.@Nullable MethodSymbol overridingMethod,
+      Symbol.MethodSymbol overridingMethod,
       VisitorState state) {
-    if (!config.isJSpecifyMode() || overridingMethod == null) {
+    if (!config.isJSpecifyMode()) {
       return null;
     }
     Type.MethodType result = overridingMethod.asType().asMethodType();
     if (!overridingMethod.isStatic()) {
+      // This handles any generic type parameters of the qualifier of the member reference, e.g. for
+      // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
+      // appears in the signature of m.
       Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
       if (qualifierType != null && !qualifierType.isRaw()) {
         result =
@@ -996,9 +1010,11 @@ public class NullAway extends BugChecker
       }
     }
     if (overridingMethod.asType() instanceof Type.ForAll) {
-      // generic method; we need to substitute inferred nullability for type arguments if it exists
+      // the referenced method is a generic method; we need to substitute inferred nullability for
+      // type arguments if it was inferred
       result = genericsChecks.getInferredMethodTypeForGenericMethodReference(result, state);
     }
+    // finally, run any handlers
     return handler.onOverrideMethodType(overridingMethod, result, state);
   }
 
