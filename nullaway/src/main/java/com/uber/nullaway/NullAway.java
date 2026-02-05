@@ -904,10 +904,20 @@ public class NullAway extends BugChecker
       }
       int methodParamInd = i - startParam;
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
-      boolean paramIsNonNull =
-          paramIsNonNull(paramSymbol, isOverridingMethodAnnotated)
-              && !memberReferenceParamIsNullable(
-                  jspecifyMemberReferenceMethodType, overridingMethod, methodParamInd);
+      boolean paramIsNonNull = paramIsNonNull(paramSymbol, isOverridingMethodAnnotated);
+      if (config.isJSpecifyMode() && jspecifyMemberReferenceMethodType != null) {
+        // also check that the parameter is not effectively @Nullable due to generics, in the case
+        // of a member reference
+        paramIsNonNull =
+            paramIsNonNull
+                && !genericsChecks
+                    .getGenericMethodParameterNullness(
+                        methodParamInd,
+                        // cannot be null if jspecifyMemberReferenceMethodType is not null
+                        castToNonNull(overridingMethod),
+                        jspecifyMemberReferenceMethodType)
+                    .equals(Nullness.NULLABLE);
+      }
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
       // nullability from the corresponding functional interface method.
@@ -964,19 +974,6 @@ public class NullAway extends BugChecker
       return Nullness.hasNonNullAnnotation(paramSymbol, config);
     }
     return false;
-  }
-
-  private boolean memberReferenceParamIsNullable(
-      Type.@Nullable MethodType overridingMethodTypeAsMember,
-      Symbol.@Nullable MethodSymbol overridingMethod,
-      int paramIndex) {
-    if (overridingMethodTypeAsMember == null || overridingMethod == null) {
-      return false;
-    }
-    return genericsChecks
-        .getGenericMethodParameterNullness(
-            paramIndex, overridingMethod, overridingMethodTypeAsMember)
-        .equals(Nullness.NULLABLE);
   }
 
   /**
