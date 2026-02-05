@@ -1,6 +1,15 @@
 Changelog
 =========
 
+Version 0.13.1
+--------------
+
+* Improve verification of !null -> !null contracts (#1441)
+* Substitute inferred `@NonNull` types for generic method inference (#1445)
+* Better support for some contracts with boolean argument constraints (#1447)
+* Maintenance
+  - Add junit-framework as another integration test (#1446)
+
 Version 0.13.0
 --------------
 

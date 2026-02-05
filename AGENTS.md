@@ -8,3 +8,11 @@ test class or method within that module, you can use the `--tests` flag. For exa
 ```bash
 ./gradlew :nullaway:test --tests "com.uber.nullaway.NullAwayTest"
 ```
+
+# Changelog
+
+Our `CHANGELOG.md` file should be formatted as follows:
+
+* Link to PRs just via their number, e.g. `#1234`, not a full GitHub URL
+* Don't credit `@msridhar` in changelog entries, but credit all other contributors
+* Under maintenance, list sub-bullets with a `-` rather than a `*`
