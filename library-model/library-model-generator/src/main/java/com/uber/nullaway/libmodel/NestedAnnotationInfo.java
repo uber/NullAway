@@ -1,4 +1,4 @@
-package com.uber.nullaway.javacplugin;
+package com.uber.nullaway.libmodel;
 
 import com.google.common.collect.ImmutableList;
 import org.jspecify.annotations.NullMarked;

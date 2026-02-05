@@ -19,6 +19,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.ibm.wala.cfg.ControlFlowGraph;
 import com.ibm.wala.classLoader.CodeScanner;
 import com.ibm.wala.classLoader.IClass;
@@ -457,14 +458,18 @@ public class DefinitelyDerefedParamsDriver {
           MethodAnnotationsRecord.create(
               nullableReturns.contains(sign) ? ImmutableSet.of("Nullable") : ImmutableSet.of(),
               ImmutableSet.of(),
-              ImmutableMap.copyOf(argAnnotation)));
+              ImmutableMap.copyOf(argAnnotation),
+              ImmutableSetMultimap.of()));
       nullableReturns.remove(sign);
     }
     for (String nullableReturnMethodSign : Iterator2Iterable.make(nullableReturns.iterator())) {
       methodRecords.put(
           nullableReturnMethodSign,
           MethodAnnotationsRecord.create(
-              ImmutableSet.of("Nullable"), ImmutableSet.of(), ImmutableMap.of()));
+              ImmutableSet.of("Nullable"),
+              ImmutableSet.of(),
+              ImmutableMap.of(),
+              ImmutableSetMultimap.of()));
     }
     StubxWriter.write(
         out,

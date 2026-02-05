@@ -5,6 +5,7 @@ import com.google.common.collect.ImmutableSet;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -53,6 +54,10 @@ public final class StubxWriter {
     int numStringEntries = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
     List<String> strings = new ArrayList<String>();
+    List<String> kindNames =
+        Arrays.stream(NestedAnnotationInfo.TypePathEntry.Kind.values()).map(Enum::name).toList();
+    List<String> annotationNames =
+        Arrays.stream(NestedAnnotationInfo.Annotation.values()).map(Enum::name).toList();
     ImmutableList<Collection<String>> keysets =
         ImmutableList.of(
             importedAnnotations.values(),
@@ -60,7 +65,9 @@ public final class StubxWriter {
             typeAnnotations.keySet(),
             methodRecords.keySet(),
             nullMarkedClasses,
-            nullableUpperBounds.keySet());
+            nullableUpperBounds.keySet(),
+            kindNames,
+            annotationNames);
     for (Collection<String> keyset : keysets) {
       for (String key : keyset) {
         if (encodingDictionary.containsKey(key)) {
@@ -106,10 +113,12 @@ public final class StubxWriter {
     int methodAnnotationSize = 0;
     int methodTypeParamNullableUpperbounds = 0;
     int methodArgumentRecordsSize = 0;
+    int methodNestedAnnotSize = 0;
     for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
       methodAnnotationSize += entry.getValue().methodAnnotations().size();
       methodTypeParamNullableUpperbounds += entry.getValue().typeParamNullableUpperbounds().size();
       methodArgumentRecordsSize += entry.getValue().argumentAnnotations().size();
+      methodNestedAnnotSize += entry.getValue().nestedAnnotationInfo().size();
     }
     out.writeInt(methodAnnotationSize);
     // Followed by those records as pairs of ints pointing into the dictionary
@@ -138,6 +147,24 @@ public final class StubxWriter {
           out.writeInt(encodingDictionary.get(entry.getKey()));
           out.writeInt(argEntry.getKey());
           out.writeInt(encodingDictionary.get(importedAnnotations.get(annot)));
+        }
+      }
+    }
+    // Followed by the number of nested annotation information records
+    out.writeInt(methodNestedAnnotSize);
+    // Followed by the nested annotation information
+    for (Map.Entry<String, MethodAnnotationsRecord> entry : methodRecords.entrySet()) {
+      for (Map.Entry<Integer, NestedAnnotationInfo> nestedInfoEntry :
+          entry.getValue().nestedAnnotationInfo().entries()) {
+        // index, annotation, list size, (TypePathEntry) list of (kind, index)
+        out.writeInt(encodingDictionary.get(entry.getKey()));
+        out.writeInt(nestedInfoEntry.getKey()); // -1: return type, 0+: parameter index
+        NestedAnnotationInfo nestedInfo = nestedInfoEntry.getValue();
+        out.writeInt(encodingDictionary.get(nestedInfo.annotation().name())); // annotation type
+        out.writeInt(nestedInfo.typePath().size()); // length of TypePathEntry
+        for (NestedAnnotationInfo.TypePathEntry typePath : nestedInfoEntry.getValue().typePath()) {
+          out.writeInt(encodingDictionary.get(typePath.kind().name())); // Kind of nested type
+          out.writeInt(typePath.index()); // index related to nested type
         }
       }
     }
