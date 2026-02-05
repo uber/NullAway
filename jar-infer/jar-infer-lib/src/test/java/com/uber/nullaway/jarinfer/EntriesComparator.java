@@ -20,6 +20,7 @@ import com.google.common.collect.ImmutableSet;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.jar.JarEntry;
@@ -107,7 +108,8 @@ public class EntriesComparator {
     }
     StringBuilder stringBuilder = new StringBuilder();
     BufferedReader bufferedReader =
-        new BufferedReader(new InputStreamReader(jar.getInputStream(manifestEntry), "UTF-8"));
+        new BufferedReader(
+            new InputStreamReader(jar.getInputStream(manifestEntry), StandardCharsets.UTF_8));
     String currentLine;
     while ((currentLine = bufferedReader.readLine()) != null) {
       // Ignore empty new lines
