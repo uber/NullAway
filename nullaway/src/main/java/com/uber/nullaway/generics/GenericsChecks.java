@@ -442,7 +442,6 @@ public final class GenericsChecks {
         return null;
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
-          && !(newClassTree.getIdentifier() instanceof JCTree idTree && TreeInfo.isDiamond(idTree))
           && !paramTypedTree.getTypeArguments().isEmpty()) {
         return typeWithPreservedAnnotations(paramTypedTree);
       }
@@ -649,11 +648,19 @@ public final class GenericsChecks {
     if (rootPath == null) {
       return null;
     }
+    if (rootPath.getLeaf() == target) {
+      return rootPath;
+    }
     return new TreePathScanner<@Nullable TreePath, Object>() {
       @Override
       public @Nullable TreePath scan(Tree tree, @Nullable Object unused) {
         if (tree == target) {
-          return getCurrentPath();
+          TreePath currentPath = getCurrentPath();
+          if (currentPath != null && currentPath.getLeaf() == tree) {
+            return currentPath;
+          }
+          // When overriding scan(), getCurrentPath() can still point at the parent.
+          return new TreePath(currentPath, tree);
         }
         return super.scan(tree, null);
       }
@@ -672,14 +679,10 @@ public final class GenericsChecks {
    */
   private static boolean hasInferredClassTypeArguments(NewClassTree newClassTree) {
     if (newClassTree.getClassBody() != null) {
-      // For anonymous classes, javac does not preserve all nullability details for the inferred
-      // type arguments. Keep legacy behavior for now.
+      // we still need to properly handle anonymous classes
       return false;
     }
-    if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
-        && newClassTree.getIdentifier() instanceof JCTree idTree
-        && !TreeInfo.isDiamond(idTree)
-        && !paramTypedTree.getTypeArguments().isEmpty()) {
+    if (!TreeInfo.isDiamond((JCTree) newClassTree)) {
       // explicit class type arguments in source
       return false;
     }
@@ -688,9 +691,7 @@ public final class GenericsChecks {
   }
 
   private static boolean isDiamondAnonymousClass(NewClassTree newClassTree) {
-    return newClassTree.getClassBody() != null
-        && newClassTree.getIdentifier() instanceof JCTree idTree
-        && TreeInfo.isDiamond(idTree);
+    return newClassTree.getClassBody() != null && TreeInfo.isDiamond((JCTree) newClassTree);
   }
 
   /**
