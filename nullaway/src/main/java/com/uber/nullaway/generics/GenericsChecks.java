@@ -564,20 +564,17 @@ public final class GenericsChecks {
       }
       parent = parentPath.getLeaf();
     }
-    if (parent instanceof VariableTree) {
+    if (parent instanceof VariableTree || parent instanceof AssignmentTree) {
       return getTreeType(parent, state);
-    }
-    if (parent instanceof AssignmentTree assignmentTree) {
-      return getTreeType(assignmentTree.getVariable(), state);
     }
     if (parent instanceof ReturnTree) {
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
       if (enclosingMethodOrLambda != null
-          && enclosingMethodOrLambda.getLeaf() instanceof MethodTree methodTree) {
-        Tree returnTypeTree = methodTree.getReturnType();
-        if (returnTypeTree != null) {
-          return typeWithPreservedAnnotations(returnTypeTree);
+          && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
+        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
+        if (methodSymbol != null) {
+          return methodSymbol.getReturnType();
         }
       }
       return null;
