@@ -28,6 +28,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
@@ -36,6 +37,7 @@ import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -434,14 +436,27 @@ public final class GenericsChecks {
       }
       return result;
     }
-    if (tree instanceof NewClassTree
-        && ((NewClassTree) tree).getIdentifier() instanceof ParameterizedTypeTree paramTypedTree) {
-      if (paramTypedTree.getTypeArguments().isEmpty()) {
-        // diamond operator, which we do not yet support; for now, return null
-        // TODO: support diamond operators
+    if (tree instanceof NewClassTree newClassTree) {
+      if (newClassTree.getClassBody() != null
+          && newClassTree.getIdentifier() instanceof JCTree idTree
+          && TreeInfo.isDiamond(idTree)) {
+        // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
         return null;
       }
-      return typeWithPreservedAnnotations(paramTypedTree);
+      if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
+          && !(newClassTree.getIdentifier() instanceof JCTree idTree && TreeInfo.isDiamond(idTree))
+          && !paramTypedTree.getTypeArguments().isEmpty()) {
+        return typeWithPreservedAnnotations(paramTypedTree);
+      }
+      if (hasInferredClassTypeArguments(newClassTree)) {
+        // For constructor calls with inferred class type arguments, infer from assignment context
+        // when possible so we preserve explicit nullability annotations from the target type.
+        Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
+        if (fromAssignmentContext != null) {
+          return fromAssignmentContext;
+        }
+      }
+      return ASTHelpers.getType(tree);
     } else if (tree instanceof NewArrayTree
         && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
       return typeWithPreservedAnnotations(tree);
@@ -520,6 +535,144 @@ public final class GenericsChecks {
       }
       return result;
     }
+  }
+
+  /**
+   * Gets the type of a constructor call using a diamond operator from its assignment context, if
+   * available.
+   */
+  private @Nullable Type getDiamondTypeFromContext(NewClassTree tree, VisitorState state) {
+    Type fromCurrentPathContext = getDiamondTypeFromCurrentPath(tree, state);
+    if (fromCurrentPathContext != null) {
+      return fromCurrentPathContext;
+    }
+    TreePath treePath = findPathToSubtree(state.getPath(), tree);
+    if (treePath == null) {
+      return null;
+    }
+    TreePath parentPath = treePath.getParentPath();
+    if (parentPath == null) {
+      return null;
+    }
+    return getDiamondTypeFromParentContext(tree, state, parentPath);
+  }
+
+  private @Nullable Type getDiamondTypeFromCurrentPath(NewClassTree tree, VisitorState state) {
+    TreePath currentPath = state.getPath();
+    if (currentPath == null) {
+      return null;
+    }
+    if (currentPath.getLeaf() == tree) {
+      return null;
+    }
+    return getDiamondTypeFromParentContext(tree, state, currentPath);
+  }
+
+  private @Nullable Type getDiamondTypeFromParentContext(
+      NewClassTree tree, VisitorState state, TreePath parentPath) {
+    Tree parent = parentPath.getLeaf();
+    while (parent instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+      if (parentPath == null) {
+        return null;
+      }
+      parent = parentPath.getLeaf();
+    }
+    if (parent instanceof VariableTree variableTree) {
+      Tree declaredTypeTree = variableTree.getType();
+      return declaredTypeTree == null
+          ? getTreeType(parent, state)
+          : typeWithPreservedAnnotations(declaredTypeTree);
+    }
+    if (parent instanceof AssignmentTree assignmentTree) {
+      return getTreeType(assignmentTree.getVariable(), state);
+    }
+    if (parent instanceof ReturnTree) {
+      TreePath enclosingMethodOrLambda =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
+      if (enclosingMethodOrLambda != null
+          && enclosingMethodOrLambda.getLeaf() instanceof MethodTree methodTree) {
+        Tree returnTypeTree = methodTree.getReturnType();
+        if (returnTypeTree != null) {
+          return typeWithPreservedAnnotations(returnTypeTree);
+        }
+      }
+      return null;
+    }
+    if (parent instanceof MethodInvocationTree parentInvocation) {
+      Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
+      if (methodType == null) {
+        return null;
+      }
+      AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
+      new InvocationArguments(parentInvocation, methodType.asMethodType())
+          .forEach(
+              (arg, pos, formalParamType, unused) -> {
+                if (ASTHelpers.stripParentheses(arg) == tree) {
+                  formalParamTypeRef.set(formalParamType);
+                }
+              });
+      return formalParamTypeRef.get();
+    }
+    if (parent instanceof NewClassTree parentConstructorCall) {
+      Type parentCtorType = ASTHelpers.getType(parentConstructorCall.getIdentifier());
+      if (parentCtorType == null) {
+        return getTargetTypeForDiamond(state, parentPath);
+      }
+      AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
+      new InvocationArguments(parentConstructorCall, parentCtorType.asMethodType())
+          .forEach(
+              (arg, pos, formalParamType, unused) -> {
+                if (ASTHelpers.stripParentheses(arg) == tree) {
+                  formalParamTypeRef.set(formalParamType);
+                }
+              });
+      return formalParamTypeRef.get();
+    }
+    return getTargetTypeForDiamond(state, parentPath);
+  }
+
+  private static @Nullable Type getTargetTypeForDiamond(VisitorState state, TreePath treePath) {
+    com.google.errorprone.util.TargetType targetType =
+        com.google.errorprone.util.TargetType.targetType(state.withPath(treePath));
+    return targetType == null ? null : targetType.type();
+  }
+
+  private static @Nullable TreePath findPathToSubtree(@Nullable TreePath rootPath, Tree target) {
+    if (rootPath == null) {
+      return null;
+    }
+    return new TreePathScanner<@Nullable TreePath, Object>() {
+      @Override
+      public @Nullable TreePath scan(Tree tree, @Nullable Object unused) {
+        if (tree == target) {
+          return getCurrentPath();
+        }
+        return super.scan(tree, null);
+      }
+    }.scan(rootPath, null);
+  }
+
+  private static VisitorState withPathToSubtree(VisitorState state, Tree subtree) {
+    TreePath subtreePath = findPathToSubtree(state.getPath(), subtree);
+    return subtreePath == null ? state : state.withPath(subtreePath);
+  }
+
+  private static boolean hasInferredClassTypeArguments(NewClassTree newClassTree) {
+    if (newClassTree.getClassBody() != null) {
+      // For anonymous classes, javac does not preserve all nullability details for the inferred
+      // type arguments. Keep legacy behavior for now.
+      return false;
+    }
+    if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
+        && newClassTree.getIdentifier() instanceof JCTree idTree
+        && !TreeInfo.isDiamond(idTree)
+        && !paramTypedTree.getTypeArguments().isEmpty()) {
+      // explicit class type arguments in source
+      return false;
+    }
+    Type newClassType = ASTHelpers.getType(newClassTree);
+    return newClassType != null && !newClassType.getTypeArguments().isEmpty();
   }
 
   /**
@@ -606,7 +759,7 @@ public final class GenericsChecks {
         && isAssignmentToField(tree)) {
       maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, lhsType);
     }
-    Type rhsType = getTreeType(rhsTree, state);
+    Type rhsType = getTreeType(rhsTree, withPathToSubtree(state, rhsTree));
     if (rhsType != null) {
       if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
@@ -1154,7 +1307,7 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
-    Type returnExpressionType = getTreeType(retExpr, state);
+    Type returnExpressionType = getTreeType(retExpr, withPathToSubtree(state, retExpr));
     if (returnExpressionType != null) {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
@@ -1304,7 +1457,21 @@ public final class GenericsChecks {
       return;
     }
     Type invokedMethodType = methodSymbol.type;
-    Type enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, null, state, false);
+    Type enclosingType = null;
+    if (tree instanceof NewClassTree newClassTree) {
+      if (hasInferredClassTypeArguments(newClassTree)) {
+        TreePath currentPath = state.getPath();
+        if (currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree) {
+          TreePath parentPath = currentPath.getParentPath();
+          if (parentPath != null) {
+            enclosingType = getDiamondTypeFromParentContext(newClassTree, state, parentPath);
+          }
+        }
+      }
+    }
+    if (enclosingType == null) {
+      enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, null, state, false);
+    }
     if (enclosingType != null) {
       invokedMethodType =
           TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
@@ -1335,7 +1502,8 @@ public final class GenericsChecks {
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
-                actualParameterType = getTreeType(currentActualParam, state);
+                actualParameterType =
+                    getTreeType(currentActualParam, withPathToSubtree(state, currentActualParam));
               }
               if (actualParameterType != null) {
                 if (isGenericCallNeedingInference(currentActualParam)) {
@@ -1840,14 +2008,25 @@ public final class GenericsChecks {
                   false,
                   calledFromDataflow);
         } else {
-          enclosingType = getTreeType(receiver, state);
+          enclosingType = getTreeType(receiver, withPathToSubtree(state, receiver));
         }
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
+      NewClassTree newClassTree = (NewClassTree) tree;
+      if (hasInferredClassTypeArguments(newClassTree)) {
+        Type typeFromAssignmentContext =
+            getDiamondTypeFromContext(newClassTree, withPathToSubtree(state, tree));
+        if (typeFromAssignmentContext != null) {
+          return typeFromAssignmentContext;
+        }
+      }
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
-      enclosingType = getTreeType(tree, state);
+      enclosingType = ASTHelpers.getType(newClassTree.getIdentifier());
+      if (enclosingType == null) {
+        enclosingType = getTreeType(tree, withPathToSubtree(state, tree));
+      }
     }
     return enclosingType;
   }

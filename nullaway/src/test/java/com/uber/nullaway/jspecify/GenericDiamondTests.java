@@ -34,7 +34,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 Bar<@Nullable Void> b = new Bar<>(Foo.make());
               }
               void testPositive() {
-                // BUG: Diagnostic contains:
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
                 Bar<String> b = new Bar<>(Foo.makeNullableStr());
               }
             }
@@ -68,7 +68,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 return new Bar<>(Foo.make());
               }
               Bar<String> testPositive() {
-                // BUG: Diagnostic contains:
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
                 return new Bar<>(Foo.makeNullableStr());
               }
             }
@@ -104,7 +104,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 takeNullableVoid(new Bar<>(Foo.make()));
               }
               void testPositive() {
-                // BUG: Diagnostic contains:
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
                 takeStr(new Bar<>(Foo.makeNullableStr()));
               }
             }
