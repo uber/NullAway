@@ -1848,16 +1848,11 @@ public final class GenericsChecks {
         }
         // the generic invocation is either a regular parameter to the parent call, or the
         // receiver expression
-        AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
-        Type type = ASTHelpers.getSymbol(parentInvocation).type;
-        new InvocationArguments(parentInvocation, type.asMethodType())
-            .forEach(
-                (arg, pos, formalParamType, unused) -> {
-                  if (ASTHelpers.stripParentheses(arg) == invocation) {
-                    formalParamTypeRef.set(formalParamType);
-                  }
-                });
-        Type formalParamType = formalParamTypeRef.get();
+        Type formalParamType =
+            getFormalParameterTypeForArgument(
+                parentInvocation,
+                ASTHelpers.getSymbol(parentInvocation).type.asMethodType(),
+                invocation);
         if (formalParamType == null) {
           // this can happen if the invocation is the receiver expression of the call, e.g.,
           // id(x).foo() (note that foo() need not be generic)
