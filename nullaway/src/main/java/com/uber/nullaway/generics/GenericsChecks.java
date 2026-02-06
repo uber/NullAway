@@ -539,10 +539,6 @@ public final class GenericsChecks {
    * available.
    */
   private @Nullable Type getDiamondTypeFromContext(NewClassTree tree, VisitorState state) {
-    Type fromCurrentPathContext = getDiamondTypeFromCurrentPath(tree, state);
-    if (fromCurrentPathContext != null) {
-      return fromCurrentPathContext;
-    }
     TreePath treePath = findPathToSubtree(state.getPath(), tree);
     if (treePath == null) {
       return null;
@@ -552,21 +548,6 @@ public final class GenericsChecks {
       return null;
     }
     return getDiamondTypeFromParentContext(tree, state, parentPath);
-  }
-
-  /**
-   * Same as {@link #getDiamondTypeFromContext(NewClassTree, VisitorState)} but starts from the
-   * current path when that path already refers to an enclosing context.
-   */
-  private @Nullable Type getDiamondTypeFromCurrentPath(NewClassTree tree, VisitorState state) {
-    TreePath currentPath = state.getPath();
-    if (currentPath == null) {
-      return null;
-    }
-    if (currentPath.getLeaf() == tree) {
-      return null;
-    }
-    return getDiamondTypeFromParentContext(tree, state, currentPath);
   }
 
   /**
