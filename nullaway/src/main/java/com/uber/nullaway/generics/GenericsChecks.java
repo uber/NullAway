@@ -593,12 +593,18 @@ public final class GenericsChecks {
       return getFormalParameterTypeForArgument(parentInvocation, methodType.asMethodType(), tree);
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
-      Type parentCtorType = ASTHelpers.getType(parentConstructorCall.getIdentifier());
-      if (parentCtorType == null) {
+      Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
+      if (parentCtorSymbol == null) {
         return getTargetTypeForDiamond(state, parentPath);
       }
-      return getFormalParameterTypeForArgument(
-          parentConstructorCall, parentCtorType.asMethodType(), tree);
+      Type parentCtorType = parentCtorSymbol.type;
+      if (parentCtorType instanceof Type.ForAll) {
+        parentCtorType = ((Type.ForAll) parentCtorType).qtype;
+      }
+      if (!(parentCtorType instanceof Type.MethodType methodType)) {
+        return getTargetTypeForDiamond(state, parentPath);
+      }
+      return getFormalParameterTypeForArgument(parentConstructorCall, methodType, tree);
     }
     return getTargetTypeForDiamond(state, parentPath);
   }

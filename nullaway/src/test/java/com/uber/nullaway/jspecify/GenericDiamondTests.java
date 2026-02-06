@@ -112,6 +112,78 @@ public class GenericDiamondTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void parenthesizedDiamond() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Foo<T extends @Nullable Object> {
+                static Foo<@Nullable Void> make() {
+                  throw new RuntimeException();
+                }
+                static Foo<@Nullable String> makeNullableStr() {
+                  throw new RuntimeException();
+                }
+              }
+              static class Bar<T extends @Nullable Object> {
+                Bar(Foo<T> foo) {
+                }
+              }
+              Bar<@Nullable Void> testNegative() {
+                return (new Bar<>(Foo.make()));
+              }
+              Bar<String> testPositive() {
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                return (new Bar<>(Foo.makeNullableStr()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nestedDiamondConstructors() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Foo<T extends @Nullable Object> {
+                static Foo<@Nullable Void> make() {
+                  throw new RuntimeException();
+                }
+                static Foo<@Nullable String> makeNullableStr() {
+                  throw new RuntimeException();
+                }
+              }
+              static class Bar<T extends @Nullable Object> {
+                Bar(Foo<T> foo) {
+                }
+              }
+              static class Baz<T extends @Nullable Object> {
+                Baz(Bar<T> bar) {
+                }
+              }
+              Baz<@Nullable Void> testNegative() {
+                // TODO: support nested constructor inference for the inner diamond call.
+                // BUG: Diagnostic contains: incompatible types:
+                return new Baz<>(new Bar<>(Foo.make()));
+              }
+              Baz<String> testPositive() {
+                // BUG: Diagnostic contains: incompatible types:
+                return new Baz<>(new Bar<>(Foo.makeNullableStr()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
