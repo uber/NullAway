@@ -632,9 +632,9 @@ public final class GenericsChecks {
     if (rootPath.getLeaf() == target) {
       return rootPath;
     }
-    return new TreePathScanner<@Nullable TreePath, Object>() {
+    return new TreePathScanner<@Nullable TreePath, @Nullable TreePath>() {
       @Override
-      public @Nullable TreePath scan(Tree tree, @Nullable Object unused) {
+      public @Nullable TreePath scan(Tree tree, @Nullable TreePath prevPath) {
         if (tree == target) {
           TreePath currentPath = getCurrentPath();
           if (currentPath != null && currentPath.getLeaf() == tree) {
@@ -644,6 +644,11 @@ public final class GenericsChecks {
           return new TreePath(currentPath, tree);
         }
         return super.scan(tree, null);
+      }
+
+      @Override
+      public @Nullable TreePath reduce(@Nullable TreePath r1, @Nullable TreePath r2) {
+        return r1 != null ? r1 : r2;
       }
     }.scan(rootPath, null);
   }
