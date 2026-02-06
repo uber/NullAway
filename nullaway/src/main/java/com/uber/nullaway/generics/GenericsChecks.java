@@ -564,11 +564,8 @@ public final class GenericsChecks {
       }
       parent = parentPath.getLeaf();
     }
-    if (parent instanceof VariableTree variableTree) {
-      Tree declaredTypeTree = variableTree.getType();
-      return declaredTypeTree == null
-          ? getTreeType(parent, state)
-          : typeWithPreservedAnnotations(declaredTypeTree);
+    if (parent instanceof VariableTree) {
+      return getTreeType(parent, state);
     }
     if (parent instanceof AssignmentTree assignmentTree) {
       return getTreeType(assignmentTree.getVariable(), state);
