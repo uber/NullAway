@@ -437,9 +437,7 @@ public final class GenericsChecks {
       return result;
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (newClassTree.getClassBody() != null
-          && newClassTree.getIdentifier() instanceof JCTree idTree
-          && TreeInfo.isDiamond(idTree)) {
+      if (isDiamondAnonymousClass(newClassTree)) {
         // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
         return null;
       }
@@ -557,6 +555,10 @@ public final class GenericsChecks {
     return getDiamondTypeFromParentContext(tree, state, parentPath);
   }
 
+  /**
+   * Same as {@link #getDiamondTypeFromContext(NewClassTree, VisitorState)} but starts from the
+   * current path when that path already refers to an enclosing context.
+   */
   private @Nullable Type getDiamondTypeFromCurrentPath(NewClassTree tree, VisitorState state) {
     TreePath currentPath = state.getPath();
     if (currentPath == null) {
@@ -568,6 +570,10 @@ public final class GenericsChecks {
     return getDiamondTypeFromParentContext(tree, state, currentPath);
   }
 
+  /**
+   * Computes the assignment-context type for an inferred constructor call, given a path to its
+   * parent context.
+   */
   private @Nullable Type getDiamondTypeFromParentContext(
       NewClassTree tree, VisitorState state, TreePath parentPath) {
     Tree parent = parentPath.getLeaf();
@@ -604,40 +610,41 @@ public final class GenericsChecks {
       if (methodType == null) {
         return null;
       }
-      AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
-      new InvocationArguments(parentInvocation, methodType.asMethodType())
-          .forEach(
-              (arg, pos, formalParamType, unused) -> {
-                if (ASTHelpers.stripParentheses(arg) == tree) {
-                  formalParamTypeRef.set(formalParamType);
-                }
-              });
-      return formalParamTypeRef.get();
+      return getFormalParameterTypeForArgument(parentInvocation, methodType.asMethodType(), tree);
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
       Type parentCtorType = ASTHelpers.getType(parentConstructorCall.getIdentifier());
       if (parentCtorType == null) {
         return getTargetTypeForDiamond(state, parentPath);
       }
-      AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
-      new InvocationArguments(parentConstructorCall, parentCtorType.asMethodType())
-          .forEach(
-              (arg, pos, formalParamType, unused) -> {
-                if (ASTHelpers.stripParentheses(arg) == tree) {
-                  formalParamTypeRef.set(formalParamType);
-                }
-              });
-      return formalParamTypeRef.get();
+      return getFormalParameterTypeForArgument(
+          parentConstructorCall, parentCtorType.asMethodType(), tree);
     }
     return getTargetTypeForDiamond(state, parentPath);
   }
 
+  /** Returns the inferred/declared formal parameter type corresponding to {@code argumentTree}. */
+  private @Nullable Type getFormalParameterTypeForArgument(
+      Tree invocationTree, Type.MethodType invocationType, Tree argumentTree) {
+    AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
+    new InvocationArguments(invocationTree, invocationType)
+        .forEach(
+            (arg, pos, formalParamType, unused) -> {
+              if (ASTHelpers.stripParentheses(arg) == argumentTree) {
+                formalParamTypeRef.set(formalParamType);
+              }
+            });
+    return formalParamTypeRef.get();
+  }
+
+  /** Reads javac's target type for the constructor expression at the given path, if available. */
   private static @Nullable Type getTargetTypeForDiamond(VisitorState state, TreePath treePath) {
     com.google.errorprone.util.TargetType targetType =
         com.google.errorprone.util.TargetType.targetType(state.withPath(treePath));
     return targetType == null ? null : targetType.type();
   }
 
+  /** Finds the path to {@code target} within {@code rootPath}, or null when not found. */
   private static @Nullable TreePath findPathToSubtree(@Nullable TreePath rootPath, Tree target) {
     if (rootPath == null) {
       return null;
@@ -653,11 +660,16 @@ public final class GenericsChecks {
     }.scan(rootPath, null);
   }
 
+  /** Creates a state whose path points to {@code subtree}, when that subtree is reachable. */
   private static VisitorState withPathToSubtree(VisitorState state, Tree subtree) {
     TreePath subtreePath = findPathToSubtree(state.getPath(), subtree);
     return subtreePath == null ? state : state.withPath(subtreePath);
   }
 
+  /**
+   * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
+   * instantiated type arguments at the type level, but no explicit non-diamond source type args.
+   */
   private static boolean hasInferredClassTypeArguments(NewClassTree newClassTree) {
     if (newClassTree.getClassBody() != null) {
       // For anonymous classes, javac does not preserve all nullability details for the inferred
@@ -673,6 +685,12 @@ public final class GenericsChecks {
     }
     Type newClassType = ASTHelpers.getType(newClassTree);
     return newClassType != null && !newClassType.getTypeArguments().isEmpty();
+  }
+
+  private static boolean isDiamondAnonymousClass(NewClassTree newClassTree) {
+    return newClassTree.getClassBody() != null
+        && newClassTree.getIdentifier() instanceof JCTree idTree
+        && TreeInfo.isDiamond(idTree);
   }
 
   /**
