@@ -445,13 +445,10 @@ public final class GenericsChecks {
           && !paramTypedTree.getTypeArguments().isEmpty()) {
         return typeWithPreservedAnnotations(paramTypedTree);
       }
-      if (hasInferredClassTypeArguments(newClassTree)) {
-        // For constructor calls with inferred class type arguments, infer from assignment context
-        // when possible so we preserve explicit nullability annotations from the target type.
-        Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
-        if (fromAssignmentContext != null) {
-          return fromAssignmentContext;
-        }
+      // For constructor calls using diamond operator, infer from assignment context
+      Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
+      if (fromAssignmentContext != null) {
+        return fromAssignmentContext;
       }
       return ASTHelpers.getType(tree);
     } else if (tree instanceof NewArrayTree
