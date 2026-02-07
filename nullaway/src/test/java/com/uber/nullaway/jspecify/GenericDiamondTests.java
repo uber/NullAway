@@ -174,7 +174,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 return new Baz<>(new Bar<>(Foo.make()));
               }
               Baz<String> testPositive() {
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
                 return new Baz<>(new Bar<>(Foo.makeNullableStr()));
               }
             }
