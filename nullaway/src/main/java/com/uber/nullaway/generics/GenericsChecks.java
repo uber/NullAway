@@ -587,20 +587,20 @@ public final class GenericsChecks {
       return getFormalParameterTypeForArgument(parentInvocation, methodType.asMethodType(), tree);
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
-      Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
-      if (parentCtorSymbol == null) {
-        return getTargetTypeForDiamond(state, parentPath);
+      // get the type returned by the parent constructor call
+      Type parentClassType = getTreeType(parentConstructorCall, state.withPath(parentPath));
+      if (parentClassType != null) {
+        Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
+        // get the proper type for the constructor, as a member of the type returned by the
+        // constructor
+        Type parentCtorType =
+            TypeSubstitutionUtils.memberType(
+                state.getTypes(), parentClassType, parentCtorSymbol, config);
+        return getFormalParameterTypeForArgument(
+            parentConstructorCall, parentCtorType.asMethodType(), tree);
       }
-      Type parentCtorType = parentCtorSymbol.type;
-      if (parentCtorType instanceof Type.ForAll) {
-        parentCtorType = ((Type.ForAll) parentCtorType).qtype;
-      }
-      if (!(parentCtorType instanceof Type.MethodType methodType)) {
-        return getTargetTypeForDiamond(state, parentPath);
-      }
-      return getFormalParameterTypeForArgument(parentConstructorCall, methodType, tree);
     }
-    return getTargetTypeForDiamond(state, parentPath);
+    return null;
   }
 
   /** Returns the inferred/declared formal parameter type corresponding to {@code argumentTree}. */
@@ -615,13 +615,6 @@ public final class GenericsChecks {
               }
             });
     return formalParamTypeRef.get();
-  }
-
-  /** Reads javac's target type for the constructor expression at the given path, if available. */
-  private static @Nullable Type getTargetTypeForDiamond(VisitorState state, TreePath treePath) {
-    com.google.errorprone.util.TargetType targetType =
-        com.google.errorprone.util.TargetType.targetType(state.withPath(treePath));
-    return targetType == null ? null : targetType.type();
   }
 
   /** Finds the path to {@code target} within {@code rootPath}, or null when not found. */

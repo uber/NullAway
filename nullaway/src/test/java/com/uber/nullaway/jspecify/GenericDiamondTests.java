@@ -171,8 +171,6 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 }
               }
               Baz<@Nullable Void> testNegative() {
-                // TODO: support nested constructor inference for the inner diamond call.
-                // BUG: Diagnostic contains: incompatible types:
                 return new Baz<>(new Bar<>(Foo.make()));
               }
               Baz<String> testPositive() {
