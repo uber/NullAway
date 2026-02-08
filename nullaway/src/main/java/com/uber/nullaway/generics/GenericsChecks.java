@@ -2013,10 +2013,7 @@ public final class GenericsChecks {
       }
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
-      enclosingType = ASTHelpers.getType(newClassTree.getIdentifier());
-      if (enclosingType == null) {
-        enclosingType = getTreeType(tree, withPathToSubtree(state, tree));
-      }
+      enclosingType = getTreeType(tree, withPathToSubtree(state, tree));
     }
     return enclosingType;
   }
