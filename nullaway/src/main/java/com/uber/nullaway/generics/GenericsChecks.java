@@ -1775,20 +1775,10 @@ public final class GenericsChecks {
    * An invocation of a generic method, and the corresponding information about its assignment
    * context, for the purposes of inference.
    */
-  private static final class InvocationAndContext {
-    final MethodInvocationTree invocation;
-    final @Nullable Type typeFromAssignmentContext;
-    final boolean assignedToLocal;
-
-    InvocationAndContext(
-        MethodInvocationTree invocation,
-        @Nullable Type typeFromAssignmentContext,
-        boolean assignedToLocal) {
-      this.invocation = invocation;
-      this.typeFromAssignmentContext = typeFromAssignmentContext;
-      this.assignedToLocal = assignedToLocal;
-    }
-  }
+  private record InvocationAndContext(
+      MethodInvocationTree invocation,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal) {}
 
   /**
    * Given a {@link TreePath} to an invocation of a generic method, collect information about the
