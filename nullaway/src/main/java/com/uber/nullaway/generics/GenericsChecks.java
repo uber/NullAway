@@ -437,18 +437,22 @@ public final class GenericsChecks {
       return result;
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (isDiamondAnonymousClass(newClassTree)) {
-        // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
-        return null;
+      if (TreeInfo.isDiamond((JCTree) newClassTree)) {
+        if (newClassTree.getClassBody() != null) {
+          // Keep existing behavior for diamond anonymous classes, which are not yet fully
+          // supported.
+          return null;
+        }
+        // For constructor calls using diamond operator, infer from assignment context.
+        // TODO handle diamond constructor calls passed to generic methods
+        Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
+        if (fromAssignmentContext != null) {
+          return fromAssignmentContext;
+        }
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
         return typeWithPreservedAnnotations(paramTypedTree);
-      }
-      // For constructor calls using diamond operator, infer from assignment context
-      Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
-      if (fromAssignmentContext != null) {
-        return fromAssignmentContext;
       }
       return ASTHelpers.getType(tree);
     } else if (tree instanceof NewArrayTree
@@ -664,10 +668,6 @@ public final class GenericsChecks {
     }
     Type newClassType = ASTHelpers.getType(newClassTree);
     return newClassType != null && !newClassType.getTypeArguments().isEmpty();
-  }
-
-  private static boolean isDiamondAnonymousClass(NewClassTree newClassTree) {
-    return newClassTree.getClassBody() != null && TreeInfo.isDiamond((JCTree) newClassTree);
   }
 
   /**
