@@ -50,7 +50,10 @@ jobs:
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
         run: ./gradlew publishToMavenLocal
       - name: Check that Git tree is clean after build and test
-        run: ./.buildscript/check_git_clean.sh
+        run: |
+          # See https://github.com/codecov/codecov-action/issues/1851
+          rm -rf codecov codecov.SHA256SUM codecov.SHA256SUM.sig
+          ./.buildscript/check_git_clean.sh
   compile-other-projects:
     name: "Build ${{ matrix.project }} with snapshot"
     strategy:
