@@ -39,11 +39,16 @@ jobs:
         continue-on-error: true
         if: runner.os == 'Linux' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
-        uses: codecov/codecov-action@v4
+        uses: codecov/codecov-action@v5
         with:
           files: ./code-coverage-report/build/reports/jacoco/codeCoverageReport/codeCoverageReport.xml
           token: ${{ secrets.CODECOV_TOKEN }}
         if: steps.jacoco_report.outcome == 'success'
+      - name: Cleanup Codecov temporary files
+        run: |
+          # See https://github.com/codecov/codecov-action/issues/1851
+          rm -rf codecov codecov.SHA256SUM codecov.SHA256SUM.sig
+        if: steps.jacoco_report.outcome == 'success'        
       - name: Test publishToMavenLocal flow
         env:
           ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'

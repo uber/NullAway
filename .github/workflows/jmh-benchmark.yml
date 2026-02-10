@@ -18,7 +18,7 @@ jobs:
     steps:
 
     - name: Checkout repository 
-      uses: actions/checkout@v4
+      uses: actions/checkout@v6
 
     - name: Set branch name
       env:
@@ -29,12 +29,12 @@ jobs:
 
     - id: 'auth'
       name: Authenticating 
-      uses: google-github-actions/auth@v2
+      uses: google-github-actions/auth@v3
       with:
         credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' 
 
     - name: Set up Google Cloud SDK 
-      uses: google-github-actions/setup-gcloud@v2
+      uses: google-github-actions/setup-gcloud@v3
       
     - name: Start VM
       run: gcloud compute instances start nullway-jmh --zone=us-central1-a
@@ -55,7 +55,7 @@ jobs:
         (echo 'Main Branch:'; echo '```' ; cat main_text.txt; echo '```'; echo 'With This PR:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
    
     - name: Comment Benchmark
-      uses: actions/github-script@v7
+      uses: actions/github-script@v8
       if: always()
       with:
         script: |
