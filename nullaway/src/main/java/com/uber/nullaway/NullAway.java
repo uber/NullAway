@@ -904,20 +904,13 @@ public class NullAway extends BugChecker
       }
       int methodParamInd = i - startParam;
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
-      boolean paramIsNonNull = paramIsNonNull(paramSymbol, isOverridingMethodAnnotated);
-      if (config.isJSpecifyMode() && jspecifyMemberReferenceMethodType != null) {
-        // also check that the parameter is not effectively @Nullable due to generics, in the case
-        // of a member reference
-        paramIsNonNull =
-            paramIsNonNull
-                && !genericsChecks
-                    .getGenericMethodParameterNullness(
-                        methodParamInd,
-                        // cannot be null if jspecifyMemberReferenceMethodType is not null
-                        castToNonNull(overridingMethod),
-                        jspecifyMemberReferenceMethodType)
-                    .equals(Nullness.NULLABLE);
-      }
+      boolean paramIsNonNull =
+          paramOfOverridingMethodIsNonNull(
+              paramSymbol,
+              methodParamInd,
+              overridingMethod,
+              isOverridingMethodAnnotated,
+              jspecifyMemberReferenceMethodType);
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
       // nullability from the corresponding functional interface method.
@@ -966,14 +959,29 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private boolean paramIsNonNull(VarSymbol paramSymbol, boolean isMethodAnnotated) {
+  private boolean paramOfOverridingMethodIsNonNull(
+      VarSymbol paramSymbol,
+      int methodParamInd,
+      @SuppressWarnings("UnusedVariable") Symbol.@Nullable MethodSymbol overridingMethod,
+      boolean isMethodAnnotated,
+      Type.@Nullable MethodType memberReferenceMethodType) {
+    boolean result = false;
     if (isMethodAnnotated) {
-      return !Nullness.hasNullableAnnotation(paramSymbol, config);
+      result = !Nullness.hasNullableAnnotation(paramSymbol, config);
     } else if (config.acknowledgeRestrictiveAnnotations()) {
       // can still be @NonNull if there is a restrictive annotation
-      return Nullness.hasNonNullAnnotation(paramSymbol, config);
+      result = Nullness.hasNonNullAnnotation(paramSymbol, config);
     }
-    return false;
+    if (result && memberReferenceMethodType != null) {
+      // when the overriding method is a member reference, also check that the parameter is not
+      // effectively @Nullable due to generics.  memberReferenceMethodType should be the method type
+      // of the member reference after handling generics
+      // TODO test ref to method in unannotated code
+      // TODO test ref to varargs method
+      Type paramType = memberReferenceMethodType.getParameterTypes().get(methodParamInd);
+      result = !Nullness.hasNullableAnnotation(paramType.getAnnotationMirrors().stream(), config);
+    }
+    return result;
   }
 
   /**
