@@ -574,6 +574,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Testing that we allow a correct usage of streams on Map entries; a similar case arose during
+   * integration testing
+   */
   @Test
   public void mapStream() {
     makeHelperWithInferenceFailureWarning()
