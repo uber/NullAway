@@ -976,7 +976,6 @@ public class NullAway extends BugChecker
       // when the overriding method is a member reference, also check that the parameter is not
       // effectively @Nullable due to generics.  memberReferenceMethodType should be the method type
       // of the member reference after handling generics
-      // TODO test ref to method in unannotated code
       // TODO test ref to varargs method
       Type paramType = memberReferenceMethodType.getParameterTypes().get(methodParamInd);
       result = !Nullness.hasNullableAnnotation(paramType.getAnnotationMirrors().stream(), config);

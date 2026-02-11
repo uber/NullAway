@@ -539,6 +539,42 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("we need to handle interactions between inference and unmarked code; TODO open issue")
+  @Test
+  public void inferFromMethodRefToUnmarked() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              @NullUnmarked
+              static class Util {
+                static void take(String thing) {
+                }
+                static void takeRestrictive(@NonNull String string) {}
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String sNonNull, @Nullable String sNullable) {
+                // should be legal
+                consume(Util::take, sNonNull);
+                // should also be legal, since we treat unmarked code as potentially accepting @Nullable
+                consume(Util::take, sNullable);
+                // should not be legal due to restrictive annotation
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeRestrictive, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void inferFromGenericInstanceMethodRef() {
     makeHelperWithInferenceFailureWarning()
