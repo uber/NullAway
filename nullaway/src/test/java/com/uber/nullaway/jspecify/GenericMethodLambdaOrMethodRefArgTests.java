@@ -539,6 +539,50 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void refToMethodTakingArray() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Util {
+                static void take(String[] thing) {
+                }
+                static void takeNullable(String @Nullable [] thing) {
+                }
+                static void takeNullableContents(@Nullable String [] thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String[] sNonNull, String @Nullable [] sNullable, @Nullable String [] sNullableContents) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable);
+                // TODO should be illegal; file issue
+                consume(Util::take, sNullableContents);
+                consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
+                consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
+                // TODO should be illegal; file issue
+                consume(Util::takeNullable, sNullableContents);
+                consume(Util::takeNullableContents, sNonNull); // legal due to array subtyping
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeNullableContents, sNullable);
+                consume(Util::takeNullableContents, sNullableContents); // should be legal
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("we need to handle interactions between inference and unmarked code; TODO open issue")
   @Test
   public void inferFromMethodRefToUnmarked() {
