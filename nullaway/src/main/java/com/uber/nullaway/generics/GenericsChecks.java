@@ -1005,6 +1005,7 @@ public final class GenericsChecks {
     }
     if (fiParamTypes.size() - fiStartIndex != referencedParamTypes.size()) {
       // TODO handle references to varargs methods
+      // wait check if this is even possible???
       return;
     }
     for (int i = 0; i < referencedParamTypes.size(); i++) {
