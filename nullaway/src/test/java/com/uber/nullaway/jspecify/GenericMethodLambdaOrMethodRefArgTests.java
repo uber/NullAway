@@ -583,6 +583,85 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void refToVarargsPassingArray() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Util {
+                static void take(String... thing) {
+                }
+                static void takeNullable(String @Nullable... thing) {
+                }
+                static void takeNullableArgs(@Nullable String... thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String[] sNonNull, String @Nullable [] sNullable, @Nullable String [] sNullableContents) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable);
+                // TODO should be illegal; file issue
+                consume(Util::take, sNullableContents);
+                consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
+                consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
+                // TODO should be illegal; file issue
+                consume(Util::takeNullable, sNullableContents);
+                consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeNullableArgs, sNullable);
+                consume(Util::takeNullableArgs, sNullableContents); // should be legal
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void refToVarargsPassIndividualArgs() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Util {
+                static void take(String... thing) {
+                }
+                static void takeNullableArgs(@Nullable String... thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String sNonNull, @Nullable String sNullable) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable);
+                consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeNullableArgs, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("we need to handle interactions between inference and unmarked code; TODO open issue")
   @Test
   public void inferFromMethodRefToUnmarked() {
