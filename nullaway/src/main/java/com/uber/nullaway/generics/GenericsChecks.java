@@ -941,6 +941,7 @@ public final class GenericsChecks {
     // first, figure out the proper method type to use for the member reference
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     if (referencedMethod == null || referencedMethod.isConstructor()) {
+      // TODO handle constructor references like Foo::new
       return;
     }
     Type.MethodType referencedMethodType = referencedMethod.asType().asMethodType();
