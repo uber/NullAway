@@ -1006,9 +1006,51 @@ public final class GenericsChecks {
       }
       fiStartIndex = 1;
     }
-    for (int i = 0; i < referencedParamTypes.size(); i++) {
+    int fiParamCount = fiParamTypes.size() - fiStartIndex;
+    if (!referencedMethod.isVarArgs()) {
+      int constrainedParamCount = Math.min(fiParamCount, referencedParamTypes.size());
+      for (int i = 0; i < constrainedParamCount; i++) {
+        solver.addSubtypeConstraint(
+            fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
+      }
+      return;
+    }
+
+    // For varargs references, the functional interface can map to fixed-arity form (single array
+    // argument at the varargs position) or variable-arity form (zero or more element arguments).
+    int fixedParamCount = referencedParamTypes.size() - 1;
+    int constrainedFixedParamCount = Math.min(fiParamCount, fixedParamCount);
+    for (int i = 0; i < constrainedFixedParamCount; i++) {
       solver.addSubtypeConstraint(
           fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
+    }
+    if (fiParamCount <= fixedParamCount) {
+      // Not enough FI parameters to cover the varargs position, or exactly no varargs arguments.
+      return;
+    }
+
+    Type varargsArrayType = referencedParamTypes.get(fixedParamCount);
+    Verify.verify(
+        varargsArrayType.getKind() == TypeKind.ARRAY,
+        "Expected array type for varargs parameter in %s, got %s",
+        memberReferenceTree,
+        varargsArrayType);
+    Type varargsElementType = castToNonNull(types.elemtype(varargsArrayType));
+    int firstVarargsFiParamIndex = fiStartIndex + fixedParamCount;
+    int fiParamsAtVarargsPosition = fiParamCount - fixedParamCount;
+    Type singleVarargsFiParamType = fiParamTypes.get(firstVarargsFiParamIndex);
+    if (fiParamsAtVarargsPosition == 1
+        && (singleVarargsFiParamType.getKind() == TypeKind.ARRAY
+            // Preserve existing inference behavior for unresolved type variables, where fixed
+            // arity adaptation was previously assumed.
+            || singleVarargsFiParamType instanceof Type.TypeVar)) {
+      // Single array (or unresolved type variable) parameter can represent fixed-arity adaptation.
+      solver.addSubtypeConstraint(singleVarargsFiParamType, varargsArrayType, false);
+      return;
+    }
+    for (int i = 0; i < fiParamsAtVarargsPosition; i++) {
+      solver.addSubtypeConstraint(
+          fiParamTypes.get(firstVarargsFiParamIndex + i), varargsElementType, false);
     }
   }
 

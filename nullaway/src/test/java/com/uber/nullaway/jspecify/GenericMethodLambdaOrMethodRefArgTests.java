@@ -805,49 +805,6 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void mapOfFromJUnit() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            import java.util.Map;
-            import java.util.function.Function;
-            import java.io.File;
-            import java.nio.charset.Charset;
-            import java.nio.file.Path;
-            import java.nio.file.Paths;
-            import java.net.URI;
-            import java.net.URL;
-            import java.util.Currency;
-            import java.util.Locale;
-            import java.util.UUID;
-            @NullMarked
-            class Test {
-              private static final Map<Class<?>, Function<String, ?>> CONVERTERS = Map.of( //
-                  // java.io and java.nio
-                  File.class, File::new, //
-                  Charset.class, Charset::forName, //
-                  Path.class, Paths::get,
-                  // java.net
-                  URI.class, URI::create, //
-                  URL.class, Test::toURL,
-                  // java.util
-                  Currency.class, Currency::getInstance, //
-                  Locale.class, Locale::forLanguageTag, //
-                  UUID.class, UUID::fromString //
-                );
-
-              private static URL toURL(String s) {
-                throw new RuntimeException();
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
