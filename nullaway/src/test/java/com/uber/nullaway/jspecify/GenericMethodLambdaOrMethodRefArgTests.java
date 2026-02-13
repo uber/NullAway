@@ -653,8 +653,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
-                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeNullableArgs, sNonNull);
                 consume(Util::takeNullableArgs, sNullable);
               }
             }

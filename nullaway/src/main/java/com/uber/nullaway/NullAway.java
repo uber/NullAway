@@ -910,6 +910,7 @@ public class NullAway extends BugChecker
               methodParamInd,
               overridingMethod,
               isOverridingMethodAnnotated,
+              memberReferenceTree,
               jspecifyMemberReferenceMethodType);
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
@@ -962,8 +963,9 @@ public class NullAway extends BugChecker
   private boolean paramOfOverridingMethodIsNonNull(
       VarSymbol paramSymbol,
       int methodParamInd,
-      @SuppressWarnings("UnusedVariable") Symbol.@Nullable MethodSymbol overridingMethod,
+      Symbol.@Nullable MethodSymbol overridingMethod,
       boolean isMethodAnnotated,
+      @Nullable MemberReferenceTree memberReferenceTree,
       Type.@Nullable MethodType memberReferenceMethodType) {
     boolean result = false;
     if (isMethodAnnotated) {
@@ -976,7 +978,33 @@ public class NullAway extends BugChecker
       // when the overriding method is a member reference, also check that the parameter is not
       // effectively @Nullable due to generics.  memberReferenceMethodType should be the method type
       // of the member reference after handling generics
-      Type paramType = memberReferenceMethodType.getParameterTypes().get(methodParamInd);
+      com.sun.tools.javac.util.List<Type> parameterTypes =
+          memberReferenceMethodType.getParameterTypes();
+      int memberRefParamIndex = methodParamInd;
+      if (memberReferenceTree != null
+          && overridingMethod != null
+          && overridingMethod.isVarArgs()
+          && ((JCTree.JCMemberReference) memberReferenceTree).varargsElement != null) {
+        // With varargs adaptation, one or more functional-interface parameters can map to the
+        // varargs element type of the referenced method.
+        int varargsParamIndex = overridingMethod.getParameters().size() - 1;
+        if (methodParamInd >= varargsParamIndex) {
+          memberRefParamIndex = varargsParamIndex;
+        }
+      }
+      Type paramType = parameterTypes.get(memberRefParamIndex);
+      if (memberReferenceTree != null
+          && overridingMethod != null
+          && overridingMethod.isVarArgs()
+          && ((JCTree.JCMemberReference) memberReferenceTree).varargsElement != null
+          && methodParamInd >= overridingMethod.getParameters().size() - 1) {
+        Verify.verify(
+            paramType.getKind() == TypeKind.ARRAY,
+            "Expected array type for varargs parameter in %s, got %s",
+            memberReferenceTree,
+            paramType);
+        paramType = ((Type.ArrayType) paramType).getComponentType();
+      }
       result = !Nullness.hasNullableAnnotation(paramType.getAnnotationMirrors().stream(), config);
     }
     return result;

@@ -1018,39 +1018,36 @@ public final class GenericsChecks {
 
     // For varargs references, the functional interface can map to fixed-arity form (single array
     // argument at the varargs position) or variable-arity form (zero or more element arguments).
-    int fixedParamCount = referencedParamTypes.size() - 1;
-    int constrainedFixedParamCount = Math.min(fiParamCount, fixedParamCount);
+    int varargsParamPosition = referencedParamTypes.size() - 1;
+    int constrainedFixedParamCount = Math.min(fiParamCount, varargsParamPosition);
     for (int i = 0; i < constrainedFixedParamCount; i++) {
       solver.addSubtypeConstraint(
           fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
     }
-    if (fiParamCount <= fixedParamCount) {
+    if (fiParamCount <= varargsParamPosition) {
       // Not enough FI parameters to cover the varargs position, or exactly no varargs arguments.
       return;
     }
-
-    Type varargsArrayType = referencedParamTypes.get(fixedParamCount);
+    Type varargsArrayType = referencedParamTypes.get(varargsParamPosition);
     Verify.verify(
         varargsArrayType.getKind() == TypeKind.ARRAY,
         "Expected array type for varargs parameter in %s, got %s",
         memberReferenceTree,
         varargsArrayType);
-    Type varargsElementType = castToNonNull(types.elemtype(varargsArrayType));
-    int firstVarargsFiParamIndex = fiStartIndex + fixedParamCount;
-    int fiParamsAtVarargsPosition = fiParamCount - fixedParamCount;
-    Type singleVarargsFiParamType = fiParamTypes.get(firstVarargsFiParamIndex);
-    if (fiParamsAtVarargsPosition == 1
-        && (singleVarargsFiParamType.getKind() == TypeKind.ARRAY
-            // Preserve existing inference behavior for unresolved type variables, where fixed
-            // arity adaptation was previously assumed.
-            || singleVarargsFiParamType instanceof Type.TypeVar)) {
-      // Single array (or unresolved type variable) parameter can represent fixed-arity adaptation.
-      solver.addSubtypeConstraint(singleVarargsFiParamType, varargsArrayType, false);
+    JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
+    int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
+    if (javacMemberRef.varargsElement == null) {
+      // javac resolved this member reference using non-varargs (fixed-arity) adaptation.
+      solver.addSubtypeConstraint(
+          fiParamTypes.get(firstVarargsFiParamIndex), varargsArrayType, false);
       return;
     }
-    for (int i = 0; i < fiParamsAtVarargsPosition; i++) {
-      solver.addSubtypeConstraint(
-          fiParamTypes.get(firstVarargsFiParamIndex + i), varargsElementType, false);
+    // javac resolved this member reference using varargs (variable-arity) adaptation.
+    // Use the element type from the referenced varargs array type so we preserve nullability
+    // annotations (JCMemberReference.varargsElement can lose them).
+    Type varargsElementType = castToNonNull(types.elemtype(varargsArrayType));
+    for (int i = varargsParamPosition; i < fiParamCount; i++) {
+      solver.addSubtypeConstraint(fiParamTypes.get(fiStartIndex + i), varargsElementType, false);
     }
   }
 
