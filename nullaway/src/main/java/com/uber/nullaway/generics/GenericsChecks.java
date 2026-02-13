@@ -994,6 +994,8 @@ public final class GenericsChecks {
         referencedMethodType.getParameterTypes();
     int fiStartIndex = 0;
     if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
+      // an unbound method reference like String::length has an implicit receiver parameter
+      // that needs to be aligned with the first functional interface parameter
       Verify.verify(
           !fiParamTypes.isEmpty(),
           "Expected receiver parameter for unbound method ref %s",
@@ -1003,11 +1005,6 @@ public final class GenericsChecks {
         solver.addSubtypeConstraint(receiverType, qualifierType, false);
       }
       fiStartIndex = 1;
-    }
-    if (fiParamTypes.size() - fiStartIndex != referencedParamTypes.size()) {
-      // TODO handle references to varargs methods
-      // wait check if this is even possible???
-      return;
     }
     for (int i = 0; i < referencedParamTypes.size(); i++) {
       solver.addSubtypeConstraint(
