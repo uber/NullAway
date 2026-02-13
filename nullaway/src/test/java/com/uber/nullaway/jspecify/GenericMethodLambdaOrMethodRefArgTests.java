@@ -662,6 +662,49 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varargsDifferentFunctionalInterfaceArities() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Supplier<T extends @Nullable Object> {
+                T get();
+              }
+              interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T thing);
+              }
+              interface BiFunction<T extends @Nullable Object, U extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T t, U u);
+              }
+              static class Util {
+                static String fun(String... thing) {
+                  throw new RuntimeException();
+                }
+              }
+              private static <U extends @Nullable Object> U takeSupplier(Supplier<U> consumer) {
+                throw new RuntimeException();
+              }
+              private static <U extends @Nullable Object, V extends @Nullable Object> V takeFunction(Function<U,V> function) {
+                throw new RuntimeException();
+              }
+              private static <U extends @Nullable Object, V extends @Nullable Object, W extends @Nullable Object> W takeBiFunction(BiFunction<U,V,W> function) {
+                throw new RuntimeException();
+              }
+              void test() {
+                String s1 = takeSupplier(Util::fun);
+                String s2 = Test.<String,String>takeFunction(Util::fun);
+                String s3 = Test.<String,String,String>takeBiFunction(Util::fun);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("we need to handle interactions between inference and unmarked code; TODO open issue")
   @Test
   public void inferFromMethodRefToUnmarked() {
@@ -755,6 +798,49 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                         Collectors.toMap(
                             Map.Entry::getKey,
                             Map.Entry::getValue));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapOfFromJUnit() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.function.Function;
+            import java.io.File;
+            import java.nio.charset.Charset;
+            import java.nio.file.Path;
+            import java.nio.file.Paths;
+            import java.net.URI;
+            import java.net.URL;
+            import java.util.Currency;
+            import java.util.Locale;
+            import java.util.UUID;
+            @NullMarked
+            class Test {
+              private static final Map<Class<?>, Function<String, ?>> CONVERTERS = Map.of( //
+                  // java.io and java.nio
+                  File.class, File::new, //
+                  Charset.class, Charset::forName, //
+                  Path.class, Paths::get,
+                  // java.net
+                  URI.class, URI::create, //
+                  URL.class, Test::toURL,
+                  // java.util
+                  Currency.class, Currency::getInstance, //
+                  Locale.class, Locale::forLanguageTag, //
+                  UUID.class, UUID::fromString //
+                );
+
+              private static URL toURL(String s) {
+                throw new RuntimeException();
               }
             }
             """)
