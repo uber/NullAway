@@ -124,6 +124,7 @@ import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.javacutil.ElementUtils;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
+import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -1023,6 +1024,7 @@ public class NullAway extends BugChecker
    * @return true if we have a member reference to a varargs method where the varargs are passed
    *     individually
    */
+  @Contract("null, _ -> false; _, null -> false")
   private static boolean memberRefToVarargsPassedIndividually(
       Symbol.@Nullable MethodSymbol referencedMethod,
       @Nullable MemberReferenceTree memberReferenceTree) {

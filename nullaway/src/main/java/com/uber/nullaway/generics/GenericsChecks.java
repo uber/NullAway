@@ -1536,7 +1536,7 @@ public final class GenericsChecks {
    * @return the method type with inferred nullability for type parameters if inference was
    *     performed, or the original method type otherwise
    */
-  public Type.MethodType getInferredMethodTypeForGenericMethodReference(
+  private Type.MethodType getInferredMethodTypeForGenericMethodReference(
       Type.MethodType methodType, VisitorState state) {
     TreePath parentPath = state.getPath().getParentPath();
     while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
