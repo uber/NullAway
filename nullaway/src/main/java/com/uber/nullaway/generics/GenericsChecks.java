@@ -581,6 +581,11 @@ public final class GenericsChecks {
       return null;
     }
     if (parent instanceof MethodInvocationTree parentInvocation) {
+      if (isGenericCallNeedingInference(parentInvocation)) {
+        // TODO support full integration of diamond constructor calls with generic method inference
+        // for now, just give up and return null
+        return null;
+      }
       Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
       if (methodType == null) {
         return null;
