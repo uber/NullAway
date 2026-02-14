@@ -1006,24 +1006,23 @@ public final class GenericsChecks {
       }
       fiStartIndex = 1;
     }
+    // first, handle the non-varargs case
     int fiParamCount = fiParamTypes.size() - fiStartIndex;
+    int nonVarargsParamCount =
+        referencedMethod.isVarArgs()
+            ? Math.min(fiParamCount, referencedParamTypes.size() - 1)
+            : referencedParamTypes.size();
+    for (int i = 0; i < nonVarargsParamCount; i++) {
+      solver.addSubtypeConstraint(
+          fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
+    }
     if (!referencedMethod.isVarArgs()) {
-      int constrainedParamCount = Math.min(fiParamCount, referencedParamTypes.size());
-      for (int i = 0; i < constrainedParamCount; i++) {
-        solver.addSubtypeConstraint(
-            fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
-      }
       return;
     }
 
     // For varargs references, the functional interface can map to fixed-arity form (single array
     // argument at the varargs position) or variable-arity form (zero or more element arguments).
     int varargsParamPosition = referencedParamTypes.size() - 1;
-    int constrainedFixedParamCount = Math.min(fiParamCount, varargsParamPosition);
-    for (int i = 0; i < constrainedFixedParamCount; i++) {
-      solver.addSubtypeConstraint(
-          fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
-    }
     if (fiParamCount <= varargsParamPosition) {
       // Not enough FI parameters to cover the varargs position, or exactly no varargs arguments.
       return;
@@ -1043,9 +1042,8 @@ public final class GenericsChecks {
       return;
     }
     // javac resolved this member reference using varargs (variable-arity) adaptation.
-    // Use the element type from the referenced varargs array type so we preserve nullability
-    // annotations (JCMemberReference.varargsElement can lose them).
-    Type varargsElementType = castToNonNull(types.elemtype(varargsArrayType));
+    // Use the element type from the referenced varargs array type
+    Type varargsElementType = types.elemtype(varargsArrayType);
     for (int i = varargsParamPosition; i < fiParamCount; i++) {
       solver.addSubtypeConstraint(fiParamTypes.get(fiStartIndex + i), varargsElementType, false);
     }
