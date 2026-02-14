@@ -852,7 +852,6 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     return null;
                 }
                 static void test(List<String> list) {
-                    // legal, should infer R -> @Nullable String
                     list.stream().map(Test::mapToNull).forEach(s -> {
                         // BUG: Diagnostic contains: dereferenced expression s is @Nullable
                         s.hashCode();
