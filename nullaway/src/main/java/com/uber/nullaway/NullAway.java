@@ -959,6 +959,21 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
+  /**
+   * Checks if the parameter of the overriding method is {@code @NonNull}
+   *
+   * @param paramSymbol the symbol for the parameter of the overriding method
+   * @param methodParamInd the index of the parameter in the method signature of the overriding
+   *     method (adjusted for unbound member references)
+   * @param overridingMethod if available, the symbol for the overriding method
+   * @param isMethodAnnotated whether the overriding method is annotated
+   * @param memberReferenceTree if the overriding method is a member reference, the tree for the
+   *     member reference; otherwise {@code null}
+   * @param memberReferenceMethodType if the overriding method is a member reference, the method
+   *     type of the member reference after handling generics; otherwise {@code null}
+   * @return true if the parameter of the overriding method is effectively {@code @NonNull}, false
+   *     otherwise
+   */
   private boolean paramOfOverridingMethodIsNonNull(
       VarSymbol paramSymbol,
       int methodParamInd,
@@ -979,23 +994,13 @@ public class NullAway extends BugChecker
       // of the member reference after handling generics
       com.sun.tools.javac.util.List<Type> parameterTypes =
           memberReferenceMethodType.getParameterTypes();
-      int memberRefParamIndex = methodParamInd;
-      if (memberReferenceTree != null
-          && overridingMethod != null
-          && overridingMethod.isVarArgs()
-          && ((JCTree.JCMemberReference) memberReferenceTree).varargsElement != null) {
-        // With varargs adaptation, one or more functional-interface parameters can map to the
-        // varargs element type of the referenced method.
-        int varargsParamIndex = overridingMethod.getParameters().size() - 1;
-        if (methodParamInd >= varargsParamIndex) {
-          memberRefParamIndex = varargsParamIndex;
-        }
-      }
+      int memberRefParamIndex =
+          getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree);
       Type paramType = parameterTypes.get(memberRefParamIndex);
-      if (memberReferenceTree != null
-          && overridingMethod != null
-          && overridingMethod.isVarArgs()
-          && ((JCTree.JCMemberReference) memberReferenceTree).varargsElement != null
+      // if we have a method reference to a varargs method where varargs are passed individually
+      // (not as an array), and this parameter is the varargs
+      // parameter, then we need to check the nullability of the varargs element type
+      if (memberRefToVarargsPassedIndividually(overridingMethod, memberReferenceTree)
           && methodParamInd >= overridingMethod.getParameters().size() - 1) {
         Verify.verify(
             paramType.getKind() == TypeKind.ARRAY,
@@ -1007,6 +1012,40 @@ public class NullAway extends BugChecker
       result = !Nullness.hasNullableAnnotation(paramType.getAnnotationMirrors().stream(), config);
     }
     return result;
+  }
+
+  /**
+   * Checks if we have a member reference to a varargs method where the varargs are passed
+   * individually rather than as an array
+   *
+   * @param referencedMethod if available, the symbol for the referenced method
+   * @param memberReferenceTree the tree for the member reference
+   * @return true if we have a member reference to a varargs method where the varargs are passed
+   *     individually
+   */
+  private static boolean memberRefToVarargsPassedIndividually(
+      Symbol.@Nullable MethodSymbol referencedMethod,
+      @Nullable MemberReferenceTree memberReferenceTree) {
+    return memberReferenceTree != null
+        && referencedMethod != null
+        && referencedMethod.isVarArgs()
+        && ((JCTree.JCMemberReference) memberReferenceTree).varargsElement != null;
+  }
+
+  private static int getMemberRefParamIndex(
+      int methodParamInd,
+      Symbol.@Nullable MethodSymbol overridingMethod,
+      @Nullable MemberReferenceTree memberReferenceTree) {
+    int memberRefParamIndex = methodParamInd;
+    if (memberRefToVarargsPassedIndividually(overridingMethod, memberReferenceTree)) {
+      // With varargs adaptation, one or more functional-interface parameters can map to the
+      // varargs element type of the referenced method.
+      int varargsParamIndex = overridingMethod.getParameters().size() - 1;
+      if (methodParamInd >= varargsParamIndex) {
+        memberRefParamIndex = varargsParamIndex;
+      }
+    }
+    return memberRefParamIndex;
   }
 
   static Trees getTreesInstance(VisitorState state) {
