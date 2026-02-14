@@ -1052,6 +1052,45 @@ public final class GenericsChecks {
   }
 
   /**
+   * Gets the method type for a member reference handling generics, in JSpecify mode
+   *
+   * @param memberReferenceTree the member reference tree
+   * @param overridingMethod the method symbol for the method referenced by {@code
+   *     memberReferenceTree}
+   * @param state the visitor state
+   * @return the method type for the member reference, with generics handled, or null if not in
+   *     JSpecify mode
+   */
+  public Type.@Nullable MethodType getMemberReferenceMethodType(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol overridingMethod,
+      VisitorState state) {
+    if (!config.isJSpecifyMode()) {
+      return null;
+    }
+    Type.MethodType result = overridingMethod.asType().asMethodType();
+    if (!overridingMethod.isStatic()) {
+      // This handles any generic type parameters of the qualifier of the member reference, e.g. for
+      // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
+      // appears in the signature of m.
+      Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      if (qualifierType != null && !qualifierType.isRaw()) {
+        result =
+            TypeSubstitutionUtils.memberType(
+                    state.getTypes(), qualifierType, overridingMethod, config)
+                .asMethodType();
+      }
+    }
+    if (overridingMethod.asType() instanceof Type.ForAll) {
+      // the referenced method is a generic method; we need to substitute inferred nullability for
+      // type arguments if it was inferred
+      result = getInferredMethodTypeForGenericMethodReference(result, state);
+    }
+    // finally, run any handlers
+    return handler.onOverrideMethodType(overridingMethod, result, state);
+  }
+
+  /**
    * A visitor that scans a {@link Tree} (typically a lambda or method body) to find all {@code
    * return} statements and collect their expressions.
    *

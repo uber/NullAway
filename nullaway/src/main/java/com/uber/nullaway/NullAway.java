@@ -98,7 +98,6 @@ import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
-import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
@@ -812,7 +811,7 @@ public class NullAway extends BugChecker
     Type.MethodType jspecifyMemberReferenceMethodType = null;
     if (memberReferenceTree != null) {
       jspecifyMemberReferenceMethodType =
-          getJSpecifyMemberReferenceMethodType(
+          genericsChecks.getMemberReferenceMethodType(
               memberReferenceTree, castToNonNull(overridingMethod), state);
     }
 
@@ -1008,45 +1007,6 @@ public class NullAway extends BugChecker
       result = !Nullness.hasNullableAnnotation(paramType.getAnnotationMirrors().stream(), config);
     }
     return result;
-  }
-
-  /**
-   * Gets the method type for a member reference handling generics, in JSpecify mode
-   *
-   * @param memberReferenceTree the member reference tree
-   * @param overridingMethod the method symbol for the method referenced by {@code
-   *     memberReferenceTree}
-   * @param state the visitor state
-   * @return the method type for the member reference, with generics handled, or null if not in
-   *     JSpecify mode
-   */
-  private Type.@Nullable MethodType getJSpecifyMemberReferenceMethodType(
-      MemberReferenceTree memberReferenceTree,
-      Symbol.MethodSymbol overridingMethod,
-      VisitorState state) {
-    if (!config.isJSpecifyMode()) {
-      return null;
-    }
-    Type.MethodType result = overridingMethod.asType().asMethodType();
-    if (!overridingMethod.isStatic()) {
-      // This handles any generic type parameters of the qualifier of the member reference, e.g. for
-      // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
-      // appears in the signature of m.
-      Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
-      if (qualifierType != null && !qualifierType.isRaw()) {
-        result =
-            TypeSubstitutionUtils.memberType(
-                    state.getTypes(), qualifierType, overridingMethod, config)
-                .asMethodType();
-      }
-    }
-    if (overridingMethod.asType() instanceof Type.ForAll) {
-      // the referenced method is a generic method; we need to substitute inferred nullability for
-      // type arguments if it was inferred
-      result = genericsChecks.getInferredMethodTypeForGenericMethodReference(result, state);
-    }
-    // finally, run any handlers
-    return handler.onOverrideMethodType(overridingMethod, result, state);
   }
 
   static Trees getTreesInstance(VisitorState state) {
