@@ -182,6 +182,33 @@ public class GenericDiamondTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void diamondSubclassPassedToGenericMethod() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.List;
+            @NullMarked
+            public class Test {
+              interface Foo<T extends @Nullable Object> {
+              }
+              static class FooImpl<T> implements Foo<@Nullable T> {
+                FooImpl(Class<T> cls) {
+                }
+              }
+              static <U extends @Nullable Object> List<U> make(Foo<U> foo) {
+                throw new RuntimeException();
+              }
+              static <V> List<@Nullable V> test(Class<V> cls) {
+                return make(new FooImpl<>(cls));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
