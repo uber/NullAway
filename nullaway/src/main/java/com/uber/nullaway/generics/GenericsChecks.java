@@ -544,11 +544,7 @@ public final class GenericsChecks {
     if (treePath == null) {
       return null;
     }
-    TreePath parentPath = treePath.getParentPath();
-    if (parentPath == null) {
-      return null;
-    }
-    return getDiamondTypeFromParentContext(tree, state, parentPath);
+    return getDiamondTypeFromParentContext(tree, state, castToNonNull(treePath.getParentPath()));
   }
 
   /**
@@ -624,10 +620,7 @@ public final class GenericsChecks {
   }
 
   /** Finds the path to {@code target} within {@code rootPath}, or null when not found. */
-  private static @Nullable TreePath findPathToSubtree(@Nullable TreePath rootPath, Tree target) {
-    if (rootPath == null) {
-      return null;
-    }
+  private static @Nullable TreePath findPathToSubtree(TreePath rootPath, Tree target) {
     if (rootPath.getLeaf() == target) {
       return rootPath;
     }
