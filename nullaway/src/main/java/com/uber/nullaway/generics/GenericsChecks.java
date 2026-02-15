@@ -445,6 +445,7 @@ public final class GenericsChecks {
         }
         // For constructor calls using diamond operator, infer from assignment context.
         // TODO handle diamond constructor calls passed to generic methods
+        // https://github.com/uber/NullAway/issues/1470
         Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
         if (fromAssignmentContext != null) {
           return fromAssignmentContext;
@@ -1280,6 +1281,7 @@ public final class GenericsChecks {
   private static boolean isGenericCallNeedingInference(ExpressionTree argument) {
     // For now, we only support calls to generic methods.
     // TODO also support calls to generic constructors that use the diamond operator
+    // https://github.com/uber/NullAway/issues/1470
     if (argument instanceof MethodInvocationTree methodInvocation) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
       // true for generic method calls with no explicit type arguments
