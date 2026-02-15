@@ -87,6 +87,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
 
+  static final String FL_JDK_ENABLED = EP_FL_NAMESPACE + ":JDKInferEnabled";
+
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
 
   /** --- Serialization configs --- */
@@ -245,6 +247,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   /** --- JarInfer configs --- */
   private final boolean jarInferEnabled;
 
+  private final boolean jdkInferEnabled;
+
   private final String errorURL;
 
   /** --- Fully qualified names of custom nonnull/nullable annotation --- */
@@ -331,6 +335,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
     /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
+    jdkInferEnabled = flags.getBoolean(FL_JDK_ENABLED).orElse(false);
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
     if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
       throw new IllegalStateException(
@@ -585,6 +590,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isJarInferEnabled() {
     return jarInferEnabled;
+  }
+
+  @Override
+  public boolean isJDKInferEnabled() {
+    return jdkInferEnabled;
   }
 
   @Override
