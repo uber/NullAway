@@ -1528,6 +1528,45 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1453() {
+    makeHelper()
+        .addSourceLines(
+            "NullUtil.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class NullUtil {
+              @SuppressWarnings("NullAway")
+              public static <T> T assumeNonNull(@Nullable T object) {
+                return object;
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import static com.uber.NullUtil.assumeNonNull;
+            import java.util.concurrent.atomic.AtomicReference;
+            @NullMarked
+            class Test {
+              private final AtomicReference<@Nullable List<String>> ref = new AtomicReference<>();
+              void test() {
+                for (String s: assumeNonNull(ref.get())) {
+                  System.out.println(s);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

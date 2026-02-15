@@ -729,7 +729,14 @@ public final class GenericsChecks {
           methodSymbol,
           invocationTree,
           allInvocations);
-      typeVarNullability = solver.solve();
+      typeVarNullability = new HashMap<>(solver.solve());
+      // The solver only computes a solution for variables that appear in constraints. For
+      // unconstrained variables, treat them as NONNULL, consistent with solver behavior for
+      // unconstrained variables that do appear in the constraint graph.
+      for (int i = 0; i < methodSymbol.getTypeParameters().size(); i++) {
+        Symbol.TypeVariableSymbol typeVar = methodSymbol.getTypeParameters().get(i);
+        typeVarNullability.putIfAbsent(typeVar, ConstraintSolver.InferredNullability.NONNULL);
+      }
 
       // Store inferred types for lambda arguments
       new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
