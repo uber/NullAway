@@ -1528,6 +1528,34 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1455() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Foo.java",
+            """
+            import org.jspecify.annotations.Nullable;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Foo<OuterT> {
+              interface Supplier<T extends @Nullable Object> {
+                T get();
+              }
+              Supplier<@Nullable OuterT> sup = make();
+              Supplier<@Nullable OuterT> make() {
+                throw new RuntimeException();
+              }
+              <T extends Supplier<?>> T acceptSup(T supplier) {
+                return supplier;
+              }
+              void test() {
+                acceptSup(sup);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
