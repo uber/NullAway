@@ -2003,14 +2003,6 @@ public final class GenericsChecks {
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
-      NewClassTree newClassTree = (NewClassTree) tree;
-      if (hasInferredClassTypeArguments(newClassTree)) {
-        Type typeFromAssignmentContext =
-            getDiamondTypeFromContext(newClassTree, withPathToSubtree(state, tree));
-        if (typeFromAssignmentContext != null) {
-          return typeFromAssignmentContext;
-        }
-      }
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
       enclosingType = getTreeType(tree, withPathToSubtree(state, tree));
