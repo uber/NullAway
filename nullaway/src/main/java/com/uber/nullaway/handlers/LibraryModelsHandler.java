@@ -478,8 +478,9 @@ public class LibraryModelsHandler implements Handler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
-    if (config.isJarInferEnabled()) {
-      libModelsBuilder.add(new ExternalStubxLibraryModels());
+    if (config.isJarInferEnabled() || config.isJDKInferEnabled()) {
+      libModelsBuilder.add(
+          new ExternalStubxLibraryModels(config.isJarInferEnabled(), config.isJDKInferEnabled()));
     }
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
@@ -1560,26 +1561,42 @@ public class LibraryModelsHandler implements Handler {
     private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
     private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
 
-    ExternalStubxLibraryModels() {
+    ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJDKInferEnabled) {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
       // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
-      try {
-        InputStream androidStubxIS =
-            Class.forName(ANDROID_MODEL_CLASS)
-                .getClassLoader()
-                .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
-        if (androidStubxIS != null) {
-          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
-          astubxLoadLog("Loaded Android RT models.");
-        }
-      } catch (ClassNotFoundException e) {
-        astubxLoadLog(
-            "Cannot find Android RT models locator class."
-                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
+      if (isJarInferEnabled) {
+        try {
+          InputStream androidStubxIS =
+              Class.forName(ANDROID_MODEL_CLASS)
+                  .getClassLoader()
+                  .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+          if (androidStubxIS != null) {
+            cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+            astubxLoadLog("Loaded Android RT models.");
+          }
+        } catch (ClassNotFoundException e) {
+          astubxLoadLog(
+              "Cannot find Android RT models locator class."
+                  + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
 
-      } catch (Exception e) {
-        astubxLoadLog("Cannot load Android RT models.");
+        } catch (Exception e) {
+          astubxLoadLog("Cannot load Android RT models.");
+        }
+      }
+
+      // hardcoded loading of stubx files from jdk nullness inferred output.astubx
+      if (isJDKInferEnabled) {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream("output.astubx")) {
+          if (in == null) {
+            astubxLoadLog("JDK astubx model not found on classpath: output.astubx");
+          } else {
+            cacheUtil.parseStubStream(in, "output.astubx");
+            astubxLoadLog("Loaded JDK astubx model.");
+          }
+        } catch (Exception e) {
+          astubxLoadLog("Failed to load JDK astubx: " + e);
+        }
       }
 
       argAnnotCache = cacheUtil.getArgAnnotCache();

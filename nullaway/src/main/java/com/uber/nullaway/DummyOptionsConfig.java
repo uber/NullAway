@@ -205,6 +205,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean isJDKInferEnabled() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
   public String getErrorURL() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }

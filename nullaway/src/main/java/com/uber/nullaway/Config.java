@@ -286,6 +286,13 @@ public interface Config {
   boolean isJarInferEnabled();
 
   /**
+   * Checks if JDK inference should be enabled.
+   *
+   * @return true if JDK inference should be enabled
+   */
+  boolean isJDKInferEnabled();
+
+  /**
    * Gets the URL to show with NullAway error messages.
    *
    * @return the URL to show with NullAway error messages
