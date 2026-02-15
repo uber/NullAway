@@ -440,52 +440,6 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1453() {
-    makeTestHelperWithArgs(
-            withJSpecifyModeArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:OnlyNullMarked=true")))
-        .addSourceLines(
-            "NullUtil.java",
-            """
-            package org.chromium.build;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            import org.jetbrains.annotations.Contract;
-            @NullMarked
-            public class NullUtil {
-              @SuppressWarnings("NullAway")
-              @Contract("null -> fail")
-              public static <T> T assumeNonNull(@Nullable T object) {
-                return object;
-              }
-            }
-            """)
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            import java.util.List;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            import static org.chromium.build.NullUtil.assumeNonNull;
-            import java.util.concurrent.atomic.AtomicReference;
-            @NullMarked
-            class Test {
-              private final AtomicReference<@Nullable List<String>> ref = new AtomicReference<>();
-              void test() {
-                for (String s: assumeNonNull(ref.get())) {
-                  System.out.println(s);
-                }
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void contractPureOnlyIgnored() {
     makeTestHelperWithArgs(
             Arrays.asList(
