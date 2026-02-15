@@ -3,6 +3,7 @@ package com.uber.nullaway.jdkannotations;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
@@ -11,6 +12,7 @@ import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.ClassInfo;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.MethodInfo;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.TypeParamInfo;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import com.uber.nullaway.libmodel.StubxWriter;
 import java.io.DataOutputStream;
 import java.io.File;
@@ -272,9 +274,15 @@ public class AstubxGenerator {
           }
         } else {
           // remove any spaces in Array types
-          typeSignature = typeSignature.replace(" ", "");
+          typeSignature = typeSignature.replace(" []", "[]");
         }
         argumentList[i] = typeSignature;
+      }
+      ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> nestedAnnotations =
+          new ImmutableSetMultimap.Builder<>();
+      for (Map.Entry<Integer, Set<NestedAnnotationInfo>> nestedInfo :
+          method.nestedAnnotationsList().entrySet()) {
+        nestedAnnotations.putAll(nestedInfo.getKey(), nestedInfo.getValue());
       }
       signatureForMethodRecords += String.join(",", argumentList) + ")";
       methodRecords.put(
@@ -282,7 +290,8 @@ public class AstubxGenerator {
           MethodAnnotationsRecord.create(
               returnTypeNullness,
               nullableTypeParamBuilder.build(),
-              ImmutableMap.copyOf(argAnnotation)));
+              ImmutableMap.copyOf(argAnnotation),
+              nestedAnnotations.build()));
     }
   }
 

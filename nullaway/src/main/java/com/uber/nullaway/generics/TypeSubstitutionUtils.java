@@ -7,6 +7,7 @@ import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILD
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeMetadata;
@@ -292,6 +293,15 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
+      if (other instanceof Type.WildcardType wt) {
+        if (wt.kind == BoundKind.EXTENDS) {
+          // As a temporary measure, we restore nullability annotations from the upper bound of the
+          // wildcard.
+          // TODO revisit this decision when we add fuller support for inference and wildcards.
+          return visit(t, wt.getExtendsBound());
+        }
+      }
+
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ClassType)) {
         return updated;

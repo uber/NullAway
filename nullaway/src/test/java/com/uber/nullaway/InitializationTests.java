@@ -208,4 +208,38 @@ public class InitializationTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void postConstructAnnotation() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test1.java",
+            """
+            package com.uber;
+            import javax.annotation.PostConstruct;
+            class Test1 {
+              Object f;
+              @PostConstruct
+              public void init() {
+                this.f = new Object();
+              }
+              public Test1() {}
+            }
+            """)
+        .addSourceLines(
+            "Test2.java",
+            """
+            package com.uber;
+            import jakarta.annotation.PostConstruct;
+            class Test2 {
+              Object f;
+              @PostConstruct
+              public void init() {
+                this.f = new Object();
+              }
+              public Test2() {}
+            }
+            """)
+        .doTest();
+  }
 }

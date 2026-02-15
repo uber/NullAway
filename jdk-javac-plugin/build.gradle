@@ -58,6 +58,7 @@ dependencies {
     implementation libs.gson
     implementation libs.jspecify
     implementation libs.guava
+    implementation project(":library-model:library-model-generator")
 
     testImplementation libs.junit4
     testImplementation(libs.error.prone.test.helpers) {

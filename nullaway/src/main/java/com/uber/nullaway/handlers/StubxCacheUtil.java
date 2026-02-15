@@ -23,9 +23,14 @@ package com.uber.nullaway.handlers;
  */
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.uber.nullaway.jarinfer.JarInferStubxProvider;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry;
+import com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind;
 import java.io.DataInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -72,6 +77,8 @@ public class StubxCacheUtil {
 
   private final SetMultimap<String, Integer> methodTypeParamNullableUpperBoundCache;
 
+  private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfoCache;
+
   /**
    * Initializes a new {@code StubxCacheUtil} instance.
    *
@@ -85,6 +92,7 @@ public class StubxCacheUtil {
     upperBoundCache = new HashMap<>();
     nullMarkedClassesCache = new HashSet<>();
     methodTypeParamNullableUpperBoundCache = HashMultimap.create();
+    nestedAnnotationInfoCache = new HashMap<>();
     this.logCaller = logCaller;
     loadStubxFiles();
   }
@@ -99,6 +107,10 @@ public class StubxCacheUtil {
 
   public Multimap<String, Integer> getMethodTypeParamNullableUpperBoundCache() {
     return methodTypeParamNullableUpperBoundCache;
+  }
+
+  public Map<String, SetMultimap<Integer, NestedAnnotationInfo>> getNestedAnnotationInfoCache() {
+    return nestedAnnotationInfoCache;
   }
 
   public Map<String, Map<String, Map<Integer, Set<String>>>> getArgAnnotCache() {
@@ -191,6 +203,25 @@ public class StubxCacheUtil {
           "DEBUG",
           "method: " + methodSig + ", argNum: " + argNum + ", arg annotation: " + annotation);
       cacheAnnotation(methodSig, argNum, annotation);
+    }
+    // nested annotation info in methods
+    int methodNestedAnnotSize = in.readInt();
+    for (int i = 0; i < methodNestedAnnotSize; i++) {
+      String methodSig = strings[in.readInt()];
+      int index = in.readInt(); // -1: return type, 0+: parameter index
+      String annotation = strings[in.readInt()];
+      int typePathLength = in.readInt();
+      ImmutableList.Builder<TypePathEntry> typePathEntryBuilder = new ImmutableList.Builder<>();
+      for (int j = 0; j < typePathLength; j++) {
+        String kind = strings[in.readInt()];
+        int typePathIndex = in.readInt();
+        typePathEntryBuilder.add(new TypePathEntry(Kind.valueOf(kind), typePathIndex));
+      }
+      NestedAnnotationInfo nestedAnnotationInfo =
+          new NestedAnnotationInfo(Annotation.valueOf(annotation), typePathEntryBuilder.build());
+      SetMultimap<Integer, NestedAnnotationInfo> targetMap =
+          this.nestedAnnotationInfoCache.computeIfAbsent(methodSig, k -> HashMultimap.create());
+      targetMap.put(index, nestedAnnotationInfo);
     }
     // reading the NullMarked classes
     int numNullMarkedClasses = in.readInt();

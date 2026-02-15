@@ -1,5 +1,6 @@
 package com.uber.nullaway.jdkannotations;
 
+import java.util.List;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.NullMarked;
 import org.jspecify.annotations.Nullable;
@@ -64,4 +65,9 @@ public class ParameterAnnotation {
   }
 
   public static <T> void nonNullTypeParam(T t) {}
+
+  public static void nestedAnnotations(
+      List<@Nullable String> typeArg,
+      @Nullable String[] array,
+      @Nullable List<@Nullable Integer>[] mixed) {}
 }
