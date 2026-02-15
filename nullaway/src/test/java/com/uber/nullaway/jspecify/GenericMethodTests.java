@@ -1537,10 +1537,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
             package com.uber;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
-            `@NullMarked`
+            @NullMarked
             public class NullUtil {
-              `@SuppressWarnings`("NullAway")
-              public static <T> T assumeNonNull(`@Nullable` T object) {
+              @SuppressWarnings("NullAway")
+              public static <T> T assumeNonNull(@Nullable T object) {
                 return object;
               }
             }
