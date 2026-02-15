@@ -629,12 +629,8 @@ public final class GenericsChecks {
       @Override
       public @Nullable TreePath scan(Tree tree, @Nullable TreePath prevPath) {
         if (tree == target) {
-          TreePath currentPath = getCurrentPath();
-          if (currentPath != null && currentPath.getLeaf() == tree) {
-            return currentPath;
-          }
-          // When overriding scan(), getCurrentPath() can still point at the parent.
-          return new TreePath(currentPath, tree);
+          // When overriding scan(), getCurrentPath() still points at the parent.
+          return new TreePath(getCurrentPath(), tree);
         }
         return super.scan(tree, null);
       }
@@ -1846,7 +1842,8 @@ public final class GenericsChecks {
         Type formalParamType =
             getFormalParameterTypeForArgument(
                 parentInvocation,
-                ASTHelpers.getSymbol(parentInvocation).type.asMethodType(),
+                castToNonNull(ASTHelpers.getType(parentInvocation.getMethodSelect()))
+                    .asMethodType(),
                 invocation);
         if (formalParamType == null) {
           // this can happen if the invocation is the receiver expression of the call, e.g.,
