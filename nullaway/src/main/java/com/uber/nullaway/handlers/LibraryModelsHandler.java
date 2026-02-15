@@ -1585,7 +1585,7 @@ public class LibraryModelsHandler implements Handler {
         }
       }
 
-      // hardcoded loading of stubx files from jdk nullness infered output.astubx
+      // hardcoded loading of stubx files from jdk nullness inferred output.astubx
       if (isJDKInferEnabled) {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream("output.astubx")) {
           if (in == null) {
