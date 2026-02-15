@@ -640,12 +640,22 @@ public final class GenericsChecks {
 
       @Override
       public @Nullable TreePath reduce(@Nullable TreePath r1, @Nullable TreePath r2) {
+        // we should only find the target once, so at most one of r1 and r2 should be non-null
+        Verify.verify(r1 == null || r2 == null);
         return r1 != null ? r1 : r2;
       }
     }.scan(rootPath, null);
   }
 
-  /** Creates a state whose path points to {@code subtree}, when that subtree is reachable. */
+  /**
+   * Creates a state whose path points to {@code subtree}, when that subtree is reachable.
+   *
+   * @param state the original state with a path to some subtree of the AST
+   * @param subtree the subtree to find within the original state's path
+   * @return a state with the same information as the original, but with a path to {@code subtree}
+   *     if it is reachable from the original state's path, or the original state if {@code subtree}
+   *     is not reachable
+   */
   private static VisitorState withPathToSubtree(VisitorState state, Tree subtree) {
     TreePath subtreePath = findPathToSubtree(state.getPath(), subtree);
     return subtreePath == null ? state : state.withPath(subtreePath);
