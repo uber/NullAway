@@ -36,6 +36,7 @@ import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -1596,6 +1597,9 @@ public final class GenericsChecks {
       }
       Type.MethodType methodTypeAtCallSite =
           castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
+      methodTypeAtCallSite =
+          restoreMissingNullabilityFromSingleTopLevelTypeVarArguments(
+              invocationTree, methodType, methodTypeAtCallSite, state);
       if (result instanceof InferenceSuccess successResult) {
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
@@ -1606,6 +1610,73 @@ public final class GenericsChecks {
     }
     return TypeSubstitutionUtils.subst(
         state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
+  }
+
+  /**
+   * For some calls, javac drops nested type-use nullability annotations in inferred substitutions
+   * for method type variables. Recover these annotations from the corresponding actual argument
+   * types, in cases where a method type variable appears exactly once as a top-level formal
+   * parameter type.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  private Type.MethodType restoreMissingNullabilityFromSingleTopLevelTypeVarArguments(
+      MethodInvocationTree invocationTree,
+      Type.MethodType origMethodType,
+      Type.MethodType methodTypeAtCallSite,
+      VisitorState state) {
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    if (methodSymbol == null || methodSymbol.isVarArgs()) {
+      return methodTypeAtCallSite;
+    }
+    com.sun.tools.javac.util.List<Type> origArgTypes = origMethodType.getParameterTypes();
+    com.sun.tools.javac.util.List<Type> callSiteArgTypes = methodTypeAtCallSite.getParameterTypes();
+    List<? extends ExpressionTree> callArgs = invocationTree.getArguments();
+    if (origArgTypes.size() != callSiteArgTypes.size() || callArgs.size() != origArgTypes.size()) {
+      return methodTypeAtCallSite;
+    }
+
+    Map<Symbol.TypeVariableSymbol, Integer> topLevelTypeVarCounts = new HashMap<>();
+    for (Type origArgType : origArgTypes) {
+      if (origArgType instanceof Type.TypeVar typeVar && typeVar.tsym.owner == methodSymbol) {
+        topLevelTypeVarCounts.merge((Symbol.TypeVariableSymbol) typeVar.tsym, 1, Integer::sum);
+      }
+    }
+
+    ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
+    boolean changed = false;
+    for (int i = 0; i < origArgTypes.size(); i++) {
+      Type updatedType = callSiteArgTypes.get(i);
+      Type origArgType = origArgTypes.get(i);
+      if (origArgType instanceof Type.TypeVar typeVar
+          && !(updatedType instanceof Type.TypeVar)
+          && topLevelTypeVarCounts.getOrDefault((Symbol.TypeVariableSymbol) typeVar.tsym, 0) == 1) {
+        Type actualArgType = getTreeType(callArgs.get(i), state);
+        if (actualArgType != null
+            && !actualArgType.isRaw()
+            && state
+                .getTypes()
+                .isSameType(
+                    state.getTypes().erasure(actualArgType),
+                    state.getTypes().erasure(updatedType))) {
+          Type restoredType =
+              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                  actualArgType, updatedType, config, Collections.emptyMap());
+          if (restoredType != updatedType) {
+            changed = true;
+            updatedType = restoredType;
+          }
+        }
+      }
+      updatedArgTypes.append(updatedType);
+    }
+    if (!changed) {
+      return methodTypeAtCallSite;
+    }
+    return new Type.MethodType(
+        updatedArgTypes.toList(),
+        methodTypeAtCallSite.getReturnType(),
+        methodTypeAtCallSite.getThrownTypes(),
+        methodTypeAtCallSite.tsym);
   }
 
   /**
