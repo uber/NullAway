@@ -1635,6 +1635,9 @@ public final class GenericsChecks {
       return methodTypeAtCallSite;
     }
 
+    // use this map to store repaired substitutions for method type variables, to ensure we use the
+    // same repaired
+    // substitution for all occurrences of the same method type variable
     Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
     ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
     boolean changed = false;
@@ -1659,7 +1662,7 @@ public final class GenericsChecks {
             changed = true;
             updatedType = repairedSubstitution;
           }
-        } else {
+        } else { // need to compute the substitution
           Type actualArgType = getTreeType(callArgs.get(i), state);
           if (actualArgType != null
               && !actualArgType.isRaw()
