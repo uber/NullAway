@@ -1615,8 +1615,7 @@ public final class GenericsChecks {
   /**
    * For some calls, javac drops nested type-use nullability annotations in inferred substitutions
    * for method type variables. Recover these annotations from the corresponding actual argument
-   * types, in cases where a method type variable appears exactly once as a top-level formal
-   * parameter type.
+   * types, while preserving one consistent top-level substitution per method type variable.
    */
   @SuppressWarnings("ReferenceEquality")
   private Type.MethodType restoreMissingNullabilityFromSingleTopLevelTypeVarArguments(
@@ -1626,6 +1625,7 @@ public final class GenericsChecks {
       VisitorState state) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     if (methodSymbol == null || methodSymbol.isVarArgs()) {
+      // TODO handle varargs methods
       return methodTypeAtCallSite;
     }
     com.sun.tools.javac.util.List<Type> origArgTypes = origMethodType.getParameterTypes();
@@ -1635,35 +1635,49 @@ public final class GenericsChecks {
       return methodTypeAtCallSite;
     }
 
-    Map<Symbol.TypeVariableSymbol, Integer> topLevelTypeVarCounts = new HashMap<>();
-    for (Type origArgType : origArgTypes) {
-      if (origArgType instanceof Type.TypeVar typeVar && typeVar.tsym.owner == methodSymbol) {
-        topLevelTypeVarCounts.merge((Symbol.TypeVariableSymbol) typeVar.tsym, 1, Integer::sum);
-      }
-    }
-
+    Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
     ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
     boolean changed = false;
     for (int i = 0; i < origArgTypes.size(); i++) {
       Type updatedType = callSiteArgTypes.get(i);
       Type origArgType = origArgTypes.get(i);
       if (origArgType instanceof Type.TypeVar typeVar
-          && !(updatedType instanceof Type.TypeVar)
-          && topLevelTypeVarCounts.getOrDefault((Symbol.TypeVariableSymbol) typeVar.tsym, 0) == 1) {
-        Type actualArgType = getTreeType(callArgs.get(i), state);
-        if (actualArgType != null
-            && !actualArgType.isRaw()
-            && state
-                .getTypes()
-                .isSameType(
-                    state.getTypes().erasure(actualArgType),
-                    state.getTypes().erasure(updatedType))) {
-          Type restoredType =
-              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                  actualArgType, updatedType, config, Collections.emptyMap());
-          if (restoredType != updatedType) {
+          && typeVar.tsym.owner == methodSymbol
+          && !(updatedType instanceof Type.TypeVar)) {
+        Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
+        Type repairedSubstitution = repairedTopLevelSubstitutions.get(typeVarSymbol);
+        if (repairedSubstitution != null) {
+          if (!state
+              .getTypes()
+              .isSameType(
+                  state.getTypes().erasure(repairedSubstitution),
+                  state.getTypes().erasure(updatedType))) {
+            // Inconsistent substitution for the same top-level type variable; bail out.
+            return methodTypeAtCallSite;
+          }
+          if (repairedSubstitution != updatedType) {
             changed = true;
-            updatedType = restoredType;
+            updatedType = repairedSubstitution;
+          }
+        } else {
+          Type actualArgType = getTreeType(callArgs.get(i), state);
+          if (actualArgType != null
+              && !actualArgType.isRaw()
+              && state
+                  .getTypes()
+                  .isSameType(
+                      state.getTypes().erasure(actualArgType),
+                      state.getTypes().erasure(updatedType))) {
+            Type restoredType =
+                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                    actualArgType, updatedType, config, Collections.emptyMap());
+            repairedTopLevelSubstitutions.put(typeVarSymbol, restoredType);
+            if (restoredType != updatedType) {
+              changed = true;
+              updatedType = restoredType;
+            }
+          } else {
+            repairedTopLevelSubstitutions.put(typeVarSymbol, updatedType);
           }
         }
       }
