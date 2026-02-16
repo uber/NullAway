@@ -1030,8 +1030,8 @@ public final class GenericsChecks {
     // For varargs references, the functional interface can map to fixed-arity form (single array
     // argument at the varargs position) or variable-arity form (zero or more element arguments).
     int varargsParamPosition = referencedParamTypes.size() - 1;
-    if (fiParamCount <= varargsParamPosition) {
-      // Not enough FI parameters to cover the varargs position, or exactly no varargs arguments.
+    if (fiParamCount == varargsParamPosition) {
+      // No varargs arguments; this is the variable-arity case, passing zero arguments
       return;
     }
     Type varargsArrayType = referencedParamTypes.get(varargsParamPosition);

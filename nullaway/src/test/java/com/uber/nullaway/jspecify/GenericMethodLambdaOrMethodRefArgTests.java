@@ -480,6 +480,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               private <V extends @Nullable Object> void consumeMulti(Consumer<V> consumer1, Consumer<V> consumer2, V value) {
                 consumer1.accept(value);
+                consumer2.accept(value);
               }
               void testConsume(Foo<String> foo, Foo<@Nullable String> fooNullable, String sNonNull, @Nullable String sNullable) {
                 consume(foo::take, sNonNull); // should be legal
