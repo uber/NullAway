@@ -612,11 +612,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                // TODO should be illegal; file issue
+                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
                 consume(Util::take, sNullableContents);
                 consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
                 consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
-                // TODO should be illegal; file issue
+                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
                 consume(Util::takeNullable, sNullableContents);
                 consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
@@ -641,10 +641,17 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               interface Consumer<T extends @Nullable Object> {
                 void accept(T thing);
               }
+              interface TwoConsumer<T extends @Nullable Object, U extends @Nullable Object> {
+                void accept(T thing1, U thing2);
+              }
               static class Util {
                 static void take(String... thing) {
                 }
                 static void takeNullableArgs(@Nullable String... thing) {
+                }
+                static void takeIntAndStrings(Integer i, String... other) {
+                }
+                static void takeIntAndNullableStrings(Integer i, @Nullable String... other) {
                 }
               }
               private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
@@ -656,6 +663,16 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNullable);
                 consume(Util::takeNullableArgs, sNonNull);
                 consume(Util::takeNullableArgs, sNullable);
+              }
+              private <V extends @Nullable Object, W extends @Nullable Object> void twoConsume(TwoConsumer<V,W> consumer, V value1, W value2) {
+                consumer.accept(value1, value2);
+              }
+              void testTwoConsume(String sNonNull, @Nullable String sNullable, Integer i) {
+                twoConsume(Util::takeIntAndStrings, i, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                twoConsume(Util::takeIntAndStrings, i, sNullable);
+                twoConsume(Util::takeIntAndNullableStrings, i, sNonNull);
+                twoConsume(Util::takeIntAndNullableStrings, i, sNullable);
               }
             }
             """)
