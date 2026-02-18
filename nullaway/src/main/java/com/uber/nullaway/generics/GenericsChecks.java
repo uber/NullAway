@@ -611,7 +611,10 @@ public final class GenericsChecks {
     return null;
   }
 
-  /** Returns the inferred/declared formal parameter type corresponding to {@code argumentTree}. */
+  /**
+   * Returns the inferred/declared formal parameter type corresponding to actual parameter {@code
+   * argumentTree}.
+   */
   private @Nullable Type getFormalParameterTypeForArgument(
       Tree invocationTree, Type.MethodType invocationType, Tree argumentTree) {
     AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
