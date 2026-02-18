@@ -36,6 +36,8 @@ public class GenericDiamondTests extends NullAwayTestsBase {
               void testPositive() {
                 // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
                 Bar<String> b = new Bar<>(Foo.makeNullableStr());
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable Void> cannot be converted to Foo<Void>
+                Bar<Void> b2 = new Bar<>(Foo.make());
               }
             }
             """)
