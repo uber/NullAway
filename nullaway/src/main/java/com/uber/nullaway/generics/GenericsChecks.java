@@ -584,6 +584,7 @@ public final class GenericsChecks {
     if (parent instanceof MethodInvocationTree parentInvocation) {
       if (isGenericCallNeedingInference(parentInvocation)) {
         // TODO support full integration of diamond constructor calls with generic method inference
+        // https://github.com/uber/NullAway/issues/1470
         // for now, just give up and return null
         return null;
       }
