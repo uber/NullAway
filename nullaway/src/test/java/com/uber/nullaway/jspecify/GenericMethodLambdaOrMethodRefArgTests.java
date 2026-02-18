@@ -370,7 +370,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 receiver(makeCancelable(this::target));
               }
               void testPositive() {
-                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
+                // BUG: Diagnostic contains: incompatible types: Callback<Object> cannot be converted to Callback<@Nullable Object>
                 receiver(makeCancelable(this::targetNonNullParam));
               }
             }
@@ -378,9 +378,8 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1431")
   @Test
-  public void inferFromMethodRef() {
+  public void inferFromUnboundMethodRef() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -391,22 +390,431 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               interface Foo {
-                default String get() {
-                  throw new RuntimeException();
+                default String create() {
+                  return "hi";
                 }
-                default @Nullable String getNullable() {
+                default @Nullable String createNullable() {
                   return null;
                 }
               }
               private <T extends @Nullable Object> T create(Function<Foo, T> factory) {
                 return factory.apply(new Foo() {});
               }
+              private <T extends @Nullable Object> T createWithNullable(Function<@Nullable Foo, T> factory) {
+                return factory.apply(null);
+              }
               void test() {
-                String s1 = create(Foo::get);
+                String s1 = create(Foo::create);
                 s1.hashCode(); // should be legal
-                String s2 = create(Foo::getNullable);
+                String s2 = create(Foo::createNullable);
                 // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
                 s2.hashCode();
+                // BUG: Diagnostic contains: parameter of functional interface method java.util.function.Function.apply(T) is @Nullable
+                String s3 = createWithNullable(Foo::create);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromBoundMethodRefReturn() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Supplier<T extends @Nullable Object> {
+                T get();
+              }
+              class Foo<U extends @Nullable Object> {
+                U make() {
+                  throw new RuntimeException();
+                }
+              }
+              private <V extends @Nullable Object> V create(Supplier<V> factory) {
+                return factory.get();
+              }
+              private <V extends @Nullable Object> V createMulti(Supplier<V> factory1, Supplier<V> factory2) {
+                return factory1.get();
+              }
+              void testCreate(Foo<String> foo, Foo<@Nullable String> fooNullable) {
+                String s1 = create(foo::make);
+                s1.hashCode(); // should be legal
+                String s2 = create(fooNullable::make);
+                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                s2.hashCode();
+                // this is ok; we can infer V -> @Nullable String; foo::make returns a @NonNull String,
+                // which is compatible
+                String s3 = createMulti(foo::make, fooNullable::make);
+                // BUG: Diagnostic contains: dereferenced expression s3 is @Nullable
+                s3.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromBoundMethodRefParam() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              class Foo<U extends @Nullable Object> {
+                void take(U thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              private <V extends @Nullable Object> void consumeMulti(Consumer<V> consumer1, Consumer<V> consumer2, V value) {
+                consumer1.accept(value);
+                consumer2.accept(value);
+              }
+              void testConsume(Foo<String> foo, Foo<@Nullable String> fooNullable, String sNonNull, @Nullable String sNullable) {
+                consume(foo::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(foo::take, sNullable);
+                consume(fooNullable::take, sNullable); // should be legal
+                consume(fooNullable::take, sNonNull); // should be legal
+                // this is ok; we can infer V -> @NonNull String; foo::take takes a @Nullable String,
+                // which is compatible
+                consumeMulti(foo::take, fooNullable::take, sNonNull);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consumeMulti(foo::take, fooNullable::take, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromStaticMethodRefParam() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Util {
+                static void take(String thing) {
+                }
+                static <U extends @Nullable Object> void takeGeneric(U thing) {
+                }
+              }
+              static class Box<T extends @Nullable Object> {
+                static <U extends @Nullable Object> void takeGeneric(U thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String sNonNull, @Nullable String sNullable) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable);
+                consume(Util::takeGeneric, sNonNull); // should be legal
+                consume(Util::takeGeneric, sNullable); // should also be legal
+                consume(Box::<String>takeGeneric, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Box::<String>takeGeneric, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void refToMethodTakingArray() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Util {
+                static void take(String[] thing) {
+                }
+                static void takeNullable(String @Nullable [] thing) {
+                }
+                static void takeNullableContents(@Nullable String [] thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String[] sNonNull, String @Nullable [] sNullable, @Nullable String [] sNullableContents) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable);
+                // TODO should be illegal; file issue
+                consume(Util::take, sNullableContents);
+                consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
+                consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
+                // TODO should be illegal; file issue
+                consume(Util::takeNullable, sNullableContents);
+                consume(Util::takeNullableContents, sNonNull); // legal due to array subtyping
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeNullableContents, sNullable);
+                consume(Util::takeNullableContents, sNullableContents); // should be legal
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void refToVarargsPassingArray() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Util {
+                static void take(String... thing) {
+                }
+                static void takeNullable(String @Nullable... thing) {
+                }
+                static void takeNullableArgs(@Nullable String... thing) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String[] sNonNull, String @Nullable [] sNullable, @Nullable String [] sNullableContents) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable);
+                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
+                consume(Util::take, sNullableContents);
+                consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
+                consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
+                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
+                consume(Util::takeNullable, sNullableContents);
+                consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeNullableArgs, sNullable);
+                consume(Util::takeNullableArgs, sNullableContents); // should be legal
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void refToVarargsPassIndividualArgs() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              interface TwoConsumer<T extends @Nullable Object, U extends @Nullable Object> {
+                void accept(T thing1, U thing2);
+              }
+              static class Util {
+                static void take(String... thing) {
+                }
+                static void takeNullableArgs(@Nullable String... thing) {
+                }
+                static void takeIntAndStrings(Integer i, String... other) {
+                }
+                static void takeIntAndNullableStrings(Integer i, @Nullable String... other) {
+                }
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String sNonNull, @Nullable String sNullable) {
+                consume(Util::take, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::take, sNullable);
+                consume(Util::takeNullableArgs, sNonNull);
+                consume(Util::takeNullableArgs, sNullable);
+              }
+              private <V extends @Nullable Object, W extends @Nullable Object> void twoConsume(TwoConsumer<V,W> consumer, V value1, W value2) {
+                consumer.accept(value1, value2);
+              }
+              void testTwoConsume(String sNonNull, @Nullable String sNullable, Integer i) {
+                twoConsume(Util::takeIntAndStrings, i, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                twoConsume(Util::takeIntAndStrings, i, sNullable);
+                twoConsume(Util::takeIntAndNullableStrings, i, sNonNull);
+                twoConsume(Util::takeIntAndNullableStrings, i, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void varargsDifferentFunctionalInterfaceArities() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Supplier<T extends @Nullable Object> {
+                T get();
+              }
+              interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T thing);
+              }
+              interface BiFunction<T extends @Nullable Object, U extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T t, U u);
+              }
+              static class Util {
+                static String fun(String... thing) {
+                  throw new RuntimeException();
+                }
+              }
+              private static <U extends @Nullable Object> U takeSupplier(Supplier<U> consumer) {
+                throw new RuntimeException();
+              }
+              private static <U extends @Nullable Object, V extends @Nullable Object> V takeFunction(Function<U,V> function) {
+                throw new RuntimeException();
+              }
+              private static <U extends @Nullable Object, V extends @Nullable Object, W extends @Nullable Object> W takeBiFunction(BiFunction<U,V,W> function) {
+                throw new RuntimeException();
+              }
+              void test() {
+                String s1 = takeSupplier(Util::fun);
+                String s2 = Test.<String,String>takeFunction(Util::fun);
+                String s3 = Test.<String,String,String>takeBiFunction(Util::fun);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("we need to handle interactions between inference and unmarked code; TODO open issue")
+  @Test
+  public void inferFromMethodRefToUnmarked() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              @NullUnmarked
+              static class Util {
+                static void take(String thing) {
+                }
+                static void takeRestrictive(@NonNull String string) {}
+              }
+              private <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(String sNonNull, @Nullable String sNullable) {
+                // should be legal
+                consume(Util::take, sNonNull);
+                // should also be legal, since we treat unmarked code as potentially accepting @Nullable
+                consume(Util::take, sNullable);
+                // should not be legal due to restrictive annotation
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                consume(Util::takeRestrictive, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromGenericInstanceMethodRef() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T thing);
+              }
+              static class Box<T extends @Nullable Object> {
+                <U extends @Nullable Object> void takeGeneric(U thing) {}
+              }
+              private static <V extends @Nullable Object> void consume(Consumer<V> consumer, V value) {
+                consumer.accept(value);
+              }
+              void testConsume(Box<Integer> box, String sNonNull, @Nullable String sNullable) {
+                consume(box::takeGeneric, sNonNull); // should be legal
+                consume(box::takeGeneric, sNullable); // should be legal also
+              }
+              void testConsumeExplicitTypeArgs(Box<Integer> box, String sNonNull, @Nullable String sNullable) {
+                Test.<String>consume(box::takeGeneric, sNonNull); // should be legal
+                // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
+                Test.<String>consume(box::takeGeneric, sNullable);
+                // BUG: Diagnostic contains: parameter thing of referenced method is @NonNull, but parameter in functional interface method
+                Test.<@Nullable String>consume(box::<String>takeGeneric, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Testing that we allow a correct usage of streams on Map entries; a similar case arose during
+   * integration testing
+   */
+  @Test
+  public void mapStream() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.stream.Collectors;
+            @NullMarked
+            class Test {
+              static Map<String,String> test(Map<String,String> map) {
+                return map.entrySet().stream()
+                    .collect(
+                        Collectors.toMap(
+                            Map.Entry::getKey,
+                            Map.Entry::getValue));
               }
             }
             """)
@@ -430,6 +838,42 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     // legal, should infer R -> Object but then the type of the lambda as
                     //  Function<Object, @Nullable Object> via wildcard upper bound
                     Object x = invokeWithReturn(t -> null);
+                }
+            }""")
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1462")
+  @Test
+  public void streamMapNullableTest() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                interface List<T extends @Nullable Object> {
+                    Stream<T> stream();
+                }
+                interface Stream<T extends @Nullable Object> {
+                    <R extends @Nullable Object> Stream<R> map(Function<? super T, ? extends R> mapper);
+                    void forEach(Consumer<? super T> action);
+                }
+                interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                    R apply(T t);
+                }
+                interface Consumer<T extends @Nullable Object> {
+                    void accept(T t);
+                }
+                static @Nullable String mapToNull(String s) {
+                    return null;
+                }
+                static void test(List<String> list) {
+                    list.stream().map(Test::mapToNull).forEach(s -> {
+                        // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                        s.hashCode();
+                    });
                 }
             }""")
         .doTest();
