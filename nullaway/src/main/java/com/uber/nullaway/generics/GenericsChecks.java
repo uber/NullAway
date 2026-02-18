@@ -437,7 +437,7 @@ public final class GenericsChecks {
       if (TreeInfo.isDiamond((JCTree) newClassTree)) {
         if (newClassTree.getClassBody() != null) {
           // Keep existing behavior for diamond anonymous classes, which are not yet fully
-          // supported.
+          // supported.  Tracked in https://github.com/uber/NullAway/issues/1475
           return null;
         }
         // For constructor calls using diamond operator, infer from assignment context.
