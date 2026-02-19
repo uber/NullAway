@@ -28,7 +28,6 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreePathScanner;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
@@ -425,7 +424,12 @@ public final class GenericsChecks {
    * @return Type of the tree with preserved annotations.
    */
   private @Nullable Type getTreeType(Tree tree, VisitorState state) {
-    tree = ASTHelpers.stripParentheses(tree);
+    if (tree instanceof ExpressionTree exprTree) {
+      NullabilityUtil.ExprTreeAndState exprTreeAndState =
+          NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
+      tree = exprTreeAndState.expr();
+      state = exprTreeAndState.state();
+    }
     if (tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree) {
       Type result = inferredPolyExpressionTypes.get(tree);
       if (result == null) {
@@ -545,10 +549,10 @@ public final class GenericsChecks {
    * available.
    */
   private @Nullable Type getDiamondTypeFromContext(NewClassTree tree, VisitorState state) {
-    TreePath treePath = findPathToSubtree(state.getPath(), tree);
-    if (treePath == null) {
-      return null;
-    }
+    TreePath treePath = state.getPath();
+    //    if (treePath == null) {
+    //      return null;
+    //    }
     return getDiamondTypeFromParentContext(tree, state, castToNonNull(treePath.getParentPath()));
   }
 
@@ -629,28 +633,28 @@ public final class GenericsChecks {
   }
 
   /** Finds the path to {@code target} within {@code rootPath}, or null when not found. */
-  private static @Nullable TreePath findPathToSubtree(TreePath rootPath, Tree target) {
-    if (rootPath.getLeaf() == target) {
-      return rootPath;
-    }
-    return new TreePathScanner<@Nullable TreePath, @Nullable TreePath>() {
-      @Override
-      public @Nullable TreePath scan(Tree tree, @Nullable TreePath prevPath) {
-        if (tree == target) {
-          // When overriding scan(), getCurrentPath() still points at the parent.
-          return new TreePath(getCurrentPath(), tree);
-        }
-        return super.scan(tree, null);
-      }
-
-      @Override
-      public @Nullable TreePath reduce(@Nullable TreePath r1, @Nullable TreePath r2) {
-        // we should only find the target once, so at most one of r1 and r2 should be non-null
-        Verify.verify(r1 == null || r2 == null);
-        return r1 != null ? r1 : r2;
-      }
-    }.scan(rootPath, null);
-  }
+  //  private static @Nullable TreePath findPathToSubtree(TreePath rootPath, Tree target) {
+  //    if (rootPath.getLeaf() == target) {
+  //      return rootPath;
+  //    }
+  //    return new TreePathScanner<@Nullable TreePath, @Nullable TreePath>() {
+  //      @Override
+  //      public @Nullable TreePath scan(Tree tree, @Nullable TreePath prevPath) {
+  //        if (tree == target) {
+  //          // When overriding scan(), getCurrentPath() still points at the parent.
+  //          return new TreePath(getCurrentPath(), tree);
+  //        }
+  //        return super.scan(tree, null);
+  //      }
+  //
+  //      @Override
+  //      public @Nullable TreePath reduce(@Nullable TreePath r1, @Nullable TreePath r2) {
+  //        // we should only find the target once, so at most one of r1 and r2 should be non-null
+  //        Verify.verify(r1 == null || r2 == null);
+  //        return r1 != null ? r1 : r2;
+  //      }
+  //    }.scan(rootPath, null);
+  //  }
 
   /**
    * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
@@ -753,7 +757,8 @@ public final class GenericsChecks {
         && isAssignmentToField(tree)) {
       maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, lhsType);
     }
-    Type rhsType = getTreeType(rhsTree, state);
+    TreePath pathToRhs = new TreePath(state.getPath(), rhsTree);
+    Type rhsType = getTreeType(rhsTree, state.withPath(pathToRhs));
     if (rhsType != null) {
       if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
