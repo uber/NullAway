@@ -609,6 +609,11 @@ public final class GenericsChecks {
             parentConstructorCall, parentCtorType.asMethodType(), tree);
       }
     }
+    if (parent instanceof ConditionalExpressionTree) {
+      // TODO infer diamond type from the overall conditional expression type
+      //  tracked in https://github.com/uber/NullAway/issues/1477
+      return null;
+    }
     return null;
   }
 
