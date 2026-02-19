@@ -653,20 +653,6 @@ public final class GenericsChecks {
   }
 
   /**
-   * Creates a state whose path points to {@code subtree}, when that subtree is reachable.
-   *
-   * @param state the original state with a path to some subtree of the AST
-   * @param subtree the subtree to find within the original state's path
-   * @return a state with the same information as the original, but with a path to {@code subtree}
-   *     if it is reachable from the original state's path, or the original state if {@code subtree}
-   *     is not reachable
-   */
-  private static VisitorState withPathToSubtree(VisitorState state, Tree subtree) {
-    TreePath subtreePath = findPathToSubtree(state.getPath(), subtree);
-    return subtreePath == null ? state : state.withPath(subtreePath);
-  }
-
-  /**
    * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
    * instantiated type arguments at the type level, but no explicit non-diamond source type args.
    */
@@ -767,7 +753,7 @@ public final class GenericsChecks {
         && isAssignmentToField(tree)) {
       maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, lhsType);
     }
-    Type rhsType = getTreeType(rhsTree, withPathToSubtree(state, rhsTree));
+    Type rhsType = getTreeType(rhsTree, state);
     if (rhsType != null) {
       if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
@@ -1490,7 +1476,7 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
-    Type returnExpressionType = getTreeType(retExpr, withPathToSubtree(state, retExpr));
+    Type returnExpressionType = getTreeType(retExpr, state);
     if (returnExpressionType != null) {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
@@ -1685,8 +1671,7 @@ public final class GenericsChecks {
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
-                actualParameterType =
-                    getTreeType(currentActualParam, withPathToSubtree(state, currentActualParam));
+                actualParameterType = getTreeType(currentActualParam, state);
               }
               if (actualParameterType != null) {
                 if (isGenericCallNeedingInference(currentActualParam)) {
@@ -2207,14 +2192,14 @@ public final class GenericsChecks {
                   false,
                   calledFromDataflow);
         } else {
-          enclosingType = getTreeType(receiver, withPathToSubtree(state, receiver));
+          enclosingType = getTreeType(receiver, state);
         }
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
-      enclosingType = getTreeType(tree, withPathToSubtree(state, tree));
+      enclosingType = getTreeType(tree, state);
     }
     return enclosingType;
   }
