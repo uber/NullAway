@@ -549,11 +549,8 @@ public final class GenericsChecks {
    * available.
    */
   private @Nullable Type getDiamondTypeFromContext(NewClassTree tree, VisitorState state) {
-    TreePath treePath = state.getPath();
-    //    if (treePath == null) {
-    //      return null;
-    //    }
-    return getDiamondTypeFromParentContext(tree, state, castToNonNull(treePath.getParentPath()));
+    return getDiamondTypeFromParentContext(
+        tree, state, castToNonNull(state.getPath().getParentPath()));
   }
 
   /**
@@ -631,30 +628,6 @@ public final class GenericsChecks {
             });
     return formalParamTypeRef.get();
   }
-
-  /** Finds the path to {@code target} within {@code rootPath}, or null when not found. */
-  //  private static @Nullable TreePath findPathToSubtree(TreePath rootPath, Tree target) {
-  //    if (rootPath.getLeaf() == target) {
-  //      return rootPath;
-  //    }
-  //    return new TreePathScanner<@Nullable TreePath, @Nullable TreePath>() {
-  //      @Override
-  //      public @Nullable TreePath scan(Tree tree, @Nullable TreePath prevPath) {
-  //        if (tree == target) {
-  //          // When overriding scan(), getCurrentPath() still points at the parent.
-  //          return new TreePath(getCurrentPath(), tree);
-  //        }
-  //        return super.scan(tree, null);
-  //      }
-  //
-  //      @Override
-  //      public @Nullable TreePath reduce(@Nullable TreePath r1, @Nullable TreePath r2) {
-  //        // we should only find the target once, so at most one of r1 and r2 should be non-null
-  //        Verify.verify(r1 == null || r2 == null);
-  //        return r1 != null ? r1 : r2;
-  //      }
-  //    }.scan(rootPath, null);
-  //  }
 
   /**
    * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
@@ -1481,7 +1454,8 @@ public final class GenericsChecks {
       // bail out of any checking involving raw types for now
       return;
     }
-    Type returnExpressionType = getTreeType(retExpr, state);
+    TreePath pathToRetExpr = new TreePath(state.getPath(), retExpr);
+    Type returnExpressionType = getTreeType(retExpr, state.withPath(pathToRetExpr));
     if (returnExpressionType != null) {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
@@ -1676,7 +1650,9 @@ public final class GenericsChecks {
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
-                actualParameterType = getTreeType(currentActualParam, state);
+                TreePath pathToActualParam = new TreePath(state.getPath(), currentActualParam);
+                actualParameterType =
+                    getTreeType(currentActualParam, state.withPath(pathToActualParam));
               }
               if (actualParameterType != null) {
                 if (isGenericCallNeedingInference(currentActualParam)) {
