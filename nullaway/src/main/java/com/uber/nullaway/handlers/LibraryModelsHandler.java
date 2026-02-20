@@ -532,9 +532,9 @@ public class LibraryModelsHandler implements Handler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
-    if (config.isJarInferEnabled() || config.isJDKInferEnabled()) {
+    if (config.isJarInferEnabled() || config.isJSpecifyJDKModels()) {
       libModelsBuilder.add(
-          new ExternalStubxLibraryModels(config.isJarInferEnabled(), config.isJDKInferEnabled()));
+          new ExternalStubxLibraryModels(config.isJarInferEnabled(), config.isJSpecifyJDKModels()));
     }
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
@@ -1651,7 +1651,7 @@ public class LibraryModelsHandler implements Handler {
     private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
     private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
 
-    ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJDKInferEnabled) {
+    ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
       // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
@@ -1676,7 +1676,7 @@ public class LibraryModelsHandler implements Handler {
       }
 
       // hardcoded loading of stubx files from jdk nullness inferred output.astubx
-      if (isJDKInferEnabled) {
+      if (isJSpecifyJDKEnabled) {
         try (InputStream in = getClass().getClassLoader().getResourceAsStream("output.astubx")) {
           if (in == null) {
             astubxLoadLog("JDK astubx model not found on classpath: output.astubx");
