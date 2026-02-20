@@ -7,10 +7,10 @@ import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 @RunWith(JUnit4.class)
-public class LibraryModelsHandlerTest extends NullAwayTestsBase {
+public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
 
   @Test
-  public void jdkInferEnabledLoadsAstubxModel() {
+  public void modelsEnabledLoadsAstubxModel() {
     CompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(
                 List.of(
@@ -32,7 +32,7 @@ public class LibraryModelsHandlerTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void jdkInferDisabledDoesNotLoadAstubxModel() {
+  public void modelsDisabledDoesNotLoadAstubxModel() {
     CompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(List.of("-XepOpt:NullAway:AnnotatedPackages=foo"))
             .addSourceLines(
