@@ -15,7 +15,7 @@ public class LibraryModelsHandlerTest extends NullAwayTestsBase {
         makeTestHelperWithArgs(
                 List.of(
                     "-XepOpt:NullAway:AnnotatedPackages=foo",
-                    "-XepOpt:NullAway:JDKInferEnabled=true"))
+                    "-XepOpt:NullAway:JSpecifyJDKModels=true"))
             .addSourceLines(
                 "Test.java",
                 "package foo;",
