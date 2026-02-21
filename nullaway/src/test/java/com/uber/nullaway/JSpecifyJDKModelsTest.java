@@ -71,7 +71,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             class Test {
               void testNullableContents(List<@Nullable String> list) {
                 list.add(null);
-                // BUG: Diagnostic contains: dereferenced expression list.get(0) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'list.get(0)' is @Nullable
                 list.get(0).toString();
               }
               void testNonNullContents(List<String> list) {
