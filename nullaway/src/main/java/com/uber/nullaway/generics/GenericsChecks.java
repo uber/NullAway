@@ -1949,10 +1949,10 @@ public final class GenericsChecks {
       }
       Type.MethodType methodTypeAtCallSite =
           castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
-      methodTypeAtCallSite =
-          restoreMissingNullabilityFromSingleTopLevelTypeVarArguments(
-              invocationTree, methodType, methodTypeAtCallSite, state);
       if (result instanceof InferenceSuccess successResult) {
+        methodTypeAtCallSite =
+            restoreNestedNullabilityForTypeVarArguments(
+                invocationTree, methodType, methodTypeAtCallSite, state);
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -1970,7 +1970,7 @@ public final class GenericsChecks {
    * types, while preserving one consistent top-level substitution per method type variable.
    */
   @SuppressWarnings("ReferenceEquality")
-  private Type.MethodType restoreMissingNullabilityFromSingleTopLevelTypeVarArguments(
+  private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
