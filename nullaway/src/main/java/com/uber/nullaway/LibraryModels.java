@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -255,7 +257,7 @@ public interface LibraryModels {
     public static MethodRef methodRef(String enclosingClass, String methodSignature) {
       Matcher matcher = METHOD_SIG_PATTERN.matcher(methodSignature);
       if (matcher.find()) {
-        String methodName = matcher.group(2);
+        String methodName = castToNonNull(matcher.group(2));
         if (methodName.equals(enclosingClass.substring(enclosingClass.lastIndexOf('.') + 1))) {
           // constructor
           methodName = "<init>";
