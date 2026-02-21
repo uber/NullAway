@@ -730,4 +730,36 @@ public class NullabilityUtil {
     }
     return expr;
   }
+
+  /**
+   * A pair of an expression tree and a VisitorState, used by {@link #stripParensAndUpdateTreePath}
+   */
+  public record ExprTreeAndState(ExpressionTree expr, VisitorState state) {}
+
+  /**
+   * strip out enclosing parentheses, and update the tree path in the VisitorState to point to the
+   * stripped expression if the original expression was the leaf of the path
+   *
+   * @param expr a potentially parenthesised expression.
+   * @param state the VisitorState
+   * @return the same expression without parentheses, and the updated VisitorState
+   */
+  public static ExprTreeAndState stripParensAndUpdateTreePath(
+      ExpressionTree expr, VisitorState state) {
+    TreePath path = state.getPath();
+    if (path.getLeaf() != expr) {
+      // if the expression is not the leaf of the path, we can't update the path to point to the
+      // stripped expression, so we just return the original expression and state
+      // TODO fix all cases where this happens and remove this fallback case
+      //  Tracked in https://github.com/uber/NullAway/issues/1479
+      return new ExprTreeAndState(expr, state);
+    }
+    ExpressionTree resultExpr = expr;
+    while (resultExpr instanceof ParenthesizedTree) {
+      resultExpr = ((ParenthesizedTree) resultExpr).getExpression();
+      path = new TreePath(path, resultExpr);
+    }
+    VisitorState resultState = path == state.getPath() ? state : state.withPath(path);
+    return new ExprTreeAndState(resultExpr, resultState);
+  }
 }
