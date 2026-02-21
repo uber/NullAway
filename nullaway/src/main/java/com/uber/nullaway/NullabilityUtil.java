@@ -747,7 +747,9 @@ public class NullabilityUtil {
     if (path.getLeaf() != expr) {
       // if the expression is not the leaf of the path, we can't update the path to point to the
       // stripped expression, so we just return the original expression and state
-      return new ExprTreeAndState(expr, state);
+      // return new ExprTreeAndState(expr, state);
+      throw new RuntimeException(
+          "stripParensAndUpdateTreePath should only be called when the expression is the leaf of the VisitorState's path");
     }
     ExpressionTree resultExpr = expr;
     while (resultExpr instanceof ParenthesizedTree) {
