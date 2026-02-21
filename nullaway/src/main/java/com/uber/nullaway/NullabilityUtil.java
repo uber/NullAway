@@ -731,6 +731,9 @@ public class NullabilityUtil {
     return expr;
   }
 
+  /**
+   * A pair of an expression tree and a VisitorState, used by {@link #stripParensAndUpdateTreePath}
+   */
   public record ExprTreeAndState(ExpressionTree expr, VisitorState state) {}
 
   /**
