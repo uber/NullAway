@@ -62,6 +62,7 @@ import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
+import java.io.IOException;
 import java.io.InputStream;
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -1594,8 +1595,8 @@ public class LibraryModelsHandler implements Handler {
             cacheUtil.parseStubStream(in, "output.astubx");
             astubxLoadLog("Loaded JDK astubx model.");
           }
-        } catch (Exception e) {
-          astubxLoadLog("Failed to load JDK astubx: " + e);
+        } catch (IOException e) {
+          astubxLoadLog("IOException when loading JDK astubx: " + e);
         }
       }
 
