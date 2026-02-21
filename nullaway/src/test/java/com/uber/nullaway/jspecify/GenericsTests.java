@@ -2422,7 +2422,7 @@ public class GenericsTests extends NullAwayTestsBase {
                     foo(f);
                 }
                 void testPositive1(Function<@Nullable V, V> f) {
-                    // BUG: Diagnostic contains: incompatible types: Function<@org.jspecify.annotations.Nullable V, V>
+                    // BUG: Diagnostic contains: incompatible types: Function<@Nullable V, V>
                     foo(f);
                 }
                 void testPositive2(Function<V, V> f) {
@@ -2430,7 +2430,7 @@ public class GenericsTests extends NullAwayTestsBase {
                     foo(f);
                 }
                 void testPositive3(Function<@Nullable V, @Nullable V> f) {
-                    // BUG: Diagnostic contains: incompatible types: Function<@org.jspecify.annotations.Nullable V, @org.jspecify.annotations.Nullable V> cannot be converted to
+                    // BUG: Diagnostic contains: incompatible types: Function<@Nullable V, @Nullable V> cannot be converted to
                     foo(f);
                 }
             }
