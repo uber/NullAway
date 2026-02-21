@@ -124,6 +124,7 @@ import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.javacutil.ElementUtils;
 import org.checkerframework.nullaway.javacutil.TreeUtils;
+import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -808,6 +809,12 @@ public class NullAway extends BugChecker
         (overridingMethod != null
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
+    Type.MethodType jspecifyMemberReferenceMethodType = null;
+    if (memberReferenceTree != null) {
+      jspecifyMemberReferenceMethodType =
+          genericsChecks.getMemberReferenceMethodType(
+              memberReferenceTree, castToNonNull(overridingMethod), state);
+    }
 
     // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
     // null, parameter i is treated as unannotated.
@@ -897,6 +904,14 @@ public class NullAway extends BugChecker
       }
       int methodParamInd = i - startParam;
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
+      boolean paramIsNonNull =
+          paramOfOverridingMethodIsNonNull(
+              paramSymbol,
+              methodParamInd,
+              overridingMethod,
+              isOverridingMethodAnnotated,
+              memberReferenceTree,
+              jspecifyMemberReferenceMethodType);
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
       // nullability from the corresponding functional interface method.
@@ -906,7 +921,7 @@ public class NullAway extends BugChecker
           lambdaExpressionTree != null
               && NullabilityUtil.lambdaParamIsImplicitlyTyped(
                   lambdaExpressionTree.getParameters().get(methodParamInd));
-      if (!implicitlyTypedLambdaParam && paramIsNonNull(paramSymbol, isOverridingMethodAnnotated)) {
+      if (!implicitlyTypedLambdaParam && paramIsNonNull) {
         String message =
             "parameter "
                 + paramSymbol.name.toString()
@@ -945,14 +960,94 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private boolean paramIsNonNull(VarSymbol paramSymbol, boolean isMethodAnnotated) {
+  /**
+   * Checks if the parameter of the overriding method is {@code @NonNull}
+   *
+   * @param paramSymbol the symbol for the parameter of the overriding method
+   * @param methodParamInd the index of the parameter in the method signature of the overriding
+   *     method (adjusted for unbound member references)
+   * @param overridingMethod if available, the symbol for the overriding method
+   * @param isMethodAnnotated whether the overriding method is annotated
+   * @param memberReferenceTree if the overriding method is a member reference, the tree for the
+   *     member reference; otherwise {@code null}
+   * @param memberReferenceMethodType if the overriding method is a member reference, the method
+   *     type of the member reference after handling generics; otherwise {@code null}
+   * @return true if the parameter of the overriding method is effectively {@code @NonNull}, false
+   *     otherwise
+   */
+  private boolean paramOfOverridingMethodIsNonNull(
+      VarSymbol paramSymbol,
+      int methodParamInd,
+      Symbol.@Nullable MethodSymbol overridingMethod,
+      boolean isMethodAnnotated,
+      @Nullable MemberReferenceTree memberReferenceTree,
+      Type.@Nullable MethodType memberReferenceMethodType) {
+    boolean result = false;
     if (isMethodAnnotated) {
-      return !Nullness.hasNullableAnnotation(paramSymbol, config);
+      result = !Nullness.hasNullableAnnotation(paramSymbol, config);
     } else if (config.acknowledgeRestrictiveAnnotations()) {
       // can still be @NonNull if there is a restrictive annotation
-      return Nullness.hasNonNullAnnotation(paramSymbol, config);
+      result = Nullness.hasNonNullAnnotation(paramSymbol, config);
     }
-    return false;
+    if (result && memberReferenceMethodType != null) {
+      // when the overriding method is a member reference, also check that the parameter is not
+      // effectively @Nullable due to generics.  memberReferenceMethodType should be the method type
+      // of the member reference after handling generics
+      com.sun.tools.javac.util.List<Type> parameterTypes =
+          memberReferenceMethodType.getParameterTypes();
+      int memberRefParamIndex =
+          getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree);
+      Type paramType = parameterTypes.get(memberRefParamIndex);
+      // if we have a method reference to a varargs method where varargs are passed individually
+      // (not as an array), and this parameter is the varargs
+      // parameter, then we need to check the nullability of the varargs element type
+      if (memberRefToVarargsPassedIndividually(overridingMethod, memberReferenceTree)
+          && methodParamInd >= overridingMethod.getParameters().size() - 1) {
+        Verify.verify(
+            paramType.getKind() == TypeKind.ARRAY,
+            "Expected array type for varargs parameter in %s, got %s",
+            memberReferenceTree,
+            paramType);
+        paramType = ((Type.ArrayType) paramType).getComponentType();
+      }
+      result = !Nullness.hasNullableAnnotation(paramType.getAnnotationMirrors().stream(), config);
+    }
+    return result;
+  }
+
+  /**
+   * Checks if we have a member reference to a varargs method where the varargs are passed
+   * individually rather than as an array
+   *
+   * @param referencedMethod if available, the symbol for the referenced method
+   * @param memberReferenceTree the tree for the member reference
+   * @return true if we have a member reference to a varargs method where the varargs are passed
+   *     individually
+   */
+  @Contract("null, _ -> false; _, null -> false")
+  private static boolean memberRefToVarargsPassedIndividually(
+      Symbol.@Nullable MethodSymbol referencedMethod,
+      @Nullable MemberReferenceTree memberReferenceTree) {
+    return memberReferenceTree != null
+        && referencedMethod != null
+        && referencedMethod.isVarArgs()
+        && ((JCTree.JCMemberReference) memberReferenceTree).varargsElement != null;
+  }
+
+  private static int getMemberRefParamIndex(
+      int methodParamInd,
+      Symbol.@Nullable MethodSymbol overridingMethod,
+      @Nullable MemberReferenceTree memberReferenceTree) {
+    int memberRefParamIndex = methodParamInd;
+    if (memberRefToVarargsPassedIndividually(overridingMethod, memberReferenceTree)) {
+      // With varargs adaptation, one or more functional-interface parameters can map to the
+      // varargs element type of the referenced method.
+      int varargsParamIndex = overridingMethod.getParameters().size() - 1;
+      if (methodParamInd >= varargsParamIndex) {
+        memberRefParamIndex = varargsParamIndex;
+      }
+    }
+    return memberRefParamIndex;
   }
 
   static Trees getTreesInstance(VisitorState state) {
