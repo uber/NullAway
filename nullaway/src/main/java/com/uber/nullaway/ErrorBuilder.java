@@ -32,6 +32,7 @@ import static com.uber.nullaway.NullAway.CORE_CHECK_NAME;
 import static com.uber.nullaway.NullAway.INITIALIZATION_CHECK_NAME;
 import static com.uber.nullaway.NullAway.OPTIONAL_CHECK_NAME;
 import static com.uber.nullaway.NullAway.getTreesInstance;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.hasNullableAnnotation;
 
 import com.google.common.base.Joiner;
@@ -177,14 +178,15 @@ public class ErrorBuilder {
    * @return Whether the subchecker is being suppressed at treePath.
    */
   private boolean hasPathSuppression(TreePath treePath, String subcheckerName) {
+    // TODO inference and filter handling should handle this better
     return StreamSupport.stream(treePath.spliterator(), false)
         .filter(ErrorBuilder::canHaveSuppressWarningsAnnotation)
-        .map(ASTHelpers::getSymbol)
+        .<@Nullable Symbol>map(tree -> ASTHelpers.getSymbol(tree))
         .filter(Objects::nonNull)
         .anyMatch(
             symbol ->
-                symbolHasSuppressWarningsAnnotation(symbol, subcheckerName)
-                    || symbolIsExcludedClassSymbol(symbol));
+                symbolHasSuppressWarningsAnnotation(castToNonNull(symbol), subcheckerName)
+                    || symbolIsExcludedClassSymbol(castToNonNull(symbol)));
   }
 
   private Description.Builder addSuggestedSuppression(
