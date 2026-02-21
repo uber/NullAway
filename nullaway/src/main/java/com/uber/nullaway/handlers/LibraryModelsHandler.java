@@ -64,6 +64,7 @@ import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
 import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1596,7 +1597,7 @@ public class LibraryModelsHandler implements Handler {
             astubxLoadLog("Loaded JDK astubx model.");
           }
         } catch (IOException e) {
-          astubxLoadLog("IOException when loading JDK astubx: " + e);
+          throw new UncheckedIOException(e);
         }
       }
 
