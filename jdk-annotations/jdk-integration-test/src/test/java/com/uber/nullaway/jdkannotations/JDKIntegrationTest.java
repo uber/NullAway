@@ -331,6 +331,30 @@ public class JDKIntegrationTest {
   }
 
   @Test
+  public void varargs() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  static void testNegative() {",
+            "    ParameterAnnotation.varargs(null, null);",
+            "    Object[] args = null;",
+            "    ParameterAnnotation.varargs(args);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void libraryLoadMethodParserReturn() {
     compilationHelper
         .setArgs(

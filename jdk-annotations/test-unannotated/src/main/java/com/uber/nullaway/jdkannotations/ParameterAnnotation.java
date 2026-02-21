@@ -62,4 +62,8 @@ public class ParameterAnnotation {
 
   public static void nestedAnnotations(
       List<String> typeArg, String[] array, List<Integer>[] mixed) {}
+
+  public static int varargs(Object... args) {
+    return 0;
+  }
 }

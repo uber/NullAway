@@ -70,4 +70,8 @@ public class ParameterAnnotation {
       List<@Nullable String> typeArg,
       @Nullable String[] array,
       @Nullable List<@Nullable Integer>[] mixed) {}
+
+  public static int varargs(@Nullable Object @Nullable ... args) {
+    return 0;
+  }
 }
