@@ -67,18 +67,6 @@ final class GenericTypePrettyPrintingVisitor
     return sb.toString();
   }
 
-  @Override
-  public String visitTypeVar(Type.TypeVar t, @Nullable Void unused) {
-    StringBuilder sb = new StringBuilder();
-    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      sb.append('@');
-      sb.append(compound.type.accept(this, null));
-      sb.append(' ');
-    }
-    sb.append(t.tsym.getSimpleName());
-    return sb.toString();
-  }
-
   private String prettyIntersectionType(Type.IntersectionClassType t) {
     return t.getBounds().stream()
         .map(type -> ((Type) type).accept(this, null))
