@@ -1976,7 +1976,7 @@ public final class GenericsChecks {
       Type.MethodType methodTypeAtCallSite,
       VisitorState state) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    if (methodSymbol == null || methodSymbol.isVarArgs()) {
+    if (methodSymbol.isVarArgs()) {
       // TODO handle varargs methods
       return methodTypeAtCallSite;
     }
