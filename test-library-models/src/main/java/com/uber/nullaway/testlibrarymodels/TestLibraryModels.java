@@ -44,6 +44,9 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
     return ImmutableSetMultimap.of();
+    //    return ImmutableSetMultimap.of(
+    //        methodRef("com.uber.lib.unannotated.NestedAnnots", "varargs(java.lang.String...)"),
+    // 0);
   }
 
   @Override
