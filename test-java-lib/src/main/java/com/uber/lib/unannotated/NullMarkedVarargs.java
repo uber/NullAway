@@ -1,7 +1,7 @@
 package com.uber.lib.unannotated;
 
 /* @NullMarked */
-public class Varargs {
+public class NullMarkedVarargs {
 
   public static void nullableContents(/* @Nullable */ String... args) {}
 
