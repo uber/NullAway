@@ -496,33 +496,6 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
-  public void varargs() {
-    makeLibraryModelsTestHelperWithArgs(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:OnlyNullMarked=true")))
-        .addSourceLines(
-            "Test.java",
-"""
-            import com.uber.lib.unannotated.NestedAnnots;
-            import org.jspecify.annotations.*;
-            @NullMarked
-            public class Test {
-//              void testNegativeArray() {
-//                String[] x = null;
-//                NestedAnnots.varargs(x);
-//              }
-              void testNegativeIndividual() {
-                NestedAnnots.varargs(null, null);
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())

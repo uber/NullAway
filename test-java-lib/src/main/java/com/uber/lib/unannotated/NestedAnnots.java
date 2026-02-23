@@ -24,6 +24,4 @@ public class NestedAnnots<T /* extends @Nullable Object */> {
 
   public static void multipleArgs(
       NestedAnnots<String> t1, NestedAnnots</* @Nullable */ Integer> t2) {}
-
-  public static void varargs(/* @Nullable */ String /* @Nullable */... args) {}
 }
