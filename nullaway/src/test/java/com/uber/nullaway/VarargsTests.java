@@ -566,10 +566,6 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * This test is a WIP for restrictive annotations on varargs. More assertions still need to be
-   * written, and more support needs to be implemented.
-   */
   @Test
   public void testVarargsRestrictive() {
     makeTestHelperWithArgs(
@@ -618,8 +614,7 @@ public class VarargsTests extends NullAwayTestsBase {
                 Object x = null;
                 Object[] y = null;
                 Unannotated.takesVarargsTypeUseOnArray(x);
-            // TODO report an error here; will require some refactoring of restrictive annotation
-            //  handling
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
                 Unannotated.takesVarargsTypeUseOnArray(y);
               }
               public void testTypeUseOnElements() {

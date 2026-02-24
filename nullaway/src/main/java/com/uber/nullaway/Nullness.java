@@ -228,6 +228,10 @@ public enum Nullness implements AbstractValue<Nullness> {
     return hasNullableAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol, config), config);
   }
 
+  private static boolean hasNonNullTypeUseAnnotation(Symbol symbol, Config config) {
+    return hasNonNullAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol, config), config);
+  }
+
   /**
    * Does the parameter of {@code symbol} at {@code paramInd} have a {@code @Nullable} declaration
    * or type-use annotation? This method works for methods defined in either source or class files.
@@ -301,6 +305,17 @@ public enum Nullness implements AbstractValue<Nullness> {
     return hasNullableTypeUseAnnotation(paramSymbol, config)
         || (config.isLegacyAnnotationLocation()
             && hasNullableDeclarationAnnotation(paramSymbol, config));
+  }
+
+  /**
+   * Does the varargs parameter {@code paramSymbol} have a {@code @NonNull} annotation indicating
+   * that the argument array passed at a call site cannot be {@code null}? Syntactically, this would
+   * be written as {@code foo(Object @NonNull... args}}
+   */
+  public static boolean varargsArrayIsNonNull(Symbol paramSymbol, Config config) {
+    return hasNonNullTypeUseAnnotation(paramSymbol, config)
+        || (config.isLegacyAnnotationLocation()
+            && hasNonNullDeclarationAnnotation(paramSymbol, config));
   }
 
   /** Checks if the symbol has a {@code @Nullable} declaration annotation */
