@@ -687,16 +687,27 @@ public class VarargsTests extends NullAwayTestsBase {
             import org.jspecify.annotations.NullMarked;
             @NullMarked
             public class Test {
-              public void test() {
+              public void testPositive() {
                 String x = null;
                 String[] y = null;
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
                 RestrictivelyAnnotatedVarargs.test(x);
-                RestrictivelyAnnotatedVarargs.test(y);
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
-                RestrictivelyAnnotatedVarargs.testTypeUse(x);
-                // TODO should report an error; requires a fuller fix for #1027
-                RestrictivelyAnnotatedVarargs.testTypeUse(y);
+                RestrictivelyAnnotatedVarargs.typeUseEachNonNull(x);
+                // BUG: Diagnostic contains:
+                RestrictivelyAnnotatedVarargs.typeUseArrayNonNull(y);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                RestrictivelyAnnotatedVarargs.typeUseBothNonNull(x);
+                // BUG: Diagnostic contains:
+                RestrictivelyAnnotatedVarargs.typeUseBothNonNull(y);
+              }
+
+              public void testNegative() {
+                String x = null;
+                String[] y = null;
+                RestrictivelyAnnotatedVarargs.test(y);
+                RestrictivelyAnnotatedVarargs.typeUseEachNonNull(y);
+                RestrictivelyAnnotatedVarargs.typeUseArrayNonNull(x);
               }
             }
             """)
