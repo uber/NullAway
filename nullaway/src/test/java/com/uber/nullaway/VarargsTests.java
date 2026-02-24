@@ -635,42 +635,8 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   /**
-   * Test for a restrictive @NonNull declaration annotation on a varargs parameter defined in
-   * bytecode
-   */
-  @Test
-  public void testVarargsRestrictiveBytecodes() {
-    makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            import com.uber.lib.unannotated.RestrictivelyAnnotatedVarargs;
-            public class Test {
-              public void testDeclaration() {
-                String x = null;
-                String[] y = null;
-                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
-                RestrictivelyAnnotatedVarargs.test(x);
-                RestrictivelyAnnotatedVarargs.test(y);
-                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
-                RestrictivelyAnnotatedVarargs.testTypeUse(x);
-                // TODO should report an error; requires a fuller fix for #1027
-                RestrictivelyAnnotatedVarargs.testTypeUse(y);
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  /**
-   * Test for a restrictive @NonNull declaration annotation on a varargs parameter in JSpecify mode
+   * Test for a restrictive @NonNull declaration annotation on a varargs parameter (both declaration
+   * and type use)
    */
   @Test
   public void testVarargsRestrictiveJSpecify() {
