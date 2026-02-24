@@ -2128,7 +2128,8 @@ public class NullAway extends BugChecker
                     || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
             if (checkForNullableVarargsArray) {
               // If varargs array itself is not @Nullable, cannot pass @Nullable array
-              if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
+              if (restrictiveNonNullVarargsArray
+                  || !Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
                 mayActualBeNull = mayBeNullExpr(state, actual);
               }
             }
