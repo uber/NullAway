@@ -2043,7 +2043,9 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
-    InvocationArguments invArgs = new InvocationArguments(tree, methodSymbol.type.asMethodType());
+    Type.MethodType invokedMethodType =
+        handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
+    InvocationArguments invArgs = new InvocationArguments(tree, invokedMethodType);
     // always do unboxing checks, whether or not the invoked method is annotated
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
@@ -2093,6 +2095,7 @@ public class NullAway extends BugChecker
     }
 
     // Allow handlers to override the list of non-null argument positions
+    @Nullable Nullness[] baseArgumentPositionNullness = argumentPositionNullness.clone();
     @Nullable Nullness[] finalArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
@@ -2102,14 +2105,38 @@ public class NullAway extends BugChecker
     // is handled by matchMemberSelect()
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
-          if (argPos >= formalParams.size()) {
+          int formalParamPos = argPos;
+          if (formalParamPos >= formalParams.size()) {
             // extra varargs argument; nullness info stored in last position
-            argPos = finalArgumentPositionNullness.length - 1;
+            formalParamPos = finalArgumentPositionNullness.length - 1;
           }
-          boolean argIsNonNull =
-              Objects.equals(Nullness.NONNULL, finalArgumentPositionNullness[argPos]);
+          Nullness modeledParamNullness = finalArgumentPositionNullness[formalParamPos];
+          Nullness baseParamNullness = baseArgumentPositionNullness[formalParamPos];
+          boolean isVarargsArg =
+              methodSymbol.isVarArgs() && formalParamPos == formalParams.size() - 1;
+          boolean argIsNonNull = Objects.equals(Nullness.NONNULL, modeledParamNullness);
+          if (isVarargsArg && !varArgsPassedAsArray) {
+            // A nullable override on the varargs parameter (e.g. from library models) can target
+            // the array itself; do not automatically apply it to individual varargs arguments.
+            if (Objects.equals(Nullness.NULLABLE, modeledParamNullness)
+                && Objects.equals(Nullness.NONNULL, baseParamNullness)) {
+              argIsNonNull = true;
+            }
+            // If the varargs element type is nullable (e.g. from nested type models), allow nulls
+            // for the individual varargs arguments.
+            if (Nullness.hasNullableAnnotation(
+                formalParamType.getAnnotationMirrors().stream(), config)) {
+              argIsNonNull = false;
+            }
+          }
           boolean mayActualBeNull = false;
           if (varArgsPassedAsArray) {
+            // A handler can explicitly mark the varargs array as @Nullable even if the base
+            // method signature does not.
+            if (Objects.equals(Nullness.NULLABLE, modeledParamNullness)
+                && !Objects.equals(Nullness.NULLABLE, baseParamNullness)) {
+              return;
+            }
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
             // Only check for a nullable varargs array if the method is annotated, or a @NonNull
@@ -2124,7 +2151,7 @@ public class NullAway extends BugChecker
                     || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
             if (checkForNullableVarargsArray) {
               // If varargs array itself is not @Nullable, cannot pass @Nullable array
-              if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
+              if (!Nullness.varargsArrayIsNullable(formalParams.get(formalParamPos), config)) {
                 mayActualBeNull = mayBeNullExpr(state, actual);
               }
             }
@@ -2147,7 +2174,7 @@ public class NullAway extends BugChecker
                     actual,
                     buildDescription(actual),
                     state,
-                    formalParams.get(argPos)));
+                    formalParams.get(formalParamPos)));
           }
         });
     // Check for @NonNull being passed to castToNonNull (if configured)
