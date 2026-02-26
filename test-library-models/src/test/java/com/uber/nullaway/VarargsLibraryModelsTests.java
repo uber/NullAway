@@ -20,7 +20,7 @@ public class VarargsLibraryModelsTests {
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
   @Test
-  public void jspecifyModeIndividual() {
+  public void jspecifyModeNullMarked() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
@@ -30,16 +30,26 @@ public class VarargsLibraryModelsTests {
         .addSourceLines(
             "Test.java",
             """
-            import com.uber.lib.unannotated.NestedAnnots;
+            import com.uber.lib.unannotated.NullMarkedVarargsWithModel;
+            import com.uber.lib.unannotated.NullUnmarkedVarargsWithModel;
             import org.jspecify.annotations.*;
             @NullMarked
             public class Test {
-              void testNegativeArray() {
-                String[] x = null;
-                NestedAnnots.varargs(x);
+              void testNegative() {
+                String x = null;
+                String[] y = null;
+                NullMarkedVarargsWithModel.nullableContents(x, x);
+                NullMarkedVarargsWithModel.nullableArray(y);
+                NullMarkedVarargsWithModel.bothNullable(x, x);
+                NullMarkedVarargsWithModel.bothNullable(y);
               }
-              void testNegativeIndividual() {
-                NestedAnnots.varargs(null, null);
+              void testPositive() {
+                String x = null;
+                String[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required
+                NullMarkedVarargsWithModel.nullableContents(y);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x' where @NonNull is required
+                NullMarkedVarargsWithModel.nullableArray(x, x);
               }
             }
             """)
