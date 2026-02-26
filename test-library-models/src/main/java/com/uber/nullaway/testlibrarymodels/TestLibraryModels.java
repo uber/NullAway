@@ -45,9 +45,12 @@ public class TestLibraryModels implements LibraryModels {
   public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
     return ImmutableSetMultimap.of(
         methodRef(
-            "com.uber.lib.unannotated.NullMarkedVarargsWithModel", "nullableArray(String...)"),
+            "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+            "nullableArray(java.lang.String...)"),
         0,
-        methodRef("com.uber.lib.unannotated.NullMarkedVarargsWithModel", "bothNullable(String...)"),
+        methodRef(
+            "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+            "bothNullable(java.lang.String...)"),
         0);
   }
 
@@ -61,11 +64,13 @@ public class TestLibraryModels implements LibraryModels {
             0)
         .put(
             methodRef(
-                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel", "nonNullArray(String...)"),
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
+                "nonNullArray(java.lang.String...)"),
             0)
         .put(
             methodRef(
-                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel", "bothNonNull(String...)"),
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
+                "bothNonNull(java.lang.String...)"),
             0)
         .build();
   }
@@ -251,14 +256,7 @@ public class TestLibraryModels implements LibraryModels {
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
-                "nullableContents(String...)"),
-            ImmutableSetMultimap.of(
-                0,
-                new NestedAnnotationInfo(
-                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
-        .put(
-            methodRef(
-                "com.uber.lib.unannotated.NullMarkedVarargsWithModel", "bothNullable(String...)"),
+                "nullableContents(java.lang.String...)"),
             ImmutableSetMultimap.of(
                 0,
                 new NestedAnnotationInfo(
@@ -266,14 +264,23 @@ public class TestLibraryModels implements LibraryModels {
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
-                "nonNullContents(String...)"),
+                "bothNullable(java.lang.String...)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                "nonNullContents(java.lang.String...)"),
             ImmutableSetMultimap.of(
                 0,
                 new NestedAnnotationInfo(
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
         .put(
             methodRef(
-                "com.uber.lib.unannotated.NullMarkedVarargsWithModel", "bothNonNull(String...)"),
+                "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                "bothNonNull(java.lang.String...)"),
             ImmutableSetMultimap.of(
                 0,
                 new NestedAnnotationInfo(
