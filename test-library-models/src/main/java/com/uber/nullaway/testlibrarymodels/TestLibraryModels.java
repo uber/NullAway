@@ -271,7 +271,7 @@ public class TestLibraryModels implements LibraryModels {
                     Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
         .put(
             methodRef(
-                "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
                 "nonNullContents(java.lang.String...)"),
             ImmutableSetMultimap.of(
                 0,
@@ -279,7 +279,7 @@ public class TestLibraryModels implements LibraryModels {
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
         .put(
             methodRef(
-                "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
                 "bothNonNull(java.lang.String...)"),
             ImmutableSetMultimap.of(
                 0,
