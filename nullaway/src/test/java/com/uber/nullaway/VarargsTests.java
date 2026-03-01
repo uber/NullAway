@@ -630,8 +630,8 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   /**
-   * Test for a restrictive @NonNull declaration annotation on a varargs parameter (both declaration
-   * and type use)
+   * Test for a restrictive @NonNull declaration annotation on a varargs parameter defined in
+   * bytecode (both declaration and type use)
    */
   @Test
   public void testVarargsRestrictiveJSpecify() {
@@ -655,11 +655,11 @@ public class VarargsTests extends NullAwayTestsBase {
                 RestrictivelyAnnotatedVarargs.test(x);
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
                 RestrictivelyAnnotatedVarargs.typeUseEachNonNull(x);
-                // BUG: Diagnostic contains:
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required
                 RestrictivelyAnnotatedVarargs.typeUseArrayNonNull(y);
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
                 RestrictivelyAnnotatedVarargs.typeUseBothNonNull(x);
-                // BUG: Diagnostic contains:
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required
                 RestrictivelyAnnotatedVarargs.typeUseBothNonNull(y);
               }
 
