@@ -195,8 +195,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     // Whether the return true expression evaluates to a boolean literal or not.  If null, then not
     // a boolean literal.
     Boolean expressionAsBoolean = null;
-    if (returnTree.getExpression() instanceof LiteralTree) {
-      LiteralTree expressionAsLiteral = (LiteralTree) returnTree.getExpression();
+    if (returnTree.getExpression() instanceof LiteralTree expressionAsLiteral) {
       if (expressionAsLiteral.getValue() instanceof Boolean) {
         expressionAsBoolean = (Boolean) expressionAsLiteral.getValue();
       }

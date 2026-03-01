@@ -58,6 +58,7 @@ import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.SerializationService;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 import java.util.stream.StreamSupport;
 import javax.lang.model.element.Element;
@@ -178,8 +179,8 @@ public class ErrorBuilder {
   private boolean hasPathSuppression(TreePath treePath, String subcheckerName) {
     return StreamSupport.stream(treePath.spliterator(), false)
         .filter(ErrorBuilder::canHaveSuppressWarningsAnnotation)
-        .map(tree -> ASTHelpers.getSymbol(tree))
-        .filter(symbol -> symbol != null)
+        .map(ASTHelpers::getSymbol)
+        .filter(Objects::nonNull)
         .anyMatch(
             symbol ->
                 symbolHasSuppressWarningsAnnotation(symbol, subcheckerName)

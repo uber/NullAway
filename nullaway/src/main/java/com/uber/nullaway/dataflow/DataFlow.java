@@ -94,24 +94,21 @@ public final class DataFlow {
       CacheBuilder.newBuilder()
           .maximumSize(MAX_CACHE_SIZE)
           .build(
-              new CacheLoader<CfgParams, ControlFlowGraph>() {
+              new CacheLoader<>() {
                 @Override
                 public ControlFlowGraph load(CfgParams key) {
                   TreePath codePath = key.codePath();
                   TreePath bodyPath;
                   UnderlyingAST ast;
                   ProcessingEnvironment env = key.environment();
-                  if (codePath.getLeaf() instanceof LambdaExpressionTree) {
-                    LambdaExpressionTree lambdaExpressionTree =
-                        (LambdaExpressionTree) codePath.getLeaf();
+                  if (codePath.getLeaf() instanceof LambdaExpressionTree lambdaExpressionTree) {
                     MethodTree enclMethod =
                         ASTHelpers.findEnclosingNode(codePath, MethodTree.class);
                     ClassTree enclClass =
                         castToNonNull(ASTHelpers.findEnclosingNode(codePath, ClassTree.class));
                     ast = new UnderlyingAST.CFGLambda(lambdaExpressionTree, enclClass, enclMethod);
                     bodyPath = new TreePath(codePath, lambdaExpressionTree.getBody());
-                  } else if (codePath.getLeaf() instanceof MethodTree) {
-                    MethodTree method = (MethodTree) codePath.getLeaf();
+                  } else if (codePath.getLeaf() instanceof MethodTree method) {
                     ClassTree enclClass =
                         castToNonNull(ASTHelpers.findEnclosingNode(codePath, ClassTree.class));
                     ast = new UnderlyingAST.CFGMethod(method, enclClass);

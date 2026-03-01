@@ -267,8 +267,8 @@ public final class AccessPath implements MapKey {
   }
 
   private static Node stripCasts(Node node) {
-    while (node instanceof TypeCastNode) {
-      node = ((TypeCastNode) node).getOperand();
+    while (node instanceof TypeCastNode typeCastNode) {
+      node = typeCastNode.getOperand();
     }
     return node;
   }
@@ -276,8 +276,8 @@ public final class AccessPath implements MapKey {
   private static @Nullable MapKey argumentToMapKeySpecifier(
       Node argument, VisitorState state, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
-    if (argument instanceof WideningConversionNode) {
-      argument = ((WideningConversionNode) argument).getOperand();
+    if (argument instanceof WideningConversionNode node) {
+      argument = node.getOperand();
     }
     // A switch at the Tree level should be faster than multiple if checks at the Node level.
     switch (castToNonNull(argument.getTree()).getKind()) {
@@ -456,9 +456,8 @@ public final class AccessPath implements MapKey {
           Tree tree = argumentNode.getTree();
           if (tree == null) {
             return null; // Not an AP
-          } else if (tree instanceof MethodInvocationTree) {
+          } else if (tree instanceof MethodInvocationTree methodInvocationTree) {
             // Check for boxing call
-            MethodInvocationTree methodInvocationTree = (MethodInvocationTree) tree;
             if (methodInvocationTree.getArguments().size() == 1
                 && isBoxingMethod(ASTHelpers.getSymbol(methodInvocationTree))) {
               tree = methodInvocationTree.getArguments().get(0);
@@ -561,8 +560,7 @@ public final class AccessPath implements MapKey {
    */
   public static @Nullable AccessPath mapWithIteratorContentsKey(
       Node mapNode, LocalVariableNode iterVar, AccessPathContext apContext) {
-    IteratorContentsKey iterContentsKey =
-        new IteratorContentsKey((VariableElement) iterVar.getElement());
+    IteratorContentsKey iterContentsKey = new IteratorContentsKey(iterVar.getElement());
     return buildAccessPathRecursive(mapNode, new ArrayDeque<>(), apContext, iterContentsKey);
   }
 
