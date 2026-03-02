@@ -2097,7 +2097,7 @@ public class NullAway extends BugChecker
     // Allow handlers to override the list of non-null argument positions. This remains a
     // per-parameter-slot view of nullness. Varargs-array nullability is handled separately below,
     // since the array and its elements can have different nullability.
-    Nullness[] finalArgumentPositionNullness =
+    @Nullable Nullness[] finalArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
     VarSymbol varargsFormalParam =
