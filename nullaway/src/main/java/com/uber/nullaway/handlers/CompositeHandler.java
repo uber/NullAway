@@ -158,6 +158,20 @@ class CompositeHandler implements Handler {
   }
 
   @Override
+  public @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      boolean isAnnotated,
+      @Nullable Nullness varargsArrayNullness) {
+    for (Handler h : handlers) {
+      varargsArrayNullness =
+          h.onOverrideMethodInvocationVarargsArrayNullability(
+              context, methodSymbol, isAnnotated, varargsArrayNullness);
+    }
+    return varargsArrayNullness;
+  }
+
+  @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis,
       ExpressionTree expr,

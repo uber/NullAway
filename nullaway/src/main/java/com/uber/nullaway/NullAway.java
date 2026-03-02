@@ -2094,8 +2094,9 @@ public class NullAway extends BugChecker
       }
     }
 
-    // Allow handlers to override the list of non-null argument positions
-    @Nullable Nullness[] baseArgumentPositionNullness = argumentPositionNullness.clone();
+    // Allow handlers to override the list of non-null argument positions. This remains a
+    // per-parameter-slot view of nullness. Varargs-array nullability is handled separately below,
+    // since the array and its elements can have different nullability.
     @Nullable Nullness[] finalArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
@@ -2105,25 +2106,17 @@ public class NullAway extends BugChecker
     // is handled by matchMemberSelect()
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
-          int formalParamPos = argPos;
-          if (formalParamPos >= formalParams.size()) {
+          if (argPos >= formalParams.size()) {
             // extra varargs argument; nullness info stored in last position
-            formalParamPos = finalArgumentPositionNullness.length - 1;
+            argPos = finalArgumentPositionNullness.length - 1;
           }
-          Nullness modeledParamNullness = finalArgumentPositionNullness[formalParamPos];
-          Nullness baseParamNullness = baseArgumentPositionNullness[formalParamPos];
-          boolean isVarargsArg =
-              methodSymbol.isVarArgs() && formalParamPos == formalParams.size() - 1;
+          Nullness modeledParamNullness = finalArgumentPositionNullness[argPos];
+          boolean isVarargsArg = methodSymbol.isVarArgs() && argPos == formalParams.size() - 1;
           boolean argIsNonNull = Objects.equals(Nullness.NONNULL, modeledParamNullness);
           if (isVarargsArg && !varArgsPassedAsArray) {
-            // A nullable override on the varargs parameter (e.g. from library models) can target
-            // the array itself; do not automatically apply it to individual varargs arguments.
-            if (Objects.equals(Nullness.NULLABLE, modeledParamNullness)
-                && Objects.equals(Nullness.NONNULL, baseParamNullness)) {
-              argIsNonNull = true;
-            }
-            // If the varargs element type is nullable (e.g. from nested type models), allow nulls
-            // for the individual varargs arguments.
+            // Individually passed varargs arguments correspond to the element type, not the array
+            // itself. Nested type annotations (including library models) are reflected on
+            // formalParamType via InvocationArguments.
             if (Nullness.hasNullableAnnotation(
                 formalParamType.getAnnotationMirrors().stream(), config)) {
               argIsNonNull = false;
@@ -2131,12 +2124,6 @@ public class NullAway extends BugChecker
           }
           boolean mayActualBeNull = false;
           if (varArgsPassedAsArray) {
-            // A handler can explicitly mark the varargs array as @Nullable even if the base
-            // method signature does not.
-            if (Objects.equals(Nullness.NULLABLE, modeledParamNullness)
-                && !Objects.equals(Nullness.NULLABLE, baseParamNullness)) {
-              return;
-            }
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
             // Only check for a nullable varargs array if the method is annotated, or a restrictive
@@ -2153,12 +2140,34 @@ public class NullAway extends BugChecker
                     || (config.isLegacyAnnotationLocation() && argIsNonNull)
                     || restrictiveNonNullVarargsArray
                     || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
+            Nullness baseVarargsArrayNullness =
+                restrictiveNonNullVarargsArray
+                    ? Nullness.NONNULL
+                    : (Nullness.varargsArrayIsNullable(formalParamSymbol, config)
+                        ? Nullness.NULLABLE
+                        : Nullness.NONNULL);
+            @Nullable Nullness handlerVarargsArrayNullness =
+                handler.onOverrideMethodInvocationVarargsArrayNullability(
+                    state.context, methodSymbol, isMethodAnnotated, null);
+            Nullness effectiveVarargsArrayNullness =
+                handlerVarargsArrayNullness != null
+                    ? handlerVarargsArrayNullness
+                    : baseVarargsArrayNullness;
             if (checkForNullableVarargsArray) {
               // If varargs array itself is not @Nullable, cannot pass @Nullable array
-              if (restrictiveNonNullVarargsArray
-                  || !Nullness.varargsArrayIsNullable(formalParams.get(formalParamPos), config)) {
+              if (!Objects.equals(effectiveVarargsArrayNullness, Nullness.NULLABLE)) {
                 mayActualBeNull = mayBeNullExpr(state, actual);
               }
+            } else if (handlerVarargsArrayNullness != null
+                && !Objects.equals(effectiveVarargsArrayNullness, Nullness.NULLABLE)) {
+              // An explicit handler override should be enforced even if the base declaration would
+              // otherwise skip varargs-array checking for this method.
+              mayActualBeNull = mayBeNullExpr(state, actual);
+            } else if (handlerVarargsArrayNullness != null
+                && Objects.equals(effectiveVarargsArrayNullness, Nullness.NULLABLE)) {
+              // Likewise, an explicit nullable override for the varargs array should allow a null
+              // array even when the base declaration is silent.
+              return;
             }
           } else {
             if (!argIsNonNull) {
@@ -2179,7 +2188,7 @@ public class NullAway extends BugChecker
                     actual,
                     buildDescription(actual),
                     state,
-                    formalParams.get(formalParamPos)));
+                    formalParams.get(argPos)));
           }
         });
     // Check for @NonNull being passed to castToNonNull (if configured)

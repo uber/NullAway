@@ -135,10 +135,20 @@ public class LibraryModelsHandler implements Handler {
     // For sanity check: $ nonNullParamsFromModel \cap nullableParamsFromModel $ should be empty
     Set<Integer> allPositions = new HashSet<>();
     for (Integer nullParam : nullableParamsFromModel) {
+      if (methodSymbol.isVarArgs() && nullParam == methodSymbol.getParameters().size() - 1) {
+        // For varargs, top-level library models describe the array itself. We handle that through
+        // the dedicated varargs-array hook so that element nullability can be modeled separately.
+        continue;
+      }
       allPositions.add(nullParam);
       argumentPositionNullness[nullParam] = NULLABLE;
     }
     for (Integer nonNullParam : nonNullParamsFromModel) {
+      if (methodSymbol.isVarArgs() && nonNullParam == methodSymbol.getParameters().size() - 1) {
+        // See comment above: top-level nullability for the varargs parameter applies to the array,
+        // not to individually passed varargs elements.
+        continue;
+      }
       if (!allPositions.add(nonNullParam)) {
         // position was already marked as nullable
         throw new IllegalStateException(
@@ -149,6 +159,36 @@ public class LibraryModelsHandler implements Handler {
       argumentPositionNullness[nonNullParam] = NONNULL;
     }
     return argumentPositionNullness;
+  }
+
+  @Override
+  public @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      boolean isAnnotated,
+      @Nullable Nullness varargsArrayNullness) {
+    if (!methodSymbol.isVarArgs()) {
+      return varargsArrayNullness;
+    }
+    int varargsIndex = methodSymbol.getParameters().size() - 1;
+    OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
+    boolean nullableFromModel =
+        optimizedLibraryModels.explicitlyNullableParameters(methodSymbol).contains(varargsIndex);
+    boolean nonNullFromModel =
+        optimizedLibraryModels.nonNullParameters(methodSymbol).contains(varargsIndex);
+    if (nullableFromModel && nonNullFromModel) {
+      throw new IllegalStateException(
+          String.format(
+              "Library models give conflicting varargs array nullability for method %s",
+              methodSymbol.getQualifiedName()));
+    }
+    if (nullableFromModel) {
+      return NULLABLE;
+    }
+    if (nonNullFromModel) {
+      return NONNULL;
+    }
+    return varargsArrayNullness;
   }
 
   @Override

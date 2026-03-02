@@ -223,6 +223,33 @@ public interface Handler {
   }
 
   /**
+   * Called to potentially override the nullability of the array itself when a varargs method is
+   * invoked by passing an array in the varargs position.
+   *
+   * <p>This hook is intentionally separate from {@link
+   * #onOverrideMethodInvocationParametersNullability(Context, Symbol.MethodSymbol, boolean,
+   * Nullness[])}. A single parameter-slot nullness value is not expressive enough for varargs,
+   * where the array and its elements can have different nullability.
+   *
+   * @param context The current context.
+   * @param methodSymbol The method symbol for the method in question.
+   * @param isAnnotated A boolean flag indicating whether the called method is considered to be
+   *     within annotated code.
+   * @param varargsArrayNullness current override value for the varargs array nullability, or {@code
+   *     null} if no handler has provided an override yet.
+   * @return Updated explicit nullability for the varargs array, or {@code null} if the current
+   *     handler does not provide an override.
+   */
+  default @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      boolean isAnnotated,
+      @Nullable Nullness varargsArrayNullness) {
+    // NoOp
+    return varargsArrayNullness;
+  }
+
+  /**
    * Called when the Dataflow analysis generates the initial NullnessStore for a method or lambda.
    *
    * @param underlyingAST The AST node for the method's (or lambda's) body, using the checkers
