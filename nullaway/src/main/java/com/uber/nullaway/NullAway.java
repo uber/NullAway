@@ -2139,19 +2139,24 @@ public class NullAway extends BugChecker
             }
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
-            // Only check for a nullable varargs array if the method is annotated, or a @NonNull
-            // restrictive annotation is present in legacy mode (as previously the annotation
-            // was applied to both the array itself and the elements), or a JetBrains @NotNull
-            // declaration annotation is present (due to
+            // Only check for a nullable varargs array if the method is annotated, or a restrictive
+            // @NonNull annotation is present on the varargs array itself. In legacy mode, a
+            // declaration @NonNull annotation also implies the array is @NonNull. Also check for
+            // JetBrains @NotNull declaration annotation (due to
             // https://github.com/uber/NullAway/issues/720)
             VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
+            boolean restrictiveNonNullVarargsArray =
+                config.acknowledgeRestrictiveAnnotations()
+                    && Nullness.varargsArrayIsNonNull(formalParamSymbol, config);
             boolean checkForNullableVarargsArray =
                 isMethodAnnotated
                     || (config.isLegacyAnnotationLocation() && argIsNonNull)
+                    || restrictiveNonNullVarargsArray
                     || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
             if (checkForNullableVarargsArray) {
               // If varargs array itself is not @Nullable, cannot pass @Nullable array
-              if (!Nullness.varargsArrayIsNullable(formalParams.get(formalParamPos), config)) {
+              if (restrictiveNonNullVarargsArray
+                  || !Nullness.varargsArrayIsNullable(formalParams.get(formalParamPos), config)) {
                 mayActualBeNull = mayBeNullExpr(state, actual);
               }
             }
