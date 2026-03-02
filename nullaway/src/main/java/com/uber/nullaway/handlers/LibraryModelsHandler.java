@@ -127,6 +127,8 @@ public class LibraryModelsHandler implements Handler {
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       @Nullable Nullness[] argumentPositionNullness) {
+    Nullness modeledVarargsArrayNullness =
+        getLibraryModelVarargsArrayNullness(context, methodSymbol);
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
     ImmutableSet<Integer> nullableParamsFromModel =
         optimizedLibraryModels.explicitlyNullableParameters(methodSymbol);
@@ -135,7 +137,9 @@ public class LibraryModelsHandler implements Handler {
     // For sanity check: $ nonNullParamsFromModel \cap nullableParamsFromModel $ should be empty
     Set<Integer> allPositions = new HashSet<>();
     for (Integer nullParam : nullableParamsFromModel) {
-      if (methodSymbol.isVarArgs() && nullParam == methodSymbol.getParameters().size() - 1) {
+      if (modeledVarargsArrayNullness != null
+          && methodSymbol.isVarArgs()
+          && nullParam == methodSymbol.getParameters().size() - 1) {
         // For varargs, top-level library models describe the array itself. We handle that through
         // the dedicated varargs-array hook so that element nullability can be modeled separately.
         continue;
@@ -144,7 +148,9 @@ public class LibraryModelsHandler implements Handler {
       argumentPositionNullness[nullParam] = NULLABLE;
     }
     for (Integer nonNullParam : nonNullParamsFromModel) {
-      if (methodSymbol.isVarArgs() && nonNullParam == methodSymbol.getParameters().size() - 1) {
+      if (modeledVarargsArrayNullness != null
+          && methodSymbol.isVarArgs()
+          && nonNullParam == methodSymbol.getParameters().size() - 1) {
         // See comment above: top-level nullability for the varargs parameter applies to the array,
         // not to individually passed varargs elements.
         continue;
@@ -167,8 +173,15 @@ public class LibraryModelsHandler implements Handler {
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       @Nullable Nullness varargsArrayNullness) {
+    Nullness modeledVarargsArrayNullness =
+        getLibraryModelVarargsArrayNullness(context, methodSymbol);
+    return modeledVarargsArrayNullness != null ? modeledVarargsArrayNullness : varargsArrayNullness;
+  }
+
+  private @Nullable Nullness getLibraryModelVarargsArrayNullness(
+      Context context, Symbol.MethodSymbol methodSymbol) {
     if (!methodSymbol.isVarArgs()) {
-      return varargsArrayNullness;
+      return null;
     }
     int varargsIndex = methodSymbol.getParameters().size() - 1;
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
@@ -188,7 +201,7 @@ public class LibraryModelsHandler implements Handler {
     if (nonNullFromModel) {
       return NONNULL;
     }
-    return varargsArrayNullness;
+    return null;
   }
 
   @Override
