@@ -2137,19 +2137,23 @@ public class NullAway extends BugChecker
                     : Nullness.varargsArrayIsNullable(varargsFormalParam, config)
                         ? Nullness.NULLABLE
                         : Nullness.NONNULL;
-            Nullness handlerVarargsArrayNullness =
+            Nullness explicitVarargsArrayNullness =
                 handler.onOverrideMethodInvocationVarargsArrayNullability(
-                    state.context, methodSymbol, isMethodAnnotated, baseVarargsArrayNullness);
+                    state.context, methodSymbol, isMethodAnnotated, null);
             boolean shouldCheckVarargsArray =
                 shouldCheckVarargsArray(
                     isMethodAnnotated,
                     finalArgumentPositionNullness,
                     varargsFormalParam,
                     restrictiveNonNullVarargsArray,
-                    handlerVarargsArrayNullness);
+                    explicitVarargsArrayNullness);
+            Nullness effectiveVarargsArrayNullness =
+                explicitVarargsArrayNullness != null
+                    ? explicitVarargsArrayNullness
+                    : baseVarargsArrayNullness;
             if (shouldCheckVarargsArray) {
               // If varargs array itself is not @Nullable, cannot pass @Nullable array
-              if (!Objects.equals(handlerVarargsArrayNullness, Nullness.NULLABLE)) {
+              if (!Objects.equals(effectiveVarargsArrayNullness, Nullness.NULLABLE)) {
                 mayActualBeNull = mayBeNullExpr(state, actual);
               }
             }
@@ -2188,7 +2192,7 @@ public class NullAway extends BugChecker
       @Nullable Nullness[] finalArgumentPositionNullness,
       @Nullable VarSymbol varargsFormalParam,
       boolean restrictiveNonNullVarargsArray,
-      @Nullable Nullness handlerVarargsArrayNullness) {
+      @Nullable Nullness explicitVarargsArrayNullness) {
     if (varargsFormalParam == null) {
       return false;
     }
@@ -2199,7 +2203,7 @@ public class NullAway extends BugChecker
                 finalArgumentPositionNullness[finalArgumentPositionNullness.length - 1]))
         || restrictiveNonNullVarargsArray
         || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(varargsFormalParam)
-        || handlerVarargsArrayNullness != null;
+        || explicitVarargsArrayNullness != null;
   }
 
   private Description checkCastToNonNullTakesNullable(
