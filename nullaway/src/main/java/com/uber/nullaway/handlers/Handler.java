@@ -240,11 +240,11 @@ public interface Handler {
    * @return Updated explicit nullability for the varargs array, or {@code null} if the current
    *     handler does not provide an override.
    */
-  default Nullness onOverrideMethodInvocationVarargsArrayNullability(
+  default @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      Nullness varargsArrayNullness) {
+      @Nullable Nullness varargsArrayNullness) {
     // NoOp
     return varargsArrayNullness;
   }

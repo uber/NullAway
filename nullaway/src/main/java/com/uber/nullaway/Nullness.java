@@ -315,7 +315,8 @@ public enum Nullness implements AbstractValue<Nullness> {
   public static boolean varargsArrayIsNonNull(Symbol paramSymbol, Config config) {
     return hasNonNullTypeUseAnnotation(paramSymbol, config)
         || (config.isLegacyAnnotationLocation()
-            && hasNonNullDeclarationAnnotation(paramSymbol, config));
+            && hasNonNullDeclarationAnnotation(paramSymbol, config))
+        || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation((Symbol.VarSymbol) paramSymbol);
   }
 
   /** Checks if the symbol has a {@code @Nullable} declaration annotation */
