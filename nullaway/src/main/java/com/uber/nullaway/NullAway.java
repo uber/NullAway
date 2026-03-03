@@ -2055,7 +2055,7 @@ public class NullAway extends BugChecker
         });
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
-    // If argumentPositionNullness[i] == null, parameter i is unannotated
+    // If argumentPositionNullness[i] == null, parameter i is unannotated (unmarked)
     @Nullable Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
 
     if (isMethodAnnotated) {
@@ -2086,6 +2086,9 @@ public class NullAway extends BugChecker
                       : Nullness.NONNULL);
         }
       }
+
+      // perform generics checks for calls to annotated methods in JSpecify mode
+      // TODO we need to handle restrictive annotations on type variables in @NullUnmarked methods
       if (config.isJSpecifyMode()) {
         genericsChecks.compareGenericTypeParameterNullabilityForCall(methodSymbol, tree, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
@@ -2095,40 +2098,10 @@ public class NullAway extends BugChecker
     }
 
     // Allow handlers to override the list of non-null argument positions. This remains a
-    // per-parameter-slot view of nullness. Varargs-array nullability is handled separately below,
-    // since the array and its elements can have different nullability.
+    // per-parameter-slot view of nullness. Varargs-array nullability is handled separately
     @Nullable Nullness[] finalArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
-    VarSymbol varargsFormalParam =
-        methodSymbol.isVarArgs() ? formalParams.get(formalParams.size() - 1) : null;
-    boolean restrictiveNonNullVarargsArray =
-        varargsFormalParam != null
-            && config.acknowledgeRestrictiveAnnotations()
-            && Nullness.varargsArrayIsNonNull(varargsFormalParam, config);
-    Nullness baseVarargsArrayNullness =
-        varargsFormalParam == null
-            ? Nullness.NONNULL
-            : (restrictiveNonNullVarargsArray
-                ? Nullness.NONNULL
-                : (Nullness.varargsArrayIsNullable(varargsFormalParam, config)
-                    ? Nullness.NULLABLE
-                    : Nullness.NONNULL));
-    Nullness handlerVarargsArrayNullness =
-        handler.onOverrideMethodInvocationVarargsArrayNullability(
-            state.context, methodSymbol, isMethodAnnotated, null);
-    Nullness effectiveVarargsArrayNullness =
-        handlerVarargsArrayNullness != null
-            ? handlerVarargsArrayNullness
-            : baseVarargsArrayNullness;
-    boolean shouldCheckVarargsArray =
-        shouldCheckVarargsArray(
-            isMethodAnnotated,
-            finalArgumentPositionNullness,
-            varargsFormalParam,
-            restrictiveNonNullVarargsArray,
-            handlerVarargsArrayNullness);
-
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
     // is handled by matchMemberSelect()
@@ -2154,11 +2127,29 @@ public class NullAway extends BugChecker
           if (varArgsPassedAsArray) {
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
-            // Whether we need to check the varargs array nullability is an invocation-level fact,
-            // not an argument-level one, so we compute it once above and reuse it here.
+            VarSymbol varargsFormalParam = formalParams.get(formalParams.size() - 1);
+            boolean restrictiveNonNullVarargsArray =
+                config.acknowledgeRestrictiveAnnotations()
+                    && Nullness.varargsArrayIsNonNull(varargsFormalParam, config);
+            Nullness baseVarargsArrayNullness =
+                restrictiveNonNullVarargsArray
+                    ? Nullness.NONNULL
+                    : Nullness.varargsArrayIsNullable(varargsFormalParam, config)
+                        ? Nullness.NULLABLE
+                        : Nullness.NONNULL;
+            Nullness handlerVarargsArrayNullness =
+                handler.onOverrideMethodInvocationVarargsArrayNullability(
+                    state.context, methodSymbol, isMethodAnnotated, baseVarargsArrayNullness);
+            boolean shouldCheckVarargsArray =
+                shouldCheckVarargsArray(
+                    isMethodAnnotated,
+                    finalArgumentPositionNullness,
+                    varargsFormalParam,
+                    restrictiveNonNullVarargsArray,
+                    handlerVarargsArrayNullness);
             if (shouldCheckVarargsArray) {
               // If varargs array itself is not @Nullable, cannot pass @Nullable array
-              if (!Objects.equals(effectiveVarargsArrayNullness, Nullness.NULLABLE)) {
+              if (!Objects.equals(handlerVarargsArrayNullness, Nullness.NULLABLE)) {
                 mayActualBeNull = mayBeNullExpr(state, actual);
               }
             }
