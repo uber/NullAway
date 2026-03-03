@@ -2106,15 +2106,6 @@ public class NullAway extends BugChecker
         varargsFormalParam != null
             && config.acknowledgeRestrictiveAnnotations()
             && Nullness.varargsArrayIsNonNull(varargsFormalParam, config);
-    boolean baseCheckForNullableVarargsArray =
-        varargsFormalParam != null
-            && (isMethodAnnotated
-                || (config.isLegacyAnnotationLocation()
-                    && Objects.equals(
-                        Nullness.NONNULL,
-                        finalArgumentPositionNullness[finalArgumentPositionNullness.length - 1]))
-                || restrictiveNonNullVarargsArray
-                || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(varargsFormalParam));
     Nullness baseVarargsArrayNullness =
         varargsFormalParam == null
             ? Nullness.NONNULL
@@ -2131,8 +2122,12 @@ public class NullAway extends BugChecker
             ? handlerVarargsArrayNullness
             : baseVarargsArrayNullness;
     boolean shouldCheckVarargsArray =
-        varargsFormalParam != null
-            && (baseCheckForNullableVarargsArray || handlerVarargsArrayNullness != null);
+        shouldCheckVarargsArray(
+            isMethodAnnotated,
+            finalArgumentPositionNullness,
+            varargsFormalParam,
+            restrictiveNonNullVarargsArray,
+            handlerVarargsArrayNullness);
 
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
@@ -2191,6 +2186,29 @@ public class NullAway extends BugChecker
         });
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
+  }
+
+  /**
+   * Decides whether a call that passes an array to a varargs parameter should enforce nullability
+   * of the array itself.
+   */
+  private boolean shouldCheckVarargsArray(
+      boolean isMethodAnnotated,
+      @Nullable Nullness[] finalArgumentPositionNullness,
+      @Nullable VarSymbol varargsFormalParam,
+      boolean restrictiveNonNullVarargsArray,
+      @Nullable Nullness handlerVarargsArrayNullness) {
+    if (varargsFormalParam == null) {
+      return false;
+    }
+    return isMethodAnnotated
+        || (config.isLegacyAnnotationLocation()
+            && Objects.equals(
+                Nullness.NONNULL,
+                finalArgumentPositionNullness[finalArgumentPositionNullness.length - 1]))
+        || restrictiveNonNullVarargsArray
+        || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(varargsFormalParam)
+        || handlerVarargsArrayNullness != null;
   }
 
   private Description checkCastToNonNullTakesNullable(
