@@ -2055,7 +2055,7 @@ public class NullAway extends BugChecker
         });
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
-    // If argumentPositionNullness[i] == null, parameter i is unannotated (unmarked)
+    // If argumentPositionNullness[i] == null, parameter i is unannotated
     @Nullable Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
 
     if (isMethodAnnotated) {
@@ -2088,7 +2088,6 @@ public class NullAway extends BugChecker
       }
 
       // perform generics checks for calls to annotated methods in JSpecify mode
-      // TODO we need to handle restrictive annotations on type variables in @NullUnmarked methods
       if (config.isJSpecifyMode()) {
         genericsChecks.compareGenericTypeParameterNullabilityForCall(methodSymbol, tree, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
@@ -2097,8 +2096,9 @@ public class NullAway extends BugChecker
       }
     }
 
-    // Allow handlers to override the list of non-null argument positions. This remains a
-    // per-parameter-slot view of nullness. Varargs-array nullability is handled separately
+    // Allow handlers to override the list of non-null argument positions. For a varargs parameter,
+    // this array holds the nullness of individual varargs arguments; the case of a varargs array is
+    // handled separately
     @Nullable Nullness[] finalArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
@@ -2112,17 +2112,7 @@ public class NullAway extends BugChecker
             argPos = finalArgumentPositionNullness.length - 1;
           }
           Nullness modeledParamNullness = finalArgumentPositionNullness[argPos];
-          boolean isVarargsArg = methodSymbol.isVarArgs() && argPos == formalParams.size() - 1;
           boolean argIsNonNull = Objects.equals(Nullness.NONNULL, modeledParamNullness);
-          if (isVarargsArg && !varArgsPassedAsArray) {
-            // Individually passed varargs arguments correspond to the element type, not the array
-            // itself. Nested type annotations (including library models) are reflected on
-            // formalParamType via InvocationArguments.
-            if (Nullness.hasNullableAnnotation(
-                formalParamType.getAnnotationMirrors().stream(), config)) {
-              argIsNonNull = false;
-            }
-          }
           if (varArgsPassedAsArray) {
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
