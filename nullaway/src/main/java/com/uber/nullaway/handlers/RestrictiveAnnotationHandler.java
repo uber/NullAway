@@ -143,7 +143,6 @@ public class RestrictiveAnnotationHandler implements Handler {
     if (methodSymbol.isVarArgs()) {
       Symbol.VarSymbol varargsParamSymbol =
           methodSymbol.getParameters().get(methodSymbol.getParameters().size() - 1);
-      //  && !NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(varargsParamSymbol)
       if (Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
         return Nullness.NONNULL;
       }
