@@ -2111,8 +2111,8 @@ public class NullAway extends BugChecker
             // extra varargs argument; nullness info stored in last position
             argPos = finalArgumentPositionNullness.length - 1;
           }
-          Nullness modeledParamNullness = finalArgumentPositionNullness[argPos];
-          boolean argIsNonNull = Objects.equals(Nullness.NONNULL, modeledParamNullness);
+          boolean argIsNonNull =
+              Objects.equals(Nullness.NONNULL, finalArgumentPositionNullness[argPos]);
           if (varArgsPassedAsArray) {
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
@@ -2123,10 +2123,9 @@ public class NullAway extends BugChecker
                 (isMethodAnnotated && !Nullness.varargsArrayIsNullable(varargsFormalParam, config))
                     ? Nullness.NONNULL
                     : null;
-            // 2. For @NullUnmarked methods, there should be an explicit @NonNull annotation
-            //   (this should be handled in the RestrictiveAnnotationsHandler)
-            //   (RestrictiveAnnotationsHandler also handles weird JetBrains annotation stuff)
-            // 3. Library model indicating it is explicitlyNonNull (handled in LibraryModelsHandler)
+            // 2. For @NullUnmarked methods, there should be an explicit @NonNull annotation.  This
+            // is handled by the RestrictiveAnnotationHandler
+            // 3. Library model indicating it is @NonNull (handled in LibraryModelsHandler)
             varargsArrayNullness =
                 handler.onOverrideMethodInvocationVarargsArrayNullability(
                     state.context, methodSymbol, isMethodAnnotated, varargsArrayNullness);
