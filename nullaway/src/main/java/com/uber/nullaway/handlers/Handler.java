@@ -209,7 +209,10 @@ public interface Handler {
    * @param argumentPositionNullness Nullness info for each argument position as computed by
    *     upstream handlers and/or the base analysis. Some entries may be {@code null}, indicating
    *     upstream handlers and the base analysis consider the parameter to be nullness-unknown,
-   *     usually since the parameter is from unannotated code.
+   *     usually since the parameter is from unannotated code. For a varargs parameter, the nullness
+   *     for when individual parameters are passed in the varargs position will be stored in this
+   *     array. See {@link #onOverrideMethodInvocationVarargsArrayNullability} for overriding the
+   *     nullness of the varargs array itself.
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */
@@ -233,12 +236,11 @@ public interface Handler {
    *
    * @param context The current context.
    * @param methodSymbol The method symbol for the method in question.
-   * @param isAnnotated A boolean flag indicating whether the called method is considered to be
-   *     within annotated code.
-   * @param varargsArrayNullness current override value for the varargs array nullability, or {@code
-   *     null} if no handler has provided an override yet.
-   * @return Updated explicit nullability for the varargs array, or {@code null} if the current
-   *     handler does not provide an override.
+   * @param isAnnotated A boolean flag indicating whether the called method is annotated
+   * @param varargsArrayNullness current value for the varargs array nullability, or {@code null} if
+   *     none
+   * @return Updated explicit nullability for the varargs array, or {@code varargsArrayNullness} if
+   *     the current handler does not provide an override.
    */
   default @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
       Context context,
