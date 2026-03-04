@@ -57,7 +57,7 @@ public class VarargsLibraryModelsTests {
   }
 
   @Test
-  @Ignore("Temporarily disabled while restrictive varargs library-model handling is fixed")
+  @Ignore("https://github.com/uber/NullAway/issues/1490")
   public void jspecifyModeRestrictive() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
