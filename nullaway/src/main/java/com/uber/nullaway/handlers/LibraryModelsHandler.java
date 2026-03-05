@@ -185,35 +185,27 @@ public class LibraryModelsHandler implements Handler {
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
       @Nullable Nullness varargsArrayNullness) {
-    Nullness modeledVarargsArrayNullness =
-        getLibraryModelVarargsArrayNullness(context, methodSymbol);
+    Nullness modeledVarargsArrayNullness = null;
+    if (methodSymbol.isVarArgs()) {
+      int varargsIndex = methodSymbol.getParameters().size() - 1;
+      OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
+      boolean nullableFromModel =
+          optimizedLibraryModels.explicitlyNullableParameters(methodSymbol).contains(varargsIndex);
+      boolean nonNullFromModel =
+          optimizedLibraryModels.nonNullParameters(methodSymbol).contains(varargsIndex);
+      if (nullableFromModel && nonNullFromModel) {
+        throw new IllegalStateException(
+            String.format(
+                "Library models give conflicting varargs array nullability for method %s",
+                methodSymbol.getQualifiedName()));
+      }
+      if (nullableFromModel) {
+        modeledVarargsArrayNullness = NULLABLE;
+      } else if (nonNullFromModel) {
+        modeledVarargsArrayNullness = NONNULL;
+      }
+    }
     return modeledVarargsArrayNullness != null ? modeledVarargsArrayNullness : varargsArrayNullness;
-  }
-
-  private @Nullable Nullness getLibraryModelVarargsArrayNullness(
-      Context context, Symbol.MethodSymbol methodSymbol) {
-    if (!methodSymbol.isVarArgs()) {
-      return null;
-    }
-    int varargsIndex = methodSymbol.getParameters().size() - 1;
-    OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
-    boolean nullableFromModel =
-        optimizedLibraryModels.explicitlyNullableParameters(methodSymbol).contains(varargsIndex);
-    boolean nonNullFromModel =
-        optimizedLibraryModels.nonNullParameters(methodSymbol).contains(varargsIndex);
-    if (nullableFromModel && nonNullFromModel) {
-      throw new IllegalStateException(
-          String.format(
-              "Library models give conflicting varargs array nullability for method %s",
-              methodSymbol.getQualifiedName()));
-    }
-    if (nullableFromModel) {
-      return NULLABLE;
-    }
-    if (nonNullFromModel) {
-      return NONNULL;
-    }
-    return null;
   }
 
   @Override
