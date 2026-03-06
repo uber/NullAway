@@ -62,7 +62,9 @@ import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -478,8 +480,9 @@ public class LibraryModelsHandler implements Handler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
-    if (config.isJarInferEnabled()) {
-      libModelsBuilder.add(new ExternalStubxLibraryModels());
+    if (config.isJarInferEnabled() || config.isJSpecifyJDKModels()) {
+      libModelsBuilder.add(
+          new ExternalStubxLibraryModels(config.isJarInferEnabled(), config.isJSpecifyJDKModels()));
     }
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
@@ -1560,26 +1563,42 @@ public class LibraryModelsHandler implements Handler {
     private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
     private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
 
-    ExternalStubxLibraryModels() {
+    ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
       // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
-      try {
-        InputStream androidStubxIS =
-            Class.forName(ANDROID_MODEL_CLASS)
-                .getClassLoader()
-                .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
-        if (androidStubxIS != null) {
-          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
-          astubxLoadLog("Loaded Android RT models.");
-        }
-      } catch (ClassNotFoundException e) {
-        astubxLoadLog(
-            "Cannot find Android RT models locator class."
-                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
+      if (isJarInferEnabled) {
+        try {
+          InputStream androidStubxIS =
+              Class.forName(ANDROID_MODEL_CLASS)
+                  .getClassLoader()
+                  .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+          if (androidStubxIS != null) {
+            cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+            astubxLoadLog("Loaded Android RT models.");
+          }
+        } catch (ClassNotFoundException e) {
+          astubxLoadLog(
+              "Cannot find Android RT models locator class."
+                  + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
 
-      } catch (Exception e) {
-        astubxLoadLog("Cannot load Android RT models.");
+        } catch (Exception e) {
+          astubxLoadLog("Cannot load Android RT models.");
+        }
+      }
+
+      // hardcoded loading of stubx files from jdk nullness inferred output.astubx
+      if (isJSpecifyJDKEnabled) {
+        try (InputStream in = getClass().getClassLoader().getResourceAsStream("output.astubx")) {
+          if (in == null) {
+            astubxLoadLog("JDK astubx model not found on classpath: output.astubx");
+          } else {
+            cacheUtil.parseStubStream(in, "output.astubx");
+            astubxLoadLog("Loaded JDK astubx model.");
+          }
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
       }
 
       argAnnotCache = cacheUtil.getArgAnnotCache();
