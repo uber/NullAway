@@ -515,6 +515,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             """
             package foo.unannotated;
             public class Unannotated {
+              public static void takesVarargsUnannotated(Object... args) {}
               public static void takesVarargsDeclaration(@javax.annotation.Nonnull Object... args) {}
               public static void takesVarargsTypeUseOnArray(Object @org.jspecify.annotations.NonNull... args) {}
               public static void takesVarargsTypeUseOnElements(@org.jspecify.annotations.NonNull Object... args) {}
@@ -530,6 +531,12 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             package com.uber;
             import foo.unannotated.Unannotated;
             public class Test {
+              public void testUnannotated() {
+                Object x = null;
+                Object[] y = null;
+                Unannotated.takesVarargsUnannotated(x);
+                Unannotated.takesVarargsUnannotated(y);
+              }
               public void testDeclaration() {
                 Object x = null;
                 Object[] y = null;

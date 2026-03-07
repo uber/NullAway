@@ -1,6 +1,8 @@
 package com.uber.nullaway;
 
+import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 
 /** Tests for handling of varargs annotations in NullAway's default mode */
@@ -564,10 +566,6 @@ public class VarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * This test is a WIP for restrictive annotations on varargs. More assertions still need to be
-   * written, and more support needs to be implemented.
-   */
   @Test
   public void testVarargsRestrictive() {
     makeTestHelperWithArgs(
@@ -616,8 +614,7 @@ public class VarargsTests extends NullAwayTestsBase {
                 Object x = null;
                 Object[] y = null;
                 Unannotated.takesVarargsTypeUseOnArray(x);
-            // TODO report an error here; will require some refactoring of restrictive annotation
-            //  handling
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
                 Unannotated.takesVarargsTypeUseOnArray(y);
               }
               public void testTypeUseOnElements() {
@@ -634,33 +631,44 @@ public class VarargsTests extends NullAwayTestsBase {
 
   /**
    * Test for a restrictive @NonNull declaration annotation on a varargs parameter defined in
-   * bytecode
+   * bytecode (both declaration and type use)
    */
   @Test
-  public void testVarargsRestrictiveBytecodes() {
+  public void testVarargsRestrictiveJSpecify() {
     makeTestHelperWithArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
         .addSourceLines(
             "Test.java",
             """
-            package com.uber;
             import com.uber.lib.unannotated.RestrictivelyAnnotatedVarargs;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
             public class Test {
-              public void testDeclaration() {
+              public void testPositive() {
                 String x = null;
                 String[] y = null;
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
                 RestrictivelyAnnotatedVarargs.test(x);
-                RestrictivelyAnnotatedVarargs.test(y);
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
-                RestrictivelyAnnotatedVarargs.testTypeUse(x);
-                // TODO should report an error; requires a fuller fix for #1027
-                RestrictivelyAnnotatedVarargs.testTypeUse(y);
+                RestrictivelyAnnotatedVarargs.typeUseEachNonNull(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required
+                RestrictivelyAnnotatedVarargs.typeUseArrayNonNull(y);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                RestrictivelyAnnotatedVarargs.typeUseBothNonNull(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y' where @NonNull is required
+                RestrictivelyAnnotatedVarargs.typeUseBothNonNull(y);
+              }
+
+              public void testNegative() {
+                String x = null;
+                String[] y = null;
+                RestrictivelyAnnotatedVarargs.test(y);
+                RestrictivelyAnnotatedVarargs.typeUseEachNonNull(y);
+                RestrictivelyAnnotatedVarargs.typeUseArrayNonNull(x);
               }
             }
             """)
