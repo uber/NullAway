@@ -255,13 +255,12 @@ public class ContractCheckHandler implements Handler {
   private static void collectNestedReturnedExpressions(
       TreePath expressionPath, List<TreePath> output) {
     ExpressionTree expression = (ExpressionTree) expressionPath.getLeaf();
-    while (expression instanceof ParenthesizedTree) {
-      ExpressionTree nestedExpression = ((ParenthesizedTree) expression).getExpression();
+    while (expression instanceof ParenthesizedTree parenthesizedTree) {
+      ExpressionTree nestedExpression = parenthesizedTree.getExpression();
       expressionPath = new TreePath(expressionPath, nestedExpression);
       expression = nestedExpression;
     }
-    if (expression instanceof ConditionalExpressionTree) {
-      ConditionalExpressionTree conditionalExpression = (ConditionalExpressionTree) expression;
+    if (expression instanceof ConditionalExpressionTree conditionalExpression) {
       TreePath truePath = new TreePath(expressionPath, conditionalExpression.getTrueExpression());
       TreePath falsePath = new TreePath(expressionPath, conditionalExpression.getFalseExpression());
       collectNestedReturnedExpressions(truePath, output);

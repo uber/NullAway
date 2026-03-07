@@ -1580,10 +1580,8 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
         }
       }
-      if (memberTree instanceof MethodTree methodTree) {
-        if (isConstructor(methodTree)) {
-          constructors.add(methodTree);
-        }
+      if (memberTree instanceof MethodTree methodTree && isConstructor(methodTree)) {
+        constructors.add(methodTree);
       }
     }
     // all the initializer blocks have run before any code inside a constructor
@@ -2476,14 +2474,12 @@ public class NullAway extends BugChecker
       // as "top level" for the purposes of finding initialization methods. Any exception happening
       // there is also an
       // exception of the full method.
-      if (stmt instanceof TryTree tryTree) {
-        if (tryTree.getCatches().isEmpty()) {
-          if (tryTree.getBlock() != null) {
-            result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
-          }
-          if (tryTree.getFinallyBlock() != null) {
-            result.addAll(getSafeInitMethods(tryTree.getFinallyBlock(), classSymbol, state));
-          }
+      if (stmt instanceof TryTree tryTree && tryTree.getCatches().isEmpty()) {
+        if (tryTree.getBlock() != null) {
+          result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
+        }
+        if (tryTree.getFinallyBlock() != null) {
+          result.addAll(getSafeInitMethods(tryTree.getFinallyBlock(), classSymbol, state));
         }
       }
     }

@@ -184,11 +184,10 @@ public abstract class AbstractFieldContractHandler implements Handler {
           return false;
         }
         VariableElement field = getFieldOfClass(classSymbol, fieldName);
-        if (field != null) {
-          if (field.getModifiers().contains(Modifier.STATIC)) {
-            continue;
-          }
+        if (field != null && field.getModifiers().contains(Modifier.STATIC)) {
+          continue;
         }
+
         if (fieldName.contains(".")) {
           if (!fieldName.startsWith(THIS_NOTATION)) {
             message =
@@ -264,13 +263,12 @@ public abstract class AbstractFieldContractHandler implements Handler {
   }
 
   protected boolean isThisDotStaticField(Symbol.ClassSymbol classSymbol, String expression) {
-    if (expression.contains(".")) {
-      if (expression.startsWith(THIS_NOTATION)) {
-        String fieldName = expression.substring(THIS_NOTATION.length());
-        VariableElement field = getFieldOfClass(classSymbol, fieldName);
-        return field != null && field.getModifiers().contains(Modifier.STATIC);
-      }
+    if (expression.contains(".") && expression.startsWith(THIS_NOTATION)) {
+      String fieldName = expression.substring(THIS_NOTATION.length());
+      VariableElement field = getFieldOfClass(classSymbol, fieldName);
+      return field != null && field.getModifiers().contains(Modifier.STATIC);
     }
+
     return false;
   }
 }
