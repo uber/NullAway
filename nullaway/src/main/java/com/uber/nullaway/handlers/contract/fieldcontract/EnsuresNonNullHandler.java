@@ -94,7 +94,7 @@ public class EnsuresNonNullHandler extends AbstractFieldContractHandler {
             .stream()
             .map(e -> e.getSimpleName().toString())
             .collect(Collectors.toSet());
-    Set<String> nonnullFieldsAtExit = new HashSet<String>();
+    Set<String> nonnullFieldsAtExit = new HashSet<>();
     nonnullFieldsAtExit.addAll(nonnullFieldsOfReceiverAtExit);
     nonnullFieldsAtExit.addAll(nonnullStaticFieldsAtExit);
     Set<String> fieldNames = getAnnotationValueArray(methodSymbol, annotName, false);
