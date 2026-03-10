@@ -2041,9 +2041,7 @@ public class NullAway extends BugChecker
       List<? extends ExpressionTree> actualParams) {
     List<VarSymbol> formalParams = methodSymbol.getParameters();
 
-    Type.MethodType invokedMethodType =
-        handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
-    InvocationArguments invArgs = new InvocationArguments(tree, invokedMethodType);
+    InvocationArguments invArgs = new InvocationArguments(tree, methodSymbol.type.asMethodType());
     // always do unboxing checks, whether or not the invoked method is annotated
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
