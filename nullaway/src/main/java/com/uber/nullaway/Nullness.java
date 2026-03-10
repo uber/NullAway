@@ -315,7 +315,11 @@ public enum Nullness implements AbstractValue<Nullness> {
   public static boolean varargsArrayIsNonNull(Symbol paramSymbol, Config config) {
     return hasNonNullTypeUseAnnotation(paramSymbol, config)
         || (config.isLegacyAnnotationLocation()
-            && hasNonNullDeclarationAnnotation(paramSymbol, config));
+            && hasNonNullDeclarationAnnotation(paramSymbol, config))
+        // For Kotlin-generated class files, we treat the presence of a JetBrains @NotNull
+        // declaration annotation on a varargs parameter as indicating that the varargs array itself
+        // is non-null.  See https://github.com/uber/NullAway/issues/720
+        || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(paramSymbol);
   }
 
   /** Checks if the symbol has a {@code @Nullable} declaration annotation */
