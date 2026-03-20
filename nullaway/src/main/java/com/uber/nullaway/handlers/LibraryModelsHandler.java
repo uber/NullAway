@@ -164,14 +164,22 @@ public class LibraryModelsHandler implements Handler {
       ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
           optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
       int varargsIndex = methodSymbol.getParameters().size() - 1;
+      Nullness varargsContentsNullness = null;
       for (NestedAnnotationInfo nestedAnnotation : nestedAnnotations.get(varargsIndex)) {
         // check if it's for the array element
         if (nestedAnnotation.typePath().size() == 1
             && nestedAnnotation.typePath().get(0).kind() == ARRAY_ELEMENT) {
           // this is a nested annotation for the varargs array element, which applies when
           // individual parameters are passed
-          argumentPositionNullness[varargsIndex] =
-              nestedAnnotation.annotation() == Annotation.NULLABLE ? NULLABLE : NONNULL;
+          if (varargsContentsNullness == null) {
+            varargsContentsNullness =
+                nestedAnnotation.annotation() == Annotation.NULLABLE ? NULLABLE : NONNULL;
+            argumentPositionNullness[varargsIndex] = varargsContentsNullness;
+          } else {
+            throw new IllegalStateException(
+                "varargs contents nullness set multiple times: "
+                    + nestedAnnotations.get(varargsIndex));
+          }
           break;
         }
       }

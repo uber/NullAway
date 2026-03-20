@@ -238,7 +238,7 @@ public interface Handler {
    * @param methodSymbol The method symbol for the method in question.
    * @param isAnnotated A boolean flag indicating whether the called method is annotated
    * @param varargsArrayNullness current value for the varargs array nullability, or {@code null} if
-   *     none
+   *     upstream handlers and the base analysis consider the parameter to be nullness-unknown
    * @return Updated explicit nullability for the varargs array, or {@code varargsArrayNullness} if
    *     the current handler does not provide an override.
    */
