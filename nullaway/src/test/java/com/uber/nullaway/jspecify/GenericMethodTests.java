@@ -1567,6 +1567,26 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("https://github.com/uber/NullAway/issues/1493")
+  @Test
+  public void issue1493() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              String nonNullElse(@Nullable String nullableString, String defaultValue) {
+                return Objects.requireNonNullElse(nullableString, defaultValue);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
