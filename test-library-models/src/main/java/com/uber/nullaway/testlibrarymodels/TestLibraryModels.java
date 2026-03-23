@@ -43,7 +43,15 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
-    return ImmutableSetMultimap.of();
+    return ImmutableSetMultimap.of(
+        methodRef(
+            "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+            "nullableArray(java.lang.String...)"),
+        0,
+        methodRef(
+            "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+            "bothNullable(java.lang.String...)"),
+        0);
   }
 
   @Override
@@ -53,6 +61,16 @@ public class TestLibraryModels implements LibraryModels {
             methodRef(
                 "com.uber.lib.unannotated.RestrictivelyAnnotatedFIWithModelOverride",
                 "apply(java.lang.Object)"),
+            0)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
+                "nonNullArray(java.lang.String...)"),
+            0)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
+                "bothNonNull(java.lang.String...)"),
             0)
         .build();
   }
@@ -154,7 +172,8 @@ public class TestLibraryModels implements LibraryModels {
   public ImmutableSet<String> nullMarkedClasses() {
     return ImmutableSet.of(
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
-        "com.uber.lib.unannotated.NestedAnnots");
+        "com.uber.lib.unannotated.NestedAnnots",
+        "com.uber.lib.unannotated.NullMarkedVarargsWithModel");
   }
 
   @Override
@@ -169,59 +188,103 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
       nestedAnnotationsForMethods() {
-    return ImmutableMap.of(
-        methodRef("com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
-        ImmutableSetMultimap.of(
-            0,
-            new NestedAnnotationInfo(
-                Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))),
-        methodRef(
-            "com.uber.lib.unannotated.NestedAnnots",
-            "deeplyNested(com.uber.lib.unannotated.NestedAnnots<com.uber.lib.unannotated.NestedAnnots<java.lang.String>>)"),
-        ImmutableSetMultimap.of(
-            0,
-            new NestedAnnotationInfo(
-                Annotation.NULLABLE,
-                ImmutableList.of(
-                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(TYPE_ARGUMENT, 0)))),
-        methodRef("com.uber.lib.unannotated.NestedAnnots", "nestedArray1()"),
-        ImmutableSetMultimap.of(
-            -1,
-            new NestedAnnotationInfo(
-                Annotation.NULLABLE,
-                ImmutableList.of(
-                    new TypePathEntry(TYPE_ARGUMENT, 0),
-                    new TypePathEntry(ARRAY_ELEMENT, -1),
-                    new TypePathEntry(TYPE_ARGUMENT, 0)))),
-        methodRef("com.uber.lib.unannotated.NestedAnnots", "nestedArray2()"),
-        ImmutableSetMultimap.of(
-            -1,
-            new NestedAnnotationInfo(
-                Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))),
-        methodRef(
-            "com.uber.lib.unannotated.NestedAnnots",
-            "wildcardUpper(com.uber.lib.unannotated.NestedAnnots<? extends java.lang.String>)"),
-        ImmutableSetMultimap.of(
-            0,
-            new NestedAnnotationInfo(
-                Annotation.NONNULL,
-                ImmutableList.of(
-                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 0)))),
-        methodRef(
-            "com.uber.lib.unannotated.NestedAnnots",
-            "wildcardLower(com.uber.lib.unannotated.NestedAnnots<? super java.lang.String>)"),
-        ImmutableSetMultimap.of(
-            0,
-            new NestedAnnotationInfo(
-                Annotation.NULLABLE,
-                ImmutableList.of(
-                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 1)))),
-        methodRef(
-            "com.uber.lib.unannotated.NestedAnnots",
-            "multipleArgs(com.uber.lib.unannotated.NestedAnnots<java.lang.String>,com.uber.lib.unannotated.NestedAnnots<java.lang.Integer>)"),
-        ImmutableSetMultimap.of(
-            1,
-            new NestedAnnotationInfo(
-                Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))));
+    return new ImmutableMap.Builder<
+            MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>()
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NestedAnnots",
+                "deeplyNested(com.uber.lib.unannotated.NestedAnnots<com.uber.lib.unannotated.NestedAnnots<java.lang.String>>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef("com.uber.lib.unannotated.NestedAnnots", "nestedArray1()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 0),
+                        new TypePathEntry(ARRAY_ELEMENT, -1),
+                        new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef("com.uber.lib.unannotated.NestedAnnots", "nestedArray2()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NestedAnnots",
+                "wildcardUpper(com.uber.lib.unannotated.NestedAnnots<? extends java.lang.String>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 0),
+                        new TypePathEntry(WILDCARD_BOUND, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NestedAnnots",
+                "wildcardLower(com.uber.lib.unannotated.NestedAnnots<? super java.lang.String>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 0),
+                        new TypePathEntry(WILDCARD_BOUND, 1)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NestedAnnots",
+                "multipleArgs(com.uber.lib.unannotated.NestedAnnots<java.lang.String>,com.uber.lib.unannotated.NestedAnnots<java.lang.Integer>)"),
+            ImmutableSetMultimap.of(
+                1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                "nullableContents(java.lang.String...)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                "bothNullable(java.lang.String...)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
+                "nonNullContents(java.lang.String...)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NullUnmarkedVarargsWithModel",
+                "bothNonNull(java.lang.String...)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .build();
   }
 }

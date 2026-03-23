@@ -135,6 +135,22 @@ public class RestrictiveAnnotationHandler implements Handler {
   }
 
   @Override
+  public @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      boolean isAnnotated,
+      @Nullable Nullness varargsArrayNullness) {
+    if (methodSymbol.isVarArgs()) {
+      Symbol.VarSymbol varargsParamSymbol =
+          methodSymbol.getParameters().get(methodSymbol.getParameters().size() - 1);
+      if (Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
+        return Nullness.NONNULL;
+      }
+    }
+    return varargsArrayNullness;
+  }
+
+  @Override
   public Nullness onOverrideMethodReturnNullability(
       Symbol.MethodSymbol methodSymbol,
       VisitorState state,
