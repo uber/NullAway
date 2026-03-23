@@ -1580,10 +1580,8 @@ public class NullAway extends BugChecker
               nullnessAnalysis.getNonnullFieldsOfReceiverAtExit(memberPath, state.context));
         }
       }
-      if (memberTree instanceof MethodTree methodTree) {
-        if (isConstructor(methodTree)) {
-          constructors.add(methodTree);
-        }
+      if (memberTree instanceof MethodTree methodTree && isConstructor(methodTree)) {
+        constructors.add(methodTree);
       }
     }
     // all the initializer blocks have run before any code inside a constructor
@@ -2084,6 +2082,8 @@ public class NullAway extends BugChecker
                       : Nullness.NONNULL);
         }
       }
+
+      // perform generics checks for calls to annotated methods in JSpecify mode
       if (config.isJSpecifyMode()) {
         genericsChecks.compareGenericTypeParameterNullabilityForCall(methodSymbol, tree, state);
         if (!methodSymbol.getTypeParameters().isEmpty()) {
@@ -2092,7 +2092,9 @@ public class NullAway extends BugChecker
       }
     }
 
-    // Allow handlers to override the list of non-null argument positions
+    // Allow handlers to override the list of non-null argument positions. For a varargs parameter,
+    // this array holds the nullness of individual varargs arguments; the case of a varargs array is
+    // handled separately
     @Nullable Nullness[] finalArgumentPositionNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
@@ -2108,33 +2110,29 @@ public class NullAway extends BugChecker
           }
           boolean argIsNonNull =
               Objects.equals(Nullness.NONNULL, finalArgumentPositionNullness[argPos]);
-          boolean mayActualBeNull = false;
           if (varArgsPassedAsArray) {
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
-            // Only check for a nullable varargs array if the method is annotated, or a @NonNull
-            // restrictive annotation is present in legacy mode (as previously the annotation
-            // was applied to both the array itself and the elements), or a JetBrains @NotNull
-            // declaration annotation is present (due to
-            // https://github.com/uber/NullAway/issues/720)
-            VarSymbol formalParamSymbol = formalParams.get(formalParams.size() - 1);
-            boolean checkForNullableVarargsArray =
-                isMethodAnnotated
-                    || (config.isLegacyAnnotationLocation() && argIsNonNull)
-                    || NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(formalParamSymbol);
-            if (checkForNullableVarargsArray) {
-              // If varargs array itself is not @Nullable, cannot pass @Nullable array
-              if (!Nullness.varargsArrayIsNullable(formalParams.get(argPos), config)) {
-                mayActualBeNull = mayBeNullExpr(state, actual);
-              }
-            }
-          } else {
-            if (!argIsNonNull) {
-              // argument can be @Nullable, so nothing to check
-              return;
-            }
-            mayActualBeNull = mayBeNullExpr(state, actual);
+            VarSymbol varargsFormalParam = formalParams.get(formalParams.size() - 1);
+            // when is the varargs array itself @NonNull?
+            // 1. For @NullMarked methods, as long as there is no @Nullable annotation
+            Nullness varargsArrayNullness =
+                (isMethodAnnotated && !Nullness.varargsArrayIsNullable(varargsFormalParam, config))
+                    ? Nullness.NONNULL
+                    : null;
+            // 2. For @NullUnmarked methods, there should be an explicit @NonNull annotation.  This
+            // is handled by the RestrictiveAnnotationHandler
+            // 3. Library model indicating it is @NonNull (handled in LibraryModelsHandler)
+            varargsArrayNullness =
+                handler.onOverrideMethodInvocationVarargsArrayNullability(
+                    state.context, methodSymbol, isMethodAnnotated, varargsArrayNullness);
+            argIsNonNull = Objects.equals(varargsArrayNullness, Nullness.NONNULL);
           }
+          if (!argIsNonNull) {
+            // argument can be @Nullable, so nothing to check
+            return;
+          }
+          boolean mayActualBeNull = mayBeNullExpr(state, actual);
           if (mayActualBeNull) {
             String message =
                 "passing @Nullable parameter '"
@@ -2471,14 +2469,12 @@ public class NullAway extends BugChecker
       // as "top level" for the purposes of finding initialization methods. Any exception happening
       // there is also an
       // exception of the full method.
-      if (stmt instanceof TryTree tryTree) {
-        if (tryTree.getCatches().isEmpty()) {
-          if (tryTree.getBlock() != null) {
-            result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
-          }
-          if (tryTree.getFinallyBlock() != null) {
-            result.addAll(getSafeInitMethods(tryTree.getFinallyBlock(), classSymbol, state));
-          }
+      if (stmt instanceof TryTree tryTree && tryTree.getCatches().isEmpty()) {
+        if (tryTree.getBlock() != null) {
+          result.addAll(getSafeInitMethods(tryTree.getBlock(), classSymbol, state));
+        }
+        if (tryTree.getFinallyBlock() != null) {
+          result.addAll(getSafeInitMethods(tryTree.getFinallyBlock(), classSymbol, state));
         }
       }
     }
