@@ -677,7 +677,7 @@ public class NullabilityUtil {
    * Does the given symbol have a JetBrains @NotNull declaration annotation? Useful for workarounds
    * in light of https://github.com/uber/NullAway/issues/720
    */
-  public static boolean hasJetBrainsNotNullDeclarationAnnotation(Symbol.VarSymbol varSymbol) {
+  public static boolean hasJetBrainsNotNullDeclarationAnnotation(Symbol varSymbol) {
     // We explicitly ignore type-use annotations here, looking for @NotNull used as a
     // declaration annotation, which is why this logic is simpler than e.g.
     // NullabilityUtil.getAllAnnotationsForParameter.

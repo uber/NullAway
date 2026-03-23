@@ -26,6 +26,7 @@ import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
+import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
 import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
 
 import com.google.common.base.Preconditions;
@@ -134,11 +135,22 @@ public class LibraryModelsHandler implements Handler {
         optimizedLibraryModels.nonNullParameters(methodSymbol);
     // For sanity check: $ nonNullParamsFromModel \cap nullableParamsFromModel $ should be empty
     Set<Integer> allPositions = new HashSet<>();
+    boolean varArgsMethod = methodSymbol.isVarArgs();
     for (Integer nullParam : nullableParamsFromModel) {
+      if (varArgsMethod && nullParam == methodSymbol.getParameters().size() - 1) {
+        // For varargs, top-level library models describe the array itself. We handle that through
+        // the dedicated varargs-array hook so that element nullability can be modeled separately.
+        continue;
+      }
       allPositions.add(nullParam);
       argumentPositionNullness[nullParam] = NULLABLE;
     }
     for (Integer nonNullParam : nonNullParamsFromModel) {
+      if (varArgsMethod && nonNullParam == methodSymbol.getParameters().size() - 1) {
+        // See comment above: top-level nullability for the varargs parameter applies to the array,
+        // not to individually passed varargs elements.
+        continue;
+      }
       if (!allPositions.add(nonNullParam)) {
         // position was already marked as nullable
         throw new IllegalStateException(
@@ -148,7 +160,59 @@ public class LibraryModelsHandler implements Handler {
       }
       argumentPositionNullness[nonNullParam] = NONNULL;
     }
+    if (varArgsMethod) {
+      ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
+          optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
+      int varargsIndex = methodSymbol.getParameters().size() - 1;
+      Nullness varargsContentsNullness = null;
+      for (NestedAnnotationInfo nestedAnnotation : nestedAnnotations.get(varargsIndex)) {
+        // check if it's for the array element
+        if (nestedAnnotation.typePath().size() == 1
+            && nestedAnnotation.typePath().get(0).kind() == ARRAY_ELEMENT) {
+          // this is a nested annotation for the varargs array element, which applies when
+          // individual parameters are passed
+          if (varargsContentsNullness == null) {
+            varargsContentsNullness =
+                nestedAnnotation.annotation() == Annotation.NULLABLE ? NULLABLE : NONNULL;
+            argumentPositionNullness[varargsIndex] = varargsContentsNullness;
+          } else {
+            throw new IllegalStateException(
+                "varargs contents nullness set multiple times: "
+                    + nestedAnnotations.get(varargsIndex));
+          }
+        }
+      }
+    }
     return argumentPositionNullness;
+  }
+
+  @Override
+  public @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
+      Context context,
+      Symbol.MethodSymbol methodSymbol,
+      boolean isAnnotated,
+      @Nullable Nullness varargsArrayNullness) {
+    Nullness modeledVarargsArrayNullness = null;
+    if (methodSymbol.isVarArgs()) {
+      int varargsIndex = methodSymbol.getParameters().size() - 1;
+      OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
+      boolean nullableFromModel =
+          optimizedLibraryModels.explicitlyNullableParameters(methodSymbol).contains(varargsIndex);
+      boolean nonNullFromModel =
+          optimizedLibraryModels.nonNullParameters(methodSymbol).contains(varargsIndex);
+      if (nullableFromModel && nonNullFromModel) {
+        throw new IllegalStateException(
+            String.format(
+                "Library models give conflicting varargs array nullability for method %s",
+                methodSymbol.getQualifiedName()));
+      }
+      if (nullableFromModel) {
+        modeledVarargsArrayNullness = NULLABLE;
+      } else if (nonNullFromModel) {
+        modeledVarargsArrayNullness = NONNULL;
+      }
+    }
+    return modeledVarargsArrayNullness != null ? modeledVarargsArrayNullness : varargsArrayNullness;
   }
 
   @Override
