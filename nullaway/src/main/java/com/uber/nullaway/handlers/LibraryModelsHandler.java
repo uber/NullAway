@@ -180,7 +180,6 @@ public class LibraryModelsHandler implements Handler {
                 "varargs contents nullness set multiple times: "
                     + nestedAnnotations.get(varargsIndex));
           }
-          break;
         }
       }
     }
