@@ -425,6 +425,32 @@ public class AstubxTest {
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
   }
 
+  @Test
+  public void varargs() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  public static int varargs(@Nullable Object @Nullable ... args) { return 0; }",
+            "}")
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "Test:int varargs(java.lang.Object...)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of(
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
+  }
+
   private void runTest(
       ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords,
       ImmutableMap<String, Set<Integer>> expectedNullableUpperBounds,
