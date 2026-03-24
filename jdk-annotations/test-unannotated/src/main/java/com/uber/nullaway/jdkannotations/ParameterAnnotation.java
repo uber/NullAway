@@ -19,15 +19,15 @@ public class ParameterAnnotation {
     System.out.println(object.toString());
   }
 
-  @SuppressWarnings("ArrayToString")
-  public static void takesNullArray(Object[] objects) {
-    System.out.println(objects);
-  }
+  public static void takesNullArray(Object[] objects) {}
 
-  @SuppressWarnings("ArrayToString")
-  public static void takesNonNullArray(Object[] objects) {
-    String unused = objects.toString();
-  }
+  public static void takesNullableArray(String[] strings) {}
+
+  public static void takesNullableElements(String[] strings) {}
+
+  public static void takesNullableArrayAndElements(String[] strings) {}
+
+  public static void takesNonNullArray(Object[] objects) {}
 
   public static class Generic<T> {
 
@@ -40,15 +40,9 @@ public class ParameterAnnotation {
     }
   }
 
-  @SuppressWarnings("ArrayToString")
-  public static void takesNullGenericArray(Generic<String>[] objects) {
-    System.out.println(objects);
-  }
+  public static void takesNullGenericArray(Generic<String>[] objects) {}
 
-  @SuppressWarnings("ArrayToString")
-  public static void takesNonNullGenericArray(Generic<String>[] objects) {
-    System.out.println(objects);
-  }
+  public static void takesNonNullGenericArray(Generic<String>[] objects) {}
 
   public static <K, T extends String> T nullableTypeParam(K k, T t) {
     return t;

@@ -43,6 +43,10 @@ public class AstubxGenerator {
   private static final Pattern TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN =
       buildTopLevelNullnessAnnotationPattern();
 
+  /** Matches annotations immediately before the "[]" for array parameters */
+  private static final Pattern ARRAY_NULLNESS_ANNOTATION_PATTERN =
+      Pattern.compile("@[\\w.]+(?=\\s*\\[])");
+
   /** Matches annotations immediately before the "..." for varargs parameters */
   private static final Pattern VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN =
       Pattern.compile("@[\\w.]+(?=\\.\\.\\.)");
@@ -378,6 +382,13 @@ public class AstubxGenerator {
       return false;
     }
     if (!typeSignature.contains("...")) {
+      if (typeSignature.contains("[")) {
+        // Arrays need the same distinction as varargs:
+        //   @Nullable String[]     -> nullable elements, not a nullable array parameter
+        //   String @Nullable []    -> nullable array parameter
+        // Only the latter should populate MethodAnnotationsRecord.argumentAnnotations().
+        return ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).find();
+      }
       return true;
     }
     // Varargs need special handling:

@@ -329,6 +329,69 @@ public class NullnessAnnotationSerializerTest {
   }
 
   @Test
+  public void arrayParametersNullableArrayVsElements() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Foo {",
+            "  public static void arrayNullable(String @Nullable [] arr) {}",
+            "  public static void elementsNullable(@Nullable String[] arr) {}",
+            "  public static void bothNullable(@Nullable String @Nullable [] arr) {}",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo(
+                                "void",
+                                "arrayNullable(java.lang.String @org.jspecify.annotations.Nullable [])",
+                                false,
+                                false,
+                                List.of(),
+                                Map.of()),
+                            new MethodInfo(
+                                "void",
+                                "elementsNullable(java.lang.@org.jspecify.annotations.Nullable String[])",
+                                false,
+                                false,
+                                List.of(),
+                                Map.of(
+                                    0,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.ARRAY_ELEMENT, -1)))))),
+                            new MethodInfo(
+                                "void",
+                                "bothNullable(java.lang.@org.jspecify.annotations.Nullable String @org.jspecify.annotations.Nullable [])",
+                                false,
+                                false,
+                                List.of(),
+                                Map.of(
+                                    0,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.ARRAY_ELEMENT, -1)))))))))));
+  }
+
+  @Test
   public void skipNonAnnotatedClasses() {
     compilationTestHelper
         .addSourceLines(

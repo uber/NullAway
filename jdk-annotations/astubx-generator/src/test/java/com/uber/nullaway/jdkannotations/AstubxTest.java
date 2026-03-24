@@ -260,6 +260,51 @@ public class AstubxTest {
   }
 
   @Test
+  public void arrayParametersNullableArrayVsElements() {
+    compilationHelper
+        .addSourceLines(
+            "ArrayParameters.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class ArrayParameters {",
+            "  public static void arrayNullable(String @Nullable [] arr) {}",
+            "  public static void elementsNullable(@Nullable String[] arr) {}",
+            "  public static void bothNullable(@Nullable String @Nullable [] arr) {}",
+            "}")
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "ArrayParameters:void arrayNullable(java.lang.String[])",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()),
+            "ArrayParameters:void elementsNullable(java.lang.String[])",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))),
+            "ArrayParameters:void bothNullable(java.lang.String[])",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of(
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("ArrayParameters"));
+  }
+
+  @Test
   public void genericParameter() {
     compilationHelper
         .addSourceLines(

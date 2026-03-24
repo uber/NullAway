@@ -249,6 +249,44 @@ public class JDKIntegrationTest {
   }
 
   @Test
+  public void arrayParametersNullableArrayVsElements() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  void testCall() {",
+            "    String[] nonNullArray = new String[] {\"value\"};",
+            "    @Nullable String[] nullableElements = new String[] {\"value\", null};",
+            "    String @Nullable [] nullableArray = null;",
+            "    @Nullable String @Nullable [] nullableArrayAndElements = new String[] {\"value\", null};",
+            "    ParameterAnnotation.takesNullableArray(nonNullArray);",
+            "    ParameterAnnotation.takesNullableArray(nullableArray);",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    ParameterAnnotation.takesNullableArray(nullableElements);",
+            "    ParameterAnnotation.takesNullableElements(nonNullArray);",
+            "    ParameterAnnotation.takesNullableElements(nullableElements);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'nullableArray' where @NonNull is required",
+            "    ParameterAnnotation.takesNullableElements(nullableArray);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nonNullArray);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nullableElements);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nullableArray);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nullableArrayAndElements);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableGenericArrayTest() {
     compilationHelper
         .setArgs(
