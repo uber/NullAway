@@ -39,6 +39,9 @@ import java.util.regex.Pattern;
  */
 public class AstubxGenerator {
 
+  private static final Pattern TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN =
+      buildTopLevelNullnessAnnotationPattern();
+
   /**
    * Contains all information that will be added to the astubx file.
    *
@@ -258,25 +261,10 @@ public class AstubxGenerator {
       for (int i = 0; i < argumentList.length; i++) {
         // remove generic annotations on arguments
         String typeSignature = removeGenericAnnotations(argumentList[i].trim());
-        // remove annotations
-        if (typeSignature.contains("@")) {
-          String[] signatureTokens = typeSignature.split(" ");
-          typeSignature = "";
-          for (String token : signatureTokens) {
-            if (token.contains("@")) {
-              if (token.contains("@org.jspecify.annotations.Nullable")) {
-                argAnnotation.put(i, ImmutableSet.of("Nullable"));
-              }
-              typeSignature += token.substring(0, token.indexOf('@'));
-            } else {
-              typeSignature += token;
-            }
-          }
-        } else {
-          // remove any spaces in Array types
-          typeSignature = typeSignature.replace(" []", "[]");
+        if (containsNullableAnnotation(typeSignature)) {
+          argAnnotation.put(i, ImmutableSet.of("Nullable"));
         }
-        argumentList[i] = typeSignature;
+        argumentList[i] = stripTopLevelNullnessAnnotations(typeSignature).replace(" []", "[]");
       }
       ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> nestedAnnotations =
           new ImmutableSetMultimap.Builder<>();
@@ -372,5 +360,21 @@ public class AstubxGenerator {
       typeSignature = withoutGenericAnnotations.toString().trim();
     }
     return typeSignature;
+  }
+
+  private static boolean containsNullableAnnotation(String typeSignature) {
+    return typeSignature.contains("@org.jspecify.annotations.Nullable")
+        || typeSignature.contains("@Nullable");
+  }
+
+  private static String stripTopLevelNullnessAnnotations(String typeSignature) {
+    return TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).replaceAll("");
+  }
+
+  private static Pattern buildTopLevelNullnessAnnotationPattern() {
+    String annotationWithSpace = "@[\\w.]+\\s";
+    // Varargs array annotations are rendered directly before the ellipsis.
+    String annotationOfVarargsArray = "@[\\w.]+(?=\\.\\.\\.)";
+    return Pattern.compile(annotationWithSpace + "|" + annotationOfVarargsArray);
   }
 }
