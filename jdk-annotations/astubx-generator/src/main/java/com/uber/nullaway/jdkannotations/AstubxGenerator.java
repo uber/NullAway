@@ -41,6 +41,8 @@ public class AstubxGenerator {
 
   private static final Pattern TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN =
       buildTopLevelNullnessAnnotationPattern();
+  private static final Pattern VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN =
+      Pattern.compile("@[\\w.]+(?=\\.\\.\\.)");
 
   /**
    * Contains all information that will be added to the astubx file.
@@ -363,8 +365,14 @@ public class AstubxGenerator {
   }
 
   private static boolean containsNullableAnnotation(String typeSignature) {
-    return typeSignature.contains("@org.jspecify.annotations.Nullable")
-        || typeSignature.contains("@Nullable");
+    if (!(typeSignature.contains("@org.jspecify.annotations.Nullable")
+        || typeSignature.contains("@Nullable"))) {
+      return false;
+    }
+    if (!typeSignature.contains("...")) {
+      return true;
+    }
+    return VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).find();
   }
 
   private static String stripTopLevelNullnessAnnotations(String typeSignature) {

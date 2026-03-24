@@ -216,9 +216,80 @@ public class NullnessAnnotationSerializerTest {
   }
 
   @Test
-  public void varargs() {
-    // TODO add tests to make sure a single annotation on either the elements or the array itself is
-    //  handled correctly
+  public void varargsNullableArrayOnly() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Foo {",
+            "  public static int hash(Object @Nullable ... args) { return 0; }",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo(
+                                "int",
+                                "hash(java.lang.Object@org.jspecify.annotations.Nullable...)",
+                                false,
+                                false,
+                                List.of(),
+                                Map.of()))))));
+  }
+
+  @Test
+  public void varargsNullableElementsOnly() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Foo {",
+            "  public static int hash(@Nullable Object... args) { return 0; }",
+            "}")
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    assertThat(moduleClasses)
+        .containsExactlyEntriesOf(
+            Map.of(
+                "unnamed",
+                List.of(
+                    new ClassInfo(
+                        "Foo",
+                        "Foo",
+                        true,
+                        false,
+                        List.of(),
+                        List.of(
+                            new MethodInfo(
+                                "int",
+                                "hash(java.lang.@org.jspecify.annotations.Nullable Object...)",
+                                false,
+                                false,
+                                List.of(),
+                                Map.of(
+                                    0,
+                                    Set.of(
+                                        new NestedAnnotationInfo(
+                                            Annotation.NULLABLE,
+                                            ImmutableList.of(
+                                                new TypePathEntry(
+                                                    TypePathEntry.Kind.ARRAY_ELEMENT, -1)))))))))));
+  }
+
+  @Test
+  public void varargsNullableArrayAndElements() {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",

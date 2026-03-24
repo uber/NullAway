@@ -71,6 +71,14 @@ public class ParameterAnnotation {
       @Nullable String[] array,
       @Nullable List<@Nullable Integer>[] mixed) {}
 
+  public static int varargsArrayNullable(Object @Nullable ... args) {
+    return 0;
+  }
+
+  public static int varargsElementsNullable(@Nullable Object... args) {
+    return 0;
+  }
+
   public static int varargs(@Nullable Object @Nullable ... args) {
     return 0;
   }

@@ -331,7 +331,61 @@ public class JDKIntegrationTest {
   }
 
   @Test
-  public void varargs() {
+  public void varargsNullableArrayOnly() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter '(Object) null' where @NonNull is required",
+            "    ParameterAnnotation.varargsArrayNullable((Object) null);",
+            "  }",
+            "  static void testNegative() {",
+            "    Object[] args = null;",
+            "    ParameterAnnotation.varargsArrayNullable(args);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsNullableElementsOnly() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    Object[] args = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'args' where @NonNull is required",
+            "    ParameterAnnotation.varargsElementsNullable(args);",
+            "  }",
+            "  static void testNegative() {",
+            "    ParameterAnnotation.varargsElementsNullable(null, null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsNullableArrayAndElements() {
     compilationHelper
         .setArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
