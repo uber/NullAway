@@ -217,6 +217,8 @@ public class NullnessAnnotationSerializerTest {
 
   @Test
   public void varargs() {
+    // TODO add tests to make sure a single annotation on either the elements or the array itself is
+    //  handled correctly
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
