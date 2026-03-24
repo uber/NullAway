@@ -39,8 +39,11 @@ import java.util.regex.Pattern;
  */
 public class AstubxGenerator {
 
+  /** Used to strip only top-level nullness annotations from a parameter type signature */
   private static final Pattern TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN =
       buildTopLevelNullnessAnnotationPattern();
+
+  /** Matches annotations immediately before the "..." for varargs parameters */
   private static final Pattern VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN =
       Pattern.compile("@[\\w.]+(?=\\.\\.\\.)");
 
@@ -263,9 +266,14 @@ public class AstubxGenerator {
       for (int i = 0; i < argumentList.length; i++) {
         // remove generic annotations on arguments
         String typeSignature = removeGenericAnnotations(argumentList[i].trim());
+        // Top-level parameter nullability is stored separately from nested type annotations.
+        // For varargs we only treat @Nullable before "..." as top-level array nullability;
+        // @Nullable on the element type is represented only via nested annotations.
         if (containsNullableAnnotation(typeSignature)) {
           argAnnotation.put(i, ImmutableSet.of("Nullable"));
         }
+        // Remove top-level annotations before writing the method signature key, while preserving
+        // the varargs ellipsis so the generated key still matches the erased bytecode signature.
         argumentList[i] = stripTopLevelNullnessAnnotations(typeSignature).replace(" []", "[]");
       }
       ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> nestedAnnotations =
@@ -372,6 +380,10 @@ public class AstubxGenerator {
     if (!typeSignature.contains("...")) {
       return true;
     }
+    // Varargs need special handling:
+    //   @Nullable Object...      -> nullable elements, not a nullable array parameter
+    //   Object @Nullable ...     -> nullable array parameter
+    // Only the latter should populate MethodAnnotationsRecord.argumentAnnotations().
     return VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).find();
   }
 
@@ -381,7 +393,8 @@ public class AstubxGenerator {
 
   private static Pattern buildTopLevelNullnessAnnotationPattern() {
     String annotationWithSpace = "@[\\w.]+\\s";
-    // Varargs array annotations are rendered directly before the ellipsis.
+    // top-level varargs array annotations (for the array itself) are rendered directly before the
+    // ellipsis.
     String annotationOfVarargsArray = "@[\\w.]+(?=\\.\\.\\.)";
     return Pattern.compile(annotationWithSpace + "|" + annotationOfVarargsArray);
   }
