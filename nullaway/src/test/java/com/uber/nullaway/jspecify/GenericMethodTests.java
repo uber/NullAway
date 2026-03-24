@@ -1551,6 +1551,16 @@ public class GenericMethodTests extends NullAwayTestsBase {
               void test() {
                 acceptSup(sup);
               }
+              <T extends Supplier<?>> void acceptTwoSup(T supplier1, T supplier2) {
+              }
+              Supplier<OuterT> sup2 = make2();
+              Supplier<OuterT> make2() {
+                throw new RuntimeException();
+              }
+              void test2() {
+                // BUG: Diagnostic contains: incompatible types: Supplier<OuterT> cannot be converted to @NonNull Supplier<@Nullable OuterT>
+                acceptTwoSup(sup, sup2);
+              }
             }
             """)
         .doTest();
