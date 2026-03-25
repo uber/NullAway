@@ -378,6 +378,112 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
 
+  private boolean checkMethodReferenceNullabilityAgainstTargetType(
+      Type targetType, MemberReferenceTree memberReferenceTree, VisitorState state) {
+    if (targetType.isRaw()) {
+      return true;
+    }
+    Types types = state.getTypes();
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+    if (referencedMethod == null || referencedMethod.isConstructor()) {
+      // Constructor references are handled separately.
+      return true;
+    }
+    Type.MethodType referencedMethodType =
+        castToNonNull(getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state));
+    Type qualifierType = null;
+    if (!referencedMethod.isStatic()) {
+      qualifierType = getTreeType(memberReferenceTree.getQualifierExpression(), state);
+    }
+
+    Symbol.MethodSymbol fiMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
+    Type.MethodType fiMethodTypeAsMember =
+        TypeSubstitutionUtils.memberType(types, targetType, fiMethod, config).asMethodType();
+
+    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    Type referencedReturnType = referencedMethodType.getReturnType();
+    if (fiReturnType.getKind() != TypeKind.VOID
+        && referencedReturnType.getKind() != TypeKind.VOID
+        && !subtypeParameterNullability(fiReturnType, referencedReturnType, state)) {
+      reportInvalidReturnTypeError(memberReferenceTree, fiReturnType, referencedReturnType, state);
+      return false;
+    }
+
+    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
+    com.sun.tools.javac.util.List<Type> referencedParamTypes =
+        referencedMethodType.getParameterTypes();
+    int fiStartIndex = 0;
+    if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
+      Verify.verify(
+          !fiParamTypes.isEmpty(),
+          "Expected receiver parameter for unbound method ref %s",
+          memberReferenceTree);
+      if (qualifierType != null
+          && !subtypeParameterNullability(qualifierType, fiParamTypes.get(0), state)) {
+        reportInvalidParametersNullabilityError(
+            qualifierType, fiParamTypes.get(0), memberReferenceTree, state);
+        return false;
+      }
+      fiStartIndex = 1;
+    }
+
+    int fiParamCount = fiParamTypes.size() - fiStartIndex;
+    int nonVarargsParamCount =
+        referencedMethod.isVarArgs()
+            ? Math.min(fiParamCount, referencedParamTypes.size() - 1)
+            : referencedParamTypes.size();
+    for (int i = 0; i < nonVarargsParamCount; i++) {
+      if (!subtypeParameterNullability(
+          referencedParamTypes.get(i), fiParamTypes.get(fiStartIndex + i), state)) {
+        reportInvalidParametersNullabilityError(
+            referencedParamTypes.get(i),
+            fiParamTypes.get(fiStartIndex + i),
+            memberReferenceTree,
+            state);
+        return false;
+      }
+    }
+    if (!referencedMethod.isVarArgs()) {
+      return true;
+    }
+
+    int varargsParamPosition = referencedParamTypes.size() - 1;
+    if (fiParamCount == varargsParamPosition) {
+      return true;
+    }
+    Type varargsArrayType = referencedParamTypes.get(varargsParamPosition);
+    Verify.verify(
+        varargsArrayType.getKind() == TypeKind.ARRAY,
+        "Expected array type for varargs parameter in %s, got %s",
+        memberReferenceTree,
+        varargsArrayType);
+    JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
+    int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
+    if (javacMemberRef.varargsElement == null) {
+      if (!subtypeParameterNullability(
+          varargsArrayType, fiParamTypes.get(firstVarargsFiParamIndex), state)) {
+        reportInvalidParametersNullabilityError(
+            varargsArrayType,
+            fiParamTypes.get(firstVarargsFiParamIndex),
+            memberReferenceTree,
+            state);
+        return false;
+      }
+      return true;
+    }
+    Type varargsElementType = types.elemtype(varargsArrayType);
+    for (int i = varargsParamPosition; i < fiParamCount; i++) {
+      if (!subtypeParameterNullability(
+          varargsElementType, fiParamTypes.get(fiStartIndex + i), state)) {
+        reportInvalidParametersNullabilityError(
+            varargsElementType, fiParamTypes.get(fiStartIndex + i), memberReferenceTree, state);
+        return false;
+      }
+    }
+    return true;
+  }
+
   private void reportInvalidOverridingMethodReturnTypeError(
       Tree methodTree,
       Type overriddenMethodReturnType,
@@ -1648,9 +1754,14 @@ public final class GenericsChecks {
                 return;
               }
 
+              if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
+                checkMethodReferenceNullabilityAgainstTargetType(
+                    formalParameter, memberReferenceTree, state);
+                return;
+              }
+
               Type actualParameterType = null;
-              if (currentActualParam instanceof LambdaExpressionTree
-                  || currentActualParam instanceof MemberReferenceTree) {
+              if (currentActualParam instanceof LambdaExpressionTree) {
                 maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
               }
               Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);

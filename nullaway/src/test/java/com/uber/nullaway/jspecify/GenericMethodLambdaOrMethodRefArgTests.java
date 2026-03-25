@@ -518,7 +518,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 takeMultiple(Test::takeNullableNested, Test::takeNullableNested, f2);
               }
               void testPositive2(Foo<String> f1) {
-                // BUG: Diagnostic contains:
+                // BUG: Diagnostic contains: incompatible types: Test.@NonNull Foo<String> cannot be converted to Test.Foo<@Nullable String>
                 takeMultiple(Test::takeNonNullNested, Test::takeNullableNested, f1);
               }
             }
@@ -677,11 +677,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                // TODO should be illegal; file issue
+                // BUG: Diagnostic contains: incompatible types: @Nullable String @NonNull [] cannot be converted to String []
                 consume(Util::take, sNullableContents);
                 consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
                 consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
-                // TODO should be illegal; file issue
+                // BUG: Diagnostic contains: incompatible types: @Nullable String @NonNull [] cannot be converted to String @Nullable []
                 consume(Util::takeNullable, sNullableContents);
                 consume(Util::takeNullableContents, sNonNull); // legal due to array subtyping
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
@@ -721,11 +721,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
+                // BUG: Diagnostic contains: incompatible types: @Nullable String @NonNull [] cannot be converted to String []
                 consume(Util::take, sNullableContents);
                 consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
                 consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
-                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
+                // BUG: Diagnostic contains: incompatible types: @Nullable String @NonNull [] cannot be converted to String @Nullable []
                 consume(Util::takeNullable, sNullableContents);
                 consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
