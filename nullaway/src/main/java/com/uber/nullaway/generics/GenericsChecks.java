@@ -378,8 +378,21 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
 
-  private boolean checkMethodReferenceNullabilityAgainstTargetType(
-      Type targetType, MemberReferenceTree memberReferenceTree, VisitorState state) {
+  private enum MethodReferenceRelationKind {
+    RETURN,
+    PARAMETER
+  }
+
+  @FunctionalInterface
+  private interface MethodReferenceRelationHandler {
+    boolean handle(Type subtype, Type supertype, MethodReferenceRelationKind relationKind);
+  }
+
+  private boolean processMethodReferenceRelations(
+      Type targetType,
+      MemberReferenceTree memberReferenceTree,
+      VisitorState state,
+      MethodReferenceRelationHandler relationHandler) {
     if (targetType.isRaw()) {
       return true;
     }
@@ -405,8 +418,8 @@ public final class GenericsChecks {
     Type referencedReturnType = referencedMethodType.getReturnType();
     if (fiReturnType.getKind() != TypeKind.VOID
         && referencedReturnType.getKind() != TypeKind.VOID
-        && !subtypeParameterNullability(fiReturnType, referencedReturnType, state)) {
-      reportInvalidReturnTypeError(memberReferenceTree, fiReturnType, referencedReturnType, state);
+        && !relationHandler.handle(
+            referencedReturnType, fiReturnType, MethodReferenceRelationKind.RETURN)) {
       return false;
     }
 
@@ -420,9 +433,8 @@ public final class GenericsChecks {
           "Expected receiver parameter for unbound method ref %s",
           memberReferenceTree);
       if (qualifierType != null
-          && !subtypeParameterNullability(qualifierType, fiParamTypes.get(0), state)) {
-        reportInvalidParametersNullabilityError(
-            qualifierType, fiParamTypes.get(0), memberReferenceTree, state);
+          && !relationHandler.handle(
+              fiParamTypes.get(0), qualifierType, MethodReferenceRelationKind.PARAMETER)) {
         return false;
       }
       fiStartIndex = 1;
@@ -434,13 +446,10 @@ public final class GenericsChecks {
             ? Math.min(fiParamCount, referencedParamTypes.size() - 1)
             : referencedParamTypes.size();
     for (int i = 0; i < nonVarargsParamCount; i++) {
-      if (!subtypeParameterNullability(
-          referencedParamTypes.get(i), fiParamTypes.get(fiStartIndex + i), state)) {
-        reportInvalidParametersNullabilityError(
-            referencedParamTypes.get(i),
-            fiParamTypes.get(fiStartIndex + i),
-            memberReferenceTree,
-            state);
+      if (!relationHandler.handle(
+          fiParamTypes.get(fiStartIndex + i),
+          referencedParamTypes.get(i),
+          MethodReferenceRelationKind.PARAMETER)) {
         return false;
       }
     }
@@ -461,27 +470,40 @@ public final class GenericsChecks {
     JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
     int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
     if (javacMemberRef.varargsElement == null) {
-      if (!subtypeParameterNullability(
-          varargsArrayType, fiParamTypes.get(firstVarargsFiParamIndex), state)) {
-        reportInvalidParametersNullabilityError(
-            varargsArrayType,
-            fiParamTypes.get(firstVarargsFiParamIndex),
-            memberReferenceTree,
-            state);
-        return false;
-      }
-      return true;
+      return relationHandler.handle(
+          fiParamTypes.get(firstVarargsFiParamIndex),
+          varargsArrayType,
+          MethodReferenceRelationKind.PARAMETER);
     }
     Type varargsElementType = types.elemtype(varargsArrayType);
     for (int i = varargsParamPosition; i < fiParamCount; i++) {
-      if (!subtypeParameterNullability(
-          varargsElementType, fiParamTypes.get(fiStartIndex + i), state)) {
-        reportInvalidParametersNullabilityError(
-            varargsElementType, fiParamTypes.get(fiStartIndex + i), memberReferenceTree, state);
+      if (!relationHandler.handle(
+          fiParamTypes.get(fiStartIndex + i),
+          varargsElementType,
+          MethodReferenceRelationKind.PARAMETER)) {
         return false;
       }
     }
     return true;
+  }
+
+  private boolean checkMethodReferenceNullabilityAgainstTargetType(
+      Type targetType, MemberReferenceTree memberReferenceTree, VisitorState state) {
+    return processMethodReferenceRelations(
+        targetType,
+        memberReferenceTree,
+        state,
+        (subtype, supertype, relationKind) -> {
+          if (subtypeParameterNullability(supertype, subtype, state)) {
+            return true;
+          }
+          if (relationKind == MethodReferenceRelationKind.RETURN) {
+            reportInvalidReturnTypeError(memberReferenceTree, supertype, subtype, state);
+          } else {
+            reportInvalidParametersNullabilityError(supertype, subtype, memberReferenceTree, state);
+          }
+          return false;
+        });
   }
 
   private void reportInvalidOverridingMethodReturnTypeError(
@@ -1177,120 +1199,14 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
-    if (lhsType.isRaw()) {
-      return;
-    }
-    Types types = state.getTypes();
-
-    // first, figure out the proper method type to use for the member reference
-    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
-    if (referencedMethod == null || referencedMethod.isConstructor()) {
-      // TODO handle constructor references like Foo::new;
-      //  https://github.com/uber/NullAway/issues/1468
-      return;
-    }
-    Type.MethodType referencedMethodType = referencedMethod.asType().asMethodType();
-    Type qualifierType = null;
-    if (!referencedMethod.isStatic()) {
-      // get the referenced method type as a member of the type of the qualifier expression
-      qualifierType = getTreeType(memberReferenceTree.getQualifierExpression(), state);
-      if (qualifierType != null) {
-        referencedMethodType =
-            TypeSubstitutionUtils.memberType(types, qualifierType, referencedMethod, config)
-                .asMethodType();
-      }
-    }
-    // substitute any explicit type arguments from the member reference
-    List<? extends ExpressionTree> typeArgumentTrees = memberReferenceTree.getTypeArguments();
-    if (typeArgumentTrees != null && !typeArgumentTrees.isEmpty()) {
-      referencedMethodType =
-          TypeSubstitutionUtils.subst(
-                  state.getTypes(),
-                  referencedMethodType,
-                  ((Type.ForAll) referencedMethod.asType()).tvars,
-                  convertTreesToTypes(typeArgumentTrees),
-                  config)
-              .asMethodType();
-    }
-    // allow for handler overrides
-    referencedMethodType =
-        handler.onOverrideMethodType(referencedMethod, referencedMethodType, state);
-
-    // now, get the type of the corresponding functional interface method, as a member of lhsType
-    Symbol.MethodSymbol fiMethod =
-        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
-    Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(types, lhsType, fiMethod, config).asMethodType();
-
-    // constrain returns: method reference return type <: functional interface return type
-    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
-    Type referencedReturnType = referencedMethodType.getReturnType();
-    if (fiReturnType.getKind() != TypeKind.VOID
-        && referencedReturnType.getKind() != TypeKind.VOID) {
-      solver.addSubtypeConstraint(referencedReturnType, fiReturnType, false);
-    }
-
-    // constrain parameters:
-    //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
-    //  aligned appropriately in the case of unbound method references
-    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
-    com.sun.tools.javac.util.List<Type> referencedParamTypes =
-        referencedMethodType.getParameterTypes();
-    int fiStartIndex = 0;
-    if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
-      // an unbound method reference like String::length has an implicit receiver parameter
-      // that needs to be aligned with the first functional interface parameter
-      Verify.verify(
-          !fiParamTypes.isEmpty(),
-          "Expected receiver parameter for unbound method ref %s",
-          memberReferenceTree);
-      if (qualifierType != null) {
-        Type receiverType = fiParamTypes.get(0);
-        solver.addSubtypeConstraint(receiverType, qualifierType, false);
-      }
-      fiStartIndex = 1;
-    }
-    // first, handle the non-varargs case
-    int fiParamCount = fiParamTypes.size() - fiStartIndex;
-    int nonVarargsParamCount =
-        referencedMethod.isVarArgs()
-            ? Math.min(fiParamCount, referencedParamTypes.size() - 1)
-            : referencedParamTypes.size();
-    for (int i = 0; i < nonVarargsParamCount; i++) {
-      solver.addSubtypeConstraint(
-          fiParamTypes.get(fiStartIndex + i), referencedParamTypes.get(i), false);
-    }
-    if (!referencedMethod.isVarArgs()) {
-      return;
-    }
-
-    // For varargs references, the functional interface can map to fixed-arity form (single array
-    // argument at the varargs position) or variable-arity form (zero or more element arguments).
-    int varargsParamPosition = referencedParamTypes.size() - 1;
-    if (fiParamCount == varargsParamPosition) {
-      // No varargs arguments; this is the variable-arity case, passing zero arguments
-      return;
-    }
-    Type varargsArrayType = referencedParamTypes.get(varargsParamPosition);
-    Verify.verify(
-        varargsArrayType.getKind() == TypeKind.ARRAY,
-        "Expected array type for varargs parameter in %s, got %s",
+    processMethodReferenceRelations(
+        lhsType,
         memberReferenceTree,
-        varargsArrayType);
-    JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
-    int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
-    if (javacMemberRef.varargsElement == null) {
-      // javac resolved this member reference using non-varargs (fixed-arity) adaptation.
-      solver.addSubtypeConstraint(
-          fiParamTypes.get(firstVarargsFiParamIndex), varargsArrayType, false);
-      return;
-    }
-    // javac resolved this member reference using varargs (variable-arity) adaptation.
-    // Use the element type from the referenced varargs array type
-    Type varargsElementType = types.elemtype(varargsArrayType);
-    for (int i = varargsParamPosition; i < fiParamCount; i++) {
-      solver.addSubtypeConstraint(fiParamTypes.get(fiStartIndex + i), varargsElementType, false);
-    }
+        state,
+        (subtype, supertype, relationKind) -> {
+          solver.addSubtypeConstraint(subtype, supertype, false);
+          return true;
+        });
   }
 
   /**
@@ -1323,7 +1239,19 @@ public final class GenericsChecks {
                 .asMethodType();
       }
     }
-    if (overridingMethod.asType() instanceof Type.ForAll) {
+    List<? extends ExpressionTree> typeArgumentTrees = memberReferenceTree.getTypeArguments();
+    if (typeArgumentTrees != null
+        && !typeArgumentTrees.isEmpty()
+        && overridingMethod.asType() instanceof Type.ForAll forAllType) {
+      result =
+          TypeSubstitutionUtils.subst(
+                  state.getTypes(),
+                  result,
+                  forAllType.tvars,
+                  convertTreesToTypes(typeArgumentTrees),
+                  config)
+              .asMethodType();
+    } else if (overridingMethod.asType() instanceof Type.ForAll) {
       // the referenced method is a generic method; we need to substitute inferred nullability for
       // type arguments if it was inferred
       result = getInferredMethodTypeForGenericMethodReference(result, state);
