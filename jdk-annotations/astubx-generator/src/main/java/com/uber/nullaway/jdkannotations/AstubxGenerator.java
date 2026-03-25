@@ -276,10 +276,7 @@ public class AstubxGenerator {
       for (int i = 0; i < argumentList.length; i++) {
         // remove generic annotations on arguments
         String typeSignature = removeGenericAnnotations(argumentList[i].trim());
-        // Top-level parameter nullability is stored separately from nested type annotations.
-        // For varargs we only treat @Nullable before "..." as top-level array nullability;
-        // @Nullable on the element type is represented only via nested annotations.
-        if (containsNullableAnnotation(typeSignature)) {
+        if (hasTopLevelNullableAnnotation(typeSignature)) {
           argAnnotation.put(i, ImmutableSet.of("Nullable"));
         }
         // Remove top-level annotations before writing the method signature key, while preserving
@@ -382,26 +379,33 @@ public class AstubxGenerator {
     return typeSignature;
   }
 
-  private static boolean containsNullableAnnotation(String typeSignature) {
-    if (!(typeSignature.contains("@org.jspecify.annotations.Nullable")
-        || typeSignature.contains("@Nullable"))) {
+  /**
+   * Checks if the given parameter type has a top-level {@code @Nullable} annotation. Assumes there
+   * are no annotations on any generic type arguments in the type.
+   *
+   * @param parameterType the parameter type.
+   * @return true if the type has a top-level {@code @Nullable} annotation, false otherwise
+   */
+  private static boolean hasTopLevelNullableAnnotation(String parameterType) {
+    if (!(parameterType.contains("@org.jspecify.annotations.Nullable")
+        || parameterType.contains("@Nullable"))) {
       return false;
     }
-    if (!typeSignature.contains("...")) {
-      if (typeSignature.contains("[")) {
+    if (!parameterType.contains("...")) {
+      if (parameterType.contains("[")) {
         // Arrays need the same distinction as varargs:
         //   @Nullable String[]     -> nullable elements, not a nullable array parameter
         //   String @Nullable []    -> nullable array parameter
-        // Only the latter should populate MethodAnnotationsRecord.argumentAnnotations().
-        return ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).find();
+        // Only the latter is a top-level annotation
+        return ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(parameterType).find();
       }
       return true;
     }
     // Varargs need special handling:
     //   @Nullable Object...      -> nullable elements, not a nullable array parameter
     //   Object @Nullable ...     -> nullable array parameter
-    // Only the latter should populate MethodAnnotationsRecord.argumentAnnotations().
-    return VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).find();
+    // Only the latter is a top-level annotation
+    return VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(parameterType).find();
   }
 
   private static String stripTopLevelNullnessAnnotations(String typeSignature) {
