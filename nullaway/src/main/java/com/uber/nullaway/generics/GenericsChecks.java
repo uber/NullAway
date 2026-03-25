@@ -731,9 +731,9 @@ public final class GenericsChecks {
       return;
     }
     if (!assignedToLocal
-        && rhsTree instanceof LambdaExpressionTree lambdaExpressionTree
+        && (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree)
         && isAssignmentToField(tree)) {
-      maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, lhsType);
+      maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType);
     }
     TreePath pathToRhs = new TreePath(state.getPath(), rhsTree);
     Type rhsType = getTreeType(rhsTree, state.withPath(pathToRhs));
@@ -1648,8 +1648,9 @@ public final class GenericsChecks {
               }
 
               Type actualParameterType = null;
-              if ((currentActualParam instanceof LambdaExpressionTree lambdaExpressionTree)) {
-                maybeStoreLambdaTypeFromTarget(lambdaExpressionTree, formalParameter);
+              if (currentActualParam instanceof LambdaExpressionTree
+                  || currentActualParam instanceof MemberReferenceTree) {
+                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
               }
               Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);
               if (inferredPolyType != null) {
@@ -2411,22 +2412,24 @@ public final class GenericsChecks {
   }
 
   /**
-   * Store a lambda's target type with explicit type-variable nullability from the assignment
-   * context, when the lambda's type has not already been cached.
+   * Store a poly expression's target type with explicit type-variable nullability from the
+   * assignment context, when the expression type has not already been cached.
    *
-   * <p>This is used to compensate for javac dropping annotations on type variables in lambda target
-   * types, so later checks use the correctly annotated functional interface type.
+   * <p>This is used to compensate for javac dropping annotations on type variables in poly
+   * expression target types, so later checks use the correctly annotated functional interface type.
    */
-  private void maybeStoreLambdaTypeFromTarget(
-      LambdaExpressionTree lambdaExpressionTree, Type targetType) {
-    if (targetType.isRaw() || inferredPolyExpressionTypes.containsKey(lambdaExpressionTree)) {
+  private void maybeStorePolyExpressionTypeFromTarget(Tree polyExpressionTree, Type targetType) {
+    if (targetType.isRaw() || inferredPolyExpressionTypes.containsKey(polyExpressionTree)) {
       return;
     }
-    Type lambdaTreeType = castToNonNull(ASTHelpers.getType(lambdaExpressionTree));
-    Type lambdaTypeWithTargetAnnotations =
+    Type polyExpressionType = ASTHelpers.getType(polyExpressionTree);
+    if (polyExpressionType == null) {
+      return;
+    }
+    Type polyExpressionTypeWithTargetAnnotations =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            targetType, lambdaTreeType, config, Collections.emptyMap());
-    inferredPolyExpressionTypes.put(lambdaExpressionTree, lambdaTypeWithTargetAnnotations);
+            targetType, polyExpressionType, config, Collections.emptyMap());
+    inferredPolyExpressionTypes.put(polyExpressionTree, polyExpressionTypeWithTargetAnnotations);
   }
 
   private static @Nullable Type syntheticNullableAnnotType;

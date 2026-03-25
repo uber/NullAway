@@ -418,6 +418,73 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1431_methodRefTypesIntegratedWithGenericInference() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String get() {
+                  throw new RuntimeException();
+                }
+                default @Nullable String getNullable() {
+                  return null;
+                }
+              }
+              private <T extends @Nullable Object> T create(Function<Foo, T> factory) {
+                return factory.apply(new Foo() {});
+              }
+              void test() {
+                String s1 = create(Foo::get);
+                s1.hashCode(); // should be legal
+                String s2 = create(Foo::getNullable);
+                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                s2.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1431_methodRefTypesIntegratedWithGenericInference_multipleArgs() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String get() {
+                  throw new RuntimeException();
+                }
+                default @Nullable String getNullable() {
+                  return null;
+                }
+              }
+              private <T extends @Nullable Object> T createBoth(
+                  Function<Foo, T> firstFactory, Function<Foo, T> secondFactory) {
+                return firstFactory.apply(new Foo() {});
+              }
+              void test() {
+                String s = createBoth(Foo::get, Foo::getNullable);
+                // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                s.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inferFromBoundMethodRefReturn() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
