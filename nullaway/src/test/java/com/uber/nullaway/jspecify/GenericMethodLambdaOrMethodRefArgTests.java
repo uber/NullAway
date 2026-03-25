@@ -485,6 +485,48 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void methodRefsAndGenericInferenceNested() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              interface Consumer<U extends @Nullable Object> {
+                void accept(U u);
+              }
+              static <T extends @Nullable Object> void takeMultiple(
+                  Consumer<T> c1, Consumer<T> c2, T t) {
+              }
+              static void takeNonNull(String s) {}
+              static void takeNullable(@Nullable String s) {}
+              void testNegative1(String c) {
+                takeMultiple(Test::takeNonNull, Test::takeNullable, c);
+              }
+              void testPositive1(@Nullable String c) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'c'
+                takeMultiple(Test::takeNonNull, Test::takeNonNull, c);
+              }
+              static void takeNonNullNested(Foo<String> f) {}
+              static void takeNullableNested(Foo<@Nullable String> f) {}
+              void testNegative2(Foo<String> f1, Foo<@Nullable String> f2) {
+                takeMultiple(Test::takeNonNullNested, Test::takeNonNullNested, f1);
+                takeMultiple(Test::takeNullableNested, Test::takeNullableNested, f2);
+              }
+              void testPositive2(Foo<String> f1) {
+                // BUG: Diagnostic contains:
+                takeMultiple(Test::takeNonNullNested, Test::takeNullableNested, f1);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inferFromBoundMethodRefReturn() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
