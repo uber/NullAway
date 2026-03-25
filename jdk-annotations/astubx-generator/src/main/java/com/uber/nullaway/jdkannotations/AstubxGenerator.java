@@ -393,7 +393,7 @@ public class AstubxGenerator {
     }
     if (!parameterType.contains("...")) {
       if (parameterType.contains("[")) {
-        // Arrays need the same distinction as varargs:
+        // Arrays need special handling:
         //   @Nullable String[]     -> nullable elements, not a nullable array parameter
         //   String @Nullable []    -> nullable array parameter
         // Only the latter is a top-level annotation
