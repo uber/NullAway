@@ -1529,6 +1529,44 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1455() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Foo.java",
+            """
+            import org.jspecify.annotations.Nullable;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Foo<OuterT> {
+              interface Supplier<T extends @Nullable Object> {
+                T get();
+              }
+              Supplier<@Nullable OuterT> sup = make();
+              Supplier<@Nullable OuterT> make() {
+                throw new RuntimeException();
+              }
+              <T extends Supplier<?>> T acceptSup(T supplier) {
+                return supplier;
+              }
+              void test() {
+                acceptSup(sup);
+              }
+              <T extends Supplier<?>> void acceptTwoSup(T supplier1, T supplier2) {
+              }
+              Supplier<OuterT> sup2 = make2();
+              Supplier<OuterT> make2() {
+                throw new RuntimeException();
+              }
+              void test2() {
+                // BUG: Diagnostic contains: incompatible types: Supplier<OuterT> cannot be converted to @NonNull Supplier<@Nullable OuterT>
+                acceptTwoSup(sup, sup2);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1453() {
     makeHelper()
         .addSourceLines(
