@@ -43,11 +43,17 @@ public class AstubxGenerator {
   private static final Pattern TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN =
       buildTopLevelNullnessAnnotationPattern();
 
-  /** Matches annotations immediately before the "[]" for array parameters */
+  /**
+   * Matches annotations immediately before the "[]" for array parameters. Does not properly handle
+   * explicit {@code @NonNull} annotations; see https://github.com/uber/NullAway/issues/1498
+   */
   private static final Pattern ARRAY_NULLNESS_ANNOTATION_PATTERN =
       Pattern.compile("@[\\w.]+(?=\\s*\\[])");
 
-  /** Matches annotations immediately before the "..." for varargs parameters */
+  /**
+   * Matches annotations immediately before the "..." for varargs parameters Does not handle
+   * explicit {@code @NonNull} annotations; see https://github.com/uber/NullAway/issues/1498
+   */
   private static final Pattern VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN =
       Pattern.compile("@[\\w.]+(?=\\.\\.\\.)");
 
