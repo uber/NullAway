@@ -37,6 +37,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
+import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -1949,6 +1950,9 @@ public final class GenericsChecks {
       Type.MethodType methodTypeAtCallSite =
           castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
       if (result instanceof InferenceSuccess successResult) {
+        methodTypeAtCallSite =
+            restoreNestedNullabilityForTypeVarArguments(
+                invocationTree, methodType, methodTypeAtCallSite, state);
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -1958,6 +1962,102 @@ public final class GenericsChecks {
     }
     return TypeSubstitutionUtils.subst(
         state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config);
+  }
+
+  /**
+   * In narrow cases, javac drops nested type-use nullability annotations on type variables in its
+   * inferred type for a generic method at a call site. See
+   * https://github.com/uber/NullAway/issues/1455. This method aims to restore those annotations
+   * based on the types of actual parameters. It does not attempt to be a very general fix, as we do
+   * not fully understand the scenarios where this can arise.
+   *
+   * @param invocationTree the method invocation tree for the generic method call
+   * @param origMethodType the declared method type for the generic method (to identify formal
+   *     parameters whose type is a type variable of the method)
+   * @param methodTypeAtCallSite the method type for the generic method as inferred by javac at the
+   *     call site
+   * @param state the visitor state
+   * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability
+   *     annotations on type variables restored to match those on actual parameters passed at the
+   *     call site
+   */
+  @SuppressWarnings("ReferenceEquality")
+  private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
+      MethodInvocationTree invocationTree,
+      Type.MethodType origMethodType,
+      Type.MethodType methodTypeAtCallSite,
+      VisitorState state) {
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    if (methodSymbol.isVarArgs()) {
+      // skip handling of varargs for now
+      return methodTypeAtCallSite;
+    }
+    com.sun.tools.javac.util.List<Type> genericMethodParamTypes =
+        origMethodType.getParameterTypes();
+    com.sun.tools.javac.util.List<Type> callSiteParamTypes =
+        methodTypeAtCallSite.getParameterTypes();
+    List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
+
+    // use this map to store repaired substitutions for method type variables, to ensure we use the
+    // same repaired substitution for all occurrences of the same type variable
+    Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
+    ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
+    boolean changed = false;
+    for (int i = 0; i < genericMethodParamTypes.size(); i++) {
+      Type callSiteParamType = callSiteParamTypes.get(i);
+      Type genericMethodParamType = genericMethodParamTypes.get(i);
+      // only attempt a repair when the generic method's parameter type is a type variable of the
+      // method
+      if (genericMethodParamType instanceof Type.TypeVar typeVar
+          && typeVar.tsym.owner == methodSymbol) {
+        Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
+        Type repairedSubstitution = repairedTopLevelSubstitutions.get(typeVarSymbol);
+        if (repairedSubstitution != null) {
+          // re-use the previous substitution, to ensure consistency
+          if (repairedSubstitution != callSiteParamType) {
+            changed = true;
+            callSiteParamType = repairedSubstitution;
+          }
+        } else { // need to compute the substitution
+          Type actualArgType = getTreeType(actualParams.get(i), state);
+          // only handle cases of non-raw actual parameter types that have the same base type as the
+          // inferred parameter type at the call site
+          if (actualArgType != null
+              && !actualArgType.isRaw()
+              && state
+                  .getTypes()
+                  .isSameType(
+                      state.getTypes().erasure(actualArgType),
+                      state.getTypes().erasure(callSiteParamType))) {
+            // restore explicit nested annotations from the actual parameter type to the call site
+            // parameter type (this will only apply to nested type variables within
+            // callSiteParamType)
+            Type restoredType =
+                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                    actualArgType, callSiteParamType, config, Collections.emptyMap());
+            // remember the substitution so we use it consistently at other parameter positions
+            repairedTopLevelSubstitutions.put(typeVarSymbol, restoredType);
+            if (restoredType != callSiteParamType) {
+              changed = true;
+              callSiteParamType = restoredType;
+            }
+          } else {
+            // remember that we did _not_ change anything, again for consistency across parameter
+            // positions
+            repairedTopLevelSubstitutions.put(typeVarSymbol, callSiteParamType);
+          }
+        }
+      }
+      updatedArgTypes.append(callSiteParamType);
+    }
+    if (!changed) {
+      return methodTypeAtCallSite;
+    }
+    return new Type.MethodType(
+        updatedArgTypes.toList(),
+        methodTypeAtCallSite.getReturnType(),
+        methodTypeAtCallSite.getThrownTypes(),
+        methodTypeAtCallSite.tsym);
   }
 
   /**
