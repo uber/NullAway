@@ -378,6 +378,44 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
 
+  private void reportInvalidMethodReferenceReturnTypeError(
+      MemberReferenceTree memberReferenceTree,
+      Type functionalInterfaceReturnType,
+      Type referencedMethodReturnType,
+      VisitorState state) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
+            "referenced method returns "
+                + prettyTypeForError(referencedMethodReturnType, state)
+                + ", but functional interface method returns "
+                + prettyTypeForError(functionalInterfaceReturnType, state)
+                + ", which has mismatched type parameter nullability");
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
+  }
+
+  private void reportInvalidMethodReferenceParameterTypeError(
+      MemberReferenceTree memberReferenceTree,
+      Type functionalInterfaceParameterType,
+      Type referencedMethodParameterType,
+      VisitorState state) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
+            "parameter type of referenced method is "
+                + prettyTypeForError(referencedMethodParameterType, state)
+                + ", but parameter in functional interface method has type "
+                + prettyTypeForError(functionalInterfaceParameterType, state)
+                + ", which has mismatched type parameter nullability");
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
+  }
+
   private enum MethodReferenceRelationKind {
     RETURN,
     PARAMETER
@@ -498,9 +536,11 @@ public final class GenericsChecks {
             return true;
           }
           if (relationKind == MethodReferenceRelationKind.RETURN) {
-            reportInvalidReturnTypeError(memberReferenceTree, supertype, subtype, state);
+            reportInvalidMethodReferenceReturnTypeError(
+                memberReferenceTree, supertype, subtype, state);
           } else {
-            reportInvalidParametersNullabilityError(supertype, subtype, memberReferenceTree, state);
+            reportInvalidMethodReferenceParameterTypeError(
+                memberReferenceTree, subtype, supertype, state);
           }
           return false;
         });
