@@ -388,11 +388,11 @@ public final class GenericsChecks {
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
-            "referenced method returns "
-                + prettyTypeForError(referencedMethodReturnType, state)
-                + ", but functional interface method returns "
-                + prettyTypeForError(functionalInterfaceReturnType, state)
-                + ", which has mismatched type parameter nullability");
+            String.format(
+                "referenced method returns %s, but functional interface method returns %s, which"
+                    + " has mismatched type parameter nullability",
+                prettyTypeForError(referencedMethodReturnType, state),
+                prettyTypeForError(functionalInterfaceReturnType, state)));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
@@ -407,11 +407,11 @@ public final class GenericsChecks {
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            "parameter type of referenced method is "
-                + prettyTypeForError(referencedMethodParameterType, state)
-                + ", but parameter in functional interface method has type "
-                + prettyTypeForError(functionalInterfaceParameterType, state)
-                + ", which has mismatched type parameter nullability");
+            String.format(
+                "parameter type of referenced method is %s, but parameter in functional interface"
+                    + " method has type %s, which has mismatched type parameter nullability",
+                prettyTypeForError(referencedMethodParameterType, state),
+                prettyTypeForError(functionalInterfaceParameterType, state)));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
