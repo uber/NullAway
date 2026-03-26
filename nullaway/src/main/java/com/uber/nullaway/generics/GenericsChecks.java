@@ -387,7 +387,7 @@ public final class GenericsChecks {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
-            ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_RETURN_GENERIC,
             String.format(
                 "referenced method returns %s, but functional interface method returns %s, which"
                     + " has mismatched type parameter nullability",
@@ -406,7 +406,7 @@ public final class GenericsChecks {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
-            ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM_GENERIC,
             String.format(
                 "parameter type of referenced method is %s, but parameter in functional interface"
                     + " method has type %s, which has mismatched type parameter nullability",
@@ -415,26 +415,6 @@ public final class GenericsChecks {
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
-  }
-
-  private void checkMethodReferenceNullabilityAgainstTargetType(
-      Type targetType, MemberReferenceTree memberReferenceTree, VisitorState state) {
-    GenericsUtils.processMethodReferenceRelations(
-        this,
-        targetType,
-        memberReferenceTree,
-        state,
-        (subtype, supertype, relationKind) -> {
-          if (!subtypeParameterNullability(supertype, subtype, state)) {
-            if (relationKind == MethodRefTypeRelationKind.RETURN) {
-              reportInvalidMethodReferenceReturnTypeError(
-                  memberReferenceTree, supertype, subtype, state);
-            } else {
-              reportInvalidMethodReferenceParameterTypeError(
-                  memberReferenceTree, subtype, supertype, state);
-            }
-          }
-        });
   }
 
   private void reportInvalidOverridingMethodReturnTypeError(
@@ -1614,8 +1594,22 @@ public final class GenericsChecks {
               }
 
               if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
-                checkMethodReferenceNullabilityAgainstTargetType(
-                    formalParameter, memberReferenceTree, state);
+                GenericsUtils.processMethodReferenceRelations(
+                    this,
+                    formalParameter,
+                    memberReferenceTree,
+                    state,
+                    (subtype, supertype, relationKind) -> {
+                      if (!subtypeParameterNullability(supertype, subtype, state)) {
+                        if (relationKind == MethodRefTypeRelationKind.RETURN) {
+                          reportInvalidMethodReferenceReturnTypeError(
+                              memberReferenceTree, supertype, subtype, state);
+                        } else {
+                          reportInvalidMethodReferenceParameterTypeError(
+                              memberReferenceTree, subtype, supertype, state);
+                        }
+                      }
+                    });
                 return;
               }
 
