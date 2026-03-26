@@ -123,7 +123,7 @@ public final class GenericsChecks {
   }
 
   private final NullAway analysis;
-  final Config config;
+  /* package-private */ final Config config;
   private final Handler handler;
 
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
