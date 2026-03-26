@@ -116,6 +116,7 @@ public class GenericsUtils {
 
     int varargsParamPosition = referencedParamTypes.size() - 1;
     if (fiParamCount == varargsParamPosition) {
+      // nothing passed in varargs position
       return;
     }
     Type varargsArrayType = referencedParamTypes.get(varargsParamPosition);
@@ -127,17 +128,20 @@ public class GenericsUtils {
     JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
     int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
     if (javacMemberRef.varargsElement == null) {
+      // method reference is invoked with varargs passed as array
       relationHandler.handle(
           fiParamTypes.get(firstVarargsFiParamIndex),
           varargsArrayType,
           MethodRefTypeRelationKind.PARAMETER);
-    }
-    Type varargsElementType = types.elemtype(varargsArrayType);
-    for (int i = varargsParamPosition; i < fiParamCount; i++) {
-      relationHandler.handle(
-          fiParamTypes.get(fiStartIndex + i),
-          varargsElementType,
-          MethodRefTypeRelationKind.PARAMETER);
+    } else {
+      // method reference is invoked with individual arguments passed in varargs position
+      Type varargsElementType = types.elemtype(varargsArrayType);
+      for (int i = varargsParamPosition; i < fiParamCount; i++) {
+        relationHandler.handle(
+            fiParamTypes.get(fiStartIndex + i),
+            varargsElementType,
+            MethodRefTypeRelationKind.PARAMETER);
+      }
     }
   }
 }
