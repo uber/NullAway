@@ -425,15 +425,14 @@ public final class GenericsChecks {
         memberReferenceTree,
         state,
         (subtype, supertype, relationKind) -> {
-          if (subtypeParameterNullability(supertype, subtype, state)) {
-            return;
-          }
-          if (relationKind == MethodRefTypeRelationKind.RETURN) {
-            reportInvalidMethodReferenceReturnTypeError(
-                memberReferenceTree, supertype, subtype, state);
-          } else {
-            reportInvalidMethodReferenceParameterTypeError(
-                memberReferenceTree, subtype, supertype, state);
+          if (!subtypeParameterNullability(supertype, subtype, state)) {
+            if (relationKind == MethodRefTypeRelationKind.RETURN) {
+              reportInvalidMethodReferenceReturnTypeError(
+                  memberReferenceTree, supertype, subtype, state);
+            } else {
+              reportInvalidMethodReferenceParameterTypeError(
+                  memberReferenceTree, subtype, supertype, state);
+            }
           }
         });
   }
@@ -484,7 +483,7 @@ public final class GenericsChecks {
    * @param tree A tree for which we need the type with preserved annotations.
    * @return Type of the tree with preserved annotations.
    */
-  @Nullable Type getTreeType(Tree tree, VisitorState state) {
+  /* package-private */ @Nullable Type getTreeType(Tree tree, VisitorState state) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);

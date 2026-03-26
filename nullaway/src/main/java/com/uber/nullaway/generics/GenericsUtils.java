@@ -55,9 +55,12 @@ public class GenericsUtils {
       return;
     }
     Types types = state.getTypes();
+
+    // first, figure out the proper method type to use for the member reference
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     if (referencedMethod == null || referencedMethod.isConstructor()) {
-      // Constructor references are handled separately.
+      // TODO handle constructor references like Foo::new;
+      //  https://github.com/uber/NullAway/issues/1468
       return;
     }
     Type.MethodType referencedMethodType =
@@ -70,12 +73,14 @@ public class GenericsUtils {
           genericsChecks.getTreeType(memberReferenceTree.getQualifierExpression(), state);
     }
 
+    // now, get the type of the corresponding functional interface method, as a member of targetType
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
     Type.MethodType fiMethodTypeAsMember =
         TypeSubstitutionUtils.memberType(types, targetType, fiMethod, genericsChecks.config)
             .asMethodType();
 
+    // method reference return type <: functional interface return type
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
     if (fiReturnType.getKind() != TypeKind.VOID
@@ -83,6 +88,8 @@ public class GenericsUtils {
       relationHandler.handle(referencedReturnType, fiReturnType, MethodRefTypeRelationKind.RETURN);
     }
 
+    //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
+    //  aligned appropriately in the case of unbound method references
     com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
     com.sun.tools.javac.util.List<Type> referencedParamTypes =
         referencedMethodType.getParameterTypes();
@@ -99,6 +106,7 @@ public class GenericsUtils {
       fiStartIndex = 1;
     }
 
+    // first, handle the non-varargs case
     int fiParamCount = fiParamTypes.size() - fiStartIndex;
     int nonVarargsParamCount =
         referencedMethod.isVarArgs()
@@ -114,9 +122,11 @@ public class GenericsUtils {
       return;
     }
 
+    // For varargs references, the functional interface can map to fixed-arity form (single array
+    // argument at the varargs position) or variable-arity form (zero or more element arguments).
     int varargsParamPosition = referencedParamTypes.size() - 1;
     if (fiParamCount == varargsParamPosition) {
-      // nothing passed in varargs position
+      // No varargs arguments; this is the variable-arity case, passing zero arguments
       return;
     }
     Type varargsArrayType = referencedParamTypes.get(varargsParamPosition);
@@ -128,13 +138,14 @@ public class GenericsUtils {
     JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
     int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
     if (javacMemberRef.varargsElement == null) {
-      // method reference is invoked with varargs passed as array
+      // javac resolved this member reference using non-varargs (fixed-arity) adaptation.
       relationHandler.handle(
           fiParamTypes.get(firstVarargsFiParamIndex),
           varargsArrayType,
           MethodRefTypeRelationKind.PARAMETER);
     } else {
-      // method reference is invoked with individual arguments passed in varargs position
+      // javac resolved this member reference using varargs (variable-arity) adaptation.
+      // Use the element type from the referenced varargs array type
       Type varargsElementType = types.elemtype(varargsArrayType);
       for (int i = varargsParamPosition; i < fiParamCount; i++) {
         relationHandler.handle(
