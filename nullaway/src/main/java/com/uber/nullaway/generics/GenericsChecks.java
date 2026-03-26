@@ -1154,6 +1154,7 @@ public final class GenericsChecks {
     if (typeArgumentTrees != null
         && !typeArgumentTrees.isEmpty()
         && overridingMethod.asType() instanceof Type.ForAll forAllType) {
+      // handle explicit type arguments in method reference, e.g., x::<Foo>method
       result =
           TypeSubstitutionUtils.subst(
                   state.getTypes(),
@@ -1163,8 +1164,8 @@ public final class GenericsChecks {
                   config)
               .asMethodType();
     } else if (overridingMethod.asType() instanceof Type.ForAll) {
-      // the referenced method is a generic method; we need to substitute inferred nullability for
-      // type arguments if it was inferred
+      // the referenced method is a generic method and there are no explicit type arguments
+      // we need to substitute inferred nullability for type arguments if it was inferred
       result = getInferredMethodTypeForGenericMethodReference(result, state);
     }
     // finally, run any handlers
@@ -1594,6 +1595,9 @@ public final class GenericsChecks {
               }
 
               if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
+                // the type of the method reference tree provided by javac may not capture
+                // nullability of nested types.  so, do explicit type checks based on the return and
+                // parameter types of the referenced method
                 GenericsUtils.processMethodRefTypeRelations(
                     this,
                     formalParameter,
