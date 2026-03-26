@@ -26,7 +26,7 @@ public class GenericsUtils {
 
   /**
    * Handler for method reference type relations, used by {{@link
-   * #processMethodReferenceRelations(GenericsChecks, Type, MemberReferenceTree, VisitorState,
+   * #processMethodRefTypeRelations(GenericsChecks, Type, MemberReferenceTree, VisitorState,
    * MethodRefTypeRelationHandler)}}
    */
   @FunctionalInterface
@@ -45,7 +45,7 @@ public class GenericsUtils {
    * @param state visitor state
    * @param relationHandler handler to invoke for each type relation
    */
-  static void processMethodReferenceRelations(
+  static void processMethodRefTypeRelations(
       GenericsChecks genericsChecks,
       Type targetType,
       MemberReferenceTree memberReferenceTree,

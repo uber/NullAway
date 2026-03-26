@@ -1110,7 +1110,7 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
-    GenericsUtils.processMethodReferenceRelations(
+    GenericsUtils.processMethodRefTypeRelations(
         this,
         lhsType,
         memberReferenceTree,
@@ -1594,7 +1594,7 @@ public final class GenericsChecks {
               }
 
               if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
-                GenericsUtils.processMethodReferenceRelations(
+                GenericsUtils.processMethodRefTypeRelations(
                     this,
                     formalParameter,
                     memberReferenceTree,
