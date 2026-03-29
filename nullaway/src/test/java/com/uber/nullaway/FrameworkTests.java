@@ -432,11 +432,11 @@ public class FrameworkTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "PositiveCases.java",
+            "NegativeCases.java",
             """
             package com.uber;
             import org.springframework.beans.factory.annotation.Value;
-            class PositiveCases {
+            class NegativeCases {
               @Value("${app.name}")
               String propertyName;
               @Value("'literal'")
@@ -448,12 +448,12 @@ public class FrameworkTests extends NullAwayTestsBase {
             }
             """)
         .addSourceLines(
-            "NegativeCases.java",
+            "PositiveCases.java",
             """
             package com.uber;
             import javax.annotation.Nullable;
             import org.springframework.beans.factory.annotation.Value;
-            class NegativeCases {
+            class PositiveCases {
               @Value("#{null}")
               // BUG: Diagnostic contains: @NonNull field spelNullValue not initialized
               String spelNullValue;
