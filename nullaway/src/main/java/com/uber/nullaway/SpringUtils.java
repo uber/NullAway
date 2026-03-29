@@ -24,7 +24,6 @@ package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
 import java.util.regex.Pattern;
-import org.jspecify.annotations.Nullable;
 
 /** Utilities for Spring-specific framework reasoning. */
 public final class SpringUtils {
@@ -44,8 +43,7 @@ public final class SpringUtils {
     if (!annotationName.equals(VALUE_ANNOT)) {
       return false;
     }
-    @Nullable String annotationValue =
-        NullabilityUtil.getAnnotationValue(fieldSymbol, VALUE_ANNOT, true);
+    String annotationValue = NullabilityUtil.getAnnotationValue(fieldSymbol, VALUE_ANNOT, true);
     return annotationValue == null || !containsNullSpelExpression(annotationValue);
   }
 
