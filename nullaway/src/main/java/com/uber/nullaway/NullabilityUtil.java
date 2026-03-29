@@ -243,23 +243,7 @@ public class NullabilityUtil {
    */
   public static @Nullable String getAnnotationValue(
       Symbol.MethodSymbol methodSymbol, String annotName) {
-    return getAnnotationValue(methodSymbol, annotName, true);
-  }
-
-  /**
-   * Retrieve the {@code value} attribute of an annotation of some type.
-   *
-   * @param symbol A symbol to check for the annotation.
-   * @param annotName The qualified name or simple name of the annotation depending on the value of
-   *     {@code exactMatch}.
-   * @param exactMatch If true, the annotation name must match the full qualified name given in
-   *     {@code annotName}, otherwise, simple names will be checked.
-   * @return The {@code value} attribute of the annotation, or {@code null} if the annotation is not
-   *     present.
-   */
-  public static @Nullable String getAnnotationValue(
-      Symbol symbol, String annotName, boolean exactMatch) {
-    AnnotationMirror annot = findAnnotation(symbol, annotName, exactMatch);
+    AnnotationMirror annot = findAnnotation((Symbol) methodSymbol, annotName, true);
     return annot == null ? null : getAnnotationValue(annot);
   }
 
