@@ -33,7 +33,8 @@ public final class SpringUtils {
   /**
    * Matches a SpEL fragment like {@code #{...}} when it contains {@code null} as a standalone
    * token. This lets us distinguish Spring {@code @Value} expressions that may produce {@code null}
-   * from plain property placeholders or string literals containing the letters {@code null}.
+   * from plain property placeholders or string literals containing the letters {@code null}. This
+   * is a heuristic match and may have false positives.
    */
   private static final Pattern VALUE_NULL_SPEL_PATTERN =
       Pattern.compile("#\\{[^}]*\\bnull\\b[^}]*}");
