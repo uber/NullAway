@@ -30,6 +30,11 @@ public final class SpringUtils {
 
   static final String VALUE_ANNOT = "org.springframework.beans.factory.annotation.Value";
 
+  /**
+   * Matches a SpEL fragment like {@code #{...}} when it contains {@code null} as a standalone
+   * token. This lets us distinguish Spring {@code @Value} expressions that may produce {@code null}
+   * from plain property placeholders or string literals containing the letters {@code null}.
+   */
   private static final Pattern VALUE_NULL_SPEL_PATTERN =
       Pattern.compile("#\\{[^}]*\\bnull\\b[^}]*}");
 
@@ -44,10 +49,10 @@ public final class SpringUtils {
       return false;
     }
     String annotationValue = NullabilityUtil.getAnnotationValue(fieldSymbol, VALUE_ANNOT, true);
-    return annotationValue == null || !containsNullSpelExpression(annotationValue);
+    return annotationValue == null || !containsNullSpELExpression(annotationValue);
   }
 
-  private static boolean containsNullSpelExpression(String annotationValue) {
+  private static boolean containsNullSpELExpression(String annotationValue) {
     return VALUE_NULL_SPEL_PATTERN.matcher(annotationValue).find();
   }
 }
