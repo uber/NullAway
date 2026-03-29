@@ -441,6 +441,9 @@ public class FrameworkTests extends NullAwayTestsBase {
               String propertyName;
               @Value("'literal'")
               String literalValue;
+              @Nullable
+              @Value("#{null}")
+              String nullableSpelNullValue;
               void test() {
                 propertyName.toString();
                 literalValue.toString();
@@ -460,9 +463,6 @@ public class FrameworkTests extends NullAwayTestsBase {
               @Value("${missing:#{null}}")
               // BUG: Diagnostic contains: @NonNull field placeholderWithNullDefault not initialized
               String placeholderWithNullDefault;
-              @Nullable
-              @Value("#{null}")
-              String nullableSpelNullValue;
             }
             """)
         .doTest();
