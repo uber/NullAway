@@ -436,6 +436,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             """
             package com.uber;
             import org.springframework.beans.factory.annotation.Value;
+            import org.jspecify.annotations.Nullable;
             class NegativeCases {
               @Value("${app.name}")
               String propertyName;
@@ -454,7 +455,6 @@ public class FrameworkTests extends NullAwayTestsBase {
             "PositiveCases.java",
             """
             package com.uber;
-            import javax.annotation.Nullable;
             import org.springframework.beans.factory.annotation.Value;
             class PositiveCases {
               @Value("#{null}")
