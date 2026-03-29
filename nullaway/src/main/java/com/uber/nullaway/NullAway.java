@@ -2639,8 +2639,14 @@ public class NullAway extends BugChecker
    */
   private boolean skipFieldInitializationCheckingDueToAnnotation(Symbol fieldSymbol) {
     return NullabilityUtil.getAllAnnotations(fieldSymbol, config)
-        .map(anno -> anno.getAnnotationType().toString())
-        .anyMatch(config::isExcludedFieldAnnotation);
+        .anyMatch(
+            anno -> {
+              String annotationName = anno.getAnnotationType().toString();
+              if (config.isExcludedFieldAnnotation(annotationName)) {
+                return true;
+              }
+              return SpringUtils.isInjectedByValueAnnotation(fieldSymbol, annotationName);
+            });
   }
 
   // classSymbol must be a top-level class
