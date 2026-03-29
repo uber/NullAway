@@ -243,7 +243,7 @@ public class NullabilityUtil {
    */
   public static @Nullable String getAnnotationValue(
       Symbol.MethodSymbol methodSymbol, String annotName) {
-    return getAnnotationValue((Symbol) methodSymbol, annotName, true);
+    return getAnnotationValue(methodSymbol, annotName, true);
   }
 
   /**
@@ -338,7 +338,14 @@ public class NullabilityUtil {
     return annot;
   }
 
-  private static @Nullable String getAnnotationValue(AnnotationMirror annot) {
+  /**
+   * Retrieve the {@code value} attribute from an annotation mirror.
+   *
+   * @param annot the annotation mirror
+   * @return the {@code value} attribute, or {@code null} if the annotation has no string-valued
+   *     {@code value} element
+   */
+  public static @Nullable String getAnnotationValue(AnnotationMirror annot) {
     Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
         annot.getElementValues();
     for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :

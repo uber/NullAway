@@ -22,8 +22,8 @@
 
 package com.uber.nullaway;
 
-import com.sun.tools.javac.code.Symbol;
 import java.util.regex.Pattern;
+import javax.lang.model.element.AnnotationMirror;
 
 /** Utilities for Spring-specific framework reasoning. */
 public final class SpringUtils {
@@ -44,11 +44,11 @@ public final class SpringUtils {
    * Returns true when a field annotated with Spring {@code @Value} should be treated as initialized
    * externally.
    */
-  public static boolean isInjectedByValueAnnotation(Symbol fieldSymbol, String annotationName) {
-    if (!annotationName.equals(VALUE_ANNOT)) {
+  public static boolean isInjectedByValueAnnotation(AnnotationMirror annotationMirror) {
+    if (!annotationMirror.getAnnotationType().toString().equals(VALUE_ANNOT)) {
       return false;
     }
-    String annotationValue = NullabilityUtil.getAnnotationValue(fieldSymbol, VALUE_ANNOT, true);
+    String annotationValue = NullabilityUtil.getAnnotationValue(annotationMirror);
     return annotationValue == null || !containsNullSpELExpression(annotationValue);
   }
 
