@@ -381,7 +381,8 @@ public class AstubxGenerator {
 
   /**
    * Checks if the given parameter type has a top-level {@code @Nullable} annotation. Assumes there
-   * are no annotations on any generic type arguments in the type.
+   * are no annotations on any generic type arguments in the type. We only handle JSpecify
+   * {@code @Nullable} annotations for now, as those are the only type present in the JSpecify JDK.
    *
    * @param parameterType the parameter type.
    * @return true if the type has a top-level {@code @Nullable} annotation, false otherwise
