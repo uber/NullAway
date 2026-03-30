@@ -260,6 +260,51 @@ public class AstubxTest {
   }
 
   @Test
+  public void arrayParametersNullableArrayVsElements() {
+    compilationHelper
+        .addSourceLines(
+            "ArrayParameters.java",
+            "import org.jspecify.annotations.NullMarked;",
+            "import org.jspecify.annotations.Nullable;",
+            "@NullMarked",
+            "public class ArrayParameters {",
+            "  public static void arrayNullable(String @Nullable [] arr) {}",
+            "  public static void elementsNullable(@Nullable String[] arr) {}",
+            "  public static void bothNullable(@Nullable String @Nullable [] arr) {}",
+            "}")
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "ArrayParameters:void arrayNullable(java.lang.String[])",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()),
+            "ArrayParameters:void elementsNullable(java.lang.String[])",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))),
+            "ArrayParameters:void bothNullable(java.lang.String[])",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of(
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("ArrayParameters"));
+  }
+
+  @Test
   public void genericParameter() {
     compilationHelper
         .addSourceLines(
@@ -422,6 +467,80 @@ public class AstubxTest {
                 ImmutableSet.of(1),
                 ImmutableMap.of(),
                 ImmutableSetMultimap.of()));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
+  }
+
+  @Test
+  public void varargsNullableArrayOnly() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  public static int varargs(Object @Nullable ... args) { return 0; }",
+            "}")
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "Test:int varargs(java.lang.Object...)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of()));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
+  }
+
+  @Test
+  public void varargsNullableElementsOnly() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  public static int varargs(@Nullable Object... args) { return 0; }",
+            "}")
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "Test:int varargs(java.lang.Object...)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
+  }
+
+  @Test
+  public void varargsNullableArrayAndElements() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            "import org.jspecify.annotations.*;",
+            "@NullMarked",
+            "public class Test {",
+            "  public static int varargs(@Nullable Object @Nullable ... args) { return 0; }",
+            "}")
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "Test:int varargs(java.lang.Object...)",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(0, ImmutableSet.of("Nullable")),
+                ImmutableSetMultimap.of(
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
   }
 

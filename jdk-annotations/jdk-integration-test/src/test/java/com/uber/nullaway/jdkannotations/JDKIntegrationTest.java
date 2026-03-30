@@ -249,6 +249,48 @@ public class JDKIntegrationTest {
   }
 
   @Test
+  public void arrayParametersNullableArrayVsElements() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  String[] nonNullArray = new String[] {\"value\"};",
+            "  @Nullable String[] nullableElements = new String[] {\"value\", null};",
+            "  String @Nullable [] nullableArray = null;",
+            "  @Nullable String @Nullable [] nullableArrayAndElements = new String[] {\"value\", null};",
+            "  void testCall() {",
+            "    ParameterAnnotation.takesNullableArray(nonNullArray);",
+            "    ParameterAnnotation.takesNullableArray(nullableArray);",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    ParameterAnnotation.takesNullableArray(nullableElements);",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    ParameterAnnotation.takesNullableArray(nullableArrayAndElements);",
+            "    ParameterAnnotation.takesNullableElements(nonNullArray);",
+            "    ParameterAnnotation.takesNullableElements(nullableElements);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'nullableArray' where @NonNull is required",
+            "    ParameterAnnotation.takesNullableElements(nullableArray);",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'nullableArrayAndElements' where @NonNull is required",
+            "    ParameterAnnotation.takesNullableElements(nullableArrayAndElements);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nonNullArray);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nullableElements);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nullableArray);",
+            "    ParameterAnnotation.takesNullableArrayAndElements(nullableArrayAndElements);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
   public void nullableGenericArrayTest() {
     compilationHelper
         .setArgs(
@@ -325,6 +367,84 @@ public class JDKIntegrationTest {
             "  }",
             "  static void testNegative() {",
             "    ex.getString(null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsNullableArrayOnly() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter '(Object) null' where @NonNull is required",
+            "    ParameterAnnotation.varargsArrayNullable((Object) null);",
+            "  }",
+            "  static void testNegative() {",
+            "    Object[] args = null;",
+            "    ParameterAnnotation.varargsArrayNullable(args);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsNullableElementsOnly() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  static void testPositive() {",
+            "    Object[] args = null;",
+            "    // BUG: Diagnostic contains: passing @Nullable parameter 'args' where @NonNull is required",
+            "    ParameterAnnotation.varargsElementsNullable(args);",
+            "  }",
+            "  static void testNegative() {",
+            "    ParameterAnnotation.varargsElementsNullable(null, null);",
+            "  }",
+            "}")
+        .doTest();
+  }
+
+  @Test
+  public void varargsNullableArrayAndElements() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
+            "class Test {",
+            "  static void testNegative() {",
+            "    ParameterAnnotation.varargs(null, null);",
+            "    Object[] args = null;",
+            "    ParameterAnnotation.varargs(args);",
             "  }",
             "}")
         .doTest();
