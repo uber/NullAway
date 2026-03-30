@@ -57,15 +57,9 @@ public class ParameterAnnotation {
   public static void nestedAnnotations(
       List<String> typeArg, String[] array, List<Integer>[] mixed) {}
 
-  public static int varargsArrayNullable(Object... args) {
-    return 0;
-  }
+  public static void varargsArrayNullable(Object... args) {}
 
-  public static int varargsElementsNullable(Object... args) {
-    return 0;
-  }
+  public static void varargsElementsNullable(Object... args) {}
 
-  public static int varargs(Object... args) {
-    return 0;
-  }
+  public static void varargs(Object... args) {}
 }

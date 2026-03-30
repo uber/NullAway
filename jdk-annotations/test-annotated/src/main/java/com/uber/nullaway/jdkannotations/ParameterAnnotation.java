@@ -65,15 +65,9 @@ public class ParameterAnnotation {
       @Nullable String[] array,
       @Nullable List<@Nullable Integer>[] mixed) {}
 
-  public static int varargsArrayNullable(Object @Nullable ... args) {
-    return 0;
-  }
+  public static void varargsArrayNullable(Object @Nullable ... args) {}
 
-  public static int varargsElementsNullable(@Nullable Object... args) {
-    return 0;
-  }
+  public static void varargsElementsNullable(@Nullable Object... args) {}
 
-  public static int varargs(@Nullable Object @Nullable ... args) {
-    return 0;
-  }
+  public static void varargs(@Nullable Object @Nullable ... args) {}
 }
