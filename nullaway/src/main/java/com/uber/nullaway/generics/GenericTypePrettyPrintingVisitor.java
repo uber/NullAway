@@ -53,9 +53,7 @@ final class GenericTypePrettyPrintingVisitor
       sb.append(enclosingType.accept(this, null)).append('.');
     }
     for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      sb.append('@');
-      sb.append(compound.type.accept(this, null));
-      sb.append(' ');
+      appendAnnotation(compound, sb);
     }
     sb.append(t.tsym.getSimpleName());
     if (t.getTypeArguments().nonEmpty()) {
@@ -67,13 +65,25 @@ final class GenericTypePrettyPrintingVisitor
     return sb.toString();
   }
 
+  /**
+   * Appends the string for the annotation represented by {@code compound} to {@code sb},
+   * <emph>unless</emph> the simple name of the annotation is {@code NonNull}, in which case it is
+   * elided.
+   */
+  private void appendAnnotation(Attribute.TypeCompound compound, StringBuilder sb) {
+    String annotName = compound.type.accept(this, null);
+    if (!"NonNull".equals(annotName)) {
+      sb.append('@');
+      sb.append(annotName);
+      sb.append(' ');
+    }
+  }
+
   @Override
   public String visitTypeVar(Type.TypeVar t, @Nullable Void unused) {
     StringBuilder sb = new StringBuilder();
     for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      sb.append('@');
-      sb.append(compound.type.accept(this, null));
-      sb.append(' ');
+      appendAnnotation(compound, sb);
     }
     sb.append(t.tsym.getSimpleName());
     return sb.toString();
