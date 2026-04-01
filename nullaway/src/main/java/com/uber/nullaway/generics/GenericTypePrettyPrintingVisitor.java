@@ -103,12 +103,11 @@ final class GenericTypePrettyPrintingVisitor
   @Override
   public String visitArrayType(Type.ArrayType t, @Nullable Void unused) {
     StringBuilder sb = new StringBuilder();
-    sb.append(t.elemtype.accept(this, null));
+    sb.append(t.elemtype.accept(this, null)).append(' ');
     for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      sb.append(" @");
-      sb.append(compound.type.accept(this, null));
+      appendAnnotation(compound, sb);
     }
-    return sb.append(" []").toString();
+    return sb.append("[]").toString();
   }
 
   @Override
