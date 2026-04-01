@@ -52,9 +52,7 @@ final class GenericTypePrettyPrintingVisitor
     if (!ASTHelpers.isSameType(enclosingType, Type.noType, state)) {
       sb.append(enclosingType.accept(this, null)).append('.');
     }
-    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      appendAnnotation(compound, sb);
-    }
+    appendNullableAnnotationIfPresent(t, sb);
     sb.append(t.tsym.getSimpleName());
     if (t.getTypeArguments().nonEmpty()) {
       sb.append('<');
@@ -66,25 +64,24 @@ final class GenericTypePrettyPrintingVisitor
   }
 
   /**
-   * Appends the string for the annotation represented by {@code compound} to {@code sb},
-   * <emph>unless</emph> the simple name of the annotation is {@code NonNull}, in which case it is
-   * elided.
+   * Appends {@code "@Nullable "} to {@code sb} if {@code t} has a type-use {@code @Nullable}
+   * annotation. We ignore all other type use annotations, including {@code @NonNull} as it is the
+   * default
    */
-  private void appendAnnotation(Attribute.TypeCompound compound, StringBuilder sb) {
-    String annotName = compound.type.accept(this, null);
-    if (!"NonNull".equals(annotName)) {
-      sb.append('@');
-      sb.append(annotName);
-      sb.append(' ');
+  private void appendNullableAnnotationIfPresent(Type t, StringBuilder sb) {
+    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
+      String annotName = compound.type.accept(this, null);
+      if ("Nullable".equals(annotName)) {
+        sb.append("@Nullable ");
+        break;
+      }
     }
   }
 
   @Override
   public String visitTypeVar(Type.TypeVar t, @Nullable Void unused) {
     StringBuilder sb = new StringBuilder();
-    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      appendAnnotation(compound, sb);
-    }
+    appendNullableAnnotationIfPresent(t, sb);
     sb.append(t.tsym.getSimpleName());
     return sb.toString();
   }
@@ -104,9 +101,7 @@ final class GenericTypePrettyPrintingVisitor
   public String visitArrayType(Type.ArrayType t, @Nullable Void unused) {
     StringBuilder sb = new StringBuilder();
     sb.append(t.elemtype.accept(this, null)).append(' ');
-    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      appendAnnotation(compound, sb);
-    }
+    appendNullableAnnotationIfPresent(t, sb);
     return sb.append("[]").toString();
   }
 
