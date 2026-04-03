@@ -1,7 +1,5 @@
 package com.uber.nullaway.generics;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
-
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -64,9 +62,10 @@ public class GenericsUtils {
       return;
     }
     Type.MethodType referencedMethodType =
-        castToNonNull(
-            genericsChecks.getMemberReferenceMethodType(
-                memberReferenceTree, referencedMethod, state));
+        genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
+    if (referencedMethodType == null) {
+      return;
+    }
     Type qualifierType = null;
     if (!referencedMethod.isStatic()) {
       qualifierType =
