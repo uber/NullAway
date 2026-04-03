@@ -52,11 +52,7 @@ final class GenericTypePrettyPrintingVisitor
     if (!ASTHelpers.isSameType(enclosingType, Type.noType, state)) {
       sb.append(enclosingType.accept(this, null)).append('.');
     }
-    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      sb.append('@');
-      sb.append(compound.type.accept(this, null));
-      sb.append(' ');
-    }
+    appendNullableAnnotationIfPresent(t, sb);
     sb.append(t.tsym.getSimpleName());
     if (t.getTypeArguments().nonEmpty()) {
       sb.append('<');
@@ -67,14 +63,25 @@ final class GenericTypePrettyPrintingVisitor
     return sb.toString();
   }
 
+  /**
+   * Appends {@code "@Nullable "} to {@code sb} if {@code t} has a type-use {@code @Nullable}
+   * annotation. We ignore all other type use annotations, including {@code @NonNull} as it is the
+   * default
+   */
+  private void appendNullableAnnotationIfPresent(Type t, StringBuilder sb) {
+    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
+      String annotName = compound.type.accept(this, null);
+      if ("Nullable".equals(annotName)) {
+        sb.append("@Nullable ");
+        break;
+      }
+    }
+  }
+
   @Override
   public String visitTypeVar(Type.TypeVar t, @Nullable Void unused) {
     StringBuilder sb = new StringBuilder();
-    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      sb.append('@');
-      sb.append(compound.type.accept(this, null));
-      sb.append(' ');
-    }
+    appendNullableAnnotationIfPresent(t, sb);
     sb.append(t.tsym.getSimpleName());
     return sb.toString();
   }
@@ -93,12 +100,9 @@ final class GenericTypePrettyPrintingVisitor
   @Override
   public String visitArrayType(Type.ArrayType t, @Nullable Void unused) {
     StringBuilder sb = new StringBuilder();
-    sb.append(t.elemtype.accept(this, null));
-    for (Attribute.TypeCompound compound : t.getAnnotationMirrors()) {
-      sb.append(" @");
-      sb.append(compound.type.accept(this, null));
-    }
-    return sb.append(" []").toString();
+    sb.append(t.elemtype.accept(this, null)).append(' ');
+    appendNullableAnnotationIfPresent(t, sb);
+    return sb.append("[]").toString();
   }
 
   @Override

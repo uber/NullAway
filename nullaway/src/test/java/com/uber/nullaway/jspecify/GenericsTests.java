@@ -2905,7 +2905,7 @@ public class GenericsTests extends NullAwayTestsBase {
               void test() {
                 // BUG: Diagnostic contains: incompatible types: Test.B<Object> cannot be converted to Test.A<Object> (Test.B<Object> is a subtype of Test.A<@Nullable Object>)
                 A<Object> a = new B<Object>();
-                // BUG: Diagnostic contains: incompatible types: Test.C<@Nullable Object> cannot be converted to Test.A<@Nullable Object> (Test.C<@Nullable Object> is a subtype of Test.A<@NonNull Object>)
+                // BUG: Diagnostic contains: incompatible types: Test.C<@Nullable Object> cannot be converted to Test.A<@Nullable Object> (Test.C<@Nullable Object> is a subtype of Test.A<Object>)
                 A<@Nullable Object> a2 = new C<@Nullable Object>();
               }
             }
@@ -2954,7 +2954,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 Foo<@NonNull T> nonNullField = new Foo<>();
                 Foo<@Nullable T> nullableField = new Foo<>();
                 static void test(Foo<@Nullable String> nullableFoo, Foo<@NonNull String> nonnullFoo) {
-                  // BUG: Diagnostic contains: incompatible types: Foo<@NonNull String> cannot be converted to Foo<@Nullable String>
+                  // BUG: Diagnostic contains: incompatible types: Foo<String> cannot be converted to Foo<@Nullable String>
                   Foo<@Nullable String> f1 = nullableFoo.nonNullField;
                   Foo<String> f2 = nullableFoo.nonNullField;
                   Foo<@Nullable String> f3 = nonnullFoo.nullableField;
