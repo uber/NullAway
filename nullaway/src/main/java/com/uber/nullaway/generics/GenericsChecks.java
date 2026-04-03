@@ -1600,7 +1600,7 @@ public final class GenericsChecks {
 
               if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
                 // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types.  so, do explicit type checks based on the return and
+                // nullability of nested types. So, do explicit type checks based on the return and
                 // parameter types of the referenced method
                 GenericsUtils.processMethodRefTypeRelations(
                     this,
