@@ -518,7 +518,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 takeMultiple(Test::takeNullableNested, Test::takeNullableNested, f2);
               }
               void testPositive2(Foo<String> f1) {
-                // BUG: Diagnostic contains: parameter type of referenced method is Test.Foo<@Nullable String>, but parameter in functional interface method has type Test.@NonNull Foo<String>
+                // BUG: Diagnostic contains: parameter type of referenced method is Test.Foo<@Nullable String>, but parameter in functional interface method has type Test.Foo<String>, which has mismatched type parameter nullability
                 takeMultiple(Test::takeNonNullNested, Test::takeNullableNested, f1);
               }
             }
@@ -551,7 +551,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 throw new RuntimeException();
               }
               void testPositive(Foo<String> f1) {
-                // BUG: Diagnostic contains: referenced method returns Test.Foo<@Nullable String>, but functional interface method returns Test.@NonNull Foo<String>
+                // BUG: Diagnostic contains: referenced method returns Test.Foo<@Nullable String>, but functional interface method returns Test.Foo<String>, which has mismatched type parameter nullability
                 Foo<String> f2 = pick(Test::makeNonNullNested, Test::makeNullableNested);
               }
             }
@@ -710,11 +710,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                // BUG: Diagnostic contains: parameter type of referenced method is String [], but parameter in functional interface method has type @Nullable String @NonNull []
+                // BUG: Diagnostic contains: parameter type of referenced method is String [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::take, sNullableContents);
                 consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
                 consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
-                // BUG: Diagnostic contains: parameter type of referenced method is String @Nullable [], but parameter in functional interface method has type @Nullable String @NonNull []
+                // BUG: Diagnostic contains: parameter type of referenced method is String @Nullable [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::takeNullable, sNullableContents);
                 consume(Util::takeNullableContents, sNonNull); // legal due to array subtyping
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
@@ -754,11 +754,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                // BUG: Diagnostic contains: parameter type of referenced method is String [], but parameter in functional interface method has type @Nullable String @NonNull []
+                // BUG: Diagnostic contains: parameter type of referenced method is String [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::take, sNullableContents);
                 consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
                 consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
-                // BUG: Diagnostic contains: parameter type of referenced method is String @Nullable [], but parameter in functional interface method has type @Nullable String @NonNull []
+                // BUG: Diagnostic contains: parameter type of referenced method is String @Nullable [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::takeNullable, sNullableContents);
                 consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
