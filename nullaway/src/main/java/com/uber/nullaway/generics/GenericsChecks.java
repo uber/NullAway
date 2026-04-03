@@ -123,13 +123,17 @@ public final class GenericsChecks {
   }
 
   private final NullAway analysis;
-  /* package-private */ final Config config;
+  private final Config config;
   private final Handler handler;
 
   public GenericsChecks(NullAway analysis, Config config, Handler handler) {
     this.analysis = analysis;
     this.config = config;
     this.handler = handler;
+  }
+
+  /* package-private */ Config getConfig() {
+    return config;
   }
 
   /**

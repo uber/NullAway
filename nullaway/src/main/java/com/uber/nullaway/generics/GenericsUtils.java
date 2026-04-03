@@ -76,7 +76,7 @@ public class GenericsUtils {
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
     Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(types, targetType, fiMethod, genericsChecks.config)
+        TypeSubstitutionUtils.memberType(types, targetType, fiMethod, genericsChecks.getConfig())
             .asMethodType();
 
     // method reference return type <: functional interface return type
