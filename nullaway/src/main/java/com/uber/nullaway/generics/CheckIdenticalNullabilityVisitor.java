@@ -98,9 +98,19 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsType instanceof NullType) {
       return true;
     }
-    Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
     Type lhsComponentType = lhsType.getComponentType();
-    Type rhsComponentType = arrRhsType.getComponentType();
+    Types types = state.getTypes();
+    // The RHS can be a captured or wildcard type whose upper bound is an array, e.g. the
+    // captured form of ? extends T[]. Normalize to that upper bound before asking javac for the
+    // array element type.  If rhsType is an ArrayType, then normalizedRhsType will be the same as
+    // rhsType
+    Type normalizedRhsType = types.wildUpperBound(types.cvarUpperBound(rhsType));
+    Type rhsComponentType = types.elemtype(normalizedRhsType);
+    if (rhsComponentType == null) {
+      // Standard javac subtyping succeeded already. If we cannot normalize the RHS into an array
+      // shape here, bail out rather than crash on captured/wildcard array-like types.
+      return true;
+    }
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
