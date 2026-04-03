@@ -1119,7 +1119,7 @@ public final class GenericsChecks {
         lhsType,
         memberReferenceTree,
         state,
-        (subtype, supertype, relationKind) -> {
+        (subtype, supertype, unused) -> {
           solver.addSubtypeConstraint(subtype, supertype, false);
         });
   }
