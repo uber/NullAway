@@ -1438,12 +1438,14 @@ public final class GenericsChecks {
    * @param state the visitor state
    */
   private boolean identicalTypeParameterNullability(
-      Type lhsType, Type rhsType, VisitorState state) {
-    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this, config), rhsType);
+      Type lhsType, Type rhsType, VisitorState state, boolean isMethodUnannotated) {
+    return lhsType.accept(
+        new CheckIdenticalNullabilityVisitor(state, this, config, isMethodUnannotated), rhsType);
   }
 
   /**
-   * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState)}, but allows for
+   * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState, boolean)}, but allows
+   * for
    * covariant array subtyping at the top level.
    *
    * @param lhsType type for the lhs of the assignment
@@ -1451,6 +1453,11 @@ public final class GenericsChecks {
    * @param state the visitor state
    */
   private boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
+    return subtypeParameterNullability(lhsType, rhsType, state, false);
+  }
+
+  private boolean subtypeParameterNullability(
+      Type lhsType, Type rhsType, VisitorState state, boolean isMethodUnannotated) {
     if (lhsType.isRaw()) {
       return true;
     }
@@ -1466,11 +1473,19 @@ public final class GenericsChecks {
       boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
       // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
       if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
-        return false;
+        // In @NullUnmarked code, skip if the LHS component has no explicit nullness annotation
+        if (isMethodUnannotated
+            && !Nullness.hasNonNullAnnotation(
+                lhsComponentType.getAnnotationMirrors().stream(), config)) {
+          // unannotated component in @NullUnmarked context; fall through to nested check
+        } else {
+          return false;
+        }
       }
-      return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, state);
+      return identicalTypeParameterNullability(
+          lhsComponentType, rhsComponentType, state, isMethodUnannotated);
     } else {
-      return identicalTypeParameterNullability(lhsType, rhsType, state);
+      return identicalTypeParameterNullability(lhsType, rhsType, state, isMethodUnannotated);
     }
   }
 
@@ -1553,9 +1568,12 @@ public final class GenericsChecks {
    * @param methodSymbol the symbol for the method being called
    * @param tree the tree representing the method call
    * @param state the visitor state
+   * @param isMethodAnnotated whether the called method is in annotated (non-{@code @NullUnmarked})
+   *     code. When {@code false}, only restrictive (explicit) nullness annotations on type
+   *     parameters are enforced.
    */
   public void compareGenericTypeParameterNullabilityForCall(
-      Symbol.MethodSymbol methodSymbol, Tree tree, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol, Tree tree, VisitorState state, boolean isMethodAnnotated) {
     Config config = analysis.getConfig();
     if (!config.isJSpecifyMode()) {
       return;
@@ -1602,13 +1620,15 @@ public final class GenericsChecks {
                 // the type of the method reference tree provided by javac may not capture
                 // nullability of nested types. So, do explicit type checks based on the return and
                 // parameter types of the referenced method
+                boolean isUnannotated = !isMethodAnnotated;
                 GenericsUtils.processMethodRefTypeRelations(
                     this,
                     formalParameter,
                     memberReferenceTree,
                     state,
                     (subtype, supertype, relationKind) -> {
-                      if (!subtypeParameterNullability(supertype, subtype, state)) {
+                      if (!subtypeParameterNullability(
+                          supertype, subtype, state, isUnannotated)) {
                         if (relationKind == MethodRefTypeRelationKind.RETURN) {
                           reportInvalidMethodReferenceReturnTypeError(
                               memberReferenceTree, supertype, subtype, state);
@@ -1646,7 +1666,8 @@ public final class GenericsChecks {
                           false,
                           false);
                 }
-                if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
+                if (!subtypeParameterNullability(
+                    formalParameter, actualParameterType, state, !isMethodAnnotated)) {
                   reportInvalidParametersNullabilityError(
                       formalParameter, actualParameterType, currentActualParam, state);
                 }
@@ -1929,8 +1950,12 @@ public final class GenericsChecks {
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
-        // inference failed; just return the method type at the call site with no substitutions
-        return methodTypeAtCallSite;
+        // inference failed; restore explicit nullability annotations from the original method
+        // type to the call-site type, so restrictive annotations (e.g. @NonNull on type
+        // arguments) are still enforced
+        return TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                methodType, methodTypeAtCallSite, config, Collections.emptyMap())
+            .asMethodType();
       }
     }
     return TypeSubstitutionUtils.subst(

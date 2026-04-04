@@ -2083,13 +2083,18 @@ public class NullAway extends BugChecker
         }
       }
 
-      // perform generics checks for calls to annotated methods in JSpecify mode
-      if (config.isJSpecifyMode()) {
-        genericsChecks.compareGenericTypeParameterNullabilityForCall(methodSymbol, tree, state);
-        if (!methodSymbol.getTypeParameters().isEmpty()) {
-          genericsChecks.checkGenericMethodCallTypeArguments(tree, state);
-        }
+      // perform generics checks for type arguments on calls to annotated methods in JSpecify mode
+      if (config.isJSpecifyMode() && !methodSymbol.getTypeParameters().isEmpty()) {
+        genericsChecks.checkGenericMethodCallTypeArguments(tree, state);
       }
+    }
+
+    // Perform generics checks for calls in JSpecify mode, including calls to @NullUnmarked
+    // methods.  For @NullUnmarked methods, only restrictive (explicit) nullness annotations
+    // on type parameters are enforced (see #1488).
+    if (config.isJSpecifyMode()) {
+      genericsChecks.compareGenericTypeParameterNullabilityForCall(
+          methodSymbol, tree, state, isMethodAnnotated);
     }
 
     // Allow handlers to override the list of non-null argument positions. For a varargs parameter,
