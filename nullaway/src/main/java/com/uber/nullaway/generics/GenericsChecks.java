@@ -1445,8 +1445,7 @@ public final class GenericsChecks {
 
   /**
    * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState, boolean)}, but allows
-   * for
-   * covariant array subtyping at the top level.
+   * for covariant array subtyping at the top level.
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment

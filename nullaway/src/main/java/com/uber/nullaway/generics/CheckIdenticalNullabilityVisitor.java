@@ -82,12 +82,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
       boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        // In @NullUnmarked code, unannotated type arguments are unconstrained.  Only flag
-        // a mismatch when the formal (LHS) type argument has an explicit nullness annotation.
-        if (isMethodUnannotated
-            && !isLHSNullableAnnotated
-            && !Nullness.hasNonNullAnnotation(
-                lhsTypeArgument.getAnnotationMirrors().stream(), config)) {
+        if (shouldSkipMismatchInUnannotatedMethod(lhsTypeArgument, isLHSNullableAnnotated)) {
           // LHS is unannotated in @NullUnmarked context; skip this level but still check
           // nested types below (which may have restrictive annotations)
         } else {
@@ -125,16 +120,27 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
-      if (isMethodUnannotated
-          && !isLHSNullableAnnotated
-          && !Nullness.hasNonNullAnnotation(
-              lhsComponentType.getAnnotationMirrors().stream(), config)) {
+      if (shouldSkipMismatchInUnannotatedMethod(lhsComponentType, isLHSNullableAnnotated)) {
         // LHS component is unannotated in @NullUnmarked context; skip this level
       } else {
         return false;
       }
     }
     return lhsComponentType.accept(this, rhsComponentType);
+  }
+
+  /**
+   * Returns {@code true} when a nullability mismatch should be skipped because the LHS type has no
+   * explicit nullness annotation and we are inside {@code @NullUnmarked} code.
+   *
+   * @param lhsType the formal (LHS) type whose annotations are inspected
+   * @param isLhsNullableAnnotated whether {@code lhsType} carries a {@code @Nullable} annotation
+   */
+  private boolean shouldSkipMismatchInUnannotatedMethod(
+      Type lhsType, boolean isLhsNullableAnnotated) {
+    return isMethodUnannotated
+        && !isLhsNullableAnnotated
+        && !Nullness.hasNonNullAnnotation(lhsType.getAnnotationMirrors().stream(), config);
   }
 
   @Override
