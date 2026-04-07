@@ -393,7 +393,8 @@ public final class AccessPath implements MapKey {
     if (methodSymbol.isStatic() && methodSymbol.getSimpleName().contentEquals("valueOf")) {
       Optional<Symbol.PackageSymbol> enclosingPackage =
           ASTHelpersBackports.enclosingPackage(methodSymbol.enclClass());
-      return enclosingPackage.map(pkg -> pkg.fullname.contentEquals("java.lang")).orElse(false);
+      return enclosingPackage.isPresent()
+          && enclosingPackage.get().fullname.contentEquals("java.lang");
     }
     return false;
   }
