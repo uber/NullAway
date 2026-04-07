@@ -23,7 +23,7 @@ package com.uber.nullaway.handlers;
  */
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.predicates.type.DescendantOf;
+import com.google.errorprone.predicates.TypePredicates;
 import com.google.errorprone.suppliers.Suppliers;
 import com.uber.nullaway.handlers.stream.StreamModelBuilder;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
@@ -34,7 +34,8 @@ public class StreamNullabilityPropagatorFactory {
   public static StreamNullabilityPropagator getJavaStreamNullabilityPropagator() {
     ImmutableList<StreamTypeRecord> streamModels =
         StreamModelBuilder.start()
-            .addStreamType(new DescendantOf(Suppliers.typeFromString("java.util.stream.Stream")))
+            .addStreamType(
+                TypePredicates.isDescendantOf(Suppliers.typeFromString("java.util.stream.Stream")))
             // Names of all the methods of java.util.stream.Stream that behave like .filter(...)
             // (must take exactly 1 argument)
             .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
@@ -107,7 +108,8 @@ public class StreamNullabilityPropagatorFactory {
   public static StreamNullabilityPropagator getRxStreamNullabilityPropagator() {
     ImmutableList<StreamTypeRecord> rxModels =
         StreamModelBuilder.start()
-            .addStreamType(new DescendantOf(Suppliers.typeFromString("io.reactivex.Observable")))
+            .addStreamType(
+                TypePredicates.isDescendantOf(Suppliers.typeFromString("io.reactivex.Observable")))
             // Names of all the methods of io.reactivex.Observable that behave like .filter(...)
             // (must take exactly 1 argument)
             .withFilterMethodFromSignature("filter(io.reactivex.functions.Predicate<? super T>)")
@@ -139,7 +141,8 @@ public class StreamNullabilityPropagatorFactory {
             // and thus propagate
             // the nullability information of the last call.
             .withUseAndPassthroughMethodAllFromName("doOnNext", "accept", ImmutableSet.of(0))
-            .addStreamType(new DescendantOf(Suppliers.typeFromString("io.reactivex.Maybe")))
+            .addStreamType(
+                TypePredicates.isDescendantOf(Suppliers.typeFromString("io.reactivex.Maybe")))
             .withFilterMethodFromSignature("filter(io.reactivex.functions.Predicate<? super T>)")
             .withMapMethodFromSignature(
                 "<R>map(io.reactivex.functions.Function<? super T,? extends R>)",
@@ -149,7 +152,8 @@ public class StreamNullabilityPropagatorFactory {
             .withMapMethodAllFromName("flatMapSingle", "apply", ImmutableSet.of(0))
             .withPassthroughMethodAllFromName("observeOn")
             .withUseAndPassthroughMethodAllFromName("doOnNext", "accept", ImmutableSet.of(0))
-            .addStreamType(new DescendantOf(Suppliers.typeFromString("io.reactivex.Single")))
+            .addStreamType(
+                TypePredicates.isDescendantOf(Suppliers.typeFromString("io.reactivex.Single")))
             .withFilterMethodFromSignature("filter(io.reactivex.functions.Predicate<? super T>)")
             .withMapMethodFromSignature(
                 "<R>map(io.reactivex.functions.Function<? super T,? extends R>)",
