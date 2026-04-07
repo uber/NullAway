@@ -418,6 +418,148 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1431_methodRefTypesIntegratedWithGenericInference() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String get() {
+                  throw new RuntimeException();
+                }
+                default @Nullable String getNullable() {
+                  return null;
+                }
+              }
+              private <T extends @Nullable Object> T create(Function<Foo, T> factory) {
+                return factory.apply(new Foo() {});
+              }
+              void test() {
+                String s1 = create(Foo::get);
+                s1.hashCode(); // should be legal
+                String s2 = create(Foo::getNullable);
+                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                s2.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1431_methodRefTypesIntegratedWithGenericInference_multipleArgs() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              interface Foo {
+                default String get() {
+                  throw new RuntimeException();
+                }
+                default @Nullable String getNullable() {
+                  return null;
+                }
+              }
+              private <T extends @Nullable Object> T createBoth(
+                  Function<Foo, T> firstFactory, Function<Foo, T> secondFactory) {
+                return firstFactory.apply(new Foo() {});
+              }
+              void test() {
+                String s = createBoth(Foo::get, Foo::getNullable);
+                // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                s.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodRefsAndGenericInferenceNested() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              interface Consumer<U extends @Nullable Object> {
+                void accept(U u);
+              }
+              static <T extends @Nullable Object> void takeMultiple(
+                  Consumer<T> c1, Consumer<T> c2, T t) {
+              }
+              static void takeNonNull(String s) {}
+              static void takeNullable(@Nullable String s) {}
+              void testNegative1(String c) {
+                takeMultiple(Test::takeNonNull, Test::takeNullable, c);
+              }
+              void testPositive1(@Nullable String c) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'c'
+                takeMultiple(Test::takeNonNull, Test::takeNonNull, c);
+              }
+              static void takeNonNullNested(Foo<String> f) {}
+              static void takeNullableNested(Foo<@Nullable String> f) {}
+              void testNegative2(Foo<String> f1, Foo<@Nullable String> f2) {
+                takeMultiple(Test::takeNonNullNested, Test::takeNonNullNested, f1);
+                takeMultiple(Test::takeNullableNested, Test::takeNullableNested, f2);
+              }
+              void testPositive2(Foo<String> f1) {
+                // BUG: Diagnostic contains: parameter type of referenced method is Test.Foo<@Nullable String>, but parameter in functional interface method has type Test.Foo<String>, which has mismatched type parameter nullability
+                takeMultiple(Test::takeNonNullNested, Test::takeNullableNested, f1);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodRefsAndGenericInferenceNestedReturn() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              interface Supplier<U extends @Nullable Object> {
+                U get();
+              }
+              static <T extends @Nullable Object> T pick(
+                  Supplier<T> s1, Supplier<T> s2) {
+                return s1.get();
+              }
+              static Foo<String> makeNonNullNested() {
+                throw new RuntimeException();
+              }
+              static Foo<@Nullable String> makeNullableNested() {
+                throw new RuntimeException();
+              }
+              void testPositive(Foo<String> f1) {
+                // BUG: Diagnostic contains: referenced method returns Test.Foo<@Nullable String>, but functional interface method returns Test.Foo<String>, which has mismatched type parameter nullability
+                Foo<String> f2 = pick(Test::makeNonNullNested, Test::makeNullableNested);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inferFromBoundMethodRefReturn() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
@@ -568,11 +710,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                // TODO should be illegal; file issue
+                // BUG: Diagnostic contains: parameter type of referenced method is String [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::take, sNullableContents);
                 consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
                 consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
-                // TODO should be illegal; file issue
+                // BUG: Diagnostic contains: parameter type of referenced method is String @Nullable [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::takeNullable, sNullableContents);
                 consume(Util::takeNullableContents, sNonNull); // legal due to array subtyping
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
@@ -612,11 +754,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 consume(Util::take, sNonNull); // should be legal
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::take, sNullable);
-                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
+                // BUG: Diagnostic contains: parameter type of referenced method is String [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::take, sNullableContents);
                 consume(Util::takeNullable, sNonNull); // legal due to covariant array subtyping
                 consume(Util::takeNullable, sNullable); // should be legal, since the array itself is non-null
-                // TODO should be illegal; https://github.com/uber/NullAway/issues/1474
+                // BUG: Diagnostic contains: parameter type of referenced method is String @Nullable [], but parameter in functional interface method has type @Nullable String [], which has mismatched type parameter nullability
                 consume(Util::takeNullable, sNullableContents);
                 consume(Util::takeNullableArgs, sNonNull); // legal due to array subtyping
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
