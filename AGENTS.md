@@ -16,3 +16,8 @@ Our `CHANGELOG.md` file should be formatted as follows:
 * Link to PRs just via their number, e.g. `#1234`, not a full GitHub URL
 * Don't credit `@msridhar` in changelog entries, but credit all other contributors
 * Under maintenance, list sub-bullets with a `-` rather than a `*`
+
+# Coding style
+
+Do not add top-level `@Nullable` annotations on local variables.  NullAway infers the nullability of local variables and
+ignores these explicit annotations.

@@ -48,6 +48,7 @@ import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
+import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -514,6 +515,18 @@ public interface Handler {
   default Type.MethodType onOverrideMethodType(
       Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
     return methodType;
+  }
+
+  /**
+   * Method to determine whether a field with a particular annotation should be treated as
+   * initialized externally (e.g. by a framework)
+   *
+   * @param annotationMirror the annotation
+   * @return {@code true} if initialization checking for the field should be skipped, {@code false}
+   *     otherwise
+   */
+  default boolean shouldSkipFieldInitializationCheck(AnnotationMirror annotationMirror) {
+    return false;
   }
 
   /**
