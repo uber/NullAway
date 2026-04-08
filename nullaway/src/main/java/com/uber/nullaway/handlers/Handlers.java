@@ -81,6 +81,7 @@ public class Handlers {
     handlerListBuilder.add(new ContractCheckHandler(config));
     handlerListBuilder.add(new LombokHandler(config));
     handlerListBuilder.add(new FluentFutureHandler(config));
+    handlerListBuilder.add(new SpringHandler());
     CompositeHandler mainHandler = new CompositeHandler(handlerListBuilder.build());
 
     // Initialize the handlers that need to be aware of the main handler
