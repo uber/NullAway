@@ -2645,7 +2645,7 @@ public class NullAway extends BugChecker
               if (config.isExcludedFieldAnnotation(annotationName)) {
                 return true;
               }
-              return SpringUtils.isInjectedByValueAnnotation(anno);
+              return handler.shouldSkipFieldInitializationCheck(anno);
             });
   }
 
