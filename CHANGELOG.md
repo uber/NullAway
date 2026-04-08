@@ -1,6 +1,42 @@
 Changelog
 =========
 
+Version 0.13.2
+--------------
+
+Various bug fixes in this release and better JSpecify support.
+
+* Fix for explicitly-typed lambda parameters in JDK 24+ (#1452)
+* Improve handling of wildcard upper bounds in generic method inference by @dhruv-agr (#1454)
+* Add default support for @PostConstruct as an initializer annotation (#1459)
+* Include nested annotation information in astubx files when loading external library models by @haewiful (#1456)
+* JSpecify: assume NONNULL in generic method inference for unconstrained type variables (#1471)
+* JSpecify: improve inference for generic methods based on method reference arguments (#1438)
+* Improve printing of annotated type variables in error messages (#1478)
+* Initial handling of constructor diamond operators (#1464)
+* Handle restrictive type-use `@NonNull` annotations on varargs array (#1484)
+* Test case for issue 1493 (#1496)
+* Fix library modeling for varargs arrays (#1485)
+* Re-introduce annotations elided by `javac` for certain cases (#1473)
+* JDK javac plugin: properly handle nested annotations on array parameter types and varargs (#1497)
+* Print only `@Nullable` type use annotations in error messages (#1507)
+* Better handling of method references passed to generic methods in JSpecify mode (#1499)
+* Support for Spring's @Value annotation (#1505)
+* Fix crash with captured array types (#1508)
+* Maintenance
+  - Update comments in NullabilityUtil#hasAnyAnnotationMatching (#1457)
+  - Update to Gradle 9.3.1 (#1458)
+  - Update to Error Prone 2.47.0 (#1461)
+  - Switch InvocationAndContext to be a record (#1463)
+  - Upgrade GitHub Actions for Node 24 compatibility by @salmanmkc (#1465)
+  - Upgrade GitHub Actions to latest versions by @salmanmkc (#1466)
+  - Bump various dependencies (#1469)
+  - Use text blocks in `CustomLibraryModelsTests` (#1482)
+  - Update Error Prone and EP plugin (#1486)
+  - Update to Gradle 9.4.0 (#1491)
+  - Minor cleanup, no behavior changes by @armandino (#1487)
+  - Update to Error Prone 2.49.0 (#1514)
+
 Version 0.13.1
 --------------
 
