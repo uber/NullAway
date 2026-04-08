@@ -30,12 +30,12 @@ import com.google.common.base.Preconditions;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableSet;
-import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.handlers.Handler;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
 import javax.lang.model.element.ElementKind;
 import org.jspecify.annotations.Nullable;
 
@@ -82,17 +82,19 @@ public final class CodeAnnotationInfo {
   private static boolean fromAnnotatedPackage(
       Symbol.ClassSymbol outermostClassSymbol, Config config) {
     String className = outermostClassSymbol.getQualifiedName().toString();
-    Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(outermostClassSymbol);
+    Optional<Symbol.PackageSymbol> enclosingPackage =
+        ASTHelpersBackports.enclosingPackage(outermostClassSymbol);
     if (!config.fromExplicitlyAnnotatedPackage(className)
-        && !(enclosingPackage != null && explicitlyNullMarkedPackageOrModule(enclosingPackage))) {
+        && !(enclosingPackage.isPresent()
+            && explicitlyNullMarkedPackageOrModule(enclosingPackage.get()))) {
       // By default, unknown code is unannotated unless @NullMarked or configured as annotated by
       // package name
       return false;
     }
     if (config.fromExplicitlyUnannotatedPackage(className)
-        || (enclosingPackage != null
+        || (enclosingPackage.isPresent()
             && hasDirectAnnotationWithSimpleName(
-                enclosingPackage, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME))) {
+                enclosingPackage.get(), NullabilityUtil.NULLUNMARKED_SIMPLE_NAME))) {
       // Any code explicitly marked as unannotated in our configuration is unannotated, no matter
       // what. Similarly, any package annotated as @NullUnmarked is unannotated, even if
       // explicitly passed to -XepOpt:NullAway::AnnotatedPackages

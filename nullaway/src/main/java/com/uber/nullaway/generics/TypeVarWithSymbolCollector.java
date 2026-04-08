@@ -12,6 +12,7 @@ import com.sun.tools.javac.code.Types;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
+import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
@@ -51,7 +52,7 @@ public final class TypeVarWithSymbolCollector
   // ---- Core matching logic ----
   @Override
   public @Nullable Void visitTypeVar(TypeVar t, @Nullable Void p) {
-    if (t.tsym == symbol) {
+    if (Objects.equals(t.tsym, symbol)) {
       matches.add(t);
     }
     scan(t.getUpperBound());

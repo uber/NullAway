@@ -37,7 +37,7 @@ public final class StubxWriter {
    * @param methodRecords Map of 'method signatures' to their 'method annotations record'. Method
    *     annotations record consists of return value annotations and argument annotations. {@link
    *     MethodAnnotationsRecord}
-   * @exception IOException On output error.
+   * @throws IOException On output error.
    */
   public static void write(
       DataOutputStream out,
