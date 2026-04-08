@@ -1986,6 +1986,7 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** NullAway used to crash on this example; this test is just to ensure there is no crash */
   @Test
   public void issue1503CapturedArrayTypeInTernary() {
     makeHelper()
