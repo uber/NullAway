@@ -15,7 +15,7 @@ Various bug fixes in this release and better JSpecify support.
 * Improve printing of annotated type variables in error messages (#1478)
 * Initial handling of constructor diamond operators (#1464)
 * Handle restrictive type-use `@NonNull` annotations on varargs array (#1484)
-* test case for issue 1493 (#1496)
+* Test case for issue 1493 (#1496)
 * Fix library modeling for varargs arrays (#1485)
 * Re-introduce annotations elided by `javac` for certain cases (#1473)
 * JDK javac plugin: properly handle nested annotations on array parameter types and varargs (#1497)
