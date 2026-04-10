@@ -749,28 +749,22 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
 
   @Test
   public void restrictiveAnnotationsVarargsLambdaUsesArrayNullness() {
-    makeRestrictiveHelper()
-        .addSourceLines(
-            "RestrictiveVarargsFi.java",
-            """
-            package com.uber.lib.unannotated;
-            import org.jspecify.annotations.NonNull;
-            import org.jspecify.annotations.NullUnmarked;
-            import org.jspecify.annotations.Nullable;
-            @FunctionalInterface
-            public interface RestrictiveVarargsFi {
-              @NullUnmarked
-              void apply(@Nullable Object @NonNull... inputs);
-            }
-            """)
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
             package com.uber;
-            import com.uber.lib.unannotated.RestrictiveVarargsFi;
+            import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
             @NullMarked
             class Test {
+              @FunctionalInterface
+              interface RestrictiveVarargsFi {
+                @NullUnmarked
+                void apply(@Nullable Object @NonNull... inputs);
+              }
               void test() {
                 RestrictiveVarargsFi fi =
                     (Object[] inputs) -> {
@@ -786,14 +780,5 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
-  }
-
-  private CompilationTestHelper makeRestrictiveHelper() {
-    return makeTestHelperWithArgs(
-        JSpecifyJavacConfig.withJSpecifyModeArgs(
-            Arrays.asList(
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true")));
   }
 }
