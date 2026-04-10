@@ -694,9 +694,106 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void implicitLambdaParameterInheritsNullableVarargsArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @FunctionalInterface
+              interface NullableVarargsArrayConsumer {
+                void apply(Object @Nullable... inputs);
+              }
+              void test() {
+                NullableVarargsArrayConsumer consumer =
+                    inputs -> {
+                      // BUG: Diagnostic contains: dereferenced expression inputs is @Nullable
+                      inputs.toString();
+                    };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void implicitLambdaParameterDoesNotInheritNullableVarargsElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @FunctionalInterface
+              interface NullableVarargsElementsConsumer {
+                void apply(@Nullable Object... inputs);
+              }
+              void test() {
+                NullableVarargsElementsConsumer consumer =
+                    inputs -> {
+                      inputs.toString();
+                    };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void restrictiveAnnotationsVarargsLambdaUsesArrayNullness() {
+    makeRestrictiveHelper()
+        .addSourceLines(
+            "RestrictiveVarargsFi.java",
+            """
+            package com.uber.lib.unannotated;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @FunctionalInterface
+            public interface RestrictiveVarargsFi {
+              @NullUnmarked
+              void apply(@Nullable Object @NonNull... inputs);
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.RestrictiveVarargsFi;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              void test() {
+                RestrictiveVarargsFi fi =
+                    (Object[] inputs) -> {
+                      inputs.toString();
+                    };
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
+  }
+
+  private CompilationTestHelper makeRestrictiveHelper() {
+    return makeTestHelperWithArgs(
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList(
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true")));
   }
 }
