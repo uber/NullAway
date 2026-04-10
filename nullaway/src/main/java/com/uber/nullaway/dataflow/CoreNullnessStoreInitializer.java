@@ -20,6 +20,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
+import com.uber.nullaway.handlers.InvocationArgumentNullness;
 import java.util.List;
 import java.util.Objects;
 import javax.lang.model.element.Element;
@@ -132,29 +133,35 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     List<Type> overridenMethodParamTypeList =
         TypeSubstitutionUtils.memberType(types, lambdaType, fiMethodSymbol, config)
             .getParameterTypes();
-    // If fiArgumentPositionNullness[i] == null, parameter position i is unannotated
-    @Nullable Nullness[] fiArgumentPositionNullness = new Nullness[fiMethodParameters.size()];
+    InvocationArgumentNullness fiArgumentNullness =
+        InvocationArgumentNullness.create(fiMethodSymbol);
     boolean isFIAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config, handler);
     if (isFIAnnotated) {
       for (int i = 0; i < fiMethodParameters.size(); i++) {
         if (Nullness.hasNullableAnnotation(fiMethodParameters.get(i), config)) {
           // Get the Nullness if the Annotation is directly written with the parameter
-          fiArgumentPositionNullness[i] = NULLABLE;
+          fiArgumentNullness.setParameterNullness(i, NULLABLE);
         } else if (config.isJSpecifyMode()
             && Nullness.hasNullableAnnotation(
                 overridenMethodParamTypeList.get(i).getAnnotationMirrors().stream(), config)) {
           // Get the Nullness if the Annotation is indirectly applied through a generic type if we
           // are in JSpecify mode
-          fiArgumentPositionNullness[i] = NULLABLE;
+          fiArgumentNullness.setParameterNullness(i, NULLABLE);
         } else {
-          fiArgumentPositionNullness[i] = NONNULL;
+          fiArgumentNullness.setParameterNullness(i, NONNULL);
         }
       }
+      if (fiMethodSymbol.isVarArgs()) {
+        Symbol.VarSymbol varargsParam =
+            fiMethodSymbol.getParameters().get(fiMethodSymbol.getParameters().size() - 1);
+        fiArgumentNullness.setVarargsArrayNullness(
+            Nullness.varargsArrayIsNullable(varargsParam, config) ? NULLABLE : NONNULL);
+      }
     }
-    fiArgumentPositionNullness =
+    fiArgumentNullness =
         handler.onOverrideMethodInvocationParametersNullability(
-            context, fiMethodSymbol, isFIAnnotated, fiArgumentPositionNullness);
+            context, fiMethodSymbol, isFIAnnotated, fiArgumentNullness);
 
     for (int i = 0; i < parameters.size(); i++) {
       LocalVariableNode param = parameters.get(i);
@@ -170,7 +177,11 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        assumed = fiArgumentPositionNullness[i] == null ? NONNULL : fiArgumentPositionNullness[i];
+        @Nullable Nullness fiParameterNullness =
+            fiMethodSymbol.isVarArgs() && i == parameters.size() - 1
+                ? fiArgumentNullness.getVarargsArrayNullness()
+                : fiArgumentNullness.getParameterNullness(i);
+        assumed = fiParameterNullness == null ? NONNULL : fiParameterNullness;
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
     }

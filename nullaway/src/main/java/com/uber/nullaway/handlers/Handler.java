@@ -207,49 +207,23 @@ public interface Handler {
    * @param isAnnotated A boolean flag indicating whether the called method is considered to be
    *     within isAnnotated or unannotated code, used to avoid querying for this information
    *     multiple times within the same handler chain.
-   * @param argumentPositionNullness Nullness info for each argument position as computed by
-   *     upstream handlers and/or the base analysis. Some entries may be {@code null}, indicating
+   * @param argumentNullness Nullness info for each argument position as computed by upstream
+   *     handlers and/or the base analysis. Some parameter entries may be {@code null}, indicating
    *     upstream handlers and the base analysis consider the parameter to be nullness-unknown,
-   *     usually since the parameter is from unannotated code. For a varargs parameter, the nullness
-   *     for when individual parameters are passed in the varargs position will be stored in this
-   *     array. See {@link #onOverrideMethodInvocationVarargsArrayNullability} for overriding the
+   *     usually since the parameter is from unannotated code. For a varargs parameter, the formal
+   *     parameter slot stores the nullness for when individual parameters are passed in the varargs
+   *     position, while {@link InvocationArgumentNullness#getVarargsArrayNullness()} stores the
    *     nullness of the varargs array itself.
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */
-  default @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
+  default InvocationArgumentNullness onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      @Nullable Nullness[] argumentPositionNullness) {
+      InvocationArgumentNullness argumentNullness) {
     // NoOp
-    return argumentPositionNullness;
-  }
-
-  /**
-   * Called to potentially override the nullability of the array itself when a varargs method is
-   * invoked by passing an array in the varargs position.
-   *
-   * <p>This hook is intentionally separate from {@link
-   * #onOverrideMethodInvocationParametersNullability(Context, Symbol.MethodSymbol, boolean,
-   * Nullness[])}. A single parameter-slot nullness value is not expressive enough for varargs,
-   * where the array and its elements can have different nullability.
-   *
-   * @param context The current context.
-   * @param methodSymbol The method symbol for the method in question.
-   * @param isAnnotated A boolean flag indicating whether the called method is annotated
-   * @param varargsArrayNullness current value for the varargs array nullability, or {@code null} if
-   *     upstream handlers and the base analysis consider the parameter to be nullness-unknown
-   * @return Updated explicit nullability for the varargs array, or {@code varargsArrayNullness} if
-   *     the current handler does not provide an override.
-   */
-  default @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
-      Context context,
-      Symbol.MethodSymbol methodSymbol,
-      boolean isAnnotated,
-      @Nullable Nullness varargsArrayNullness) {
-    // NoOp
-    return varargsArrayNullness;
+    return argumentNullness;
   }
 
   /**

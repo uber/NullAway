@@ -100,6 +100,7 @@ import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
+import com.uber.nullaway.handlers.InvocationArgumentNullness;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
@@ -816,9 +817,8 @@ public class NullAway extends BugChecker
               memberReferenceTree, castToNonNull(overridingMethod), state);
     }
 
-    // Get argument nullability for the overridden method.  If overriddenMethodArgNullnessMap[i] is
-    // null, parameter i is treated as unannotated.
-    @Nullable Nullness[] overriddenMethodArgNullnessMap = new Nullness[superParamSymbols.size()];
+    InvocationArgumentNullness overriddenMethodArgumentNullness =
+        InvocationArgumentNullness.create(overriddenMethod);
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
@@ -861,23 +861,32 @@ public class NullAway extends BugChecker
         } else {
           paramNullness = Nullness.NONNULL;
         }
-        overriddenMethodArgNullnessMap[i] = paramNullness;
+        overriddenMethodArgumentNullness.setParameterNullness(i, paramNullness);
+      }
+      if (overriddenMethodIsVarArgs) {
+        Symbol.VarSymbol varargsParam = superParamSymbols.get(superParamSymbols.size() - 1);
+        overriddenMethodArgumentNullness.setVarargsArrayNullness(
+            Nullness.varargsArrayIsNullable(varargsParam, config)
+                ? Nullness.NULLABLE
+                : Nullness.NONNULL);
       }
     }
 
     // Check handlers for any further/overriding nullness information
-    overriddenMethodArgNullnessMap =
+    overriddenMethodArgumentNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context,
             overriddenMethod,
             isOverriddenMethodAnnotated,
-            overriddenMethodArgNullnessMap);
+            overriddenMethodArgumentNullness);
 
     // If we have an unbound method reference, the first parameter of the overridden method must be
     // @NonNull, as this parameter will be used as a method receiver inside the generated lambda.
     // e.g. String::length is implemented as (@NonNull s -> s.length()) when used as a
     // SomeFunc<String> and thus incompatible with, for example, SomeFunc.apply(@Nullable T).
-    if (unboundMemberRef && Objects.equals(overriddenMethodArgNullnessMap[0], Nullness.NULLABLE)) {
+    if (unboundMemberRef
+        && Objects.equals(
+            overriddenMethodArgumentNullness.getParameterNullness(0), Nullness.NULLABLE)) {
       String message =
           "unbound instance method reference cannot be used, as first parameter of "
               + "functional interface method "
@@ -897,7 +906,11 @@ public class NullAway extends BugChecker
     int startParam = unboundMemberRef ? 1 : 0;
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
-      if (!Objects.equals(overriddenMethodArgNullnessMap[i], Nullness.NULLABLE)) {
+      @Nullable Nullness overriddenParameterNullness =
+          overriddenMethod.isVarArgs() && i == superParamSymbols.size() - 1
+              ? overriddenMethodArgumentNullness.getVarargsArrayNullness()
+              : overriddenMethodArgumentNullness.getParameterNullness(i);
+      if (!Objects.equals(overriddenParameterNullness, Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridden by a @NonNull arg.
         continue;
@@ -2051,15 +2064,14 @@ public class NullAway extends BugChecker
         });
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
-    // If argumentPositionNullness[i] == null, parameter i is unannotated
-    @Nullable Nullness[] argumentPositionNullness = new Nullness[formalParams.size()];
+    InvocationArgumentNullness argumentNullness = InvocationArgumentNullness.create(methodSymbol);
 
     if (isMethodAnnotated) {
       // compute which arguments are @NonNull
       for (int i = 0; i < formalParams.size(); i++) {
         VarSymbol param = formalParams.get(i);
         if (param.type.isPrimitive()) {
-          argumentPositionNullness[i] = Nullness.NONNULL;
+          argumentNullness.setParameterNullness(i, Nullness.NONNULL);
         } else if (ASTHelpers.isSameType(
             param.type, Suppliers.JAVA_LANG_VOID_TYPE.get(state), state)) {
           // Temporarily treat a Void argument type as if it were @Nullable Void. Handling of Void
@@ -2068,19 +2080,27 @@ public class NullAway extends BugChecker
           // JSpecify semantics.
           // See the suppression in https://github.com/uber/NullAway/pull/608 for an example of why
           // this is needed.
-          argumentPositionNullness[i] = Nullness.NULLABLE;
+          argumentNullness.setParameterNullness(i, Nullness.NULLABLE);
         } else {
           // we need to call paramHasNullableAnnotation here since the invoked method may be defined
           // in a class file
-          argumentPositionNullness[i] =
+          argumentNullness.setParameterNullness(
+              i,
               Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode()
                           && (tree instanceof MethodInvocationTree || tree instanceof NewClassTree))
                       ? genericsChecks.getGenericParameterNullnessAtInvocation(
                           i, methodSymbol, tree, state)
-                      : Nullness.NONNULL);
+                      : Nullness.NONNULL));
         }
+      }
+      if (methodSymbol.isVarArgs()) {
+        VarSymbol varargsFormalParam = formalParams.get(formalParams.size() - 1);
+        argumentNullness.setVarargsArrayNullness(
+            Nullness.varargsArrayIsNullable(varargsFormalParam, config)
+                ? Nullness.NULLABLE
+                : Nullness.NONNULL);
       }
 
       // perform generics checks for calls to annotated methods in JSpecify mode
@@ -2092,12 +2112,10 @@ public class NullAway extends BugChecker
       }
     }
 
-    // Allow handlers to override the list of non-null argument positions. For a varargs parameter,
-    // this array holds the nullness of individual varargs arguments; the case of a varargs array is
-    // handled separately
-    @Nullable Nullness[] finalArgumentPositionNullness =
+    // Allow handlers to override the list of non-null argument positions.
+    InvocationArgumentNullness finalArgumentNullness =
         handler.onOverrideMethodInvocationParametersNullability(
-            state.context, methodSymbol, isMethodAnnotated, argumentPositionNullness);
+            state.context, methodSymbol, isMethodAnnotated, argumentNullness);
 
     // now actually check the arguments
     // NOTE: the case of an invocation on a possibly-null reference
@@ -2105,28 +2123,16 @@ public class NullAway extends BugChecker
     invArgs.forEach(
         (actual, argPos, formalParamType, varArgsPassedAsArray) -> {
           if (argPos >= formalParams.size()) {
-            // extra varargs argument; nullness info stored in last position
-            argPos = finalArgumentPositionNullness.length - 1;
+            // extra varargs argument; nullness info stored in the varargs parameter slot
+            argPos = formalParams.size() - 1;
           }
           boolean argIsNonNull =
-              Objects.equals(Nullness.NONNULL, finalArgumentPositionNullness[argPos]);
+              Objects.equals(Nullness.NONNULL, finalArgumentNullness.getParameterNullness(argPos));
           if (varArgsPassedAsArray) {
             // This is the case where an array is explicitly passed in the position of the
             // varargs parameter
-            VarSymbol varargsFormalParam = formalParams.get(formalParams.size() - 1);
-            // when is the varargs array itself @NonNull?
-            // 1. For @NullMarked methods, as long as there is no @Nullable annotation
-            Nullness varargsArrayNullness =
-                (isMethodAnnotated && !Nullness.varargsArrayIsNullable(varargsFormalParam, config))
-                    ? Nullness.NONNULL
-                    : null;
-            // 2. For @NullUnmarked methods, there should be an explicit @NonNull annotation.  This
-            // is handled by the RestrictiveAnnotationHandler
-            // 3. Library model indicating it is @NonNull (handled in LibraryModelsHandler)
-            varargsArrayNullness =
-                handler.onOverrideMethodInvocationVarargsArrayNullability(
-                    state.context, methodSymbol, isMethodAnnotated, varargsArrayNullness);
-            argIsNonNull = Objects.equals(varargsArrayNullness, Nullness.NONNULL);
+            argIsNonNull =
+                Objects.equals(Nullness.NONNULL, finalArgumentNullness.getVarargsArrayNullness());
           }
           if (!argIsNonNull) {
             // argument can be @Nullable, so nothing to check
