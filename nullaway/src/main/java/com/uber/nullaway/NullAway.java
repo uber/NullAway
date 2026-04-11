@@ -862,13 +862,6 @@ public class NullAway extends BugChecker
         }
         overriddenMethodArgumentNullness.setParameterNullness(i, paramNullness);
       }
-      if (overriddenMethodIsVarArgs) {
-        Symbol.VarSymbol varargsParam = superParamSymbols.get(superParamSymbols.size() - 1);
-        overriddenMethodArgumentNullness.setVarargsArrayNullness(
-            Nullness.varargsArrayIsNullable(varargsParam, config)
-                ? Nullness.NULLABLE
-                : Nullness.NONNULL);
-      }
     }
 
     // Check handlers for any further/overriding nullness information
