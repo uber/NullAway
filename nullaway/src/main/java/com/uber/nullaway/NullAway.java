@@ -862,6 +862,13 @@ public class NullAway extends BugChecker
         }
         overriddenMethodArgumentNullness.setParameterNullness(i, paramNullness);
       }
+      if (overriddenMethodIsVarArgs) {
+        Symbol.VarSymbol varargsParam = superParamSymbols.get(superParamSymbols.size() - 1);
+        overriddenMethodArgumentNullness.setVarargsArrayNullness(
+            Nullness.varargsArrayIsNullable(varargsParam, config)
+                ? Nullness.NULLABLE
+                : Nullness.NONNULL);
+      }
     }
 
     // Check handlers for any further/overriding nullness information
@@ -898,10 +905,8 @@ public class NullAway extends BugChecker
     int startParam = unboundMemberRef ? 1 : 0;
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
-      @Nullable Nullness overriddenParameterNullness =
-          overriddenMethod.isVarArgs() && i == superParamSymbols.size() - 1
-              ? overriddenMethodArgumentNullness.getVarargsArrayNullness()
-              : overriddenMethodArgumentNullness.getParameterNullness(i);
+      Nullness overriddenParameterNullness =
+          overriddenMethodArgumentNullness.getParameterNullness(i);
       if (!Objects.equals(overriddenParameterNullness, Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridden by a @NonNull arg.

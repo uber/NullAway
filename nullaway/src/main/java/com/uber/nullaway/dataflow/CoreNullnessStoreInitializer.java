@@ -170,10 +170,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         // treat as non-null
         assumed = NONNULL;
       } else {
-        @Nullable Nullness fiParameterNullness =
-            fiMethodSymbol.isVarArgs() && i == parameters.size() - 1
-                ? fiArgumentNullness.getVarargsArrayNullness()
-                : fiArgumentNullness.getParameterNullness(i);
+        Nullness fiParameterNullness = fiArgumentNullness.getParameterNullness(i);
         assumed = fiParameterNullness == null ? NONNULL : fiParameterNullness;
       }
       result.setInformation(AccessPath.fromLocal(param), assumed);
