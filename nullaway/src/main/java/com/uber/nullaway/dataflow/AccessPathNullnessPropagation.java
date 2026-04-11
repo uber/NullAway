@@ -34,7 +34,6 @@ import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
-import com.sun.source.tree.PatternTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
@@ -1002,17 +1001,8 @@ public class AccessPathNullnessPropagation
     CaseTree caseTree = caseNode.getTree();
     List<? extends Tree> labels = TreeUtilsAfterJava17.CaseUtils.getLabels(caseTree);
     for (Tree label : labels) {
-      VariableTree varTree = null;
       if (label instanceof BindingPatternTree bindingPatternTree) {
-        varTree = bindingPatternTree.getVariable();
-      } else if (TreeUtilsAfterJava17.PatternCaseLabelUtils.isPatternCaseLabelTree(label)) {
-        PatternTree patternTree =
-            (PatternTree) TreeUtilsAfterJava17.PatternCaseLabelUtils.getPattern(label);
-        if (patternTree instanceof BindingPatternTree bindingPatternTree) {
-          varTree = bindingPatternTree.getVariable();
-        }
-      }
-      if (varTree != null) {
+        VariableTree varTree = bindingPatternTree.getVariable();
         for (Node operand : caseNode.getCaseOperands()) {
           Symbol operandSymbol = ASTHelpers.getSymbol(operand.getTree());
           Symbol varSymbol = ASTHelpers.getSymbol(varTree);
