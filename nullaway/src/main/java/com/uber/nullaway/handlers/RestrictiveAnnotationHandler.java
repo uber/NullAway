@@ -121,7 +121,7 @@ public class RestrictiveAnnotationHandler implements Handler {
       Symbol.VarSymbol varargsParamSymbol =
           isVarargsParam ? methodSymbol.getParameters().get(i) : null;
       if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
-        if (isVarargsParam) {
+        if (varargsParamSymbol != null) {
           // Special handling: ignore org.jetbrains.annotations.NotNull on varargs parameters
           // to handle kotlinc generated jars (see #720)
           boolean jetBrainsNotNullAnnotated =
@@ -135,7 +135,8 @@ public class RestrictiveAnnotationHandler implements Handler {
       } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
         argumentNullness.setParameterNullness(i, Nullness.NULLABLE);
       }
-      if (isVarargsParam && Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
+      if (varargsParamSymbol != null
+          && Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
         argumentNullness.setVarargsArrayNullness(Nullness.NONNULL);
       }
     }
