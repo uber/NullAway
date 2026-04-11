@@ -30,9 +30,11 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.PatternTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.Symbol;
@@ -134,7 +136,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.UnsignedRightShiftNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
-import org.checkerframework.nullaway.javacutil.TreeUtilsAfterJava11;
+import org.checkerframework.nullaway.javacutil.TreeUtilsAfterJava17;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -998,11 +1000,19 @@ public class AccessPathNullnessPropagation
    */
   private @Nullable LocalVariableNode getVariableNodeForTypePattern(CaseNode caseNode) {
     CaseTree caseTree = caseNode.getTree();
-    List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
+    List<? extends Tree> labels = TreeUtilsAfterJava17.CaseUtils.getLabels(caseTree);
     for (Tree label : labels) {
-      String kindName = label.getKind().name();
-      if (kindName.equals("BINDING_PATTERN") || kindName.equals("PATTERN_CASE_LABEL")) {
-        VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
+      VariableTree varTree = null;
+      if (label instanceof BindingPatternTree bindingPatternTree) {
+        varTree = bindingPatternTree.getVariable();
+      } else if (TreeUtilsAfterJava17.PatternCaseLabelUtils.isPatternCaseLabelTree(label)) {
+        PatternTree patternTree =
+            (PatternTree) TreeUtilsAfterJava17.PatternCaseLabelUtils.getPattern(label);
+        if (patternTree instanceof BindingPatternTree bindingPatternTree) {
+          varTree = bindingPatternTree.getVariable();
+        }
+      }
+      if (varTree != null) {
         for (Node operand : caseNode.getCaseOperands()) {
           Symbol operandSymbol = ASTHelpers.getSymbol(operand.getTree());
           Symbol varSymbol = ASTHelpers.getSymbol(varTree);
