@@ -87,7 +87,7 @@ public class NullnessAnnotationSerializer implements Plugin {
             if (e.getKind() == com.sun.source.util.TaskEvent.Kind.ANALYZE) {
               CompilationUnitTree cu = e.getCompilationUnit();
               new TreePathScanner<@Nullable Void, @Nullable Void>() {
-                /** keep a stack of class contexts to handle nested classes */
+                /* keep a stack of class contexts to handle nested classes */
                 final Deque<ClassInfo> classStack = new ArrayDeque<>();
 
                 @Nullable ClassInfo currentClass = null;
@@ -244,7 +244,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return hasAnnotation || hasJSpecifyAnnotationDeep(tpSym.asType());
                 }
 
-                /**
+                /*
                  * Checks if a list of {@link AnnotationMirror}s contains any JSpecify nullness
                  * annotations ({@code @Nullable} or {@code @NonNull}).
                  *
@@ -263,7 +263,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return false;
                 }
 
-                /**
+                /*
                  * Recursively checks if a {@code TypeMirror} or any of its nested type components
                  * (like array components or bounds) have a JSpecify nullness annotation.
                  *

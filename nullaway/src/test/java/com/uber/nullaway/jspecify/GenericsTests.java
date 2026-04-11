@@ -1986,6 +1986,28 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** NullAway used to crash on this example; this test is just to ensure there is no crash */
+  @Test
+  public void issue1503CapturedArrayTypeInTernary() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Collection;
+            import java.util.function.IntFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T[] toArray(@Nullable Collection<T> c, IntFunction<? extends T[]> factory) {
+                return c != null ? c.toArray(factory.apply(c.size())) : factory.apply(0);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void overrideWithRawType() {
     makeHelper()

@@ -415,6 +415,60 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void springValueFieldTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Value.java",
+            """
+            package org.springframework.beans.factory.annotation;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+            @Retention(RetentionPolicy.RUNTIME)
+            public @interface Value {
+              String value();
+            }
+            """)
+        .addSourceLines(
+            "NegativeCases.java",
+            """
+            package com.uber;
+            import org.springframework.beans.factory.annotation.Value;
+            import org.jspecify.annotations.Nullable;
+            class NegativeCases {
+              @Value("${app.name}")
+              String propertyName;
+              @Value("'literal'")
+              String literalValue;
+              @Nullable
+              @Value("#{null}")
+              String nullableSpelNullValue;
+              void test() {
+                propertyName.toString();
+                literalValue.toString();
+              }
+            }
+            """)
+        .addSourceLines(
+            "PositiveCases.java",
+            """
+            package com.uber;
+            import org.springframework.beans.factory.annotation.Value;
+            class PositiveCases {
+              @Value("#{null}")
+              // BUG: Diagnostic contains: @NonNull field spelNullValue not initialized
+              String spelNullValue;
+              @Value("${missing:#{null}}")
+              // BUG: Diagnostic contains: @NonNull field placeholderWithNullDefault not initialized
+              String placeholderWithNullDefault;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void springTestAutowiredFieldTest() {
     defaultCompilationHelper
         .addSourceFile("testdata/springboot-annotations/MockBean.java")

@@ -114,9 +114,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsType instanceof NullType) {
       return true;
     }
-    Type.ArrayType arrRhsType = (Type.ArrayType) rhsType;
     Type lhsComponentType = lhsType.getComponentType();
-    Type rhsComponentType = arrRhsType.getComponentType();
+    if (!(rhsType instanceof Type.ArrayType rhsArrayType)) {
+      // this can happen, e.g., with captured types.  don't attempt to handle this yet.
+      return true;
+    }
+    Type rhsComponentType = rhsArrayType.getComponentType();
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {

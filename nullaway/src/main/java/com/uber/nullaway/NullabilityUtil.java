@@ -243,26 +243,8 @@ public class NullabilityUtil {
    */
   public static @Nullable String getAnnotationValue(
       Symbol.MethodSymbol methodSymbol, String annotName) {
-    AnnotationMirror annot =
-        AnnotationUtils.getAnnotationByName(methodSymbol.getAnnotationMirrors(), annotName);
-    if (annot == null) {
-      return null;
-    }
-
-    Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
-        annot.getElementValues();
-    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
-        elementValues.entrySet()) {
-      ExecutableElement elem = entry.getKey();
-      if (elem.getSimpleName().contentEquals("value")) {
-        Object value = entry.getValue().getValue();
-        if (value instanceof String string) {
-          return string;
-        }
-      }
-    }
-    // not found
-    return null;
+    AnnotationMirror annot = findAnnotation((Symbol) methodSymbol, annotName, true);
+    return annot == null ? null : getAnnotationValue(annot);
   }
 
   /**
@@ -298,30 +280,50 @@ public class NullabilityUtil {
   }
 
   /**
-   * Retrieve the specific annotation of a method.
+   * Retrieve the specific annotation of a symbol.
    *
-   * @param methodSymbol A method to check for the annotation.
+   * @param symbol A symbol to check for the annotation.
    * @param annotName The qualified name or simple name of the annotation depending on the value of
    *     {@code exactMatch}.
    * @param exactMatch If true, the annotation name must match the full qualified name given in
    *     {@code annotName}, otherwise, simple names will be checked.
    * @return an {@code AnnotationMirror} representing that annotation, or null in case the
-   *     annotation with a given name {@code annotName} doesn't exist in {@code methodSymbol}.
+   *     annotation with a given name {@code annotName} doesn't exist in {@code symbol}.
    */
   public static @Nullable AnnotationMirror findAnnotation(
-      Symbol.MethodSymbol methodSymbol, String annotName, boolean exactMatch) {
+      Symbol symbol, String annotName, boolean exactMatch) {
     AnnotationMirror annot = null;
-    for (AnnotationMirror annotationMirror : methodSymbol.getAnnotationMirrors()) {
+    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
       String name = AnnotationUtils.annotationName(annotationMirror);
       if ((exactMatch && name.equals(annotName)) || (!exactMatch && name.endsWith(annotName))) {
         annot = annotationMirror;
         break;
       }
     }
-    if (annot == null) {
-      return null;
-    }
     return annot;
+  }
+
+  /**
+   * Retrieve the {@code value} attribute from an annotation mirror.
+   *
+   * @param annot the annotation mirror
+   * @return the {@code value} attribute, or {@code null} if the annotation has no string-valued
+   *     {@code value} element
+   */
+  public static @Nullable String getAnnotationValue(AnnotationMirror annot) {
+    Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
+        annot.getElementValues();
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
+        elementValues.entrySet()) {
+      ExecutableElement elem = entry.getKey();
+      if (elem.getSimpleName().contentEquals("value")) {
+        Object value = entry.getValue().getValue();
+        if (value instanceof String string) {
+          return string;
+        }
+      }
+    }
+    return null;
   }
 
   /**

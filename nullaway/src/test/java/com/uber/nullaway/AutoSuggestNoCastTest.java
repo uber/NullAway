@@ -72,7 +72,7 @@ public class AutoSuggestNoCastTest {
             "    return null;",
             "  }",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH); // Yes we can!
+        .doTest(); // Yes we can!
   }
 
   @Test
@@ -94,7 +94,7 @@ public class AutoSuggestNoCastTest {
             "    return null;",
             "  }",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+        .doTest();
   }
 
   @Test
@@ -123,7 +123,7 @@ public class AutoSuggestNoCastTest {
             "      foo.toString();",
             "    };",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+        .doTest();
   }
 
   @Test
@@ -154,7 +154,7 @@ public class AutoSuggestNoCastTest {
             "      id(foo);",
             "    };",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+        .doTest();
   }
 
   @Test
@@ -185,7 +185,7 @@ public class AutoSuggestNoCastTest {
             "      int x = foo + 1;",
             "    };",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+        .doTest();
   }
 
   @Test
@@ -221,7 +221,7 @@ public class AutoSuggestNoCastTest {
             "    java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };",
             "  }",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+        .doTest();
   }
 
   @Test
@@ -256,7 +256,7 @@ public class AutoSuggestNoCastTest {
             "    callFoo(Test::biz);",
             "  }",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+        .doTest();
   }
 
   @Test
@@ -293,6 +293,6 @@ public class AutoSuggestNoCastTest {
             "    callFoo(Test::biz);",
             "  }",
             "}")
-        .doTest(BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH);
+        .doTest();
   }
 }

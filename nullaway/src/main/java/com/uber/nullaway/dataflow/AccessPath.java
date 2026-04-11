@@ -36,12 +36,14 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.ASTHelpersBackports;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.annotations.JacocoIgnoreGenerated;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -389,8 +391,10 @@ public final class AccessPath implements MapKey {
 
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
     if (methodSymbol.isStatic() && methodSymbol.getSimpleName().contentEquals("valueOf")) {
-      Symbol.PackageSymbol enclosingPackage = ASTHelpers.enclosingPackage(methodSymbol.enclClass());
-      return enclosingPackage != null && enclosingPackage.fullname.contentEquals("java.lang");
+      Optional<Symbol.PackageSymbol> enclosingPackage =
+          ASTHelpersBackports.enclosingPackage(methodSymbol.enclClass());
+      return enclosingPackage.isPresent()
+          && enclosingPackage.get().fullname.contentEquals("java.lang");
     }
     return false;
   }

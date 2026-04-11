@@ -22,8 +22,6 @@
 
 package com.uber.nullaway;
 
-import static com.google.errorprone.BugCheckerRefactoringTestHelper.TestMode.TEXT_MATCH;
-
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.sun.source.tree.Tree;
 import java.io.IOException;
@@ -198,7 +196,7 @@ public class AutoSuggestTest {
             "        .getObj();",
             "  }",
             "}")
-        .doTest(TEXT_MATCH);
+        .doTest();
   }
 
   @Test
@@ -286,7 +284,7 @@ public class AutoSuggestTest {
             "    return castToNonNull(f./* keep this comment */getObj());",
             "  }",
             "}")
-        .doTest(TEXT_MATCH);
+        .doTest();
   }
 
   @Test
