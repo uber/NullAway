@@ -30,6 +30,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -104,50 +105,42 @@ public class RestrictiveAnnotationHandler implements Handler {
   }
 
   @Override
-  public @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
+  public MethodParameterNullness onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      @Nullable Nullness[] argumentPositionNullness) {
+      MethodParameterNullness argumentNullness) {
     if (isAnnotated) {
       // We ignore isAnnotated code here, since annotations in code considered isAnnotated are
       // already handled by NullAway's core algorithm.
-      return argumentPositionNullness;
+      return argumentNullness;
     }
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
+      boolean isVarargsParam =
+          methodSymbol.isVarArgs() && i == methodSymbol.getParameters().size() - 1;
+      Symbol.VarSymbol varargsParamSymbol =
+          isVarargsParam ? methodSymbol.getParameters().get(i) : null;
       if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
-        if (methodSymbol.isVarArgs() && i == methodSymbol.getParameters().size() - 1) {
+        if (varargsParamSymbol != null) {
           // Special handling: ignore org.jetbrains.annotations.NotNull on varargs parameters
           // to handle kotlinc generated jars (see #720)
-          Symbol.VarSymbol varargsParamSymbol = methodSymbol.getParameters().get(i);
           boolean jetBrainsNotNullAnnotated =
               NullabilityUtil.hasJetBrainsNotNullDeclarationAnnotation(varargsParamSymbol);
-          if (jetBrainsNotNullAnnotated) {
-            continue;
+          if (!jetBrainsNotNullAnnotated) {
+            argumentNullness.setParameterNullness(i, Nullness.NONNULL);
           }
+        } else {
+          argumentNullness.setParameterNullness(i, Nullness.NONNULL);
         }
-        argumentPositionNullness[i] = Nullness.NONNULL;
       } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
-        argumentPositionNullness[i] = Nullness.NULLABLE;
+        argumentNullness.setParameterNullness(i, Nullness.NULLABLE);
+      }
+      if (varargsParamSymbol != null
+          && Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
+        argumentNullness.setVarargsArrayNullness(Nullness.NONNULL);
       }
     }
-    return argumentPositionNullness;
-  }
-
-  @Override
-  public @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
-      Context context,
-      Symbol.MethodSymbol methodSymbol,
-      boolean isAnnotated,
-      @Nullable Nullness varargsArrayNullness) {
-    if (methodSymbol.isVarArgs()) {
-      Symbol.VarSymbol varargsParamSymbol =
-          methodSymbol.getParameters().get(methodSymbol.getParameters().size() - 1);
-      if (Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
-        return Nullness.NONNULL;
-      }
-    }
-    return varargsArrayNullness;
+    return argumentNullness;
   }
 
   @Override

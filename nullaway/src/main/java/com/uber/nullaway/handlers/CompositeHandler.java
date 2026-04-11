@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -145,31 +146,17 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
+  public MethodParameterNullness onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      @Nullable Nullness[] argumentPositionNullness) {
+      MethodParameterNullness argumentNullness) {
     for (Handler h : handlers) {
-      argumentPositionNullness =
+      argumentNullness =
           h.onOverrideMethodInvocationParametersNullability(
-              context, methodSymbol, isAnnotated, argumentPositionNullness);
+              context, methodSymbol, isAnnotated, argumentNullness);
     }
-    return argumentPositionNullness;
-  }
-
-  @Override
-  public @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
-      Context context,
-      Symbol.MethodSymbol methodSymbol,
-      boolean isAnnotated,
-      @Nullable Nullness varargsArrayNullness) {
-    for (Handler h : handlers) {
-      varargsArrayNullness =
-          h.onOverrideMethodInvocationVarargsArrayNullability(
-              context, methodSymbol, isAnnotated, varargsArrayNullness);
-    }
-    return varargsArrayNullness;
+    return argumentNullness;
   }
 
   @Override
