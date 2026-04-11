@@ -5,6 +5,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import java.util.List;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -18,12 +19,22 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final VisitorState state;
   private final GenericsChecks genericsChecks;
   private final Config config;
+  private final boolean isMethodUnannotated;
 
   CheckIdenticalNullabilityVisitor(
       VisitorState state, GenericsChecks genericsChecks, Config config) {
+    this(state, genericsChecks, config, false);
+  }
+
+  CheckIdenticalNullabilityVisitor(
+      VisitorState state,
+      GenericsChecks genericsChecks,
+      Config config,
+      boolean isMethodUnannotated) {
     this.state = state;
     this.genericsChecks = genericsChecks;
     this.config = config;
+    this.isMethodUnannotated = isMethodUnannotated;
   }
 
   @Override
@@ -71,7 +82,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
       boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
       if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        return false;
+        if (shouldSkipMismatchInUnannotatedMethod(lhsTypeArgument, isLHSNullableAnnotated)) {
+          // LHS is unannotated in @NullUnmarked context; skip this level but still check
+          // nested types below (which may have restrictive annotations)
+        } else {
+          return false;
+        }
       }
       // nested generics
       if (!lhsTypeArgument.accept(this, rhsTypeArgument)) {
@@ -107,9 +123,27 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
     if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
-      return false;
+      if (shouldSkipMismatchInUnannotatedMethod(lhsComponentType, isLHSNullableAnnotated)) {
+        // LHS component is unannotated in @NullUnmarked context; skip this level
+      } else {
+        return false;
+      }
     }
     return lhsComponentType.accept(this, rhsComponentType);
+  }
+
+  /**
+   * Returns {@code true} when a nullability mismatch should be skipped because the LHS type has no
+   * explicit nullness annotation and we are inside {@code @NullUnmarked} code.
+   *
+   * @param lhsType the formal (LHS) type whose annotations are inspected
+   * @param isLhsNullableAnnotated whether {@code lhsType} carries a {@code @Nullable} annotation
+   */
+  private boolean shouldSkipMismatchInUnannotatedMethod(
+      Type lhsType, boolean isLhsNullableAnnotated) {
+    return isMethodUnannotated
+        && !isLhsNullableAnnotated
+        && !Nullness.hasNonNullAnnotation(lhsType.getAnnotationMirrors().stream(), config);
   }
 
   @Override

@@ -1032,6 +1032,78 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullUnmarkedRestrictiveAnnotationsOnTypeVariables() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<T extends @Nullable Object> {}
+              @NullUnmarked
+              static void takeFoo(Foo<@NonNull String> f) {}
+              @NullUnmarked
+              static <T> T identity(Foo<@NonNull T> t) {
+                throw new RuntimeException("not implemented");
+              }
+              void test(Foo<@Nullable String> s, Foo<String> nonNullFoo) {
+                // Error: passing Foo<@Nullable String> where Foo<@NonNull String> is required
+                // BUG: Diagnostic contains: incompatible types
+                takeFoo(s);
+                // OK: passing Foo<String> where Foo<@NonNull String> is required
+                takeFoo(nonNullFoo);
+                // Error: passing Foo<@Nullable String> to generic identity method
+                // with restrictive @NonNull on type parameter
+                // BUG: Diagnostic contains: incompatible types
+                String x = identity(s);
+                // OK: passing Foo<String> where Foo<@NonNull String> is expected
+                String y = identity(nonNullFoo);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullUnmarkedUnannotatedTypeVariableNoError() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              static <T> void bar(List<T> list) {}
+              void test(List<@Nullable String> s) {
+                // No error: T is unannotated in @NullUnmarked code, so unconstrained
+                bar(s);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullUnmarkedOuterMethodLevelWithLocalClass() {
     defaultCompilationHelper
         .addSourceLines(
