@@ -118,7 +118,7 @@ public class RestrictiveAnnotationHandler implements Handler {
     for (int i = 0; i < methodSymbol.getParameters().size(); ++i) {
       boolean isVarargsParam =
           methodSymbol.isVarArgs() && i == methodSymbol.getParameters().size() - 1;
-      Symbol.@Nullable VarSymbol varargsParamSymbol =
+      Symbol.VarSymbol varargsParamSymbol =
           isVarargsParam ? methodSymbol.getParameters().get(i) : null;
       if (Nullness.paramHasNonNullAnnotation(methodSymbol, i, config)) {
         if (isVarargsParam) {
