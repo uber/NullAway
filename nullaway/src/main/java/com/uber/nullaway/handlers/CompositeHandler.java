@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -145,11 +146,11 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public InvocationArgumentNullness onOverrideMethodInvocationParametersNullability(
+  public MethodParameterNullness onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      InvocationArgumentNullness argumentNullness) {
+      MethodParameterNullness argumentNullness) {
     for (Handler h : handlers) {
       argumentNullness =
           h.onOverrideMethodInvocationParametersNullability(

@@ -100,7 +100,6 @@ import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handlers;
-import com.uber.nullaway.handlers.InvocationArgumentNullness;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Target;
@@ -817,8 +816,8 @@ public class NullAway extends BugChecker
               memberReferenceTree, castToNonNull(overridingMethod), state);
     }
 
-    InvocationArgumentNullness overriddenMethodArgumentNullness =
-        InvocationArgumentNullness.create(overriddenMethod);
+    MethodParameterNullness overriddenMethodArgumentNullness =
+        MethodParameterNullness.create(overriddenMethod);
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
@@ -2064,7 +2063,7 @@ public class NullAway extends BugChecker
         });
     boolean isMethodAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler);
-    InvocationArgumentNullness argumentNullness = InvocationArgumentNullness.create(methodSymbol);
+    MethodParameterNullness argumentNullness = MethodParameterNullness.create(methodSymbol);
 
     if (isMethodAnnotated) {
       // compute which arguments are @NonNull
@@ -2113,7 +2112,7 @@ public class NullAway extends BugChecker
     }
 
     // Allow handlers to override the list of non-null argument positions.
-    InvocationArgumentNullness finalArgumentNullness =
+    MethodParameterNullness finalArgumentNullness =
         handler.onOverrideMethodInvocationParametersNullability(
             state.context, methodSymbol, isMethodAnnotated, argumentNullness);
 

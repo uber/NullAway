@@ -30,6 +30,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -104,11 +105,11 @@ public class RestrictiveAnnotationHandler implements Handler {
   }
 
   @Override
-  public InvocationArgumentNullness onOverrideMethodInvocationParametersNullability(
+  public MethodParameterNullness onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      InvocationArgumentNullness argumentNullness) {
+      MethodParameterNullness argumentNullness) {
     if (isAnnotated) {
       // We ignore isAnnotated code here, since annotations in code considered isAnnotated are
       // already handled by NullAway's core algorithm.

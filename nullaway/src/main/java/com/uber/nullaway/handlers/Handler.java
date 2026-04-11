@@ -38,6 +38,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.LibraryModels;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -212,16 +213,16 @@ public interface Handler {
    *     upstream handlers and the base analysis consider the parameter to be nullness-unknown,
    *     usually since the parameter is from unannotated code. For a varargs parameter, the formal
    *     parameter slot stores the nullness for when individual parameters are passed in the varargs
-   *     position, while {@link InvocationArgumentNullness#getVarargsArrayNullness()} stores the
+   *     position, while {@link MethodParameterNullness#getVarargsArrayNullness()} stores the
    *     nullness of the varargs array itself.
    * @return The updated nullness info for each argument position, as computed by the current
    *     handler.
    */
-  default InvocationArgumentNullness onOverrideMethodInvocationParametersNullability(
+  default MethodParameterNullness onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      InvocationArgumentNullness argumentNullness) {
+      MethodParameterNullness argumentNullness) {
     // NoOp
     return argumentNullness;
   }

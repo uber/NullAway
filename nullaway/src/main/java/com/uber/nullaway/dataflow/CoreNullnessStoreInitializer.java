@@ -15,12 +15,12 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
-import com.uber.nullaway.handlers.InvocationArgumentNullness;
 import java.util.List;
 import java.util.Objects;
 import javax.lang.model.element.Element;
@@ -133,8 +133,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
     List<Type> overridenMethodParamTypeList =
         TypeSubstitutionUtils.memberType(types, lambdaType, fiMethodSymbol, config)
             .getParameterTypes();
-    InvocationArgumentNullness fiArgumentNullness =
-        InvocationArgumentNullness.create(fiMethodSymbol);
+    MethodParameterNullness fiArgumentNullness = MethodParameterNullness.create(fiMethodSymbol);
     boolean isFIAnnotated =
         !codeAnnotationInfo.isSymbolUnannotated(fiMethodSymbol, config, handler);
     if (isFIAnnotated) {
@@ -151,12 +150,6 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
         } else {
           fiArgumentNullness.setParameterNullness(i, NONNULL);
         }
-      }
-      if (fiMethodSymbol.isVarArgs()) {
-        Symbol.VarSymbol varargsParam =
-            fiMethodSymbol.getParameters().get(fiMethodSymbol.getParameters().size() - 1);
-        fiArgumentNullness.setVarargsArrayNullness(
-            Nullness.varargsArrayIsNullable(varargsParam, config) ? NULLABLE : NONNULL);
       }
     }
     fiArgumentNullness =

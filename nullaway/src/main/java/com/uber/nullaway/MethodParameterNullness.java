@@ -1,32 +1,27 @@
-package com.uber.nullaway.handlers;
+package com.uber.nullaway;
 
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.Nullness;
 import org.jspecify.annotations.Nullable;
 
-/** Mutable nullness information for a method invocation's formal parameters and varargs array. */
-public final class InvocationArgumentNullness {
+/**
+ * Mutable nullness information for a method's formal parameters and varargs array. For a varargs
+ * method, the nullability of individual arguments is represented in the last parameter position,
+ * while the nullability of the varargs array itself is represented separately.
+ */
+public final class MethodParameterNullness {
 
   private final @Nullable Nullness[] parameterNullness;
   private final boolean hasVarargsArrayNullness;
   private @Nullable Nullness varargsArrayNullness;
 
-  private InvocationArgumentNullness(int parameterCount, boolean hasVarargsArrayNullness) {
+  private MethodParameterNullness(int parameterCount, boolean hasVarargsArrayNullness) {
     this.parameterNullness = new Nullness[parameterCount];
     this.hasVarargsArrayNullness = hasVarargsArrayNullness;
   }
 
-  public static InvocationArgumentNullness create(Symbol.MethodSymbol methodSymbol) {
-    return new InvocationArgumentNullness(
+  public static MethodParameterNullness create(Symbol.MethodSymbol methodSymbol) {
+    return new MethodParameterNullness(
         methodSymbol.getParameters().size(), methodSymbol.isVarArgs());
-  }
-
-  public int parameterCount() {
-    return parameterNullness.length;
-  }
-
-  public boolean hasVarargsArrayNullness() {
-    return hasVarargsArrayNullness;
   }
 
   public @Nullable Nullness getParameterNullness(int index) {
