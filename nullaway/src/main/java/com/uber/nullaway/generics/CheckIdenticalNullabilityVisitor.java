@@ -115,6 +115,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * {@link #wildcardContains}.
    */
   private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
+    if (!config.handleWildcardGenerics()
+        && (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
+            || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD))) {
+      // Preserve the pre-flag behavior of skipping wildcard-aware checks entirely.
+      return true;
+    }
     if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
       return wildcardContains((Type.WildcardType) lhsTypeArgument, rhsTypeArgument);
     }
