@@ -585,7 +585,7 @@ public final class GenericsChecks {
     if (type != null && type.isRaw()) {
       return null;
     }
-    return type;
+    return type == null ? null : TypeSubstitutionUtils.collapseSameKindNestedWildcards(type);
   }
 
   /**
@@ -1921,7 +1921,9 @@ public final class GenericsChecks {
                 calledFromDataflow);
       }
       Type.MethodType methodTypeAtCallSite =
-          castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
+          TypeSubstitutionUtils.collapseSameKindNestedWildcards(
+                  castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())))
+              .asMethodType();
       if (result instanceof InferenceSuccess successResult) {
         methodTypeAtCallSite =
             restoreNestedNullabilityForTypeVarArguments(
