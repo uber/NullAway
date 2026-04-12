@@ -639,6 +639,28 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void assertJInjectSoftAssertionsTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestCase.java",
+            """
+            package com.uber;
+            import org.assertj.core.api.junit.jupiter.InjectSoftAssertions;
+            import org.assertj.core.api.SoftAssertions;
+            import org.junit.jupiter.api.Test;
+            public class TestCase {
+              @InjectSoftAssertions
+              SoftAssertions softAssertions;
+              @Test
+              void testWithSoftAssertions() {
+                softAssertions.assertThat(true).isTrue();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void springAutowiredConstructorTest() {
     defaultCompilationHelper
         .addSourceLines(

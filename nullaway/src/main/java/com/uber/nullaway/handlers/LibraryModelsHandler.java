@@ -52,6 +52,7 @@ import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -123,47 +124,54 @@ public class LibraryModelsHandler implements Handler {
   }
 
   @Override
-  public @Nullable Nullness[] onOverrideMethodInvocationParametersNullability(
+  public MethodParameterNullness onOverrideMethodInvocationParametersNullability(
       Context context,
       Symbol.MethodSymbol methodSymbol,
       boolean isAnnotated,
-      @Nullable Nullness[] argumentPositionNullness) {
+      MethodParameterNullness argumentNullness) {
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
     ImmutableSet<Integer> nullableParamsFromModel =
         optimizedLibraryModels.explicitlyNullableParameters(methodSymbol);
     ImmutableSet<Integer> nonNullParamsFromModel =
         optimizedLibraryModels.nonNullParameters(methodSymbol);
     // For sanity check: $ nonNullParamsFromModel \cap nullableParamsFromModel $ should be empty
-    Set<Integer> allPositions = new HashSet<>();
+    Set<Integer> allParameterPositions = new HashSet<>();
+    boolean varargsArrayModeled = false;
     boolean varArgsMethod = methodSymbol.isVarArgs();
+    int varargsIndex = methodSymbol.getParameters().size() - 1;
     for (Integer nullParam : nullableParamsFromModel) {
-      if (varArgsMethod && nullParam == methodSymbol.getParameters().size() - 1) {
-        // For varargs, top-level library models describe the array itself. We handle that through
-        // the dedicated varargs-array hook so that element nullability can be modeled separately.
+      if (varArgsMethod && nullParam == varargsIndex) {
+        argumentNullness.setVarargsArrayNullness(NULLABLE);
+        varargsArrayModeled = true;
         continue;
       }
-      allPositions.add(nullParam);
-      argumentPositionNullness[nullParam] = NULLABLE;
+      allParameterPositions.add(nullParam);
+      argumentNullness.setParameterNullness(nullParam, NULLABLE);
     }
     for (Integer nonNullParam : nonNullParamsFromModel) {
-      if (varArgsMethod && nonNullParam == methodSymbol.getParameters().size() - 1) {
-        // See comment above: top-level nullability for the varargs parameter applies to the array,
-        // not to individually passed varargs elements.
+      if (varArgsMethod && nonNullParam == varargsIndex) {
+        if (varargsArrayModeled) {
+          throw new IllegalStateException(
+              String.format(
+                  "Library models give conflicting nullability for the following parameter of method %s: %s",
+                  methodSymbol.getQualifiedName().toString(), "varargs array"));
+        }
+        argumentNullness.setVarargsArrayNullness(NONNULL);
+        varargsArrayModeled = true;
         continue;
       }
-      if (!allPositions.add(nonNullParam)) {
+      if (!allParameterPositions.add(nonNullParam)) {
         // position was already marked as nullable
         throw new IllegalStateException(
             String.format(
                 "Library models give conflicting nullability for the following parameter of method %s: %s",
                 methodSymbol.getQualifiedName().toString(), nonNullParam.toString()));
       }
-      argumentPositionNullness[nonNullParam] = NONNULL;
+      argumentNullness.setParameterNullness(nonNullParam, NONNULL);
     }
     if (varArgsMethod) {
       ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
           optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
-      int varargsIndex = methodSymbol.getParameters().size() - 1;
       Nullness varargsContentsNullness = null;
       for (NestedAnnotationInfo nestedAnnotation : nestedAnnotations.get(varargsIndex)) {
         // check if it's for the array element
@@ -174,7 +182,7 @@ public class LibraryModelsHandler implements Handler {
           if (varargsContentsNullness == null) {
             varargsContentsNullness =
                 nestedAnnotation.annotation() == Annotation.NULLABLE ? NULLABLE : NONNULL;
-            argumentPositionNullness[varargsIndex] = varargsContentsNullness;
+            argumentNullness.setParameterNullness(varargsIndex, varargsContentsNullness);
           } else {
             throw new IllegalStateException(
                 "varargs contents nullness set multiple times: "
@@ -183,36 +191,7 @@ public class LibraryModelsHandler implements Handler {
         }
       }
     }
-    return argumentPositionNullness;
-  }
-
-  @Override
-  public @Nullable Nullness onOverrideMethodInvocationVarargsArrayNullability(
-      Context context,
-      Symbol.MethodSymbol methodSymbol,
-      boolean isAnnotated,
-      @Nullable Nullness varargsArrayNullness) {
-    Nullness modeledVarargsArrayNullness = null;
-    if (methodSymbol.isVarArgs()) {
-      int varargsIndex = methodSymbol.getParameters().size() - 1;
-      OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(context);
-      boolean nullableFromModel =
-          optimizedLibraryModels.explicitlyNullableParameters(methodSymbol).contains(varargsIndex);
-      boolean nonNullFromModel =
-          optimizedLibraryModels.nonNullParameters(methodSymbol).contains(varargsIndex);
-      if (nullableFromModel && nonNullFromModel) {
-        throw new IllegalStateException(
-            String.format(
-                "Library models give conflicting varargs array nullability for method %s",
-                methodSymbol.getQualifiedName()));
-      }
-      if (nullableFromModel) {
-        modeledVarargsArrayNullness = NULLABLE;
-      } else if (nonNullFromModel) {
-        modeledVarargsArrayNullness = NONNULL;
-      }
-    }
-    return modeledVarargsArrayNullness != null ? modeledVarargsArrayNullness : varargsArrayNullness;
+    return argumentNullness;
   }
 
   @Override
