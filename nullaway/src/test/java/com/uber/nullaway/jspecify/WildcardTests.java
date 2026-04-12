@@ -226,7 +226,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Ignore("bad interaction between wildcard support and generic method inference")
   @Test
-  public void wildcardSuperBounds() {
+  public void wildcardSuperBoundsAndInference() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
