@@ -190,6 +190,40 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void wildcardCheckingForReturnsAndAssignments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              Foo<? extends String> nonnullField;
+              Foo<? extends @Nullable String> nullableField;
+              Test(Foo<? extends @Nullable String> f) {
+                nullableField = f;
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                nonnullField = f;
+              }
+              Foo<? extends @Nullable String> nullableReturn(Foo<? extends @Nullable String> f) {
+                return f;
+              }
+              Foo<? extends String> nonnullReturn(Foo<? extends @Nullable String> f) {
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                return f;
+              }
+              void testLocal(Foo<? extends @Nullable String> f) {
+                Foo<? extends @Nullable String> ok = f;
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                Foo<? extends String> bad = f;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("https://github.com/uber/NullAway/issues/1350")
   @Test
   public void genericMethodLambdaArgWildCard() {
