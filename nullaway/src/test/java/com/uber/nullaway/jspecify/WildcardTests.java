@@ -160,6 +160,36 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void wildcardActualArgumentNoInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              String nullableWildcard(Foo<? extends @Nullable String> foo) {
+                throw new RuntimeException();
+              }
+              String nonnullWildcard(Foo<? extends String> foo) {
+                throw new RuntimeException();
+              }
+              void testNegative(Foo<? extends @Nullable String> f) {
+                String s = nullableWildcard(f);
+                s.hashCode();
+              }
+              void testPositive(Foo<? extends @Nullable String> f) {
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                String s = nonnullWildcard(f);
+                s.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("https://github.com/uber/NullAway/issues/1350")
   @Test
   public void genericMethodLambdaArgWildCard() {
