@@ -224,6 +224,34 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void wildcardSuperBounds() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<V> {
+              public interface BiFunction<T extends @Nullable Object, U extends @Nullable Object, R extends @Nullable Object> {
+                  R apply(T t, U u);
+              }
+              void test1(BiFunction<Object, ? super @Nullable V, ? extends @Nullable V> f) {
+                BiFunction<Object, ? super V, ? extends @Nullable V> g = f;
+              }
+              static <T, U, R> BiFunction<? super T, ? super U, ? extends @Nullable R> id(
+                  BiFunction<? super T, ? super U, ? extends @Nullable R> f) {
+                return f;
+              }
+              void test2(BiFunction<? super String, ? super @Nullable V, ? extends @Nullable V> f) {
+                BiFunction<? super String, ? super V, ? extends @Nullable V> g = id(f);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("https://github.com/uber/NullAway/issues/1350")
   @Test
   public void genericMethodLambdaArgWildCard() {
