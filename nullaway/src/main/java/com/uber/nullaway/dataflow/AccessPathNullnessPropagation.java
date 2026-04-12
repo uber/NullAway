@@ -30,6 +30,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -134,7 +135,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.UnsignedRightShiftNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode;
-import org.checkerframework.nullaway.javacutil.TreeUtilsAfterJava11;
+import org.checkerframework.nullaway.javacutil.TreeUtilsAfterJava17;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -998,11 +999,10 @@ public class AccessPathNullnessPropagation
    */
   private @Nullable LocalVariableNode getVariableNodeForTypePattern(CaseNode caseNode) {
     CaseTree caseTree = caseNode.getTree();
-    List<? extends Tree> labels = TreeUtilsAfterJava11.CaseUtils.getLabels(caseTree);
+    List<? extends Tree> labels = TreeUtilsAfterJava17.CaseUtils.getLabels(caseTree);
     for (Tree label : labels) {
-      String kindName = label.getKind().name();
-      if (kindName.equals("BINDING_PATTERN") || kindName.equals("PATTERN_CASE_LABEL")) {
-        VariableTree varTree = TreeUtilsAfterJava11.BindingPatternUtils.getVariable(label);
+      if (label instanceof BindingPatternTree bindingPatternTree) {
+        VariableTree varTree = bindingPatternTree.getVariable();
         for (Node operand : caseNode.getCaseOperands()) {
           Symbol operandSymbol = ASTHelpers.getSymbol(operand.getTree());
           Symbol varSymbol = ASTHelpers.getSymbol(varTree);
