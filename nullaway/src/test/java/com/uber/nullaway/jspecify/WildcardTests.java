@@ -65,6 +65,101 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedTypeArgsInWildcardBoundNoInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              class Bar<T extends @Nullable Object> {}
+              String nullableWildcard(Foo<? extends Bar<@Nullable String>> foo) {
+                throw new RuntimeException();
+              }
+              String nonnullWildcard(Foo<? extends Bar<String>> foo) {
+                throw new RuntimeException();
+              }
+              void testNegative(Foo<Bar<@Nullable String>> f) {
+                String s = nullableWildcard(f);
+                s.hashCode();
+              }
+              void testPositive(Foo<Bar<@Nullable String>> f) {
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.Bar<@Nullable String>> cannot be converted to Test.Foo<? extends Test.Bar<String>>
+                String s = nonnullWildcard(f);
+                s.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void deeplyNestedTypeArgsInWildcardBoundNoInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              class Bar<T extends @Nullable Object> {}
+              class Baz<T extends @Nullable Object> {}
+              String nullableWildcard(Foo<? extends Bar<Baz<@Nullable String>>> foo) {
+                throw new RuntimeException();
+              }
+              String nonnullWildcard(Foo<? extends Bar<Baz<String>>> foo) {
+                throw new RuntimeException();
+              }
+              void testNegative(Foo<Bar<Baz<@Nullable String>>> f) {
+                String s = nullableWildcard(f);
+                s.hashCode();
+              }
+              void testPositive(Foo<Bar<Baz<@Nullable String>>> f) {
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.Bar<Test.Baz<@Nullable String>>> cannot be converted to Test.Foo<? extends Test.Bar<Test.Baz<String>>>
+                String s = nonnullWildcard(f);
+                s.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void intermediateNestedTypeArgsInWildcardBoundNoInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              class Bar<T extends @Nullable Object> {}
+              class Baz<T extends @Nullable Object> {}
+              String nullableWildcard(Foo<? extends @Nullable Bar<Baz<String>>> foo) {
+                throw new RuntimeException();
+              }
+              String nonnullWildcard(Foo<? extends Bar<Baz<String>>> foo) {
+                throw new RuntimeException();
+              }
+              void testNegative(Foo<@Nullable Bar<Baz<String>>> f) {
+                String s = nullableWildcard(f);
+                s.hashCode();
+              }
+              void testPositive(Foo<@Nullable Bar<Baz<String>>> f) {
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.@Nullable Bar<Test.Baz<String>>> cannot be converted to Test.Foo<? extends Test.Bar<Test.Baz<String>>>
+                String s = nonnullWildcard(f);
+                s.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("https://github.com/uber/NullAway/issues/1350")
   @Test
   public void genericMethodLambdaArgWildCard() {

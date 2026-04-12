@@ -123,6 +123,15 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     return lhsTypeArgument.accept(this, rhsTypeArgument);
   }
 
+  /**
+   * Handles a narrow slice of the JLS type-argument containment rules from JLS 4.5.1 for wildcard
+   * type arguments. In particular, for a formal argument {@code ? extends S}, we accept either a
+   * concrete actual argument {@code T} or a wildcard actual argument {@code ? extends T} whenever
+   * {@code T <: S}, using NullAway's nullability-aware subtype check in place of plain Java
+   * subtyping. This covers the JLS cases behind both {@code T <= ? extends S} and {@code ? extends
+   * T <= ? extends S}. For now, this method intentionally leaves {@code super} wildcards and other
+   * more complex cases to existing fallback behavior.
+   */
   private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
     if (lhsWildcard.kind == BoundKind.UNBOUND) {
       return true;
