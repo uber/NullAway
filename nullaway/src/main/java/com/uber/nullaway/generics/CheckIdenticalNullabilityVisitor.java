@@ -167,6 +167,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     return typeArgumentSubtype(lhsBound, rhsTypeArgument);
   }
 
+  /**
+   * Returns whether the actual type argument on the right is a nullability-aware subtype of the
+   * formal type argument on the left. This check first rejects flows from nullable to non-null at
+   * the top level of the type argument, then delegates to {@link
+   * GenericsChecks#subtypeParameterNullability(Type, Type, VisitorState)} for recursive nested
+   * checks.
+   */
   private boolean typeArgumentSubtype(Type lhsType, Type rhsType) {
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
