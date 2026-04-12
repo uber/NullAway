@@ -141,6 +141,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * more complex cases to existing fallback behavior.
    */
   private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
+    if (lhsWildcard.kind == BoundKind.UNBOUND) {
+      // TODO: For unbounded wildcards, we need to find the bound of the corresponding type
+      // variable rather than accepting outright; see
+      // https://jspecify.dev/docs/user-guide/#wildcard-bounds
+      return true;
+    }
     if (lhsWildcard.kind != BoundKind.EXTENDS) {
       // Treat non-extends wildcards as accepted here until we add more complete support.
       return true;
