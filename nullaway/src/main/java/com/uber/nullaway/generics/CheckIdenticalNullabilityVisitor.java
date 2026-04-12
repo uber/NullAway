@@ -107,12 +107,19 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     return true;
   }
 
+  /**
+   * Returns whether the actual type argument on the right is contained by the formal type argument
+   * on the left, following the JLS 4.5.1 notion of type-argument containment but interpreted with
+   * NullAway's nullability-aware subtype relation. Non-wildcard pairs require matching nullability
+   * annotations and recursively matching nested type arguments. Wildcard formals are delegated to
+   * {@link #wildcardContains}.
+   */
   private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
     if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
       return wildcardContains((Type.WildcardType) lhsTypeArgument, rhsTypeArgument);
     }
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-      // Keep existing behavior for unsupported cases until we handle more wildcard forms.
+      // Treat wildcard actual arguments as accepted here until we add more complete support.
       return true;
     }
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
@@ -137,7 +144,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     if (lhsWildcard.kind != BoundKind.EXTENDS) {
-      // Keep existing behavior for unsupported cases until we handle more wildcard forms.
+      // Treat non-extends wildcards as accepted here until we add more complete support.
       return true;
     }
     Type lhsBound = lhsWildcard.getExtendsBound();
@@ -147,7 +154,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
       Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
       if (rhsWildcard.kind != BoundKind.EXTENDS) {
-        // Keep existing behavior for unsupported cases until we handle more wildcard forms.
+        // Treat non-extends wildcard actual arguments as accepted here until we add more complete
+        // support.
         return true;
       }
       Type rhsBound = rhsWildcard.getExtendsBound();
