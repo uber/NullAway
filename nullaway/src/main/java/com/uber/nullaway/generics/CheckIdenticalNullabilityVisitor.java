@@ -119,7 +119,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return wildcardContains((Type.WildcardType) lhsTypeArgument, rhsTypeArgument);
     }
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-      // Treat wildcard actual arguments as accepted here until we add more complete support.
+      // This branch covers the remaining unsupported case where the formal type argument is not a
+      // wildcard but the actual type argument is a wildcard.
       return true;
     }
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
