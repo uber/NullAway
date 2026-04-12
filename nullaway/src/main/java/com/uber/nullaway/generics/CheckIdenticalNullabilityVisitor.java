@@ -163,9 +163,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         return true;
       }
       Type rhsBound = rhsWildcard.getExtendsBound();
-      if (rhsBound == null) {
-        return true;
-      }
       return typeArgumentSubtype(lhsBound, rhsBound);
     }
     return typeArgumentSubtype(lhsBound, rhsTypeArgument);
