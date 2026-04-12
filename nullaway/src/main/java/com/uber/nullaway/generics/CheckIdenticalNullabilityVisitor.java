@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -63,18 +64,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
-          || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-        // TODO Handle wildcard types
-        continue;
-      }
-      boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
-      boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
-      if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        return false;
-      }
-      // nested generics
-      if (!lhsTypeArgument.accept(this, rhsTypeArgument)) {
+      if (!typeArgumentContainedBy(lhsTypeArgument, rhsTypeArgument)) {
         return false;
       }
     }
@@ -115,5 +105,57 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   @Override
   public Boolean visitType(Type t, Type type) {
     return true;
+  }
+
+  private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
+    if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+      return wildcardContains((Type.WildcardType) lhsTypeArgument, rhsTypeArgument);
+    }
+    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+      // Keep existing behavior for unsupported cases until we handle more wildcard forms.
+      return true;
+    }
+    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
+    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
+    if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+      return false;
+    }
+    return lhsTypeArgument.accept(this, rhsTypeArgument);
+  }
+
+  private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
+    if (lhsWildcard.kind == BoundKind.UNBOUND) {
+      return true;
+    }
+    if (lhsWildcard.kind != BoundKind.EXTENDS) {
+      // Keep existing behavior for unsupported cases until we handle more wildcard forms.
+      return true;
+    }
+    Type lhsBound = lhsWildcard.getExtendsBound();
+    if (lhsBound == null) {
+      return true;
+    }
+    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+      Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
+      if (rhsWildcard.kind != BoundKind.EXTENDS) {
+        // Keep existing behavior for unsupported cases until we handle more wildcard forms.
+        return true;
+      }
+      Type rhsBound = rhsWildcard.getExtendsBound();
+      if (rhsBound == null) {
+        return true;
+      }
+      return typeArgumentSubtype(lhsBound, rhsBound);
+    }
+    return typeArgumentSubtype(lhsBound, rhsTypeArgument);
+  }
+
+  private boolean typeArgumentSubtype(Type lhsType, Type rhsType) {
+    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
+    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
+    if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+      return false;
+    }
+    return genericsChecks.subtypeParameterNullability(lhsType, rhsType, state);
   }
 }

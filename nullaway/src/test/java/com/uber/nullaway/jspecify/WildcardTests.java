@@ -9,7 +9,34 @@ import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
 
-  @Ignore("https://github.com/uber/NullAway/issues/1360")
+  @Test
+  public void simpleWildcardNoInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              String nullableWildcard(Foo<? extends @Nullable String> foo) { throw new RuntimeException(); }
+              String nonnullWildcard(Foo<? extends String> foo) { throw new RuntimeException(); }
+              void testNegative(Foo<@Nullable String> f) {
+                // this is legal since the wildcard upper bound is @Nullable
+                String s = nullableWildcard(f);
+                s.hashCode();
+              }
+              void testPositive(Foo<@Nullable String> f) {
+                // not legal since the wildcard upper bound is non-null
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<? extends String>
+                String s = nonnullWildcard(f);
+                s.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void simpleWildcard() {
     makeHelper()
@@ -29,7 +56,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void testPositive(Foo<@Nullable String> f) {
                 // not legal since the wildcard upper bound is non-null
-                // BUG: Diagnostic contains: something about how f cannot be passed here
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<? extends String>
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
