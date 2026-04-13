@@ -479,7 +479,7 @@ public final class GenericsChecks {
       if (result == null) {
         result = ASTHelpers.getType(tree);
       }
-      return typeOrNullIfRaw(result);
+      return normalizeTypeOrNullIfRaw(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
       if (TreeInfo.isDiamond((JCTree) newClassTree)) {
@@ -500,7 +500,7 @@ public final class GenericsChecks {
           && !paramTypedTree.getTypeArguments().isEmpty()) {
         return typeWithPreservedAnnotations(paramTypedTree);
       }
-      return typeOrNullIfRaw(ASTHelpers.getType(tree));
+      return normalizeTypeOrNullIfRaw(ASTHelpers.getType(tree));
     } else if (tree instanceof NewArrayTree
         && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
       return typeWithPreservedAnnotations(tree);
@@ -573,15 +573,18 @@ public final class GenericsChecks {
           }
         }
       }
-      return typeOrNullIfRaw(result);
+      return normalizeTypeOrNullIfRaw(result);
     }
   }
 
   /**
+   * Returns {@code null} for raw types; otherwise returns the type after any enabled wildcard
+   * normalization.
+   *
    * @param type a type to check
-   * @return the given type, or null if the type is a raw type
+   * @return {@code null} if {@code type} is raw, else the normalized type
    */
-  private @Nullable Type typeOrNullIfRaw(@Nullable Type type) {
+  private @Nullable Type normalizeTypeOrNullIfRaw(@Nullable Type type) {
     if (type != null && type.isRaw()) {
       return null;
     }
