@@ -29,6 +29,7 @@ tasks.named("jacocoTestReport") {
 }
 
 java.toolchain {
+    languageVersion = JavaLanguageVersion.of(26)
     // We prefer toolchains that include jmod files for the Java standard library, like Azul Zulu,
     // for better compatibility with WALA / JarInfer.
     // Temurin does not include jmod files as of their JDK 24 builds.
