@@ -581,11 +581,13 @@ public final class GenericsChecks {
    * @param type a type to check
    * @return the given type, or null if the type is a raw type
    */
-  private static @Nullable Type typeOrNullIfRaw(@Nullable Type type) {
+  private @Nullable Type typeOrNullIfRaw(@Nullable Type type) {
     if (type != null && type.isRaw()) {
       return null;
     }
-    return type == null ? null : TypeSubstitutionUtils.collapseSameKindNestedWildcards(type);
+    return type == null
+        ? null
+        : TypeSubstitutionUtils.collapseSameKindNestedWildcards(type, config);
   }
 
   /**
@@ -1922,7 +1924,7 @@ public final class GenericsChecks {
       }
       Type.MethodType methodTypeAtCallSite =
           TypeSubstitutionUtils.collapseSameKindNestedWildcards(
-                  castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())))
+                  castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())), config)
               .asMethodType();
       if (result instanceof InferenceSuccess successResult) {
         methodTypeAtCallSite =

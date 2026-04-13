@@ -106,7 +106,10 @@ public class TypeSubstitutionUtils {
    * which can arise in javac's inferred types for generic calls but are not meaningful to
    * NullAway's source-level checks.
    */
-  public static Type collapseSameKindNestedWildcards(Type type) {
+  public static Type collapseSameKindNestedWildcards(Type type, Config config) {
+    if (!config.handleWildcardGenerics()) {
+      return type;
+    }
     return type.accept(new CollapseSameKindNestedWildcardsVisitor(), null);
   }
 
@@ -140,8 +143,8 @@ public class TypeSubstitutionUtils {
       @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
       VisitorState state,
       Config config) {
-    typeToUpdate = collapseSameKindNestedWildcards(typeToUpdate);
-    origType = collapseSameKindNestedWildcards(origType);
+    typeToUpdate = collapseSameKindNestedWildcards(typeToUpdate, config);
+    origType = collapseSameKindNestedWildcards(origType, config);
     if (typeVarNullability == null) {
       // no updates to perform
       return typeToUpdate;
@@ -479,7 +482,7 @@ public class TypeSubstitutionUtils {
    * @return the type resulting from the substitution
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
-    Type substResult = collapseSameKindNestedWildcards(types.subst(t, from, to));
+    Type substResult = collapseSameKindNestedWildcards(types.subst(t, from, to), config);
     return restoreExplicitNullabilityAnnotations(t, substResult, config, Collections.emptyMap());
   }
 
