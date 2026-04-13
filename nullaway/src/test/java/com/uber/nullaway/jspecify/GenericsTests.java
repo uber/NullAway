@@ -1654,6 +1654,32 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void constructorCallWithThisFromAnonymousClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static class TakesRunnable {
+                TakesRunnable(Runnable runnable) {}
+              }
+              void repro() {
+                new Runnable() {
+                  @Override
+                  public void run() {
+                    new TakesRunnable(this);
+                  }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void explicitlyTypedAnonymousClassAsReceiver() {
     makeHelper()
         .addSourceLines(
