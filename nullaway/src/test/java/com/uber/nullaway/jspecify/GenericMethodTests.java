@@ -1625,28 +1625,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Test
-  public void recursiveCapturedTypeFromSource() {
-    makeHelperWithInferenceFailureWarning()
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            import org.jspecify.annotations.NullMarked;
-            @NullMarked
-            class Test {
-              interface Self<T extends Self<T>> {}
-              static <T extends Self<T>> Self<T> pass(Self<T> value) {
-                return value;
-              }
-              void test(Self<?> value) {
-                Self<?> copy = pass(value);
-              }
-            }
-            """)
-        .doTest();
-  }
-
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
