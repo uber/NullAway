@@ -1756,28 +1756,35 @@ public final class GenericsChecks {
   private @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state) {
     if (symbol.isAnonymous()) {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
-      // So, we get a correct type from the enclosing NewClassTree representing the anonymous class.
+      // So, we get a correct type from the NewClassTree representing the anonymous class.
+      // The nearest enclosing NewClassTree on the current path may be some other constructor call,
+      // such as when `this` from an anonymous class is passed as an argument to a constructor.
       TreePath path = state.getPath();
-      path =
-          castToNonNull(ASTHelpers.findPathFromEnclosingNodeToTopLevel(path, NewClassTree.class));
-      NewClassTree newClassTree = (NewClassTree) path.getLeaf();
-      if (newClassTree.getClassBody() == null) {
-        throw new RuntimeException(
-            "method should be directly inside an anonymous NewClassTree "
-                + state.getSourceForNode(path.getLeaf()));
+      while (path != null) {
+        if (path.getLeaf() instanceof NewClassTree newClassTree
+            && newClassTree.getClassBody() != null) {
+          Type newClassType = ASTHelpers.getType(newClassTree);
+          if (newClassType != null && newClassType.tsym.equals(symbol)) {
+            Type typeFromTree = getTreeType(newClassTree, state);
+            if (typeFromTree != null) {
+              verify(
+                  state.getTypes().isAssignable(symbol.type, typeFromTree),
+                  "%s is not assignable to %s",
+                  symbol.type,
+                  typeFromTree);
+            }
+            return typeFromTree;
+          }
+        }
+        path = path.getParentPath();
       }
-      Type typeFromTree = getTreeType(newClassTree, state);
-      if (typeFromTree != null) {
-        verify(
-            state.getTypes().isAssignable(symbol.type, typeFromTree),
-            "%s is not assignable to %s",
-            symbol.type,
-            typeFromTree);
-      }
-      return typeFromTree;
-    } else {
-      return symbol.type;
+      throw new RuntimeException(
+          "could not find anonymous NewClassTree for symbol "
+              + symbol
+              + " from path "
+              + state.getSourceForNode(state.getPath().getLeaf()));
     }
+    return symbol.type;
   }
 
   public Nullness getGenericMethodReturnTypeNullness(
