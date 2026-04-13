@@ -274,6 +274,28 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wildcardVarianceMismatchFromInference() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.Nullable;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> Box<? extends T> up(Box<T> box) {
+                return box;
+              }
+              void test(Box<? super @Nullable String> box) {
+                Box<?> result = up(box);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
