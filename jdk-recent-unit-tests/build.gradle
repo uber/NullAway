@@ -51,6 +51,9 @@ tasks.withType(Test).configureEach { test ->
         // Used by com.uber.nullaway.jdk17.NullAwayModuleInfoTests
         "-Dtest.module.path=${configurations.testModulePath.asPath}"
     ]
+    // The test module jar is consumed via the synthetic module path above, so every
+    // JDK-specific Test task needs it built before execution.
+    dependsOn ':test-java-module:jar'
 }
 
 // Disable tasks for specific JDK versions; we only run on the recent JDK version specified above
@@ -59,9 +62,4 @@ tasks.getByName('testJdk17').configure {
 }
 tasks.getByName('testJdk21').configure {
     onlyIf { false }
-}
-
-tasks.getByName('test').configure {
-    // we need this since we don't have an implementation / api dependence on test-java-module
-    dependsOn ':test-java-module:jar'
 }
