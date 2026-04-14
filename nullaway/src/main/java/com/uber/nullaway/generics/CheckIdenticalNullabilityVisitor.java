@@ -13,17 +13,27 @@ import javax.lang.model.type.TypeKind;
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
  * Compares the Type it is called upon, i.e. the LHS type and the Type passed as an argument, i.e.
  * The RHS type.
+ *
+ * <p>In covariant mode, the check only fails if the RHS type argument is @Nullable but the LHS type
+ * argument is not. The reverse (LHS @Nullable, RHS non-null) is allowed.
  */
 public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<Boolean, Type> {
   private final VisitorState state;
   private final GenericsChecks genericsChecks;
   private final Config config;
+  private final boolean covariant;
 
   CheckIdenticalNullabilityVisitor(
       VisitorState state, GenericsChecks genericsChecks, Config config) {
+    this(state, genericsChecks, config, false);
+  }
+
+  CheckIdenticalNullabilityVisitor(
+      VisitorState state, GenericsChecks genericsChecks, Config config, boolean covariant) {
     this.state = state;
     this.genericsChecks = genericsChecks;
     this.config = config;
+    this.covariant = covariant;
   }
 
   @Override
@@ -70,7 +80,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       }
       boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
       boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
-      if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+      if (covariant
+          ? (!isLHSNullableAnnotated && isRHSNullableAnnotated)
+          : (isLHSNullableAnnotated != isRHSNullableAnnotated)) {
         return false;
       }
       // nested generics
@@ -106,7 +118,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     Type rhsComponentType = rhsArrayType.getComponentType();
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
     boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
-    if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
+    if (covariant
+        ? (!isLHSNullableAnnotated && isRHSNullableAnnotated)
+        : (isRHSNullableAnnotated != isLHSNullableAnnotated)) {
       return false;
     }
     return lhsComponentType.accept(this, rhsComponentType);

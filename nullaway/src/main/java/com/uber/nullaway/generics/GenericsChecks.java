@@ -1443,6 +1443,16 @@ public final class GenericsChecks {
   }
 
   /**
+   * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState)}, but only fails when
+   * the RHS type argument is @Nullable and the LHS type argument is not. Used for method reference
+   * parameter checks where the referenced method may accept a wider type than required.
+   */
+  private boolean covariantTypeParameterNullability(
+      Type lhsType, Type rhsType, VisitorState state) {
+    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this, config, true), rhsType);
+  }
+
+  /**
    * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState)}, but allows for
    * covariant array subtyping at the top level.
    *
@@ -1608,7 +1618,11 @@ public final class GenericsChecks {
                     memberReferenceTree,
                     state,
                     (subtype, supertype, relationKind) -> {
-                      if (!subtypeParameterNullability(supertype, subtype, state)) {
+                      boolean valid =
+                          relationKind == MethodRefTypeRelationKind.PARAMETER
+                              ? covariantTypeParameterNullability(supertype, subtype, state)
+                              : subtypeParameterNullability(supertype, subtype, state);
+                      if (!valid) {
                         if (relationKind == MethodRefTypeRelationKind.RETURN) {
                           reportInvalidMethodReferenceReturnTypeError(
                               memberReferenceTree, supertype, subtype, state);

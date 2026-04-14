@@ -516,10 +516,12 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               void testNegative2(Foo<String> f1, Foo<@Nullable String> f2) {
                 takeMultiple(Test::takeNonNullNested, Test::takeNonNullNested, f1);
                 takeMultiple(Test::takeNullableNested, Test::takeNullableNested, f2);
-              }
-              void testPositive2(Foo<String> f1) {
-                // BUG: Diagnostic contains: parameter type of referenced method is Test.Foo<@Nullable String>, but parameter in functional interface method has type Test.Foo<String>, which has mismatched type parameter nullability
+                // takeNullableNested accepts more permissive type args than required by the FI
                 takeMultiple(Test::takeNonNullNested, Test::takeNullableNested, f1);
+              }
+              void testPositive2(Foo<@Nullable String> f2) {
+                // BUG: Diagnostic contains: parameter type of referenced method is Test.Foo<String>, but parameter in functional interface method has type Test.Foo<@Nullable String>, which has mismatched type parameter nullability
+                takeMultiple(Test::takeNonNullNested, Test::takeNullableNested, f2);
               }
             }
             """)
@@ -1039,6 +1041,39 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     String x = invokeWithReturn(Test::m);
                 }
             }""")
+        .doTest();
+  }
+
+  @Test
+  public void issue1528MethodRefParamNullabilityCovariance() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.function.Function;
+            import java.util.stream.Stream;
+            @NullMarked
+            class Test {
+                static <T> void process(Stream<T> stream, Function<T, @Nullable String> mapper) {}
+                static @Nullable String fromEntry(Map.Entry<String, @Nullable String> entry) {
+                    return entry.getValue();
+                }
+                static @Nullable String fromEntryStrict(Map.Entry<String, String> entry) {
+                    return entry.getValue();
+                }
+                static void testOk(Map<String, String> map) {
+                    // referenced method param is more permissive (Entry<@Nullable>) than FI (Entry<String>)
+                    process(map.entrySet().stream(), Test::fromEntry);
+                }
+                static void testBad(Map<String, @Nullable String> map) {
+                    // BUG: Diagnostic contains: parameter type of referenced method
+                    process(map.entrySet().stream(), Test::fromEntryStrict);
+                }
+            }
+            """)
         .doTest();
   }
 
