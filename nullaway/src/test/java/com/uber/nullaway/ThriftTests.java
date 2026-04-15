@@ -3,7 +3,6 @@ package com.uber.nullaway;
 import java.util.Arrays;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
 public class ThriftTests extends NullAwayTestsBase {
   @Test
   public void testThriftIsSet() {
@@ -175,7 +174,42 @@ public class ThriftTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
                 "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
-        .addSourceFile("testdata/Util.java")
+        .addSourceLines(
+            "Util.java",
+            """
+            package com.uber.nullaway.testdata;
+
+            import javax.annotation.Nullable;
+
+            public class Util {
+
+              public static <T> T castToNonNull(@Nullable T x) {
+                if (x == null) {
+                  throw new RuntimeException();
+                }
+                return x;
+              }
+
+              public static <T> T castToNonNull(@Nullable T x, String msg) {
+                if (x == null) {
+                  throw new RuntimeException(msg);
+                }
+                return x;
+              }
+
+              public static <T> T castToNonNull(String msg, @Nullable T x, int counter) {
+                // counter is needed to distinguish this method from the previous one when T == String
+                if (x == null) {
+                  throw new RuntimeException(msg);
+                }
+                return x;
+              }
+
+              public static <T> T id(T x) {
+                return x;
+              }
+            }
+            """)
         .addSourceLines("TBase.java", "package org.apache.thrift;", "public interface TBase {}")
         .addSourceLines(
             "GeneratedClass.java",
