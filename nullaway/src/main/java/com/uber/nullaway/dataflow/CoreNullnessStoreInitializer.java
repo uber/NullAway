@@ -163,7 +163,8 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       Nullness assumed;
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated
-      if (Nullness.hasNullableAnnotation((Symbol) element, config)) {
+      if (Nullness.hasNullableAnnotation(
+          ((Symbol) element).getAnnotationMirrors().stream(), config)) {
         assumed = NULLABLE;
       } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
