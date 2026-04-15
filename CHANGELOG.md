@@ -1,6 +1,17 @@
 Changelog
 =========
 
+Version 0.13.3
+--------------
+
+Quick follow-up release to 0.13.2 to fix a crash (#1523).
+
+* Add @InjectSoftAssertions to default excluded field annotations by @is-ivanov (#1516)
+* Fix check for enclosing `NewClassTree` (#1524)
+* Maintenance
+  - Remove `onOverrideMethodInvocationVarargsArrayNullability` handler method (#1518)
+  - Update to Checker Framework 4.0.0 (#1519)
+
 Version 0.13.2
 --------------
 
