@@ -31,7 +31,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.FixSerializationConfig;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.adapters.SerializationV1Adapter;
-import com.uber.nullaway.fixserialization.adapters.SerializationV3Adapter;
+import com.uber.nullaway.fixserialization.adapters.SerializationV4Adapter;
 import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.tools.DisplayFactory;
@@ -64,7 +64,7 @@ public class SerializationTest extends NullAwayTestsBase {
 
   private static final String ERROR_FILE_NAME = "errors.tsv";
   private static final String ERROR_FILE_HEADER =
-      new SerializationV3Adapter().getErrorsOutputFileHeader();
+      new SerializationV4Adapter().getErrorsOutputFileHeader();
   private static final String FIELD_INIT_FILE_NAME = "field_init.tsv";
   private static final String FIELD_INIT_HEADER = FieldInitializationInfo.header();
 
@@ -72,8 +72,8 @@ public class SerializationTest extends NullAwayTestsBase {
     this.errorDisplayFactory =
         values -> {
           Preconditions.checkArgument(
-              values.length == 12,
-              "Needs exactly 12 values to create ErrorDisplay object but found: %s",
+              values.length == 12 || values.length == 13,
+              "Needs exactly 12 or 13 values to create ErrorDisplay object but found: %s",
               values.length);
           return new ErrorDisplay(
               values[0],
@@ -572,26 +572,14 @@ public class SerializationTest extends NullAwayTestsBase {
                 "com.uber.Test",
                 "Test(boolean)",
                 184,
-                "com/uber/android/Test.java",
-                "null",
-                "null",
-                "null",
-                "null",
-                "null",
-                "null"),
+                "com/uber/android/Test.java"),
             new ErrorDisplay(
                 "METHOD_NO_INIT",
                 "initializer method does not guarantee @NonNull fields g (line 5), i (line 5) are initialized along all control-flow paths",
                 "com.uber.Test",
                 "Test(boolean,boolean)",
                 425,
-                "com/uber/android/Test.java",
-                "null",
-                "null",
-                "null",
-                "null",
-                "null",
-                "null"))
+                "com/uber/android/Test.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
@@ -2053,48 +2041,6 @@ public class SerializationTest extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * Helper method to verify the correct serialization version number is written in
-   * "serialization_version.txt". Version number can be configured via Error Prone flags by the
-   * user, and {@link com.uber.nullaway.fixserialization.Serializer} should write the exact number
-   * in "serialization_version.txt".
-   *
-   * @param version Version number to pass to NullAway via Error Prone flags and the expected number
-   *     to be read from "serialization_version.txt".
-   */
-  public void checkVersionSerialization(int version) {
-    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
-    SerializationAdapter adapter = SerializationAdapter.getAdapterForVersion(version);
-    tester
-        .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:SerializeFixMetadata=true",
-                "-XepOpt:NullAway:SerializeFixMetadataVersion=" + version,
-                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
-        // Just to run serialization features, the serialized fixes are not point of interest in
-        // this test.
-        .addSourceLines("com/uber/Test.java", "package com.uber;", "public class Test { }")
-        .expectNoOutput()
-        .setFactory(errorDisplayFactory)
-        .setOutputFileNameAndHeader(ERROR_FILE_NAME, adapter.getErrorsOutputFileHeader())
-        .doTest();
-
-    Path serializationVersionPath = root.resolve("serialization_version.txt");
-    try {
-      List<String> lines = Files.readAllLines(serializationVersionPath);
-      // Check if it contains only one line.
-      assertEquals(lines.size(), 1);
-      // Check the serialized version.
-      assertEquals(Integer.parseInt(lines.get(0)), version);
-    } catch (IOException e) {
-      throw new RuntimeException(
-          "Could not read serialization version at path: " + serializationVersionPath, e);
-    }
-  }
-
   @Test
   public void varArgsWithTypeUseAnnotationMethodSerializationTest() {
     SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
@@ -2422,5 +2368,185 @@ public class SerializationTest extends NullAwayTestsBase {
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
         .doTest();
+  }
+
+  @Test
+  public void check() {
+    Path tempRoot = Paths.get(temporaryFolder.getRoot().getAbsolutePath(), "test_field_init");
+    String output = tempRoot.toString();
+    try {
+      Files.createDirectories(tempRoot);
+      FixSerializationConfig.Builder builder =
+          new FixSerializationConfig.Builder().setFieldInitInfo(true).setOutputDirectory(output);
+      Path config = tempRoot.resolve("serializer.xml");
+      Files.createFile(config);
+      configPath = config.toString();
+      builder.writeAsXML(configPath);
+    } catch (IOException ex) {
+      throw new UncheckedIOException(ex);
+    }
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(tempRoot);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            "   @Nullable Object f;",
+            "   public void init() {",
+            "     this.f = new Object();",
+            "   }",
+            "   public String bar() {",
+            "     // BUG: Diagnostic contains: dereferenced expression",
+            "     return f.toString();",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression f is @Nullable",
+                "com.uber.Foo",
+                "bar()",
+                246,
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void checkLocalVariableExtension() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            "   @Nullable Object f;",
+            "   public void foo(Object p) { }",
+            "   public void bar(boolean b, Object p) {",
+            "     Object l = b ? f : p;",
+            "     // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "     l.toString();",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression l is @Nullable",
+                "com.uber.Foo",
+                "bar(boolean,java.lang.Object)",
+                274,
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  @Test
+  public void checkLocalVariableExtensionEnhancedForLoop() {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Bar.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import javax.annotation.Nullable;",
+            "public class Bar {",
+            "   @Nullable public Map<String, String> baz() {",
+            "     return null;",
+            "   }",
+            "}")
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import java.util.Map;",
+            "import java.util.List;",
+            "import javax.annotation.Nullable;",
+            "public class Foo {",
+            "   List<Bar> list = List.of();",
+            "   public void bar() {",
+            "     for(Bar b : list){",
+            "       Map<String, String> l = b.baz();",
+            "       // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "       for(String s : l.values()) {}",
+            "     }",
+            "   }",
+            "}")
+        .setExpectedOutputs(
+            new ErrorDisplay(
+                "DEREFERENCE_NULLABLE",
+                "dereferenced expression l is @Nullable",
+                "com.uber.Foo",
+                "bar()",
+                331,
+                "com/uber/Foo.java"))
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
+        .doTest();
+  }
+
+  /**
+   * Helper method to verify the correct serialization version number is written in
+   * "serialization_version.txt". Version number can be configured via Error Prone flags by the
+   * user, and {@link com.uber.nullaway.fixserialization.Serializer} should write the exact number
+   * in "serialization_version.txt".
+   *
+   * @param version Version number to pass to NullAway via Error Prone flags and the expected number
+   *     to be read from "serialization_version.txt".
+   */
+  private void checkVersionSerialization(int version) {
+    SerializationTestHelper<ErrorDisplay> tester = new SerializationTestHelper<>(root);
+    SerializationAdapter adapter = SerializationAdapter.getAdapterForVersion(version);
+    tester
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=" + version,
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        // Just to run serialization features, the serialized fixes are not point of interest in
+        // this test.
+        .addSourceLines("com/uber/Test.java", "package com.uber;", "public class Test { }")
+        .expectNoOutput()
+        .setFactory(errorDisplayFactory)
+        .setOutputFileNameAndHeader(ERROR_FILE_NAME, adapter.getErrorsOutputFileHeader())
+        .doTest();
+
+    Path serializationVersionPath = root.resolve("serialization_version.txt");
+    try {
+      List<String> lines = Files.readAllLines(serializationVersionPath);
+      // Check if it contains only one line.
+      assertEquals(1, lines.size());
+      // Check the serialized version.
+      assertEquals(Integer.parseInt(lines.get(0)), version);
+    } catch (IOException e) {
+      throw new RuntimeException(
+          "Could not read serialization version at path: " + serializationVersionPath, e);
+    }
   }
 }

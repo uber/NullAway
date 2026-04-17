@@ -30,7 +30,9 @@ import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
+import com.uber.nullaway.fixserialization.scanners.OriginTrace;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -78,16 +80,21 @@ public class SerializationService {
    * @param state Visitor state.
    * @param errorTree Tree of the element involved in the reporting error.
    * @param errorMessage Error caused by the target.
+   * @param origins Symbol of the elements contributing to the nullability of the expression.
+   * @param args Arguments to be passed to the error message to automatically generate a fix.
    */
   public static void serializeReportingError(
       Config config,
       VisitorState state,
       Tree errorTree,
       @Nullable Symbol target,
-      ErrorMessage errorMessage) {
+      ErrorMessage errorMessage,
+      Set<OriginTrace> origins,
+      Map<String, String> args) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
     Preconditions.checkNotNull(
         serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
-    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorTree, errorMessage, target));
+    serializer.serializeErrorInfo(
+        new ErrorInfo(state.getPath(), errorTree, errorMessage, target, origins, args));
   }
 }

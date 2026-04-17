@@ -46,6 +46,8 @@ public class Serializer {
   /** Path to write errors. */
   private final Path errorOutputPath;
 
+  private final Path errorOutputXmlPath;
+
   /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
 
@@ -59,6 +61,7 @@ public class Serializer {
   public Serializer(FixSerializationConfig config, SerializationAdapter serializationAdapter) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
+    this.errorOutputXmlPath = Paths.get(outputDirectory, "errors.xml");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     this.serializationAdapter = serializationAdapter;
     serializeVersion(outputDirectory);
@@ -73,6 +76,10 @@ public class Serializer {
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
     appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
+    // append to xml as well.
+    StringBuilder xml = new StringBuilder();
+    errorInfo.appendXml(xml, serializationAdapter);
+    appendToFile(xml.toString(), errorOutputXmlPath);
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
@@ -128,6 +135,7 @@ public class Serializer {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
       initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
+      initializeFile(errorOutputXmlPath, "");
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer", e);
     }
@@ -194,5 +202,26 @@ public class Serializer {
       case METHOD, CONSTRUCTOR -> adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
       default -> symbol.flatName().toString();
     };
+  }
+
+  /** Appends {@code <name>escapedValue</name>} to {@code sb}. */
+  public static void appendXmlElement(StringBuilder sb, String name, String value) {
+    sb.append('<').append(name).append('>');
+    escapeXml(sb, value);
+    sb.append("</").append(name).append('>');
+  }
+
+  private static void escapeXml(StringBuilder sb, String value) {
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      switch (c) {
+        case '&' -> sb.append("&amp;");
+        case '<' -> sb.append("&lt;");
+        case '>' -> sb.append("&gt;");
+        case '"' -> sb.append("&quot;");
+        case '\'' -> sb.append("&apos;");
+        default -> sb.append(c);
+      }
+    }
   }
 }

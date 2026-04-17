@@ -28,6 +28,7 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import java.net.URI;
 import java.nio.file.Path;
 import javax.lang.model.element.ElementKind;
@@ -55,5 +56,16 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
     this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
     URI pathInURI = enclosingClass.sourcefile != null ? enclosingClass.sourcefile.toUri() : null;
     this.path = Serializer.pathToSourceFileFromURI(pathInURI);
+  }
+
+  @Override
+  public void appendXmlFields(StringBuilder sb, SerializationAdapter adapter) {
+    String[] infos = tabSeparatedToString(adapter).split("\t");
+    Serializer.appendXmlElement(sb, "target_kind", infos[0]);
+    Serializer.appendXmlElement(sb, "target_class", infos[1]);
+    Serializer.appendXmlElement(sb, "target_method", infos[2]);
+    Serializer.appendXmlElement(sb, "target_param", infos[3]);
+    Serializer.appendXmlElement(sb, "target_index", infos[4]);
+    Serializer.appendXmlElement(sb, "target_path", infos[5]);
   }
 }

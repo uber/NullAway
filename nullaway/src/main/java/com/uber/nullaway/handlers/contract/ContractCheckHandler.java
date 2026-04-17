@@ -127,6 +127,8 @@ public class ContractCheckHandler implements Handler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      analysis.mayBeNullInquiry,
+                      null,
                       null));
           checkMethodBody = false;
         } else if (!checkableValueConstraints.contains(valueConstraint)) {
@@ -199,6 +201,8 @@ public class ContractCheckHandler implements Handler {
                         returnTree,
                         analysis.buildDescription(returnTree),
                         state,
+                        analysis.mayBeNullInquiry,
+                        null,
                         null));
           }
           return super.visitReturn(returnTree, null);
