@@ -2,7 +2,7 @@
 asm = "9.3"
 check-framework = "4.0.0"
 support = "27.1.1"
-wala = "1.7.0"
+wala = "1.7.1"
 commons-cli = "1.4"
 auto-service = "1.1.1"
 google-java-format = "1.34.1"

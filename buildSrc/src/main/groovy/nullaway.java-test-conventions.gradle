@@ -82,10 +82,6 @@ test {
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(majorVersion)
-            // We prefer toolchains that include jmod files for the Java standard library, like Azul Zulu,
-            // for better compatibility with WALA / JarInfer.
-            // Temurin does not include jmod files as of their JDK 24 builds.
-            vendor = JvmVendorSpec.AZUL
         }
 
         description = "Runs the test suite on JDK $majorVersion"
