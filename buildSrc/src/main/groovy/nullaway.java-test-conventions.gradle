@@ -19,17 +19,8 @@ plugins {
     id 'jacoco'
 }
 
-repositories {
-    maven {
-        url = uri('https://central.sonatype.com/repository/maven-snapshots/')
-        mavenContent {
-            snapshotsOnly()
-        }
-    }
-}
-
 jacoco {
-    toolVersion = "0.8.15-SNAPSHOT"
+    toolVersion = "0.8.14"
 }
 
 // Do not generate reports for individual projects
