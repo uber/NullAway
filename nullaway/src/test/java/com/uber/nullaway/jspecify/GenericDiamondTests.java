@@ -211,6 +211,31 @@ public class GenericDiamondTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1532() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.function.Supplier;
+            @NullMarked
+            public class Test {
+              public interface LazyValue<T extends @Nullable Object> extends Supplier<T> {}
+              record NullableLazyValue<T extends @Nullable Object>(Supplier<T> supplier) implements LazyValue<T> {
+                public T get() {
+                  return supplier.get();
+                }
+              }
+              static <K> LazyValue<@Nullable K> nullable(Supplier<@Nullable K> supplier) {
+                // BUG: Diagnostic contains: [NullAway] incompatible types: Supplier<@Nullable K> cannot be converted to Supplier<T>
+                return new NullableLazyValue<>(supplier);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
