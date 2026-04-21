@@ -211,6 +211,164 @@ public class GenericDiamondTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void inferFromReturn() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              interface Supplier<T extends @Nullable Object> { public T get(); }
+              public interface LazyValue<T extends @Nullable Object> extends Supplier<T> {}
+              record NullableLazyValue<T extends @Nullable Object>(Supplier<T> supplier) implements LazyValue<T> {
+                public T get() {
+                  return supplier.get();
+                }
+              }
+              static <K> LazyValue<@Nullable K> nullable(Supplier<@Nullable K> supplier) {
+                return new NullableLazyValue<>(supplier);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromParams() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Foo<T extends @Nullable Object> {}
+              static class Bar<T extends @Nullable Object> {
+                Bar(Foo<T> foo1, Foo<T> foo2) {
+                }
+              }
+              static void testNegative1(Foo<String> f1, Foo<String> f2) {
+                new Bar<>(f1, f2);
+              }
+              static void testNegative2(Foo<@Nullable String> f1, Foo<@Nullable String> f2) {
+                new Bar<>(f1, f2);
+              }
+              static void testPositive(Foo<String> f1, Foo<@Nullable String> f2) {
+                // BUG: Diagnostic contains: incompatible types
+                new Bar<>(f1, f2);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodCallWithDiamondConstructorParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              interface Foo<T extends @Nullable Object> {}
+              static class FooImpl<T extends @Nullable Object> implements Foo<T> {
+                FooImpl(Foo<T> value) {}
+              }
+              static Foo<@Nullable String> makeNullableFoo() {
+                throw new RuntimeException();
+              }
+              static <U extends @Nullable Object> Foo<U> id(Foo<U> foo) {
+                throw new RuntimeException();
+              }
+              static void takeFooString(Foo<String> foo) {}
+              static void takeFooNullableString(Foo<@Nullable String> foo) {}
+              static void testNegative() {
+                takeFooNullableString(id(new FooImpl<>(makeNullableFoo())));
+              }
+              static void testPositive() {
+                // BUG: Diagnostic contains: incompatible types
+                takeFooString(id(new FooImpl<>(makeNullableFoo())));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void diamondConstructorWithGenericMethodCallParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              interface Foo<T extends @Nullable Object> {}
+              static class Box<T extends @Nullable Object> {
+                Box(Foo<T> foo) {}
+              }
+              static <U extends @Nullable Object> Foo<U> id(Foo<U> foo) {
+                throw new RuntimeException();
+              }
+              static Foo<@Nullable String> makeNullableFoo() {
+                throw new RuntimeException();
+              }
+              static Box<@Nullable String> testNegative() {
+                return new Box<>(id(makeNullableFoo()));
+              }
+              static Box<String> testPositive() {
+                // BUG: Diagnostic contains: incompatible types
+                return new Box<>(id(makeNullableFoo()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodTypeVarParamWithDiamondArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Box<T extends @Nullable Object> {
+                Box(T value) {}
+              }
+              static @Nullable String nullableString() {
+                throw new RuntimeException();
+              }
+              static <U extends @Nullable Object> void consume(U u) {}
+              static void testNoStackOverflow() {
+                consume(new Box<>(nullableString()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void arraysAsList() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.*;
+            @NullMarked
+            public class Test {
+              @Nullable Object[] makeArr() { return new Object[0]; }
+              List<@Nullable Object> make() { return new ArrayList<>(Arrays.asList(makeArr())); }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
