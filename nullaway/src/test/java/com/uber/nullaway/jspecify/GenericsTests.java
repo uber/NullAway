@@ -896,8 +896,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 }
               }
               static void testPositive() {
-                // TODO: we should report an error here, since B's type parameter
-                // cannot be @Nullable; we do not catch this yet
+                // BUG: Diagnostic contains: incompatible types: B<Object> cannot be converted to A<@Nullable Object>
                 A<@Nullable Object> p = new B<>();
               }
               static void testNegative() {
