@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Version 0.13.4
+--------------
+
+Fixes a couple of crashes when running NullAway on JDK 27 ea builds.  Also modularizes the annotations jar.
+
+* Modularize the annotations JAR by @anthonyvdotbe in https://github.com/uber/NullAway/pull/1537
+* Test on JDK 27 EA by @msridhar in https://github.com/uber/NullAway/pull/1540
+* Fix crash on JDK 27 by @msridhar in https://github.com/uber/NullAway/pull/1541
+* Maintenance
+  * Run regression tests on JDK 26 by @msridhar in https://github.com/uber/NullAway/pull/1526
+  * Refactor ThriftTests and Java8Tests to use addSourceLines instead of deprecated addSourceFile by @nanookclaw in https://github.com/uber/NullAway/pull/1517
+  * Update to WALA 1.7.1 by @msridhar in https://github.com/uber/NullAway/pull/1539
+
 Version 0.13.3
 --------------
 
