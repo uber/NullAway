@@ -407,7 +407,8 @@ public class NullabilityUtil {
           if (position.onLambda != null) {
             com.sun.tools.javac.util.List<JCTree.JCVariableDecl> lambdaParams =
                 position.onLambda.params;
-            return parameterIndex < lambdaParams.size()
+            return parameterIndex >= 0
+                && parameterIndex < lambdaParams.size()
                 && lambdaParams.get(parameterIndex).sym.equals(sym);
           } else {
             return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym) == parameterIndex;
