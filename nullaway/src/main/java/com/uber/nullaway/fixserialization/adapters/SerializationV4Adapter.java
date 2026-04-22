@@ -22,6 +22,7 @@
 
 package com.uber.nullaway.fixserialization.adapters;
 
+import com.uber.nullaway.fixserialization.SerializationService;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
 
 /**
@@ -48,6 +49,7 @@ public class SerializationV4Adapter extends SerializationV3Adapter {
 
   @Override
   public String serializeError(ErrorInfo errorInfo) {
-    return super.serializeError(errorInfo);
+    String infos = SerializationService.escapeSpecialCharacters(errorInfo.getInfos().toString());
+    return super.serializeError(errorInfo) + "\t" + infos;
   }
 }

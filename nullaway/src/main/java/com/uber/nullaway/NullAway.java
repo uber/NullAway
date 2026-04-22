@@ -1983,7 +1983,7 @@ public class NullAway extends BugChecker
     Map<String, String> args = new LinkedHashMap<>();
     if (derefedSymbol != null) {
       args.put("expression", state.getSourceForNode(expr));
-      args.put("kind", derefedSymbol.getKind().toString().toLowerCase(Locale.getDefault()));
+      args.put("kind", derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT));
       args.put("class", Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter));
       args.put(
           "isAnnotated",
@@ -2913,7 +2913,7 @@ public class NullAway extends BugChecker
       Map<String, String> args = new LinkedHashMap<>();
       if (derefedSymbol != null) {
         args.put("expression", state.getSourceForNode(baseExpression));
-        args.put("kind", derefedSymbol.getKind().toString().toLowerCase(Locale.getDefault()));
+        args.put("kind", derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT));
         args.put("class", Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter));
         args.put(
             "isAnnotated",

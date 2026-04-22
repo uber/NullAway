@@ -67,18 +67,11 @@ public class ExpressionToSymbolScanner
   private @Nullable Symbol defaultResult(ExpressionTree node) {
     Symbol symbol = ASTHelpers.getSymbol(node);
     if (symbol != null) {
-      switch (symbol.getKind()) {
-        case FIELD:
-        case PARAMETER:
-        case LOCAL_VARIABLE:
-        case METHOD:
-        case RESOURCE_VARIABLE:
-          return symbol;
-        default:
-          return null;
-      }
+      return switch (symbol.getKind()) {
+        case FIELD, PARAMETER, LOCAL_VARIABLE, METHOD, RESOURCE_VARIABLE -> symbol;
+        default -> null;
+      };
     }
-    System.out.println("Returning null: " + node + " " + node.getKind());
     return null;
   }
 

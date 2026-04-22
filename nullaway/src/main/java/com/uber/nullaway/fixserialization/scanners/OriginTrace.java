@@ -50,10 +50,9 @@ public class OriginTrace {
 
   @Override
   public boolean equals(Object o) {
-    if (!(o instanceof OriginTrace)) {
+    if (!(o instanceof OriginTrace that)) {
       return false;
     }
-    OriginTrace that = (OriginTrace) o;
     return Objects.equals(getOrigin(), that.getOrigin())
         && Objects.equals(getTrace(), that.getTrace());
   }

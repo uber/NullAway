@@ -60,7 +60,7 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
 
   @Override
   public void appendXmlFields(StringBuilder sb, SerializationAdapter adapter) {
-    String[] infos = tabSeparatedToString(adapter).split("\t");
+    String[] infos = tabSeparatedToString(adapter).split("\t", -1);
     Serializer.appendXmlElement(sb, "target_kind", infos[0]);
     Serializer.appendXmlElement(sb, "target_class", infos[1]);
     Serializer.appendXmlElement(sb, "target_method", infos[2]);

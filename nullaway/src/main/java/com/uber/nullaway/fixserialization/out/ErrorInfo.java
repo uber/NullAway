@@ -152,6 +152,15 @@ public class ErrorInfo {
     return path;
   }
 
+  /**
+   * Returns extra information regarding the error required to generate a fix automatically.
+   *
+   * @return Map from info keys to their values.
+   */
+  public Map<String, String> getInfos() {
+    return infos;
+  }
+
   /** Finds the class and member of program point where the error is reported. */
   public void initEnclosing() {
     classAndMemberInfo.findValues();
@@ -187,8 +196,7 @@ public class ErrorInfo {
         sb.append("<location>");
         SymbolLocation.createLocationFromSymbol(sym).appendXmlFields(sb, serializationAdapter);
         sb.append("</location>");
-        Serializer.appendXmlElement(
-            sb, "kind", sym.getKind().toString().toLowerCase(Locale.getDefault()));
+        Serializer.appendXmlElement(sb, "kind", sym.getKind().toString().toLowerCase(Locale.ROOT));
         Serializer.appendXmlElement(
             sb, "class", Serializer.serializeSymbol(sym.enclClass(), serializationAdapter));
         Serializer.appendXmlElement(sb, "isAnnotated", Boolean.toString(isAnnotated(sym)));
