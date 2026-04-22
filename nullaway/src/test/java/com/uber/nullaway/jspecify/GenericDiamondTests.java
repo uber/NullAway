@@ -328,6 +328,30 @@ public class GenericDiamondTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericMethodTypeVarParamWithDiamondArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Box<T extends @Nullable Object> {
+                Box(T value) {}
+              }
+              static @Nullable String nullableString() {
+                throw new RuntimeException();
+              }
+              static <U extends @Nullable Object> void consume(U u) {}
+              static void testNoStackOverflow() {
+                consume(new Box<>(nullableString()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

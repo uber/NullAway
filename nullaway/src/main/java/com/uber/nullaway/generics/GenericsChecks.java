@@ -114,6 +114,13 @@ public final class GenericsChecks {
    */
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
+  /**
+   * Tracks generic method invocations currently undergoing nested-nullability repair so re-entrant
+   * requests for the same invocation can use the already inferred call-site method type rather than
+   * recursing back through the same repair logic.
+   */
+  private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
+
   public @Nullable Type getInferredPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
         tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
@@ -495,11 +502,14 @@ public final class GenericsChecks {
         if (currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree) {
           DirectCallContext directContext =
               getDirectCallContextForInference(currentPath, state, false);
+          Type constructorAssignmentContext =
+              sanitizeAssignmentContextForDiamondConstructor(
+                  directContext.typeFromAssignmentContext);
           return inferCallType(
               state,
               newClassTree,
               currentPath,
-              directContext.typeFromAssignmentContext,
+              constructorAssignmentContext,
               directContext.assignedToLocal,
               false);
         }
@@ -917,6 +927,16 @@ public final class GenericsChecks {
 
   private Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
     return (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
+  }
+
+  /**
+   * A bare method type variable does not provide useful structure for inferring nullability of a
+   * diamond constructor's class type arguments. In such cases we let constructor inference rely on
+   * constructor arguments and any more structured surrounding context instead.
+   */
+  private @Nullable Type sanitizeAssignmentContextForDiamondConstructor(
+      @Nullable Type contextType) {
+    return contextType instanceof Type.TypeVar ? null : contextType;
   }
 
   /**
@@ -1853,9 +1873,20 @@ public final class GenericsChecks {
       Type.MethodType methodTypeAtCallSite =
           castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
       if (result instanceof InferenceSuccess successResult) {
-        methodTypeAtCallSite =
-            restoreNestedNullabilityForTypeVarArguments(
-                invocationTree, methodType, methodTypeAtCallSite, state);
+        // Repairing dropped nested nullability annotations can itself inspect actual argument
+        // types. For diamond constructor arguments, that can re-enter method-type computation for
+        // this same invocation while we are still repairing it. In that case, use the already
+        // inferred method type and skip the repair on the recursive call.
+        if (!nestedNullabilityRepairInProgress.contains(invocationTree)) {
+          nestedNullabilityRepairInProgress.add(invocationTree);
+          try {
+            methodTypeAtCallSite =
+                restoreNestedNullabilityForTypeVarArguments(
+                    invocationTree, methodType, methodTypeAtCallSite, state);
+          } finally {
+            nestedNullabilityRepairInProgress.remove(invocationTree);
+          }
+        }
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -1922,7 +1953,9 @@ public final class GenericsChecks {
             callSiteParamType = repairedSubstitution;
           }
         } else { // need to compute the substitution
-          Type actualArgType = getTreeType(actualParams.get(i), state);
+          ExpressionTree actualParam = actualParams.get(i);
+          Type actualArgType =
+              getTreeType(actualParam, state.withPath(new TreePath(state.getPath(), actualParam)));
           // only handle cases of non-raw actual parameter types that have the same base type as the
           // inferred parameter type at the call site
           if (actualArgType != null
@@ -2452,6 +2485,7 @@ public final class GenericsChecks {
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
     inferredPolyExpressionTypes.clear();
+    nestedNullabilityRepairInProgress.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
