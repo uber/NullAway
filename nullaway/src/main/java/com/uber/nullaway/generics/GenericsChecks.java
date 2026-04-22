@@ -809,8 +809,8 @@ public final class GenericsChecks {
           typeAtCallSite, methodReturnType, typeVarNullability, state, config);
     }
     Verify.verify(callTree instanceof NewClassTree);
-    Symbol.MethodSymbol ctorSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(callTree);
-    Type constructedTypeWithTypeVars = castToNonNull(ctorSymbol.owner.type);
+    Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
+    Type constructedTypeWithTypeVars = ctorSymbol.owner.type;
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
         typeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
   }
@@ -901,18 +901,22 @@ public final class GenericsChecks {
       return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
     }
     Verify.verify(callTree instanceof NewClassTree);
-    Symbol.MethodSymbol ctorSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(callTree);
+    Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
     return ctorSymbol.owner.getTypeParameters();
   }
 
   private Type.MethodType getInferenceExecutableType(ExpressionTree callTree, VisitorState state) {
-    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(callTree);
+    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
     Type.MethodType methodType =
         handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
     if (!(callTree instanceof NewClassTree)) {
       return methodType;
     }
     return methodType;
+  }
+
+  private Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
+    return (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
   }
 
   /**
@@ -941,14 +945,14 @@ public final class GenericsChecks {
       ExpressionTree callTree,
       Set<Tree> allCalls)
       throws UnsatisfiableConstraintsException {
-    Symbol.MethodSymbol methodSymbol = (Symbol.MethodSymbol) ASTHelpers.getSymbol(callTree);
+    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
     Type.MethodType methodType =
         handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
     if (typeFromAssignmentContext != null) {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
               ? methodType.getReturnType()
-              : castToNonNull(methodSymbol.owner.type);
+              : methodSymbol.owner.type;
       solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
     }
     new InvocationArguments(callTree, methodType)
