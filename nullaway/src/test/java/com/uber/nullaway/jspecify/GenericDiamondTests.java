@@ -212,7 +212,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1532() {
+  public void inferFromReturn() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -229,6 +229,35 @@ public class GenericDiamondTests extends NullAwayTestsBase {
               }
               static <K> LazyValue<@Nullable K> nullable(Supplier<@Nullable K> supplier) {
                 return new NullableLazyValue<>(supplier);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromParams() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Foo<T extends @Nullable Object> {}
+              static class Bar<T extends @Nullable Object> {
+                Bar(Foo<T> foo1, Foo<T> foo2) {
+                }
+              }
+              static void testNegative1(Foo<String> f1, Foo<String> f2) {
+                new Bar<>(f1, f2);
+              }
+              static void testNegative2(Foo<@Nullable String> f1, Foo<@Nullable String> f2) {
+                new Bar<>(f1, f2);
+              }
+              static void testPositive(Foo<String> f1, Foo<@Nullable String> f2) {
+                // BUG: Diagnostic contains: incompatible types
+                new Bar<>(f1, f2);
               }
             }
             """)
