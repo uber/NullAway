@@ -26,39 +26,11 @@ package com.uber.nullaway.fixserialization.scanners;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
-import java.util.Objects;
 
-public class OriginTrace {
-  /** The origin symbol */
-  private final Symbol origin;
-
-  /** The trace where the origin contributes to the value of the local variable. */
-  private final Tree trace;
-
-  public OriginTrace(Symbol origin, Tree trace) {
-    this.origin = origin;
-    this.trace = trace;
-  }
-
-  public Symbol getOrigin() {
-    return origin;
-  }
-
-  public Tree getTrace() {
-    return trace;
-  }
-
-  @Override
-  public boolean equals(Object o) {
-    if (!(o instanceof OriginTrace that)) {
-      return false;
-    }
-    return Objects.equals(getOrigin(), that.getOrigin())
-        && Objects.equals(getTrace(), that.getTrace());
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(getOrigin(), getTrace());
-  }
-}
+/**
+ * A provenance symbol together with the AST tree where it contributes to a local variable's value.
+ *
+ * @param origin The origin symbol.
+ * @param trace The tree where the origin contributes to the value of the local variable.
+ */
+public record OriginTrace(Symbol origin, Tree trace) {}

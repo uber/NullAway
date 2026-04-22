@@ -149,7 +149,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
       Set<OriginTrace> involvedSymbols = tree.accept(this, current);
       involvedSymbols.forEach(
           trace -> {
-            Symbol origin = trace.getOrigin();
+            Symbol origin = trace.origin();
             if (isOriginal(origin)) {
               result.add(trace);
             } else {

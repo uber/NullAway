@@ -191,7 +191,7 @@ public class ErrorInfo {
     if (!origins.isEmpty()) {
       sb.append("<origins>");
       for (OriginTrace trace : origins) {
-        Symbol sym = trace.getOrigin();
+        Symbol sym = trace.origin();
         sb.append("<origin>");
         sb.append("<location>");
         SymbolLocation.createLocationFromSymbol(sym).appendXmlFields(sb, serializationAdapter);
@@ -200,9 +200,9 @@ public class ErrorInfo {
         Serializer.appendXmlElement(
             sb, "class", Serializer.serializeSymbol(sym.enclClass(), serializationAdapter));
         Serializer.appendXmlElement(sb, "isAnnotated", Boolean.toString(isAnnotated(sym)));
-        Serializer.appendXmlElement(sb, "expression", trace.getTrace().toString());
+        Serializer.appendXmlElement(sb, "expression", trace.trace().toString());
         Serializer.appendXmlElement(
-            sb, "position", Integer.toString(((JCTree) trace.getTrace()).pos().getStartPosition()));
+            sb, "position", Integer.toString(((JCTree) trace.trace()).pos().getStartPosition()));
         Serializer.appendXmlElement(
             sb, "symbol", Serializer.serializeSymbol(sym, serializationAdapter));
         sb.append("</origin>");
