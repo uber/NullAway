@@ -170,7 +170,13 @@ final class ErrorProneCLIFlagsConfig implements Config {
           "org.springframework.beans.factory.annotation.Autowired");
   // + Anything with @Initializer as its "simple name"
 
-  static final ImmutableSet<String> DEFAULT_EXTERNAL_INIT_ANNOT = ImmutableSet.of("lombok.Builder");
+  static final ImmutableSet<String> DEFAULT_EXTERNAL_INIT_ANNOT =
+      ImmutableSet.of(
+          "lombok.Builder",
+          "org.springframework.boot.test.mock.mockito.MockBean",
+          "org.springframework.boot.test.mock.mockito.SpyBean",
+          "org.springframework.test.context.bean.override.mockito.MockitoBean",
+          "org.springframework.test.context.bean.override.mockito.MockitoSpyBean");
 
   static final ImmutableSet<String> DEFAULT_CONTRACT_ANNOT =
       ImmutableSet.of("org.jetbrains.annotations.Contract");
