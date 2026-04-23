@@ -24,6 +24,7 @@ package com.uber.nullaway.fixserialization.adapters;
 
 import com.uber.nullaway.fixserialization.SerializationService;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
+import java.util.Map;
 
 /**
  * Adapter for serialization version 4.
@@ -31,9 +32,14 @@ import com.uber.nullaway.fixserialization.out.ErrorInfo;
  * <p>Updates to previous version (version 3):
  *
  * <ol>
- *   <li>Serialized errors contain an extra column indicating the additional information about the
- *       error
+ *   <li>Serialized errors contain an extra column {@code infos} carrying structured key/value
+ *       metadata used by downstream tools (e.g. Annotator) to synthesize fixes.
  * </ol>
+ *
+ * <p>The {@code infos} column encodes the map as {@code key=value,key=value}, with backslash
+ * escaping applied to any literal backslash, equals sign, or comma within a key or value. The
+ * resulting string is further passed through {@link SerializationService#escapeSpecialCharacters}
+ * to make it safe for the outer TSV format.
  */
 public class SerializationV4Adapter extends SerializationV3Adapter {
 
@@ -49,7 +55,34 @@ public class SerializationV4Adapter extends SerializationV3Adapter {
 
   @Override
   public String serializeError(ErrorInfo errorInfo) {
-    String infos = SerializationService.escapeSpecialCharacters(errorInfo.getInfos().toString());
-    return super.serializeError(errorInfo) + "\t" + infos;
+    return super.serializeError(errorInfo) + "\t" + serializeInfos(errorInfo.getInfos());
+  }
+
+  private static String serializeInfos(Map<String, String> infos) {
+    if (infos.isEmpty()) {
+      return "";
+    }
+    StringBuilder sb = new StringBuilder();
+    boolean first = true;
+    for (Map.Entry<String, String> entry : infos.entrySet()) {
+      if (!first) {
+        sb.append(',');
+      }
+      first = false;
+      appendEscaped(sb, entry.getKey());
+      sb.append('=');
+      appendEscaped(sb, entry.getValue());
+    }
+    return SerializationService.escapeSpecialCharacters(sb.toString());
+  }
+
+  private static void appendEscaped(StringBuilder sb, String value) {
+    for (int i = 0; i < value.length(); i++) {
+      char c = value.charAt(i);
+      if (c == '\\' || c == '=' || c == ',') {
+        sb.append('\\');
+      }
+      sb.append(c);
+    }
   }
 }

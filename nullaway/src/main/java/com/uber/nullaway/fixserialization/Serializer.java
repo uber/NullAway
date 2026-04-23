@@ -76,10 +76,23 @@ public class Serializer {
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
     appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
-    // append to xml as well.
-    StringBuilder xml = new StringBuilder();
-    errorInfo.appendXml(xml, serializationAdapter);
-    appendToFile(xml.toString(), errorOutputXmlPath);
+    if (isXmlOutputEnabled()) {
+      StringBuilder xml = new StringBuilder();
+      errorInfo.appendXml(xml, serializationAdapter);
+      appendToFile(xml.toString(), errorOutputXmlPath);
+    }
+  }
+
+  /**
+   * Whether the XML error log is produced for the active serialization adapter. The XML output was
+   * introduced in V4 for Annotator auto-fix metadata and is intentionally suppressed for earlier
+   * versions so existing consumers aren't surprised by a new artifact. Each {@code <error>} record
+   * is appended as a standalone XML fragment (there is no post-analysis hook to emit a closing root
+   * element), so downstream consumers should treat the file as a fragment stream rather than a
+   * single well-formed XML document.
+   */
+  private boolean isXmlOutputEnabled() {
+    return serializationAdapter.getSerializationVersion() >= 4;
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
@@ -135,7 +148,9 @@ public class Serializer {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
       initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
-      initializeFile(errorOutputXmlPath, "");
+      if (isXmlOutputEnabled()) {
+        initializeFile(errorOutputXmlPath, "");
+      }
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer", e);
     }

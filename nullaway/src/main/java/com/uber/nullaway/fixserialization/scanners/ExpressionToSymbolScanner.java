@@ -32,6 +32,7 @@ import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
+import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
@@ -106,6 +107,16 @@ public class ExpressionToSymbolScanner
       MemberSelectTree node, NullAway.MayBeNullableInquiry inquiry) {
     boolean isNullable = inquiry.maybeNullable(node, state);
     if (!isNullable) {
+      return Set.of();
+    }
+    Symbol symbol = defaultResult(node);
+    return symbol == null ? Set.of() : Set.of(symbol);
+  }
+
+  @Override
+  public Set<Symbol> visitMethodInvocation(
+      MethodInvocationTree node, NullAway.MayBeNullableInquiry inquiry) {
+    if (!inquiry.maybeNullable(node, state)) {
       return Set.of();
     }
     Symbol symbol = defaultResult(node);

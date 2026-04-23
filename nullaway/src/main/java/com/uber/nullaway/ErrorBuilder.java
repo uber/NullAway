@@ -53,6 +53,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
@@ -212,8 +213,9 @@ public class ErrorBuilder {
         if (nullableExpressionSymbol != null
             && nullableExpressionSymbol.getKind() == ElementKind.LOCAL_VARIABLE) {
           // locate assignments to this local variable.
+          int diagPos = ((JCTree) state.getPath().getLeaf()).getStartPosition();
           origins =
-              new OriginScanner(inquiry, state)
+              new OriginScanner(inquiry, state, diagPos)
                   .retrieveOrigins(state.findEnclosing(MethodTree.class), nullableExpressionSymbol);
         }
       }

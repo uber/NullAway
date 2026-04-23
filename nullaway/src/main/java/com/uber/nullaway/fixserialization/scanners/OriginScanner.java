@@ -34,6 +34,7 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.NullAway;
 import java.util.ArrayDeque;
 import java.util.HashSet;
@@ -53,9 +54,28 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
   private final NullAway.MayBeNullableInquiry inquiry;
   private final VisitorState state;
 
+  /**
+   * Source offset of the diagnostic expression. Assignments, variable declarations, and for-each
+   * loops that start at or after this offset cannot reach the error site and are skipped. Use
+   * {@link #NO_BOUND} to disable the filter.
+   */
+  private final int diagnosticStartPosition;
+
+  public static final int NO_BOUND = Integer.MAX_VALUE;
+
   public OriginScanner(NullAway.MayBeNullableInquiry inquiry, VisitorState state) {
+    this(inquiry, state, NO_BOUND);
+  }
+
+  public OriginScanner(
+      NullAway.MayBeNullableInquiry inquiry, VisitorState state, int diagnosticStartPosition) {
     this.inquiry = inquiry;
     this.state = state;
+    this.diagnosticStartPosition = diagnosticStartPosition;
+  }
+
+  private boolean startsAfterDiagnostic(Tree node) {
+    return ((JCTree) node).getStartPosition() >= diagnosticStartPosition;
   }
 
   @Override
@@ -78,6 +98,9 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
     Tree variable = node.getVariable();
     Symbol symbol = ASTHelpers.getSymbol(variable);
     if (symbol != null && symbol.equals(target)) {
+      if (startsAfterDiagnostic(node)) {
+        return Set.of();
+      }
       ExpressionTree expr = node.getExpression();
       if (!inquiry.maybeNullable(expr, state)) {
         return Set.of();
@@ -93,6 +116,9 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
   public Set<OriginTrace> visitVariable(VariableTree node, Symbol target) {
     Symbol symbol = ASTHelpers.getSymbol(node);
     if (symbol != null && symbol.equals(target)) {
+      if (startsAfterDiagnostic(node)) {
+        return Set.of();
+      }
       if (node.getInitializer() == null) {
         return Set.of();
       }
@@ -111,6 +137,9 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
   public Set<OriginTrace> visitEnhancedForLoop(EnhancedForLoopTree node, Symbol target) {
     Symbol variable = ASTHelpers.getSymbol(node.getVariable());
     if (variable != null && variable.equals(target)) {
+      if (startsAfterDiagnostic(node)) {
+        return Set.of();
+      }
       ExpressionTree expr = node.getExpression();
       if (!inquiry.maybeNullable(expr, state)) {
         return Set.of();
