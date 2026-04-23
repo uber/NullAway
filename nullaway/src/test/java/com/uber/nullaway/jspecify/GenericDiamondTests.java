@@ -352,6 +352,23 @@ public class GenericDiamondTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void arraysAsList() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.*;
+            @NullMarked
+            public class Test {
+              @Nullable Object[] makeArr() { return new Object[0]; }
+              List<@Nullable Object> make() { return new ArrayList<>(Arrays.asList(makeArr())); }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
