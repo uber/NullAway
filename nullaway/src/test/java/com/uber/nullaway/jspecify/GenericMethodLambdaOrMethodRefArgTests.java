@@ -1042,6 +1042,44 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Reduced from a crash observed when building JUnit on JDK 27; testing that we do not crash */
+  @Test
+  public void crasherOnJdk27() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Repro.java",
+            """
+            package repro;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Repro {
+                void f(C c) {
+                    E e = c.e();
+                    g((B b, B.I<@Nullable Void> i) -> {
+                        b.f(i, e);
+                        return null;
+                    });
+                }
+                static <T extends @Nullable Object> void g(A<T> a) {
+                }
+                interface A<T extends @Nullable Object> {
+                    T f(B b, B.I<T> i);
+                }
+                interface B {
+                    void f(I<@Nullable Void> i, E e);
+                    interface I<T extends @Nullable Object> {
+                    }
+                }
+                interface C {
+                    E e();
+                }
+                interface E {
+                }
+            }""")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
