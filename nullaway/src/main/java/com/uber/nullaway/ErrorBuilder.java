@@ -212,8 +212,14 @@ public class ErrorBuilder {
         Symbol nullableExpressionSymbol = ASTHelpers.getSymbol(nullableExpression);
         if (nullableExpressionSymbol != null
             && nullableExpressionSymbol.getKind() == ElementKind.LOCAL_VARIABLE) {
-          // locate assignments to this local variable.
-          int diagPos = ((JCTree) state.getPath().getLeaf()).getStartPosition();
+          // locate assignments to this local variable.  Use the nullable expression's start
+          // position as the bound: the enclosing leaf can start earlier (e.g. an outer
+          // MethodInvocationTree or enhanced-for), which would cause OriginScanner to drop
+          // assignments that sit between the leaf start and the actual use.
+          int diagPos = ((JCTree) nullableExpression).getStartPosition();
+          if (diagPos < 0) {
+            diagPos = ((JCTree) state.getPath().getLeaf()).getStartPosition();
+          }
           origins =
               new OriginScanner(inquiry, state, diagPos)
                   .retrieveOrigins(state.findEnclosing(MethodTree.class), nullableExpressionSymbol);

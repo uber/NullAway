@@ -39,7 +39,8 @@ import java.util.Map;
  * <p>The {@code infos} column encodes the map as {@code key=value,key=value}, with backslash
  * escaping applied to any literal backslash, equals sign, or comma within a key or value. The
  * resulting string is further passed through {@link SerializationService#escapeSpecialCharacters}
- * to make it safe for the outer TSV format.
+ * to make it safe for the outer TSV format. An empty map is serialized as the empty string, which
+ * renders as a trailing empty column on the TSV row.
  */
 public class SerializationV4Adapter extends SerializationV3Adapter {
 
