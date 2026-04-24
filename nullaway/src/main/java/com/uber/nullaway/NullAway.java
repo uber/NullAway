@@ -686,8 +686,9 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
     if (methodSymbol.isConstructor() && isInitializerMethod(state, methodSymbol)) {
       String message =
-          "@Initializer annotation is not allowed on constructors, as NullAway already "
-              + "treats constructors as initializers by default.";
+          "@Initializer annotation (or a configured initializer annotation) is not allowed "
+              + "on constructors, as NullAway already treats constructors as initializers "
+              + "by default.";
       return errorBuilder.createErrorDescription(
           new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
           tree,

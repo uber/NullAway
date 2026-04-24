@@ -45,5 +45,5 @@ import java.lang.annotation.Target;
  * framework events such as {@code onCreate}).
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+@Target({ElementType.METHOD})
 public @interface Initializer {}
