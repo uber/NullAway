@@ -254,11 +254,51 @@ public class InitializationTests extends NullAwayTestsBase {
             class Test {
               Object f;
               @Initializer
-              // BUG: Diagnostic contains: @Initializer annotation is not allowed on constructors
+              // BUG: Diagnostic contains: @Initializer annotation (or a configured initializer annotation) is not allowed on constructors
               public Test() {
                 this.f = new Object();
               }
               @Initializer
+              public void init() {
+                this.f = new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void customInitializerAnnotationOnConstructor() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomInitializerAnnotations=com.uber.CustomInit"))
+        .addSourceLines(
+            "CustomInit.java",
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            @Retention(RetentionPolicy.CLASS)
+            @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+            public @interface CustomInit {}
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            class Test {
+              Object f;
+              @CustomInit
+              // BUG: Diagnostic contains: @Initializer annotation (or a configured initializer annotation) is not allowed on constructors
+              public Test() {
+                this.f = new Object();
+              }
+              @CustomInit
               public void init() {
                 this.f = new Object();
               }
