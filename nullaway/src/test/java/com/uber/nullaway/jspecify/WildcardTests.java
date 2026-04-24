@@ -21,16 +21,18 @@ public class WildcardTests extends NullAwayTestsBase {
               class Foo<T extends @Nullable Object> {}
               String nullableWildcard(Foo<? extends @Nullable String> foo) { throw new RuntimeException(); }
               String nonnullWildcard(Foo<? extends String> foo) { throw new RuntimeException(); }
-              void testNegative(Foo<@Nullable String> f) {
+              void testNegative(Foo<@Nullable String> f, Foo<String> f2) {
                 // this is legal since the wildcard upper bound is @Nullable
                 String s = nullableWildcard(f);
-                s.hashCode();
+                // also legal
+                String s2 = nullableWildcard(f2);
               }
-              void testPositive(Foo<@Nullable String> f) {
+              void testPositive(Foo<@Nullable String> f, Foo<String> f2) {
                 // not legal since the wildcard upper bound is non-null
                 // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<? extends String>
                 String s = nonnullWildcard(f);
-                s.hashCode();
+                // legal
+                String s2 = nonnullWildcard(f2);
               }
             }
             """)
@@ -218,6 +220,9 @@ public class WildcardTests extends NullAwayTestsBase {
                 Foo<? extends @Nullable String> ok = f;
                 // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
                 Foo<? extends String> bad = f;
+                var f2 = f;
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                Foo<? extends String> bad2 = f2;
               }
             }
             """)

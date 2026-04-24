@@ -110,9 +110,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   /**
    * Returns whether the actual type argument on the right is contained by the formal type argument
    * on the left, following the JLS 4.5.1 notion of type-argument containment but interpreted with
-   * NullAway's nullability-aware subtype relation. Non-wildcard pairs require matching nullability
-   * annotations and recursively matching nested type arguments. Wildcard formals are delegated to
-   * {@link #wildcardContains}.
+   * <a href="https://jspecify.dev/docs/spec/#subtyping">JSpecify's nullability-aware subtype
+   * relation</a>. Non-wildcard pairs require matching nullability annotations and recursively
+   * matching nested type arguments. Wildcard formals are delegated to {@link #wildcardContains}.
    */
   private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
     if (!config.handleWildcardGenerics()
@@ -158,9 +158,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     Type lhsBound = lhsWildcard.getExtendsBound();
-    if (lhsBound == null) {
-      return true;
-    }
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
       Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
       if (rhsWildcard.kind != BoundKind.EXTENDS) {
