@@ -242,4 +242,28 @@ public class InitializationTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void initializerAnnotationOnConstructor() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.nullaway.annotations.Initializer;
+            class Test {
+              Object f;
+              @Initializer
+              // BUG: Diagnostic contains: @Initializer annotation is not allowed on constructors
+              public Test() {
+                this.f = new Object();
+              }
+              @Initializer
+              public void init() {
+                this.f = new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
 }
