@@ -199,8 +199,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
       Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
       if (rhsWildcard.kind != BoundKind.SUPER) {
-        // Treat non-super wildcard actual arguments as accepted here until we add more complete
-        // support.
+        // This case cannot occur outside of inference: if the rhs is ? extends T, that is never
+        // assignable to ? super S, since the rhs could be an arbitrary subtype of T (which may be a
+        // subtype of S).
+        // TODO handle when we implement inference
         return true;
       }
       Type rhsBound = castToNonNull(rhsWildcard.getSuperBound());
