@@ -229,6 +229,36 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void wildcardSuperFormalNoInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              void testLocals(
+                  Foo<Object> objectFoo,
+                  Foo<@Nullable Object> nullableObjectFoo,
+                  Foo<@Nullable String> nullableStringFoo,
+                  Foo<? super String> nonnullSuperFoo,
+                  Foo<? super @Nullable String> nullableSuperFoo) {
+                Foo<? super String> nonnullSuperLocal2 = nullableObjectFoo;
+                Foo<? super @Nullable String> nullableSuperLocal = nullableObjectFoo;
+                Foo<? super @Nullable String> nullableSuperLocal2 = nullableStringFoo;
+                // BUG: Diagnostic contains: incompatible types:
+                Foo<? super @Nullable String> nullableSuperLocal3 = objectFoo;
+                Foo<? super String> nonnullSuperFromNullableSuper = nullableSuperFoo;
+                // BUG: Diagnostic contains: incompatible types:
+                Foo<? super @Nullable String> nullableSuperFromNonnullSuper = nonnullSuperFoo;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("bad interaction between wildcard support and generic method inference")
   @Test
   public void wildcardSuperBoundsAndInference() {
