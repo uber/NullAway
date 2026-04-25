@@ -260,7 +260,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void wildcardExtendsTopFormalWithNonExtendsActualNoInference() {
+  public void superOrUnboundedWildcardAssignedToExtendsBoundedWildcard() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -289,7 +289,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void unboundedWildcardFormalWithNonNullTypeParameterBoundNoInference() {
+  public void unboundedWildcardFormalWithNonNullTypeParameterBound() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -315,7 +315,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void unboundedWildcardFormalWithNullableTypeParameterBoundNoInference() {
+  public void unboundedWildcardFormalWithNullableTypeParameterBound() {
     makeHelper()
         .addSourceLines(
             "Test.java",
