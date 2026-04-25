@@ -11,7 +11,6 @@ import com.uber.nullaway.Config;
 import java.util.List;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -155,13 +154,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    */
   private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
     return switch (lhsWildcard.kind) {
-      case UNBOUND -> {
+      case UNBOUND, EXTENDS -> {
         Type lhsBound = wildcardUpperBound(lhsWildcard);
-        yield lhsBound == null || extendsBoundContains(lhsBound, rhsTypeArgument);
+        yield extendsBoundContains(lhsBound, rhsTypeArgument);
       }
-      case EXTENDS -> extendsBoundContains(lhsWildcard.getExtendsBound(), rhsTypeArgument);
       case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
-      default -> throw new RuntimeException("Unexpected wildcard bound kind: " + lhsWildcard.kind);
     };
   }
 
@@ -170,7 +167,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
       if (rhsWildcard.kind != BoundKind.EXTENDS) {
         Type rhsUpperBound = wildcardUpperBound(rhsWildcard);
-        return rhsUpperBound == null || typeArgumentSubtype(lhsBound, rhsUpperBound);
+        return typeArgumentSubtype(lhsBound, rhsUpperBound);
       }
       Type rhsBound = rhsWildcard.getExtendsBound();
       return typeArgumentSubtype(lhsBound, rhsBound);
@@ -182,13 +179,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * Returns the effective upper bound of a wildcard, using the corresponding type variable's upper
    * bound for unbounded wildcards and {@code super} wildcards.
    */
-  private @Nullable Type wildcardUpperBound(Type.WildcardType wildcardType) {
+  private Type wildcardUpperBound(Type.WildcardType wildcardType) {
     if (wildcardType.kind == BoundKind.EXTENDS) {
       return wildcardType.getExtendsBound();
     }
     // For ? and ? super L, javac stores the wildcard's corresponding type variable in the `bound`
     // field. The upper bound of that type variable is the wildcard's effective upper bound.
-    return wildcardType.bound == null ? null : wildcardType.bound.getUpperBound();
+    return wildcardType.bound.getUpperBound();
   }
 
   /**
