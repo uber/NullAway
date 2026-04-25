@@ -248,10 +248,10 @@ public class WildcardTests extends NullAwayTestsBase {
                 Foo<? super String> nonnullSuperLocal = nullableObjectFoo;
                 Foo<? super @Nullable String> nullableSuperLocal = nullableObjectFoo;
                 Foo<? super @Nullable String> nullableSuperLocal2 = nullableStringFoo;
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<Object> cannot be converted to Test.Foo<? super @Nullable String>
                 Foo<? super @Nullable String> nullableSuperLocal3 = objectFoo;
                 Foo<? super String> nonnullSuperFromNullableSuper = nullableSuperFoo;
-                // BUG: Diagnostic contains: incompatible types:
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? super String> cannot be converted to Test.Foo<? super @Nullable String>
                 Foo<? super @Nullable String> nullableSuperFromNonnullSuper = nonnullSuperFoo;
               }
             }
