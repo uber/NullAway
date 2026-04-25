@@ -1,5 +1,7 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -180,7 +182,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * {@code S <: T}, interpreted with NullAway's nullability-aware subtype relation.
    */
   private boolean superWildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
-    Type lhsBound = lhsWildcard.getSuperBound();
+    // caller must ensure that lhsWildcard has a super bound
+    Type lhsBound = castToNonNull(lhsWildcard.getSuperBound());
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
       Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
       if (rhsWildcard.kind != BoundKind.SUPER) {
@@ -188,7 +191,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         // support.
         return true;
       }
-      Type rhsBound = rhsWildcard.getSuperBound();
+      Type rhsBound = castToNonNull(rhsWildcard.getSuperBound());
       return typeArgumentSubtype(rhsBound, lhsBound);
     }
     return typeArgumentSubtype(rhsTypeArgument, lhsBound);
