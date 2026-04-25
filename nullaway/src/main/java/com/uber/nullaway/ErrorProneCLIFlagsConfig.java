@@ -306,7 +306,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
     acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     jspecifyMode = flags.getBoolean(FL_JSPECIFY_MODE).orElse(false);
-    handleWildcardGenerics = flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(true);
+    handleWildcardGenerics = flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(
