@@ -11,15 +11,18 @@ import java.util.List;
  * configuring NullAway compilation tests that rely on JSpecify annotations.
  *
  * <p>For tests, this utility ensures that they always pass {@code
- * -XepOpt:NullAway:JSpecifyMode=true} and {@code -XDaddTypeAnnotationsToSymbol=true} together.
+ * -XepOpt:NullAway:JSpecifyMode=true}, {@code -XDaddTypeAnnotationsToSymbol=true}, and the
+ * wildcard-support flag together.
  */
 public final class JSpecifyJavacConfig {
 
   public static final String JSPECIFY_MODE_FLAG = "-XepOpt:NullAway:JSpecifyMode=true";
   public static final String ADD_TYPE_ANNOTATIONS_FLAG = "-XDaddTypeAnnotationsToSymbol=true";
+  public static final String HANDLE_WILDCARD_GENERICS_FLAG =
+      "-XepOpt:NullAway:HandleWildcardGenerics=true";
 
   private static final List<String> JSPECIFY_MODE_ARGS =
-      List.of(JSPECIFY_MODE_FLAG, ADD_TYPE_ANNOTATIONS_FLAG);
+      List.of(JSPECIFY_MODE_FLAG, ADD_TYPE_ANNOTATIONS_FLAG, HANDLE_WILDCARD_GENERICS_FLAG);
 
   private JSpecifyJavacConfig() {}
 

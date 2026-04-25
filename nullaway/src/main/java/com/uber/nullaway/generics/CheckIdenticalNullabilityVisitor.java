@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -63,18 +64,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
-          || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-        // TODO Handle wildcard types
-        continue;
-      }
-      boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
-      boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
-      if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
-        return false;
-      }
-      // nested generics
-      if (!lhsTypeArgument.accept(this, rhsTypeArgument)) {
+      if (!typeArgumentContainedBy(lhsTypeArgument, rhsTypeArgument)) {
         return false;
       }
     }
@@ -115,5 +105,85 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   @Override
   public Boolean visitType(Type t, Type type) {
     return true;
+  }
+
+  /**
+   * Returns whether the actual type argument on the right is contained by the formal type argument
+   * on the left, following the JLS 4.5.1 notion of type-argument containment but interpreted with
+   * <a href="https://jspecify.dev/docs/spec/#subtyping">JSpecify's nullability-aware subtype
+   * relation</a>. Non-wildcard pairs require matching nullability annotations and recursively
+   * matching nested type arguments. Wildcard formals are delegated to {@link #wildcardContains}.
+   */
+  private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
+    if (!config.handleWildcardGenerics()
+        && (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
+            || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD))) {
+      // Preserve the pre-flag behavior of skipping wildcard-aware checks entirely.
+      return true;
+    }
+    if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+      return wildcardContains((Type.WildcardType) lhsTypeArgument, rhsTypeArgument);
+    }
+    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+      // TODO: Add proper support for the remaining case where the formal type argument is not a
+      // wildcard but the actual type argument is a wildcard.
+      return true;
+    }
+    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
+    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
+    if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
+      return false;
+    }
+    return lhsTypeArgument.accept(this, rhsTypeArgument);
+  }
+
+  /**
+   * Handles a narrow slice of the JLS type-argument containment rules from JLS 4.5.1 for wildcard
+   * type arguments. In particular, for a formal argument {@code ? extends S}, we accept either a
+   * concrete actual argument {@code T} or a wildcard actual argument {@code ? extends T} whenever
+   * {@code T <: S}, using NullAway's nullability-aware subtype check in place of plain Java
+   * subtyping. This covers the JLS cases behind both {@code T <= ? extends S} and {@code ? extends
+   * T <= ? extends S}. For now, this method intentionally leaves {@code super} wildcards and other
+   * more complex cases to existing fallback behavior.
+   */
+  private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
+    if (lhsWildcard.kind == BoundKind.UNBOUND) {
+      // TODO: For unbounded wildcards, we need to find the bound of the corresponding type
+      // variable rather than accepting outright; see
+      // https://jspecify.dev/docs/user-guide/#wildcard-bounds
+      return true;
+    }
+    if (lhsWildcard.kind != BoundKind.EXTENDS) {
+      // Treat non-extends wildcards as accepted here until we add more complete support.
+      return true;
+    }
+    Type lhsBound = lhsWildcard.getExtendsBound();
+    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+      Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
+      if (rhsWildcard.kind != BoundKind.EXTENDS) {
+        // Treat non-extends wildcard actual arguments as accepted here until we add more complete
+        // support.
+        return true;
+      }
+      Type rhsBound = rhsWildcard.getExtendsBound();
+      return typeArgumentSubtype(lhsBound, rhsBound);
+    }
+    return typeArgumentSubtype(lhsBound, rhsTypeArgument);
+  }
+
+  /**
+   * Returns whether the actual type argument on the right is a nullability-aware subtype of the
+   * formal type argument on the left. This check first rejects flows from nullable to non-null at
+   * the top level of the type argument, then delegates to {@link
+   * GenericsChecks#subtypeParameterNullability(Type, Type, VisitorState)} for recursive nested
+   * checks.
+   */
+  private boolean typeArgumentSubtype(Type lhsType, Type rhsType) {
+    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
+    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
+    if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
+      return false;
+    }
+    return genericsChecks.subtypeParameterNullability(lhsType, rhsType, state);
   }
 }
