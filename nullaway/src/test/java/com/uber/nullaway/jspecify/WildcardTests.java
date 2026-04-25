@@ -245,7 +245,7 @@ public class WildcardTests extends NullAwayTestsBase {
                   Foo<@Nullable String> nullableStringFoo,
                   Foo<? super String> nonnullSuperFoo,
                   Foo<? super @Nullable String> nullableSuperFoo) {
-                Foo<? super String> nonnullSuperLocal2 = nullableObjectFoo;
+                Foo<? super String> nonnullSuperLocal = nullableObjectFoo;
                 Foo<? super @Nullable String> nullableSuperLocal = nullableObjectFoo;
                 Foo<? super @Nullable String> nullableSuperLocal2 = nullableStringFoo;
                 // BUG: Diagnostic contains: incompatible types:
