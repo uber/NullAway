@@ -199,6 +199,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       supertypeTypeArg.accept(this, subtypeTypeArg);
     }
 
+    /**
+     * Adds constraints for type-argument containment where the formal argument is a wildcard. For
+     * {@code ? extends S} and {@code ?}, containment requires the actual argument's effective upper
+     * bound to be a subtype of {@code S}. For {@code ? super S}, concrete actual arguments require
+     * {@code S <: subtypeTypeArg}; {@code ? super T} actual arguments require {@code S <: T}. Other
+     * actual wildcard forms place no useful nullability constraint.
+     */
     private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
       switch (supertypeWildcard.kind) {
         case UNBOUND, EXTENDS -> {
