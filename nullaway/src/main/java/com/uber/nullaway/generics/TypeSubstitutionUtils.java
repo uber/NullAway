@@ -299,6 +299,9 @@ public class TypeSubstitutionUtils {
         // TODO revisit this decision when we add fuller support for inference and wildcards.
         return visit(t, wt.getExtendsBound());
       }
+      if (other instanceof Type.WildcardType wt && wt.kind == BoundKind.SUPER) {
+        return visit(t, wt.getSuperBound());
+      }
 
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ClassType)) {

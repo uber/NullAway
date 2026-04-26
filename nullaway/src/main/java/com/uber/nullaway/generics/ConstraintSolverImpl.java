@@ -96,6 +96,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public @Nullable Void visitType(Type subtype, Type supertype) {
+      if (config.handleWildcardGenerics()) {
+        WildcardType supertypeWildcard = asWildcard(supertype);
+        if (supertypeWildcard != null) {
+          constrainSubtypeToWildcard(subtype, supertypeWildcard);
+          return null;
+        }
+        WildcardType subtypeWildcard = asWildcard(subtype);
+        if (subtypeWildcard != null) {
+          constrainWildcardToSupertype(subtypeWildcard, supertype);
+          return null;
+        }
+      }
       // handle flow into a type variable.  the check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType
@@ -210,6 +222,20 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertypeTypeArg);
       } else {
         wildcardUpperBound(subtypeWildcard).accept(this, supertypeTypeArg);
+      }
+    }
+
+    private void constrainSubtypeToWildcard(Type subtype, WildcardType supertypeWildcard) {
+      if (supertypeWildcard.kind != BoundKind.SUPER) {
+        subtype.accept(this, wildcardUpperBound(supertypeWildcard));
+      }
+    }
+
+    private void constrainWildcardToSupertype(WildcardType subtypeWildcard, Type supertype) {
+      if (subtypeWildcard.kind == BoundKind.SUPER) {
+        castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertype);
+      } else {
+        wildcardUpperBound(subtypeWildcard).accept(this, supertype);
       }
     }
 
