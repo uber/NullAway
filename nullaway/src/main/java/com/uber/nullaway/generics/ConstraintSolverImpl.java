@@ -5,10 +5,13 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Type.CapturedType;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
+import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
@@ -73,6 +76,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* All variables seen so far. */
   private final Map<Element, VarState> vars = new HashMap<>();
 
+  /* Captured type variables for which we have already added bound constraints. */
+  private final Set<Element> capturesWithBoundConstraints = new HashSet<>();
+
   /* ───────────────────── public API ───────────────────── */
 
   @Override
@@ -92,7 +98,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     public @Nullable Void visitType(Type subtype, Type supertype) {
       // handle flow into a type variable.  the check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
-      if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
+      if (!localVariableType
+          && (supertype instanceof TypeVar)
+          && !(subtype instanceof TypeVar)
+          && !(subtype instanceof WildcardType)) {
         directlyConstrainTypePair(subtype, supertype);
       }
       return null;
@@ -116,13 +125,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         int numTypeArgs = supertypeTypeArguments.size();
         Verify.verify(numTypeArgs == subtypeTypeArguments.size());
         for (int i = 0; i < numTypeArgs; i++) {
-          Type rhsTypeArg = supertypeTypeArguments.get(i);
-          Type lhsTypeArg = subtypeTypeArguments.get(i);
-          // constrain in both directions
-          // TODO should we have a more optimized way to equate two types?  this just makes each
-          //  type a subtype of the other
-          lhsTypeArg.accept(this, rhsTypeArg);
-          rhsTypeArg.accept(this, lhsTypeArg);
+          Type supertypeTypeArg = supertypeTypeArguments.get(i);
+          Type subtypeTypeArg = subtypeTypeArguments.get(i);
+          constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg);
         }
       }
       // if supertype is not a ClassType, we still call visitType to handle the case where
@@ -151,6 +156,92 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         directlyConstrainTypePair(subtype, supertype);
       }
       return visitType(subtype, supertype);
+    }
+
+    private void constrainTypeArgumentContainment(Type subtypeTypeArg, Type supertypeTypeArg) {
+      if (!config.handleWildcardGenerics()) {
+        equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
+        return;
+      }
+      WildcardType supertypeWildcard = asWildcard(supertypeTypeArg);
+      if (supertypeWildcard != null) {
+        constrainContainedByWildcard(subtypeTypeArg, supertypeWildcard);
+        return;
+      }
+      WildcardType subtypeWildcard = asWildcard(subtypeTypeArg);
+      if (subtypeWildcard != null) {
+        constrainWildcardContainedByConcrete(subtypeWildcard, supertypeTypeArg);
+        return;
+      }
+      equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
+    }
+
+    private void equateTypeArguments(Type subtypeTypeArg, Type supertypeTypeArg) {
+      // constrain in both directions
+      // TODO should we have a more optimized way to equate two types?  this just makes each
+      //  type a subtype of the other
+      subtypeTypeArg.accept(this, supertypeTypeArg);
+      supertypeTypeArg.accept(this, subtypeTypeArg);
+    }
+
+    private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
+      switch (supertypeWildcard.kind) {
+        case UNBOUND, EXTENDS -> {
+          Type subtypeUpperBound = effectiveWildcardUpperBound(subtypeTypeArg);
+          subtypeUpperBound.accept(this, wildcardUpperBound(supertypeWildcard));
+        }
+        case SUPER -> {
+          Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
+          WildcardType subtypeWildcard = asWildcard(subtypeTypeArg);
+          if (subtypeWildcard != null) {
+            if (subtypeWildcard.kind == BoundKind.SUPER) {
+              supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
+            }
+          } else {
+            supertypeLowerBound.accept(this, subtypeTypeArg);
+          }
+        }
+      }
+    }
+
+    private void constrainWildcardContainedByConcrete(
+        WildcardType subtypeWildcard, Type supertypeTypeArg) {
+      if (subtypeWildcard.kind == BoundKind.SUPER) {
+        castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertypeTypeArg);
+      } else {
+        wildcardUpperBound(subtypeWildcard).accept(this, supertypeTypeArg);
+      }
+    }
+
+    private Type effectiveWildcardUpperBound(Type typeArg) {
+      WildcardType wildcardType = asWildcard(typeArg);
+      return wildcardType == null ? typeArg : wildcardUpperBound(wildcardType);
+    }
+
+    private Type wildcardUpperBound(WildcardType wildcardType) {
+      Type upperBound;
+      if (wildcardType.kind == BoundKind.EXTENDS) {
+        upperBound = wildcardType.getExtendsBound();
+      } else {
+        upperBound = wildcardType.bound.getUpperBound();
+      }
+      if (upperBound instanceof WildcardType nestedWildcard) {
+        return wildcardUpperBound(nestedWildcard);
+      }
+      if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
+        return wildcardUpperBound(capturedType.wildcard);
+      }
+      return upperBound;
+    }
+
+    private @Nullable WildcardType asWildcard(Type typeArg) {
+      if (typeArg instanceof WildcardType wildcardType) {
+        return wildcardType;
+      }
+      if (typeArg instanceof CapturedType capturedType) {
+        return capturedType.wildcard;
+      }
+      return null;
     }
   }
 
@@ -209,6 +300,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
+    addCaptureBoundConstraints(s);
+    addCaptureBoundConstraints(t);
+
     /* variable-to-variable edge */
     if (isTypeVariable(s) && isTypeVariable(t)) {
       TypeVariable sv = (TypeVariable) s;
@@ -272,13 +366,30 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   private boolean isTypeVariable(Type t) {
     if (t instanceof TypeVar tv) {
-      // For now ignore capture variables, like "capture#1 of ? extends X".  Also, only treat as a
-      // type variable if it _doesn't_ have an explicit @Nullable or @NonNull annotation.
-      return !tv.isCaptured()
-          && !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
+      // Only treat as a type variable if it _doesn't_ have an explicit @Nullable or @NonNull
+      // annotation.
+      return !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
           && !Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors().stream(), config);
     } else {
       return false;
+    }
+  }
+
+  private void addCaptureBoundConstraints(Type type) {
+    if (!(type instanceof CapturedType capturedType) || !isTypeVariable(capturedType)) {
+      return;
+    }
+    Element captureElement = capturedType.asElement();
+    if (!capturesWithBoundConstraints.add(captureElement)) {
+      return;
+    }
+    Type lowerBound = capturedType.getLowerBound();
+    if (lowerBound != null && !(lowerBound instanceof NullType)) {
+      lowerBound.accept(new AddSubtypeConstraintsVisitor(false), capturedType);
+    }
+    Type upperBound = capturedType.getUpperBound();
+    if (upperBound != null) {
+      capturedType.accept(new AddSubtypeConstraintsVisitor(false), upperBound);
     }
   }
 
