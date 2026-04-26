@@ -7,9 +7,7 @@ import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Type.CapturedType;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
 import com.sun.tools.javac.code.Type.WildcardType;
@@ -95,12 +93,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     @Override
     public @Nullable Void visitType(Type subtype, Type supertype) {
       if (config.handleWildcardGenerics()) {
-        WildcardType supertypeWildcard = asWildcard(supertype);
+        WildcardType supertypeWildcard = GenericsUtils.asWildcard(supertype);
         if (supertypeWildcard != null) {
           constrainSubtypeToWildcard(subtype, supertypeWildcard);
           return null;
         }
-        WildcardType subtypeWildcard = asWildcard(subtype);
+        WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtype);
         if (subtypeWildcard != null) {
           constrainWildcardToSupertype(subtypeWildcard, supertype);
           return null;
@@ -173,12 +171,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
         return;
       }
-      WildcardType supertypeWildcard = asWildcard(supertypeTypeArg);
+      WildcardType supertypeWildcard = GenericsUtils.asWildcard(supertypeTypeArg);
       if (supertypeWildcard != null) {
         constrainContainedByWildcard(subtypeTypeArg, supertypeWildcard);
         return;
       }
-      WildcardType subtypeWildcard = asWildcard(subtypeTypeArg);
+      WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
       if (subtypeWildcard != null) {
         constrainWildcardContainedByConcrete(subtypeWildcard, supertypeTypeArg);
         return;
@@ -197,12 +195,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
       switch (supertypeWildcard.kind) {
         case UNBOUND, EXTENDS -> {
-          Type subtypeUpperBound = effectiveWildcardUpperBound(subtypeTypeArg);
-          subtypeUpperBound.accept(this, wildcardUpperBound(supertypeWildcard));
+          Type subtypeUpperBound = GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state);
+          subtypeUpperBound.accept(
+              this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state));
         }
         case SUPER -> {
           Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
-          WildcardType subtypeWildcard = asWildcard(subtypeTypeArg);
+          WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
           if (subtypeWildcard != null) {
             if (subtypeWildcard.kind == BoundKind.SUPER) {
               supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
@@ -219,13 +218,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (subtypeWildcard.kind == BoundKind.SUPER) {
         castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertypeTypeArg);
       } else {
-        wildcardUpperBound(subtypeWildcard).accept(this, supertypeTypeArg);
+        GenericsUtils.wildcardUpperBound(subtypeWildcard, state).accept(this, supertypeTypeArg);
       }
     }
 
     private void constrainSubtypeToWildcard(Type subtype, WildcardType supertypeWildcard) {
       if (supertypeWildcard.kind != BoundKind.SUPER) {
-        subtype.accept(this, wildcardUpperBound(supertypeWildcard));
+        subtype.accept(this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state));
       }
     }
 
@@ -233,42 +232,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (subtypeWildcard.kind == BoundKind.SUPER) {
         castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertype);
       } else {
-        wildcardUpperBound(subtypeWildcard).accept(this, supertype);
+        GenericsUtils.wildcardUpperBound(subtypeWildcard, state).accept(this, supertype);
       }
-    }
-
-    private Type effectiveWildcardUpperBound(Type typeArg) {
-      WildcardType wildcardType = asWildcard(typeArg);
-      return wildcardType == null ? typeArg : wildcardUpperBound(wildcardType);
-    }
-
-    private Type wildcardUpperBound(WildcardType wildcardType) {
-      Type upperBound;
-      if (wildcardType.kind == BoundKind.EXTENDS) {
-        upperBound = wildcardType.getExtendsBound();
-      } else {
-        upperBound =
-            wildcardType.bound == null
-                ? Symtab.instance(state.context).objectType
-                : wildcardType.bound.getUpperBound();
-      }
-      if (upperBound instanceof WildcardType nestedWildcard) {
-        return wildcardUpperBound(nestedWildcard);
-      }
-      if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
-        return wildcardUpperBound(capturedType.wildcard);
-      }
-      return upperBound;
-    }
-
-    private @Nullable WildcardType asWildcard(Type typeArg) {
-      if (typeArg instanceof WildcardType wildcardType) {
-        return wildcardType;
-      }
-      if (typeArg instanceof CapturedType capturedType) {
-        return capturedType.wildcard;
-      }
-      return null;
     }
   }
 
