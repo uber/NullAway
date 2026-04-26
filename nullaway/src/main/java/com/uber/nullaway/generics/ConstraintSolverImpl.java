@@ -100,12 +100,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           return null;
         }
       }
-      // handle flow into a type variable.  the check for !(subtype instanceof TypeVar) is a
+      // handle flow into a type variable. The check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
-      if (!localVariableType
-          && (supertype instanceof TypeVar)
-          && !(subtype instanceof TypeVar)
-          && !(subtype instanceof WildcardType)) {
+      if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
         directlyConstrainTypePair(subtype, supertype);
       }
       return null;
@@ -135,7 +132,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         }
       }
       // if supertype is not a ClassType, we still call visitType to handle the case where
-      // supertype is a TypeVar
+      // supertype is a TypeVar or a wildcard
       return visitType(subtype, supertype);
     }
 
@@ -150,7 +147,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         subtypeComponentType.accept(this, superComponentType);
       }
       // if supertype is not an ArrayType, we still call visitType to handle the case where
-      // supertype is a TypeVar
+      // supertype is a TypeVar or a wildcard
       return visitType(subtype, supertype);
     }
 
