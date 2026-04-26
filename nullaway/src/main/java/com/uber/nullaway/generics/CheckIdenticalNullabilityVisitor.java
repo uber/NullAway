@@ -123,8 +123,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       // Preserve the pre-flag behavior of skipping wildcard-aware checks entirely.
       return true;
     }
-    if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-      return wildcardContains((Type.WildcardType) lhsTypeArgument, rhsTypeArgument);
+    if (lhsTypeArgument instanceof Type.WildcardType lhsWildcard) {
+      return wildcardContains(lhsWildcard, rhsTypeArgument);
     }
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
       // This case should only arise when generic method invocation inference / capture conversion
@@ -144,36 +144,45 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   }
 
   /**
-   * Handles a narrow slice of the JLS type-argument containment rules from JLS 4.5.1 for wildcard
-   * type arguments. In particular, for a formal argument {@code ? extends S}, we accept either a
-   * concrete actual argument {@code T} or a wildcard actual argument {@code ? extends T} whenever
-   * {@code T <: S}, using NullAway's nullability-aware subtype check in place of plain Java
-   * subtyping. For a formal argument {@code ? super S}, we accept either a concrete actual argument
-   * {@code T} or a wildcard actual argument {@code ? super T} whenever {@code S <: T}. For now,
-   * this method intentionally leaves other more complex cases to existing fallback behavior.
+   * Handles JLS 4.5.1 type-argument containment for wildcard formal type arguments, using
+   * NullAway's nullability-aware subtype relation in place of plain Java subtyping. A formal {@code
+   * ? extends S} contains actual arguments whose effective upper bound is a subtype of {@code S}; a
+   * formal {@code ? super S} contains concrete actuals {@code T} and wildcard actuals {@code ?
+   * super T} when {@code S <: T}; and a formal {@code ?} is treated as {@code ? extends B}, where
+   * {@code B} is the corresponding type variable's upper bound.
    */
   private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
-    if (lhsWildcard.kind == BoundKind.UNBOUND) {
-      // TODO: For unbounded wildcards, we need to find the bound of the corresponding type
-      // variable rather than accepting outright; see
-      // https://jspecify.dev/docs/user-guide/#wildcard-bounds
-      return true;
-    }
-    if (lhsWildcard.kind == BoundKind.SUPER) {
-      return superWildcardContains(lhsWildcard, rhsTypeArgument);
-    }
-    Type lhsBound = lhsWildcard.getExtendsBound();
-    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-      Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
-      if (rhsWildcard.kind != BoundKind.EXTENDS) {
-        // Treat non-extends wildcard actual arguments as accepted here until we add more complete
-        // support.
-        return true;
-      }
-      Type rhsBound = rhsWildcard.getExtendsBound();
-      return typeArgumentSubtype(lhsBound, rhsBound);
+    return switch (lhsWildcard.kind) {
+      case UNBOUND, EXTENDS ->
+          extendsBoundContains(wildcardUpperBound(lhsWildcard), rhsTypeArgument);
+      case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
+    };
+  }
+
+  /**
+   * Returns whether a formal {@code ? extends S} contains the actual type argument on the right.
+   * For concrete actuals {@code T}, wildcard actuals {@code ? extends T}, and non-extends wildcard
+   * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}.
+   */
+  private boolean extendsBoundContains(Type lhsBound, Type rhsTypeArgument) {
+    if (rhsTypeArgument instanceof Type.WildcardType rhsWildcard) {
+      Type rhsUpperBound = wildcardUpperBound(rhsWildcard);
+      return typeArgumentSubtype(lhsBound, rhsUpperBound);
     }
     return typeArgumentSubtype(lhsBound, rhsTypeArgument);
+  }
+
+  /**
+   * Returns the effective upper bound of a wildcard, using the corresponding type variable's upper
+   * bound for unbounded wildcards and {@code super} wildcards.
+   */
+  private Type wildcardUpperBound(Type.WildcardType wildcardType) {
+    if (wildcardType.kind == BoundKind.EXTENDS) {
+      return wildcardType.getExtendsBound();
+    }
+    // For ? and ? super L, javac stores the wildcard's corresponding type variable in the `bound`
+    // field. The upper bound of that type variable is the wildcard's effective upper bound.
+    return wildcardType.bound.getUpperBound();
   }
 
   /**
@@ -184,11 +193,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean superWildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
     // caller must ensure that lhsWildcard has a super bound
     Type lhsBound = castToNonNull(lhsWildcard.getSuperBound());
-    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-      Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
+    if (rhsTypeArgument instanceof Type.WildcardType rhsWildcard) {
       if (rhsWildcard.kind != BoundKind.SUPER) {
-        // Treat non-super wildcard actual arguments as accepted here until we add more complete
-        // support.
+        // This case cannot occur outside of inference: if the rhs is ? extends T, that is never
+        // assignable to ? super S, since the rhs could be an arbitrary subtype of T (which may be a
+        // subtype of S).
+        // TODO handle when we implement inference
         return true;
       }
       Type rhsBound = castToNonNull(rhsWildcard.getSuperBound());

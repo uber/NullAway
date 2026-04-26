@@ -259,6 +259,88 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void superOrUnboundedWildcardAssignedToExtendsBoundedWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class Foo<T extends @Nullable Object> {}
+              void testLocals(
+                  Foo<? super String> nonnullSuperFoo,
+                  Foo<? super @Nullable String> nullableSuperFoo,
+                  Foo<?> unboundedFoo) {
+                Foo<? extends @Nullable Object> fromNonnullSuper = nonnullSuperFoo;
+                Foo<? extends @Nullable Object> fromNullableSuper = nullableSuperFoo;
+                Foo<? extends @Nullable Object> fromUnbounded = unboundedFoo;
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? super String> cannot be converted to Test.Foo<? extends Object>
+                Foo<? extends Object> badFromNonnullSuper = nonnullSuperFoo;
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<? super @Nullable String> cannot be converted to Test.Foo<? extends Object>
+                Foo<? extends Object> badFromNullableSuper = nullableSuperFoo;
+                // BUG: Diagnostic contains: incompatible types: Test.Foo<?> cannot be converted to Test.Foo<? extends Object>
+                Foo<? extends Object> badFromUnbounded = unboundedFoo;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundedWildcardFormalWithNonNullTypeParameterBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class NonNullBoundFoo<T extends Object> {}
+              void testLocals(
+                  NonNullBoundFoo<Object> nonnullObjectFoo,
+                  NonNullBoundFoo<? extends Object> nonnullExtendsObjectFoo,
+                  NonNullBoundFoo<? extends @Nullable Object> nullableExtendsObjectWithNonnullBoundFoo,
+                  NonNullBoundFoo<? super String> nonnullSuperStringFoo) {
+                NonNullBoundFoo<?> fromNonnull = nonnullObjectFoo;
+                NonNullBoundFoo<?> fromNonnullExtends = nonnullExtendsObjectFoo;
+                // BUG: Diagnostic contains: incompatible types: Test.NonNullBoundFoo<? extends @Nullable Object> cannot be converted to Test.NonNullBoundFoo<?>
+                NonNullBoundFoo<?> fromNullableExtends = nullableExtendsObjectWithNonnullBoundFoo;
+                NonNullBoundFoo<?> fromSuper = nonnullSuperStringFoo;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundedWildcardFormalWithNullableTypeParameterBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              class NullableBoundFoo<T extends @Nullable Object> {}
+              void testLocals(
+                  NullableBoundFoo<Object> nonnullObjectWithNullableBoundFoo,
+                  NullableBoundFoo<@Nullable Object> nullableObjectFoo,
+                  NullableBoundFoo<? extends Object> nonnullExtendsObjectWithNullableBoundFoo,
+                  NullableBoundFoo<? extends @Nullable Object> nullableExtendsObjectFoo,
+                  NullableBoundFoo<? super String> nullableBoundSuperStringFoo) {
+                NullableBoundFoo<?> fromNonnull = nonnullObjectWithNullableBoundFoo;
+                NullableBoundFoo<?> fromNullable = nullableObjectFoo;
+                NullableBoundFoo<?> fromNonnullExtends = nonnullExtendsObjectWithNullableBoundFoo;
+                NullableBoundFoo<?> fromNullableExtends = nullableExtendsObjectFoo;
+                NullableBoundFoo<?> fromSuper = nullableBoundSuperStringFoo;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("bad interaction between wildcard support and generic method inference")
   @Test
   public void wildcardSuperBoundsAndInference() {
