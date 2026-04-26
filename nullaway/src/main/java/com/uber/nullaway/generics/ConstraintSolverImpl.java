@@ -213,6 +213,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     }
 
+    /**
+     * Adds constraints for type-argument containment where the actual argument is a wildcard and
+     * the formal argument is concrete. For {@code ? extends S} and {@code ?}, containment requires
+     * {@code S <: supertypeTypeArg}. For {@code ? super S}, use the lower bound and require {@code
+     * S <: supertypeTypeArg}.
+     */
     private void constrainWildcardContainedByConcrete(
         WildcardType subtypeWildcard, Type supertypeTypeArg) {
       if (subtypeWildcard.kind == BoundKind.SUPER) {
@@ -222,12 +228,22 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     }
 
+    /**
+     * Adds constraints for a top-level subtype relation {@code subtype <: supertypeWildcard}. For
+     * {@code ? extends S} and {@code ?}, this reduces to {@code subtype <: S}. A {@code ? super S}
+     * supertype places no useful nullability constraint on {@code subtype}.
+     */
     private void constrainSubtypeToWildcard(Type subtype, WildcardType supertypeWildcard) {
       if (supertypeWildcard.kind != BoundKind.SUPER) {
         subtype.accept(this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state));
       }
     }
 
+    /**
+     * Adds constraints for a top-level subtype relation {@code subtypeWildcard <: supertype}. For
+     * {@code ? extends S} and {@code ?}, this reduces to {@code S <: supertype}. For {@code ? super
+     * S}, use the lower bound and reduce to {@code S <: supertype}.
+     */
     private void constrainWildcardToSupertype(WildcardType subtypeWildcard, Type supertype) {
       if (subtypeWildcard.kind == BoundKind.SUPER) {
         castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertype);
