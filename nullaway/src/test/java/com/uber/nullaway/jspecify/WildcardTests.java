@@ -4,6 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
@@ -460,6 +461,30 @@ public class WildcardTests extends NullAwayTestsBase {
                         s.hashCode();
                     });
                 }
+            }""")
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1500")
+  @Test
+  public void issue1500() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                public static <T extends @Nullable Object> Foo<T> of(Foo<? super T> foo) {
+                    return new Foo<>();
+                }
+
+                public Foo<T> or(Foo<? super T> other) {
+                    return this;
+                }
+              }
+              static final Foo<@Nullable Void> FOO = Foo.of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
             }""")
         .doTest();
   }
