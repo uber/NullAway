@@ -400,6 +400,33 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void methodRefParameterExtendsWildcardToConcreteParameter() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T t);
+              }
+              static void acceptNullable(@Nullable String s) {}
+              static void acceptNonNull(String s) {}
+              static <T extends @Nullable Object> void use(Consumer<? extends T> consumer) {}
+              static void useNullable(Consumer<? extends @Nullable String> consumer) {}
+              void test() {
+                use(Test::acceptNullable);
+                // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                useNullable(Test::acceptNonNull);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
