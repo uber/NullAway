@@ -370,6 +370,36 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void superWildcardToConcreteTypeVariable() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> void take(Box<T> box) {}
+              static <T extends @Nullable Object> T get(Box<T> box) {
+                throw new RuntimeException();
+              }
+              Object field = new Object();
+              void test(Box<? super @Nullable String> nullableBox, Box<? super String> nonNullBox) {
+                take(nullableBox);
+                take(nonNullBox);
+                // TODO we need to report an additional error besides inference failure here
+                // See https://github.com/uber/NullAway/issues/1551
+                // BUG: Diagnostic contains: Failed to infer type argument nullability
+                field = get(nullableBox);
+                field = get(nonNullBox);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
