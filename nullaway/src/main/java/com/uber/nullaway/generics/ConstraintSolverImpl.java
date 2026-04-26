@@ -77,9 +77,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* All variables seen so far. */
   private final Map<Element, VarState> vars = new HashMap<>();
 
-  /* Captured type variables for which we have already added bound constraints. */
-  private final Set<Element> capturesWithBoundConstraints = new HashSet<>();
-
   /* ───────────────────── public API ───────────────────── */
 
   @Override
@@ -330,9 +327,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
-    addCaptureBoundConstraints(s);
-    addCaptureBoundConstraints(t);
-
     /* variable-to-variable edge */
     if (isTypeVariable(s) && isTypeVariable(t)) {
       TypeVariable sv = (TypeVariable) s;
@@ -402,24 +396,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           && !Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors().stream(), config);
     } else {
       return false;
-    }
-  }
-
-  private void addCaptureBoundConstraints(Type type) {
-    if (!(type instanceof CapturedType capturedType) || !isTypeVariable(capturedType)) {
-      return;
-    }
-    Element captureElement = capturedType.asElement();
-    if (!capturesWithBoundConstraints.add(captureElement)) {
-      return;
-    }
-    Type lowerBound = capturedType.getLowerBound();
-    if (lowerBound != null && !(lowerBound instanceof NullType)) {
-      lowerBound.accept(new AddSubtypeConstraintsVisitor(false), capturedType);
-    }
-    Type upperBound = capturedType.getUpperBound();
-    if (upperBound != null) {
-      capturedType.accept(new AddSubtypeConstraintsVisitor(false), upperBound);
     }
   }
 
