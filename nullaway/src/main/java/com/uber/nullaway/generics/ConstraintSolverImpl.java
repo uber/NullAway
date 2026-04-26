@@ -8,6 +8,7 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Type.CapturedType;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
 import com.sun.tools.javac.code.Type.WildcardType;
@@ -98,11 +99,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           constrainSubtypeToWildcard(subtype, supertypeWildcard);
           return null;
         }
-        WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtype);
-        if (subtypeWildcard != null) {
-          constrainWildcardToSupertype(subtypeWildcard, supertype);
-          return null;
-        }
       }
       // handle flow into a type variable.  the check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
@@ -162,6 +158,29 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     public @Nullable Void visitTypeVar(TypeVar subtype, Type supertype) {
       if (!localVariableType) {
         directlyConstrainTypePair(subtype, supertype);
+      }
+      return visitType(subtype, supertype);
+    }
+
+    @Override
+    public @Nullable Void visitWildcardType(WildcardType subtype, Type supertype) {
+      if (config.handleWildcardGenerics()) {
+        constrainWildcardToSupertype(subtype, supertype);
+      }
+      return null;
+    }
+
+    @Override
+    public @Nullable Void visitCapturedType(CapturedType subtype, Type supertype) {
+      if (!localVariableType) {
+        directlyConstrainTypePair(subtype, supertype);
+      }
+      if (config.handleWildcardGenerics()) {
+        WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtype);
+        if (subtypeWildcard != null) {
+          constrainWildcardToSupertype(subtypeWildcard, supertype);
+          return null;
+        }
       }
       return visitType(subtype, supertype);
     }
