@@ -1,5 +1,7 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -125,8 +127,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return wildcardContains((Type.WildcardType) lhsTypeArgument, rhsTypeArgument);
     }
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
-      // TODO: Add proper support for the remaining case where the formal type argument is not a
-      // wildcard but the actual type argument is a wildcard.
+      // This case should only arise when generic method invocation inference / capture conversion
+      // lets a wildcard actual argument flow into a non-wildcard formal type argument, e.g.,
+      // passing Foo<? extends T> to <U> void m(Foo<U>). We do not yet support wildcard inference.
+      // For non-inference assignment / return / parameter checks, javac rejects these conversions
+      // before NullAway runs.
+      // TODO: Add proper support when inference for wildcards is implemented.
       return true;
     }
     boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
@@ -142,9 +148,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * type arguments. In particular, for a formal argument {@code ? extends S}, we accept either a
    * concrete actual argument {@code T} or a wildcard actual argument {@code ? extends T} whenever
    * {@code T <: S}, using NullAway's nullability-aware subtype check in place of plain Java
-   * subtyping. This covers the JLS cases behind both {@code T <= ? extends S} and {@code ? extends
-   * T <= ? extends S}. For now, this method intentionally leaves {@code super} wildcards and other
-   * more complex cases to existing fallback behavior.
+   * subtyping. For a formal argument {@code ? super S}, we accept either a concrete actual argument
+   * {@code T} or a wildcard actual argument {@code ? super T} whenever {@code S <: T}. For now,
+   * this method intentionally leaves other more complex cases to existing fallback behavior.
    */
   private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
     if (lhsWildcard.kind == BoundKind.UNBOUND) {
@@ -153,9 +159,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       // https://jspecify.dev/docs/user-guide/#wildcard-bounds
       return true;
     }
-    if (lhsWildcard.kind != BoundKind.EXTENDS) {
-      // Treat non-extends wildcards as accepted here until we add more complete support.
-      return true;
+    if (lhsWildcard.kind == BoundKind.SUPER) {
+      return superWildcardContains(lhsWildcard, rhsTypeArgument);
     }
     Type lhsBound = lhsWildcard.getExtendsBound();
     if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
@@ -169,6 +174,27 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return typeArgumentSubtype(lhsBound, rhsBound);
     }
     return typeArgumentSubtype(lhsBound, rhsTypeArgument);
+  }
+
+  /**
+   * Returns whether a formal {@code ? super S} contains the actual type argument on the right. For
+   * concrete actuals {@code T} and wildcard actuals {@code ? super T}, containment holds when
+   * {@code S <: T}, interpreted with NullAway's nullability-aware subtype relation.
+   */
+  private boolean superWildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
+    // caller must ensure that lhsWildcard has a super bound
+    Type lhsBound = castToNonNull(lhsWildcard.getSuperBound());
+    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+      Type.WildcardType rhsWildcard = (Type.WildcardType) rhsTypeArgument;
+      if (rhsWildcard.kind != BoundKind.SUPER) {
+        // Treat non-super wildcard actual arguments as accepted here until we add more complete
+        // support.
+        return true;
+      }
+      Type rhsBound = castToNonNull(rhsWildcard.getSuperBound());
+      return typeArgumentSubtype(rhsBound, lhsBound);
+    }
+    return typeArgumentSubtype(rhsTypeArgument, lhsBound);
   }
 
   /**
