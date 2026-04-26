@@ -183,6 +183,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return visitType(subtype, supertype);
     }
 
+    /**
+     * Adds nullability constraints for containment of one type argument by another during generic
+     * class/interface subtyping. For non-wildcard arguments, NullAway requires identical
+     * nullability. When either side is a wildcard, containment is reduced to constraints between
+     * the wildcard bound and the opposing argument.
+     */
     private void constrainTypeArgumentContainment(Type subtypeTypeArg, Type supertypeTypeArg) {
       if (!config.handleWildcardGenerics()) {
         equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
