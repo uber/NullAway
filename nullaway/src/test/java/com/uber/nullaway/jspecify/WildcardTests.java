@@ -428,6 +428,42 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void mapStreamValuesToNullable() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                interface List<T extends @Nullable Object> {
+                    Stream<T> stream();
+                }
+                interface Stream<T extends @Nullable Object> {
+                    <R extends @Nullable Object> Stream<R> map(Function<? super T, ? extends R> mapper);
+                    void forEach(Consumer<? super T> action);
+                }
+                interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                    R apply(T t);
+                }
+                interface Consumer<T extends @Nullable Object> {
+                    void accept(T t);
+                }
+                static @Nullable String mapToNull(String s) {
+                    return null;
+                }
+                static void test(List<String> list) {
+                    // legal, should infer R -> @Nullable String
+                    list.stream().map(Test::mapToNull).forEach(s -> {
+                        // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                        s.hashCode();
+                    });
+                }
+            }""")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
