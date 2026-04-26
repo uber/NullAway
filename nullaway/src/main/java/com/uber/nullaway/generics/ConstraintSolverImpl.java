@@ -174,11 +174,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         directlyConstrainTypePair(subtype, supertype);
       }
       if (config.handleWildcardGenerics()) {
-        WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtype);
-        if (subtypeWildcard != null) {
-          constrainWildcardToSupertype(subtypeWildcard, supertype);
-          return null;
-        }
+        constrainWildcardToSupertype(subtype.wildcard, supertype);
+        return null;
       }
       return visitType(subtype, supertype);
     }
