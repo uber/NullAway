@@ -5,6 +5,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
@@ -183,7 +184,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     } else {
       // For ? and ? super L, javac stores the wildcard's corresponding type variable in the `bound`
       // field. The upper bound of that type variable is the wildcard's effective upper bound.
-      upperBound = wildcardType.bound.getUpperBound();
+      upperBound =
+          wildcardType.bound == null
+              ? Symtab.instance(state.context).objectType
+              : wildcardType.bound.getUpperBound();
     }
     if (upperBound instanceof Type.WildcardType nestedWildcard) {
       return wildcardUpperBound(nestedWildcard);

@@ -7,6 +7,7 @@ import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.CapturedType;
 import com.sun.tools.javac.code.Type.ClassType;
@@ -249,7 +250,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (wildcardType.kind == BoundKind.EXTENDS) {
         upperBound = wildcardType.getExtendsBound();
       } else {
-        upperBound = wildcardType.bound.getUpperBound();
+        upperBound =
+            wildcardType.bound == null
+                ? Symtab.instance(state.context).objectType
+                : wildcardType.bound.getUpperBound();
       }
       if (upperBound instanceof WildcardType nestedWildcard) {
         return wildcardUpperBound(nestedWildcard);
@@ -435,9 +439,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     // first, check if library model overrides the upper bound nullability
     Element enclosingElement = typeVarElement.getEnclosingElement();
-    if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol) {
-      int typeVarIndex =
-          methodSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
+    if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol
+        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+      int typeVarIndex = methodSymbol.getTypeParameters().indexOf(typeVariableSymbol);
       // TODO typeVarIndex is -1 in some cases; see test
       //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
       //  Investigate further.
@@ -445,9 +449,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           && handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex, state)) {
         return true;
       }
-    } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol) {
-      int typeVarIndex =
-          classSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
+    } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol
+        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+      int typeVarIndex = classSymbol.getTypeParameters().indexOf(typeVariableSymbol);
       if (typeVarIndex >= 0
           && handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
         return true;
@@ -461,8 +465,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private boolean fromUnannotatedMethod(Element typeVarElement) {
-    Symbol enclosingElement = (Symbol) typeVarElement.getEnclosingElement();
-    return enclosingElement != null
-        && codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
+    Element enclosingElement = typeVarElement.getEnclosingElement();
+    if (!(enclosingElement instanceof Symbol.MethodSymbol)
+        && !(enclosingElement instanceof Symbol.ClassSymbol)) {
+      return false;
+    }
+    return codeAnnotationInfo.isSymbolUnannotated((Symbol) enclosingElement, config, handler);
   }
 }
