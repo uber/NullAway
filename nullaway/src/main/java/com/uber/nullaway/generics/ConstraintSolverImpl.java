@@ -96,6 +96,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (config.handleWildcardGenerics()) {
         WildcardType supertypeWildcard = GenericsUtils.asWildcard(supertype);
         if (supertypeWildcard != null) {
+          Verify.verify(!localVariableType, "A local variable should not have a wildcard type");
           constrainSubtypeToWildcard(subtype, supertypeWildcard);
           return null;
         }
