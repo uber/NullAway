@@ -392,6 +392,31 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("https://github.com/uber/NullAway/issues/1522")
+  @Test
+  public void issue1522() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.function.Function;
+            import java.util.Optional;
+            @NullMarked
+            class Test {
+              static class Foo<T> {
+                public final <V> Foo<V> mapNotNull(Function<? super T, ? extends @Nullable V> mapper) {
+                  throw new RuntimeException();
+                }
+              }
+              static <T> Foo<T> after(Foo<Optional<T>> foo) {
+                return foo.mapNotNull(x -> x.orElse(null));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Extracted from Caffeine; exposed some subtle bugs in substitutions involving identity of {@code
    * Type} objects
