@@ -177,12 +177,21 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * bound for unbounded wildcards and {@code super} wildcards.
    */
   private Type wildcardUpperBound(Type.WildcardType wildcardType) {
+    Type upperBound;
     if (wildcardType.kind == BoundKind.EXTENDS) {
-      return wildcardType.getExtendsBound();
+      upperBound = wildcardType.getExtendsBound();
+    } else {
+      // For ? and ? super L, javac stores the wildcard's corresponding type variable in the `bound`
+      // field. The upper bound of that type variable is the wildcard's effective upper bound.
+      upperBound = wildcardType.bound.getUpperBound();
     }
-    // For ? and ? super L, javac stores the wildcard's corresponding type variable in the `bound`
-    // field. The upper bound of that type variable is the wildcard's effective upper bound.
-    return wildcardType.bound.getUpperBound();
+    if (upperBound instanceof Type.WildcardType nestedWildcard) {
+      return wildcardUpperBound(nestedWildcard);
+    }
+    if (upperBound instanceof Type.CapturedType capturedType && capturedType.wildcard != null) {
+      return wildcardUpperBound(capturedType.wildcard);
+    }
+    return upperBound;
   }
 
   /**
