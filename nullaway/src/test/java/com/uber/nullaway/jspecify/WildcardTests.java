@@ -443,6 +443,7 @@ public class WildcardTests extends NullAwayTestsBase {
                     // legal, should infer R -> Object but then the type of the lambda as
                     //  Function<Object, @Nullable Object> via wildcard upper bound
                     Object x = invokeWithReturn(t -> null);
+                    x.hashCode();
                 }
             }
             """)
