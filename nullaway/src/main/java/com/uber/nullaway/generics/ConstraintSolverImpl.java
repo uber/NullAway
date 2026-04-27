@@ -162,6 +162,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     @Override
     public @Nullable Void visitWildcardType(WildcardType subtype, Type supertype) {
       if (config.handleWildcardGenerics()) {
+        Verify.verify(!localVariableType, "A wildcard type cannot be assigned to a local variable");
         constrainWildcardToSupertype(subtype, supertype);
       }
       return null;
