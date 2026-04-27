@@ -426,6 +426,40 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Tests inference for {@code Stream.collect} when the stream element type comes from a captured
+   * wildcard. In this case javac creates a captured type variable for the {@code ? extends
+   * TypeMirror} bound with no method or class owner. This covers the solver path that treats such
+   * ownerless captured variables as annotated code rather than asking {@code CodeAnnotationInfo}
+   * whether their owner is unannotated.
+   */
+  @Test
+  public void streamCollectJoiningWithCapturedWildcardAccumulator() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.stream.Collectors;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              interface TypeMirror {
+                String accept(Object visitor, Object arg);
+              }
+              interface BoundContainer {
+                List<? extends TypeMirror> getBounds();
+              }
+              String test(BoundContainer b) {
+                return b.getBounds().stream()
+                    .map(bound -> ((TypeMirror) bound).accept(this, this))
+                    .collect(Collectors.joining(" & "));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
