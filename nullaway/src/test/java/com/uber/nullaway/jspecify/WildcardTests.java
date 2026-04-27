@@ -537,12 +537,14 @@ public class WildcardTests extends NullAwayTestsBase {
                 static @Nullable String mapToNull(String s) {
                     return null;
                 }
+                static void callHashCode(Object o) { o.hashCode(); }
                 static void test(List<String> list) {
-                    // legal, should infer R -> @Nullable String
                     list.stream().map(Test::mapToNull).forEach(s -> {
                         // BUG: Diagnostic contains: dereferenced expression s is @Nullable
                         s.hashCode();
                     });
+                    // TODO we should report an error here (https://github.com/uber/NullAway/issues/1552)
+                    list.stream().map(Test::mapToNull).forEach(Test::callHashCode);
                 }
             }""")
         .doTest();
