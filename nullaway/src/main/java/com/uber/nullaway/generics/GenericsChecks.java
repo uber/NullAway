@@ -1618,10 +1618,11 @@ public final class GenericsChecks {
                         }
                       }
                     });
+                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
                 return;
               }
 
-              Type actualParameterType = null;
+              Type actualParameterType;
               if (currentActualParam instanceof LambdaExpressionTree) {
                 maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
               }
