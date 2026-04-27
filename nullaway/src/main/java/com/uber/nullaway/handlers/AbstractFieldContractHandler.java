@@ -160,6 +160,8 @@ public abstract class AbstractFieldContractHandler implements Handler {
                   tree,
                   analysis.buildDescription(tree),
                   state,
+                  analysis.mayBeNullInquiry,
+                  null,
                   null));
       return false;
     } else {
@@ -180,6 +182,8 @@ public abstract class AbstractFieldContractHandler implements Handler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      analysis.mayBeNullInquiry,
+                      null,
                       null));
           return false;
         }
@@ -206,6 +210,8 @@ public abstract class AbstractFieldContractHandler implements Handler {
                         tree,
                         analysis.buildDescription(tree),
                         state,
+                        analysis.mayBeNullInquiry,
+                        null,
                         null));
             return false;
           } else {
@@ -230,6 +236,8 @@ public abstract class AbstractFieldContractHandler implements Handler {
                       tree,
                       analysis.buildDescription(tree),
                       state,
+                      analysis.mayBeNullInquiry,
+                      null,
                       null));
           return false;
         }

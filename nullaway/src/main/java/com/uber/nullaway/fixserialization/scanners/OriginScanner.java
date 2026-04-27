@@ -1,0 +1,206 @@
+/*
+ * MIT License
+ *
+ * Copyright (c) 2025 Nima Karimipour
+ *
+ * Permission is hereby granted, free of charge, to any person obtaining a copy
+ * of this software and associated documentation files (the "Software"), to deal
+ * in the Software without restriction, including without limitation the rights
+ * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
+ * copies of the Software, and to permit persons to whom the Software is
+ * furnished to do so, subject to the following conditions:
+ *
+ * The above copyright notice and this permission notice shall be included in
+ * all copies or substantial portions of the Software.
+ *
+ * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
+ * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
+ * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
+ * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
+ * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
+ * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
+ * THE SOFTWARE.
+ */
+
+package com.uber.nullaway.fixserialization.scanners;
+
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.AssignmentTree;
+import com.sun.source.tree.EnhancedForLoopTree;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MethodTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreeScanner;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
+import com.uber.nullaway.NullAway;
+import java.util.ArrayDeque;
+import java.util.HashSet;
+import java.util.Queue;
+import java.util.Set;
+import java.util.stream.Collectors;
+import javax.lang.model.element.ElementKind;
+import org.jspecify.annotations.Nullable;
+
+/**
+ * Scanner that finds the origin of a variable. An origin is a variable that is either a field, a
+ * parameter or a return result of a method invocation that contributes to the value of the
+ * variable.
+ */
+public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
+
+  private final NullAway.MayBeNullableInquiry inquiry;
+  private final VisitorState state;
+
+  /**
+   * Source offset of the diagnostic expression. Assignments, variable declarations, and for-each
+   * loops that start at or after this offset cannot reach the error site and are skipped. Use
+   * {@link #NO_BOUND} to disable the filter.
+   */
+  private final int diagnosticStartPosition;
+
+  public static final int NO_BOUND = Integer.MAX_VALUE;
+
+  public OriginScanner(NullAway.MayBeNullableInquiry inquiry, VisitorState state) {
+    this(inquiry, state, NO_BOUND);
+  }
+
+  public OriginScanner(
+      NullAway.MayBeNullableInquiry inquiry, VisitorState state, int diagnosticStartPosition) {
+    this.inquiry = inquiry;
+    this.state = state;
+    this.diagnosticStartPosition = diagnosticStartPosition;
+  }
+
+  private boolean startsAfterDiagnostic(Tree node) {
+    return ((JCTree) node).getStartPosition() >= diagnosticStartPosition;
+  }
+
+  @Override
+  public Set<OriginTrace> reduce(Set<OriginTrace> r1, Set<OriginTrace> r2) {
+    if (r2 == null && r1 == null) {
+      return Set.of();
+    }
+    Set<OriginTrace> combined = new HashSet<>();
+    if (r1 != null) {
+      combined.addAll(r1);
+    }
+    if (r2 != null) {
+      combined.addAll(r2);
+    }
+    return combined;
+  }
+
+  @Override
+  public Set<OriginTrace> visitAssignment(AssignmentTree node, Symbol target) {
+    Tree variable = node.getVariable();
+    Symbol symbol = ASTHelpers.getSymbol(variable);
+    if (symbol != null && symbol.equals(target)) {
+      if (startsAfterDiagnostic(node)) {
+        return Set.of();
+      }
+      ExpressionTree expr = node.getExpression();
+      if (!inquiry.maybeNullable(expr, state)) {
+        return Set.of();
+      }
+      return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
+          .map(input -> new OriginTrace(input, node))
+          .collect(Collectors.toSet());
+    }
+    return super.visitAssignment(node, target);
+  }
+
+  @Override
+  public Set<OriginTrace> visitVariable(VariableTree node, Symbol target) {
+    Symbol symbol = ASTHelpers.getSymbol(node);
+    if (symbol != null && symbol.equals(target)) {
+      if (startsAfterDiagnostic(node)) {
+        return Set.of();
+      }
+      if (node.getInitializer() == null) {
+        return Set.of();
+      }
+      ExpressionTree initializer = node.getInitializer();
+      if (initializer == null || !inquiry.maybeNullable(initializer, state)) {
+        return Set.of();
+      }
+      return initializer.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
+          .map(input -> new OriginTrace(input, node))
+          .collect(Collectors.toSet());
+    }
+    return super.visitVariable(node, target);
+  }
+
+  @Override
+  public Set<OriginTrace> visitEnhancedForLoop(EnhancedForLoopTree node, Symbol target) {
+    Symbol variable = ASTHelpers.getSymbol(node.getVariable());
+    if (variable != null && variable.equals(target)) {
+      if (startsAfterDiagnostic(node)) {
+        return Set.of();
+      }
+      ExpressionTree expr = node.getExpression();
+      if (!inquiry.maybeNullable(expr, state)) {
+        return Set.of();
+      }
+      return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
+          .map(input -> new OriginTrace(input, node))
+          .collect(Collectors.toSet());
+    }
+    return super.visitEnhancedForLoop(node, target);
+  }
+
+  /**
+   * Retrieve the origins of a variable in a method.
+   *
+   * @param tree the enclosing method.
+   * @param target the variable to find the origins of.
+   * @return a set of symbols that are the origins of the variable.
+   */
+  public Set<OriginTrace> retrieveOrigins(@Nullable MethodTree tree, Symbol target) {
+    if (tree == null) {
+      return Set.of();
+    }
+    if (isOriginal(target)) {
+      return Set.of();
+    }
+    Set<OriginTrace> result = new HashSet<>();
+    Queue<Symbol> queue = new ArrayDeque<>();
+    queue.add(target);
+    Set<Symbol> visited = new HashSet<>();
+    while (!queue.isEmpty()) {
+      Symbol current = queue.poll();
+      if (visited.contains(current)) {
+        continue;
+      }
+      visited.add(current);
+      Set<OriginTrace> involvedSymbols = tree.accept(this, current);
+      involvedSymbols.forEach(
+          trace -> {
+            Symbol origin = trace.origin();
+            if (isOriginal(origin)) {
+              result.add(trace);
+            } else {
+              if (!visited.contains(origin)) {
+                queue.add(origin);
+              }
+            }
+          });
+    }
+    return result;
+  }
+
+  /**
+   * Check if the symbol is an original symbol. An original symbol is a field, a parameter or a
+   * method return call.
+   *
+   * @param symbol the symbol to check
+   * @return true if the symbol is an original symbol, false otherwise
+   */
+  private static boolean isOriginal(Symbol symbol) {
+    // An exception parameter is not an original symbol, but we are not interested in their origins.
+    return !symbol.getKind().equals(ElementKind.LOCAL_VARIABLE)
+        && !symbol.getKind().equals(ElementKind.RESOURCE_VARIABLE);
+  }
+}

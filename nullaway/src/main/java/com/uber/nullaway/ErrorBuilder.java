@@ -45,6 +45,7 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
@@ -52,12 +53,16 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.SerializationService;
+import com.uber.nullaway.fixserialization.scanners.OriginScanner;
+import com.uber.nullaway.fixserialization.scanners.OriginTrace;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.StreamSupport;
@@ -97,10 +102,49 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      @Nullable Symbol nonNullTarget) {
+      NullAway.MayBeNullableInquiry inquiry,
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
-    return createErrorDescription(
-        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget);
+    return createErrorDescriptionWithInfo(
+        errorMessage,
+        enclosingSuppressTree,
+        descriptionBuilder,
+        state,
+        inquiry,
+        nonNullTarget,
+        nullableExpression,
+        Map.of());
+  }
+
+  /**
+   * create an error description for a nullability warning
+   *
+   * @param errorMessage the error message object.
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @return the error description
+   */
+  public Description createErrorDescriptionWithInfo(
+      ErrorMessage errorMessage,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression,
+      Map<String, String> args) {
+    Tree enclosingSuppressTree = suppressibleNode(state.getPath());
+    return createErrorDescriptionWithInfo(
+        errorMessage,
+        enclosingSuppressTree,
+        descriptionBuilder,
+        state,
+        inquiry,
+        nonNullTarget,
+        nullableExpression,
+        args);
   }
 
   /**
@@ -119,7 +163,29 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      @Nullable Symbol nonNullTarget) {
+      NullAway.MayBeNullableInquiry inquiry,
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression) {
+    return createErrorDescriptionWithInfo(
+        errorMessage,
+        suggestTree,
+        descriptionBuilder,
+        state,
+        inquiry,
+        nonNullTarget,
+        nullableExpression,
+        Map.of());
+  }
+
+  public Description createErrorDescriptionWithInfo(
+      ErrorMessage errorMessage,
+      @Nullable Tree suggestTree,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression,
+      Map<String, String> args) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -140,7 +206,25 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder, state);
     }
 
+    Set<OriginTrace> origins = Set.of();
     if (config.serializationIsActive()) {
+      if (nullableExpression != null) {
+        Symbol nullableExpressionSymbol = ASTHelpers.getSymbol(nullableExpression);
+        if (nullableExpressionSymbol != null
+            && nullableExpressionSymbol.getKind() == ElementKind.LOCAL_VARIABLE) {
+          // locate assignments to this local variable.  Use the nullable expression's start
+          // position as the bound: the enclosing leaf can start earlier (e.g. an outer
+          // MethodInvocationTree or enhanced-for), which would cause OriginScanner to drop
+          // assignments that sit between the leaf start and the actual use.
+          int diagPos = ((JCTree) nullableExpression).getStartPosition();
+          if (diagPos < 0) {
+            diagPos = ((JCTree) state.getPath().getLeaf()).getStartPosition();
+          }
+          origins =
+              new OriginScanner(inquiry, state, diagPos)
+                  .retrieveOrigins(state.findEnclosing(MethodTree.class), nullableExpressionSymbol);
+        }
+      }
       // For the case of initializer errors, the leaf of state.getPath() may not be the field /
       // method on which the error is being reported (since we do a class-wide analysis to find such
       // errors).  In such cases, the suggestTree is the appropriate field / method tree, so use
@@ -152,7 +236,7 @@ public class ErrorBuilder {
               ? suggestTree
               : state.getPath().getLeaf();
       SerializationService.serializeReportingError(
-          config, state, errorTree, nonNullTarget, errorMessage);
+          config, state, errorTree, nonNullTarget, errorMessage, origins, args);
     }
 
     // #letbuildersbuild
@@ -240,23 +324,55 @@ public class ErrorBuilder {
    *     expression into a @NonNull target, and this parameter is the Symbol for that target.
    * @return the error description.
    */
+  Description createErrorDescriptionForNullAssignmentWithInfo(
+      ErrorMessage errorMessage,
+      @Nullable Tree suggestTreeIfCastToNonNull,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression,
+      Map<String, String> args) {
+    if (config.getCastToNonNullMethod() != null) {
+      return createErrorDescriptionWithInfo(
+          errorMessage,
+          suggestTreeIfCastToNonNull,
+          descriptionBuilder,
+          state,
+          inquiry,
+          nonNullTarget,
+          nullableExpression,
+          args);
+    } else {
+      return createErrorDescriptionWithInfo(
+          errorMessage,
+          suppressibleNode(state.getPath()),
+          descriptionBuilder,
+          state,
+          inquiry,
+          nonNullTarget,
+          nullableExpression,
+          args);
+    }
+  }
+
   Description createErrorDescriptionForNullAssignment(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      @Nullable Symbol nonNullTarget) {
-    if (config.getCastToNonNullMethod() != null) {
-      return createErrorDescription(
-          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, nonNullTarget);
-    } else {
-      return createErrorDescription(
-          errorMessage,
-          suppressibleNode(state.getPath()),
-          descriptionBuilder,
-          state,
-          nonNullTarget);
-    }
+      NullAway.MayBeNullableInquiry inquiry,
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression) {
+    return createErrorDescriptionForNullAssignmentWithInfo(
+        errorMessage,
+        suggestTreeIfCastToNonNull,
+        descriptionBuilder,
+        state,
+        inquiry,
+        nonNullTarget,
+        nullableExpression,
+        Map.of());
   }
 
   Description.Builder addSuppressWarningsFix(
@@ -403,6 +519,7 @@ public class ErrorBuilder {
       Symbol.MethodSymbol methodSymbol,
       String message,
       VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
       Description.Builder descriptionBuilder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
@@ -415,7 +532,8 @@ public class ErrorBuilder {
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
-        createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
+        createErrorDescription(
+            errorMessage, methodTree, descriptionBuilder, state, inquiry, null, null));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -493,7 +611,11 @@ public class ErrorBuilder {
     return message.toString();
   }
 
-  void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
+  void reportInitErrorOnField(
+      Symbol symbol,
+      VisitorState state,
+      NullAway.MayBeNullableInquiry inquiry,
+      Description.Builder builder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // field itself).
@@ -518,7 +640,9 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
-              symbol));
+              inquiry,
+              symbol,
+              null));
     } else {
       state.reportMatch(
           createErrorDescription(
@@ -526,7 +650,9 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
-              symbol));
+              inquiry,
+              symbol,
+              null));
     }
   }
 }

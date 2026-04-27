@@ -61,6 +61,8 @@ public class ContractUtils {
                     tree,
                     analysis.buildDescription(tree),
                     state,
+                    analysis.mayBeNullInquiry,
+                    null,
                     null));
       }
       return "";
@@ -111,6 +113,8 @@ public class ContractUtils {
                   tree,
                   analysis.buildDescription(tree),
                   state,
+                  analysis.mayBeNullInquiry,
+                  null,
                   null));
     }
     return antecedent;

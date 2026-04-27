@@ -39,6 +39,15 @@ public interface SymbolLocation {
   String tabSeparatedToString(SerializationAdapter adapter);
 
   /**
+   * Appends an XML representation of this location to {@code sb}. Emits a sequence of child
+   * elements (no wrapping tag); the caller is responsible for the enclosing element.
+   *
+   * @param sb the buffer to append to.
+   * @param adapter adapter used to serialize symbols.
+   */
+  void appendXmlFields(StringBuilder sb, SerializationAdapter adapter);
+
+  /**
    * Creates header of an output file containing all {@link SymbolLocation} written in string which
    * values are separated tabs.
    *

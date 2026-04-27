@@ -37,7 +37,7 @@ public interface SerializationAdapter {
    * Latest version number. If version is not defined by the user, NullAway will use the
    * corresponding adapter to this version in its serialization.
    */
-  int LATEST_VERSION = 3;
+  int LATEST_VERSION = 4;
 
   /**
    * Returns header of "errors.tsv" which contains all serialized {@link ErrorInfo} reported by
@@ -85,6 +85,7 @@ public interface SerializationAdapter {
           throw new RuntimeException(
               "Serialization version v2 is skipped and was used for an alpha version of the auto-annotator tool. Please use version 3 instead.");
       case 3 -> new SerializationV3Adapter();
+      case 4 -> new SerializationV4Adapter();
       default ->
           throw new RuntimeException(
               "Unrecognized NullAway serialization version: "
