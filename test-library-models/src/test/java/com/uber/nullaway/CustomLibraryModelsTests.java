@@ -455,11 +455,11 @@ public class CustomLibraryModelsTests {
             @NullMarked
             public class Test {
               void testUpper(NestedAnnots<@Nullable String> t) {
-                // TODO report an error here when we support wildcards
+                // BUG: Diagnostic contains: incompatible types: NestedAnnots<@Nullable String> cannot be converted to NestedAnnots<? extends String>
                 NestedAnnots.wildcardUpper(t);
               }
               void testLower(NestedAnnots<String> t) {
-                // TODO report an error here when we support wildcards
+                // BUG: Diagnostic contains: incompatible types: NestedAnnots<String> cannot be converted to NestedAnnots<? super @Nullable String>
                 NestedAnnots.wildcardLower(t);
               }
             }
