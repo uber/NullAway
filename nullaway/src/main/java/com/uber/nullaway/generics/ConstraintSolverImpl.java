@@ -221,6 +221,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
             if (subtypeWildcard.kind == BoundKind.SUPER) {
               supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
             }
+            // the subtype wildcard could have an extends bound, but as far as I know we do not
+            // need to generate constraints for this case
+            // TODO revisit if needed
           } else {
             supertypeLowerBound.accept(this, subtypeTypeArg);
           }
