@@ -293,13 +293,15 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
-      if (other instanceof Type.WildcardType wt && wt.kind == BoundKind.EXTENDS) {
-        // As a temporary measure, we restore nullability annotations from the upper bound of the
-        // wildcard.
-        // TODO revisit this decision when we add fuller support for inference and wildcards.
-        return visit(t, wt.getExtendsBound());
+      if (other instanceof Type.WildcardType wt) {
+        // When the other type is a wildcard, restore nullability annotations from the bound that
+        // determines the functional interface type.
+        if (wt.kind == BoundKind.EXTENDS) {
+          return visit(t, wt.getExtendsBound());
+        } else if (wt.kind == BoundKind.SUPER) {
+          return visit(t, wt.getSuperBound());
+        }
       }
-
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       if (!(other instanceof Type.ClassType)) {
         return updated;

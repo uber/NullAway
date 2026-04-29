@@ -154,7 +154,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
     return switch (lhsWildcard.kind) {
       case UNBOUND, EXTENDS ->
-          extendsBoundContains(wildcardUpperBound(lhsWildcard), rhsTypeArgument);
+          extendsBoundContains(
+              GenericsUtils.wildcardUpperBound(lhsWildcard, state), rhsTypeArgument);
       case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
     };
   }
@@ -165,24 +166,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}.
    */
   private boolean extendsBoundContains(Type lhsBound, Type rhsTypeArgument) {
-    if (rhsTypeArgument instanceof Type.WildcardType rhsWildcard) {
-      Type rhsUpperBound = wildcardUpperBound(rhsWildcard);
+    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
+    if (rhsWildcard != null) {
+      Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state);
       return typeArgumentSubtype(lhsBound, rhsUpperBound);
     }
     return typeArgumentSubtype(lhsBound, rhsTypeArgument);
-  }
-
-  /**
-   * Returns the effective upper bound of a wildcard, using the corresponding type variable's upper
-   * bound for unbounded wildcards and {@code super} wildcards.
-   */
-  private Type wildcardUpperBound(Type.WildcardType wildcardType) {
-    if (wildcardType.kind == BoundKind.EXTENDS) {
-      return wildcardType.getExtendsBound();
-    }
-    // For ? and ? super L, javac stores the wildcard's corresponding type variable in the `bound`
-    // field. The upper bound of that type variable is the wildcard's effective upper bound.
-    return wildcardType.bound.getUpperBound();
   }
 
   /**
