@@ -213,7 +213,11 @@ tasks.named('check').configure {
     dependsOn(epOldestTest)
 }
 
-['test', 'testJdk21', 'testErrorProneLatestSnapshot'].each { taskName ->
+[
+    'test',
+    'testJdk21',
+    'testErrorProneLatestSnapshot'
+].each { taskName ->
     tasks.named(taskName).configure {
         filter {
             // On Error Prone 2.46.0 and above, this test will not pass, since CompilationTestHelper passes the
