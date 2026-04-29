@@ -1618,6 +1618,7 @@ public final class GenericsChecks {
                         }
                       }
                     });
+                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
                 return;
               }
 
