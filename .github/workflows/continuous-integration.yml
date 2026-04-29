@@ -61,6 +61,21 @@ jobs:
         run: ./gradlew publishToMavenLocal
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
+  test-with-error-prone-snapshot:
+    name: "Test with Error Prone snapshot"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout this repository
+        uses: actions/checkout@v6
+      - name: 'Set up Default JDK'
+        uses: actions/setup-java@v5
+        with:
+          java-version: 25
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@v5
+      - name: Test with Error Prone snapshot
+        run: ./gradlew testErrorProneLatestSnapshot
   compile-other-projects:
     name: "Build ${{ matrix.project }} with snapshot"
     strategy:
