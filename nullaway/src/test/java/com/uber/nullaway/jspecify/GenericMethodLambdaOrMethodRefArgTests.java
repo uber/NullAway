@@ -964,7 +964,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1528_methodRefParamTypeAllowsNonNullTypeArgForNullableTypeArg() {
+  public void issue1528() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
