@@ -24,6 +24,16 @@ configurations {
     // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
     errorProneOldest
 
+    // A configuration holding the jars for the latest snapshot version of Error Prone, to use with tests
+    errorProneLatestSnapshot {
+        resolutionStrategy.cacheChangingModulesFor 0, 'seconds'
+        resolutionStrategy.eachDependency { details ->
+            if (details.requested.group == "com.google.errorprone") {
+                details.useVersion "1.0-HEAD-SNAPSHOT"
+            }
+        }
+    }
+
     // To resolve the errorprone dependencies for the buildWithNullAway task
     errorproneExtended {
         extendsFrom errorprone
@@ -82,9 +92,28 @@ dependencies {
     }
     errorProneOldest libs.guava
 
+    errorProneLatestSnapshot "com.google.errorprone:error_prone_check_api:1.0-HEAD-SNAPSHOT"
+    errorProneLatestSnapshot("com.google.errorprone:error_prone_test_helpers:1.0-HEAD-SNAPSHOT") {
+        exclude group: "junit", module: "junit"
+    }
+
     // without this, some other version of the JetBrains annotations gets pulled in via transitive dependencies
     errorProneJdk17 libs.jetbrains.annotations
     errorProneOldest libs.jetbrains.annotations
+}
+
+repositories {
+    // This repository is scoped so we can only pull in Error Prone snapshots from it.
+    maven {
+        name = "SonatypeErrorProneSnapshots"
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        mavenContent {
+            snapshotsOnly()
+        }
+        content {
+            includeGroup("com.google.errorprone")
+        }
+    }
 }
 
 javadoc {
@@ -146,11 +175,49 @@ def epOldestTest = tasks.register("testErrorProneOldest", Test) {
     ]
 }
 
+// Create a task to test with the latest snapshot version of Error Prone
+// (while still building against the latest supported version)
+tasks.register("testErrorProneLatestSnapshot", Test) {
+    javaLauncher = javaToolchains.launcherFor {
+        languageVersion = JavaLanguageVersion.of(25)
+    }
+
+    description = "Runs the test suite using the latest snapshot version of Error Prone"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+
+    // Copy inputs from normal Test task.
+    def testTask = tasks.getByName("test")
+    // We add the dependencies of the latest snapshot Error Prone version to the _beginning_ of the
+    // classpath, so that they are used instead of the latest supported version.
+    classpath = configurations.errorProneLatestSnapshot + testTask.classpath
+
+    testClassesDirs = testTask.testClassesDirs
+
+    jvmArgs += [
+        "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.file=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.model=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.parser=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.tree=ALL-UNNAMED",
+        "--add-exports=jdk.compiler/com.sun.tools.javac.util=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
+        "--add-opens=jdk.compiler/com.sun.tools.javac.comp=ALL-UNNAMED",
+        // Accessed by Lombok tests
+        "--add-opens=jdk.compiler/com.sun.tools.javac.jvm=ALL-UNNAMED",
+    ]
+}
+
 tasks.named('check').configure {
     dependsOn(epOldestTest)
 }
 
-['test', 'testJdk21'].each { taskName ->
+[
+    'test',
+    'testJdk21',
+    'testErrorProneLatestSnapshot'
+].each { taskName ->
     tasks.named(taskName).configure {
         filter {
             // On Error Prone 2.46.0 and above, this test will not pass, since CompilationTestHelper passes the
