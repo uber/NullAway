@@ -43,7 +43,12 @@ import java.lang.annotation.Target;
  * initializer methods from external libraries (i.e. library models), and that a method overriding
  * an initializer method is always considered an initializer method (again, for the sake of
  * framework events such as {@code onCreate}).
+ *
+ * <p>Note: although this annotation may syntactically appear on a constructor (to allow NullAway to
+ * produce a meaningful diagnostic instead of a raw javac error), placing {@code @Initializer} on a
+ * constructor is intentionally invalid and NullAway will report an error. Constructors are already
+ * treated as initializers by default.
  */
 @Retention(RetentionPolicy.CLASS)
-@Target({ElementType.METHOD})
+@Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
 public @interface Initializer {}

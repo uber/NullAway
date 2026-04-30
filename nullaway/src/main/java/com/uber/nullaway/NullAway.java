@@ -684,6 +684,18 @@ public class NullAway extends BugChecker
     // overridden method (if overridden method is in an annotated
     // package)
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(tree);
+    if (methodSymbol.isConstructor() && isInitializerMethod(state, methodSymbol)) {
+      String message =
+          "@Initializer annotation (or a configured initializer annotation) is not allowed "
+              + "on constructors, as NullAway already treats constructors as initializers "
+              + "by default.";
+      return errorBuilder.createErrorDescription(
+          new ErrorMessage(ErrorMessage.MessageTypes.ANNOTATION_VALUE_INVALID, message),
+          tree,
+          buildDescription(tree),
+          state,
+          null);
+    }
     handler.onMatchMethod(tree, new MethodAnalysisContext(this, state, methodSymbol));
     boolean isOverriding = ASTHelpers.hasAnnotation(methodSymbol, "java.lang.Override", state);
     boolean exhaustiveOverride = config.exhaustiveOverride();
