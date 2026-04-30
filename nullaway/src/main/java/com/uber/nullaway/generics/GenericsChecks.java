@@ -30,6 +30,7 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TargetType;
@@ -1801,7 +1802,7 @@ public final class GenericsChecks {
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
         overriddenMethodType.getClass());
-    return getTypeNullness(overriddenMethodType.getReturnType());
+    return getReturnTypeNullness(overriddenMethodType.getReturnType(), state);
   }
 
   /**
@@ -2198,7 +2199,8 @@ public final class GenericsChecks {
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
           && Objects.equals(
-              getParameterTypeNullness(substitutedParamTypes.get(paramIndex), isVarargsParam),
+              getParameterTypeNullness(
+                  substitutedParamTypes.get(paramIndex), isVarargsParam, state),
               Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
@@ -2335,7 +2337,7 @@ public final class GenericsChecks {
     Type methodType =
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
-    return getParameterTypeNullness(paramType, isVarargsParam);
+    return getParameterTypeNullness(paramType, isVarargsParam, state);
   }
 
   /**
@@ -2402,7 +2404,7 @@ public final class GenericsChecks {
    * @param isVarargsParam true if the parameter is a varargs parameter
    * @return The nullness of the parameter type
    */
-  private Nullness getParameterTypeNullness(Type type, boolean isVarargsParam) {
+  private Nullness getParameterTypeNullness(Type type, boolean isVarargsParam, VisitorState state) {
     if (isVarargsParam) {
       // type better be an array type
       verify(
@@ -2412,9 +2414,12 @@ public final class GenericsChecks {
       // use the component type to determine nullness
       Type.ArrayType arrayType = (Type.ArrayType) type;
       Type componentType = arrayType.getComponentType();
-      return getTypeNullness(componentType);
+      return getParameterTypeNullness(componentType, false, state);
     } else {
-      // For non-varargs, we just check the type itself
+      Type.WildcardType wildcardType = GenericsUtils.asWildcard(type);
+      if (wildcardType != null && wildcardType.kind == BoundKind.SUPER) {
+        return getTypeNullness(castToNonNull(wildcardType.getSuperBound()));
+      }
       return getTypeNullness(type);
     }
   }
@@ -2428,6 +2433,33 @@ public final class GenericsChecks {
         Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
     if (hasNullableAnnotation) {
       return Nullness.NULLABLE;
+    }
+    return Nullness.NONNULL;
+  }
+
+  /**
+   * Returns the nullness of a return type. For wildcard and javac captured wildcard types, use the
+   * effective upper bound: a read from {@code Foo<? extends @Nullable Object>} or {@code Foo<?
+   * super String>} can produce any value permitted by the capture's upper bound.
+   */
+  private Nullness getReturnTypeNullness(Type type, VisitorState state) {
+    return getReturnTypeNullness(type, state, false);
+  }
+
+  private Nullness getReturnTypeNullness(
+      Type type, VisitorState state, boolean followTypeVarUpperBound) {
+    if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
+      return Nullness.NULLABLE;
+    }
+    if (GenericsUtils.asWildcard(type) != null) {
+      Type effectiveUpperBound = GenericsUtils.effectiveWildcardUpperBound(type, state);
+      return getReturnTypeNullness(effectiveUpperBound, state, true);
+    }
+    if (followTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
+      Type upperBound = typeVar.getUpperBound();
+      if (upperBound != null) {
+        return getReturnTypeNullness(upperBound, state, true);
+      }
     }
     return Nullness.NONNULL;
   }
