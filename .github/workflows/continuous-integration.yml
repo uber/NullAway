@@ -88,6 +88,8 @@ jobs:
             url: https://github.com/spring-projects/spring-framework.git
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
+          - project: spring-boot
+            url: https://github.com/spring-projects/spring-boot.git
     permissions:
       contents: read
     runs-on: ubuntu-latest
