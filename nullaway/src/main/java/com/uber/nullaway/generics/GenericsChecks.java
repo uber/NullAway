@@ -2416,9 +2416,11 @@ public final class GenericsChecks {
       Type componentType = arrayType.getComponentType();
       return getParameterTypeNullness(componentType, false, state);
     } else {
-      Type.WildcardType wildcardType = GenericsUtils.asWildcard(type);
-      if (wildcardType != null && wildcardType.kind == BoundKind.SUPER) {
-        return getTypeNullness(castToNonNull(wildcardType.getSuperBound()));
+      if (config.handleWildcardGenerics()) {
+        Type.WildcardType wildcardType = GenericsUtils.asWildcard(type);
+        if (wildcardType != null && wildcardType.kind == BoundKind.SUPER) {
+          return getTypeNullness(castToNonNull(wildcardType.getSuperBound()));
+        }
       }
       return getTypeNullness(type);
     }
@@ -2451,7 +2453,7 @@ public final class GenericsChecks {
     if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
-    if (GenericsUtils.asWildcard(type) != null) {
+    if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
       Type effectiveUpperBound = GenericsUtils.effectiveWildcardUpperBound(type, state);
       return getReturnTypeNullness(effectiveUpperBound, state, true);
     }
