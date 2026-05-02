@@ -1505,7 +1505,7 @@ public final class GenericsChecks {
    * @param rhsType type for the rhs of the assignment
    * @param state the visitor state
    */
-  private boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
+  boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
     if (lhsType.isRaw()) {
       return true;
     }
