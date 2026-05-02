@@ -24,6 +24,8 @@ package com.uber.nullaway.fixserialization.location;
 
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 
 /** Provides method for symbol locations. */
 public interface SymbolLocation {
@@ -39,13 +41,14 @@ public interface SymbolLocation {
   String tabSeparatedToString(SerializationAdapter adapter);
 
   /**
-   * Appends an XML representation of this location to {@code sb}. Emits a sequence of child
+   * Writes an XML representation of this location to {@code writer}. Emits a sequence of child
    * elements (no wrapping tag); the caller is responsible for the enclosing element.
    *
-   * @param sb the buffer to append to.
+   * @param writer the writer to emit to.
    * @param adapter adapter used to serialize symbols.
    */
-  void appendXmlFields(StringBuilder sb, SerializationAdapter adapter);
+  void writeXmlFields(XMLStreamWriter writer, SerializationAdapter adapter)
+      throws XMLStreamException;
 
   /**
    * Creates header of an output file containing all {@link SymbolLocation} written in string which

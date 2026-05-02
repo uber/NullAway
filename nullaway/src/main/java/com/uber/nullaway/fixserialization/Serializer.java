@@ -30,12 +30,16 @@ import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -43,6 +47,9 @@ import org.jspecify.annotations.Nullable;
  * of this class.
  */
 public class Serializer {
+
+  private static final XMLOutputFactory XML_OUTPUT_FACTORY = XMLOutputFactory.newInstance();
+
   /** Path to write errors. */
   private final Path errorOutputPath;
 
@@ -76,12 +83,23 @@ public class Serializer {
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
     if (isXmlMode()) {
-      StringBuilder xml = new StringBuilder();
-      errorInfo.appendXml(xml, serializationAdapter);
-      appendToFile(xml.toString(), errorOutputXmlPath);
+      appendToFile(buildErrorXml(errorInfo), errorOutputXmlPath);
     } else {
       appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
     }
+  }
+
+  private String buildErrorXml(ErrorInfo errorInfo) {
+    StringWriter sw = new StringWriter();
+    try {
+      XMLStreamWriter writer = XML_OUTPUT_FACTORY.createXMLStreamWriter(sw);
+      errorInfo.writeXml(writer, serializationAdapter);
+      writer.flush();
+      writer.close();
+    } catch (XMLStreamException e) {
+      throw new RuntimeException("Failed to serialize error to XML", e);
+    }
+    return sw.toString();
   }
 
   /**
@@ -220,24 +238,11 @@ public class Serializer {
     };
   }
 
-  /** Appends {@code <name>escapedValue</name>} to {@code sb}. */
-  public static void appendXmlElement(StringBuilder sb, String name, String value) {
-    sb.append('<').append(name).append('>');
-    escapeXml(sb, value);
-    sb.append("</").append(name).append('>');
-  }
-
-  private static void escapeXml(StringBuilder sb, String value) {
-    for (int i = 0; i < value.length(); i++) {
-      char c = value.charAt(i);
-      switch (c) {
-        case '&' -> sb.append("&amp;");
-        case '<' -> sb.append("&lt;");
-        case '>' -> sb.append("&gt;");
-        case '"' -> sb.append("&quot;");
-        case '\'' -> sb.append("&apos;");
-        default -> sb.append(c);
-      }
-    }
+  /** Writes a leaf element {@code <name>value</name>} to {@code writer}. */
+  public static void writeTextElement(XMLStreamWriter writer, String name, String value)
+      throws XMLStreamException {
+    writer.writeStartElement(name);
+    writer.writeCharacters(value);
+    writer.writeEndElement();
   }
 }

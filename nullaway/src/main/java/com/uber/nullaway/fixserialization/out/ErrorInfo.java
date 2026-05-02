@@ -42,6 +42,8 @@ import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 import org.jspecify.annotations.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
@@ -167,54 +169,56 @@ public class ErrorInfo {
   }
 
   /**
-   * Appends an XML representation of the error information to {@code sb}.
+   * Writes an XML representation of the error information to {@code writer}.
    *
-   * @param sb the buffer to append to.
-   * @param serializationAdapter adapter used to serialize symbols.
+   * @param writer the writer to emit to.
+   * @param adapter adapter used to serialize symbols.
    */
-  public void appendXml(StringBuilder sb, SerializationAdapter serializationAdapter) {
-    sb.append("<error>");
-    Serializer.appendXmlElement(sb, "message_type", errorMessage.getMessageType().toString());
-    Serializer.appendXmlElement(sb, "message", errorMessage.getMessage());
-    Serializer.appendXmlElement(
-        sb, "enc_class", Serializer.serializeSymbol(getRegionClass(), serializationAdapter));
-    Serializer.appendXmlElement(
-        sb, "enc_member", Serializer.serializeSymbol(getRegionMember(), serializationAdapter));
-    Serializer.appendXmlElement(sb, "offset", Integer.toString(offset));
-    Serializer.appendXmlElement(sb, "path", path != null ? path.toString() : "null");
+  public void writeXml(XMLStreamWriter writer, SerializationAdapter adapter)
+      throws XMLStreamException {
+    writer.writeStartElement("error");
+    Serializer.writeTextElement(writer, "message_type", errorMessage.getMessageType().toString());
+    Serializer.writeTextElement(writer, "message", errorMessage.getMessage());
+    Serializer.writeTextElement(
+        writer, "enc_class", Serializer.serializeSymbol(getRegionClass(), adapter));
+    Serializer.writeTextElement(
+        writer, "enc_member", Serializer.serializeSymbol(getRegionMember(), adapter));
+    Serializer.writeTextElement(writer, "offset", Integer.toString(offset));
+    Serializer.writeTextElement(writer, "path", path != null ? path.toString() : "null");
     if (nonnullTarget != null) {
-      sb.append("<nonnull_target>");
-      SymbolLocation.createLocationFromSymbol(nonnullTarget)
-          .appendXmlFields(sb, serializationAdapter);
-      sb.append("</nonnull_target>");
+      writer.writeStartElement("nonnull_target");
+      SymbolLocation.createLocationFromSymbol(nonnullTarget).writeXmlFields(writer, adapter);
+      writer.writeEndElement();
     }
     if (!origins.isEmpty()) {
-      sb.append("<origins>");
+      writer.writeStartElement("origins");
       for (OriginTrace trace : origins) {
         Symbol sym = trace.origin();
-        sb.append("<origin>");
-        sb.append("<location>");
-        SymbolLocation.createLocationFromSymbol(sym).appendXmlFields(sb, serializationAdapter);
-        sb.append("</location>");
-        Serializer.appendXmlElement(sb, "kind", sym.getKind().toString().toLowerCase(Locale.ROOT));
-        Serializer.appendXmlElement(
-            sb, "class", Serializer.serializeSymbol(sym.enclClass(), serializationAdapter));
-        Serializer.appendXmlElement(sb, "isAnnotated", Boolean.toString(isAnnotated(sym)));
-        Serializer.appendXmlElement(sb, "expression", trace.trace().toString());
-        Serializer.appendXmlElement(
-            sb, "position", Integer.toString(((JCTree) trace.trace()).pos().getStartPosition()));
-        Serializer.appendXmlElement(
-            sb, "symbol", Serializer.serializeSymbol(sym, serializationAdapter));
-        sb.append("</origin>");
+        writer.writeStartElement("origin");
+        writer.writeStartElement("location");
+        SymbolLocation.createLocationFromSymbol(sym).writeXmlFields(writer, adapter);
+        writer.writeEndElement();
+        Serializer.writeTextElement(
+            writer, "kind", sym.getKind().toString().toLowerCase(Locale.ROOT));
+        Serializer.writeTextElement(
+            writer, "class", Serializer.serializeSymbol(sym.enclClass(), adapter));
+        Serializer.writeTextElement(writer, "isAnnotated", Boolean.toString(isAnnotated(sym)));
+        Serializer.writeTextElement(writer, "expression", trace.trace().toString());
+        Serializer.writeTextElement(
+            writer,
+            "position",
+            Integer.toString(((JCTree) trace.trace()).pos().getStartPosition()));
+        Serializer.writeTextElement(writer, "symbol", Serializer.serializeSymbol(sym, adapter));
+        writer.writeEndElement();
       }
-      sb.append("</origins>");
+      writer.writeEndElement();
     }
-    sb.append("<infos>");
+    writer.writeStartElement("infos");
     for (Map.Entry<String, String> entry : infos.entrySet()) {
-      Serializer.appendXmlElement(sb, entry.getKey(), entry.getValue());
+      Serializer.writeTextElement(writer, entry.getKey(), entry.getValue());
     }
-    sb.append("</infos>");
-    sb.append("</error>");
+    writer.writeEndElement();
+    writer.writeEndElement();
   }
 
   /**
