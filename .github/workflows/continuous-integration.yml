@@ -29,12 +29,17 @@ jobs:
       - name: 'Set up Default JDK'
         uses: actions/setup-java@v5
         with:
-          java-version: 25
+          java-version: |
+            17
+            21
+            25
           distribution: 'temurin'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
+      - name: List toolchains
+        run: ./gradlew javaToolchains
       - name: Build and test
-        run: ./gradlew javaToolchains build
+        run: ./gradlew build
       - name: Run shellcheck
         run: ./gradlew shellcheck
         if: runner.os == 'Linux'
