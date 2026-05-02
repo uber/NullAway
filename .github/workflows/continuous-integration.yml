@@ -34,6 +34,7 @@ jobs:
             21
             25
           distribution: 'temurin'
+          check-latest: 'true'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v5
       - name: List toolchains
