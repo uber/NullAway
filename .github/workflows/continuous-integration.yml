@@ -26,7 +26,7 @@ jobs:
         with:
           website: jdk.java.net
           release: 27
-      # Use Zulu for JDK 17, as Temurin build of 17.0.19 is still not released
+      # Use Zulu for JDK 17 on Windows, as Temurin build of 17.0.19 is still not released
       - name: 'Set up Zulu JDK 17 on Windows'
         uses: actions/setup-java@v5
         with:
