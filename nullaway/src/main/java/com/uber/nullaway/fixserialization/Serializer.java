@@ -75,23 +75,23 @@ public class Serializer {
    */
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
-    appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
-    if (isXmlOutputEnabled()) {
+    if (isXmlMode()) {
       StringBuilder xml = new StringBuilder();
       errorInfo.appendXml(xml, serializationAdapter);
       appendToFile(xml.toString(), errorOutputXmlPath);
+    } else {
+      appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
     }
   }
 
   /**
-   * Whether the XML error log is produced for the active serialization adapter. The XML output was
-   * introduced in V4 for Annotator auto-fix metadata and is intentionally suppressed for earlier
-   * versions so existing consumers aren't surprised by a new artifact. Each {@code <error>} record
-   * is appended as a standalone XML fragment (there is no post-analysis hook to emit a closing root
-   * element), so downstream consumers should treat the file as a fragment stream rather than a
-   * single well-formed XML document.
+   * Whether the active serialization adapter emits errors as XML rather than TSV. V4 switched the
+   * error log to XML to carry the structured Annotator auto-fix metadata; earlier versions remain
+   * TSV. Each {@code <error>} record is appended as a standalone XML fragment (there is no
+   * post-analysis hook to emit a closing root element), so downstream consumers should treat the
+   * file as a fragment stream rather than a single well-formed XML document.
    */
-  private boolean isXmlOutputEnabled() {
+  private boolean isXmlMode() {
     return serializationAdapter.getSerializationVersion() >= 4;
   }
 
@@ -147,9 +147,10 @@ public class Serializer {
       if (config.fieldInitInfoEnabled) {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
-      initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
-      if (isXmlOutputEnabled()) {
+      if (isXmlMode()) {
         initializeFile(errorOutputXmlPath, "");
+      } else {
+        initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
       }
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer", e);

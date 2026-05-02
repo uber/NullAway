@@ -22,68 +22,18 @@
 
 package com.uber.nullaway.fixserialization.adapters;
 
-import com.uber.nullaway.fixserialization.SerializationService;
-import com.uber.nullaway.fixserialization.out.ErrorInfo;
-import java.util.Map;
-
 /**
  * Adapter for serialization version 4.
  *
- * <p>Updates to previous version (version 3):
- *
- * <ol>
- *   <li>Serialized errors contain an extra column {@code infos} carrying structured key/value
- *       metadata used by downstream tools (e.g. Annotator) to synthesize fixes.
- * </ol>
- *
- * <p>The {@code infos} column encodes the map as {@code key=value,key=value}, with backslash
- * escaping applied to any literal backslash, equals sign, or comma within a key or value. The
- * resulting string is further passed through {@link SerializationService#escapeSpecialCharacters}
- * to make it safe for the outer TSV format. An empty map is serialized as the empty string, which
- * renders as a trailing empty column on the TSV row.
+ * <p>Switches the error log from TSV ({@code errors.tsv}) to XML ({@code errors.xml}) to carry the
+ * structured Annotator auto-fix metadata. The TSV-related methods inherited from {@link
+ * SerializationV3Adapter} are not used at this version: {@code Serializer} routes V4+ writes
+ * through {@code ErrorInfo#appendXml} instead.
  */
 public class SerializationV4Adapter extends SerializationV3Adapter {
 
   @Override
   public int getSerializationVersion() {
     return 4;
-  }
-
-  @Override
-  public String getErrorsOutputFileHeader() {
-    return super.getErrorsOutputFileHeader() + "\t" + "infos";
-  }
-
-  @Override
-  public String serializeError(ErrorInfo errorInfo) {
-    return super.serializeError(errorInfo) + "\t" + serializeInfos(errorInfo.getInfos());
-  }
-
-  private static String serializeInfos(Map<String, String> infos) {
-    if (infos.isEmpty()) {
-      return "";
-    }
-    StringBuilder sb = new StringBuilder();
-    boolean first = true;
-    for (Map.Entry<String, String> entry : infos.entrySet()) {
-      if (!first) {
-        sb.append(',');
-      }
-      first = false;
-      appendEscaped(sb, entry.getKey());
-      sb.append('=');
-      appendEscaped(sb, entry.getValue());
-    }
-    return SerializationService.escapeSpecialCharacters(sb.toString());
-  }
-
-  private static void appendEscaped(StringBuilder sb, String value) {
-    for (int i = 0; i < value.length(); i++) {
-      char c = value.charAt(i);
-      if (c == '\\' || c == '=' || c == ',') {
-        sb.append('\\');
-      }
-      sb.append(c);
-    }
   }
 }
