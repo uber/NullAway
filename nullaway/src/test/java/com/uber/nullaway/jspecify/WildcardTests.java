@@ -711,6 +711,9 @@ public class WildcardTests extends NullAwayTestsBase {
               // javac itself has a similar inference limitation, see https://godbolt.org/z/Y875ahYMx
               // BUG: Diagnostic contains: incompatible types: Foo<Void> cannot be converted to Foo<@Nullable Void>
               static final Foo<@Nullable Void> FOO = Foo.of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
+
+              // This works due to the explicit type argument
+              static final Foo<@Nullable Void> FOO2 = Foo.<@Nullable Void>of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
             }""")
         .doTest();
   }
