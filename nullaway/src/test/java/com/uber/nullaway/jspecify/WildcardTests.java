@@ -703,6 +703,10 @@ public class WildcardTests extends NullAwayTestsBase {
                     return new Foo<>();
                 }
 
+                public static <T extends @Nullable Object> Foo<T> ofNoWildcard(Foo<T> foo) {
+                    return new Foo<>();
+                }
+
                 public Foo<T> or(Foo<? super T> other) {
                     return this;
                 }
@@ -714,6 +718,9 @@ public class WildcardTests extends NullAwayTestsBase {
 
               // This works due to the explicit type argument
               static final Foo<@Nullable Void> FOO2 = Foo.<@Nullable Void>of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
+
+              static final Foo<@Nullable Void> TMP = Foo.ofNoWildcard(new Foo<@Nullable Void>());
+              static final Foo<@Nullable Void> FOO3 = Foo.ofNoWildcard(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
             }""")
         .doTest();
   }
