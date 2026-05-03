@@ -537,6 +537,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 static @Nullable String mapToNull(String s) {
                     return null;
                 }
+                static String id(String s) { return s; }
                 static void callHashCode(Object o) { o.hashCode(); }
                 static void doNothing(@Nullable Object o) {}
                 static void testPositive(List<String> list) {
@@ -552,6 +553,7 @@ public class WildcardTests extends NullAwayTestsBase {
                         if (s != null) { s.hashCode(); }
                     });
                     list.stream().map(Test::mapToNull).forEach(Test::doNothing);
+                    list.stream().map(Test::id).forEach(Test::callHashCode);
                 }
             }""")
         .doTest();
