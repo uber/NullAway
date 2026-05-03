@@ -186,7 +186,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
       WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
       if (subtypeWildcard != null) {
-        constrainWildcardContainedByConcrete(subtypeWildcard, supertypeTypeArg);
+        constrainWildcardToSupertype(subtypeWildcard, supertypeTypeArg);
         return;
       }
       equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
@@ -228,21 +228,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
             supertypeLowerBound.accept(this, subtypeTypeArg);
           }
         }
-      }
-    }
-
-    /**
-     * Adds constraints for type-argument containment where the actual argument is a wildcard and
-     * the formal argument is concrete. For {@code ? extends S} and {@code ?}, containment requires
-     * {@code S <: supertypeTypeArg}. For {@code ? super S}, use the lower bound and require {@code
-     * S <: supertypeTypeArg}.
-     */
-    private void constrainWildcardContainedByConcrete(
-        WildcardType subtypeWildcard, Type supertypeTypeArg) {
-      if (subtypeWildcard.kind == BoundKind.SUPER) {
-        castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertypeTypeArg);
-      } else {
-        GenericsUtils.wildcardUpperBound(subtypeWildcard, state).accept(this, supertypeTypeArg);
       }
     }
 

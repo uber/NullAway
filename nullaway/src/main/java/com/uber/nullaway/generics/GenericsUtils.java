@@ -46,10 +46,16 @@ public class GenericsUtils {
     if (wildcardType.kind == BoundKind.EXTENDS) {
       upperBound = wildcardType.getExtendsBound();
     } else {
+      // We have an unbound wildcard or a wildcard with just a lower bound.  In such cases, if
+      // present, we use the upper bound of the formal type variable to which the wildcard is being
+      // passed (confusingly stored in the `bound` field).  E.g., if we have class Foo<T extends
+      // @Nullable Object>, and then see Foo<? super String>, we use @Nullable Object as the upper
+      // bound.  If not present, default to Object.
+      Type.TypeVar formalTypeVar = wildcardType.bound;
       upperBound =
-          wildcardType.bound == null
+          formalTypeVar == null
               ? Symtab.instance(state.context).objectType
-              : wildcardType.bound.getUpperBound();
+              : formalTypeVar.getUpperBound();
     }
     if (upperBound instanceof WildcardType nestedWildcard) {
       return wildcardUpperBound(nestedWildcard, state);
