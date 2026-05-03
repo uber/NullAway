@@ -342,6 +342,138 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wildcardCaptureParameters() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                void set(T t) {}
+              }
+              static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                f.set(null);
+              }
+              static void testNonNullExtendsBound(Foo<? extends Object> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                f.set(null);
+              }
+              static void testNullableSuperBound(Foo<? super @Nullable String> f) {
+                // this is legal
+                f.set(null);
+              }
+              static void testNonNullSuperBound(Foo<? super String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                f.set(null);
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureReturns() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                T get() { throw new RuntimeException(); }
+              }
+              static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
+                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                f.get().hashCode();
+              }
+              static void testNonNullExtendsBound(Foo<? extends Object> f) {
+                // this is legal
+                f.get().hashCode();
+              }
+              static void testNullableSuperBound(Foo<? super @Nullable String> f) {
+                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                f.get().hashCode();
+              }
+              static void testNonNullSuperBound(Foo<? super String> f) {
+                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                f.get().hashCode();
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureReturnWithTypeVariableUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                T get() { throw new RuntimeException(); }
+              }
+              static class NullableBound<U extends @Nullable Object> {
+                void test(Foo<? extends U> f) {
+                  // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                  f.get().hashCode();
+                }
+              }
+              static class NonNullBound<U> {
+                void test(Foo<? extends U> f) {
+                  // this is legal
+                  f.get().hashCode();
+                }
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureLocals() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                T get() { throw new RuntimeException(); }
+              }
+              static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
+                Object x = f.get();
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.hashCode();
+              }
+              static void testNonNullExtendsBound(Foo<? extends Object> f) {
+                Object x = f.get();
+                // this is legal
+                x.hashCode();
+              }
+              static void testNullableSuperBound(Foo<? super @Nullable String> f) {
+                Object x = f.get();
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.hashCode();
+              }
+              static void testNonNullSuperBound(Foo<? super String> f) {
+                Object x = f.get();
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.hashCode();
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
   public void wildcardSuperBoundsAndInference() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
