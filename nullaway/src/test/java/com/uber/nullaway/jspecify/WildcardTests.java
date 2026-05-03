@@ -537,14 +537,23 @@ public class WildcardTests extends NullAwayTestsBase {
                 static @Nullable String mapToNull(String s) {
                     return null;
                 }
+                static String id(String s) { return s; }
                 static void callHashCode(Object o) { o.hashCode(); }
-                static void test(List<String> list) {
+                static void doNothing(@Nullable Object o) {}
+                static void testPositive(List<String> list) {
                     list.stream().map(Test::mapToNull).forEach(s -> {
                         // BUG: Diagnostic contains: dereferenced expression s is @Nullable
                         s.hashCode();
                     });
-                    // TODO we should report an error here (https://github.com/uber/NullAway/issues/1552)
+                    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional interface method Test.Consumer.accept(T) is @Nullable
                     list.stream().map(Test::mapToNull).forEach(Test::callHashCode);
+                }
+                static void testNegative(List<String> list) {
+                    list.stream().map(Test::mapToNull).forEach(s -> {
+                        if (s != null) { s.hashCode(); }
+                    });
+                    list.stream().map(Test::mapToNull).forEach(Test::doNothing);
+                    list.stream().map(Test::id).forEach(Test::callHashCode);
                 }
             }""")
         .doTest();
