@@ -4,7 +4,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.List;
-import org.junit.Assume;
 import org.junit.Test;
 
 public class BytecodeGenericsTests extends NullAwayTestsBase {
@@ -83,8 +82,6 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void genericsChecksForFieldAssignments() {
-    // to read annotations properly from bytecode
-    Assume.assumeTrue(Runtime.version().feature() >= 21);
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -110,9 +107,6 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void genericsChecksForParamPassingAndReturns() {
-    // to read annotations properly from bytecode
-    Assume.assumeTrue(Runtime.version().feature() >= 21);
-
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -245,8 +239,6 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void callMethodTakingJavaUtilFunction() {
-    // to read annotations properly from bytecode
-    Assume.assumeTrue(Runtime.version().feature() >= 21);
     makeHelper()
         .addSourceLines(
             "Test.java",
