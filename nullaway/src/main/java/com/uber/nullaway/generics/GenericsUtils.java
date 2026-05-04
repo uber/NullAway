@@ -4,12 +4,17 @@ import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MemberReferenceTree;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.Type.CapturedType;
+import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.NullabilityUtil;
 import javax.lang.model.type.TypeKind;
+import org.jspecify.annotations.Nullable;
 
 /** Utility methods for doing generics-related checking */
 public class GenericsUtils {
@@ -20,6 +25,55 @@ public class GenericsUtils {
   enum MethodRefTypeRelationKind {
     RETURN,
     PARAMETER
+  }
+
+  /**
+   * Returns the effective upper bound of {@code typeArg}. For concrete type arguments, returns the
+   * type itself. For wildcards and captured wildcards, returns the wildcard's upper bound,
+   * recursing through nested wildcards and captures produced by javac.
+   */
+  static Type effectiveWildcardUpperBound(Type typeArg, VisitorState state) {
+    WildcardType wildcardType = asWildcard(typeArg);
+    return wildcardType == null ? typeArg : wildcardUpperBound(wildcardType, state);
+  }
+
+  /**
+   * Returns the effective upper bound of a wildcard, using the corresponding type variable's upper
+   * bound for unbounded wildcards and {@code super} wildcards.
+   */
+  static Type wildcardUpperBound(WildcardType wildcardType, VisitorState state) {
+    Type upperBound;
+    if (wildcardType.kind == BoundKind.EXTENDS) {
+      upperBound = wildcardType.getExtendsBound();
+    } else {
+      // We have an unbound wildcard or a wildcard with just a lower bound.  In such cases, if
+      // present, we use the upper bound of the formal type variable to which the wildcard is being
+      // passed (confusingly stored in the `bound` field).  E.g., if we have class Foo<T extends
+      // @Nullable Object>, and then see Foo<? super String>, we use @Nullable Object as the upper
+      // bound.  If not present, default to Object.
+      Type.TypeVar formalTypeVar = wildcardType.bound;
+      upperBound =
+          formalTypeVar == null
+              ? Symtab.instance(state.context).objectType
+              : formalTypeVar.getUpperBound();
+    }
+    if (upperBound instanceof WildcardType nestedWildcard) {
+      return wildcardUpperBound(nestedWildcard, state);
+    }
+    if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
+      return wildcardUpperBound(capturedType.wildcard, state);
+    }
+    return upperBound;
+  }
+
+  static @Nullable WildcardType asWildcard(Type typeArg) {
+    if (typeArg instanceof WildcardType wildcardType) {
+      return wildcardType;
+    }
+    if (typeArg instanceof CapturedType capturedType) {
+      return capturedType.wildcard;
+    }
+    return null;
   }
 
   /**

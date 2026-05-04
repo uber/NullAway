@@ -1,23 +1,26 @@
 #!/usr/bin/env python3
 """
-Convert CompilationTestHelper.addSourceLines(...) calls in a single Java file to use text blocks.
+Convert line-based test helper calls in a single Java file to use text blocks.
 
 Assumptions:
 - Each argument is on its own line.
 - The first argument is the filename string literal.
 - Subsequent arguments are string literals representing source lines, with optional // or /* */ comments
-  on their own line or trailing after a string literal.
+  on their own line. Trailing Java comments after string literal arguments are preserved before the
+  generated text block.
 """
 
 from __future__ import annotations
 
 import argparse
 import sys
-from typing import Iterable, Iterator, List, Optional, Tuple
+from typing import Iterable, List, Optional, Tuple
+
+METHOD_NAMES = ("addSourceLines", "addInputLines", "addOutputLines")
 
 
-def find_add_source_lines_calls(src: str) -> List[Tuple[int, int]]:
-    """Return (open_paren_idx, close_paren_idx) pairs for addSourceLines calls."""
+def find_line_helper_calls(src: str) -> List[Tuple[int, int]]:
+    """Return (open_paren_idx, close_paren_idx) pairs for supported line-helper calls."""
     calls = []
     i = 0
     n = len(src)
@@ -35,12 +38,15 @@ def find_add_source_lines_calls(src: str) -> List[Tuple[int, int]]:
             elif c == "/" and i + 1 < n and src[i + 1] == "*":
                 state = "block_comment"
                 i += 1
-            elif src.startswith("addSourceLines(", i):
-                open_idx = i + len("addSourceLines")
-                close_idx = find_matching_paren(src, open_idx)
-                if close_idx is not None:
-                    calls.append((open_idx, close_idx))
-                    i = close_idx
+            else:
+                for method_name in METHOD_NAMES:
+                    if src.startswith(f"{method_name}(", i):
+                        open_idx = i + len(method_name)
+                        close_idx = find_matching_paren(src, open_idx)
+                        if close_idx is not None:
+                            calls.append((open_idx, close_idx))
+                            i = close_idx
+                        break
         elif state == "string":
             if c == "\\":
                 i += 1
@@ -139,11 +145,12 @@ def transform_args_text(args_text: str) -> Optional[str]:
     if not lines:
         return None
 
-    items: List[Tuple[str, str, str, Optional[str]]] = []
+    items: List[Tuple[str, str]] = []
     arg_line_indices: List[int] = []
     filename_line_idx = None
     filename_line = None
     arg_indent = None
+    java_comments: List[str] = []
 
     for idx, line in enumerate(lines):
         if not line.strip():
@@ -166,11 +173,9 @@ def transform_args_text(args_text: str) -> Optional[str]:
                 default=-1,
             )
             comment = None
-            spacing = ""
             rest_prefix = rest_no_nl
             if idx_comment != -1:
                 comment = rest_no_nl[idx_comment:]
-                spacing = rest_no_nl[:idx_comment].replace(",", "")
                 rest_prefix = rest_no_nl[:idx_comment]
             if rest_prefix.strip().strip(","):
                 return None
@@ -179,8 +184,10 @@ def transform_args_text(args_text: str) -> Optional[str]:
                 filename_line = line
                 arg_indent = indent
             else:
-                items.append(("string", content, spacing, comment))
+                items.append(("string", content))
                 arg_line_indices.append(idx)
+                if comment:
+                    java_comments.append(comment)
         elif body.lstrip().startswith("//") or body.lstrip().startswith("/*"):
             if filename_line_idx is None:
                 return None
@@ -190,7 +197,7 @@ def transform_args_text(args_text: str) -> Optional[str]:
                 comment_body = line[len(arg_indent) :].rstrip("\r\n")
             else:
                 comment_body = line.lstrip().rstrip("\r\n")
-            items.append(("comment", comment_body, "", None))
+            items.append(("comment", comment_body))
             arg_line_indices.append(idx)
         else:
             return None
@@ -210,11 +217,9 @@ def transform_args_text(args_text: str) -> Optional[str]:
             break
 
     content_lines: List[str] = []
-    for kind, content, spacing, comment in items:
+    for kind, content in items:
         if kind == "string":
             line = unescape_for_text_block(content)
-            if comment:
-                line += f"{spacing}{comment}"
             content_lines.append(line)
         else:
             content_lines.append(content)
@@ -228,6 +233,8 @@ def transform_args_text(args_text: str) -> Optional[str]:
         new_lines.append(filename_line)
     else:
         new_lines.append(filename_line + line_ending)
+    for comment in java_comments:
+        new_lines.append(f"{arg_indent}{comment}{line_ending}")
     new_lines.append(f'{arg_indent}"""{line_ending}')
     for content_line in content_lines:
         new_lines.append(f"{arg_indent}{content_line}{line_ending}")
@@ -237,7 +244,7 @@ def transform_args_text(args_text: str) -> Optional[str]:
 
 
 def transform_source(src: str) -> Tuple[str, int]:
-    calls = find_add_source_lines_calls(src)
+    calls = find_line_helper_calls(src)
     if not calls:
         return src, 0
 
@@ -261,7 +268,7 @@ def transform_source(src: str) -> Tuple[str, int]:
 
 def main(argv: Optional[Iterable[str]] = None) -> int:
     parser = argparse.ArgumentParser(
-        description="Convert addSourceLines calls to text blocks in a single Java file."
+        description="Convert line-based test helper calls to text blocks in a single Java file."
     )
     parser.add_argument("path", help="Path to a .java file")
     parser.add_argument(
@@ -294,7 +301,7 @@ def main(argv: Optional[Iterable[str]] = None) -> int:
         print(f"Failed to write {path}: {exc}", file=sys.stderr)
         return 1
 
-    print(f"Updated {changes} addSourceLines call(s) in {path}", file=sys.stderr)
+    print(f"Updated {changes} line-helper call(s) in {path}", file=sys.stderr)
     return 0
 
 

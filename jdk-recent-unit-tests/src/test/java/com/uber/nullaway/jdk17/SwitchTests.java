@@ -52,17 +52,19 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
-            "package com.uber;",
-            "class SwitchExpr {",
-            "  public void testSwitchExpressionAssign(int i) {",
-            "    Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };",
-            "    // BUG: Diagnostic contains: dereferenced expression o is @Nullable",
-            "    o.toString();",
-            "    Object o2 = switch (i) { case 3, 4, 5 -> new Object(); default -> \"hello\"; };",
-            "    // This dereference is safe",
-            "    o2.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class SwitchExpr {
+              public void testSwitchExpressionAssign(int i) {
+                Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };
+                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                o.toString();
+                Object o2 = switch (i) { case 3, 4, 5 -> new Object(); default -> "hello"; };
+                // This dereference is safe
+                o2.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -71,15 +73,17 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
-            "package com.uber;",
-            "class SwitchExpr {",
-            "  public void testDirectlyDerefedSwitchExpr(int i) {",
-            "    // BUG: Diagnostic contains: dereferenced expression (switch",
-            "    (switch (i) { case 3, 4, 5 -> new Object(); default -> null; }).toString();",
-            "    // This deference is safe",
-            "    (switch (i) { case 3, 4, 5 -> new Object(); default -> \"hello\"; }).toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class SwitchExpr {
+              public void testDirectlyDerefedSwitchExpr(int i) {
+                // BUG: Diagnostic contains: dereferenced expression (switch
+                (switch (i) { case 3, 4, 5 -> new Object(); default -> null; }).toString();
+                // This deference is safe
+                (switch (i) { case 3, 4, 5 -> new Object(); default -> "hello"; }).toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -88,16 +92,18 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
-            "package com.uber;",
-            "class SwitchExpr {",
-            "  private void takesNonNull(Object o) {}",
-            "  public void testSwitchExpr3(int i) {",
-            "    // BUG: Diagnostic contains: passing",
-            "    takesNonNull(switch (i) { case 3, 4, 5 -> new Object(); default -> null; });",
-            "    // This call is safe",
-            "    takesNonNull(switch (i) { case 3, 4, 5 -> new Object(); default -> new Object(); });",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class SwitchExpr {
+              private void takesNonNull(Object o) {}
+              public void testSwitchExpr3(int i) {
+                // BUG: Diagnostic contains: passing
+                takesNonNull(switch (i) { case 3, 4, 5 -> new Object(); default -> null; });
+                // This call is safe
+                takesNonNull(switch (i) { case 3, 4, 5 -> new Object(); default -> new Object(); });
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -106,32 +112,34 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
-            "package com.uber;",
-            "class SwitchExpr {",
-            "  public void testSwitchStmtArrowCase(int i) {",
-            "    Object o = null;",
-            "    switch (i) {",
-            "      case 3, 4, 5 -> { o = new Object(); }",
-            "      default -> { o = null; }",
-            "    }",
-            "    // BUG: Diagnostic contains: dereferenced expression o is @Nullable",
-            "    o.toString();",
-            "    Object o2 = null;",
-            "    switch (i) {",
-            "      case 3, 4, 5 -> { o2 = null; }",
-            "      default -> { o2 = new Object(); }",
-            "    }",
-            "    // BUG: Diagnostic contains: dereferenced expression o2 is @Nullable",
-            "    o2.toString();",
-            "    Object o3 = null;",
-            "    switch (i) {",
-            "      case 3, 4, 5 -> { o3 = new Object(); }",
-            "      default -> { o3 = new Object(); }",
-            "    }",
-            "    // This dereference is safe",
-            "    o3.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class SwitchExpr {
+              public void testSwitchStmtArrowCase(int i) {
+                Object o = null;
+                switch (i) {
+                  case 3, 4, 5 -> { o = new Object(); }
+                  default -> { o = null; }
+                }
+                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                o.toString();
+                Object o2 = null;
+                switch (i) {
+                  case 3, 4, 5 -> { o2 = null; }
+                  default -> { o2 = new Object(); }
+                }
+                // BUG: Diagnostic contains: dereferenced expression o2 is @Nullable
+                o2.toString();
+                Object o3 = null;
+                switch (i) {
+                  case 3, 4, 5 -> { o3 = new Object(); }
+                  default -> { o3 = new Object(); }
+                }
+                // This dereference is safe
+                o3.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -140,19 +148,21 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
-            "package com.uber;",
-            "class SwitchExpr {",
-            "  public void testSwitchExprUnbox() {",
-            "    Integer i = null;",
-            "    // BUG: Diagnostic contains: switch selector expression i is @Nullable",
-            "    Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };",
-            "    int j1 = 0;",
-            "    // BUG: Diagnostic contains: unboxing of a @Nullable value",
-            "    int j2 = 3 + (switch (j1) { case 3, 4, 5 -> Integer.valueOf(4); default -> null; });",
-            "    // This is safe",
-            "    int j3 = 3 + (switch (j1) { case 3, 4, 5 -> Integer.valueOf(4); default -> Integer.valueOf(6); });",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class SwitchExpr {
+              public void testSwitchExprUnbox() {
+                Integer i = null;
+                // BUG: Diagnostic contains: switch selector expression i is @Nullable
+                Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };
+                int j1 = 0;
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                int j2 = 3 + (switch (j1) { case 3, 4, 5 -> Integer.valueOf(4); default -> null; });
+                // This is safe
+                int j3 = 3 + (switch (j1) { case 3, 4, 5 -> Integer.valueOf(4); default -> Integer.valueOf(6); });
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -161,16 +171,18 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
-            "package com.uber;",
-            "import java.util.function.Function;",
-            "class SwitchExpr {",
-            "  int i;",
-            "  public void testSwitchExprLambda() {",
-            "    // Here we just test to make sure there is no crash.  We need better",
-            "    // generics support to do a more substantive test.",
-            "    Function<SwitchExpr,Object> f = (s) -> switch (s.i) { case 3, 4, 5 -> new Object(); default -> \"hello\"; };",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import java.util.function.Function;
+            class SwitchExpr {
+              int i;
+              public void testSwitchExprLambda() {
+                // Here we just test to make sure there is no crash.  We need better
+                // generics support to do a more substantive test.
+                Function<SwitchExpr,Object> f = (s) -> switch (s.i) { case 3, 4, 5 -> new Object(); default -> "hello"; };
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -179,28 +191,30 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchExpr.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class SwitchExpr {",
-            "  public enum NullableEnum {",
-            "    A,",
-            "    B,",
-            "  }",
-            "  static Object handleNullableEnum(@Nullable NullableEnum nullableEnum) {",
-            "    return switch (nullableEnum) {",
-            "      case A -> new Object();",
-            "      case B -> new Object();",
-            "      case null -> throw new IllegalArgumentException(\"NullableEnum parameter is required\");",
-            "    };",
-            "  }",
-            "  static Object handleNullableEnumNoCaseNull(@Nullable NullableEnum nullableEnum) {",
-            "    // BUG: Diagnostic contains: switch selector expression nullableEnum is @Nullable",
-            "    return switch (nullableEnum) {",
-            "      case A -> new Object();",
-            "      case B -> new Object();",
-            "    };",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class SwitchExpr {
+              public enum NullableEnum {
+                A,
+                B,
+              }
+              static Object handleNullableEnum(@Nullable NullableEnum nullableEnum) {
+                return switch (nullableEnum) {
+                  case A -> new Object();
+                  case B -> new Object();
+                  case null -> throw new IllegalArgumentException("NullableEnum parameter is required");
+                };
+              }
+              static Object handleNullableEnumNoCaseNull(@Nullable NullableEnum nullableEnum) {
+                // BUG: Diagnostic contains: switch selector expression nullableEnum is @Nullable
+                return switch (nullableEnum) {
+                  case A -> new Object();
+                  case B -> new Object();
+                };
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -209,36 +223,38 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "SwitchNullCase.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class SwitchNullCase {",
-            "  public enum NullableEnum {",
-            "    A,",
-            "    B,",
-            "  }",
-            "  static Object testPositive1(@Nullable NullableEnum nullableEnum) {",
-            "    return switch (nullableEnum) {",
-            "      case A -> new Object();",
-            "      // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable",
-            "      case null -> nullableEnum.hashCode();",
-            "      default -> nullableEnum.toString();",
-            "    };",
-            "  }",
-            "  static Object testPositive2(@Nullable NullableEnum nullableEnum) {",
-            "    return switch (nullableEnum) {",
-            "      case A -> new Object();",
-            "      // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable",
-            "      case null, default -> nullableEnum.toString();",
-            "    };",
-            "  }",
-            "  static Object testNegative(@Nullable NullableEnum nullableEnum) {",
-            "    return switch (nullableEnum) {",
-            "      case A, B -> nullableEnum.hashCode();",
-            "      case null -> new Object();",
-            "      default -> nullableEnum.toString();",
-            "    };",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class SwitchNullCase {
+              public enum NullableEnum {
+                A,
+                B,
+              }
+              static Object testPositive1(@Nullable NullableEnum nullableEnum) {
+                return switch (nullableEnum) {
+                  case A -> new Object();
+                  // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable
+                  case null -> nullableEnum.hashCode();
+                  default -> nullableEnum.toString();
+                };
+              }
+              static Object testPositive2(@Nullable NullableEnum nullableEnum) {
+                return switch (nullableEnum) {
+                  case A -> new Object();
+                  // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable
+                  case null, default -> nullableEnum.toString();
+                };
+              }
+              static Object testNegative(@Nullable NullableEnum nullableEnum) {
+                return switch (nullableEnum) {
+                  case A, B -> nullableEnum.hashCode();
+                  case null -> new Object();
+                  default -> nullableEnum.toString();
+                };
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -247,21 +263,23 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class Test {",
-            "    public enum NullableEnum {",
-            "        VALUE1, VALUE2;",
-            "    }",
-            "    static Object handleNullableEnumCaseNullDefaultStatement(@Nullable NullableEnum nullableEnum) {",
-            "        Object result;",
-            "        switch (nullableEnum) {",
-            "            case null -> result = new Object();",
-            "            default -> result = nullableEnum.toString();",
-            "        }",
-            "        return result;",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class Test {
+                public enum NullableEnum {
+                    VALUE1, VALUE2;
+                }
+                static Object handleNullableEnumCaseNullDefaultStatement(@Nullable NullableEnum nullableEnum) {
+                    Object result;
+                    switch (nullableEnum) {
+                        case null -> result = new Object();
+                        default -> result = nullableEnum.toString();
+                    }
+                    return result;
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -270,21 +288,23 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "TestCase.java",
-            "import java.io.IOException;",
-            "import org.jspecify.annotations.NullMarked;",
-            "@NullMarked",
-            "public class TestCase {",
-            "    boolean hasRelevantMessage(IOException ioException)",
-            "    {",
-            "        String message = ioException.getMessage();",
-            "        return switch (message)",
-            "        {",
-            "            case null -> false;",
-            "            case \"Operation timed out\", \"Connection reset by peer\", \"Premature EOF\", \"Error writing to server\" -> true;",
-            "            default -> message.contains(\"GOAWAY received\");",
-            "        };",
-            "    }",
-            "}")
+            """
+            import java.io.IOException;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            public class TestCase {
+                boolean hasRelevantMessage(IOException ioException)
+                {
+                    String message = ioException.getMessage();
+                    return switch (message)
+                    {
+                        case null -> false;
+                        case "Operation timed out", "Connection reset by peer", "Premature EOF", "Error writing to server" -> true;
+                        default -> message.contains("GOAWAY received");
+                    };
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -293,18 +313,20 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "NullAwayDiscardError.java",
-            "package com.uber;",
-            "public class NullAwayDiscardError {",
-            "    public sealed interface IntOrBool {}",
-            "    public record WrappedInt(int a) implements IntOrBool {}",
-            "    public record WrappedBoolean(boolean b) implements IntOrBool {}",
-            "    public static void unwrap(IntOrBool i) {",
-            "        switch(i) {",
-            "            case WrappedInt(_) -> {}",
-            "            case WrappedBoolean(_) -> {}",
-            "        }",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            public class NullAwayDiscardError {
+                public sealed interface IntOrBool {}
+                public record WrappedInt(int a) implements IntOrBool {}
+                public record WrappedBoolean(boolean b) implements IntOrBool {}
+                public static void unwrap(IntOrBool i) {
+                    switch(i) {
+                        case WrappedInt(_) -> {}
+                        case WrappedBoolean(_) -> {}
+                    }
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -313,29 +335,31 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "ExceptionUtil.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class ExceptionUtil {",
-            "   static class BusinessException extends Exception {",
-            "       public BusinessException(String message) {",
-            "           super(message);",
-            "       }",
-            "   }",
-            "   static class BusinessExceptionUnauthenticated extends BusinessException {",
-            "       public BusinessExceptionUnauthenticated(String message) {",
-            "           super(message);",
-            "       }",
-            "   }",
-            "   private static @Nullable String test(Throwable t) {",
-            "       if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {",
-            "           return \"\"; ",
-            "       }",
-            "       return switch (bException) {",
-            "           case BusinessExceptionUnauthenticated e -> { e.toString(); bException.toString(); yield \"\"; } ",
-            "           default -> bException.getMessage();",
-            "       };",
-            "   }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class ExceptionUtil {
+               static class BusinessException extends Exception {
+                   public BusinessException(String message) {
+                       super(message);
+                   }
+               }
+               static class BusinessExceptionUnauthenticated extends BusinessException {
+                   public BusinessExceptionUnauthenticated(String message) {
+                       super(message);
+                   }
+               }
+               private static @Nullable String test(Throwable t) {
+                   if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {
+                       return "";
+                   }
+                   return switch (bException) {
+                       case BusinessExceptionUnauthenticated e -> { e.toString(); bException.toString(); yield ""; }
+                       default -> bException.getMessage();
+                   };
+               }
+            }
+            """)
         .doTest();
   }
 
@@ -344,26 +368,28 @@ public class SwitchTests {
     defaultCompilationHelper
         .addSourceLines(
             "ExceptionUtil.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class ExceptionUtil {",
-            "   static class BusinessException extends Exception {",
-            "       public BusinessException(String message) {",
-            "           super(message);",
-            "       }",
-            "   }",
-            "   static class BusinessExceptionUnauthenticated extends BusinessException {",
-            "       public BusinessExceptionUnauthenticated(String message) {",
-            "           super(message);",
-            "       }",
-            "   }",
-            "   private static @Nullable String test(Throwable t) {",
-            "       if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {",
-            "           return \"\"; ",
-            "       }",
-            "       return bException.getMessage();",
-            "   };",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class ExceptionUtil {
+               static class BusinessException extends Exception {
+                   public BusinessException(String message) {
+                       super(message);
+                   }
+               }
+               static class BusinessExceptionUnauthenticated extends BusinessException {
+                   public BusinessExceptionUnauthenticated(String message) {
+                       super(message);
+                   }
+               }
+               private static @Nullable String test(Throwable t) {
+                   if (!(t instanceof RuntimeException rte) || !(rte.getCause() instanceof BusinessException bException)) {
+                       return "";
+                   }
+                   return bException.getMessage();
+               }
+            }
+            """)
         .doTest();
   }
 }
