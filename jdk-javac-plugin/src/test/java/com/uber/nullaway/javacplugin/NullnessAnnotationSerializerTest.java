@@ -69,9 +69,11 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "@NullMarked",
-            "class Foo {}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Foo {}
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -86,18 +88,22 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "module-info.java",
-            "module com.example {",
-            "    requires java.base;",
-            "    requires org.jspecify;",
-            "}")
+            """
+            module com.example {
+                requires java.base;
+                requires org.jspecify;
+            }
+            """)
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "class Foo {",
-            "  public @Nullable String NullableReturn(@Nullable Integer i) { return null;}",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Foo {
+              public @Nullable String NullableReturn(@Nullable Integer i) { return null;}
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -126,13 +132,15 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "class Foo {",
-            "  void publicMethod(@Nullable String s) {}",
-            "  private void privateMethod(@Nullable String s) {}",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Foo {
+              void publicMethod(@Nullable String s) {}
+              private void privateMethod(@Nullable String s) {}
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -161,16 +169,18 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Foo {",
-            "  @NullUnmarked",
-            "  class Inner { }",
-            "  private class PrivateInner<T extends @Nullable Object> { }",
-            "  void method() {",
-            "    Runnable r = new Runnable() { public void run() {} };",
-            "  }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Foo {
+              @NullUnmarked
+              class Inner { }
+              private class PrivateInner<T extends @Nullable Object> { }
+              void method() {
+                Runnable r = new Runnable() { public void run() {} };
+              }
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -187,11 +197,13 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Foo<T extends @Nullable Object> {",
-            "  public <U extends @Nullable Object> U make(U u) { throw new RuntimeException(); }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Foo<T extends @Nullable Object> {
+              public <U extends @Nullable Object> U make(U u) { throw new RuntimeException(); }
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -220,11 +232,13 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Foo {",
-            "  public static int hash(Object @Nullable ... args) { return 0; }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Foo {
+              public static int hash(Object @Nullable ... args) { return 0; }
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -253,11 +267,13 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Foo {",
-            "  public static int hash(@Nullable Object... args) { return 0; }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Foo {
+              public static int hash(@Nullable Object... args) { return 0; }
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -293,11 +309,13 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Foo {",
-            "  public static int hash(@Nullable Object @Nullable... args) { return 0; }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Foo {
+              public static int hash(@Nullable Object @Nullable... args) { return 0; }
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -333,13 +351,15 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Foo {",
-            "  public static void arrayNullable(String @Nullable [] arr) {}",
-            "  public static void elementsNullable(@Nullable String[] arr) {}",
-            "  public static void bothNullable(@Nullable String @Nullable [] arr) {}",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Foo {
+              public static void arrayNullable(String @Nullable [] arr) {}
+              public static void elementsNullable(@Nullable String[] arr) {}
+              public static void bothNullable(@Nullable String @Nullable [] arr) {}
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -396,15 +416,17 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Foo {",
-            "  class NoAnnotation { void noAnnotMethod() {} }",
-            "  class Inner {",
-            "    void annotatedMethod(@Nullable String s) {}",
-            "  }",
-            "  class AnnotatedGeneric<T extends @Nullable Object> {}",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Foo {
+              class NoAnnotation { void noAnnotMethod() {} }
+              class Inner {
+                void annotatedMethod(@Nullable String s) {}
+              }
+              class AnnotatedGeneric<T extends @Nullable Object> {}
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -441,14 +463,16 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Foo {",
-            "  void noAnnotation() {}",
-            "  <T extends @Nullable Object> void annotatedTypeArgument() {}",
-            "  @Nullable String annotatedReturnType() { throw new RuntimeException(); }",
-            "  void annotatedParameter(@Nullable String s) {}",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Foo {
+              void noAnnotation() {}
+              <T extends @Nullable Object> void annotatedTypeArgument() {}
+              @Nullable String annotatedReturnType() { throw new RuntimeException(); }
+              void annotatedParameter(@Nullable String s) {}
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -491,17 +515,19 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.List;",
-            "@NullMarked",
-            "public class Foo {",
-            "  interface Bar {}",
-            "  public void arrayType(String @Nullable [] arr) {}",
-            "  public void wildcard(List<? super @Nullable Integer> list) {}",
-            "  public <U extends @Nullable Object> void typeVariable(U u) {}",
-            "  public <T extends @Nullable String & Bar> void intersection(T t) {}",
-            "  public <T> void nullableOnTypeVar(List<@Nullable T> list) {}",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            import java.util.List;
+            @NullMarked
+            public class Foo {
+              interface Bar {}
+              public void arrayType(String @Nullable [] arr) {}
+              public void wildcard(List<? super @Nullable Integer> list) {}
+              public <U extends @Nullable Object> void typeVariable(U u) {}
+              public <T extends @Nullable String & Bar> void intersection(T t) {}
+              public <T> void nullableOnTypeVar(List<@Nullable T> list) {}
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)
@@ -574,16 +600,18 @@ public class NullnessAnnotationSerializerTest {
     compilationTestHelper
         .addSourceLines(
             "Foo.java",
-            "import org.jspecify.annotations.*;",
-            "import java.util.*;",
-            "@NullMarked",
-            "public abstract class Foo {",
-            "  public abstract <E extends @Nullable Object> Collection<E> checkedCollection(Collection<E> c, Class<@NonNull E> type);",
-            "  public abstract List<@Nullable String> nestedReturnType();",
-            "  public abstract void nestedParameterType(@Nullable String [] arr, List<@NonNull String>[] s);",
-            "  public abstract List<? extends @Nullable String> wildcardUpperBound();",
-            "  public abstract List<List<String @Nullable []>> nestedArrayType();",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            import java.util.*;
+            @NullMarked
+            public abstract class Foo {
+              public abstract <E extends @Nullable Object> Collection<E> checkedCollection(Collection<E> c, Class<@NonNull E> type);
+              public abstract List<@Nullable String> nestedReturnType();
+              public abstract void nestedParameterType(@Nullable String [] arr, List<@NonNull String>[] s);
+              public abstract List<? extends @Nullable String> wildcardUpperBound();
+              public abstract List<List<String @Nullable []>> nestedArrayType();
+            }
+            """)
         .doTest();
     Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
     assertThat(moduleClasses)

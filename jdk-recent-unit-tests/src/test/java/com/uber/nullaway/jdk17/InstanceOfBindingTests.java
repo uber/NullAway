@@ -30,18 +30,20 @@ public class InstanceOfBindingTests {
     defaultCompilationHelper
         .addSourceLines(
             "InstanceOfBinding.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class InstanceOfBinding {",
-            "  public void testInstanceOfBinding(@Nullable Object o) {",
-            "    if (o instanceof String s) {",
-            "      s.toString();",
-            "      o.toString();",
-            "    }",
-            "    // BUG: Diagnostic contains: dereferenced expression o",
-            "    o.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class InstanceOfBinding {
+              public void testInstanceOfBinding(@Nullable Object o) {
+                if (o instanceof String s) {
+                  s.toString();
+                  o.toString();
+                }
+                // BUG: Diagnostic contains: dereferenced expression o
+                o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 }

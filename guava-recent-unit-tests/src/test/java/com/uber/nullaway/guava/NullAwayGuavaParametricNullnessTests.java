@@ -63,23 +63,25 @@ public class NullAwayGuavaParametricNullnessTests {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.google.common.util.concurrent.FutureCallback;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "    public static <T> FutureCallback<T> wrapFutureCallback(FutureCallback<T> futureCallback) {",
-            "        return new FutureCallback<T>() {",
-            "            @Override",
-            "            public void onSuccess(@Nullable T result) {",
-            "                futureCallback.onSuccess(result);",
-            "            }",
-            "            @Override",
-            "            public void onFailure(Throwable throwable) {",
-            "                futureCallback.onFailure(throwable);",
-            "            }",
-            "        };",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import com.google.common.util.concurrent.FutureCallback;
+            import javax.annotation.Nullable;
+            class Test {
+                public static <T> FutureCallback<T> wrapFutureCallback(FutureCallback<T> futureCallback) {
+                    return new FutureCallback<T>() {
+                        @Override
+                        public void onSuccess(@Nullable T result) {
+                            futureCallback.onSuccess(result);
+                        }
+                        @Override
+                        public void onFailure(Throwable throwable) {
+                            futureCallback.onFailure(throwable);
+                        }
+                    };
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -88,23 +90,25 @@ public class NullAwayGuavaParametricNullnessTests {
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
-            "import com.google.common.util.concurrent.FutureCallback;",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "    public static <T> FutureCallback<@Nullable T> wrapFutureCallback(FutureCallback<@Nullable T> futureCallback) {",
-            "        return new FutureCallback<@Nullable T>() {",
-            "            @Override",
-            "            public void onSuccess(@Nullable T result) {",
-            "                futureCallback.onSuccess(result);",
-            "            }",
-            "            @Override",
-            "            public void onFailure(Throwable throwable) {",
-            "                futureCallback.onFailure(throwable);",
-            "            }",
-            "        };",
-            "    }",
-            "}")
+            """
+            import com.google.common.util.concurrent.FutureCallback;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                public static <T> FutureCallback<@Nullable T> wrapFutureCallback(FutureCallback<@Nullable T> futureCallback) {
+                    return new FutureCallback<@Nullable T>() {
+                        @Override
+                        public void onSuccess(@Nullable T result) {
+                            futureCallback.onSuccess(result);
+                        }
+                        @Override
+                        public void onFailure(Throwable throwable) {
+                            futureCallback.onFailure(throwable);
+                        }
+                    };
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -113,19 +117,21 @@ public class NullAwayGuavaParametricNullnessTests {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.google.common.collect.ImmutableList;",
-            "import com.google.common.collect.Iterables;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "    public static String test1() {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression",
-            "        return Iterables.getFirst(ImmutableList.<String>of(), null);",
-            "    }",
-            "    public static @Nullable String test2() {",
-            "        return Iterables.getFirst(ImmutableList.<String>of(), null);",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import com.google.common.collect.ImmutableList;
+            import com.google.common.collect.Iterables;
+            import javax.annotation.Nullable;
+            class Test {
+                public static String test1() {
+                    // BUG: Diagnostic contains: returning @Nullable expression
+                    return Iterables.getFirst(ImmutableList.<String>of(), null);
+                }
+                public static @Nullable String test2() {
+                    return Iterables.getFirst(ImmutableList.<String>of(), null);
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -134,26 +140,28 @@ public class NullAwayGuavaParametricNullnessTests {
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
-            "import com.google.common.collect.ImmutableList;",
-            "import com.google.common.collect.Iterables;",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "    public static String test1() {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression",
-            "        return Iterables.<@Nullable String>getFirst(ImmutableList.<String>of(), null);",
-            "    }",
-            "    public static @Nullable String test2() {",
-            "        return Iterables.<@Nullable String>getFirst(ImmutableList.<String>of(), null);",
-            "    }",
-            "    public static String test3() {",
-            "        return Iterables.getOnlyElement(ImmutableList.of(\"hi\"));",
-            "    }",
-            "    public static String test4() {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression",
-            "        return Iterables.<@Nullable String>getOnlyElement(ImmutableList.of(\"hi\"));",
-            "    }",
-            "}")
+            """
+            import com.google.common.collect.ImmutableList;
+            import com.google.common.collect.Iterables;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                public static String test1() {
+                    // BUG: Diagnostic contains: returning @Nullable expression
+                    return Iterables.<@Nullable String>getFirst(ImmutableList.<String>of(), null);
+                }
+                public static @Nullable String test2() {
+                    return Iterables.<@Nullable String>getFirst(ImmutableList.<String>of(), null);
+                }
+                public static String test3() {
+                    return Iterables.getOnlyElement(ImmutableList.of("hi"));
+                }
+                public static String test4() {
+                    // BUG: Diagnostic contains: returning @Nullable expression
+                    return Iterables.<@Nullable String>getOnlyElement(ImmutableList.of("hi"));
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -162,19 +170,21 @@ public class NullAwayGuavaParametricNullnessTests {
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
-            "import com.google.common.collect.Comparators;",
-            "import java.util.Comparator;",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "    public static String test1(String t1, String t2, Comparator<? super String> cmp) {",
-            "        return Comparators.min(t1, t2, cmp);",
-            "    }",
-            "    public static String test2(@Nullable String t1, @Nullable String t2, Comparator<? super @Nullable String> cmp) {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression",
-            "        return Comparators.<@Nullable String>min(t1, t2, cmp);",
-            "    }",
-            "}")
+            """
+            import com.google.common.collect.Comparators;
+            import java.util.Comparator;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                public static String test1(String t1, String t2, Comparator<? super String> cmp) {
+                    return Comparators.min(t1, t2, cmp);
+                }
+                public static String test2(@Nullable String t1, @Nullable String t2, Comparator<? super @Nullable String> cmp) {
+                    // BUG: Diagnostic contains: returning @Nullable expression
+                    return Comparators.<@Nullable String>min(t1, t2, cmp);
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -183,26 +193,28 @@ public class NullAwayGuavaParametricNullnessTests {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.google.common.io.Closer;",
-            "import java.io.Closeable;",
-            "import java.io.FileInputStream;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "    public static FileInputStream test1(Closer closer, FileInputStream fis1) {",
-            "        // safe: non-null arg to non-null return",
-            "        return closer.register(fis1);",
-            "    }",
-            "    @Nullable",
-            "    public static FileInputStream test2(Closer closer, @Nullable FileInputStream fis2) {",
-            "        // safe: nullable arg to nullable return",
-            "        return closer.register(fis2);",
-            "    }",
-            "    public static FileInputStream test3(Closer closer, @Nullable FileInputStream fis3) {",
-            "        // BUG: Diagnostic contains: returning @Nullable expression",
-            "        return closer.register(fis3);",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import com.google.common.io.Closer;
+            import java.io.Closeable;
+            import java.io.FileInputStream;
+            import javax.annotation.Nullable;
+            class Test {
+                public static FileInputStream test1(Closer closer, FileInputStream fis1) {
+                    // safe: non-null arg to non-null return
+                    return closer.register(fis1);
+                }
+                @Nullable
+                public static FileInputStream test2(Closer closer, @Nullable FileInputStream fis2) {
+                    // safe: nullable arg to nullable return
+                    return closer.register(fis2);
+                }
+                public static FileInputStream test3(Closer closer, @Nullable FileInputStream fis3) {
+                    // BUG: Diagnostic contains: returning @Nullable expression
+                    return closer.register(fis3);
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -211,29 +223,31 @@ public class NullAwayGuavaParametricNullnessTests {
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.google.common.base.Function;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "    public static void testFunctionOverride() {",
-            "        Function<Object, Object> f = new Function<Object, Object>() {",
-            "            @Override",
-            "            public Object apply(Object input) {",
-            "                return input;",
-            "             }",
-            "        };",
-            "    }",
-            "    public static void testFunctionOverrideNullableReturn() {",
-            "        Function<Object, Object> f = new Function<Object, Object>() {",
-            "            @Override",
-            "            @Nullable",
-            "            // BUG: Diagnostic contains: method returns @Nullable, but superclass method",
-            "            public Object apply(Object input) {",
-            "                return null;",
-            "             }",
-            "        };",
-            "    }",
-            "}")
+            """
+            package com.uber;
+            import com.google.common.base.Function;
+            import javax.annotation.Nullable;
+            class Test {
+                public static void testFunctionOverride() {
+                    Function<Object, Object> f = new Function<Object, Object>() {
+                        @Override
+                        public Object apply(Object input) {
+                            return input;
+                         }
+                    };
+                }
+                public static void testFunctionOverrideNullableReturn() {
+                    Function<Object, Object> f = new Function<Object, Object>() {
+                        @Override
+                        @Nullable
+                        // BUG: Diagnostic contains: method returns @Nullable, but superclass method
+                        public Object apply(Object input) {
+                            return null;
+                         }
+                    };
+                }
+            }
+            """)
         .doTest();
   }
 
@@ -242,15 +256,17 @@ public class NullAwayGuavaParametricNullnessTests {
     jspecifyCompilationHelper
         .addSourceLines(
             "Test.java",
-            "import com.google.common.collect.Sets;",
-            "import java.util.Set;",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "class Test {",
-            "  public static void test(@Nullable String s) {",
-            "    Set<@Nullable String> params = Sets.newHashSet(s);",
-            "  }",
-            "}")
+            """
+            import com.google.common.collect.Sets;
+            import java.util.Set;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              public static void test(@Nullable String s) {
+                Set<@Nullable String> params = Sets.newHashSet(s);
+              }
+            }
+            """)
         .doTest();
   }
 }
