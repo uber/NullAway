@@ -387,7 +387,7 @@ public class SwitchTests {
                        return "";
                    }
                    return bException.getMessage();
-               };
+               }
             }
             """)
         .doTest();
