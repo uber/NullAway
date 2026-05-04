@@ -510,34 +510,38 @@ public class CustomLibraryModelsTests {
     testHelper
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  public static <T> T castToNonNull(String reason, T value, int line) {",
-            "    if (value == null) {",
-            "      throw new NullPointerException(reason + \" at line \" + line);",
-            "    }",
-            "    return value;",
-            "  }",
-            "  Object test1(Object o) {",
-            "    return Test.castToNonNull(\"CAST_REASON\",o,42);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              public static <T> T castToNonNull(String reason, T value, int line) {
+                if (value == null) {
+                  throw new NullPointerException(reason + " at line " + line);
+                }
+                return value;
+              }
+              Object test1(Object o) {
+                return Test.castToNonNull("CAST_REASON",o,42);
+              }
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  public static <T> T castToNonNull(String reason, T value, int line) {",
-            "    if (value == null) {",
-            "      throw new NullPointerException(reason + \" at line \" + line);",
-            "    }",
-            "    return value;",
-            "  }",
-            "  Object test1(Object o) {",
-            "    return o;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              public static <T> T castToNonNull(String reason, T value, int line) {
+                if (value == null) {
+                  throw new NullPointerException(reason + " at line " + line);
+                }
+                return value;
+              }
+              Object test1(Object o) {
+                return o;
+              }
+            }
+            """)
         .doTest();
   }
 }
