@@ -237,14 +237,23 @@ public class SuppressionTests extends NullAwayTestsBase {
             class Test {
               static class Foo {
                 @Nullable Foo next;
+                @Nullable Foo getNext() { return next; }
               }
 
-              static void test(Foo f) {
+              static void testFields(Foo f) {
                 @SuppressWarnings("NullAway")
                 var unused = Objects.requireNonNull(f.next.next.next);
                 f.next.hashCode();
                 f.next.next.hashCode();
                 f.next.next.next.hashCode();
+              }
+
+              static void testCalls(Foo f) {
+                @SuppressWarnings("NullAway")
+                var unused = Objects.requireNonNull(f.getNext().getNext().getNext());
+                f.getNext().hashCode();
+                f.getNext().getNext().hashCode();
+                f.getNext().getNext().getNext().hashCode();
               }
             }
             """)
