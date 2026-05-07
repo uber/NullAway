@@ -246,6 +246,9 @@ public class SuppressionTests extends NullAwayTestsBase {
                 f.next.hashCode();
                 f.next.next.hashCode();
                 f.next.next.next.hashCode();
+                // one too many
+                // BUG: Diagnostic contains: dereferenced expression f.next.next.next.next is @Nullable
+                f.next.next.next.next.hashCode();
               }
 
               static void testCalls(Foo f) {
@@ -254,6 +257,9 @@ public class SuppressionTests extends NullAwayTestsBase {
                 f.getNext().hashCode();
                 f.getNext().getNext().hashCode();
                 f.getNext().getNext().getNext().hashCode();
+                // one too many
+                // BUG: Diagnostic contains: dereferenced expression f.getNext().getNext().getNext().getNext() is @Nullable
+                f.getNext().getNext().getNext().getNext().hashCode();
               }
             }
             """)
