@@ -1586,7 +1586,7 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getTreeType(parent, state);
+      return getTreeType(parent, state.withPath(parentPath));
     }
     return getTreeType(tree, state);
   }
