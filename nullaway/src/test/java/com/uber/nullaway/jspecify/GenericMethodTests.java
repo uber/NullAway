@@ -882,7 +882,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 String field = "hello";
                 void testField() {
                     String s = null;
-                    // BUG: Diagnostic contains: Failed to infer type argument nullability
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                     field = id(s);
                 }
                 @Nullable String field2 = null;
@@ -1206,7 +1206,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     return Optional.ofNullable(value);
                 }
                 public static <U extends @Nullable Object> Optional<U> optionalResultPositive1(@Nullable U value) {
-                    // BUG: Diagnostic contains: Failed to infer type argument nullability
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                     return Optional.of(value);
                 }
                 // identical to above, testing the other error message

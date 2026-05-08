@@ -311,6 +311,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
+    Verify.verify(
+        s instanceof TypeVariable || t instanceof TypeVariable,
+        "At least one argument must be a type variable but got %s and %s",
+        s,
+        t);
     /* variable-to-variable edge */
     if (isTypeVariable(s) && isTypeVariable(t)) {
       TypeVariable sv = (TypeVariable) s;
@@ -321,10 +326,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     /* top-level nullability rules */
     if (isKnownNonNull(t)) {
-      requireNonNull(s);
+      constrainAsNonNull(s, t);
     }
     if (isKnownNullable(s)) {
-      requireNullable(t);
+      constrainAsNullable(t, s);
     }
   }
 
@@ -348,19 +353,37 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return true;
   }
 
-  private void requireNullable(Type t) throws UnsatisfiableConstraintsException {
+  /**
+   * Constrain a type to be @Nullable due to its being a supertype of some known @Nullable type
+   *
+   * @param t the type to constrain
+   * @param knownNullableType the known nullable type
+   * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
+   */
+  private void constrainAsNullable(Type t, Type knownNullableType)
+      throws UnsatisfiableConstraintsException {
     if (isTypeVariable(t)) {
       updateNullness(t.asElement(), NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
-      throw new UnsatisfiableConstraintsException(t.asElement());
+      Verify.verify(knownNullableType instanceof TypeVariable);
+      throw new UnsatisfiableConstraintsException(knownNullableType.asElement());
     }
   }
 
-  private void requireNonNull(Type t) throws UnsatisfiableConstraintsException {
+  /**
+   * Constrain a type to be @NonNull due to its being a subtype of some known @NonNull type
+   *
+   * @param t the type to constrain
+   * @param knownNonNullType the known non-null type
+   * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
+   */
+  private void constrainAsNonNull(Type t, Type knownNonNullType)
+      throws UnsatisfiableConstraintsException {
     if (isTypeVariable(t)) {
       updateNullness(t.asElement(), NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
-      throw new UnsatisfiableConstraintsException(t.asElement());
+      Verify.verify(knownNonNullType instanceof TypeVariable);
+      throw new UnsatisfiableConstraintsException(knownNonNullType.asElement());
     }
   }
 
