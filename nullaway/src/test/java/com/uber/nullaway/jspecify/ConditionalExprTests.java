@@ -10,7 +10,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void wildcard() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -34,7 +34,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void genericMethodCallInOneArm() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -60,7 +60,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void genericMethodCallInBothArms() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -88,7 +88,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void nestedConditionalExpressions() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -116,7 +116,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void conditionalAsMethodArgument() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -142,7 +142,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void conditionalInfersGenericTypeArguments() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -167,7 +167,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void varConditionalDoesNotProvideTargetTypeForGenericMethodInference() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -200,7 +200,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void nestedConditionalInfersGenericTypeArguments() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -228,7 +228,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void conditionalInfersDiamondTypeArguments() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -255,7 +255,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void varConditionalDoesNotProvideTargetTypeForDiamondInference() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -291,7 +291,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void nestedConditionalInfersDiamondTypeArguments() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -324,7 +324,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void conditionalGenericMethodInferenceWithDataflow() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -352,7 +352,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void conditionalGenericTypeArgumentInferenceWithDataflow() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -379,7 +379,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
 
   @Test
   public void conditionalGenericMethodInferenceDataflowAndLoops() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -426,11 +426,8 @@ public class ConditionalExprTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
+  private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
-        JSpecifyJavacConfig.withJSpecifyModeArgs(
-            List.of(
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")));
+        JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
   }
 }

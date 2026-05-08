@@ -101,9 +101,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_FIX_SERIALIZATION_CONFIG_PATH =
       EP_FL_NAMESPACE + ":FixSerializationConfigPath";
 
-  static final String FL_WARN_ON_GENERIC_INFERENCE_FAILURE =
-      EP_FL_NAMESPACE + ":WarnOnGenericInferenceFailure";
-
   static final String FL_HANDLE_WILDCARD_GENERICS = EP_FL_NAMESPACE + ":HandleWildcardGenerics";
 
   static final String ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG =
@@ -234,7 +231,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
   private final boolean handleWildcardGenerics;
-  private final boolean warnOnInferenceFailure;
   private final ImmutableSet<MethodClassAndName> knownInitializers;
   private final ImmutableSet<String> excludedClassAnnotations;
   private final ImmutableSet<String> generatedCodeAnnotations;
@@ -315,7 +311,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
         getPackagePattern(
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
-    warnOnInferenceFailure = flags.getBoolean(FL_WARN_ON_GENERIC_INFERENCE_FAILURE).orElse(false);
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
     optionalClassPaths =
         new ImmutableSet.Builder<String>()
@@ -617,11 +612,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean handleWildcardGenerics() {
     return handleWildcardGenerics;
-  }
-
-  @Override
-  public boolean warnOnGenericInferenceFailure() {
-    return warnOnInferenceFailure;
   }
 
   record MethodClassAndName(String enclosingClass, String methodName) {

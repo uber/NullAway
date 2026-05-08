@@ -313,12 +313,4 @@ public interface Config {
 
   /** Should wildcard-aware generic nullability checks be enabled? */
   boolean handleWildcardGenerics();
-
-  /**
-   * Checks if a warning should be issued when generic type inference fails to infer a type
-   * argument's nullability.
-   *
-   * @return true if a warning should be issued when generic type inference fails
-   */
-  boolean warnOnGenericInferenceFailure();
 }

@@ -1152,15 +1152,13 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e);
-      if (config.warnOnGenericInferenceFailure()) {
-        ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-        ErrorMessage errorMessage =
-            new ErrorMessage(
-                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, inferenceFailureMessage);
-        state.reportMatch(
-            errorBuilder.createErrorDescription(
-                errorMessage, analysis.buildDescription(invocationTree), state, null));
-      }
+      ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+      ErrorMessage errorMessage =
+          new ErrorMessage(
+              ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, inferenceFailureMessage);
+      state.reportMatch(
+          errorBuilder.createErrorDescription(
+              errorMessage, analysis.buildDescription(invocationTree), state, null));
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       // don't cache result if we were called from dataflow, since the result may rely on dataflow
       // facts that do not reflect the fixed point

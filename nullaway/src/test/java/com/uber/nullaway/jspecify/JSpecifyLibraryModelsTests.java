@@ -46,6 +46,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               Optional<String> ofNullableAcceptsNullable(@Nullable String value) {
+                // BUG: Diagnostic contains: inference failure
                 return Optional.ofNullable(value);
               }
 
@@ -125,6 +126,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
                     @NullMarked
                     class Test {
                       static Optional<String> getKey(@Nullable String key) {
+                        // BUG: Diagnostic contains: inference failure
                         return Optional.ofNullable(key).or(() -> Optional.ofNullable(System.getenv("DEFAULT_KEY")));
                       }
                     }
@@ -144,6 +146,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             public record Repro(@Nullable String name) {
               public Optional<String> getNameOpt() {
+                // BUG: Diagnostic contains: inference failure
                 return Optional.ofNullable(name).filter(it -> true);
               }
             }
