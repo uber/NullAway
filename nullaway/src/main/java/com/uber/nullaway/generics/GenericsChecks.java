@@ -28,7 +28,7 @@ import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreeScanner;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -1111,10 +1111,19 @@ public final class GenericsChecks {
           fiReturnType);
     } else if (body instanceof BlockTree) {
       // Case 2: Block body, e.g., () -> { return null; }
-      List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
-      for (ExpressionTree returnExpr : returnExpressions) {
+      TreePath bodyPath = new TreePath(lambdaPath, body);
+      List<TreePath> returnPaths = ReturnFinder.findReturnPaths(bodyPath);
+      for (TreePath returnPath : returnPaths) {
+        ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
+        ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
+        TreePath returnExprPath = new TreePath(returnPath, returnExpr);
         generateConstraintsForPseudoAssignment(
-            state, lambdaPath, solver, allInvocations, returnExpr, fiReturnType);
+            state.withPath(returnExprPath),
+            returnExprPath,
+            solver,
+            allInvocations,
+            returnExpr,
+            fiReturnType);
       }
     }
   }
@@ -1196,8 +1205,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * A visitor that scans a {@link Tree} (typically a lambda or method body) to find all {@code
-   * return} statements and collect their expressions.
+   * A visitor that scans a {@link TreePath} (typically to a lambda or method body) to find all
+   * {@code return} statements and collect their paths.
    *
    * <p>This scanner is specifically designed to be "shallow." It will <b>not</b> descend into
    * nested lambdas, local classes, or anonymous classes, ensuring it only finds {@code return}
@@ -1207,32 +1216,33 @@ public final class GenericsChecks {
    *
    * <pre>
    * Tree lambdaBody = myLambda.getBody();
-   * List<ExpressionTree> returns = ReturnFinder.findReturnExpressions(lambdaBody);
+   * TreePath lambdaBodyPath = new TreePath(lambdaPath, lambdaBody);
+   * List<TreePath> returns = ReturnFinder.findReturnPaths(lambdaBodyPath);
    * </pre>
    */
-  static class ReturnFinder extends TreeScanner<@Nullable Void, @Nullable Void> {
+  static class ReturnFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
 
-    private final List<ExpressionTree> returnExpressions = new ArrayList<>();
+    private final List<TreePath> returnPaths = new ArrayList<>();
 
     /**
-     * Scans the given tree and returns all found return expressions.
+     * Scans the given path and returns all found paths to return statements with expressions.
      *
-     * @param tree The tree (e.g., a lambda body) to scan.
-     * @return A list of all return expressions found.
+     * @param path The path to a tree (e.g., a lambda body) to scan.
+     * @return A list of all paths to return statements with expressions found.
      */
-    public static List<ExpressionTree> findReturnExpressions(Tree tree) {
+    public static List<TreePath> findReturnPaths(TreePath path) {
       ReturnFinder finder = new ReturnFinder();
-      finder.scan(tree, null);
-      return finder.getReturnExpressions();
+      finder.scan(path, null);
+      return finder.getReturnPaths();
     }
 
     /**
-     * Gets the list of return expressions found by this visitor.
+     * Gets the list of return statement paths found by this visitor.
      *
-     * @return The list of return expressions.
+     * @return The list of return statement paths.
      */
-    public List<ExpressionTree> getReturnExpressions() {
-      return returnExpressions;
+    public List<TreePath> getReturnPaths() {
+      return returnPaths;
     }
 
     @Override
@@ -1255,9 +1265,8 @@ public final class GenericsChecks {
 
     @Override
     public @Nullable Void visitReturn(ReturnTree node, @Nullable Void p) {
-      ExpressionTree expression = node.getExpression();
-      if (expression != null) {
-        returnExpressions.add(expression);
+      if (node.getExpression() != null) {
+        returnPaths.add(getCurrentPath());
       }
       // We've processed this return, don't scan its children
       return null;
