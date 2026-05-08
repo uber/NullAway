@@ -317,7 +317,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         s,
         t);
     /* variable-to-variable edge */
-    if (isTypeVariable(s) && isTypeVariable(t)) {
+    if (treatAsTypeVariableForInference(s) && treatAsTypeVariableForInference(t)) {
       TypeVariable sv = (TypeVariable) s;
       TypeVariable tv = (TypeVariable) t;
       getState(sv.asElement()).supertypes.add(tv.asElement());
@@ -362,11 +362,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    */
   private void constrainAsNullable(Type t, Type knownNullableType)
       throws UnsatisfiableConstraintsException {
-    if (isTypeVariable(t)) {
+    if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
-      Verify.verify(knownNullableType instanceof TypeVariable);
-      throw new UnsatisfiableConstraintsException(knownNullableType.asElement());
+      TypeVariable typeVar =
+          knownNullableType instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) t;
+      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 
@@ -374,16 +375,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * Constrain a type to be @NonNull due to its being a subtype of some known @NonNull type
    *
    * @param t the type to constrain
-   * @param knownNonNullType the known non-null type
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
    */
   private void constrainAsNonNull(Type t, Type knownNonNullType)
       throws UnsatisfiableConstraintsException {
-    if (isTypeVariable(t)) {
+    if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
-      Verify.verify(knownNonNullType instanceof TypeVariable);
-      throw new UnsatisfiableConstraintsException(knownNonNullType.asElement());
+      TypeVariable typeVar =
+          t instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) knownNonNullType;
+      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 
@@ -393,7 +394,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return vars.computeIfAbsent(typeVarElement, v -> new VarState(upperBoundIsNullable(v)));
   }
 
-  private boolean isTypeVariable(Type t) {
+  private boolean treatAsTypeVariableForInference(Type t) {
     if (t instanceof TypeVar tv) {
       // Only treat as a type variable if it _doesn't_ have an explicit @Nullable or @NonNull
       // annotation.
@@ -411,7 +412,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Everything non-nullable *and* non-variable counts as @NonNull. */
   private boolean isKnownNonNull(Type t) {
-    return !isKnownNullable(t) && !isTypeVariable(t);
+    return !isKnownNullable(t) && !treatAsTypeVariableForInference(t);
   }
 
   private boolean upperBoundIsNullable(Element typeVarElement) {
