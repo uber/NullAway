@@ -1648,6 +1648,30 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedReceivers() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                static <U extends @Nullable Object> Foo<U> of(Foo<U> other) {
+                  throw new RuntimeException();
+                }
+                Foo<T> or(Foo<T> other) { return this; }
+              }
+              static Foo<@Nullable String> FOO =
+                Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
