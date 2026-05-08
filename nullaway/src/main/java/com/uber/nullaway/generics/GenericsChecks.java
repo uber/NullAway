@@ -613,7 +613,7 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof VariableTree || parent instanceof AssignmentTree) {
-      return getTreeType(parent, state);
+      return getTreeType(parent, state.withPath(parentPath));
     }
     if (parent instanceof ReturnTree) {
       TreePath enclosingMethodOrLambda =
