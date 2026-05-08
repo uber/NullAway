@@ -1516,8 +1516,10 @@ public final class GenericsChecks {
     Tree falsePartTree = tree.getFalseExpression();
 
     Type condExprType = getConditionalExpressionType(tree, state);
-    Type truePartType = getTreeType(truePartTree, state);
-    Type falsePartType = getTreeType(falsePartTree, state);
+    Type truePartType =
+        getTreeType(truePartTree, state.withPath(new TreePath(state.getPath(), truePartTree)));
+    Type falsePartType =
+        getTreeType(falsePartTree, state.withPath(new TreePath(state.getPath(), falsePartTree)));
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
@@ -1771,7 +1773,7 @@ public final class GenericsChecks {
             && newClassTree.getClassBody() != null) {
           Type newClassType = ASTHelpers.getType(newClassTree);
           if (newClassType != null && newClassType.tsym.equals(symbol)) {
-            Type typeFromTree = getTreeType(newClassTree, state);
+            Type typeFromTree = getTreeType(newClassTree, state.withPath(path));
             if (typeFromTree != null) {
               verify(
                   state.getTypes().isAssignable(symbol.type, typeFromTree),
