@@ -1005,9 +1005,16 @@ public final class GenericsChecks {
     // then, handle parameters
     new InvocationArguments(methodInvocationTree, methodType)
         .forEach(
-            (argument, argPos, formalParamType, unused) ->
-                generateConstraintsForPseudoAssignment(
-                    state, path, solver, allInvocations, argument, formalParamType));
+            (argument, argPos, formalParamType, unused) -> {
+              TreePath pathToArgument = new TreePath(path, argument);
+              generateConstraintsForPseudoAssignment(
+                  state.withPath(pathToArgument),
+                  pathToArgument,
+                  solver,
+                  allInvocations,
+                  argument,
+                  formalParamType);
+            });
   }
 
   /**
@@ -1651,11 +1658,12 @@ public final class GenericsChecks {
                 if (isGenericCallNeedingInference(currentActualParam)) {
                   // infer the type of the method call based on the assignment context
                   // and the formal parameter type
+                  TreePath pathToParam = new TreePath(state.getPath(), currentActualParam);
                   actualParameterType =
                       inferGenericMethodCallType(
-                          state,
+                          state.withPath(pathToParam),
                           (MethodInvocationTree) currentActualParam,
-                          null,
+                          pathToParam,
                           formalParameter,
                           false,
                           false);
