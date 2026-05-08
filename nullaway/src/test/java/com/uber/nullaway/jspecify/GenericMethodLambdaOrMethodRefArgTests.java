@@ -11,7 +11,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void lambdaReturnsGenericMethodCall() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -66,7 +66,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void issue1294_lambdaArguments() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -94,7 +94,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void supplierLambdaInference() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -123,7 +123,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void lambdaConditionalExprBody() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -146,7 +146,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void lambdaWithReturnStmtNullable() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -169,7 +169,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void lambdaReturnEnclosingLocal() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -193,7 +193,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void lambdaAccessingNonFinalField() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -221,7 +221,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void nestedLambdaFromSpring() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -258,7 +258,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void lambdaWithRawType() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -281,7 +281,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void methodRefWithMatchingReturnNullability() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -308,7 +308,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void methodRefWithDifferentReturnNullability() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -346,7 +346,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void methodRefWithArgument() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -380,7 +380,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void inferFromUnboundMethodRef() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -419,7 +419,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void issue1431_methodRefTypesIntegratedWithGenericInference() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -453,7 +453,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void issue1431_methodRefTypesIntegratedWithGenericInference_multipleArgs() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -486,7 +486,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void methodRefsAndGenericInferenceNested() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -528,7 +528,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void methodRefsAndGenericInferenceNestedReturn() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -561,7 +561,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void inferFromBoundMethodRefReturn() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -602,7 +602,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void inferFromBoundMethodRefParam() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -643,7 +643,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void inferFromStaticMethodRefParam() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -684,7 +684,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void refToMethodTakingArray() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -728,7 +728,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void refToVarargsPassingArray() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -772,7 +772,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void refToVarargsPassIndividualArgs() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -823,7 +823,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void varargsDifferentFunctionalInterfaceArities() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -867,7 +867,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   @Ignore("we need to handle interactions between inference and unmarked code; TODO open issue")
   @Test
   public void inferFromMethodRefToUnmarked() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -902,7 +902,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void inferFromGenericInstanceMethodRef() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -941,7 +941,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
    */
   @Test
   public void mapStream() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -965,7 +965,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void issue1528() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1007,7 +1007,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void genericMethodLambdaArgWildCard() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1030,7 +1030,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   @Ignore("https://github.com/uber/NullAway/issues/1462")
   @Test
   public void streamMapNullableTest() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1065,7 +1065,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void genericMethodMethodRefWildCard() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1087,7 +1087,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   /** Reduced from a crash observed when building JUnit on JDK 27; testing that we do not crash */
   @Test
   public void crasherOnJdk27() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Repro.java",
             """
@@ -1122,11 +1122,9 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
+  private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
-            Arrays.asList(
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")));
+            Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 }
