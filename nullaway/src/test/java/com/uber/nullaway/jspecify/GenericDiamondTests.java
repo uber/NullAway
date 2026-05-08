@@ -214,8 +214,6 @@ public class GenericDiamondTests extends NullAwayTestsBase {
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
-            Arrays.asList(
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")));
+            Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 }
