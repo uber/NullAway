@@ -551,6 +551,8 @@ public final class GenericsChecks {
           result = ASTHelpers.getType(assignmentTree);
         }
       } else {
+        // TODO for a method invocation we may need to recurse through the receivers to do inference
+        //  for any generic method calls, and then bubble those types back up
         result = ASTHelpers.getType(tree);
         if (result != null) {
           // for method invocations and field reads, there may be annotations on type variables in
