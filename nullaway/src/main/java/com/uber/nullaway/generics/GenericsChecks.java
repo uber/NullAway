@@ -1039,12 +1039,15 @@ public final class GenericsChecks {
    */
   private void generateConstraintsForPseudoAssignment(
       VisitorState state,
-      @Nullable TreePath path,
+      @SuppressWarnings("unused") @Nullable TreePath path,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree rhsExpr,
       Type lhsType) {
-    rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
+    NullabilityUtil.ExprTreeAndState exprTreeAndState =
+        NullabilityUtil.stripParensAndUpdateTreePath(rhsExpr, state);
+    rhsExpr = exprTreeAndState.expr();
+    state = exprTreeAndState.state();
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isGenericCallNeedingInference(rhsExpr)) {
@@ -1052,9 +1055,10 @@ public final class GenericsChecks {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
       generateConstraintsForCall(
-          state, path, lhsType, false, solver, symbol, invTree, allInvocations);
+          state, state.getPath(), lhsType, false, solver, symbol, invTree, allInvocations);
     } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
-      handleLambdaInGenericMethodInference(state, path, solver, allInvocations, lhsType, lambda);
+      handleLambdaInGenericMethodInference(
+          state, state.getPath(), solver, allInvocations, lhsType, lambda);
     } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
       handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
     } else { // all other cases
@@ -1063,7 +1067,7 @@ public final class GenericsChecks {
         // bail out of any checking involving raw types for now
         return;
       }
-      argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, path);
+      argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
       solver.addSubtypeConstraint(argumentType, lhsType, false);
     }
   }
