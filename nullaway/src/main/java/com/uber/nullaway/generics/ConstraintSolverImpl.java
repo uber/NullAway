@@ -339,12 +339,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return false;
     }
     if (st.nullness != NullnessState.UNKNOWN) {
-      throw new UnsatisfiableConstraintsException(
-          "Contradictory nullability for " + typeVarElement + ": " + st.nullness + " vs. " + n);
+      throw new UnsatisfiableConstraintsException(typeVarElement);
     }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
-      throw new UnsatisfiableConstraintsException(
-          typeVarElement + " cannot be @Nullable (upper bound is @NonNull)");
+      throw new UnsatisfiableConstraintsException(typeVarElement);
     }
     st.nullness = n;
     return true;
@@ -354,7 +352,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (isTypeVariable(t)) {
       updateNullness(t.asElement(), NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
-      throw new UnsatisfiableConstraintsException("Cannot treat @NonNull type as @Nullable: " + t);
+      throw new UnsatisfiableConstraintsException(t.asElement());
     }
   }
 
@@ -362,7 +360,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (isTypeVariable(t)) {
       updateNullness(t.asElement(), NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
-      throw new UnsatisfiableConstraintsException("Cannot treat @Nullable type as @NonNull: " + t);
+      throw new UnsatisfiableConstraintsException(t.asElement());
     }
   }
 
