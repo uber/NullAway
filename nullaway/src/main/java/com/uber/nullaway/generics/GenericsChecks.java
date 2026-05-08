@@ -2009,7 +2009,10 @@ public final class GenericsChecks {
     com.sun.tools.javac.util.List<Type> callSiteParamTypes =
         methodTypeAtCallSite.getParameterTypes();
     List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
-
+    TreePath pathToInvocation = state.getPath();
+    if (!state.getPath().getLeaf().equals(invocationTree)) {
+      pathToInvocation = new TreePath(pathToInvocation, invocationTree);
+    }
     // use this map to store repaired substitutions for method type variables, to ensure we use the
     // same repaired substitution for all occurrences of the same type variable
     Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
@@ -2031,7 +2034,9 @@ public final class GenericsChecks {
             callSiteParamType = repairedSubstitution;
           }
         } else { // need to compute the substitution
-          Type actualArgType = getTreeType(actualParams.get(i), state);
+          ExpressionTree actualParam = actualParams.get(i);
+          Type actualArgType =
+              getTreeType(actualParam, state.withPath(new TreePath(pathToInvocation, actualParam)));
           // only handle cases of non-raw actual parameter types that have the same base type as the
           // inferred parameter type at the call site
           if (actualArgType != null
