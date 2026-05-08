@@ -2167,6 +2167,10 @@ public final class GenericsChecks {
       Tree assignment, MethodInvocationTree invocation, VisitorState state) {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
+    TreePath path = state.getPath();
+    if (!path.getLeaf().equals(assignment)) {
+      state = state.withPath(new TreePath(path, assignment));
+    }
     Type treeType = getTreeType(assignment, state);
     return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
