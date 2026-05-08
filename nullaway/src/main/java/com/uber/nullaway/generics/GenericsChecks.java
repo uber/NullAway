@@ -1551,9 +1551,9 @@ public final class GenericsChecks {
 
     Type condExprType = getConditionalExpressionType(tree, state);
     Type truePartType =
-        getTreeType(truePartTree, state.withPath(new TreePath(state.getPath(), truePartTree)));
+        getTreeType(truePartTree, state.withPath(pathWithLeaf(state.getPath(), truePartTree)));
     Type falsePartType =
-        getTreeType(falsePartTree, state.withPath(new TreePath(state.getPath(), falsePartTree)));
+        getTreeType(falsePartTree, state.withPath(pathWithLeaf(state.getPath(), falsePartTree)));
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
@@ -1671,7 +1671,7 @@ public final class GenericsChecks {
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
-                TreePath pathToActualParam = new TreePath(state.getPath(), currentActualParam);
+                TreePath pathToActualParam = pathWithLeaf(state.getPath(), currentActualParam);
                 actualParameterType =
                     getTreeType(currentActualParam, state.withPath(pathToActualParam));
               }
@@ -1679,7 +1679,7 @@ public final class GenericsChecks {
                 if (isGenericCallNeedingInference(currentActualParam)) {
                   // infer the type of the method call based on the assignment context
                   // and the formal parameter type
-                  TreePath pathToParam = new TreePath(state.getPath(), currentActualParam);
+                  TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
                   actualParameterType =
                       inferGenericMethodCallType(
                           state.withPath(pathToParam),
@@ -2020,10 +2020,7 @@ public final class GenericsChecks {
     com.sun.tools.javac.util.List<Type> callSiteParamTypes =
         methodTypeAtCallSite.getParameterTypes();
     List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
-    TreePath pathToInvocation = state.getPath();
-    if (!state.getPath().getLeaf().equals(invocationTree)) {
-      pathToInvocation = new TreePath(pathToInvocation, invocationTree);
-    }
+    TreePath pathToInvocation = pathWithLeaf(state.getPath(), invocationTree);
     // use this map to store repaired substitutions for method type variables, to ensure we use the
     // same repaired substitution for all occurrences of the same type variable
     Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
@@ -2047,7 +2044,7 @@ public final class GenericsChecks {
         } else { // need to compute the substitution
           ExpressionTree actualParam = actualParams.get(i);
           Type actualArgType =
-              getTreeType(actualParam, state.withPath(new TreePath(pathToInvocation, actualParam)));
+              getTreeType(actualParam, state.withPath(pathWithLeaf(pathToInvocation, actualParam)));
           // only handle cases of non-raw actual parameter types that have the same base type as the
           // inferred parameter type at the call site
           if (actualArgType != null
@@ -2193,8 +2190,8 @@ public final class GenericsChecks {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
     TreePath path = state.getPath();
-    if (!path.getLeaf().equals(assignment)) {
-      state = state.withPath(new TreePath(path, assignment));
+    if (path.getLeaf() != assignment) {
+      state = state.withPath(pathWithLeaf(path, assignment));
     }
     Type treeType = getTreeType(assignment, state);
     return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
@@ -2301,7 +2298,7 @@ public final class GenericsChecks {
       } else if (methodSelect instanceof MemberSelectTree memberSelectTree) {
         ExpressionTree receiver = ASTHelpers.stripParentheses(memberSelectTree.getExpression());
         TreePath curPath = path != null ? path : state.getPath();
-        TreePath receiverPath = new TreePath(curPath, receiver);
+        TreePath receiverPath = pathWithLeaf(curPath, receiver);
         if (isGenericCallNeedingInference(receiver)) {
           enclosingType =
               inferGenericMethodCallType(
