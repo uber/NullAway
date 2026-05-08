@@ -1006,7 +1006,8 @@ public final class GenericsChecks {
     new InvocationArguments(methodInvocationTree, methodType)
         .forEach(
             (argument, argPos, formalParamType, unused) -> {
-              TreePath pathToArgument = new TreePath(path, argument);
+              TreePath pathToArgument =
+                  new TreePath(path == null ? state.getPath() : path, argument);
               generateConstraintsForPseudoAssignment(
                   state.withPath(pathToArgument),
                   pathToArgument,
