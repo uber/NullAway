@@ -1328,6 +1328,10 @@ public final class GenericsChecks {
     return updateTypeWithNullness(state, exprType, refinedNullness);
   }
 
+  /**
+   * Returns an updated version of {@code path} with {@code leaf} as the leaf, if needed. If {@code
+   * leaf} is already the leaf of {@code path}, just return {@code path} unmodified.
+   */
   private static TreePath pathWithLeaf(TreePath path, Tree leaf) {
     return path.getLeaf() == leaf ? path : new TreePath(path, leaf);
   }
