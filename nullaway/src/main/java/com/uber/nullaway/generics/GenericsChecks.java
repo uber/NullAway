@@ -1093,8 +1093,14 @@ public final class GenericsChecks {
     TreePath lambdaPath = new TreePath(path, lambda);
     if (body instanceof ExpressionTree returnedExpression) {
       // Case 1: Expression body, e.g., () -> null
+      TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
       generateConstraintsForPseudoAssignment(
-          state, lambdaPath, solver, allInvocations, returnedExpression, fiReturnType);
+          state.withPath(returnedExpressionPath),
+          returnedExpressionPath,
+          solver,
+          allInvocations,
+          returnedExpression,
+          fiReturnType);
     } else if (body instanceof BlockTree) {
       // Case 2: Block body, e.g., () -> { return null; }
       List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
@@ -2256,8 +2262,9 @@ public final class GenericsChecks {
         }
       } else if (methodSelect instanceof MemberSelectTree memberSelectTree) {
         ExpressionTree receiver = ASTHelpers.stripParentheses(memberSelectTree.getExpression());
+        TreePath curPath = path != null ? path : state.getPath();
+        TreePath receiverPath = new TreePath(curPath, receiver);
         if (isGenericCallNeedingInference(receiver)) {
-          var receiverPath = path == null ? null : new TreePath(path, receiver);
           enclosingType =
               inferGenericMethodCallType(
                   state,
@@ -2267,7 +2274,7 @@ public final class GenericsChecks {
                   false,
                   calledFromDataflow);
         } else {
-          enclosingType = getTreeType(receiver, state);
+          enclosingType = getTreeType(receiver, state.withPath(receiverPath));
         }
       }
     } else {
