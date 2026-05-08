@@ -786,7 +786,12 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(rhsTree)) {
         rhsType =
             inferGenericMethodCallType(
-                state, (MethodInvocationTree) rhsTree, null, lhsType, assignedToLocal, false);
+                state.withPath(pathToRhs),
+                (MethodInvocationTree) rhsTree,
+                pathToRhs,
+                lhsType,
+                assignedToLocal,
+                false);
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
@@ -1003,11 +1008,12 @@ public final class GenericsChecks {
           methodType.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     }
     // then, handle parameters
+    TreePath pathToInvocation =
+        path != null ? path : pathWithLeaf(state.getPath(), methodInvocationTree);
     new InvocationArguments(methodInvocationTree, methodType)
         .forEach(
             (argument, argPos, formalParamType, unused) -> {
-              TreePath pathToArgument =
-                  new TreePath(path == null ? state.getPath() : path, argument);
+              TreePath pathToArgument = new TreePath(pathToInvocation, argument);
               generateConstraintsForPseudoAssignment(
                   state.withPath(pathToArgument),
                   pathToArgument,
@@ -1093,12 +1099,9 @@ public final class GenericsChecks {
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Tree body = lambda.getBody();
-    // augment our current TreePath so that the lambda is the leaf, in case dataflow analysis needs
-    // to be run within it
-    if (path == null) {
-      path = state.getPath();
-    }
-    TreePath lambdaPath = new TreePath(path, lambda);
+    // Ensure our current TreePath has the lambda as the leaf, in case dataflow analysis needs to be
+    // run within it.
+    TreePath lambdaPath = pathWithLeaf(path != null ? path : state.getPath(), lambda);
     if (body instanceof ExpressionTree returnedExpression) {
       // Case 1: Expression body, e.g., () -> null
       TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
@@ -1287,14 +1290,13 @@ public final class GenericsChecks {
     if (!shouldRunDataflowForExpression(exprType, expr)) {
       return exprType;
     }
-    TreePath currentPath = path != null ? path : state.getPath();
     // We need a TreePath whose leaf is the expression, as the calls to `getNullness` /
     // `getNullnessFromRunning` below return the nullness of the leaf of the path.
-    // Just appending expr to currentPath is a bit sketchy, as it may not actually be the valid
-    // tree path to the expression.  However, all we need the path for (beyond the leaf) is to
+    // Just appending expr to the current path is a bit sketchy, as it may not actually be the
+    // valid tree path to the expression. However, all we need the path for (beyond the leaf) is to
     // discover the enclosing method/lambda/initializer, and for that purpose this should be
-    // sufficient.
-    TreePath exprPath = new TreePath(currentPath, expr);
+    // sufficient. pathWithLeaf avoids appending expr when the provided path is already at expr.
+    TreePath exprPath = pathWithLeaf(path != null ? path : state.getPath(), expr);
     TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
     if (enclosingPath == null) {
       return exprType;
@@ -1324,6 +1326,10 @@ public final class GenericsChecks {
       return exprType;
     }
     return updateTypeWithNullness(state, exprType, refinedNullness);
+  }
+
+  private static TreePath pathWithLeaf(TreePath path, Tree leaf) {
+    return path.getLeaf() == leaf ? path : new TreePath(path, leaf);
   }
 
   /**
@@ -1444,7 +1450,12 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
             inferGenericMethodCallType(
-                state, (MethodInvocationTree) retExpr, null, formalReturnType, false, false);
+                state.withPath(pathToRetExpr),
+                (MethodInvocationTree) retExpr,
+                pathToRetExpr,
+                formalReturnType,
+                false,
+                false);
       }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state);
