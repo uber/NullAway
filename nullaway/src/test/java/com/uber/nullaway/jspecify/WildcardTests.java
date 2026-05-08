@@ -520,9 +520,7 @@ public class WildcardTests extends NullAwayTestsBase {
               void test(Box<? super @Nullable String> nullableBox, Box<? super String> nonNullBox) {
                 take(nullableBox);
                 take(nonNullBox);
-                // TODO we need to report an additional error besides inference failure here
-                // See https://github.com/uber/NullAway/issues/1551
-                // BUG: Diagnostic contains: Failed to infer type argument nullability
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                 field = get(nullableBox);
                 field = get(nonNullBox);
               }

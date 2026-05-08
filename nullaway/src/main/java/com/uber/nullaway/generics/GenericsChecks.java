@@ -939,19 +939,17 @@ public final class GenericsChecks {
       }
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
+      String inferenceFailureMessage = inferenceFailureMessage(e);
       if (config.warnOnGenericInferenceFailure()) {
         ErrorBuilder errorBuilder = analysis.getErrorBuilder();
         ErrorMessage errorMessage =
             new ErrorMessage(
-                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
-                String.format(
-                    "Failed to infer type argument nullability for call %s: %s",
-                    state.getSourceForNode(invocationTree), e.getMessage()));
+                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, inferenceFailureMessage);
         state.reportMatch(
             errorBuilder.createErrorDescription(
                 errorMessage, analysis.buildDescription(invocationTree), state, null));
       }
-      InferenceFailure failureResult = new InferenceFailure(e.getMessage());
+      InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       // don't cache result if we were called from dataflow, since the result may rely on dataflow
       // facts that do not reflect the fixed point
       if (!calledFromDataflow) {
@@ -961,6 +959,12 @@ public final class GenericsChecks {
       }
       return failureResult;
     }
+  }
+
+  private String inferenceFailureMessage(UnsatisfiableConstraintsException e) {
+    return String.format(
+        "inference failure: type variable %s constrained to be both @NonNull and @Nullable",
+        e.getTypeVariable());
   }
 
   /**

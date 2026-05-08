@@ -882,7 +882,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 String field = "hello";
                 void testField() {
                     String s = null;
-                    // BUG: Diagnostic contains: Failed to infer type argument nullability
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                     field = id(s);
                 }
                 @Nullable String field2 = null;
@@ -894,6 +894,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     s = "hello";
                     field2 = id(s);
                     field2.hashCode();
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeVarToNonNullField() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+                static <T extends @Nullable Object> @Nullable T f(T t) {
+                    return null;
+                }
+                String field = "hello";
+                void testField() {
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    field = f("hello");
                 }
             }
             """)
@@ -1206,7 +1229,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     return Optional.ofNullable(value);
                 }
                 public static <U extends @Nullable Object> Optional<U> optionalResultPositive1(@Nullable U value) {
-                    // BUG: Diagnostic contains: Failed to infer type argument nullability
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                     return Optional.of(value);
                 }
                 // identical to above, testing the other error message
