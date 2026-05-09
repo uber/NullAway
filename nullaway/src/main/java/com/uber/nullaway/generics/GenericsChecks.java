@@ -847,7 +847,9 @@ public final class GenericsChecks {
   }
 
   private static @Nullable VarLocalKey getVarLocalKey(Symbol symbol) {
-    return symbol.getKind().equals(ElementKind.LOCAL_VARIABLE) && symbol.owner != null
+    ElementKind kind = symbol.getKind();
+    return (kind.equals(ElementKind.LOCAL_VARIABLE) || kind.equals(ElementKind.RESOURCE_VARIABLE))
+            && symbol.owner != null
         ? new VarLocalKey(symbol.owner, symbol.name)
         : null;
   }
