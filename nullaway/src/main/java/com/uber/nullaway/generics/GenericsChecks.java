@@ -1662,7 +1662,8 @@ public final class GenericsChecks {
                 return;
               }
 
-              Type actualParameterType = null;
+              TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
+              Type actualParameterType;
               if (currentActualParam instanceof LambdaExpressionTree) {
                 maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
               }
@@ -1670,15 +1671,12 @@ public final class GenericsChecks {
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
-                TreePath pathToActualParam = pathWithLeaf(state.getPath(), currentActualParam);
-                actualParameterType =
-                    getTreeType(currentActualParam, state.withPath(pathToActualParam));
+                actualParameterType = getTreeType(currentActualParam, state.withPath(pathToParam));
               }
               if (actualParameterType != null) {
                 if (isGenericCallNeedingInference(currentActualParam)) {
                   // infer the type of the method call based on the assignment context
                   // and the formal parameter type
-                  TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
                   actualParameterType =
                       inferGenericMethodCallType(
                           state.withPath(pathToParam),
@@ -2121,7 +2119,8 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getInvocationInferenceInfoForAssignment(parent, invocation, state);
+      return getInvocationInferenceInfoForAssignment(
+          parent, invocation, state.withPath(parentPath));
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
@@ -2142,7 +2141,8 @@ public final class GenericsChecks {
           // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
           // we want to find the outermost invocation that requires inference, since that is
           // the one whose assignment context is relevant
-          return getInvocationAndContextForInference(parentPath, state, calledFromDataflow);
+          return getInvocationAndContextForInference(
+              parentPath, state.withPath(parentPath), calledFromDataflow);
         }
         // the generic invocation is either a regular parameter to the parent call, or the
         // receiver expression
@@ -2166,7 +2166,7 @@ public final class GenericsChecks {
                       ASTHelpers.getSymbol(parentInvocation),
                       parentInvocation,
                       parentPath,
-                      state,
+                      state.withPath(parentPath),
                       calledFromDataflow);
             } else {
               throw new RuntimeException(
