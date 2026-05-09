@@ -551,16 +551,22 @@ public final class GenericsChecks {
           result = ASTHelpers.getType(assignmentTree);
         }
       } else {
-        // TODO for a method invocation we may need to recurse through the receivers to do inference
-        //  for any generic method calls, and then bubble those types back up
         result = ASTHelpers.getType(tree);
         if (result != null) {
           // for method invocations and field reads, there may be annotations on type variables in
           // the return / field type that need to be restored
           if (tree instanceof MethodInvocationTree invocationTree) {
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
+            Type invokedMethodType = symbol.type;
+            Type enclosingType =
+                getEnclosingTypeForCallExpression(
+                    symbol, invocationTree, state.getPath(), state, false);
+            if (enclosingType != null) {
+              invokedMethodType =
+                  TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
+            }
             Type.MethodType methodType =
-                handler.onOverrideMethodType(symbol, symbol.type.asMethodType(), state);
+                handler.onOverrideMethodType(symbol, invokedMethodType.asMethodType(), state);
             Type returnType = methodType.getReturnType();
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(

@@ -1667,6 +1667,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
               }
               static Foo<@Nullable String> FOO =
                 Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
+              static Foo<@Nullable String> FOO2 =
+                Foo.of(new Foo<@Nullable String>())
+                  .or(new Foo<@Nullable String>())
+                  .or(new Foo<@Nullable String>());
             }
             """)
         .doTest();
