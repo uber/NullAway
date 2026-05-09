@@ -115,6 +115,11 @@ public final class GenericsChecks {
    */
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
+  /** Maps each {@code var}-declared local to its inferred NullAway type */
+  private final Map<VarLocalKey, Type> inferredVarLocalTypes = new LinkedHashMap<>();
+
+  private record VarLocalKey(Symbol owner, Name name) {}
+
   public @Nullable Type getInferredPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
         tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
@@ -533,6 +538,10 @@ public final class GenericsChecks {
             return lambdaParameterType;
           }
         }
+        Type inferredVarLocalType = getInferredVarLocalType(symbol);
+        if (inferredVarLocalType != null) {
+          return inferredVarLocalType;
+        }
         result = ASTHelpers.getType(tree);
         // type on the tree itself can be missing nested annotations in certain cases, so use the
         // type on the symbol instead.  for type variables, we've found that the type on the symbol
@@ -796,6 +805,8 @@ public final class GenericsChecks {
         && isAssignmentToField(tree)) {
       maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType);
     }
+    boolean varLocalDeclaration =
+        tree instanceof VariableTree varTree && isVarLocalVariableDeclaration(varTree);
     TreePath pathToRhs = new TreePath(state.getPath(), rhsTree);
     Type rhsType = getTreeType(rhsTree, state.withPath(pathToRhs));
     if (rhsType != null) {
@@ -805,9 +816,14 @@ public final class GenericsChecks {
                 state.withPath(pathToRhs),
                 (MethodInvocationTree) rhsTree,
                 pathToRhs,
-                lhsType,
+                varLocalDeclaration ? null : lhsType,
                 assignedToLocal,
                 false);
+      }
+      if (varLocalDeclaration) {
+        VariableTree varTree = (VariableTree) tree;
+        storeInferredVarLocalType(varTree, rhsType);
+        lhsType = rhsType;
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
@@ -818,6 +834,34 @@ public final class GenericsChecks {
 
   private static boolean isAssignmentToLocalVariable(Tree tree) {
     return isAssignmentToKind(tree, ElementKind.LOCAL_VARIABLE);
+  }
+
+  private static boolean isVarLocalVariableDeclaration(VariableTree tree) {
+    return isAssignmentToLocalVariable(tree)
+        && tree instanceof JCTree.JCVariableDecl variableDecl
+        && variableDecl.declaredUsingVar();
+  }
+
+  private static @Nullable VarLocalKey getVarLocalKey(Symbol symbol) {
+    return symbol.getKind().equals(ElementKind.LOCAL_VARIABLE) && symbol.owner != null
+        ? new VarLocalKey(symbol.owner, symbol.name)
+        : null;
+  }
+
+  private void storeInferredVarLocalType(VariableTree tree, Type inferredType) {
+    Symbol symbol = ASTHelpers.getSymbol(tree);
+    if (symbol == null) {
+      return;
+    }
+    VarLocalKey key = getVarLocalKey(symbol);
+    if (key != null) {
+      inferredVarLocalTypes.put(key, inferredType);
+    }
+  }
+
+  private @Nullable Type getInferredVarLocalType(Symbol symbol) {
+    VarLocalKey key = getVarLocalKey(symbol);
+    return key != null ? inferredVarLocalTypes.get(key) : null;
   }
 
   private static boolean isAssignmentToField(Tree tree) {
@@ -2582,6 +2626,7 @@ public final class GenericsChecks {
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
     inferredPolyExpressionTypes.clear();
+    inferredVarLocalTypes.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
