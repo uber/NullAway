@@ -751,13 +751,8 @@ public class NullabilityUtil {
       ExpressionTree expr, VisitorState state) {
     TreePath path = state.getPath();
     if (path.getLeaf() != expr) {
-      // if the expression is not the leaf of the path, we can't update the path to point to the
-      // stripped expression, so we just return the original expression and state
-      // TODO fix all cases where this happens and remove this fallback case
-      //  Tracked in https://github.com/uber/NullAway/issues/1479
       throw new RuntimeException(
           String.format("Wrong leaf %s in path to %s", path.getLeaf(), expr));
-      //      return new ExprTreeAndState(expr, state);
     }
     ExpressionTree resultExpr = expr;
     while (resultExpr instanceof ParenthesizedTree) {

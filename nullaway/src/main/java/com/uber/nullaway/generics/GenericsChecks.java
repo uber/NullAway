@@ -1016,7 +1016,6 @@ public final class GenericsChecks {
               TreePath pathToArgument = new TreePath(pathToInvocation, argument);
               generateConstraintsForPseudoAssignment(
                   state.withPath(pathToArgument),
-                  pathToArgument,
                   solver,
                   allInvocations,
                   argument,
@@ -1029,7 +1028,6 @@ public final class GenericsChecks {
    * (parameter passing or return).
    *
    * @param state the visitor state
-   * @param path the tree path to {@code rhsExpr} if available
    * @param solver the constraint solver
    * @param allInvocations a set of all method invocations that require inference, including nested
    *     ones. This is an output parameter that gets mutated while generating the constraints to add
@@ -1039,7 +1037,6 @@ public final class GenericsChecks {
    */
   private void generateConstraintsForPseudoAssignment(
       VisitorState state,
-      @SuppressWarnings("unused") @Nullable TreePath path,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree rhsExpr,
@@ -1111,7 +1108,6 @@ public final class GenericsChecks {
       TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
       generateConstraintsForPseudoAssignment(
           state.withPath(returnedExpressionPath),
-          returnedExpressionPath,
           solver,
           allInvocations,
           returnedExpression,
@@ -1125,12 +1121,7 @@ public final class GenericsChecks {
         ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
         TreePath returnExprPath = new TreePath(returnPath, returnExpr);
         generateConstraintsForPseudoAssignment(
-            state.withPath(returnExprPath),
-            returnExprPath,
-            solver,
-            allInvocations,
-            returnExpr,
-            fiReturnType);
+            state.withPath(returnExprPath), solver, allInvocations, returnExpr, fiReturnType);
       }
     }
   }
