@@ -538,6 +538,7 @@ public final class GenericsChecks {
             return lambdaParameterType;
           }
         }
+        // If it's a local variable declared using `var`, get the inferred type
         Type inferredVarLocalType = getInferredVarLocalType(symbol);
         if (inferredVarLocalType != null) {
           return inferredVarLocalType;
@@ -821,8 +822,13 @@ public final class GenericsChecks {
                 false);
       }
       if (varLocalDeclaration) {
+        // for locals declared with `var`, use the rhsType as the inferred type
         VariableTree varTree = (VariableTree) tree;
-        storeInferredVarLocalType(varTree, rhsType);
+        Symbol symbol = ASTHelpers.getSymbol(varTree);
+        if (symbol != null) {
+          VarLocalKey key = castToNonNull(getVarLocalKey(symbol));
+          inferredVarLocalTypes.put(key, rhsType);
+        }
         lhsType = rhsType;
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
@@ -837,26 +843,13 @@ public final class GenericsChecks {
   }
 
   private static boolean isVarLocalVariableDeclaration(VariableTree tree) {
-    return isAssignmentToLocalVariable(tree)
-        && tree instanceof JCTree.JCVariableDecl variableDecl
-        && variableDecl.declaredUsingVar();
+    return tree instanceof JCTree.JCVariableDecl variableDecl && variableDecl.declaredUsingVar();
   }
 
   private static @Nullable VarLocalKey getVarLocalKey(Symbol symbol) {
     return symbol.getKind().equals(ElementKind.LOCAL_VARIABLE) && symbol.owner != null
         ? new VarLocalKey(symbol.owner, symbol.name)
         : null;
-  }
-
-  private void storeInferredVarLocalType(VariableTree tree, Type inferredType) {
-    Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (symbol == null) {
-      return;
-    }
-    VarLocalKey key = getVarLocalKey(symbol);
-    if (key != null) {
-      inferredVarLocalTypes.put(key, inferredType);
-    }
   }
 
   private @Nullable Type getInferredVarLocalType(Symbol symbol) {
