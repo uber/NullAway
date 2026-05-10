@@ -1685,6 +1685,33 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void caffeineNestedArgToGenericMethod() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static interface Cache<K, V extends @Nullable Object> {
+                Policy<K, @NonNull V> policy();
+              }
+              static interface Policy<K, V> {
+                Map<K, CompletableFuture<V>> refreshes();
+              }
+              static <K,V> void m(@Nullable Map<K,V> map) {}
+              void test(Cache<Integer, @Nullable Object> cache) {
+                m(cache.policy().refreshes());
+              }
+            }""")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
