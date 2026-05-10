@@ -1712,6 +1712,27 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedGenericMethodRepairPreservesTopLevelNullability() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> void accept(Box<@Nullable T> box) {}
+              void test(Box<CompletableFuture<Object>> box) {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                accept(box);
+              }
+            }""")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

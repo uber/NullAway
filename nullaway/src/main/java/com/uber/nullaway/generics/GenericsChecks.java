@@ -2151,11 +2151,11 @@ public final class GenericsChecks {
   }
 
   /**
-   * In narrow cases, javac drops nested type-use nullability annotations on type variables in its
-   * inferred type for a generic method at a call site. See
-   * https://github.com/uber/NullAway/issues/1455. This method aims to restore those annotations
-   * based on the types of actual parameters. It does not attempt to be a very general fix, as we do
-   * not fully understand the scenarios where this can arise.
+   * In narrow cases, javac drops or misplaces nested type-use nullability annotations on type
+   * variables in its inferred type for a generic method at a call site. See
+   * https://github.com/uber/NullAway/issues/1455. This method repairs those annotations based on
+   * the types of actual parameters. It does not attempt to be a very general fix, as we do not
+   * fully understand the scenarios where this can arise.
    *
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method (to identify formal
@@ -2187,57 +2187,30 @@ public final class GenericsChecks {
     TreePath pathToInvocation = pathWithLeaf(state.getPath(), invocationTree);
     // use this map to store repaired substitutions for method type variables, to ensure we use the
     // same repaired substitution for all occurrences of the same type variable
-    Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
+    Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions = new HashMap<>();
     ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
     boolean changed = false;
     for (int i = 0; i < genericMethodParamTypes.size(); i++) {
       Type callSiteParamType = callSiteParamTypes.get(i);
       Type genericMethodParamType = genericMethodParamTypes.get(i);
-      // only attempt a repair when the generic method's parameter type is a type variable of the
-      // method
-      if (genericMethodParamType instanceof Type.TypeVar typeVar
-          && typeVar.tsym.owner == methodSymbol) {
-        Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
-        Type repairedSubstitution = repairedTopLevelSubstitutions.get(typeVarSymbol);
-        if (repairedSubstitution != null) {
-          // re-use the previous substitution, to ensure consistency
-          if (repairedSubstitution != callSiteParamType) {
-            changed = true;
-            callSiteParamType = repairedSubstitution;
-          }
-        } else { // need to compute the substitution
-          ExpressionTree actualParam = actualParams.get(i);
-          Type actualArgType =
-              getTreeType(
-                  actualParam,
-                  state.withPath(pathWithLeaf(pathToInvocation, actualParam)),
-                  calledFromDataflow);
-          // only handle cases of non-raw actual parameter types that have the same base type as the
-          // inferred parameter type at the call site
-          if (actualArgType != null
-              && !actualArgType.isRaw()
-              && state
-                  .getTypes()
-                  .isSameType(
-                      state.getTypes().erasure(actualArgType),
-                      state.getTypes().erasure(callSiteParamType))) {
-            // restore explicit nested annotations from the actual parameter type to the call site
-            // parameter type (this will only apply to nested type variables within
-            // callSiteParamType)
-            Type restoredType =
-                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    actualArgType, callSiteParamType, config, Collections.emptyMap());
-            // remember the substitution so we use it consistently at other parameter positions
-            repairedTopLevelSubstitutions.put(typeVarSymbol, restoredType);
-            if (restoredType != callSiteParamType) {
-              changed = true;
-              callSiteParamType = restoredType;
-            }
-          } else {
-            // remember that we did _not_ change anything, again for consistency across parameter
-            // positions
-            repairedTopLevelSubstitutions.put(typeVarSymbol, callSiteParamType);
-          }
+      ExpressionTree actualParam = actualParams.get(i);
+      Type actualArgType =
+          getTreeType(
+              actualParam,
+              state.withPath(pathWithLeaf(pathToInvocation, actualParam)),
+              calledFromDataflow);
+      if (actualArgType != null) {
+        Type repairedType =
+            repairNestedTypeVarSubstitutions(
+                methodSymbol,
+                genericMethodParamType,
+                actualArgType,
+                callSiteParamType,
+                repairedSubstitutions,
+                state);
+        if (repairedType != callSiteParamType) {
+          changed = true;
+          callSiteParamType = repairedType;
         }
       }
       updatedArgTypes.append(callSiteParamType);
@@ -2250,6 +2223,157 @@ public final class GenericsChecks {
         methodTypeAtCallSite.getReturnType(),
         methodTypeAtCallSite.getThrownTypes(),
         methodTypeAtCallSite.tsym);
+  }
+
+  /**
+   * Recursively repairs inferred substitutions for method type variables in {@code callSiteType}.
+   *
+   * <p>The three input types are aligned views of the same parameter: {@code genericMethodType} is
+   * the declared generic method parameter type, {@code actualArgType} is the type of the expression
+   * passed to that parameter, and {@code callSiteType} is javac's inferred parameter type at the
+   * call site. When a method type variable is found in the declared type, we use the corresponding
+   * actual argument subtree to repair nested annotations in javac's inferred subtree, as long as
+   * the two have the same erased type.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  private Type repairNestedTypeVarSubstitutions(
+      Symbol.MethodSymbol methodSymbol,
+      Type genericMethodType,
+      Type actualArgType,
+      Type callSiteType,
+      Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions,
+      VisitorState state) {
+    if (genericMethodType instanceof Type.TypeVar typeVar && typeVar.tsym.owner == methodSymbol) {
+      return repairTypeVarSubstitution(
+          typeVar, actualArgType, callSiteType, repairedSubstitutions, state);
+    }
+    if (genericMethodType instanceof Type.ClassType
+        && actualArgType instanceof Type.ClassType
+        && callSiteType instanceof Type.ClassType callSiteClassType) {
+      Type actualAsCallSiteType =
+          TypeSubstitutionUtils.asSuper(
+              state.getTypes(), actualArgType, (Symbol.ClassSymbol) callSiteType.tsym, config);
+      if (!(actualAsCallSiteType instanceof Type.ClassType actualClassType)) {
+        return callSiteType;
+      }
+      List<Type> genericTypeArgs = genericMethodType.getTypeArguments();
+      List<Type> actualTypeArgs = actualClassType.getTypeArguments();
+      List<Type> callSiteTypeArgs = callSiteClassType.getTypeArguments();
+      if (genericTypeArgs.size() != actualTypeArgs.size()
+          || genericTypeArgs.size() != callSiteTypeArgs.size()) {
+        return callSiteType;
+      }
+      boolean changed = false;
+      ListBuffer<Type> updatedTypeArgs = new ListBuffer<>();
+      for (int i = 0; i < genericTypeArgs.size(); i++) {
+        Type callSiteTypeArg = callSiteTypeArgs.get(i);
+        Type repairedTypeArg =
+            repairNestedTypeVarSubstitutions(
+                methodSymbol,
+                genericTypeArgs.get(i),
+                actualTypeArgs.get(i),
+                callSiteTypeArg,
+                repairedSubstitutions,
+                state);
+        if (repairedTypeArg != callSiteTypeArg) {
+          changed = true;
+        }
+        updatedTypeArgs.append(repairedTypeArg);
+      }
+      Type enclosingType = callSiteClassType.getEnclosingType();
+      Type repairedEnclosingType =
+          repairNestedTypeVarSubstitutions(
+              methodSymbol,
+              genericMethodType.getEnclosingType(),
+              actualClassType.getEnclosingType(),
+              enclosingType,
+              repairedSubstitutions,
+              state);
+      if (repairedEnclosingType != enclosingType) {
+        changed = true;
+      }
+      return changed
+          ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
+              callSiteClassType, repairedEnclosingType, updatedTypeArgs.toList())
+          : callSiteType;
+    }
+    if (genericMethodType instanceof Type.ArrayType genericArrayType
+        && actualArgType instanceof Type.ArrayType actualArrayType
+        && callSiteType instanceof Type.ArrayType callSiteArrayType) {
+      Type callSiteElemType = callSiteArrayType.getComponentType();
+      Type repairedElemType =
+          repairNestedTypeVarSubstitutions(
+              methodSymbol,
+              genericArrayType.getComponentType(),
+              actualArrayType.getComponentType(),
+              callSiteElemType,
+              repairedSubstitutions,
+              state);
+      return repairedElemType != callSiteElemType
+          ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
+              callSiteArrayType, repairedElemType)
+          : callSiteType;
+    }
+    return callSiteType;
+  }
+
+  private Type repairTypeVarSubstitution(
+      Type.TypeVar typeVar,
+      Type actualArgType,
+      Type callSiteType,
+      Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions,
+      VisitorState state) {
+    Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
+    if (repairedSubstitutions.containsKey(typeVarSymbol)) {
+      return castToNonNull(repairedSubstitutions.get(typeVarSymbol));
+    }
+    Type repairedSubstitution = callSiteType;
+    if (!actualArgType.isRaw() && !callSiteType.isRaw()) {
+      repairedSubstitution =
+          repairNestedTypeVarSubstitutionFromActual(actualArgType, callSiteType, state);
+    }
+    repairedSubstitutions.put(typeVarSymbol, repairedSubstitution);
+    return repairedSubstitution;
+  }
+
+  /**
+   * Repairs nested annotations in {@code callSiteType} using {@code actualArgType}, while
+   * preserving direct annotations on {@code callSiteType}.
+   */
+  private Type repairNestedTypeVarSubstitutionFromActual(
+      Type actualArgType, Type callSiteType, VisitorState state) {
+    if (!sameErasure(actualArgType, callSiteType, state)) {
+      return callSiteType;
+    }
+    if (actualArgType instanceof Type.ClassType
+        && callSiteType instanceof Type.ClassType callSiteClassType) {
+      Type actualAsCallSiteType =
+          TypeSubstitutionUtils.asSuper(
+              state.getTypes(), actualArgType, (Symbol.ClassSymbol) callSiteType.tsym, config);
+      if (!(actualAsCallSiteType instanceof Type.ClassType actualClassType)) {
+        return callSiteType;
+      }
+      List<Type> actualTypeArgs = actualClassType.getTypeArguments();
+      if (actualTypeArgs.isEmpty()) {
+        return callSiteType;
+      }
+      return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
+          callSiteClassType, callSiteClassType.getEnclosingType(), actualTypeArgs);
+    }
+    if (actualArgType instanceof Type.ArrayType actualArrayType
+        && callSiteType instanceof Type.ArrayType callSiteArrayType) {
+      return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
+          callSiteArrayType, actualArrayType.getComponentType());
+    }
+    return callSiteType;
+  }
+
+  private boolean sameErasure(Type type1, Type type2, VisitorState state) {
+    return !type1.getKind().equals(TypeKind.NULL)
+        && !type2.getKind().equals(TypeKind.NULL)
+        && state
+            .getTypes()
+            .isSameType(state.getTypes().erasure(type1), state.getTypes().erasure(type2));
   }
 
   /**
