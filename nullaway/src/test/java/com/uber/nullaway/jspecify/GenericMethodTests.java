@@ -1665,8 +1665,13 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 }
                 Foo<T> or(Foo<T> other) { return this; }
               }
+              // infer Foo<@Nullable String> as the type of the Foo.of() call via
+              // its parameter, and use that type to determine the return type of
+              // the or() call is Foo<@Nullable String>
               static Foo<@Nullable String> FOO =
                 Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
+
+              // like the case above, but more deeply nested
               static Foo<@Nullable String> FOO2 =
                 Foo.of(new Foo<@Nullable String>())
                   .or(new Foo<@Nullable String>())
