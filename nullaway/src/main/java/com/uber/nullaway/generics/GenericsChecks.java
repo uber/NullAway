@@ -817,6 +817,8 @@ public final class GenericsChecks {
                 state.withPath(pathToRhs),
                 (MethodInvocationTree) rhsTree,
                 pathToRhs,
+                // if a local is declared using `var`, don't use its javac-inferred type as part of
+                // inference
                 varLocalDeclaration ? null : lhsType,
                 assignedToLocal,
                 false);
@@ -826,6 +828,7 @@ public final class GenericsChecks {
         VariableTree varTree = (VariableTree) tree;
         Symbol symbol = ASTHelpers.getSymbol(varTree);
         if (symbol != null) {
+          // if declared with `var` we should always get a non-null VarLocalKey for the symbol
           VarLocalKey key = castToNonNull(getVarLocalKey(symbol));
           inferredVarLocalTypes.put(key, rhsType);
         }

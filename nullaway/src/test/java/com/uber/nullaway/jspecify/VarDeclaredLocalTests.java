@@ -51,6 +51,7 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test(Iterator<@Nullable Object> iterator) {
+                // just testing that we don't crash here
                 try (var stream = StreamSupport.stream(
                   Spliterators.spliteratorUnknownSize(iterator, Spliterator.ORDERED), false)) {
                 }
