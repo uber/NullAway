@@ -2166,15 +2166,14 @@ public final class GenericsChecks {
       Type.MethodType methodTypeAtCallSite,
       VisitorState state,
       boolean calledFromDataflow) {
-    return new NestedTypeVarSubstitutionRepairVisitor(
-            this,
-            invocationTree,
-            origMethodType,
-            methodTypeAtCallSite,
-            state,
-            config,
-            calledFromDataflow)
-        .repairMethodType();
+    return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
+        this,
+        invocationTree,
+        origMethodType,
+        methodTypeAtCallSite,
+        state,
+        config,
+        calledFromDataflow);
   }
 
   /**

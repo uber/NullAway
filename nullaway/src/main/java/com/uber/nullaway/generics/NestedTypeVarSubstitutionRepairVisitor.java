@@ -36,7 +36,43 @@ final class NestedTypeVarSubstitutionRepairVisitor
   private final boolean calledFromDataflow;
   private final Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions = new HashMap<>();
 
-  NestedTypeVarSubstitutionRepairVisitor(
+  /**
+   * Repairs nested nullability annotations in the inferred call-site method type for a generic
+   * method invocation.
+   *
+   * <p>This method creates one visitor for the entire invocation so repaired substitutions for
+   * method type variables are shared across all parameters of the call.
+   *
+   * @param genericsChecks the owning generics checker, used to compute actual argument types
+   * @param invocationTree the method invocation tree for the generic method call
+   * @param origMethodType the declared method type for the generic method
+   * @param methodTypeAtCallSite the method type inferred by javac at the call site
+   * @param state the visitor state
+   * @param config the NullAway configuration
+   * @param calledFromDataflow true if the repair is being computed as part of dataflow analysis
+   * @return a method type based on {@code methodTypeAtCallSite}, with nested nullability
+   *     annotations on method type-variable substitutions restored where possible
+   */
+  static Type.MethodType repairMethodType(
+      GenericsChecks genericsChecks,
+      MethodInvocationTree invocationTree,
+      Type.MethodType origMethodType,
+      Type.MethodType methodTypeAtCallSite,
+      VisitorState state,
+      Config config,
+      boolean calledFromDataflow) {
+    return new NestedTypeVarSubstitutionRepairVisitor(
+            genericsChecks,
+            invocationTree,
+            origMethodType,
+            methodTypeAtCallSite,
+            state,
+            config,
+            calledFromDataflow)
+        .repairMethodTypeInternal();
+  }
+
+  private NestedTypeVarSubstitutionRepairVisitor(
       GenericsChecks genericsChecks,
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
@@ -54,7 +90,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
     this.calledFromDataflow = calledFromDataflow;
   }
 
-  Type.MethodType repairMethodType() {
+  private Type.MethodType repairMethodTypeInternal() {
     if (methodSymbol.isVarArgs()) {
       // skip handling of varargs for now
       return methodTypeAtCallSite;
