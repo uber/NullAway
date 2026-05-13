@@ -1,5 +1,7 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -119,7 +121,7 @@ public class GenericsUtils {
       return typeArgument;
     }
     if (wildcardType.kind == BoundKind.SUPER) {
-      return wildcardType.getSuperBound();
+      return castToNonNull(wildcardType.getSuperBound());
     }
     return wildcardUpperBound(wildcardType, state);
   }
