@@ -17,6 +17,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import javax.lang.model.type.TypeKind;
 import org.jspecify.annotations.Nullable;
@@ -88,7 +89,10 @@ public class GenericsUtils {
    */
   @SuppressWarnings("ReferenceEquality")
   static Type groundFunctionalInterfaceTargetTypeForPolyExpression(
-      Type targetType, VisitorState state) {
+      Type targetType, VisitorState state, Config config) {
+    if (!config.handleWildcardGenerics()) {
+      return targetType;
+    }
     if (!(targetType instanceof ClassType classType) || targetType.isRaw()) {
       return targetType;
     }

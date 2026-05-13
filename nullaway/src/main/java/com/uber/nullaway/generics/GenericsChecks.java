@@ -1083,7 +1083,7 @@ public final class GenericsChecks {
                     if (polyExprTreeType != null) {
                       Type formalParamGroundTargetType =
                           GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(
-                              formalParamType, state);
+                              formalParamType, state, config);
                       Type typeWithInferredNullability =
                           TypeSubstitutionUtils.updateTypeWithInferredNullability(
                               polyExprTreeType,
@@ -1263,7 +1263,7 @@ public final class GenericsChecks {
         NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
 
     Type groundTargetType =
-        GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(lhsType, state);
+        GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(lhsType, state, config);
     // get the return type of the functional interface method, viewed as a member of the lhs
     // type, so the generic method's type variables are substituted in
     Type.MethodType fiMethodTypeAsMember =
@@ -1318,7 +1318,7 @@ public final class GenericsChecks {
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
     Type groundTargetType =
-        GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(lhsType, state);
+        GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(lhsType, state, config);
     GenericsUtils.processMethodRefTypeRelations(
         this,
         groundTargetType,
@@ -1812,7 +1812,7 @@ public final class GenericsChecks {
               if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
                 Type groundFormalParameter =
                     GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(
-                        formalParameter, state);
+                        formalParameter, state, config);
                 // the type of the method reference tree provided by javac may not capture
                 // nullability of nested types. So, do explicit type checks based on the return and
                 // parameter types of the referenced method
@@ -2707,7 +2707,8 @@ public final class GenericsChecks {
       return;
     }
     Type groundTargetType =
-        GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(targetType, state);
+        GenericsUtils.groundFunctionalInterfaceTargetTypeForPolyExpression(
+            targetType, state, config);
     Type polyExpressionTypeWithTargetAnnotations =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
             groundTargetType, polyExpressionType, config, Collections.emptyMap());
