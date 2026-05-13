@@ -829,7 +829,7 @@ public final class GenericsChecks {
     if (!assignedToLocal
         && (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree)
         && isAssignmentToField(tree)) {
-      maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType);
+      maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType, state);
     }
     boolean varLocalDeclaration =
         tree instanceof VariableTree varTree && isVarLocalVariableDeclaration(varTree);
@@ -1081,9 +1081,15 @@ public final class GenericsChecks {
                       || argument instanceof MemberReferenceTree) {
                     Type polyExprTreeType = ASTHelpers.getType(argument);
                     if (polyExprTreeType != null) {
+                      Type formalParamGroundTargetType =
+                          GenericsUtils.groundTargetTypeForPolyExpression(formalParamType, state);
                       Type typeWithInferredNullability =
                           TypeSubstitutionUtils.updateTypeWithInferredNullability(
-                              polyExprTreeType, formalParamType, typeVarNullability, state, config);
+                              polyExprTreeType,
+                              formalParamGroundTargetType,
+                              typeVarNullability,
+                              state,
+                              config);
                       inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
                     }
                   }
@@ -1255,10 +1261,11 @@ public final class GenericsChecks {
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
 
+    Type groundTargetType = GenericsUtils.groundTargetTypeForPolyExpression(lhsType, state);
     // get the return type of the functional interface method, viewed as a member of the lhs
     // type, so the generic method's type variables are substituted in
     Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(state.getTypes(), lhsType, fiMethod, config)
+        TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Tree body = lambda.getBody();
@@ -1308,9 +1315,10 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
+    Type groundTargetType = GenericsUtils.groundTargetTypeForPolyExpression(lhsType, state);
     GenericsUtils.processMethodRefTypeRelations(
         this,
-        lhsType,
+        groundTargetType,
         memberReferenceTree,
         state,
         (subtype, supertype, unused) -> {
@@ -1799,12 +1807,14 @@ public final class GenericsChecks {
               }
 
               if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
+                Type groundFormalParameter =
+                    GenericsUtils.groundTargetTypeForPolyExpression(formalParameter, state);
                 // the type of the method reference tree provided by javac may not capture
                 // nullability of nested types. So, do explicit type checks based on the return and
                 // parameter types of the referenced method
                 GenericsUtils.processMethodRefTypeRelations(
                     this,
-                    formalParameter,
+                    groundFormalParameter,
                     memberReferenceTree,
                     state,
                     (subtype, supertype, relationKind) -> {
@@ -1818,14 +1828,14 @@ public final class GenericsChecks {
                         }
                       }
                     });
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
+                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
                 return;
               }
 
               TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
               Type actualParameterType;
               if (currentActualParam instanceof LambdaExpressionTree) {
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
+                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
               }
               Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);
               if (inferredPolyType != null) {
@@ -2683,7 +2693,8 @@ public final class GenericsChecks {
    * <p>This is used to compensate for javac dropping annotations on type variables in poly
    * expression target types, so later checks use the correctly annotated functional interface type.
    */
-  private void maybeStorePolyExpressionTypeFromTarget(Tree polyExpressionTree, Type targetType) {
+  private void maybeStorePolyExpressionTypeFromTarget(
+      Tree polyExpressionTree, Type targetType, VisitorState state) {
     if (targetType.isRaw() || inferredPolyExpressionTypes.containsKey(polyExpressionTree)) {
       return;
     }
@@ -2691,9 +2702,10 @@ public final class GenericsChecks {
     if (polyExpressionType == null) {
       return;
     }
+    Type groundTargetType = GenericsUtils.groundTargetTypeForPolyExpression(targetType, state);
     Type polyExpressionTypeWithTargetAnnotations =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            targetType, polyExpressionType, config, Collections.emptyMap());
+            groundTargetType, polyExpressionType, config, Collections.emptyMap());
     inferredPolyExpressionTypes.put(polyExpressionTree, polyExpressionTypeWithTargetAnnotations);
   }
 

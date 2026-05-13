@@ -11,9 +11,12 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.CapturedType;
+import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.NullabilityUtil;
 import javax.lang.model.type.TypeKind;
 import org.jspecify.annotations.Nullable;
@@ -76,6 +79,48 @@ public class GenericsUtils {
       return capturedType.wildcard;
     }
     return null;
+  }
+
+  /**
+   * Returns a wildcard-free target type for lambda and method-reference checking. For a wildcard
+   * type argument, use the bound that determines the functional interface descriptor.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  static Type groundTargetTypeForPolyExpression(Type targetType, VisitorState state) {
+    if (!(targetType instanceof ClassType classType) || targetType.isRaw()) {
+      return targetType;
+    }
+    List<Type> typeArguments = classType.getTypeArguments();
+    Type enclosingType = classType.getEnclosingType();
+    Type groundedEnclosingType = groundTargetTypeForPolyExpression(enclosingType, state);
+    if (typeArguments.isEmpty()) {
+      return groundedEnclosingType == enclosingType
+          ? targetType
+          : TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
+              targetType, groundedEnclosingType, typeArguments);
+    }
+    ListBuffer<Type> groundedTypeArguments = new ListBuffer<>();
+    boolean changed = groundedEnclosingType != enclosingType;
+    for (Type typeArgument : typeArguments) {
+      Type groundedTypeArgument = groundTypeArgumentForPolyExpression(typeArgument, state);
+      groundedTypeArguments.append(groundedTypeArgument);
+      changed |= groundedTypeArgument != typeArgument;
+    }
+    return changed
+        ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
+            targetType, groundedEnclosingType, groundedTypeArguments.toList())
+        : targetType;
+  }
+
+  private static Type groundTypeArgumentForPolyExpression(Type typeArgument, VisitorState state) {
+    WildcardType wildcardType = asWildcard(typeArgument);
+    if (wildcardType == null) {
+      return groundTargetTypeForPolyExpression(typeArgument, state);
+    }
+    if (wildcardType.kind == BoundKind.SUPER) {
+      return wildcardType.getSuperBound();
+    }
+    return wildcardUpperBound(wildcardType, state);
   }
 
   /**

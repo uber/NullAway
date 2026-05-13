@@ -605,6 +605,69 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1522SelfContained() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, U extends @Nullable Object> {
+                U apply(T t);
+              }
+              static class Optional<T> {
+                public @Nullable T orElse(@Nullable T other) {
+                    throw new RuntimeException();
+                }
+              }
+              static class Foo<T> {
+                public final <V> Foo<V> mapNotNull(Function<? super T, ? extends @Nullable V> mapper) {
+                  throw new RuntimeException();
+                }
+              }
+              static <T> Foo<T> after(Foo<Optional<T>> foo) {
+                return foo.mapNotNull(x -> x.orElse(null));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1522SelfContainedMethodReference() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, U extends @Nullable Object> {
+                U apply(T t);
+              }
+              static class Optional<T> {
+                public @Nullable T orElse(@Nullable T other) {
+                    throw new RuntimeException();
+                }
+              }
+              static class Foo<T> {
+                public final <V> Foo<V> mapNotNull(Function<? super T, ? extends @Nullable V> mapper) {
+                  throw new RuntimeException();
+                }
+              }
+              static <T> @Nullable T orElseNull(Optional<T> optional) {
+                return optional.orElse(null);
+              }
+              static <T> Foo<T> after(Foo<Optional<T>> foo) {
+                return foo.mapNotNull(Test::orElseNull);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Extracted from Caffeine; exposed some subtle bugs in substitutions involving identity of {@code
    * Type} objects
