@@ -1,8 +1,13 @@
 package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
 
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -21,19 +26,76 @@ import javax.lang.model.type.TypeKind;
 final class NestedTypeVarSubstitutionRepairVisitor
     extends Types.DefaultTypeVisitor<Type, NestedTypeVarSubstitutionRepairVisitor.RepairContext> {
 
+  private final GenericsChecks genericsChecks;
+  private final MethodInvocationTree invocationTree;
+  private final Type.MethodType origMethodType;
+  private final Type.MethodType methodTypeAtCallSite;
   private final Symbol.MethodSymbol methodSymbol;
   private final VisitorState state;
   private final Config config;
+  private final boolean calledFromDataflow;
   private final Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions = new HashMap<>();
 
   NestedTypeVarSubstitutionRepairVisitor(
-      Symbol.MethodSymbol methodSymbol, VisitorState state, Config config) {
-    this.methodSymbol = methodSymbol;
+      GenericsChecks genericsChecks,
+      MethodInvocationTree invocationTree,
+      Type.MethodType origMethodType,
+      Type.MethodType methodTypeAtCallSite,
+      VisitorState state,
+      Config config,
+      boolean calledFromDataflow) {
+    this.genericsChecks = genericsChecks;
+    this.invocationTree = invocationTree;
+    this.origMethodType = origMethodType;
+    this.methodTypeAtCallSite = methodTypeAtCallSite;
+    this.methodSymbol = ASTHelpers.getSymbol(invocationTree);
     this.state = state;
     this.config = config;
+    this.calledFromDataflow = calledFromDataflow;
   }
 
-  Type repair(Type genericMethodType, Type actualArgType, Type callSiteType) {
+  Type.MethodType repairMethodType() {
+    if (methodSymbol.isVarArgs()) {
+      // skip handling of varargs for now
+      return methodTypeAtCallSite;
+    }
+    com.sun.tools.javac.util.List<Type> genericMethodParamTypes =
+        origMethodType.getParameterTypes();
+    com.sun.tools.javac.util.List<Type> callSiteParamTypes =
+        methodTypeAtCallSite.getParameterTypes();
+    List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
+    TreePath pathToInvocation = pathWithLeaf(state.getPath(), invocationTree);
+    ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
+    boolean changed = false;
+    for (int i = 0; i < genericMethodParamTypes.size(); i++) {
+      Type callSiteParamType = callSiteParamTypes.get(i);
+      Type genericMethodParamType = genericMethodParamTypes.get(i);
+      ExpressionTree actualParam = actualParams.get(i);
+      Type actualArgType =
+          genericsChecks.getTreeType(
+              actualParam,
+              state.withPath(pathWithLeaf(pathToInvocation, actualParam)),
+              calledFromDataflow);
+      if (actualArgType != null) {
+        Type repairedType = repairType(genericMethodParamType, actualArgType, callSiteParamType);
+        if (repairedType != callSiteParamType) {
+          changed = true;
+          callSiteParamType = repairedType;
+        }
+      }
+      updatedArgTypes.append(callSiteParamType);
+    }
+    if (!changed) {
+      return methodTypeAtCallSite;
+    }
+    return new Type.MethodType(
+        updatedArgTypes.toList(),
+        methodTypeAtCallSite.getReturnType(),
+        methodTypeAtCallSite.getThrownTypes(),
+        methodTypeAtCallSite.tsym);
+  }
+
+  private Type repairType(Type genericMethodType, Type actualArgType, Type callSiteType) {
     return genericMethodType.accept(this, new RepairContext(actualArgType, callSiteType));
   }
 
@@ -71,7 +133,8 @@ final class NestedTypeVarSubstitutionRepairVisitor
     ListBuffer<Type> updatedTypeArgs = new ListBuffer<>();
     for (int i = 0; i < genericTypeArgs.size(); i++) {
       Type callSiteTypeArg = callSiteTypeArgs.get(i);
-      Type repairedTypeArg = repair(genericTypeArgs.get(i), actualTypeArgs.get(i), callSiteTypeArg);
+      Type repairedTypeArg =
+          repairType(genericTypeArgs.get(i), actualTypeArgs.get(i), callSiteTypeArg);
       if (repairedTypeArg != callSiteTypeArg) {
         changed = true;
       }
@@ -79,7 +142,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
     }
     Type enclosingType = callSiteClassType.getEnclosingType();
     Type repairedEnclosingType =
-        repair(
+        repairType(
             genericClassType.getEnclosingType(), actualClassType.getEnclosingType(), enclosingType);
     if (repairedEnclosingType != enclosingType) {
       changed = true;
@@ -98,7 +161,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
     }
     Type callSiteElemType = callSiteArrayType.getComponentType();
     Type repairedElemType =
-        repair(
+        repairType(
             genericArrayType.getComponentType(),
             actualArrayType.getComponentType(),
             callSiteElemType);

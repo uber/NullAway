@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -38,7 +39,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
-import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -492,7 +492,8 @@ public final class GenericsChecks {
    * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
    * @return Type of the tree with preserved annotations.
    */
-  private @Nullable Type getTreeType(Tree tree, VisitorState state, boolean calledFromDataflow) {
+  /* package-private */ @Nullable Type getTreeType(
+      Tree tree, VisitorState state, boolean calledFromDataflow) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
@@ -1490,14 +1491,6 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns an updated version of {@code path} with {@code leaf} as the leaf, if needed. If {@code
-   * leaf} is already the leaf of {@code path}, just return {@code path} unmodified.
-   */
-  private static TreePath pathWithLeaf(TreePath path, Tree leaf) {
-    return path.getLeaf() == leaf ? path : new TreePath(path, leaf);
-  }
-
-  /**
    * Sets up the environment mapping for a lambda expression so that dataflow analysis can be run
    * within the lambda body, handling the case where dataflow analysis is already running on the
    * enclosing method.
@@ -2167,55 +2160,21 @@ public final class GenericsChecks {
    *     annotations on type variables restored to match those on actual parameters passed at the
    *     call site
    */
-  @SuppressWarnings("ReferenceEquality")
   private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
       VisitorState state,
       boolean calledFromDataflow) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    if (methodSymbol.isVarArgs()) {
-      // skip handling of varargs for now
-      return methodTypeAtCallSite;
-    }
-    com.sun.tools.javac.util.List<Type> genericMethodParamTypes =
-        origMethodType.getParameterTypes();
-    com.sun.tools.javac.util.List<Type> callSiteParamTypes =
-        methodTypeAtCallSite.getParameterTypes();
-    List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
-    TreePath pathToInvocation = pathWithLeaf(state.getPath(), invocationTree);
-    NestedTypeVarSubstitutionRepairVisitor repairVisitor =
-        new NestedTypeVarSubstitutionRepairVisitor(methodSymbol, state, config);
-    ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
-    boolean changed = false;
-    for (int i = 0; i < genericMethodParamTypes.size(); i++) {
-      Type callSiteParamType = callSiteParamTypes.get(i);
-      Type genericMethodParamType = genericMethodParamTypes.get(i);
-      ExpressionTree actualParam = actualParams.get(i);
-      Type actualArgType =
-          getTreeType(
-              actualParam,
-              state.withPath(pathWithLeaf(pathToInvocation, actualParam)),
-              calledFromDataflow);
-      if (actualArgType != null) {
-        Type repairedType =
-            repairVisitor.repair(genericMethodParamType, actualArgType, callSiteParamType);
-        if (repairedType != callSiteParamType) {
-          changed = true;
-          callSiteParamType = repairedType;
-        }
-      }
-      updatedArgTypes.append(callSiteParamType);
-    }
-    if (!changed) {
-      return methodTypeAtCallSite;
-    }
-    return new Type.MethodType(
-        updatedArgTypes.toList(),
-        methodTypeAtCallSite.getReturnType(),
-        methodTypeAtCallSite.getThrownTypes(),
-        methodTypeAtCallSite.tsym);
+    return new NestedTypeVarSubstitutionRepairVisitor(
+            this,
+            invocationTree,
+            origMethodType,
+            methodTypeAtCallSite,
+            state,
+            config,
+            calledFromDataflow)
+        .repairMethodType();
   }
 
   /**
