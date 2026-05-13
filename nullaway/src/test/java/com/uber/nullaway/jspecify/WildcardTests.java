@@ -4,7 +4,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
@@ -580,7 +579,6 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1522")
   @Test
   public void issue1522() {
     makeHelperWithInferenceFailureWarning()
