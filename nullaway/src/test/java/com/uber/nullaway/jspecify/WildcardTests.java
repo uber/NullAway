@@ -668,6 +668,90 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void polyExpressionGroundTargetPreservesNestedWildcards() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T t);
+              }
+              static class Box<T extends @Nullable Object> {
+                T get() {
+                  throw new RuntimeException();
+                }
+              }
+              static <R extends @Nullable Object> R invokeNested(
+                  Function<Box<? super String>, R> mapper) {
+                throw new RuntimeException();
+              }
+              static <R extends @Nullable Object> R invokeTopLevelWildcard(
+                  Function<? super Box<? super String>, R> mapper) {
+                throw new RuntimeException();
+              }
+              static <R extends @Nullable Object> R invokeArray(
+                  Function<Box<? super String>[], R> mapper) {
+                throw new RuntimeException();
+              }
+              static void testNestedWildcard() {
+                invokeNested(box -> {
+                  // BUG: Diagnostic contains: dereferenced expression box.get() is @Nullable
+                  box.get().hashCode();
+                  return null;
+                });
+              }
+              static void testTopLevelWildcardBound() {
+                invokeTopLevelWildcard(box -> {
+                  // BUG: Diagnostic contains: dereferenced expression box.get() is @Nullable
+                  box.get().hashCode();
+                  return null;
+                });
+              }
+              static void testArrayWithNestedWildcard() {
+                invokeArray(boxes -> {
+                  // BUG: Diagnostic contains: dereferenced expression boxes[0].get() is @Nullable
+                  boxes[0].get().hashCode();
+                  return null;
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void polyExpressionGroundTargetPreservesNestedWildcardsForMethodReferences() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T t);
+              }
+              static class Box<T extends @Nullable Object> {}
+              static <R extends @Nullable Object> R invokeExtendsNullable(
+                  Function<Box<? extends @Nullable String>, R> mapper) {
+                throw new RuntimeException();
+              }
+              static @Nullable Object needsBoxExtendsString(Box<? extends String> box) {
+                return null;
+              }
+              static void test() {
+                // BUG: Diagnostic contains: parameter type of referenced method is Box<? extends String>
+                invokeExtendsNullable(Test::needsBoxExtendsString);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Extracted from Caffeine; exposed some subtle bugs in substitutions involving identity of {@code
    * Type} objects

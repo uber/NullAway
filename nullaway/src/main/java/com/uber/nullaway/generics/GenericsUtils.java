@@ -82,25 +82,22 @@ public class GenericsUtils {
   }
 
   /**
-   * Returns a wildcard-free target type for lambda and method-reference checking. For a wildcard
-   * type argument, use the bound that determines the functional interface descriptor.
+   * Returns a non-wildcard functional interface parameterization for lambda and method-reference
+   * checking. For immediate wildcard type arguments, use the bound that determines the functional
+   * interface descriptor, preserving wildcards in nested type positions.
    */
   @SuppressWarnings("ReferenceEquality")
-  static Type groundTargetTypeForPolyExpression(Type targetType, VisitorState state) {
+  static Type groundFunctionalInterfaceTargetTypeForPolyExpression(
+      Type targetType, VisitorState state) {
     if (!(targetType instanceof ClassType classType) || targetType.isRaw()) {
       return targetType;
     }
     List<Type> typeArguments = classType.getTypeArguments();
-    Type enclosingType = classType.getEnclosingType();
-    Type groundedEnclosingType = groundTargetTypeForPolyExpression(enclosingType, state);
     if (typeArguments.isEmpty()) {
-      return groundedEnclosingType == enclosingType
-          ? targetType
-          : TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
-              targetType, groundedEnclosingType, typeArguments);
+      return targetType;
     }
     ListBuffer<Type> groundedTypeArguments = new ListBuffer<>();
-    boolean changed = groundedEnclosingType != enclosingType;
+    boolean changed = false;
     for (Type typeArgument : typeArguments) {
       Type groundedTypeArgument = groundTypeArgumentForPolyExpression(typeArgument, state);
       groundedTypeArguments.append(groundedTypeArgument);
@@ -108,14 +105,14 @@ public class GenericsUtils {
     }
     return changed
         ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
-            targetType, groundedEnclosingType, groundedTypeArguments.toList())
+            targetType, classType.getEnclosingType(), groundedTypeArguments.toList())
         : targetType;
   }
 
   private static Type groundTypeArgumentForPolyExpression(Type typeArgument, VisitorState state) {
     WildcardType wildcardType = asWildcard(typeArgument);
     if (wildcardType == null) {
-      return groundTargetTypeForPolyExpression(typeArgument, state);
+      return typeArgument;
     }
     if (wildcardType.kind == BoundKind.SUPER) {
       return wildcardType.getSuperBound();
