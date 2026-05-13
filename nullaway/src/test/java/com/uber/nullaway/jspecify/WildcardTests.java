@@ -719,7 +719,7 @@ public class WildcardTests extends NullAwayTestsBase {
               // This works due to the explicit type argument
               static final Foo<@Nullable Void> FOO2 = Foo.<@Nullable Void>of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
 
-              static final Foo<@Nullable Void> TMP = Foo.ofNoWildcard(new Foo<@Nullable Void>());
+              // This works since ofNoWildcard does not use a lower-bounded wildcard in its parameter type
               static final Foo<@Nullable Void> FOO3 = Foo.ofNoWildcard(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
             }""")
         .doTest();
