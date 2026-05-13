@@ -38,10 +38,11 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   /**
    * Repairs nested nullability annotations in the inferred call-site method type for a generic
-   * method invocation.
-   *
-   * <p>This method creates one visitor for the entire invocation so repaired substitutions for
-   * method type variables are shared across all parameters of the call.
+   * method invocation. In narrow cases, javac drops or misplaces nested type-use nullability
+   * annotations on type variables in its inferred type for a generic method at a call site. See <a
+   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
+   * annotations based on the types of actual parameters. It does not attempt to be a very general
+   * fix, as we do not fully understand the scenarios where this can arise.
    *
    * @param genericsChecks the owning generics checker, used to compute actual argument types
    * @param invocationTree the method invocation tree for the generic method call
@@ -265,5 +266,15 @@ final class NestedTypeVarSubstitutionRepairVisitor
             .isSameType(state.getTypes().erasure(type1), state.getTypes().erasure(type2));
   }
 
+  /**
+   * The two types being compared while recursively walking the declared generic method parameter
+   * type. At each recursive step, the visitor uses {@code actualArgType} as the source of nested
+   * nullability annotations and applies any repair to the corresponding subtree of {@code
+   * callSiteType}.
+   *
+   * @param actualArgType the subtree of the actual argument type aligned with the current declared
+   *     generic method parameter subtree
+   * @param callSiteType the subtree of javac's inferred call-site parameter type to repair
+   */
   record RepairContext(Type actualArgType, Type callSiteType) {}
 }

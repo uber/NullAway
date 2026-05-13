@@ -2145,10 +2145,10 @@ public final class GenericsChecks {
 
   /**
    * In narrow cases, javac drops or misplaces nested type-use nullability annotations on type
-   * variables in its inferred type for a generic method at a call site. See
-   * https://github.com/uber/NullAway/issues/1455. This method repairs those annotations based on
-   * the types of actual parameters. It does not attempt to be a very general fix, as we do not
-   * fully understand the scenarios where this can arise.
+   * variables in its inferred type for a generic method at a call site. See <a
+   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
+   * annotations based on the types of actual parameters. It does not attempt to be a very general
+   * fix, as we do not fully understand the scenarios where this can arise.
    *
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method (to identify formal
