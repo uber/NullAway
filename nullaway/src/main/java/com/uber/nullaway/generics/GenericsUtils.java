@@ -88,10 +88,17 @@ public class GenericsUtils {
    * Returns a non-wildcard functional interface parameterization for lambda and method-reference
    * checking. For immediate wildcard type arguments, use the bound that determines the functional
    * interface descriptor, preserving wildcards in nested type positions.
+   *
+   * <p>This implements the ground target type behavior used for lambda and method-reference target
+   * typing; see JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-15.html#jls-15.27.3">15.27.3</a>,
+   * JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-15.html#jls-15.13.2">15.13.2</a>,
+   * and the non-wildcard parameterization rules in JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.9">9.9</a>.
    */
   @SuppressWarnings("ReferenceEquality")
-  static Type groundFunctionalInterfaceTargetTypeForPolyExpression(
-      Type targetType, VisitorState state, Config config) {
+  static Type groundTargetType(Type targetType, VisitorState state, Config config) {
     if (!config.handleWildcardGenerics()) {
       return targetType;
     }
@@ -105,7 +112,7 @@ public class GenericsUtils {
     ListBuffer<Type> groundedTypeArguments = new ListBuffer<>();
     boolean changed = false;
     for (Type typeArgument : typeArguments) {
-      Type groundedTypeArgument = groundTypeArgumentForPolyExpression(typeArgument, state);
+      Type groundedTypeArgument = groundTypeArgument(typeArgument, state);
       groundedTypeArguments.append(groundedTypeArgument);
       changed |= groundedTypeArgument != typeArgument;
     }
@@ -115,7 +122,12 @@ public class GenericsUtils {
         : targetType;
   }
 
-  private static Type groundTypeArgumentForPolyExpression(Type typeArgument, VisitorState state) {
+  /**
+   * Grounds one immediate wildcard type argument according to the non-wildcard parameterization
+   * rules for functional interface target types in JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.9">9.9</a>.
+   */
+  private static Type groundTypeArgument(Type typeArgument, VisitorState state) {
     WildcardType wildcardType = asWildcard(typeArgument);
     if (wildcardType == null) {
       return typeArgument;
