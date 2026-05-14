@@ -634,7 +634,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1522SelfContainedMethodReference() {
+  public void issue1522SelfContainedWithMethodReference() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -667,7 +667,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void polyExpressionGroundTargetPreservesNestedWildcards() {
+  public void groundTargetTypePreservesNestedWildcards() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -722,7 +722,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void polyExpressionGroundTargetPreservesNestedWildcardsForMethodReferences() {
+  public void groundTargetTypePreservesNestedWildcardsForMethodReferences() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
