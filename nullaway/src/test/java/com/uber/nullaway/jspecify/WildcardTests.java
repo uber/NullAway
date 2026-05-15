@@ -880,6 +880,29 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void unboundWildcardTypeVarUnmarked() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              interface Foo<V> {}
+              Foo<?> test(Foo<@Nullable Void> foo) {
+                // legal since Foo is @NullUnmarked, so its V type variable
+                // is treated as having a @Nullable upper bound
+                return foo;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

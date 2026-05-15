@@ -8,6 +8,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
@@ -21,12 +22,14 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final VisitorState state;
   private final GenericsChecks genericsChecks;
   private final Config config;
+  private final Handler handler;
 
   CheckIdenticalNullabilityVisitor(
-      VisitorState state, GenericsChecks genericsChecks, Config config) {
+      VisitorState state, GenericsChecks genericsChecks, Config config, Handler handler) {
     this.state = state;
     this.genericsChecks = genericsChecks;
     this.config = config;
+    this.handler = handler;
   }
 
   @Override
@@ -155,7 +158,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     return switch (lhsWildcard.kind) {
       case UNBOUND, EXTENDS ->
           extendsBoundContains(
-              GenericsUtils.wildcardUpperBound(lhsWildcard, state), rhsTypeArgument);
+              GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler),
+              rhsTypeArgument);
       case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
     };
   }
@@ -168,7 +172,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean extendsBoundContains(Type lhsBound, Type rhsTypeArgument) {
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
     if (rhsWildcard != null) {
-      Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state);
+      Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
       return typeArgumentSubtype(lhsBound, rhsUpperBound);
     }
     return typeArgumentSubtype(lhsBound, rhsTypeArgument);
