@@ -90,6 +90,13 @@ public class GenericsUtils {
     return upperBound;
   }
 
+  /**
+   * Returns true if the upper bound of the given type variable should be treated as nullable.
+   *
+   * <p>A bound is nullable when the enclosing method or class comes from unannotated code, when a
+   * library model overrides the bound nullability for the type variable, or when the declared upper
+   * bound has an explicit {@code @Nullable} annotation.
+   */
   static boolean upperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
