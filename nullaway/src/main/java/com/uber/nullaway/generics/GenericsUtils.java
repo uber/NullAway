@@ -73,6 +73,8 @@ public class GenericsUtils {
           formalTypeVar == null
               ? Symtab.instance(state.context).objectType
               : formalTypeVar.getUpperBound();
+      // check if the upper bound should be treated as @Nullable, e.g., due to a library model or a
+      // type variable in @NullUnmarked code
       if (formalTypeVar != null
           && upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
           && !Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
