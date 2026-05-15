@@ -1120,34 +1120,34 @@ public class ContractsTests extends NullAwayTestsBase {
         .addSourceLines(
             "NullnessChecker.java",
             """
-                    package com.uber;
+            package com.uber;
 
-                    import com.uber.nullaway.annotations.Contract;
-                    import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.Contract;
+            import javax.annotation.Nullable;
 
-                    public class NullnessChecker {
-                      @Contract("null -> fail")
-                      static void assertNonNull(@Nullable Object o) {
-                        if (o == null) {
-                          throw new IllegalArgumentException();
-                        }
-                      }
-                    }
-                    """)
+            public class NullnessChecker {
+              @Contract("null -> fail")
+              static void assertNonNull(@Nullable Object o) {
+                if (o == null) {
+                  throw new IllegalArgumentException();
+                }
+              }
+            }
+            """)
         .addSourceLines(
             "Test.java",
             """
-                    package com.uber;
+            package com.uber;
 
-                    import javax.annotation.Nullable;
+            import javax.annotation.Nullable;
 
-                    class Test {
-                      String test(@Nullable Object o) {
-                        NullnessChecker.assertNonNull(o);
-                        return o.toString();
-                      }
-                    }
-                    """)
+            class Test {
+              String test(@Nullable Object o) {
+                NullnessChecker.assertNonNull(o);
+                return o.toString();
+              }
+            }
+            """)
         .doTest();
   }
 }
