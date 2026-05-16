@@ -218,7 +218,7 @@ public final class GenericsChecks {
       ErrorBuilder errorBuilder = analysis.getErrorBuilder();
       ErrorMessage errorMessage =
           new ErrorMessage(
-              ErrorMessage.MessageTypes.NULLNESS_ANNOTATION_ON_WILDCARD,
+              ErrorMessage.MessageTypes.UNRECOGNIZED_NULLNESS_ANNOTATION_LOCATION,
               "illegal location for annotation: nullness annotations cannot be written directly on a wildcard; annotate the wildcard bound instead");
       state.reportMatch(
           errorBuilder.createErrorDescription(
