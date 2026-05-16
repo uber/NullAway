@@ -915,13 +915,17 @@ public class WildcardTests extends NullAwayTestsBase {
             import java.util.function.Function;
             @NullMarked
             class Test<K,V> {
-              @Nullable V run(@Nullable K k,
+              @Nullable V testPositive(@Nullable K k,
                 Function<
                   // BUG: Diagnostic contains: illegal location for annotation
                   @Nullable ? super K,
                   // BUG: Diagnostic contains: illegal location for annotation
                   @NonNull ? extends V> function) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'k' where @NonNull is required
+                return function.apply(k);
+              }
+
+              @Nullable V testNegative(@Nullable K k, Function<? super @Nullable K, ? extends @Nullable V> function) {
                 return function.apply(k);
               }
             }
