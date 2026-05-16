@@ -553,12 +553,27 @@ public final class GenericsChecks {
       } else {
         result = ASTHelpers.getType(tree);
         if (result != null) {
-          // for method invocations and field reads, there may be annotations on type variables in
-          // the return / field type that need to be restored
           if (tree instanceof MethodInvocationTree invocationTree) {
+            // for a call to an instance method, we may need to run inference on a nested call
+            // inside the receiver in order to figure out the proper nullability of the receiver's
+            // type arguments.  E.g., for a call `foo(x,y).bar().baz()`, where `foo` is a generic
+            // method, we need to run inference on the call to `foo` to determine the receiver type
+            // of the `bar()` call, which could in turn impact the receiver type of the `baz()`
+            // call.  We invoke getEnclosingTypeForCallExpression, which will run
+            // inference if needed, and then recompute the type as a member of the returned
+            // enclosing type
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
+            Type invokedMethodType = symbol.type;
+            Type enclosingType =
+                getEnclosingTypeForCallExpression(
+                    symbol, invocationTree, state.getPath(), state, false);
+            if (enclosingType != null) {
+              invokedMethodType =
+                  TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
+            }
             Type.MethodType methodType =
-                handler.onOverrideMethodType(symbol, symbol.type.asMethodType(), state);
+                handler.onOverrideMethodType(symbol, invokedMethodType.asMethodType(), state);
+            // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
@@ -566,6 +581,7 @@ public final class GenericsChecks {
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
+              // restore explicit annotations from the field's declared type
               Type fieldType = memberSelectSymbol.type;
               result =
                   TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(

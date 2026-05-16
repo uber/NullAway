@@ -1648,6 +1648,43 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedReceivers() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                static <U extends @Nullable Object> Foo<U> of(Foo<U> other) {
+                  throw new RuntimeException();
+                }
+                Foo<T> or(Foo<T> other) { return this; }
+              }
+              // infer Foo<@Nullable String> as the type of the Foo.of() call via
+              // its parameter, and use that type to determine the return type of
+              // the or() call is Foo<@Nullable String>
+              static Foo<@Nullable String> FOO =
+                Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
+
+              // like the case above, but more deeply nested
+              static Foo<@Nullable String> FOO2 =
+                Foo.of(new Foo<@Nullable String>())
+                  .or(new Foo<@Nullable String>())
+                  .or(new Foo<@Nullable String>());
+
+              // a true positive case
+              // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+              static Foo<String> WRONG =
+                Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
