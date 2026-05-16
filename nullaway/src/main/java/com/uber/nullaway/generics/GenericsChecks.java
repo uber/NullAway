@@ -556,7 +556,10 @@ public final class GenericsChecks {
           if (tree instanceof MethodInvocationTree invocationTree) {
             // for a call to an instance method, we may need to run inference on a nested call
             // inside the receiver in order to figure out the proper nullability of the receiver's
-            // type arguments.  we invoke getEnclosingTypeForCallExpression, which will run
+            // type arguments.  E.g., for a call `foo(x,y).bar().baz()`, where `foo` is a generic
+            // method, we need to run inference on the call to `foo` to determine the receiver type
+            // of the `bar()` call, which could in turn impact the receiver type of the `baz()`
+            // call.  We invoke getEnclosingTypeForCallExpression, which will run
             // inference if needed, and then recompute the type as a member of the returned
             // enclosing type
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
