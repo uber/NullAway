@@ -1654,7 +1654,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             """
-            import java.util.Objects;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -1676,6 +1675,11 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 Foo.of(new Foo<@Nullable String>())
                   .or(new Foo<@Nullable String>())
                   .or(new Foo<@Nullable String>());
+
+              // a true positive case
+              // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+              static Foo<String> WRONG =
+                Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
             }
             """)
         .doTest();
