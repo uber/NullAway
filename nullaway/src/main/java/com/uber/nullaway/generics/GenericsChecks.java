@@ -28,6 +28,7 @@ import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.tree.WildcardTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Attribute;
@@ -163,6 +164,11 @@ public final class GenericsChecks {
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
       if (curTypeArg instanceof AnnotatedTypeTree annotatedType) {
+        // Annotations directly on wildcards are illegal in JSpecify mode and are diagnosed in
+        // checkForNullnessAnnotationsOnWildcards().
+        if (annotatedType.getUnderlyingType() instanceof WildcardTree) {
+          continue;
+        }
         for (AnnotationTree annotation : annotatedType.getAnnotations()) {
           Type annotationType = ASTHelpers.getType(annotation);
           if (annotationType != null
@@ -187,6 +193,36 @@ public final class GenericsChecks {
         reportInvalidInstantiationError(
             nullableTypeArguments.get(i), baseType, baseTypeArgs.get(i), state);
       }
+    }
+  }
+
+  /**
+   * Reports nullness annotations written directly on a wildcard, which is not a legal annotation
+   * location under JSpecify.
+   */
+  public void checkForNullnessAnnotationsOnWildcards(
+      AnnotatedTypeTree annotatedType, VisitorState state) {
+    if (!(annotatedType.getUnderlyingType() instanceof WildcardTree)) {
+      return;
+    }
+    for (AnnotationTree annotation : annotatedType.getAnnotations()) {
+      Type annotationType = ASTHelpers.getType(annotation);
+      if (annotationType == null) {
+        continue;
+      }
+      String annotationName = annotationType.toString();
+      if (!Nullness.isNullableAnnotation(annotationName, config)
+          && !Nullness.isNonNullAnnotation(annotationName, config)) {
+        continue;
+      }
+      ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+      ErrorMessage errorMessage =
+          new ErrorMessage(
+              ErrorMessage.MessageTypes.NULLNESS_ANNOTATION_ON_WILDCARD,
+              "illegal location for annotation: nullness annotations cannot be written directly on a wildcard");
+      state.reportMatch(
+          errorBuilder.createErrorDescription(
+              errorMessage, analysis.buildDescription(annotation), state, null));
     }
   }
 

@@ -910,11 +910,18 @@ public class WildcardTests extends NullAwayTestsBase {
             "Test.java",
             """
             import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.Nullable;
             import java.util.function.Function;
             @NullMarked
             class Test<K,V> {
-              @Nullable V run(@Nullable K k, Function<@Nullable ? super K, @Nullable ? extends V> function) {
+              @Nullable V run(@Nullable K k,
+                Function<
+                  // BUG: Diagnostic contains: illegal location for annotation
+                  @Nullable ? super K,
+                  // BUG: Diagnostic contains: illegal location for annotation
+                  @NonNull ? extends V> function) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'k' where @NonNull is required
                 return function.apply(k);
               }
             }
