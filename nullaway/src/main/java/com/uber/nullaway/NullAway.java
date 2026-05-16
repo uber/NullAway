@@ -781,7 +781,7 @@ public class NullAway extends BugChecker
 
   @Override
   public Description matchAnnotatedType(AnnotatedTypeTree tree, VisitorState state) {
-    if (withinAnnotatedCode(state) && config.isJSpecifyMode()) {
+    if (withinAnnotatedCode(state) && config.isJSpecifyMode() && config.handleWildcardGenerics()) {
       genericsChecks.checkForNullnessAnnotationsOnWildcards(tree, state);
     }
     return Description.NO_MATCH;
