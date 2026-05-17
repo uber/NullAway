@@ -5,6 +5,8 @@ import org.checkerframework.nullaway.dataflow.analysis.ForwardAnalysisImpl;
 import org.checkerframework.nullaway.dataflow.analysis.ForwardTransferFunction;
 import org.checkerframework.nullaway.dataflow.analysis.Store;
 import org.checkerframework.nullaway.dataflow.cfg.ControlFlowGraph;
+import org.checkerframework.nullaway.dataflow.cfg.node.Node;
+import org.jspecify.annotations.Nullable;
 
 /**
  * A ForwardAnalysis implementation that overrides {@link #performAnalysis(ControlFlowGraph)} to
@@ -31,5 +33,26 @@ class RunOnceForwardAnalysisImpl<
       super.performAnalysis(cfg);
       analysisPerformed = true;
     }
+  }
+
+  /**
+   * Override as a workaround for <a
+   * href="https://github.com/typetools/checker-framework/issues/7726">CF issue 7726</a>. This
+   * version returns the current value for {@code n} even if we have a running analysis and {@code
+   * n} is not a (transitive) operand of the current node of the analysis.
+   *
+   * <p>We should remove this method if issue 7726 is fixed in a suitable manner upstream.
+   */
+  @Override
+  public @Nullable V getValue(Node n) {
+    if (isRunning) {
+      if (currentNode == null
+          || currentNode == n
+          || (currentTree != null && currentTree == n.getTree())) {
+        return null;
+      }
+      assert !n.isLValue() : "Did not expect an lvalue, but got " + n;
+    }
+    return nodeValues.get(n);
   }
 }
