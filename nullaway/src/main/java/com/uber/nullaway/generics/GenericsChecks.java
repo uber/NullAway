@@ -118,6 +118,9 @@ public final class GenericsChecks {
   /** Maps each {@code var}-declared local to its inferred NullAway type */
   private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
 
+  /** Maps each {@code var}-declared local to its declaration tree */
+  private final Map<Symbol, JCTree.JCVariableDecl> varLocalDeclarations = new LinkedHashMap<>();
+
   public @Nullable Type getInferredPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
         tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
@@ -472,6 +475,17 @@ public final class GenericsChecks {
    * @return Type of the tree with preserved annotations.
    */
   /* package-private */ @Nullable Type getTreeType(Tree tree, VisitorState state) {
+    return getTreeType(tree, state, false);
+  }
+
+  /**
+   * This method returns the type of the given tree, including any type use annotations.
+   *
+   * @param tree A tree for which we need the type with preserved annotations.
+   * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
+   * @return Type of the tree with preserved annotations.
+   */
+  private @Nullable Type getTreeType(Tree tree, VisitorState state, boolean calledFromDataflow) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
@@ -495,7 +509,8 @@ public final class GenericsChecks {
         // For constructor calls using diamond operator, infer from assignment context.
         // TODO handle diamond constructor calls passed to generic methods
         // https://github.com/uber/NullAway/issues/1470
-        Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
+        Type fromAssignmentContext =
+            getDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
         if (fromAssignmentContext != null) {
           return fromAssignmentContext;
         }
@@ -541,6 +556,10 @@ public final class GenericsChecks {
         if (inferredVarLocalType != null) {
           return inferredVarLocalType;
         }
+        inferredVarLocalType = getInferredVarLocalType(symbol, state, calledFromDataflow);
+        if (inferredVarLocalType != null) {
+          return inferredVarLocalType;
+        }
         result = ASTHelpers.getType(tree);
         // type on the tree itself can be missing nested annotations in certain cases, so use the
         // type on the symbol instead.  for type variables, we've found that the type on the symbol
@@ -574,7 +593,7 @@ public final class GenericsChecks {
             Type invokedMethodType = symbol.type;
             Type enclosingType =
                 getEnclosingTypeForCallExpression(
-                    symbol, invocationTree, state.getPath(), state, false);
+                    symbol, invocationTree, state.getPath(), state, calledFromDataflow);
             if (enclosingType != null) {
               invokedMethodType =
                   TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
@@ -617,9 +636,10 @@ public final class GenericsChecks {
    * Gets the type of a constructor call using a diamond operator from its assignment context, if
    * available.
    */
-  private @Nullable Type getDiamondTypeFromContext(NewClassTree tree, VisitorState state) {
+  private @Nullable Type getDiamondTypeFromContext(
+      NewClassTree tree, VisitorState state, boolean calledFromDataflow) {
     return getDiamondTypeFromParentContext(
-        tree, state, castToNonNull(state.getPath().getParentPath()));
+        tree, state, castToNonNull(state.getPath().getParentPath()), calledFromDataflow);
   }
 
   /**
@@ -627,7 +647,7 @@ public final class GenericsChecks {
    * parent context.
    */
   private @Nullable Type getDiamondTypeFromParentContext(
-      NewClassTree tree, VisitorState state, TreePath parentPath) {
+      NewClassTree tree, VisitorState state, TreePath parentPath, boolean calledFromDataflow) {
     Tree parent = parentPath.getLeaf();
     while (parent instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
@@ -637,7 +657,7 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof VariableTree || parent instanceof AssignmentTree) {
-      return getTreeType(parent, state.withPath(parentPath));
+      return getTreeType(parent, state.withPath(parentPath), calledFromDataflow);
     }
     if (parent instanceof ReturnTree) {
       TreePath enclosingMethodOrLambda =
@@ -666,7 +686,8 @@ public final class GenericsChecks {
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
       // get the type returned by the parent constructor call
-      Type parentClassType = getTreeType(parentConstructorCall, state.withPath(parentPath));
+      Type parentClassType =
+          getTreeType(parentConstructorCall, state.withPath(parentPath), calledFromDataflow);
       if (parentClassType != null) {
         Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
         // get the proper type for the constructor, as a member of the type returned by the
@@ -845,6 +866,45 @@ public final class GenericsChecks {
 
   private static boolean isVarLocalVariableDeclaration(VariableTree tree) {
     return tree instanceof JCTree.JCVariableDecl variableDecl && variableDecl.declaredUsingVar();
+  }
+
+  /** Registers a {@code var}-declared local seen by dataflow analysis. */
+  public void registerVarLocalDeclaration(VariableTree tree) {
+    if (!isVarLocalVariableDeclaration(tree)) {
+      return;
+    }
+    Symbol symbol = ASTHelpers.getSymbol(tree);
+    if (symbol != null && symbol.getKind().equals(ElementKind.LOCAL_VARIABLE)) {
+      varLocalDeclarations.put(symbol, (JCTree.JCVariableDecl) tree);
+    }
+  }
+
+  private @Nullable Type getInferredVarLocalType(
+      Symbol symbol, VisitorState state, boolean calledFromDataflow) {
+    JCTree.JCVariableDecl variableDecl = varLocalDeclarations.get(symbol);
+    if (variableDecl == null) {
+      return null;
+    }
+    ExpressionTree initializer = variableDecl.getInitializer();
+    if (initializer == null) {
+      return typeOrNullIfRaw(symbol.type);
+    }
+    TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
+    Type rhsType = getTreeType(initializer, state.withPath(pathToInitializer), calledFromDataflow);
+    if (rhsType != null && isGenericCallNeedingInference(initializer)) {
+      rhsType =
+          inferGenericMethodCallType(
+              state.withPath(pathToInitializer),
+              (MethodInvocationTree) initializer,
+              pathToInitializer,
+              null,
+              true,
+              calledFromDataflow);
+    }
+    if (rhsType != null && !calledFromDataflow) {
+      inferredVarLocalTypes.put(symbol, rhsType);
+    }
+    return rhsType;
   }
 
   private static boolean isAssignmentToField(Tree tree) {
@@ -1651,7 +1711,7 @@ public final class GenericsChecks {
         if (currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree) {
           TreePath parentPath = currentPath.getParentPath();
           if (parentPath != null) {
-            enclosingType = getDiamondTypeFromParentContext(newClassTree, state, parentPath);
+            enclosingType = getDiamondTypeFromParentContext(newClassTree, state, parentPath, false);
           }
         }
       }
@@ -2015,7 +2075,7 @@ public final class GenericsChecks {
       if (result instanceof InferenceSuccess successResult) {
         methodTypeAtCallSite =
             restoreNestedNullabilityForTypeVarArguments(
-                invocationTree, methodType, methodTypeAtCallSite, state);
+                invocationTree, methodType, methodTypeAtCallSite, state, calledFromDataflow);
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -2049,7 +2109,8 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
-      VisitorState state) {
+      VisitorState state,
+      boolean calledFromDataflow) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     if (methodSymbol.isVarArgs()) {
       // skip handling of varargs for now
@@ -2084,7 +2145,10 @@ public final class GenericsChecks {
         } else { // need to compute the substitution
           ExpressionTree actualParam = actualParams.get(i);
           Type actualArgType =
-              getTreeType(actualParam, state.withPath(pathWithLeaf(pathToInvocation, actualParam)));
+              getTreeType(
+                  actualParam,
+                  state.withPath(pathWithLeaf(pathToInvocation, actualParam)),
+                  calledFromDataflow);
           // only handle cases of non-raw actual parameter types that have the same base type as the
           // inferred parameter type at the call site
           if (actualArgType != null
@@ -2163,7 +2227,7 @@ public final class GenericsChecks {
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
       return getInvocationInferenceInfoForAssignment(
-          parent, invocation, state.withPath(parentPath));
+          parent, invocation, state.withPath(parentPath), calledFromDataflow);
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
@@ -2228,14 +2292,21 @@ public final class GenericsChecks {
   }
 
   private InvocationAndContext getInvocationInferenceInfoForAssignment(
-      Tree assignment, MethodInvocationTree invocation, VisitorState state) {
+      Tree assignment,
+      MethodInvocationTree invocation,
+      VisitorState state,
+      boolean calledFromDataflow) {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
     TreePath path = state.getPath();
     if (path.getLeaf() != assignment) {
       state = state.withPath(pathWithLeaf(path, assignment));
     }
-    Type treeType = getTreeType(assignment, state);
+    Type treeType =
+        assignment instanceof VariableTree variableTree
+                && isVarLocalVariableDeclaration(variableTree)
+            ? null
+            : getTreeType(assignment, state, calledFromDataflow);
     return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
@@ -2351,14 +2422,14 @@ public final class GenericsChecks {
                   false,
                   calledFromDataflow);
         } else {
-          enclosingType = getTreeType(receiver, state.withPath(receiverPath));
+          enclosingType = getTreeType(receiver, state.withPath(receiverPath), calledFromDataflow);
         }
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
-      enclosingType = getTreeType(tree, state);
+      enclosingType = getTreeType(tree, state, calledFromDataflow);
     }
     return enclosingType;
   }
@@ -2610,6 +2681,7 @@ public final class GenericsChecks {
     inferredTypeVarNullabilityForGenericCalls.clear();
     inferredPolyExpressionTypes.clear();
     inferredVarLocalTypes.clear();
+    varLocalDeclarations.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {

@@ -717,6 +717,7 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitVariableDeclaration(
       VariableDeclarationNode node, TransferInput<Nullness, NullnessStore> input) {
+    genericsChecks.registerVarLocalDeclaration(node.getTree());
     ReadableUpdates updates = new ReadableUpdates();
     if (isCatchVariable(node)) {
       updates.set(node, NONNULL);
