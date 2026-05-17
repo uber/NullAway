@@ -99,6 +99,36 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varGenericInferenceFromDataflowInLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T get();
+              }
+              static <U extends @Nullable Object> Foo<U> make(U u) {
+                throw new RuntimeException();
+              }
+              void test() {
+                String s = "hello";
+                while (true) {
+                  var foo = make(s);
+                  // BUG: Diagnostic contains: dereferenced expression foo.get() is @Nullable
+                  foo.get().hashCode();
+                  s = null;
+                }
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
   public void genericInferenceForVarLocalWithDuplicateNameInAnonymousClass() {
     makeHelper()
         .addSourceLines(
