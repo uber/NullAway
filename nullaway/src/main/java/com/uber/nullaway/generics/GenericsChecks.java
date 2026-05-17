@@ -116,9 +116,7 @@ public final class GenericsChecks {
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
   /** Maps each {@code var}-declared local to its inferred NullAway type */
-  private final Map<VarLocalKey, Type> inferredVarLocalTypes = new LinkedHashMap<>();
-
-  private record VarLocalKey(Symbol owner, Name name) {}
+  private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
 
   public @Nullable Type getInferredPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
@@ -539,7 +537,7 @@ public final class GenericsChecks {
           }
         }
         // If it's a local variable declared using `var`, get the inferred type
-        Type inferredVarLocalType = getInferredVarLocalType(symbol);
+        Type inferredVarLocalType = inferredVarLocalTypes.get(symbol);
         if (inferredVarLocalType != null) {
           return inferredVarLocalType;
         }
@@ -818,7 +816,9 @@ public final class GenericsChecks {
                 (MethodInvocationTree) rhsTree,
                 pathToRhs,
                 // if a local is declared using `var`, don't use its javac-inferred type as part of
-                // inference
+                // inference, since javac's type argument inference does not account for
+                // nullability.  we should determine type argument nullability by running inference
+                // on the call and then looking at its return type
                 varLocalDeclaration ? null : lhsType,
                 assignedToLocal,
                 false);
@@ -828,9 +828,7 @@ public final class GenericsChecks {
         VariableTree varTree = (VariableTree) tree;
         Symbol symbol = ASTHelpers.getSymbol(varTree);
         if (symbol != null) {
-          // if declared with `var` we should always get a non-null VarLocalKey for the symbol
-          VarLocalKey key = castToNonNull(getVarLocalKey(symbol));
-          inferredVarLocalTypes.put(key, rhsType);
+          inferredVarLocalTypes.put(symbol, rhsType);
         }
         lhsType = rhsType;
       }
@@ -847,19 +845,6 @@ public final class GenericsChecks {
 
   private static boolean isVarLocalVariableDeclaration(VariableTree tree) {
     return tree instanceof JCTree.JCVariableDecl variableDecl && variableDecl.declaredUsingVar();
-  }
-
-  private static @Nullable VarLocalKey getVarLocalKey(Symbol symbol) {
-    ElementKind kind = symbol.getKind();
-    return (kind.equals(ElementKind.LOCAL_VARIABLE) || kind.equals(ElementKind.RESOURCE_VARIABLE))
-            && symbol.owner != null
-        ? new VarLocalKey(symbol.owner, symbol.name)
-        : null;
-  }
-
-  private @Nullable Type getInferredVarLocalType(Symbol symbol) {
-    VarLocalKey key = getVarLocalKey(symbol);
-    return key != null ? inferredVarLocalTypes.get(key) : null;
   }
 
   private static boolean isAssignmentToField(Tree tree) {

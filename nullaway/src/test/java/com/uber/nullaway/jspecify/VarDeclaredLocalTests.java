@@ -62,6 +62,40 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void sameNameVarInLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T get();
+              }
+              static <U extends @Nullable Object> Foo<U> make(U u) {
+                throw new RuntimeException();
+              }
+              void test() {
+                for (var foo1 = make(null); foo1 == null; ) {
+                  // BUG: Diagnostic contains: dereferenced expression foo1.get() is @Nullable
+                  foo1.get().hashCode();
+                }
+                for (var foo1 = make(new Object()); foo1 == null; ) {
+                  foo1.get().hashCode();
+                }
+                for (var foo1 = make(null); foo1 == null; ) {
+                  // BUG: Diagnostic contains: dereferenced expression foo1.get() is @Nullable
+                  foo1.get().hashCode();
+                }
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
   public void genericInferenceForVarLocalWithDuplicateNameInAnonymousClass() {
     makeHelper()
         .addSourceLines(
