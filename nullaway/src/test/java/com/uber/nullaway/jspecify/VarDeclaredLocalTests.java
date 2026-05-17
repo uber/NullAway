@@ -31,6 +31,9 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                 foo1.get().hashCode();
                 var foo2 = make(new Object());
                 foo2.get().hashCode();
+                var foo3 = make(null);
+                // BUG: Diagnostic contains: dereferenced expression foo3.get() is @Nullable
+                foo3.get().hashCode();
               }
             }
             """)
