@@ -559,11 +559,7 @@ public final class GenericsChecks {
           }
         }
         // If it's a local variable declared using `var`, get the inferred type
-        Type inferredVarLocalType = inferredVarLocalTypes.get(symbol);
-        if (inferredVarLocalType != null) {
-          return inferredVarLocalType;
-        }
-        inferredVarLocalType = getInferredVarLocalType(symbol, state, calledFromDataflow);
+        Type inferredVarLocalType = getInferredVarLocalType(symbol, state, calledFromDataflow);
         if (inferredVarLocalType != null) {
           return inferredVarLocalType;
         }
@@ -879,6 +875,10 @@ public final class GenericsChecks {
 
   private @Nullable Type getInferredVarLocalType(
       Symbol symbol, VisitorState state, boolean calledFromDataflow) {
+    Type cachedType = inferredVarLocalTypes.get(symbol);
+    if (cachedType != null) {
+      return cachedType;
+    }
     JCTree.JCVariableDecl variableDecl = varLocalDeclarations.get(symbol);
     if (variableDecl == null) {
       return null;
