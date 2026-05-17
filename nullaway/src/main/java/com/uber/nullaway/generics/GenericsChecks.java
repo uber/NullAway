@@ -808,10 +808,10 @@ public final class GenericsChecks {
     boolean assignedToLocal;
     if (tree instanceof VariableTree varTree) {
       rhsTree = varTree.getInitializer();
-      assignedToLocal = isAssignmentToLocalVariable(varTree);
+      assignedToLocal = isAssignmentToLocalOrResourceVariable(varTree);
     } else if (tree instanceof AssignmentTree assignmentTree) {
       rhsTree = assignmentTree.getExpression();
-      assignedToLocal = isAssignmentToLocalVariable(assignmentTree);
+      assignedToLocal = isAssignmentToLocalOrResourceVariable(assignmentTree);
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
@@ -828,29 +828,13 @@ public final class GenericsChecks {
     boolean varLocalDeclaration =
         tree instanceof VariableTree varTree && isVarLocalVariableDeclaration(varTree);
     TreePath pathToRhs = new TreePath(state.getPath(), rhsTree);
-    Type rhsType = getTreeType(rhsTree, state.withPath(pathToRhs));
+    Type rhsType =
+        varLocalDeclaration
+            ? getInferredTypeForVarLocalDeclaration(
+                (VariableTree) tree, rhsTree, pathToRhs, state, false)
+            : getTypeForRhs(rhsTree, pathToRhs, lhsType, assignedToLocal, state, false);
     if (rhsType != null) {
-      if (isGenericCallNeedingInference(rhsTree)) {
-        rhsType =
-            inferGenericMethodCallType(
-                state.withPath(pathToRhs),
-                (MethodInvocationTree) rhsTree,
-                pathToRhs,
-                // if a local is declared using `var`, don't use its javac-inferred type as part of
-                // inference, since javac's type argument inference does not account for
-                // nullability.  we should determine type argument nullability by running inference
-                // on the call and then looking at its return type
-                varLocalDeclaration ? null : lhsType,
-                assignedToLocal,
-                false);
-      }
       if (varLocalDeclaration) {
-        // for locals declared with `var`, use the rhsType as the inferred type
-        VariableTree varTree = (VariableTree) tree;
-        Symbol symbol = ASTHelpers.getSymbol(varTree);
-        if (symbol != null) {
-          inferredVarLocalTypes.put(symbol, rhsType);
-        }
         lhsType = rhsType;
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
@@ -860,8 +844,13 @@ public final class GenericsChecks {
     }
   }
 
-  private static boolean isAssignmentToLocalVariable(Tree tree) {
-    return isAssignmentToKind(tree, ElementKind.LOCAL_VARIABLE);
+  private static boolean isAssignmentToLocalOrResourceVariable(Tree tree) {
+    Symbol treeSymbol = getSymbolForAssignment(tree);
+    if (treeSymbol == null) {
+      return false;
+    }
+    ElementKind kind = treeSymbol.getKind();
+    return kind.equals(ElementKind.LOCAL_VARIABLE) || kind.equals(ElementKind.RESOURCE_VARIABLE);
   }
 
   private static boolean isVarLocalVariableDeclaration(VariableTree tree) {
@@ -874,7 +863,9 @@ public final class GenericsChecks {
       return;
     }
     Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (symbol != null && symbol.getKind().equals(ElementKind.LOCAL_VARIABLE)) {
+    if (symbol != null
+        && (symbol.getKind().equals(ElementKind.LOCAL_VARIABLE)
+            || symbol.getKind().equals(ElementKind.RESOURCE_VARIABLE))) {
       varLocalDeclarations.put(symbol, (JCTree.JCVariableDecl) tree);
     }
   }
@@ -890,19 +881,50 @@ public final class GenericsChecks {
       return typeOrNullIfRaw(symbol.type);
     }
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
-    Type rhsType = getTreeType(initializer, state.withPath(pathToInitializer), calledFromDataflow);
-    if (rhsType != null && isGenericCallNeedingInference(initializer)) {
+    return getInferredTypeForVarLocalDeclaration(
+        variableDecl, initializer, pathToInitializer, state, calledFromDataflow);
+  }
+
+  private @Nullable Type getInferredTypeForVarLocalDeclaration(
+      VariableTree varTree,
+      ExpressionTree initializer,
+      TreePath pathToInitializer,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    Type rhsType =
+        getTypeForRhs(
+            initializer,
+            pathToInitializer,
+            null,
+            isAssignmentToLocalOrResourceVariable(varTree),
+            state,
+            calledFromDataflow);
+    if (rhsType != null && !calledFromDataflow) {
+      Symbol symbol = ASTHelpers.getSymbol(varTree);
+      if (symbol != null) {
+        inferredVarLocalTypes.put(symbol, rhsType);
+      }
+    }
+    return rhsType;
+  }
+
+  private @Nullable Type getTypeForRhs(
+      ExpressionTree rhsTree,
+      TreePath pathToRhs,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    Type rhsType = getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
+    if (rhsType != null && isGenericCallNeedingInference(rhsTree)) {
       rhsType =
           inferGenericMethodCallType(
-              state.withPath(pathToInitializer),
-              (MethodInvocationTree) initializer,
-              pathToInitializer,
-              null,
-              true,
+              state.withPath(pathToRhs),
+              (MethodInvocationTree) rhsTree,
+              pathToRhs,
+              typeFromAssignmentContext,
+              assignedToLocal,
               calledFromDataflow);
-    }
-    if (rhsType != null && !calledFromDataflow) {
-      inferredVarLocalTypes.put(symbol, rhsType);
     }
     return rhsType;
   }
@@ -912,6 +934,11 @@ public final class GenericsChecks {
   }
 
   private static boolean isAssignmentToKind(Tree tree, ElementKind kind) {
+    Symbol treeSymbol = getSymbolForAssignment(tree);
+    return treeSymbol != null && treeSymbol.getKind().equals(kind);
+  }
+
+  private static @Nullable Symbol getSymbolForAssignment(Tree tree) {
     Symbol treeSymbol;
     if (tree instanceof VariableTree variableTree) {
       treeSymbol = ASTHelpers.getSymbol(variableTree);
@@ -920,7 +947,7 @@ public final class GenericsChecks {
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
-    return treeSymbol != null && treeSymbol.getKind().equals(kind);
+    return treeSymbol;
   }
 
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
@@ -2307,7 +2334,8 @@ public final class GenericsChecks {
                 && isVarLocalVariableDeclaration(variableTree)
             ? null
             : getTreeType(assignment, state, calledFromDataflow);
-    return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
+    return new InvocationAndContext(
+        invocation, treeType, isAssignmentToLocalOrResourceVariable(assignment));
   }
 
   /**
