@@ -952,11 +952,6 @@ public final class GenericsChecks {
   }
 
   private static boolean isAssignmentToKind(Tree tree, ElementKind kind) {
-    Symbol treeSymbol = getSymbolForAssignment(tree);
-    return treeSymbol != null && treeSymbol.getKind().equals(kind);
-  }
-
-  private static @Nullable Symbol getSymbolForAssignment(Tree tree) {
     Symbol treeSymbol;
     if (tree instanceof VariableTree variableTree) {
       treeSymbol = ASTHelpers.getSymbol(variableTree);
@@ -965,7 +960,7 @@ public final class GenericsChecks {
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
-    return treeSymbol;
+    return treeSymbol != null && treeSymbol.getKind().equals(kind);
   }
 
   private ConstraintSolver makeSolver(VisitorState state, NullAway analysis) {
