@@ -934,18 +934,17 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       VisitorState state,
       boolean calledFromDataflow) {
-    Type rhsType = getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
-    if (rhsType != null && isGenericCallNeedingInference(rhsTree)) {
-      rhsType =
-          inferGenericMethodCallType(
-              state.withPath(pathToRhs),
-              (MethodInvocationTree) rhsTree,
-              pathToRhs,
-              typeFromAssignmentContext,
-              assignedToLocal,
-              calledFromDataflow);
+    if (isGenericCallNeedingInference(rhsTree)) {
+      return inferGenericMethodCallType(
+          state.withPath(pathToRhs),
+          (MethodInvocationTree) rhsTree,
+          pathToRhs,
+          typeFromAssignmentContext,
+          assignedToLocal,
+          calledFromDataflow);
+    } else {
+      return getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
     }
-    return rhsType;
   }
 
   private static boolean isAssignmentToField(Tree tree) {
