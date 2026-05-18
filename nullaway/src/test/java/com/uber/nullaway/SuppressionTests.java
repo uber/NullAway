@@ -216,4 +216,53 @@ public class SuppressionTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  /**
+   * Test showing a trick for asserting that all {@code @Nullable} levels of a nested access path
+   * are in fact non-null using a warning suppression.
+   */
+  @Test
+  public void suppressNestedInRequireNonNull() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Objects;
+            class Test {
+              static class Foo {
+                @Nullable Foo next;
+                @Nullable Foo getNext() { return next; }
+              }
+
+              static void testFields(Foo f) {
+                @SuppressWarnings("NullAway")
+                var unused = Objects.requireNonNull(f.next.next.next);
+                f.next.hashCode();
+                f.next.next.hashCode();
+                f.next.next.next.hashCode();
+                // one too many
+                // BUG: Diagnostic contains: dereferenced expression f.next.next.next.next is @Nullable
+                f.next.next.next.next.hashCode();
+              }
+
+              static void testCalls(Foo f) {
+                @SuppressWarnings("NullAway")
+                var unused = Objects.requireNonNull(f.getNext().getNext().getNext());
+                f.getNext().hashCode();
+                f.getNext().getNext().hashCode();
+                f.getNext().getNext().getNext().hashCode();
+                // one too many
+                // BUG: Diagnostic contains: dereferenced expression f.getNext().getNext().getNext().getNext() is @Nullable
+                f.getNext().getNext().getNext().getNext().hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
 }

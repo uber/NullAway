@@ -19,8 +19,15 @@ public interface ConstraintSolver {
    * exceptions.
    */
   class UnsatisfiableConstraintsException extends RuntimeException {
-    public UnsatisfiableConstraintsException(String message) {
-      super(message);
+    /** Type variable on which the contradiction was detected */
+    private final Element typeVariable;
+
+    public UnsatisfiableConstraintsException(Element typeVariable) {
+      this.typeVariable = typeVariable;
+    }
+
+    public Element getTypeVariable() {
+      return typeVariable;
     }
   }
 

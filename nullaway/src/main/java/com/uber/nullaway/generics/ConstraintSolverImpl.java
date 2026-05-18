@@ -311,8 +311,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
+    Verify.verify(
+        s instanceof TypeVariable || t instanceof TypeVariable,
+        "At least one argument must be a type variable but got %s and %s",
+        s,
+        t);
     /* variable-to-variable edge */
-    if (isTypeVariable(s) && isTypeVariable(t)) {
+    if (treatAsTypeVariableForInference(s) && treatAsTypeVariableForInference(t)) {
       TypeVariable sv = (TypeVariable) s;
       TypeVariable tv = (TypeVariable) t;
       getState(sv.asElement()).supertypes.add(tv.asElement());
@@ -321,10 +326,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     /* top-level nullability rules */
     if (isKnownNonNull(t)) {
-      requireNonNull(s);
+      constrainAsNonNull(s, t);
     }
     if (isKnownNullable(s)) {
-      requireNullable(t);
+      constrainAsNullable(t, s);
     }
   }
 
@@ -339,30 +344,47 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return false;
     }
     if (st.nullness != NullnessState.UNKNOWN) {
-      throw new UnsatisfiableConstraintsException(
-          "Contradictory nullability for " + typeVarElement + ": " + st.nullness + " vs. " + n);
+      throw new UnsatisfiableConstraintsException(typeVarElement);
     }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
-      throw new UnsatisfiableConstraintsException(
-          typeVarElement + " cannot be @Nullable (upper bound is @NonNull)");
+      throw new UnsatisfiableConstraintsException(typeVarElement);
     }
     st.nullness = n;
     return true;
   }
 
-  private void requireNullable(Type t) throws UnsatisfiableConstraintsException {
-    if (isTypeVariable(t)) {
+  /**
+   * Constrain a type to be @Nullable due to its being a supertype of some known @Nullable type
+   *
+   * @param t the type to constrain
+   * @param knownNullableType the known nullable type
+   * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
+   */
+  private void constrainAsNullable(Type t, Type knownNullableType)
+      throws UnsatisfiableConstraintsException {
+    if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
-      throw new UnsatisfiableConstraintsException("Cannot treat @NonNull type as @Nullable: " + t);
+      TypeVariable typeVar =
+          knownNullableType instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) t;
+      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 
-  private void requireNonNull(Type t) throws UnsatisfiableConstraintsException {
-    if (isTypeVariable(t)) {
+  /**
+   * Constrain a type to be @NonNull due to its being a subtype of some known @NonNull type
+   *
+   * @param t the type to constrain
+   * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
+   */
+  private void constrainAsNonNull(Type t, Type knownNonNullType)
+      throws UnsatisfiableConstraintsException {
+    if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
-      throw new UnsatisfiableConstraintsException("Cannot treat @Nullable type as @NonNull: " + t);
+      TypeVariable typeVar =
+          t instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) knownNonNullType;
+      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 
@@ -372,7 +394,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return vars.computeIfAbsent(typeVarElement, v -> new VarState(upperBoundIsNullable(v)));
   }
 
-  private boolean isTypeVariable(Type t) {
+  private boolean treatAsTypeVariableForInference(Type t) {
     if (t instanceof TypeVar tv) {
       // Only treat as a type variable if it _doesn't_ have an explicit @Nullable or @NonNull
       // annotation.
@@ -390,7 +412,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Everything non-nullable *and* non-variable counts as @NonNull. */
   private boolean isKnownNonNull(Type t) {
-    return !isKnownNullable(t) && !isTypeVariable(t);
+    return !isKnownNullable(t) && !treatAsTypeVariableForInference(t);
   }
 
   private boolean upperBoundIsNullable(Element typeVarElement) {
