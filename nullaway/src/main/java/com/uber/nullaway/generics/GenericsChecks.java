@@ -2345,7 +2345,7 @@ public final class GenericsChecks {
     Type treeType =
         assignment instanceof VariableTree variableTree
                 && isVarLocalVariableDeclaration(variableTree)
-            ? null
+            ? null // no info from assignment context if declared with `var`
             : getTreeType(assignment, state, calledFromDataflow);
     return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
