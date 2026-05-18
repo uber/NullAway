@@ -40,7 +40,7 @@ class RunOnceForwardAnalysisImpl<
    * href="https://github.com/typetools/checker-framework/issues/7726">Checker Framework issue
    * 7726</a>. This version returns the current value for {@code n} even if we have a running
    * analysis and {@code n} is not a (transitive) operand of the current node of the analysis.
-   * Otherwise, its implementation is identical to that of {@link
+   * Otherwise, its implementation is identical to that of {@code
    * org.checkerframework.nullaway.dataflow.analysis.AbstractAnalysis#getValue(Node).}
    *
    * <p>We should remove this method if / when CF issue 7726 is fixed in a suitable manner.
