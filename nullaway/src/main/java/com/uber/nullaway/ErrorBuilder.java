@@ -58,11 +58,11 @@ import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.SerializationService;
+import com.uber.nullaway.fixserialization.out.NullableExpressionInfo;
 import com.uber.nullaway.fixserialization.scanners.OriginScanner;
 import com.uber.nullaway.fixserialization.scanners.OriginTrace;
 import java.util.Iterator;
 import java.util.List;
-import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
 import java.util.stream.StreamSupport;
@@ -114,7 +114,7 @@ public class ErrorBuilder {
         inquiry,
         nonNullTarget,
         nullableExpression,
-        Map.of());
+        null);
   }
 
   /**
@@ -134,7 +134,7 @@ public class ErrorBuilder {
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
-      Map<String, String> args) {
+      @Nullable NullableExpressionInfo nullableExpressionInfo) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
     return createErrorDescriptionWithInfo(
         errorMessage,
@@ -144,7 +144,7 @@ public class ErrorBuilder {
         inquiry,
         nonNullTarget,
         nullableExpression,
-        args);
+        nullableExpressionInfo);
   }
 
   /**
@@ -174,7 +174,7 @@ public class ErrorBuilder {
         inquiry,
         nonNullTarget,
         nullableExpression,
-        Map.of());
+        null);
   }
 
   public Description createErrorDescriptionWithInfo(
@@ -185,7 +185,7 @@ public class ErrorBuilder {
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
-      Map<String, String> args) {
+      @Nullable NullableExpressionInfo nullableExpressionInfo) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -236,7 +236,7 @@ public class ErrorBuilder {
               ? suggestTree
               : state.getPath().getLeaf();
       SerializationService.serializeReportingError(
-          config, state, errorTree, nonNullTarget, errorMessage, origins, args);
+          config, state, errorTree, nonNullTarget, errorMessage, origins, nullableExpressionInfo);
     }
 
     // #letbuildersbuild
@@ -332,7 +332,7 @@ public class ErrorBuilder {
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
-      Map<String, String> args) {
+      @Nullable NullableExpressionInfo nullableExpressionInfo) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescriptionWithInfo(
           errorMessage,
@@ -342,7 +342,7 @@ public class ErrorBuilder {
           inquiry,
           nonNullTarget,
           nullableExpression,
-          args);
+          nullableExpressionInfo);
     } else {
       return createErrorDescriptionWithInfo(
           errorMessage,
@@ -352,7 +352,7 @@ public class ErrorBuilder {
           inquiry,
           nonNullTarget,
           nullableExpression,
-          args);
+          nullableExpressionInfo);
     }
   }
 
@@ -372,7 +372,7 @@ public class ErrorBuilder {
         inquiry,
         nonNullTarget,
         nullableExpression,
-        Map.of());
+        null);
   }
 
   Description.Builder addSuppressWarningsFix(

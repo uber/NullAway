@@ -98,6 +98,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
+import com.uber.nullaway.fixserialization.out.NullableExpressionInfo;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
@@ -1980,23 +1981,21 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expr = tree.getExpression();
     Symbol derefedSymbol = ASTHelpers.getSymbol(expr);
-    Map<String, String> args = new LinkedHashMap<>();
-    if (derefedSymbol != null) {
-      args.put("expression", state.getSourceForNode(expr));
-      args.put("kind", derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT));
-      args.put("class", Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter));
-      args.put(
-          "isAnnotated",
-          Boolean.toString(
-              !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler)));
-      args.put("symbol", Serializer.serializeSymbol(derefedSymbol, adapter));
-      args.put("position", Integer.toString(((JCTree) expr).pos().getStartPosition()));
-    }
+    NullableExpressionInfo exprInfo =
+        derefedSymbol != null
+            ? new NullableExpressionInfo(
+                state.getSourceForNode(expr),
+                derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT),
+                Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
+                !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
+                Serializer.serializeSymbol(derefedSymbol, adapter),
+                ((JCTree) expr).pos().getStartPosition())
+            : null;
     String message = "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable";
     ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescriptionWithInfo(
-          errorMessage, buildDescription(expr), state, mayBeNullInquiry, null, expr, args);
+          errorMessage, buildDescription(expr), state, mayBeNullInquiry, null, expr, exprInfo);
     }
     // auto-unboxing check in JSpecify mode
     if (!config.isJSpecifyMode()) {
@@ -2910,18 +2909,16 @@ public class NullAway extends BugChecker
     if (mayBeNullExpr(state, baseExpression)) {
       ExpressionTree stripped = NullabilityUtil.stripParensAndCasts(baseExpression);
       Symbol derefedSymbol = ASTHelpers.getSymbol(stripped);
-      Map<String, String> args = new LinkedHashMap<>();
-      if (derefedSymbol != null) {
-        args.put("expression", state.getSourceForNode(baseExpression));
-        args.put("kind", derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT));
-        args.put("class", Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter));
-        args.put(
-            "isAnnotated",
-            Boolean.toString(
-                !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler)));
-        args.put("symbol", Serializer.serializeSymbol(derefedSymbol, adapter));
-        args.put("position", Integer.toString(((JCTree) baseExpression).pos().getStartPosition()));
-      }
+      NullableExpressionInfo exprInfo =
+          derefedSymbol != null
+              ? new NullableExpressionInfo(
+                  state.getSourceForNode(baseExpression),
+                  derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT),
+                  Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
+                  !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
+                  Serializer.serializeSymbol(derefedSymbol, adapter),
+                  ((JCTree) baseExpression).pos().getStartPosition())
+              : null;
       String message =
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
@@ -2933,7 +2930,7 @@ public class NullAway extends BugChecker
           mayBeNullInquiry,
           null,
           baseExpression,
-          args);
+          exprInfo);
     }
 
     Optional<ErrorMessage> handlerErrorMessage =

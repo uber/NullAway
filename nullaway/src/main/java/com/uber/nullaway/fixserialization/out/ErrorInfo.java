@@ -40,7 +40,6 @@ import com.uber.nullaway.fixserialization.scanners.OriginTrace;
 import java.net.URI;
 import java.nio.file.Path;
 import java.util.Locale;
-import java.util.Map;
 import java.util.Set;
 import javax.xml.stream.XMLStreamException;
 import javax.xml.stream.XMLStreamWriter;
@@ -71,8 +70,8 @@ public class ErrorInfo {
   /** Path to the containing source file where this error is reported. */
   private final @Nullable Path path;
 
-  /** Extra argument regarding the error required to generate a fix automatically. */
-  private final Map<String, String> infos;
+  /** Structured metadata about the nullable expression, if available. */
+  private final @Nullable NullableExpressionInfo nullableExpressionInfo;
 
   private final Set<OriginTrace> origins;
 
@@ -82,7 +81,7 @@ public class ErrorInfo {
       ErrorMessage errorMessage,
       @Nullable Symbol nonnullTarget,
       Set<OriginTrace> origins,
-      Map<String, String> args) {
+      @Nullable NullableExpressionInfo nullableExpressionInfo) {
     this.classAndMemberInfo =
         (errorMessage.getMessageType().equals(FIELD_NO_INIT)
                 || errorMessage.getMessageType().equals(METHOD_NO_INIT))
@@ -95,7 +94,7 @@ public class ErrorInfo {
     this.path =
         Serializer.pathToSourceFileFromURI(path.getCompilationUnit().getSourceFile().toUri());
     this.origins = origins;
-    this.infos = args;
+    this.nullableExpressionInfo = nullableExpressionInfo;
   }
 
   /**
@@ -155,12 +154,12 @@ public class ErrorInfo {
   }
 
   /**
-   * Returns extra information regarding the error required to generate a fix automatically.
+   * Returns structured metadata about the nullable expression at the error site, if available.
    *
-   * @return Map from info keys to their values.
+   * @return the nullable expression info, or {@code null} if not applicable.
    */
-  public Map<String, String> getInfos() {
-    return infos;
+  public @Nullable NullableExpressionInfo getNullableExpressionInfo() {
+    return nullableExpressionInfo;
   }
 
   /** Finds the class and member of program point where the error is reported. */
@@ -213,11 +212,9 @@ public class ErrorInfo {
       }
       writer.writeEndElement();
     }
-    writer.writeStartElement("infos");
-    for (Map.Entry<String, String> entry : infos.entrySet()) {
-      Serializer.writeTextElement(writer, entry.getKey(), entry.getValue());
+    if (nullableExpressionInfo != null) {
+      nullableExpressionInfo.writeXml(writer);
     }
-    writer.writeEndElement();
     writer.writeEndElement();
   }
 
