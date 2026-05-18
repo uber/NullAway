@@ -202,7 +202,7 @@ public class NullAway extends BugChecker
       ImmutableSet.of(TYPE_USE, TYPE_PARAMETER);
 
   /** Default inquiry for whether an expression may be null. */
-  public final MayBeNullableInquiry mayBeNullInquiry = (tree, state) -> mayBeNullExpr(state, tree);
+  private final MayBeNullableInquiry mayBeNullInquiry = (tree, state) -> mayBeNullExpr(state, tree);
 
   /**
    * Possible levels of null-marking / annotatedness for a class. This may be set to FULLY_MARKED or
@@ -910,8 +910,6 @@ public class NullAway extends BugChecker
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
           buildDescription(memberReferenceTree),
           state,
-          mayBeNullInquiry,
-          null,
           null);
     }
 
@@ -979,9 +977,7 @@ public class NullAway extends BugChecker
             new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
             buildDescription(errorTree),
             paramState,
-            mayBeNullInquiry,
-            paramSymbol,
-            null);
+            paramSymbol);
       }
     }
     return Description.NO_MATCH;
@@ -1281,9 +1277,7 @@ public class NullAway extends BugChecker
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_RETURN, message),
           buildDescription(errorTree),
           state,
-          mayBeNullInquiry,
-          overriddenMethod,
-          null);
+          overriddenMethod);
     }
     // if any parameter in the super method is annotated @Nullable,
     // overriding method cannot assume @Nonnull
@@ -1463,8 +1457,7 @@ public class NullAway extends BugChecker
           new ErrorMessage(
               MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
               "read of @NonNull field " + symbol + " before initialization");
-      return errorBuilder.createErrorDescription(
-          errorMessage, buildDescription(tree), state, mayBeNullInquiry, null, null);
+      return errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null);
     } else {
       return Description.NO_MATCH;
     }
@@ -1797,8 +1790,7 @@ public class NullAway extends BugChecker
                 "Type-use nullability annotations should be applied on inner class");
 
         state.reportMatch(
-            errorBuilder.createErrorDescription(
-                errorMessage, buildDescription(type), state, mayBeNullInquiry, null, null));
+            errorBuilder.createErrorDescription(errorMessage, buildDescription(type), state, null));
       }
     }
   }
@@ -2017,12 +2009,7 @@ public class NullAway extends BugChecker
             new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
         state.reportMatch(
             errorBuilder.createErrorDescription(
-                errorMessageUnbox,
-                buildDescription(loopVariable),
-                state,
-                mayBeNullInquiry,
-                null,
-                null));
+                errorMessageUnbox, buildDescription(loopVariable), state, null));
       }
     }
 
@@ -2311,10 +2298,7 @@ public class NullAway extends BugChecker
         if (!(symbolHasExternalInitAnnotation(classSymbol)
             && entities.instanceInitializerMethods().isEmpty())) {
           errorBuilder.reportInitErrorOnField(
-              uninitField,
-              state,
-              mayBeNullInquiry,
-              buildDescription(getTreesInstance(state).getTree(uninitField)));
+              uninitField, state, buildDescription(getTreesInstance(state).getTree(uninitField)));
         }
       } else {
         // report it on each constructor that does not initialize it
@@ -2331,7 +2315,6 @@ public class NullAway extends BugChecker
           (Symbol.MethodSymbol) constructorElement,
           errMsgForInitializer(errorFieldsForInitializer.get(constructorElement), state),
           state,
-          mayBeNullInquiry,
           buildDescription(getTreesInstance(state).getTree(constructorElement)));
     }
     // For static fields
@@ -2341,10 +2324,7 @@ public class NullAway extends BugChecker
       // initialization block
       // anyways).
       errorBuilder.reportInitErrorOnField(
-          uninitSField,
-          state,
-          mayBeNullInquiry,
-          buildDescription(getTreesInstance(state).getTree(uninitSField)));
+          uninitSField, state, buildDescription(getTreesInstance(state).getTree(uninitSField)));
     }
   }
 

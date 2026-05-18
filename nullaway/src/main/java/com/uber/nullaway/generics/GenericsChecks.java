@@ -287,12 +287,7 @@ public final class GenericsChecks {
                 methodSymbol, typeVariable.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(tree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   private void reportInvalidInstantiationError(
@@ -306,12 +301,7 @@ public final class GenericsChecks {
                 baseTypeVariable.tsym.toString(), baseType.tsym.toString()));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(tree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   private void reportInvalidAssignmentInstantiationError(
@@ -322,12 +312,7 @@ public final class GenericsChecks {
         new ErrorMessage(ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, msg);
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(tree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   private String errorMessageForIncompatibleTypesAtPseudoAssignment(
@@ -363,12 +348,7 @@ public final class GenericsChecks {
             errorMessageForIncompatibleTypesAtPseudoAssignment(methodType, returnType, state));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(tree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   private void reportMismatchedTypeForTernaryOperator(
@@ -385,12 +365,7 @@ public final class GenericsChecks {
                     + ", which has mismatched nullability of type parameters"));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(tree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(tree), state, null));
   }
 
   private void reportInvalidParametersNullabilityError(
@@ -406,12 +381,7 @@ public final class GenericsChecks {
                 formalParameterType, actualParameterType, state));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(paramExpression),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(paramExpression), state, null));
   }
 
   private void reportInvalidMethodReferenceReturnTypeError(
@@ -430,12 +400,7 @@ public final class GenericsChecks {
                 prettyTypeForError(functionalInterfaceReturnType, state)));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(memberReferenceTree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
   }
 
   private void reportInvalidMethodReferenceParameterTypeError(
@@ -454,12 +419,7 @@ public final class GenericsChecks {
                 prettyTypeForError(functionalInterfaceParameterType, state)));
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(memberReferenceTree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
   }
 
   private void reportInvalidOverridingMethodReturnTypeError(
@@ -478,12 +438,7 @@ public final class GenericsChecks {
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(methodTree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(methodTree), state, null));
   }
 
   private void reportInvalidOverridingMethodParamTypeError(
@@ -499,12 +454,7 @@ public final class GenericsChecks {
                 + ", which has mismatched type parameter nullability");
     state.reportMatch(
         errorBuilder.createErrorDescription(
-            errorMessage,
-            analysis.buildDescription(formalParameterTree),
-            state,
-            analysis.mayBeNullInquiry,
-            null,
-            null));
+            errorMessage, analysis.buildDescription(formalParameterTree), state, null));
   }
 
   /**
@@ -999,12 +949,7 @@ public final class GenericsChecks {
                     state.getSourceForNode(invocationTree), e.getMessage()));
         state.reportMatch(
             errorBuilder.createErrorDescription(
-                errorMessage,
-                analysis.buildDescription(invocationTree),
-                state,
-                analysis.mayBeNullInquiry,
-                null,
-                null));
+                errorMessage, analysis.buildDescription(invocationTree), state, null));
       }
       InferenceFailure failureResult = new InferenceFailure(e.getMessage());
       // don't cache result if we were called from dataflow, since the result may rely on dataflow

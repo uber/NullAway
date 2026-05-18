@@ -90,8 +90,6 @@ public class FieldContractUtils {
                 tree,
                 analysis.buildDescription(tree),
                 state,
-                analysis.mayBeNullInquiry,
-                null,
                 null));
   }
 }

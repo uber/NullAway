@@ -102,9 +102,26 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
+      @Nullable Symbol nonNullTarget) {
+    Tree enclosingSuppressTree = suppressibleNode(state.getPath());
+    return createErrorDescriptionWithInfo(
+        errorMessage,
+        enclosingSuppressTree,
+        descriptionBuilder,
+        state,
+        null,
+        nonNullTarget,
+        null,
+        null);
+  }
+
+  public Description createErrorDescription(
+      ErrorMessage errorMessage,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
-      @Nullable ExpressionTree nullableExpression) {
+      ExpressionTree nullableExpression) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
     return createErrorDescriptionWithInfo(
         errorMessage,
@@ -117,23 +134,13 @@ public class ErrorBuilder {
         null);
   }
 
-  /**
-   * create an error description for a nullability warning
-   *
-   * @param errorMessage the error message object.
-   * @param descriptionBuilder the description builder for the error.
-   * @param state the visitor state (used for e.g. suppression finding).
-   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
-   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
-   * @return the error description
-   */
   public Description createErrorDescriptionWithInfo(
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
-      @Nullable ExpressionTree nullableExpression,
+      ExpressionTree nullableExpression,
       @Nullable NullableExpressionInfo nullableExpressionInfo) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
     return createErrorDescriptionWithInfo(
@@ -147,17 +154,16 @@ public class ErrorBuilder {
         nullableExpressionInfo);
   }
 
-  /**
-   * create an error description for a nullability warning
-   *
-   * @param errorMessage the error message object.
-   * @param suggestTree the location at which a fix suggestion should be made
-   * @param descriptionBuilder the description builder for the error.
-   * @param state the visitor state (used for e.g. suppression finding).
-   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
-   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
-   * @return the error description
-   */
+  public Description createErrorDescription(
+      ErrorMessage errorMessage,
+      @Nullable Tree suggestTree,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget) {
+    return createErrorDescriptionWithInfo(
+        errorMessage, suggestTree, descriptionBuilder, state, null, nonNullTarget, null, null);
+  }
+
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
@@ -165,7 +171,7 @@ public class ErrorBuilder {
       VisitorState state,
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
-      @Nullable ExpressionTree nullableExpression) {
+      ExpressionTree nullableExpression) {
     return createErrorDescriptionWithInfo(
         errorMessage,
         suggestTree,
@@ -182,7 +188,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
+      NullAway.@Nullable MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
       @Nullable NullableExpressionInfo nullableExpressionInfo) {
@@ -208,7 +214,7 @@ public class ErrorBuilder {
 
     Set<OriginTrace> origins = Set.of();
     if (config.serializationIsActive()) {
-      if (nullableExpression != null) {
+      if (nullableExpression != null && inquiry != null) {
         Symbol nullableExpressionSymbol = ASTHelpers.getSymbol(nullableExpression);
         if (nullableExpressionSymbol != null
             && nullableExpressionSymbol.getKind() == ElementKind.LOCAL_VARIABLE) {
@@ -331,7 +337,7 @@ public class ErrorBuilder {
       VisitorState state,
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
-      @Nullable ExpressionTree nullableExpression,
+      ExpressionTree nullableExpression,
       @Nullable NullableExpressionInfo nullableExpressionInfo) {
     if (config.getCastToNonNullMethod() != null) {
       return createErrorDescriptionWithInfo(
@@ -363,7 +369,7 @@ public class ErrorBuilder {
       VisitorState state,
       NullAway.MayBeNullableInquiry inquiry,
       @Nullable Symbol nonNullTarget,
-      @Nullable ExpressionTree nullableExpression) {
+      ExpressionTree nullableExpression) {
     return createErrorDescriptionForNullAssignmentWithInfo(
         errorMessage,
         suggestTreeIfCastToNonNull,
@@ -519,7 +525,6 @@ public class ErrorBuilder {
       Symbol.MethodSymbol methodSymbol,
       String message,
       VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
       Description.Builder descriptionBuilder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
@@ -532,8 +537,7 @@ public class ErrorBuilder {
     Tree methodTree = getTreesInstance(state).getTree(methodSymbol);
     ErrorMessage errorMessage = new ErrorMessage(METHOD_NO_INIT, message);
     state.reportMatch(
-        createErrorDescription(
-            errorMessage, methodTree, descriptionBuilder, state, inquiry, null, null));
+        createErrorDescription(errorMessage, methodTree, descriptionBuilder, state, null));
   }
 
   boolean symbolHasSuppressWarningsAnnotation(Symbol symbol, String suppression) {
@@ -611,11 +615,7 @@ public class ErrorBuilder {
     return message.toString();
   }
 
-  void reportInitErrorOnField(
-      Symbol symbol,
-      VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
-      Description.Builder builder) {
+  void reportInitErrorOnField(Symbol symbol, VisitorState state, Description.Builder builder) {
     // Check needed here, despite check in hasPathSuppression because initialization
     // checking happens at the class-level (meaning state.getPath() might not include the
     // field itself).
@@ -640,9 +640,7 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
-              inquiry,
-              symbol,
-              null));
+              symbol));
     } else {
       state.reportMatch(
           createErrorDescription(
@@ -650,9 +648,7 @@ public class ErrorBuilder {
               tree,
               builder,
               state,
-              inquiry,
-              symbol,
-              null));
+              symbol));
     }
   }
 }
