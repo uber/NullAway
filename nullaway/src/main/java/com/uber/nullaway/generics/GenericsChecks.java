@@ -811,10 +811,10 @@ public final class GenericsChecks {
     boolean assignedToLocal;
     if (tree instanceof VariableTree varTree) {
       rhsTree = varTree.getInitializer();
-      assignedToLocal = isAssignmentToLocalOrResourceVariable(varTree);
+      assignedToLocal = isAssignmentToLocalVariable(varTree);
     } else if (tree instanceof AssignmentTree assignmentTree) {
       rhsTree = assignmentTree.getExpression();
-      assignedToLocal = isAssignmentToLocalOrResourceVariable(assignmentTree);
+      assignedToLocal = isAssignmentToLocalVariable(assignmentTree);
     } else {
       throw new RuntimeException("Unexpected tree type: " + tree.getKind());
     }
@@ -835,7 +835,7 @@ public final class GenericsChecks {
         varLocalDeclaration
             ? getInferredTypeForVarLocalDeclaration(
                 (VariableTree) tree, rhsTree, pathToRhs, state, false)
-            : getTypeForRhs(rhsTree, pathToRhs, lhsType, assignedToLocal, state, false);
+            : getTypeForRhsOfAssignment(rhsTree, pathToRhs, lhsType, assignedToLocal, state, false);
     if (rhsType != null) {
       if (varLocalDeclaration) {
         lhsType = rhsType;
@@ -847,13 +847,9 @@ public final class GenericsChecks {
     }
   }
 
-  private static boolean isAssignmentToLocalOrResourceVariable(Tree tree) {
-    Symbol treeSymbol = getSymbolForAssignment(tree);
-    if (treeSymbol == null) {
-      return false;
-    }
-    ElementKind kind = treeSymbol.getKind();
-    return kind.equals(ElementKind.LOCAL_VARIABLE) || kind.equals(ElementKind.RESOURCE_VARIABLE);
+  private static boolean isAssignmentToLocalVariable(Tree tree) {
+    return isAssignmentToKind(tree, ElementKind.LOCAL_VARIABLE)
+        || isAssignmentToKind(tree, ElementKind.RESOURCE_VARIABLE);
   }
 
   private static boolean isVarLocalVariableDeclaration(VariableTree tree) {
@@ -878,6 +874,14 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Gets the inferred type for a local variable declared with {@code var}.
+   *
+   * @param symbol symbol for the local
+   * @param state visitor state
+   * @param calledFromDataflow whether this method was called as part of dataflow analysis
+   * @return the inferred type, or {@code null} if the symbol is not for a var-declared local
+   */
   private @Nullable Type getInferredVarLocalType(
       Symbol symbol, VisitorState state, boolean calledFromDataflow) {
     Type cachedType = inferredVarLocalTypes.get(symbol);
@@ -889,9 +893,10 @@ public final class GenericsChecks {
       return null;
     }
     ExpressionTree initializer = variableDecl.getInitializer();
-    if (initializer == null) {
-      return typeOrNullIfRaw(symbol.type);
-    }
+    Verify.verify(
+        initializer != null,
+        "local declared using var should have an initializer: %s",
+        state.getSourceForNode(variableDecl));
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
     return getInferredTypeForVarLocalDeclaration(
         variableDecl, initializer, pathToInitializer, state, calledFromDataflow);
@@ -904,13 +909,15 @@ public final class GenericsChecks {
       VisitorState state,
       boolean calledFromDataflow) {
     Type rhsType =
-        getTypeForRhs(
+        getTypeForRhsOfAssignment(
             initializer,
             pathToInitializer,
             null,
-            isAssignmentToLocalOrResourceVariable(varTree),
+            isAssignmentToLocalVariable(varTree),
             state,
             calledFromDataflow);
+    // do _not_ cache the inferred type if called from dataflow, since it may rely on incomplete
+    // results from the dataflow analysis
     if (rhsType != null && !calledFromDataflow) {
       Symbol symbol = ASTHelpers.getSymbol(varTree);
       if (symbol != null) {
@@ -920,7 +927,7 @@ public final class GenericsChecks {
     return rhsType;
   }
 
-  private @Nullable Type getTypeForRhs(
+  private @Nullable Type getTypeForRhsOfAssignment(
       ExpressionTree rhsTree,
       TreePath pathToRhs,
       @Nullable Type typeFromAssignmentContext,
@@ -2346,8 +2353,7 @@ public final class GenericsChecks {
                 && isVarLocalVariableDeclaration(variableTree)
             ? null
             : getTreeType(assignment, state, calledFromDataflow);
-    return new InvocationAndContext(
-        invocation, treeType, isAssignmentToLocalOrResourceVariable(assignment));
+    return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
   /**
