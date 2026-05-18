@@ -201,8 +201,10 @@ public class NullAway extends BugChecker
   private static final ImmutableSet<ElementType> TYPE_USE_OR_TYPE_PARAMETER =
       ImmutableSet.of(TYPE_USE, TYPE_PARAMETER);
 
-  /** Default inquiry for whether an expression may be null. */
-  private final MayBeNullableInquiry mayBeNullInquiry = (tree, state) -> mayBeNullExpr(state, tree);
+  /** Returns {@code true} if the given expression may be null. */
+  private boolean mayBeNullInquiry(ExpressionTree tree, VisitorState state) {
+    return mayBeNullExpr(state, tree);
+  }
 
   /**
    * Possible levels of null-marking / annotatedness for a class. This may be set to FULLY_MARKED or
@@ -546,7 +548,7 @@ public class NullAway extends BugChecker
               errorMessage,
               buildDescription(tree),
               state,
-              mayBeNullInquiry,
+              this::mayBeNullInquiry,
               arraySymbol,
               expression);
         }
@@ -571,7 +573,7 @@ public class NullAway extends BugChecker
           expression,
           buildDescription(tree),
           state,
-          mayBeNullInquiry,
+          this::mayBeNullInquiry,
           ASTHelpers.getSymbol(tree.getVariable()),
           expression);
     }
@@ -761,7 +763,7 @@ public class NullAway extends BugChecker
           switchSelectorExpression,
           buildDescription(switchSelectorExpression),
           state,
-          mayBeNullInquiry,
+          this::mayBeNullInquiry,
           null,
           switchSelectorExpression);
     }
@@ -1159,7 +1161,7 @@ public class NullAway extends BugChecker
           retExpr,
           buildDescription(errorTree),
           state,
-          mayBeNullInquiry,
+          this::mayBeNullInquiry,
           methodSymbol,
           retExpr);
     }
@@ -1707,7 +1709,7 @@ public class NullAway extends BugChecker
               initializer,
               buildDescription(tree),
               state,
-              mayBeNullInquiry,
+              this::mayBeNullInquiry,
               symbol,
               initializer);
         }
@@ -1987,7 +1989,13 @@ public class NullAway extends BugChecker
     ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescriptionWithInfo(
-          errorMessage, buildDescription(expr), state, mayBeNullInquiry, null, expr, exprInfo);
+          errorMessage,
+          buildDescription(expr),
+          state,
+          this::mayBeNullInquiry,
+          null,
+          expr,
+          exprInfo);
     }
     // auto-unboxing check in JSpecify mode
     if (!config.isJSpecifyMode()) {
@@ -2035,7 +2043,7 @@ public class NullAway extends BugChecker
                   + state.getSourceForNode(lockExpr)
                   + "\" is @Nullable");
       return errorBuilder.createErrorDescription(
-          errorMessage, buildDescription(lockExpr), state, mayBeNullInquiry, null, lockExpr);
+          errorMessage, buildDescription(lockExpr), state, this::mayBeNullInquiry, null, lockExpr);
     }
     return Description.NO_MATCH;
   }
@@ -2062,7 +2070,13 @@ public class NullAway extends BugChecker
                   "unboxing of a @Nullable value - " + state.getSourceForNode(tree));
           state.reportMatch(
               errorBuilder.createErrorDescription(
-                  errorMessage, tree, buildDescription(tree), state, mayBeNullInquiry, null, tree));
+                  errorMessage,
+                  tree,
+                  buildDescription(tree),
+                  state,
+                  this::mayBeNullInquiry,
+                  null,
+                  tree));
         }
       }
     }
@@ -2181,7 +2195,7 @@ public class NullAway extends BugChecker
                     actual,
                     buildDescription(actual),
                     state,
-                    mayBeNullInquiry,
+                    this::mayBeNullInquiry,
                     formalParams.get(argPos),
                     actual));
           }
@@ -2240,7 +2254,7 @@ public class NullAway extends BugChecker
             actual,
             buildDescription(tree),
             state,
-            mayBeNullInquiry,
+            this::mayBeNullInquiry,
             null,
             actual);
       }
@@ -2907,7 +2921,7 @@ public class NullAway extends BugChecker
           baseExpression,
           buildDescription(derefExpression),
           state,
-          mayBeNullInquiry,
+          this::mayBeNullInquiry,
           null,
           baseExpression,
           exprInfo);
@@ -2921,7 +2935,7 @@ public class NullAway extends BugChecker
           derefExpression,
           buildDescription(derefExpression),
           state,
-          mayBeNullInquiry,
+          this::mayBeNullInquiry,
           null,
           baseExpression);
     }
@@ -2959,10 +2973,6 @@ public class NullAway extends BugChecker
    */
   public Nullness getComputedNullness(ExpressionTree e) {
     return computedNullnessMap.getOrDefault(e, Nullness.NULLABLE);
-  }
-
-  public interface MayBeNullableInquiry {
-    boolean maybeNullable(ExpressionTree expr, VisitorState state);
   }
 
   /**

@@ -65,6 +65,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.stream.StreamSupport;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -119,7 +120,7 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
+      BiPredicate<ExpressionTree, VisitorState> inquiry,
       @Nullable Symbol nonNullTarget,
       ExpressionTree nullableExpression) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
@@ -138,7 +139,7 @@ public class ErrorBuilder {
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
+      BiPredicate<ExpressionTree, VisitorState> inquiry,
       @Nullable Symbol nonNullTarget,
       ExpressionTree nullableExpression,
       @Nullable NullableExpressionInfo nullableExpressionInfo) {
@@ -169,7 +170,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
+      BiPredicate<ExpressionTree, VisitorState> inquiry,
       @Nullable Symbol nonNullTarget,
       ExpressionTree nullableExpression) {
     return createErrorDescriptionWithInfo(
@@ -188,7 +189,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTree,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      NullAway.@Nullable MayBeNullableInquiry inquiry,
+      @Nullable BiPredicate<ExpressionTree, VisitorState> inquiry,
       @Nullable Symbol nonNullTarget,
       @Nullable ExpressionTree nullableExpression,
       @Nullable NullableExpressionInfo nullableExpressionInfo) {
@@ -335,7 +336,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
+      BiPredicate<ExpressionTree, VisitorState> inquiry,
       @Nullable Symbol nonNullTarget,
       ExpressionTree nullableExpression,
       @Nullable NullableExpressionInfo nullableExpressionInfo) {
@@ -367,7 +368,7 @@ public class ErrorBuilder {
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      NullAway.MayBeNullableInquiry inquiry,
+      BiPredicate<ExpressionTree, VisitorState> inquiry,
       @Nullable Symbol nonNullTarget,
       ExpressionTree nullableExpression) {
     return createErrorDescriptionForNullAssignmentWithInfo(

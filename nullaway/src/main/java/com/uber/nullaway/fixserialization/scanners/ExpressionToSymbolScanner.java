@@ -35,14 +35,14 @@ import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
-import com.uber.nullaway.NullAway;
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import org.jspecify.annotations.Nullable;
 
 /** Scanner that finds the symbols of all identifiers in expressions. */
 public class ExpressionToSymbolScanner
-    extends TreeScanner<Set<Symbol>, NullAway.MayBeNullableInquiry> {
+    extends TreeScanner<Set<Symbol>, BiPredicate<ExpressionTree, VisitorState>> {
 
   private final VisitorState state;
 
@@ -77,13 +77,15 @@ public class ExpressionToSymbolScanner
   }
 
   @Override
-  public Set<Symbol> visitLiteral(LiteralTree node, NullAway.MayBeNullableInquiry inquiry) {
+  public Set<Symbol> visitLiteral(
+      LiteralTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
     return Set.of();
   }
 
   @Override
-  public Set<Symbol> visitIdentifier(IdentifierTree node, NullAway.MayBeNullableInquiry inquiry) {
-    boolean isNullable = inquiry.maybeNullable(node, state);
+  public Set<Symbol> visitIdentifier(
+      IdentifierTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+    boolean isNullable = inquiry.test(node, state);
     if (!isNullable) {
       return Set.of();
     }
@@ -93,8 +95,8 @@ public class ExpressionToSymbolScanner
 
   @Override
   public Set<Symbol> visitMemberReference(
-      MemberReferenceTree node, NullAway.MayBeNullableInquiry inquiry) {
-    boolean isNullable = inquiry.maybeNullable(node, state);
+      MemberReferenceTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+    boolean isNullable = inquiry.test(node, state);
     if (!isNullable) {
       return Set.of();
     }
@@ -104,8 +106,8 @@ public class ExpressionToSymbolScanner
 
   @Override
   public Set<Symbol> visitMemberSelect(
-      MemberSelectTree node, NullAway.MayBeNullableInquiry inquiry) {
-    boolean isNullable = inquiry.maybeNullable(node, state);
+      MemberSelectTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+    boolean isNullable = inquiry.test(node, state);
     if (!isNullable) {
       return Set.of();
     }
@@ -115,8 +117,8 @@ public class ExpressionToSymbolScanner
 
   @Override
   public Set<Symbol> visitMethodInvocation(
-      MethodInvocationTree node, NullAway.MayBeNullableInquiry inquiry) {
-    if (!inquiry.maybeNullable(node, state)) {
+      MethodInvocationTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+    if (!inquiry.test(node, state)) {
       return Set.of();
     }
     Symbol symbol = defaultResult(node);
@@ -125,15 +127,15 @@ public class ExpressionToSymbolScanner
 
   @Override
   public Set<Symbol> visitConditionalExpression(
-      ConditionalExpressionTree node, NullAway.MayBeNullableInquiry inquiry) {
-    if (!inquiry.maybeNullable(node, state)) {
+      ConditionalExpressionTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+    if (!inquiry.test(node, state)) {
       return Set.of();
     }
     Set<Symbol> symbols = new HashSet<>();
-    if (inquiry.maybeNullable(node.getTrueExpression(), state)) {
+    if (inquiry.test(node.getTrueExpression(), state)) {
       symbols.addAll(node.getTrueExpression().accept(this, inquiry));
     }
-    if (inquiry.maybeNullable(node.getFalseExpression(), state)) {
+    if (inquiry.test(node.getFalseExpression(), state)) {
       symbols.addAll(node.getFalseExpression().accept(this, inquiry));
     }
     return symbols;

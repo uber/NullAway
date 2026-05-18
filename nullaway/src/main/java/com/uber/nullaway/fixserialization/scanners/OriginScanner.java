@@ -35,11 +35,11 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
-import com.uber.nullaway.NullAway;
 import java.util.ArrayDeque;
 import java.util.HashSet;
 import java.util.Queue;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.stream.Collectors;
 import javax.lang.model.element.ElementKind;
 import org.jspecify.annotations.Nullable;
@@ -51,7 +51,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
 
-  private final NullAway.MayBeNullableInquiry inquiry;
+  private final BiPredicate<ExpressionTree, VisitorState> inquiry;
   private final VisitorState state;
 
   /**
@@ -63,12 +63,14 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
 
   public static final int NO_BOUND = Integer.MAX_VALUE;
 
-  public OriginScanner(NullAway.MayBeNullableInquiry inquiry, VisitorState state) {
+  public OriginScanner(BiPredicate<ExpressionTree, VisitorState> inquiry, VisitorState state) {
     this(inquiry, state, NO_BOUND);
   }
 
   public OriginScanner(
-      NullAway.MayBeNullableInquiry inquiry, VisitorState state, int diagnosticStartPosition) {
+      BiPredicate<ExpressionTree, VisitorState> inquiry,
+      VisitorState state,
+      int diagnosticStartPosition) {
     this.inquiry = inquiry;
     this.state = state;
     this.diagnosticStartPosition = diagnosticStartPosition;
@@ -102,7 +104,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
         return Set.of();
       }
       ExpressionTree expr = node.getExpression();
-      if (!inquiry.maybeNullable(expr, state)) {
+      if (!inquiry.test(expr, state)) {
         return Set.of();
       }
       return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
@@ -123,7 +125,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
         return Set.of();
       }
       ExpressionTree initializer = node.getInitializer();
-      if (initializer == null || !inquiry.maybeNullable(initializer, state)) {
+      if (initializer == null || !inquiry.test(initializer, state)) {
         return Set.of();
       }
       return initializer.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
@@ -141,7 +143,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
         return Set.of();
       }
       ExpressionTree expr = node.getExpression();
-      if (!inquiry.maybeNullable(expr, state)) {
+      if (!inquiry.test(expr, state)) {
         return Set.of();
       }
       return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
