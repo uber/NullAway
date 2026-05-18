@@ -3,7 +3,9 @@ package com.uber.nullaway.generics;
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -122,8 +124,11 @@ public class GenericsUtils {
     }
     Type qualifierType = null;
     if (!referencedMethod.isStatic()) {
+      ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
       qualifierType =
-          genericsChecks.getTreeType(memberReferenceTree.getQualifierExpression(), state);
+          genericsChecks.getTreeType(
+              qualifierExpression,
+              state.withPath(new TreePath(state.getPath(), qualifierExpression)));
     }
 
     // now, get the type of the corresponding functional interface method, as a member of targetType
