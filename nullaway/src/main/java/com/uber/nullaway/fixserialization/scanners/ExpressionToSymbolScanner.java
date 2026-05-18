@@ -51,7 +51,7 @@ public class ExpressionToSymbolScanner
   }
 
   @Override
-  public Set<Symbol> reduce(Set<Symbol> r1, Set<Symbol> r2) {
+  public Set<Symbol> reduce(@Nullable Set<Symbol> r1, @Nullable Set<Symbol> r2) {
     if (r2 == null && r1 == null) {
       return Set.of();
     }

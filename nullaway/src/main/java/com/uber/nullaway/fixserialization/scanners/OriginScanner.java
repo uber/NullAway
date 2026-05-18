@@ -79,7 +79,7 @@ public class OriginScanner extends TreeScanner<Set<OriginTrace>, Symbol> {
   }
 
   @Override
-  public Set<OriginTrace> reduce(Set<OriginTrace> r1, Set<OriginTrace> r2) {
+  public Set<OriginTrace> reduce(@Nullable Set<OriginTrace> r1, @Nullable Set<OriginTrace> r2) {
     if (r2 == null && r1 == null) {
       return Set.of();
     }
