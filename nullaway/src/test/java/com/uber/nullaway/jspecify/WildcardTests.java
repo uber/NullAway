@@ -341,7 +341,138 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("bad interaction between wildcard support and generic method inference")
+  @Test
+  public void wildcardCaptureParameters() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                void set(T t) {}
+              }
+              static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                f.set(null);
+              }
+              static void testNonNullExtendsBound(Foo<? extends Object> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                f.set(null);
+              }
+              static void testNullableSuperBound(Foo<? super @Nullable String> f) {
+                // this is legal
+                f.set(null);
+              }
+              static void testNonNullSuperBound(Foo<? super String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                f.set(null);
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureReturns() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                T get() { throw new RuntimeException(); }
+              }
+              static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
+                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                f.get().hashCode();
+              }
+              static void testNonNullExtendsBound(Foo<? extends Object> f) {
+                // this is legal
+                f.get().hashCode();
+              }
+              static void testNullableSuperBound(Foo<? super @Nullable String> f) {
+                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                f.get().hashCode();
+              }
+              static void testNonNullSuperBound(Foo<? super String> f) {
+                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                f.get().hashCode();
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureReturnWithTypeVariableUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                T get() { throw new RuntimeException(); }
+              }
+              static class NullableBound<U extends @Nullable Object> {
+                void test(Foo<? extends U> f) {
+                  // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                  f.get().hashCode();
+                }
+              }
+              static class NonNullBound<U> {
+                void test(Foo<? extends U> f) {
+                  // this is legal
+                  f.get().hashCode();
+                }
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureLocals() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                T get() { throw new RuntimeException(); }
+              }
+              static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
+                Object x = f.get();
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.hashCode();
+              }
+              static void testNonNullExtendsBound(Foo<? extends Object> f) {
+                Object x = f.get();
+                // this is legal
+                x.hashCode();
+              }
+              static void testNullableSuperBound(Foo<? super @Nullable String> f) {
+                Object x = f.get();
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.hashCode();
+              }
+              static void testNonNullSuperBound(Foo<? super String> f) {
+                Object x = f.get();
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.hashCode();
+              }
+            }""")
+        .doTest();
+  }
+
   @Test
   public void wildcardSuperBoundsAndInference() {
     makeHelperWithInferenceFailureWarning()
@@ -370,7 +501,63 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1350")
+  @Test
+  public void superWildcardToConcreteTypeVariable() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> void take(Box<T> box) {}
+              static <T extends @Nullable Object> T get(Box<T> box) {
+                throw new RuntimeException();
+              }
+              Object field = new Object();
+              void test(Box<? super @Nullable String> nullableBox, Box<? super String> nonNullBox) {
+                take(nullableBox);
+                take(nonNullBox);
+                // TODO we need to report an additional error besides inference failure here
+                // See https://github.com/uber/NullAway/issues/1551
+                // BUG: Diagnostic contains: Failed to infer type argument nullability
+                field = get(nullableBox);
+                field = get(nonNullBox);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodRefParameterExtendsWildcardToConcreteParameter() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T t);
+              }
+              static void acceptNullable(@Nullable String s) {}
+              static void acceptNonNull(String s) {}
+              static <T extends @Nullable Object> void use(Consumer<? extends T> consumer) {}
+              static void useNullable(Consumer<? extends @Nullable String> consumer) {}
+              void test() {
+                use(Test::acceptNullable);
+                // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                useNullable(Test::acceptNonNull);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
@@ -388,7 +575,33 @@ public class WildcardTests extends NullAwayTestsBase {
                     // legal, should infer R -> Object but then the type of the lambda as
                     //  Function<Object, @Nullable Object> via wildcard upper bound
                     Object x = invokeWithReturn(t -> null);
+                    x.hashCode();
                 }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1522")
+  @Test
+  public void issue1522() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.function.Function;
+            import java.util.Optional;
+            @NullMarked
+            class Test {
+              static class Foo<T> {
+                public final <V> Foo<V> mapNotNull(Function<? super T, ? extends @Nullable V> mapper) {
+                  throw new RuntimeException();
+                }
+              }
+              static <T> Foo<T> after(Foo<Optional<T>> foo) {
+                return foo.mapNotNull(x -> x.orElse(null));
+              }
             }
             """)
         .doTest();
@@ -428,6 +641,77 @@ public class WildcardTests extends NullAwayTestsBase {
                 }
             }
             """)
+        .doTest();
+  }
+
+  @Test
+  public void mapStreamValuesToNullable() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                interface List<T extends @Nullable Object> {
+                    Stream<T> stream();
+                }
+                interface Stream<T extends @Nullable Object> {
+                    <R extends @Nullable Object> Stream<R> map(Function<? super T, ? extends R> mapper);
+                    void forEach(Consumer<? super T> action);
+                }
+                interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                    R apply(T t);
+                }
+                interface Consumer<T extends @Nullable Object> {
+                    void accept(T t);
+                }
+                static @Nullable String mapToNull(String s) {
+                    return null;
+                }
+                static String id(String s) { return s; }
+                static void callHashCode(Object o) { o.hashCode(); }
+                static void doNothing(@Nullable Object o) {}
+                static void testPositive(List<String> list) {
+                    list.stream().map(Test::mapToNull).forEach(s -> {
+                        // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                        s.hashCode();
+                    });
+                    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional interface method Test.Consumer.accept(T) is @Nullable
+                    list.stream().map(Test::mapToNull).forEach(Test::callHashCode);
+                }
+                static void testNegative(List<String> list) {
+                    list.stream().map(Test::mapToNull).forEach(s -> {
+                        if (s != null) { s.hashCode(); }
+                    });
+                    list.stream().map(Test::mapToNull).forEach(Test::doNothing);
+                    list.stream().map(Test::id).forEach(Test::callHashCode);
+                }
+            }""")
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1500")
+  @Test
+  public void issue1500() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                public static <T extends @Nullable Object> Foo<T> of(Foo<? super T> foo) {
+                    return new Foo<>();
+                }
+
+                public Foo<T> or(Foo<? super T> other) {
+                    return this;
+                }
+              }
+              static final Foo<@Nullable Void> FOO = Foo.of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
+            }""")
         .doTest();
   }
 

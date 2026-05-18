@@ -58,20 +58,25 @@ public class AutoSuggestNoCastTest {
     makeTestHelperWithSuppressionComment()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  Object test1() {",
-            "    return null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              Object test1() {
+                return null;
+              }
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "class Test {", // Can we actually check comments?
-            "  @SuppressWarnings(\"NullAway\") /* PR #000000 */ Object test1() {",
-            "    return null;",
-            "  }",
-            "}")
+            // Can we actually check comments?
+            """
+            package com.uber;
+            class Test {
+              @SuppressWarnings("NullAway") /* PR #000000 */ Object test1() {
+                return null;
+              }
+            }
+            """)
         .doTest(); // Yes we can!
   }
 
@@ -80,20 +85,24 @@ public class AutoSuggestNoCastTest {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  Object test1() {",
-            "    return null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              Object test1() {
+                return null;
+              }
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "class Test {",
-            "  @SuppressWarnings(\"NullAway\") Object test1() {",
-            "    return null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            class Test {
+              @SuppressWarnings("NullAway") Object test1() {
+                return null;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -102,27 +111,31 @@ public class AutoSuggestNoCastTest {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Object foo;",
-            "  private final Runnable runnable =",
-            "    () -> {",
-            "      foo.toString();",
-            "    };",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Object foo;
+              private final Runnable runnable =
+                () -> {
+                  foo.toString();
+                };
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Object foo;",
-            "  @SuppressWarnings(\"NullAway\")",
-            "  private final Runnable runnable =",
-            "    () -> {",
-            "      foo.toString();",
-            "    };",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Object foo;
+              @SuppressWarnings("NullAway")
+              private final Runnable runnable =
+                () -> {
+                  foo.toString();
+                };
+            }
+            """)
         .doTest();
   }
 
@@ -131,29 +144,33 @@ public class AutoSuggestNoCastTest {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Integer foo;",
-            "  static int id(int x) { return x; }",
-            "  private final Runnable runnable =",
-            "    () -> {",
-            "      id(foo);",
-            "    };",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Integer foo;
+              static int id(int x) { return x; }
+              private final Runnable runnable =
+                () -> {
+                  id(foo);
+                };
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Integer foo;",
-            "  static int id(int x) { return x; }",
-            "  @SuppressWarnings(\"NullAway\")",
-            "  private final Runnable runnable =",
-            "    () -> {",
-            "      id(foo);",
-            "    };",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Integer foo;
+              static int id(int x) { return x; }
+              @SuppressWarnings("NullAway")
+              private final Runnable runnable =
+                () -> {
+                  id(foo);
+                };
+            }
+            """)
         .doTest();
   }
 
@@ -162,29 +179,33 @@ public class AutoSuggestNoCastTest {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Integer foo;",
-            "  static int id(int x) { return x; }",
-            "  private final Runnable runnable =",
-            "    () -> {",
-            "      int x = foo + 1;",
-            "    };",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Integer foo;
+              static int id(int x) { return x; }
+              private final Runnable runnable =
+                () -> {
+                  int x = foo + 1;
+                };
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Integer foo;",
-            "  static int id(int x) { return x; }",
-            "  private final Runnable runnable =",
-            "    () -> {",
-            "      @SuppressWarnings(\"NullAway\")",
-            "      int x = foo + 1;",
-            "    };",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Integer foo;
+              static int id(int x) { return x; }
+              private final Runnable runnable =
+                () -> {
+                  @SuppressWarnings("NullAway")
+                  int x = foo + 1;
+                };
+            }
+            """)
         .doTest();
   }
 
@@ -193,34 +214,38 @@ public class AutoSuggestNoCastTest {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Integer foo;",
-            "  @Nullable private java.util.function.Function<Object, Integer> f;",
-            "  void m1() {",
-            "    f = (x) -> { return foo + 1; };",
-            "  }",
-            "  void m2() {",
-            "    java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Integer foo;
+              @Nullable private java.util.function.Function<Object, Integer> f;
+              void m1() {
+                f = (x) -> { return foo + 1; };
+              }
+              void m2() {
+                java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };
+              }
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  @Nullable private Integer foo;",
-            "  @Nullable private java.util.function.Function<Object, Integer> f;",
-            "  @SuppressWarnings(\"NullAway\")",
-            "  void m1() {",
-            "    f = (x) -> { return foo + 1; };",
-            "  }",
-            "  void m2() {",
-            "    @SuppressWarnings(\"NullAway\")",
-            "    java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable private Integer foo;
+              @Nullable private java.util.function.Function<Object, Integer> f;
+              @SuppressWarnings("NullAway")
+              void m1() {
+                f = (x) -> { return foo + 1; };
+              }
+              void m2() {
+                @SuppressWarnings("NullAway")
+                java.util.function.Function<Object,Integer> g = (x) -> { return foo + 1; };
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -229,33 +254,37 @@ public class AutoSuggestNoCastTest {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static interface I {",
-            "    public void foo(@Nullable Object o);",
-            "  }",
-            "  static void biz(Object p) {}",
-            "  static void callFoo(I i) { i.foo(null); }",
-            "  static void bar() {",
-            "    callFoo(Test::biz);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static interface I {
+                public void foo(@Nullable Object o);
+              }
+              static void biz(Object p) {}
+              static void callFoo(I i) { i.foo(null); }
+              static void bar() {
+                callFoo(Test::biz);
+              }
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static interface I {",
-            "    public void foo(@Nullable Object o);",
-            "  }",
-            "  static void biz(Object p) {}",
-            "  static void callFoo(I i) { i.foo(null); }",
-            "  @SuppressWarnings(\"NullAway\")",
-            "  static void bar() {",
-            "    callFoo(Test::biz);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static interface I {
+                public void foo(@Nullable Object o);
+              }
+              static void biz(Object p) {}
+              static void callFoo(I i) { i.foo(null); }
+              @SuppressWarnings("NullAway")
+              static void bar() {
+                callFoo(Test::biz);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -264,35 +293,39 @@ public class AutoSuggestNoCastTest {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static interface I {",
-            "    public Object foo();",
-            "  }",
-            "  @Nullable",
-            "  static Object biz() { return null; }",
-            "  static void callFoo(I i) { i.foo(); }",
-            "  static void bar() {",
-            "    callFoo(Test::biz);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static interface I {
+                public Object foo();
+              }
+              @Nullable
+              static Object biz() { return null; }
+              static void callFoo(I i) { i.foo(); }
+              static void bar() {
+                callFoo(Test::biz);
+              }
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import javax.annotation.Nullable;",
-            "class Test {",
-            "  static interface I {",
-            "    public Object foo();",
-            "  }",
-            "  @Nullable",
-            "  static Object biz() { return null; }",
-            "  static void callFoo(I i) { i.foo(); }",
-            "  @SuppressWarnings(\"NullAway\")",
-            "  static void bar() {",
-            "    callFoo(Test::biz);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static interface I {
+                public Object foo();
+              }
+              @Nullable
+              static Object biz() { return null; }
+              static void callFoo(I i) { i.foo(); }
+              @SuppressWarnings("NullAway")
+              static void bar() {
+                callFoo(Test::biz);
+              }
+            }
+            """)
         .doTest();
   }
 }

@@ -31,22 +31,24 @@ public class JDKIntegrationTest {
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  static ReturnAnnotation returnAnnotation = new ReturnAnnotation();",
-            "  static void test(String value){",
-            "  }",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'returnAnnotation.makeUpperCase(\"nullaway\")'",
-            "    test(returnAnnotation.makeUpperCase(\"nullaway\"));",
-            "  }",
-            "  static void testNegative() {",
-            "    // no error since nullReturn is annotated with javax.annotation.Nullable,",
-            "    // which is not considered when generating stubx files",
-            "    test(returnAnnotation.nullReturn());",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              static ReturnAnnotation returnAnnotation = new ReturnAnnotation();
+              static void test(String value){
+              }
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'returnAnnotation.makeUpperCase("nullaway")'
+                test(returnAnnotation.makeUpperCase("nullaway"));
+              }
+              static void testNegative() {
+                // no error since nullReturn is annotated with javax.annotation.Nullable,
+                // which is not considered when generating stubx files
+                test(returnAnnotation.nullReturn());
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -61,17 +63,19 @@ public class JDKIntegrationTest {
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  static ReturnAnnotation returnAnnotation = new ReturnAnnotation();",
-            "  static void test(Integer[] value){",
-            "  }",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'returnAnnotation.generateIntArray(7)'",
-            "    test(returnAnnotation.generateIntArray(7));",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              static ReturnAnnotation returnAnnotation = new ReturnAnnotation();
+              static void test(Integer[] value){
+              }
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'returnAnnotation.generateIntArray(7)'
+                test(returnAnnotation.generateIntArray(7));
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -85,17 +89,19 @@ public class JDKIntegrationTest {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  static ReturnAnnotation returnAnnotation = new ReturnAnnotation();",
-            "  static void test(String value){",
-            "  }",
-            "  static void testNegative() {",
-            "    // Since the JarInferEnabled flag is not set, we don't get an error here",
-            "    test(returnAnnotation.makeUpperCase(\"nullaway\"));",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              static ReturnAnnotation returnAnnotation = new ReturnAnnotation();
+              static void test(String value){
+              }
+              static void testNegative() {
+                // Since the JarInferEnabled flag is not set, we don't get an error here
+                test(returnAnnotation.makeUpperCase("nullaway"));
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -110,16 +116,18 @@ public class JDKIntegrationTest {
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  static ReturnAnnotation.InnerExample innerExample = new ReturnAnnotation.InnerExample();",
-            "  static void test(String value){}",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'innerExample.returnNull()'",
-            "    test(innerExample.returnNull());",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              static ReturnAnnotation.InnerExample innerExample = new ReturnAnnotation.InnerExample();
+              static void test(String value){}
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'innerExample.returnNull()'
+                test(innerExample.returnNull());
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -135,18 +143,20 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  static ReturnAnnotation.UpperBoundExample<@Nullable Object> upperBoundExample = new ReturnAnnotation.UpperBoundExample<@Nullable Object>();",
-            "  static void test(Object value){",
-            "  }",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'upperBoundExample.getNullable()'",
-            "    test(upperBoundExample.getNullable());",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              static ReturnAnnotation.UpperBoundExample<@Nullable Object> upperBoundExample = new ReturnAnnotation.UpperBoundExample<@Nullable Object>();
+              static void test(Object value){
+              }
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'upperBoundExample.getNullable()'
+                test(upperBoundExample.getNullable());
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -161,13 +171,15 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  // BUG: Diagnostic contains: Generic type parameter cannot be @Nullable",
-            "  static ReturnAnnotation.UpperBoundExample<@Nullable Object> upperBoundExample = new ReturnAnnotation.UpperBoundExample<@Nullable Object>();",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              // BUG: Diagnostic contains: Generic type parameter cannot be @Nullable
+              static ReturnAnnotation.UpperBoundExample<@Nullable Object> upperBoundExample = new ReturnAnnotation.UpperBoundExample<@Nullable Object>();
+            }
+            """)
         .doTest();
   }
 
@@ -183,15 +195,17 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  static ParameterAnnotation parameterAnnotation = new ParameterAnnotation();",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "    parameterAnnotation.add(5,null);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              static ParameterAnnotation parameterAnnotation = new ParameterAnnotation();
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                parameterAnnotation.add(5,null);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -207,18 +221,20 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  static ParameterAnnotation parameterAnnotation = new ParameterAnnotation();",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "    parameterAnnotation.printObjectString(null);",
-            "  }",
-            "  static void testNegative() {",
-            "    parameterAnnotation.getNewObjectIfNull(null);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              static ParameterAnnotation parameterAnnotation = new ParameterAnnotation();
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                parameterAnnotation.printObjectString(null);
+              }
+              static void testNegative() {
+                parameterAnnotation.getNewObjectIfNull(null);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -234,17 +250,19 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "    ParameterAnnotation.takesNonNullArray(null);",
-            "  }",
-            "  static void testNegative() {",
-            "    ParameterAnnotation.takesNullArray(null);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                ParameterAnnotation.takesNonNullArray(null);
+              }
+              static void testNegative() {
+                ParameterAnnotation.takesNullArray(null);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -260,33 +278,35 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  String[] nonNullArray = new String[] {\"value\"};",
-            "  @Nullable String[] nullableElements = new String[] {\"value\", null};",
-            "  String @Nullable [] nullableArray = null;",
-            "  @Nullable String @Nullable [] nullableArrayAndElements = new String[] {\"value\", null};",
-            "  void testCall() {",
-            "    ParameterAnnotation.takesNullableArray(nonNullArray);",
-            "    ParameterAnnotation.takesNullableArray(nullableArray);",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    ParameterAnnotation.takesNullableArray(nullableElements);",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    ParameterAnnotation.takesNullableArray(nullableArrayAndElements);",
-            "    ParameterAnnotation.takesNullableElements(nonNullArray);",
-            "    ParameterAnnotation.takesNullableElements(nullableElements);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'nullableArray' where @NonNull is required",
-            "    ParameterAnnotation.takesNullableElements(nullableArray);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'nullableArrayAndElements' where @NonNull is required",
-            "    ParameterAnnotation.takesNullableElements(nullableArrayAndElements);",
-            "    ParameterAnnotation.takesNullableArrayAndElements(nonNullArray);",
-            "    ParameterAnnotation.takesNullableArrayAndElements(nullableElements);",
-            "    ParameterAnnotation.takesNullableArrayAndElements(nullableArray);",
-            "    ParameterAnnotation.takesNullableArrayAndElements(nullableArrayAndElements);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              String[] nonNullArray = new String[] {"value"};
+              @Nullable String[] nullableElements = new String[] {"value", null};
+              String @Nullable [] nullableArray = null;
+              @Nullable String @Nullable [] nullableArrayAndElements = new String[] {"value", null};
+              void testCall() {
+                ParameterAnnotation.takesNullableArray(nonNullArray);
+                ParameterAnnotation.takesNullableArray(nullableArray);
+                // BUG: Diagnostic contains: incompatible types
+                ParameterAnnotation.takesNullableArray(nullableElements);
+                // BUG: Diagnostic contains: incompatible types
+                ParameterAnnotation.takesNullableArray(nullableArrayAndElements);
+                ParameterAnnotation.takesNullableElements(nonNullArray);
+                ParameterAnnotation.takesNullableElements(nullableElements);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'nullableArray' where @NonNull is required
+                ParameterAnnotation.takesNullableElements(nullableArray);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'nullableArrayAndElements' where @NonNull is required
+                ParameterAnnotation.takesNullableElements(nullableArrayAndElements);
+                ParameterAnnotation.takesNullableArrayAndElements(nonNullArray);
+                ParameterAnnotation.takesNullableArrayAndElements(nullableElements);
+                ParameterAnnotation.takesNullableArrayAndElements(nullableArray);
+                ParameterAnnotation.takesNullableArrayAndElements(nullableArrayAndElements);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -302,20 +322,22 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "    ParameterAnnotation.takesNonNullGenericArray(null);",
-            "    // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.returnNullableGenericArray()",
-            "    ReturnAnnotation.returnNullableGenericArray().hashCode();",
-            "  }",
-            "  static void testNegative() {",
-            "    ParameterAnnotation.takesNullGenericArray(null);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                ParameterAnnotation.takesNonNullGenericArray(null);
+                // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.returnNullableGenericArray()
+                ReturnAnnotation.returnNullableGenericArray().hashCode();
+              }
+              static void testNegative() {
+                ParameterAnnotation.takesNullGenericArray(null);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -331,17 +353,19 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "class Test {",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.returnNullableGenericContainingNullable()",
-            "    ReturnAnnotation.returnNullableGenericContainingNullable().hashCode();",
-            "  }",
-            "  static void testNegative() {",
-            "    ReturnAnnotation.returnNonNullGenericContainingNullable().hashCode();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              static void testPositive() {
+                // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.returnNullableGenericContainingNullable()
+                ReturnAnnotation.returnNullableGenericContainingNullable().hashCode();
+              }
+              static void testNegative() {
+                ReturnAnnotation.returnNonNullGenericContainingNullable().hashCode();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -357,18 +381,20 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  static ParameterAnnotation.Generic<String> ex = new ParameterAnnotation.Generic<>();",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "    ex.printObjectString(null);",
-            "  }",
-            "  static void testNegative() {",
-            "    ex.getString(null);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              static ParameterAnnotation.Generic<String> ex = new ParameterAnnotation.Generic<>();
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                ex.printObjectString(null);
+              }
+              static void testNegative() {
+                ex.getString(null);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -384,18 +410,20 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  static void testPositive() {",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter '(Object) null' where @NonNull is required",
-            "    ParameterAnnotation.varargsArrayNullable((Object) null);",
-            "  }",
-            "  static void testNegative() {",
-            "    Object[] args = null;",
-            "    ParameterAnnotation.varargsArrayNullable(args);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              static void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter '(Object) null' where @NonNull is required
+                ParameterAnnotation.varargsArrayNullable((Object) null);
+              }
+              static void testNegative() {
+                Object[] args = null;
+                ParameterAnnotation.varargsArrayNullable(args);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -411,18 +439,20 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  static void testPositive() {",
-            "    Object[] args = null;",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'args' where @NonNull is required",
-            "    ParameterAnnotation.varargsElementsNullable(args);",
-            "  }",
-            "  static void testNegative() {",
-            "    ParameterAnnotation.varargsElementsNullable(null, null);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              static void testPositive() {
+                Object[] args = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'args' where @NonNull is required
+                ParameterAnnotation.varargsElementsNullable(args);
+              }
+              static void testNegative() {
+                ParameterAnnotation.varargsElementsNullable(null, null);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -438,15 +468,17 @@ public class JDKIntegrationTest {
                     "-XepOpt:NullAway:JarInferEnabled=true")))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "class Test {",
-            "  static void testNegative() {",
-            "    ParameterAnnotation.varargs(null, null);",
-            "    Object[] args = null;",
-            "    ParameterAnnotation.varargs(args);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            class Test {
+              static void testNegative() {
+                ParameterAnnotation.varargs(null, null);
+                Object[] args = null;
+                ParameterAnnotation.varargs(args);
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -461,16 +493,18 @@ public class JDKIntegrationTest {
                 "-XepOpt:NullAway:JarInferEnabled=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "import java.util.List;",
-            "class Test<T> {",
-            "  void testCall() {",
-            "    // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.getList(6, null) is @Nullable",
-            "    ReturnAnnotation.getList(6, null).isEmpty();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            import java.util.List;
+            class Test<T> {
+              void testCall() {
+                // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.getList(6, null) is @Nullable
+                ReturnAnnotation.getList(6, null).isEmpty();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -487,25 +521,27 @@ public class JDKIntegrationTest {
                 "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "import java.util.List;",
-            "class Test {",
-            "  void testCall() {",
-            "    // BUG: Diagnostic contains: dereferenced expression ParameterAnnotation.nullableTypeParam(1, null) is @Nullable",
-            "    ParameterAnnotation.nullableTypeParam(1, null).toString();",
-            "    ParameterAnnotation.nullableTypeParam(1, \"string\").toString();",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "    ParameterAnnotation.nullableTypeParam(null, \"string\");",
-            "    ParameterAnnotation.nonNullTypeParam(1);",
-            "    // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required",
-            "    ParameterAnnotation.nonNullTypeParam(null);",
-            "    Object x = ParameterAnnotation.twoNullableTypeParam(null, \"string\");",
-            "    // BUG: Diagnostic contains: dereferenced expression x is @Nullable",
-            "    x.toString();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            import java.util.List;
+            class Test {
+              void testCall() {
+                // BUG: Diagnostic contains: dereferenced expression ParameterAnnotation.nullableTypeParam(1, null) is @Nullable
+                ParameterAnnotation.nullableTypeParam(1, null).toString();
+                ParameterAnnotation.nullableTypeParam(1, "string").toString();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                ParameterAnnotation.nullableTypeParam(null, "string");
+                ParameterAnnotation.nonNullTypeParam(1);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                ParameterAnnotation.nonNullTypeParam(null);
+                Object x = ParameterAnnotation.twoNullableTypeParam(null, "string");
+                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                x.toString();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -522,32 +558,34 @@ public class JDKIntegrationTest {
                 "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import com.uber.nullaway.jdkannotations.ReturnAnnotation;",
-            "import java.util.*;",
-            "class Test {",
-            "  void testCall() {",
-            "    // -- Type argument nullability",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    List<String> typeArg1 = ReturnAnnotation.nestedAnnotTypeArg();",
-            "    List<@Nullable String> typeArg2 = ReturnAnnotation.nestedAnnotTypeArg();",
-            "    // -- Array Element nullability",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    String[] arrayElement1 = ReturnAnnotation.nestedAnnotArrayElement();",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    String @Nullable [] arrayElement2 = ReturnAnnotation.nestedAnnotArrayElement();",
-            "    @Nullable String [] arrayElement3 = ReturnAnnotation.nestedAnnotArrayElement();",
-            "    // -- mixed type nullability",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    List<Integer>[] mixed1 = ReturnAnnotation.nestedAnnotMixed();",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    @Nullable List<Integer>[] mixed2 = ReturnAnnotation.nestedAnnotMixed();",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    List<@Nullable Integer>[] mixed3 = ReturnAnnotation.nestedAnnotMixed();",
-            "    @Nullable List<@Nullable Integer>[] mixed4 = ReturnAnnotation.nestedAnnotMixed();",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            import java.util.*;
+            class Test {
+              void testCall() {
+                // -- Type argument nullability
+                // BUG: Diagnostic contains: incompatible types
+                List<String> typeArg1 = ReturnAnnotation.nestedAnnotTypeArg();
+                List<@Nullable String> typeArg2 = ReturnAnnotation.nestedAnnotTypeArg();
+                // -- Array Element nullability
+                // BUG: Diagnostic contains: incompatible types
+                String[] arrayElement1 = ReturnAnnotation.nestedAnnotArrayElement();
+                // BUG: Diagnostic contains: incompatible types
+                String @Nullable [] arrayElement2 = ReturnAnnotation.nestedAnnotArrayElement();
+                @Nullable String [] arrayElement3 = ReturnAnnotation.nestedAnnotArrayElement();
+                // -- mixed type nullability
+                // BUG: Diagnostic contains: incompatible types
+                List<Integer>[] mixed1 = ReturnAnnotation.nestedAnnotMixed();
+                // BUG: Diagnostic contains: incompatible types
+                @Nullable List<Integer>[] mixed2 = ReturnAnnotation.nestedAnnotMixed();
+                // BUG: Diagnostic contains: incompatible types
+                List<@Nullable Integer>[] mixed3 = ReturnAnnotation.nestedAnnotMixed();
+                @Nullable List<@Nullable Integer>[] mixed4 = ReturnAnnotation.nestedAnnotMixed();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -564,39 +602,41 @@ public class JDKIntegrationTest {
                 "-XDaddTypeAnnotationsToSymbol=true"))
         .addSourceLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "import com.uber.nullaway.jdkannotations.ParameterAnnotation;",
-            "import java.util.*;",
-            "class Test {",
-            "  void testCall() {",
-            "    // -- Type argument",
-            "    List<@Nullable String> nullableTypeArg = new ArrayList<>();",
-            "    nullableTypeArg.add(\"string\");",
-            "    nullableTypeArg.add(null);",
-            "    List<String> nonNullTypeArg = new ArrayList<>(2);",
-            "    // -- Array type",
-            "    @Nullable String[] nullableArray = new String[] {\"populated\", \"value\", null};",
-            "    String[] nonNullArray = new String[] {\"populated\", \"value\"};",
-            "    // -- Multiple nested annotations",
-            "    List<@Nullable Integer> innerList = new ArrayList<>();",
-            "    innerList.add(null);",
-            "    innerList.add(4);",
-            "    @Nullable List<@Nullable Integer>[] nullableMixed = (@Nullable List<@Nullable Integer>[]) new List<?>[3];",
-            "    nullableMixed[0] = innerList;",
-            "    nullableMixed[0] = null;",
-            "    List<@Nullable Integer>[] nonNullArrayMixed = (List<@Nullable Integer>[]) new List<?>[3];",
-            "    @Nullable List<Integer>[] nonNullTypeArgMixed = (@Nullable List<Integer>[]) new List<?>[3];",
-            "    // === test calls",
-            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nullableMixed);",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    ParameterAnnotation.nestedAnnotations(nonNullTypeArg, nullableArray, nullableMixed);",
-            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nonNullArray, nullableMixed);",
-            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullArrayMixed);",
-            "    // BUG: Diagnostic contains: incompatible types",
-            "    ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullTypeArgMixed);",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ParameterAnnotation;
+            import java.util.*;
+            class Test {
+              void testCall() {
+                // -- Type argument
+                List<@Nullable String> nullableTypeArg = new ArrayList<>();
+                nullableTypeArg.add("string");
+                nullableTypeArg.add(null);
+                List<String> nonNullTypeArg = new ArrayList<>(2);
+                // -- Array type
+                @Nullable String[] nullableArray = new String[] {"populated", "value", null};
+                String[] nonNullArray = new String[] {"populated", "value"};
+                // -- Multiple nested annotations
+                List<@Nullable Integer> innerList = new ArrayList<>();
+                innerList.add(null);
+                innerList.add(4);
+                @Nullable List<@Nullable Integer>[] nullableMixed = (@Nullable List<@Nullable Integer>[]) new List<?>[3];
+                nullableMixed[0] = innerList;
+                nullableMixed[0] = null;
+                List<@Nullable Integer>[] nonNullArrayMixed = (List<@Nullable Integer>[]) new List<?>[3];
+                @Nullable List<Integer>[] nonNullTypeArgMixed = (@Nullable List<Integer>[]) new List<?>[3];
+                // === test calls
+                ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nullableMixed);
+                // BUG: Diagnostic contains: incompatible types
+                ParameterAnnotation.nestedAnnotations(nonNullTypeArg, nullableArray, nullableMixed);
+                ParameterAnnotation.nestedAnnotations(nullableTypeArg, nonNullArray, nullableMixed);
+                ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullArrayMixed);
+                // BUG: Diagnostic contains: incompatible types
+                ParameterAnnotation.nestedAnnotations(nullableTypeArg, nullableArray, nonNullTypeArgMixed);
+              }
+            }
+            """)
         .doTest();
   }
 }
