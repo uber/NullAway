@@ -119,7 +119,7 @@ public final class GenericsChecks {
   private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
 
   /** Maps each {@code var}-declared local to its declaration tree */
-  private final Map<Symbol, JCTree.JCVariableDecl> varLocalDeclarations = new LinkedHashMap<>();
+  private final Map<Symbol, VariableTree> varLocalDeclarations = new LinkedHashMap<>();
 
   public @Nullable Type getInferredPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
@@ -860,7 +860,12 @@ public final class GenericsChecks {
     return tree instanceof JCTree.JCVariableDecl variableDecl && variableDecl.declaredUsingVar();
   }
 
-  /** Registers a {@code var}-declared local seen by dataflow analysis. */
+  /**
+   * Associates the {@code Symbol} for a {@code var}-declared local with the local's declaration.
+   * This is used in case we observe a use of the local before we have processed the declaration
+   * (e.g., due to dataflow analysis), and need to jump to the declaration to infer the variable's
+   * type.
+   */
   public void registerVarLocalDeclaration(VariableTree tree) {
     if (!isVarLocalVariableDeclaration(tree)) {
       return;
@@ -879,7 +884,7 @@ public final class GenericsChecks {
     if (cachedType != null) {
       return cachedType;
     }
-    JCTree.JCVariableDecl variableDecl = varLocalDeclarations.get(symbol);
+    VariableTree variableDecl = varLocalDeclarations.get(symbol);
     if (variableDecl == null) {
       return null;
     }
