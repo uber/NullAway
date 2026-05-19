@@ -41,6 +41,45 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varLocalReassigned() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T get();
+              }
+              static <U extends @Nullable Object> Foo<U> make(U u) {
+                throw new RuntimeException();
+              }
+              static <U extends @Nullable Object> Foo<Foo<U>> makeNested(Foo<U> f) {
+                throw new RuntimeException();
+              }
+              void testPositive() {
+                var foo = make(new Object());
+                // BUG: Diagnostic contains: inference failure
+                foo = make(null);
+              }
+              void testPositive2(Foo<@Nullable Object> f1, Foo<Object> f2) {
+                var foo = makeNested(f1);
+                // BUG: Diagnostic contains: inference failure
+                foo = makeNested(f2);
+              }
+              void testNegative() {
+                var foo = make(null);
+                foo = make(new Object());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void varInTryWithResources() {
     makeHelper()
         .addSourceLines(

@@ -576,7 +576,8 @@ public final class GenericsChecks {
         // the symbol for the assigned location instead, if available
         Symbol lhsSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
         if (lhsSymbol != null) {
-          result = lhsSymbol.type;
+          Type inferredVarLocalType = getInferredVarLocalType(lhsSymbol, state, calledFromDataflow);
+          result = inferredVarLocalType != null ? inferredVarLocalType : lhsSymbol.type;
         } else {
           result = ASTHelpers.getType(assignmentTree);
         }
