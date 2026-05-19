@@ -1052,7 +1052,8 @@ public final class GenericsChecks {
           solver,
           methodSymbol,
           invocationTree,
-          allInvocations);
+          allInvocations,
+          calledFromDataflow);
       typeVarNullability = new HashMap<>(solver.solve());
       // The solver only computes a solution for variables that appear in constraints. For
       // unconstrained variables, treat them as NONNULL, consistent with solver behavior for
@@ -1132,6 +1133,7 @@ public final class GenericsChecks {
    * @param allInvocations a set of all method invocations that require inference, including nested
    *     ones. This is an output parameter that gets mutated while generating the constraints to add
    *     nested invocations.
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private void generateConstraintsForCall(
@@ -1142,7 +1144,8 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
-      Set<MethodInvocationTree> allInvocations)
+      Set<MethodInvocationTree> allInvocations,
+      boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
     Type.MethodType methodType =
         handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
@@ -1163,7 +1166,8 @@ public final class GenericsChecks {
                   solver,
                   allInvocations,
                   argument,
-                  formalParamType);
+                  formalParamType,
+                  calledFromDataflow);
             });
   }
 
@@ -1178,13 +1182,15 @@ public final class GenericsChecks {
    *     nested invocations.
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
   private void generateConstraintsForPseudoAssignment(
       VisitorState state,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree rhsExpr,
-      Type lhsType) {
+      Type lhsType,
+      boolean calledFromDataflow) {
     NullabilityUtil.ExprTreeAndState exprTreeAndState =
         NullabilityUtil.stripParensAndUpdateTreePath(rhsExpr, state);
     rhsExpr = exprTreeAndState.expr();
@@ -1196,14 +1202,22 @@ public final class GenericsChecks {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
       generateConstraintsForCall(
-          state, state.getPath(), lhsType, false, solver, symbol, invTree, allInvocations);
+          state,
+          state.getPath(),
+          lhsType,
+          false,
+          solver,
+          symbol,
+          invTree,
+          allInvocations,
+          calledFromDataflow);
     } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
       handleLambdaInGenericMethodInference(
-          state, state.getPath(), solver, allInvocations, lhsType, lambda);
+          state, state.getPath(), solver, allInvocations, lhsType, lambda, calledFromDataflow);
     } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
       handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
     } else { // all other cases
-      Type argumentType = getTreeType(rhsExpr, state);
+      Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
         return;
@@ -1226,6 +1240,7 @@ public final class GenericsChecks {
    *     nested invocations.
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
   private void handleLambdaInGenericMethodInference(
       VisitorState state,
@@ -1233,7 +1248,8 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       Type lhsType,
-      LambdaExpressionTree lambda) {
+      LambdaExpressionTree lambda,
+      boolean calledFromDataflow) {
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
 
@@ -1255,7 +1271,8 @@ public final class GenericsChecks {
           solver,
           allInvocations,
           returnedExpression,
-          fiReturnType);
+          fiReturnType,
+          calledFromDataflow);
     } else if (body instanceof BlockTree) {
       // Case 2: Block body, e.g., () -> { return null; }
       TreePath bodyPath = new TreePath(lambdaPath, body);
@@ -1265,7 +1282,12 @@ public final class GenericsChecks {
         ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
         TreePath returnExprPath = new TreePath(returnPath, returnExpr);
         generateConstraintsForPseudoAssignment(
-            state.withPath(returnExprPath), solver, allInvocations, returnExpr, fiReturnType);
+            state.withPath(returnExprPath),
+            solver,
+            allInvocations,
+            returnExpr,
+            fiReturnType,
+            calledFromDataflow);
       }
     }
   }
