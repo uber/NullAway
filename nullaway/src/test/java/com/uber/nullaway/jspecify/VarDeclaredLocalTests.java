@@ -165,6 +165,32 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void enhancedForLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.*;
+            @NullMarked
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T get();
+              }
+              void test(List<Foo<@Nullable String>> l) {
+                for (var foo : l) {
+                  // TODO we should be reporting a warning here
+                  foo.get().hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

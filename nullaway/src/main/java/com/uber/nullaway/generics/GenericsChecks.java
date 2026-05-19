@@ -893,10 +893,11 @@ public final class GenericsChecks {
       return null;
     }
     ExpressionTree initializer = variableDecl.getInitializer();
-    Verify.verify(
-        initializer != null,
-        "local declared using var should have an initializer: %s",
-        state.getSourceForNode(variableDecl));
+    if (initializer == null) {
+      // this can happen for enhanced for loops
+      // TODO handle this properly
+      return typeOrNullIfRaw(symbol.type);
+    }
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
     return getInferredTypeForVarLocalDeclaration(
         variableDecl, initializer, pathToInitializer, state, calledFromDataflow);
