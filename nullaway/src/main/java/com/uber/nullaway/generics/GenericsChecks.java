@@ -1063,22 +1063,6 @@ public final class GenericsChecks {
         typeVarNullability.putIfAbsent(typeVar, ConstraintSolver.InferredNullability.NONNULL);
       }
 
-      // Store inferred types for lambda arguments
-      new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
-          .forEach(
-              (argument, argPos, formalParamType, unused) -> {
-                if (argument instanceof LambdaExpressionTree
-                    || argument instanceof MemberReferenceTree) {
-                  Type polyExprTreeType = ASTHelpers.getType(argument);
-                  if (polyExprTreeType != null) {
-                    Type typeWithInferredNullability =
-                        TypeSubstitutionUtils.updateTypeWithInferredNullability(
-                            polyExprTreeType, formalParamType, typeVarNullability, state, config);
-                    inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
-                  }
-                }
-              });
-
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
       // don't cache result if we were called from dataflow, since the result may rely on dataflow
       // facts that do not reflect the fixed point
@@ -1086,6 +1070,21 @@ public final class GenericsChecks {
         for (MethodInvocationTree invTree : allInvocations) {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
         }
+        // Store inferred types for lambda or method reference arguments
+        new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
+            .forEach(
+                (argument, argPos, formalParamType, unused) -> {
+                  if (argument instanceof LambdaExpressionTree
+                      || argument instanceof MemberReferenceTree) {
+                    Type polyExprTreeType = ASTHelpers.getType(argument);
+                    if (polyExprTreeType != null) {
+                      Type typeWithInferredNullability =
+                          TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                              polyExprTreeType, formalParamType, typeVarNullability, state, config);
+                      inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
+                    }
+                  }
+                });
       }
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
