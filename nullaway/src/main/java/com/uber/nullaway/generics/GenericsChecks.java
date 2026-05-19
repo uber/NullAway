@@ -895,7 +895,7 @@ public final class GenericsChecks {
     ExpressionTree initializer = variableDecl.getInitializer();
     if (initializer == null) {
       // this can happen for enhanced for loops
-      // TODO handle this properly
+      // TODO handle this properly; see https://github.com/uber/NullAway/issues/1581
       return typeOrNullIfRaw(symbol.type);
     }
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);

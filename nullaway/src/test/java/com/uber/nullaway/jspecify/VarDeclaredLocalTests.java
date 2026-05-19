@@ -184,6 +184,7 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                 for (var foo : l) {
                   var x = foo.get();
                   // TODO we should be reporting a warning here consistently
+                  // See https://github.com/uber/NullAway/issues/1581
                   // commented out since we only report a warning on JDK 27+
                   // x.hashCode();
                 }
