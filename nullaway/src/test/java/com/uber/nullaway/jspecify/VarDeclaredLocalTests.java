@@ -182,8 +182,10 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
               }
               void test(List<Foo<@Nullable String>> l) {
                 for (var foo : l) {
-                  // TODO we should be reporting a warning here
-                  foo.get().hashCode();
+                  var x = foo.get();
+                  // TODO we should be reporting a warning here consistently
+                  // commented out since we only report a warning on JDK 27+
+                  // x.hashCode();
                 }
               }
             }
