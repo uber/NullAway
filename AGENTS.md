@@ -9,7 +9,7 @@ test class or method within that module, you can use the `--tests` flag. For exa
 ./gradlew :nullaway:test --tests "com.uber.nullaway.NullAwayTest"
 ```
 
-Do _not_ try to run multiple Gradle build commands in parallel; it it not supported and often leads to a failure.
+Do _not_ try to run multiple Gradle build commands in parallel; it is not supported and often leads to a failure.
 
 # Changelog
 
