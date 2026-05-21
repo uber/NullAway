@@ -2584,7 +2584,8 @@ public class NullAway extends BugChecker
           VariableTree varTree = (VariableTree) memberTree;
           Symbol fieldSymbol = ASTHelpers.getSymbol(varTree);
           if (fieldSymbol.type.isPrimitive()
-              || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)) {
+              || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)
+              || handler.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state)) {
             continue;
           }
           if (varTree.getInitializer() != null) {
@@ -2656,14 +2657,8 @@ public class NullAway extends BugChecker
    */
   private boolean skipFieldInitializationCheckingDueToAnnotation(Symbol fieldSymbol) {
     return NullabilityUtil.getAllAnnotations(fieldSymbol, config)
-        .anyMatch(
-            anno -> {
-              String annotationName = anno.getAnnotationType().toString();
-              if (config.isExcludedFieldAnnotation(annotationName)) {
-                return true;
-              }
-              return handler.shouldSkipFieldInitializationCheck(anno);
-            });
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(config::isExcludedFieldAnnotation);
   }
 
   // classSymbol must be a top-level class

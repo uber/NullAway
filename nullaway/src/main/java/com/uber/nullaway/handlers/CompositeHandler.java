@@ -52,7 +52,6 @@ import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
 import java.util.Optional;
 import java.util.function.Predicate;
-import javax.lang.model.element.AnnotationMirror;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
@@ -364,9 +363,10 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean shouldSkipFieldInitializationCheck(AnnotationMirror annotationMirror) {
+  public boolean shouldSkipFieldInitializationCheck(
+      Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
     for (Handler h : handlers) {
-      if (h.shouldSkipFieldInitializationCheck(annotationMirror)) {
+      if (h.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state)) {
         return true;
       }
     }
