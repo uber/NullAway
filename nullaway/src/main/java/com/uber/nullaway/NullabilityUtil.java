@@ -196,27 +196,19 @@ public class NullabilityUtil {
   }
 
   /**
-   * Check if any direct annotation a symbol matches a given predicate. Works for both source and
-   * bytecode.
+   * Check if any direct annotation a symbol matches a given predicate. Includes code for backward
+   * compatibility with older JDKs where javac did not place type-use annotations on Symbols from
+   * bytecodes.
    *
    * @param symbol the symbol
    * @param config NullAway configuration
    * @param predicate the predicate to match annotation names against
    * @return true if any annotation on the symbol matches the predicate, false otherwise
    */
-  public static boolean hasAnyAnnotationMatching(
+  public static boolean hasAnyAnnotationMatchingBackCompat(
       Symbol symbol, Config config, Predicate<String> predicate) {
-    // check for declaration annotations
-    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
-      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
-        return true;
-      }
-    }
-    // check for type use annotations
-    for (AnnotationMirror annotationMirror : symbol.type.getAnnotationMirrors()) {
-      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
-        return true;
-      }
+    if (hasAnyAnnotationMatching(symbol, predicate)) {
+      return true;
     }
     // to handle bytecodes, also check direct type-use annotations stored in attributes
     Symbol typeAnnotationOwner =
@@ -227,6 +219,33 @@ public class NullabilityUtil {
         continue;
       }
       if (predicate.test(typeCompound.getAnnotationType().toString())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if any direct annotation a symbol matches a given predicate.
+   *
+   * @param symbol the symbol
+   * @param predicate the predicate to match annotation names against
+   * @return true if any annotation on the symbol matches the predicate, false otherwise
+   */
+  public static boolean hasAnyAnnotationMatching(Symbol symbol, Predicate<String> predicate) {
+    // check for declaration annotations
+    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
+      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
+        return true;
+      }
+    }
+    // check for type use annotations.  For MethodSymbols, look on the return type
+    Type annotatedType =
+        symbol instanceof Symbol.MethodSymbol methodSymbol
+            ? methodSymbol.getReturnType()
+            : symbol.type;
+    for (AnnotationMirror annotationMirror : annotatedType.getAnnotationMirrors()) {
+      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
         return true;
       }
     }
