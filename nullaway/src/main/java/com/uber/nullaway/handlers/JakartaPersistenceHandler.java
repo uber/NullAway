@@ -15,7 +15,14 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Modifier;
 import org.jspecify.annotations.Nullable;
 
-/** Handler for Jakarta Persistence and JPA constructs. */
+/**
+ * Handler for Jakarta Persistence and JPA constructs, to reason about which fields of a class do
+ * not require explicit initialization.
+ *
+ * @see <a
+ *     href="https://jakarta.ee/learn/docs/jakartaee-tutorial/current/persist/persistence-intro/persistence-intro.html">Jakarta
+ *     Persistence documentation</a>.
+ */
 public class JakartaPersistenceHandler implements Handler {
 
   private static final Set<String> JPA_MANAGED_TYPE_ANNOTS =
@@ -26,11 +33,13 @@ public class JakartaPersistenceHandler implements Handler {
           "jakarta.persistence.Entity",
           "jakarta.persistence.MappedSuperclass",
           "jakarta.persistence.Embeddable");
+
   private static final Set<String> JPA_TRANSIENT_ANNOTS =
       Set.of(
           "javax.persistence.Transient",
           "jakarta.persistence.Transient",
           "org.springframework.data.annotation.Transient");
+
   private static final Set<String> JPA_ACCESS_ANNOTS =
       Set.of("javax.persistence.Access", "jakarta.persistence.Access");
 
