@@ -1,16 +1,17 @@
 package com.uber.nullaway.handlers;
 
+import static com.uber.nullaway.NullabilityUtil.hasAnyAnnotationMatching;
+
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.ClassTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import java.util.HashMap;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
-import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import org.jspecify.annotations.Nullable;
 
@@ -115,11 +116,11 @@ public class JakartaPersistenceHandler implements Handler {
   @Override
   public boolean shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
-    if (!hasAnnotation(classSymbol, JPA_MANAGED_TYPE_ANNOTS)
+    if (!hasAnyAnnotationMatching(classSymbol, JPA_MANAGED_TYPE_ANNOTS::contains)
         || !isJpaFieldEligibleForExternalInitialization(fieldSymbol)) {
       return false;
     }
-    if (hasAnnotation(fieldSymbol, JPA_ACCESS_ANNOTS)) {
+    if (hasAnyAnnotationMatching(fieldSymbol, JPA_ACCESS_ANNOTS::contains)) {
       return hasJpaAccess(fieldSymbol, "FIELD");
     }
     return switch (getJpaAccess(classSymbol)) {
@@ -133,7 +134,7 @@ public class JakartaPersistenceHandler implements Handler {
     Set<Modifier> modifiers = fieldSymbol.getModifiers();
     return !modifiers.contains(Modifier.STATIC)
         && !modifiers.contains(Modifier.TRANSIENT)
-        && !hasAnnotation(fieldSymbol, JPA_TRANSIENT_ANNOTS);
+        && !hasAnyAnnotationMatching(fieldSymbol, JPA_TRANSIENT_ANNOTS::contains);
   }
 
   private JpaAccess getJpaAccess(Symbol.ClassSymbol classSymbol) {
@@ -150,7 +151,8 @@ public class JakartaPersistenceHandler implements Handler {
     boolean hasFieldMapping = false;
     boolean hasPropertyMapping = false;
     Symbol.ClassSymbol currentClass = classSymbol;
-    while (currentClass != null && hasAnnotation(currentClass, JPA_MANAGED_TYPE_ANNOTS)) {
+    while (currentClass != null
+        && hasAnyAnnotationMatching(currentClass, JPA_MANAGED_TYPE_ANNOTS::contains)) {
       // Access can be inherited through a JPA-managed superclass.
       if (hasJpaAccess(currentClass, "FIELD")) {
         return JpaAccess.FIELD;
@@ -161,11 +163,11 @@ public class JakartaPersistenceHandler implements Handler {
       for (Symbol member : currentClass.members().getSymbols()) {
         if (member instanceof Symbol.VarSymbol varSymbol
             && !varSymbol.getModifiers().contains(Modifier.STATIC)
-            && hasAnnotation(varSymbol, JPA_MAPPING_ANNOTS)) {
+            && hasAnyAnnotationMatching(varSymbol, JPA_MAPPING_ANNOTS::contains)) {
           hasFieldMapping = true;
         } else if (member instanceof Symbol.MethodSymbol methodSymbol
             && isGetter(methodSymbol)
-            && hasAnnotation(methodSymbol, JPA_MAPPING_ANNOTS)) {
+            && hasAnyAnnotationMatching(methodSymbol, JPA_MAPPING_ANNOTS::contains)) {
           hasPropertyMapping = true;
         }
       }
@@ -201,7 +203,9 @@ public class JakartaPersistenceHandler implements Handler {
         hasSetter = true;
       }
     }
-    return getter != null && hasSetter && !hasAnnotation(getter, JPA_TRANSIENT_ANNOTS);
+    return getter != null
+        && hasSetter
+        && !hasAnyAnnotationMatching(getter, JPA_TRANSIENT_ANNOTS::contains);
   }
 
   private static boolean isSetterForProperty(
@@ -250,27 +254,11 @@ public class JakartaPersistenceHandler implements Handler {
   private static boolean hasJpaAccess(Symbol symbol, String accessType) {
     for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
       if (JPA_ACCESS_ANNOTS.contains(annotationMirror.getAnnotationType().toString())) {
-        String value = getAnnotationValueString(annotationMirror);
+        String value = NullabilityUtil.getAnnotationValue(annotationMirror);
         return value != null && (value.equals(accessType) || value.endsWith("." + accessType));
       }
     }
     return false;
-  }
-
-  private static boolean hasAnnotation(Symbol symbol, Set<String> annotationNames) {
-    return symbol.getAnnotationMirrors().stream()
-        .map(annotationMirror -> annotationMirror.getAnnotationType().toString())
-        .anyMatch(annotationNames::contains);
-  }
-
-  private static @Nullable String getAnnotationValueString(AnnotationMirror annotationMirror) {
-    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
-        annotationMirror.getElementValues().entrySet()) {
-      if (entry.getKey().getSimpleName().contentEquals("value")) {
-        return entry.getValue().getValue().toString();
-      }
-    }
-    return null;
   }
 
   private enum JpaAccess {
