@@ -239,8 +239,12 @@ public class NullabilityUtil {
         return true;
       }
     }
-    // check for type use annotations
-    for (AnnotationMirror annotationMirror : symbol.type.getAnnotationMirrors()) {
+    // check for type use annotations.  For MethodSymbols, look on the return type
+    Type annotatedType =
+        symbol instanceof Symbol.MethodSymbol methodSymbol
+            ? methodSymbol.getReturnType()
+            : symbol.type;
+    for (AnnotationMirror annotationMirror : annotatedType.getAnnotationMirrors()) {
       if (predicate.test(annotationMirror.getAnnotationType().toString())) {
         return true;
       }
