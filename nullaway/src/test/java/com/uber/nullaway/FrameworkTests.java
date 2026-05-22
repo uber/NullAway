@@ -617,7 +617,7 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void springJpaFieldAccessEntityInitialization() {
+  public void jakartaPersistenceFieldAccessEntityInitialization() {
     addJpaAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(
             "JpaEntities.java",
@@ -667,7 +667,7 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void springJpaDoesNotSkipNonPersistentFields() {
+  public void jakartaPersistenceDoesNotSkipNonPersistentFields() {
     addJpaAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(
             "JpaNonPersistentFields.java",
@@ -717,7 +717,7 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void springJpaPropertyAccessEntityInitialization() {
+  public void jakartaPersistencePropertyAccessEntityInitialization() {
     addJpaAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(
             "PropertyAccessEntity.java",
