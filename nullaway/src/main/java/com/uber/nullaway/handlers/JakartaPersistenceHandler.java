@@ -12,6 +12,8 @@ import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.AnnotationValue;
+import javax.lang.model.element.ExecutableElement;
 import javax.lang.model.element.Modifier;
 import org.jspecify.annotations.Nullable;
 
@@ -25,6 +27,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class JakartaPersistenceHandler implements Handler {
 
+  /** Type annotations that mark a class as managed by JPA or Jakarta Persistence. */
   private static final Set<String> JPA_MANAGED_TYPE_ANNOTS =
       Set.of(
           "javax.persistence.Entity",
@@ -34,20 +37,21 @@ public class JakartaPersistenceHandler implements Handler {
           "jakarta.persistence.MappedSuperclass",
           "jakarta.persistence.Embeddable");
 
+  /** Field or accessor annotations that exclude a member from persistence handling. */
   private static final Set<String> JPA_TRANSIENT_ANNOTS =
       Set.of(
           "javax.persistence.Transient",
           "jakarta.persistence.Transient",
           "org.springframework.data.annotation.Transient");
 
+  /** Annotations that explicitly select field-based or property-based persistence access. */
   private static final Set<String> JPA_ACCESS_ANNOTS =
       Set.of("javax.persistence.Access", "jakarta.persistence.Access");
 
   /*
    * JPA defaults an entity hierarchy to field access or property access based on where the mapping
-   * annotations are placed. We use this set only to infer that access strategy when there is no
-   * explicit @Access annotation. Once access is known, unannotated fields/properties can still be
-   * persistent by default.
+   * annotations are placed. We use this set to infer that access strategy when there is no
+   * explicit @Access annotation.
    */
   private static final Set<String> JPA_MAPPING_ANNOTS =
       Set.of(
@@ -114,6 +118,7 @@ public class JakartaPersistenceHandler implements Handler {
           "jakarta.persistence.Temporal",
           "jakarta.persistence.Version");
 
+  /** Cache of the discovered access strategy for classes. */
   private final Map<Symbol.ClassSymbol, JpaAccess> jpaAccessCache = new HashMap<>();
 
   @Override
@@ -122,16 +127,24 @@ public class JakartaPersistenceHandler implements Handler {
     jpaAccessCache.clear();
   }
 
+  /**
+   * Detects whether a field is handled by JPA persistence, in which case we can skip the field
+   * initialization check.
+   */
   @Override
   public boolean shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
+    // There must be an appropriate annotation on the enclosing class, and the field must be
+    // eligible for persistence
     if (!hasAnyAnnotationMatching(classSymbol, JPA_MANAGED_TYPE_ANNOTS::contains)
-        || !isJpaFieldEligibleForExternalInitialization(fieldSymbol)) {
+        || !isJpaFieldEligibleForPersistence(fieldSymbol)) {
       return false;
     }
-    if (hasAnyAnnotationMatching(fieldSymbol, JPA_ACCESS_ANNOTS::contains)) {
-      return hasJpaAccess(fieldSymbol, "FIELD");
+    // if the field itself has an @Access(FIELD) annotation, it is managed
+    if (hasJpaAccessAnnotation(fieldSymbol, "FIELD")) {
+      return true;
     }
+    // otherwise, determine the access type for the enclosing class, and proceed appropriately
     return switch (getJpaAccess(classSymbol)) {
       case FIELD -> true;
       case PROPERTY -> isBackingFieldForPersistentProperty(classSymbol, fieldSymbol);
@@ -139,7 +152,8 @@ public class JakartaPersistenceHandler implements Handler {
     };
   }
 
-  private static boolean isJpaFieldEligibleForExternalInitialization(Symbol fieldSymbol) {
+  /** Returns false for static or transient fields, which are not managed by JPA persistence */
+  private static boolean isJpaFieldEligibleForPersistence(Symbol fieldSymbol) {
     Set<Modifier> modifiers = fieldSymbol.getModifiers();
     return !modifiers.contains(Modifier.STATIC)
         && !modifiers.contains(Modifier.TRANSIENT)
@@ -151,28 +165,24 @@ public class JakartaPersistenceHandler implements Handler {
   }
 
   private static JpaAccess computeJpaAccess(Symbol.ClassSymbol classSymbol) {
-    if (hasJpaAccess(classSymbol, "FIELD")) {
-      return JpaAccess.FIELD;
-    }
-    if (hasJpaAccess(classSymbol, "PROPERTY")) {
-      return JpaAccess.PROPERTY;
-    }
     boolean hasFieldMapping = false;
     boolean hasPropertyMapping = false;
     Symbol.ClassSymbol currentClass = classSymbol;
+    // we traverse the class hierarchy
     while (currentClass != null
         && hasAnyAnnotationMatching(currentClass, JPA_MANAGED_TYPE_ANNOTS::contains)) {
-      // Access can be inherited through a JPA-managed superclass.
-      if (hasJpaAccess(currentClass, "FIELD")) {
+      // if we see an explicit @Access annotation on a class, that is the final answer
+      if (hasJpaAccessAnnotation(currentClass, "FIELD")) {
         return JpaAccess.FIELD;
       }
-      if (hasJpaAccess(currentClass, "PROPERTY")) {
+      if (hasJpaAccessAnnotation(currentClass, "PROPERTY")) {
         return JpaAccess.PROPERTY;
       }
+      // otherwise, see if we observe a JPA mapping annotation on either a field or a getter method
       for (Symbol member : currentClass.members().getSymbols()) {
-        if (member instanceof Symbol.VarSymbol varSymbol
-            && !varSymbol.getModifiers().contains(Modifier.STATIC)
-            && hasAnyAnnotationMatching(varSymbol, JPA_MAPPING_ANNOTS::contains)) {
+        if (member instanceof Symbol.VarSymbol fieldSymbol
+            && isJpaFieldEligibleForPersistence(fieldSymbol)
+            && hasAnyAnnotationMatching(fieldSymbol, JPA_MAPPING_ANNOTS::contains)) {
           hasFieldMapping = true;
         } else if (member instanceof Symbol.MethodSymbol methodSymbol
             && isGetter(methodSymbol)
@@ -182,7 +192,8 @@ public class JakartaPersistenceHandler implements Handler {
       }
       currentClass = superclassSymbol(currentClass);
     }
-    // If both styles, or neither style, appear in the managed hierarchy, stay conservative.
+    // If we observed both styles or neither style in the managed hierarchy, conservatively answer
+    // UNKNOWN
     if (hasFieldMapping == hasPropertyMapping) {
       return JpaAccess.UNKNOWN;
     }
@@ -196,6 +207,10 @@ public class JakartaPersistenceHandler implements Handler {
         : null;
   }
 
+  /**
+   * For a field to be a backing field for a persistent property, there must be a corresponding
+   * getter and setter, and the getter should not be marked as transient
+   */
   private static boolean isBackingFieldForPersistentProperty(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol) {
     String propertyName = fieldSymbol.getSimpleName().toString();
@@ -260,14 +275,33 @@ public class JakartaPersistenceHandler implements Handler {
     return name.substring(0, 1).toLowerCase(Locale.ROOT) + name.substring(1);
   }
 
-  private static boolean hasJpaAccess(Symbol symbol, String accessType) {
+  private static boolean hasJpaAccessAnnotation(Symbol symbol, String accessType) {
     for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
       if (JPA_ACCESS_ANNOTS.contains(annotationMirror.getAnnotationType().toString())) {
-        String value = NullabilityUtil.getAnnotationValue(annotationMirror);
+        String value = getAnnotationValue(annotationMirror);
         return value != null && (value.equals(accessType) || value.endsWith("." + accessType));
       }
     }
     return false;
+  }
+
+  /**
+   * NOTE: we cannot use {@link NullabilityUtil#getAnnotationValue(AnnotationMirror)} since that
+   * method requires the element value to be a string. This method allows for any value type and
+   * converts it to a string.
+   */
+  private static @Nullable String getAnnotationValue(AnnotationMirror annot) {
+    Map<? extends ExecutableElement, ? extends AnnotationValue> elementValues =
+        annot.getElementValues();
+    for (Map.Entry<? extends ExecutableElement, ? extends AnnotationValue> entry :
+        elementValues.entrySet()) {
+      ExecutableElement elem = entry.getKey();
+      if (elem.getSimpleName().contentEquals("value")) {
+        Object value = entry.getValue().getValue();
+        return value.toString();
+      }
+    }
+    return null;
   }
 
   private enum JpaAccess {

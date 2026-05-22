@@ -623,6 +623,8 @@ public class FrameworkTests extends NullAwayTestsBase {
             "JpaEntities.java",
             """
             package com.uber;
+            import jakarta.persistence.Access;
+            import jakarta.persistence.AccessType;
             import jakarta.persistence.Column;
             import jakarta.persistence.Embeddable;
             import jakarta.persistence.Entity;
@@ -648,6 +650,13 @@ public class FrameworkTests extends NullAwayTestsBase {
               static class FieldAccessEmbeddable {
                 @Column String street;
                 String city;
+              }
+              @Entity
+              static class FieldExplicitAccessEntity {
+                @Access(AccessType.FIELD) Long idExplicitAccess;
+                // @Access annotation does not apply to this other field
+                // BUG: Diagnostic contains: @NonNull field JpaEntities$FieldExplicitAccessEntity.name not initialized
+                String name;
               }
             }
             """)
