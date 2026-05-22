@@ -226,9 +226,7 @@ public class NullabilityUtil {
   }
 
   /**
-   * Check if any direct annotation a symbol matches a given predicate. Includes code for backward
-   * compatibility with older JDKs where javac did not place type-use annotations on Symbols from
-   * bytecodes.
+   * Check if any direct annotation a symbol matches a given predicate.
    *
    * @param symbol the symbol
    * @param predicate the predicate to match annotation names against
