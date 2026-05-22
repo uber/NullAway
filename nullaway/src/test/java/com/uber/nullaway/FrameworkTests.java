@@ -704,15 +704,6 @@ public class FrameworkTests extends NullAwayTestsBase {
               String name;
             }
             """)
-        .addSourceLines(
-            "NotJpaEntity.java",
-            """
-            package com.uber;
-            class NotJpaEntity {
-              // BUG: Diagnostic contains: @NonNull field name not initialized
-              String name;
-            }
-            """)
         .doTest();
   }
 

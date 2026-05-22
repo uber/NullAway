@@ -23,14 +23,6 @@ public class SpringHandler implements Handler {
   @Override
   public boolean shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
-    return shouldSkipSpringValueFieldInitializationCheck(fieldSymbol);
-  }
-
-  private static boolean containsNullSpELExpression(String annotationValue) {
-    return VALUE_NULL_SPEL_PATTERN.matcher(annotationValue).find();
-  }
-
-  private static boolean shouldSkipSpringValueFieldInitializationCheck(Symbol fieldSymbol) {
     for (AnnotationMirror annotationMirror : fieldSymbol.getAnnotationMirrors()) {
       if (annotationMirror.getAnnotationType().toString().equals(VALUE_ANNOT)) {
         String annotationValue = NullabilityUtil.getAnnotationValue(annotationMirror);
@@ -38,5 +30,9 @@ public class SpringHandler implements Handler {
       }
     }
     return false;
+  }
+
+  private static boolean containsNullSpELExpression(String annotationValue) {
+    return VALUE_NULL_SPEL_PATTERN.matcher(annotationValue).find();
   }
 }
