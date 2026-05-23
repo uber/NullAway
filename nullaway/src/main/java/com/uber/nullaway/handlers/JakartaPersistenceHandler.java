@@ -247,26 +247,19 @@ public class JakartaPersistenceHandler implements Handler {
       return null;
     }
     String methodName = methodSymbol.getSimpleName().toString();
-    String propertyName = null;
     if (methodName.startsWith("get") && methodName.length() > 3) {
-      propertyName = methodName.substring(3);
-    } else if (methodName.startsWith("is") && methodName.length() > 2) {
-      propertyName = methodName.substring(2);
+      String propertyName = methodName.substring(3);
+      return decapitalize(propertyName);
     }
-    return propertyName == null ? null : decapitalize(propertyName);
+    return null;
   }
 
   private static String capitalize(String name) {
-    if (name.isEmpty()) {
-      return name;
-    }
     return name.substring(0, 1).toUpperCase(Locale.ROOT) + name.substring(1);
   }
 
+  /** de-capitalize according to Java Beans rules for property names */
   private static String decapitalize(String name) {
-    if (name.isEmpty()) {
-      return name;
-    }
     if (name.length() > 1
         && Character.isUpperCase(name.charAt(0))
         && Character.isUpperCase(name.charAt(1))) {
