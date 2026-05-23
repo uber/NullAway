@@ -297,4 +297,68 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void accessFieldOnClass() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import jakarta.persistence.Access;
+            import jakarta.persistence.AccessType;
+            import jakarta.persistence.Entity;
+            @Entity
+            @Access(AccessType.FIELD)
+            class Test {
+              String name;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mappingOnMethod() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import jakarta.persistence.Entity;
+            import jakarta.persistence.Id;
+            @Entity
+            class Test {
+              Long id;
+              @Id
+              public Long getId() {
+                return id;
+              }
+              public void setId(Long id) { this.id = id; }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void ignoreStaticGetter() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import jakarta.persistence.Entity;
+            import jakarta.persistence.Id;
+            @Entity
+            class Test {
+              // BUG: Diagnostic contains: @NonNull field id not initialized
+              Long id;
+              @Id
+              public static Long getId() {
+                return Long.valueOf(0);
+              }
+              public void setId(Long id) { this.id = id; }
+            }
+            """)
+        .doTest();
+  }
 }
