@@ -129,7 +129,23 @@ public class JakartaPersistenceHandler implements Handler {
 
   /**
    * Detects whether a field is handled by JPA persistence, in which case we can skip the field
-   * initialization check.
+   * initialization check. Our logic is as follows:
+   *
+   * <ol>
+   *   <li>If the field is not in a JPA-managed type (based on the annotations on the enclosing
+   *       class), or if the field is ineligible for persistence (e.g., due to being transient),
+   *       return false.
+   *   <li>Otherwise, if the field is annotated {@code @Access(FIELD)}, return true.
+   *   <li>Otherwise, determine the access type for the enclosing class, based on mapping
+   *       annotations on fields / methods in the class and in superclasses. Then:
+   *       <ol>
+   *         <li>If the access type is FIELD, return true.
+   *         <li>If the access type is PROPERTY, return true if the field is the backing field for a
+   *             persistent property (the field should have a getter _and_ setter, and the getter
+   *             should have a mapping annotation).
+   *         <li>If we cannot determine the access type, return false.
+   *       </ol>
+   * </ol>
    */
   @Override
   public boolean shouldSkipFieldInitializationCheck(
@@ -243,7 +259,7 @@ public class JakartaPersistenceHandler implements Handler {
   }
 
   private static @Nullable String propertyNameForGetter(Symbol.MethodSymbol methodSymbol) {
-    if (!methodSymbol.params().isEmpty()) {
+    if (!methodSymbol.params().isEmpty() || methodSymbol.isStatic()) {
       return null;
     }
     String methodName = methodSymbol.getSimpleName().toString();
