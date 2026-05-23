@@ -16,13 +16,13 @@ import com.uber.nullaway.Config;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import javax.lang.model.type.TypeKind;
 
 /**
  * Repairs inferred substitutions for method type variables in a call-site type using nested
  * nullability annotations from the corresponding actual argument type.
  */
-@SuppressWarnings("ReferenceEquality")
 final class NestedTypeVarSubstitutionRepairVisitor
     extends Types.DefaultTypeVisitor<Type, NestedTypeVarSubstitutionRepairVisitor.RepairContext> {
 
@@ -91,6 +91,8 @@ final class NestedTypeVarSubstitutionRepairVisitor
     this.calledFromDataflow = calledFromDataflow;
   }
 
+  // suppress since we want to check for a specific identical Type object to check for changes
+  @SuppressWarnings("ReferenceEquality")
   private Type.MethodType repairMethodTypeInternal() {
     if (methodSymbol.isVarArgs()) {
       // skip handling of varargs for now
@@ -138,12 +140,14 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   @Override
   public Type visitTypeVar(Type.TypeVar typeVar, RepairContext context) {
-    if (typeVar.tsym.owner == methodSymbol) {
+    if (Objects.equals(typeVar.tsym.owner, methodSymbol)) {
       return repairTypeVarSubstitution(typeVar, context.actualArgType(), context.callSiteType());
     }
     return context.callSiteType();
   }
 
+  // suppress since we want to check for a specific identical Type object to check for changes
+  @SuppressWarnings("ReferenceEquality")
   @Override
   public Type visitClassType(Type.ClassType genericClassType, RepairContext context) {
     if (!(context.actualArgType() instanceof Type.ClassType)
@@ -190,6 +194,8 @@ final class NestedTypeVarSubstitutionRepairVisitor
         : context.callSiteType();
   }
 
+  // suppress since we want to check for a specific identical Type object to check for changes
+  @SuppressWarnings("ReferenceEquality")
   @Override
   public Type visitArrayType(Type.ArrayType genericArrayType, RepairContext context) {
     if (!(context.actualArgType() instanceof Type.ArrayType actualArrayType)
