@@ -17,7 +17,6 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import javax.lang.model.type.TypeKind;
 
 /**
  * Repairs inferred substitutions for method type variables in a call-site type using nested
@@ -28,12 +27,24 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   private final GenericsChecks genericsChecks;
   private final MethodInvocationTree invocationTree;
+
+  /** declared method type for generic method */
   private final Type.MethodType origMethodType;
+
+  /** method type inferred by javac at the call site */
   private final Type.MethodType methodTypeAtCallSite;
+
+  /** symbol of the invoked generic method */
   private final Symbol.MethodSymbol methodSymbol;
+
   private final VisitorState state;
   private final Config config;
   private final boolean calledFromDataflow;
+
+  /**
+   * use this map to store repaired substitutions for method type variables, to ensure we use the
+   * same repaired substitution for all occurrences of the same type variable
+   */
   private final Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions = new HashMap<>();
 
   /**
@@ -91,6 +102,10 @@ final class NestedTypeVarSubstitutionRepairVisitor
     this.calledFromDataflow = calledFromDataflow;
   }
 
+  /**
+   * repairs all parameter types at the call site, and then returns a new method type if any
+   * parameter type was actually repaired. otherwise, returns {@link #methodTypeAtCallSite}.
+   */
   // suppress since we want to check for a specific identical Type object to check for changes
   @SuppressWarnings("ReferenceEquality")
   private Type.MethodType repairMethodTypeInternal() {
@@ -140,6 +155,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
 
   @Override
   public Type visitTypeVar(Type.TypeVar typeVar, RepairContext context) {
+    // only repair type variables on the invoked method
     if (Objects.equals(typeVar.tsym.owner, methodSymbol)) {
       return repairTypeVarSubstitution(typeVar, context.actualArgType(), context.callSiteType());
     }
@@ -154,13 +170,14 @@ final class NestedTypeVarSubstitutionRepairVisitor
         || !(context.callSiteType() instanceof Type.ClassType callSiteClassType)) {
       return context.callSiteType();
     }
-    Type actualAsCallSiteType =
-        TypeSubstitutionUtils.asSuper(
-            state.getTypes(),
-            context.actualArgType(),
-            (Symbol.ClassSymbol) context.callSiteType().tsym,
-            config);
-    if (!(actualAsCallSiteType instanceof Type.ClassType actualClassType)) {
+    Type.ClassType actualClassType =
+        (Type.ClassType)
+            TypeSubstitutionUtils.asSuper(
+                state.getTypes(),
+                context.actualArgType(),
+                (Symbol.ClassSymbol) callSiteClassType.tsym,
+                config);
+    if (actualClassType == null) {
       return context.callSiteType();
     }
     List<Type> genericTypeArgs = genericClassType.getTypeArguments();
@@ -219,6 +236,13 @@ final class NestedTypeVarSubstitutionRepairVisitor
     return context.callSiteType();
   }
 
+  /**
+   * @param typeVar the type variable from the generic method
+   * @param actualArgType the actual parameter type passed in the type variable's position at the
+   *     call site
+   * @param callSiteType the type javac determined is passed in the type variable's position at the
+   *     call site
+   */
   private Type repairTypeVarSubstitution(
       Type.TypeVar typeVar, Type actualArgType, Type callSiteType) {
     Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
@@ -234,48 +258,45 @@ final class NestedTypeVarSubstitutionRepairVisitor
   }
 
   /**
-   * Repairs nested annotations in {@code callSiteType} using {@code actualArgType}, while
-   * preserving direct annotations on {@code callSiteType}.
+   * Repairs nested annotations in {@code callSiteType} using the nested types from {@code
+   * actualArgType}, while preserving any direct annotations on {@code callSiteType}.
+   *
+   * <p>So, for class types, if {@code actualArgType} is {@code Foo<@Nullable Bar>} and {@code
+   * callSiteType} is {@code @Nullable Foo<Bar>}, we return {@code @Nullable Foo<@Nullable Bar>},
+   * using the top-level type from {@code callSiteType} and the type argument from {@code
+   * actualArgType}.
+   *
+   * <p>Similarly, for array types, if {@code actualArgType} is {@code @Nullable Foo []} and {@code
+   * callSiteType} is {@code Foo @Nullable []}, we return {@code @Nullable Foo @Nullable []}.
    */
   private Type repairNestedTypeVarSubstitutionFromActual(Type actualArgType, Type callSiteType) {
-    if (!sameErasure(actualArgType, callSiteType)) {
+    // only handle cases where base types are identical for now
+    if (!ASTHelpers.isSameType(actualArgType, callSiteType, state)) {
       return callSiteType;
     }
-    if (actualArgType instanceof Type.ClassType
+    if (actualArgType instanceof Type.ClassType actualClassType
         && callSiteType instanceof Type.ClassType callSiteClassType) {
-      Type actualAsCallSiteType =
-          TypeSubstitutionUtils.asSuper(
-              state.getTypes(), actualArgType, (Symbol.ClassSymbol) callSiteType.tsym, config);
-      if (!(actualAsCallSiteType instanceof Type.ClassType actualClassType)) {
-        return callSiteType;
-      }
       List<Type> actualTypeArgs = actualClassType.getTypeArguments();
       if (actualTypeArgs.isEmpty()) {
         return callSiteType;
       }
+      // use call site type with type arguments from actual
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
           callSiteClassType, callSiteClassType.getEnclosingType(), actualTypeArgs);
     }
     if (actualArgType instanceof Type.ArrayType actualArrayType
         && callSiteType instanceof Type.ArrayType callSiteArrayType) {
+      // use call site type with component type from actual
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
           callSiteArrayType, actualArrayType.getComponentType());
     }
     return callSiteType;
   }
 
-  private boolean sameErasure(Type type1, Type type2) {
-    return !type1.getKind().equals(TypeKind.NULL)
-        && !type2.getKind().equals(TypeKind.NULL)
-        && state
-            .getTypes()
-            .isSameType(state.getTypes().erasure(type1), state.getTypes().erasure(type2));
-  }
-
   /**
    * The two types being compared while recursively walking the declared generic method parameter
-   * type. At each recursive step, the visitor uses {@code actualArgType} as the source of nested
-   * nullability annotations and applies any repair to the corresponding subtree of {@code
+   * type. At each recursive step, the visitor uses {@code actualArgType} as the "ground truth" of
+   * nested nullability annotations and applies any repair to the corresponding subtree of {@code
    * callSiteType}.
    *
    * @param actualArgType the subtree of the actual argument type aligned with the current declared
