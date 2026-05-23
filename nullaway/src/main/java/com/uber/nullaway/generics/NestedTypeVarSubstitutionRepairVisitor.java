@@ -125,6 +125,11 @@ final class NestedTypeVarSubstitutionRepairVisitor
       Type callSiteParamType = callSiteParamTypes.get(i);
       Type genericMethodParamType = genericMethodParamTypes.get(i);
       ExpressionTree actualParam = actualParams.get(i);
+      // IMPORTANT: actualArgType is the result of getTreeType(), which will apply NullAway's own
+      // reasoning about nullability of nested types, e.g., by running generic method inference at
+      // nested levels of the expression.  This is how actualArgType ends up having the "ground
+      // truth" information about nullability of nested types, which is used to repair the
+      // javac-determined call site type.
       Type actualArgType =
           genericsChecks.getTreeType(
               actualParam,
@@ -162,7 +167,18 @@ final class NestedTypeVarSubstitutionRepairVisitor
     return context.callSiteType();
   }
 
-  // suppress since we want to check for a specific identical Type object to check for changes
+  /**
+   * when this method is called, {@code genericClassType} appears within some level a parameter type
+   * for the generic method, {@code context.actualArgType()} is the (NullAway-determined) type of
+   * the actual parameter at the same nesting level, and {@code context.callSiteType()} is the
+   * javac-determined type for the parameter at the same nesting level.
+   *
+   * <p>This method recurses through the type arguments of {@code genericClassType}, invoking {@link
+   * #repairType(Type, Type, Type)} passing the corresponding type arguments from the actual
+   * parameter type and javac-determined call site type. If any repair occurs, returns the repaired
+   * type as the new type to be used at this level. (The actual repair logic only kicks in when
+   * visiting a nested type variable.)
+   */
   @SuppressWarnings("ReferenceEquality")
   @Override
   public Type visitClassType(Type.ClassType genericClassType, RepairContext context) {
@@ -170,6 +186,8 @@ final class NestedTypeVarSubstitutionRepairVisitor
         || !(context.callSiteType() instanceof Type.ClassType callSiteClassType)) {
       return context.callSiteType();
     }
+    // the actual type can be a subtype of the javac-inferred call-site type, so convert to the
+    // supertype
     Type.ClassType actualClassType =
         (Type.ClassType)
             TypeSubstitutionUtils.asSuper(
@@ -211,6 +229,18 @@ final class NestedTypeVarSubstitutionRepairVisitor
         : context.callSiteType();
   }
 
+  /**
+   * when this method is called, {@code genericArrayType} appears within some level a parameter type
+   * for the generic method, {@code context.actualArgType()} is the (NullAway-determined) type of
+   * the actual parameter at the same nesting level, and {@code context.callSiteType()} is the
+   * javac-determined type for the parameter at the same nesting level.
+   *
+   * <p>This method recurses to the component type of {@code genericArrayType}, invoking {@link
+   * #repairType(Type, Type, Type)} passing the corresponding component type from the actual
+   * parameter type and javac-determined call site type. If any repair occurs, returns the repaired
+   * type as the new type to be used at this level. (The actual repair logic only kicks in when
+   * visiting a nested type variable.)
+   */
   // suppress since we want to check for a specific identical Type object to check for changes
   @SuppressWarnings("ReferenceEquality")
   @Override
@@ -237,11 +267,17 @@ final class NestedTypeVarSubstitutionRepairVisitor
   }
 
   /**
+   * For a javac-determined call site type passed in the position of a type variable from the
+   * generic method, update nested types in the call site type based on the corresponding nested
+   * types from the actual parameter.
+   *
    * @param typeVar the type variable from the generic method
    * @param actualArgType the actual parameter type passed in the type variable's position at the
    *     call site
    * @param callSiteType the type javac determined is passed in the type variable's position at the
    *     call site
+   * @return updated type to use at the position in the call site, or {@code callSiteType} if no
+   *     repair is needed
    */
   private Type repairTypeVarSubstitution(
       Type.TypeVar typeVar, Type actualArgType, Type callSiteType) {
