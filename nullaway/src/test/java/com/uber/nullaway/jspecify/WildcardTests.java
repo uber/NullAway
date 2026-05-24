@@ -687,6 +687,10 @@ public class WildcardTests extends NullAwayTestsBase {
                   Function<Box<? super String>, R> mapper) {
                 throw new RuntimeException();
               }
+              static <R extends @Nullable Object> R invokeNestedWithUpperBound(
+                  Function<Box<? extends String>, R> mapper) {
+                throw new RuntimeException();
+              }
               static <R extends @Nullable Object> R invokeTopLevelWildcard(
                   Function<? super Box<? super String>, R> mapper) {
                 throw new RuntimeException();
@@ -698,6 +702,12 @@ public class WildcardTests extends NullAwayTestsBase {
               static void testNestedWildcard() {
                 invokeNested(box -> {
                   // BUG: Diagnostic contains: dereferenced expression box.get() is @Nullable
+                  box.get().hashCode();
+                  return null;
+                });
+                invokeNestedWithUpperBound(box -> {
+                  // safe since the upper bound of the Box type variable is @NonNull String,
+                  // so box.get() cannot be null
                   box.get().hashCode();
                   return null;
                 });
