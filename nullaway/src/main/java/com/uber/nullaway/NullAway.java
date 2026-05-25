@@ -186,6 +186,7 @@ public class NullAway extends BugChecker
         BugChecker.SwitchExpressionTreeMatcher,
         BugChecker.TypeCastTreeMatcher,
         BugChecker.ParameterizedTypeTreeMatcher,
+        BugChecker.AnnotatedTypeTreeMatcher,
         BugChecker.SynchronizedTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
@@ -774,6 +775,14 @@ public class NullAway extends BugChecker
       if (!isNullUnmarked) {
         genericsChecks.checkInstantiationForParameterizedTypedTree(tree, state);
       }
+    }
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchAnnotatedType(AnnotatedTypeTree tree, VisitorState state) {
+    if (withinAnnotatedCode(state) && config.isJSpecifyMode() && config.handleWildcardGenerics()) {
+      genericsChecks.checkForNullnessAnnotationsOnWildcards(tree, state);
     }
     return Description.NO_MATCH;
   }
