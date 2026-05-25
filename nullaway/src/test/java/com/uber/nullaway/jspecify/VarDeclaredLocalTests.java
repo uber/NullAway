@@ -72,6 +72,9 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
               }
               void testNegative() {
                 var foo = make(null);
+                // no warning here since NullAway infers the type argument to be @Nullable Object
+                // based on the constraint from the assignment context, and it's legal to pass
+                // new Object() as a parameter
                 foo = make(new Object());
               }
             }
