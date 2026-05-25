@@ -19,9 +19,14 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
+import com.uber.nullaway.Nullness;
+import com.uber.nullaway.handlers.Handler;
+import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
 /** Utility methods for doing generics-related checking */
@@ -40,16 +45,20 @@ public class GenericsUtils {
    * type itself. For wildcards and captured wildcards, returns the wildcard's upper bound,
    * recursing through nested wildcards and captures produced by javac.
    */
-  static Type effectiveWildcardUpperBound(Type typeArg, VisitorState state) {
+  static Type effectiveWildcardUpperBound(
+      Type typeArg, VisitorState state, Config config, Handler handler) {
     WildcardType wildcardType = asWildcard(typeArg);
-    return wildcardType == null ? typeArg : wildcardUpperBound(wildcardType, state);
+    return wildcardType == null
+        ? typeArg
+        : wildcardUpperBound(wildcardType, state, config, handler);
   }
 
   /**
    * Returns the effective upper bound of a wildcard, using the corresponding type variable's upper
    * bound for unbounded wildcards and {@code super} wildcards.
    */
-  static Type wildcardUpperBound(WildcardType wildcardType, VisitorState state) {
+  static Type wildcardUpperBound(
+      WildcardType wildcardType, VisitorState state, Config config, Handler handler) {
     Type upperBound;
     if (wildcardType.kind == BoundKind.EXTENDS) {
       upperBound = wildcardType.getExtendsBound();
@@ -64,14 +73,70 @@ public class GenericsUtils {
           formalTypeVar == null
               ? Symtab.instance(state.context).objectType
               : formalTypeVar.getUpperBound();
+      // check if the upper bound should be treated as @Nullable, e.g., due to a library model or a
+      // type variable in @NullUnmarked code
+      if (formalTypeVar != null
+          && upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
+          && !Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+        upperBound =
+            TypeSubstitutionUtils.typeWithAnnot(
+                upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
+      }
     }
     if (upperBound instanceof WildcardType nestedWildcard) {
-      return wildcardUpperBound(nestedWildcard, state);
+      return wildcardUpperBound(nestedWildcard, state, config, handler);
     }
     if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
-      return wildcardUpperBound(capturedType.wildcard, state);
+      return wildcardUpperBound(capturedType.wildcard, state, config, handler);
     }
     return upperBound;
+  }
+
+  /**
+   * Returns true if the upper bound of the given type variable should be treated as nullable.
+   *
+   * <p>A bound is nullable when the enclosing method or class comes from unannotated code, when a
+   * library model overrides the bound nullability for the type variable, or when the declared upper
+   * bound has an explicit {@code @Nullable} annotation.
+   */
+  static boolean upperBoundIsNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
+      return true;
+    }
+    // First, check if library model overrides the upper bound nullability.
+    Element enclosingElement = typeVarElement.getEnclosingElement();
+    if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol
+        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+      int typeVarIndex = methodSymbol.getTypeParameters().indexOf(typeVariableSymbol);
+      // TODO typeVarIndex is -1 in some cases; see test
+      //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
+      //  Investigate further.
+      if (typeVarIndex >= 0
+          && handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex, state)) {
+        return true;
+      }
+    } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol
+        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+      int typeVarIndex = classSymbol.getTypeParameters().indexOf(typeVariableSymbol);
+      if (typeVarIndex >= 0
+          && handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
+        return true;
+      }
+    }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    return Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+  }
+
+  private static boolean fromUnannotatedMethodOrClass(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    Element enclosingElement = typeVarElement.getEnclosingElement();
+    if (!(enclosingElement instanceof Symbol.MethodSymbol)
+        && !(enclosingElement instanceof Symbol.ClassSymbol)) {
+      return false;
+    }
+    return CodeAnnotationInfo.instance(state.context)
+        .isSymbolUnannotated((Symbol) enclosingElement, config, handler);
   }
 
   static @Nullable WildcardType asWildcard(Type typeArg) {
@@ -98,7 +163,8 @@ public class GenericsUtils {
    * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.9">9.9</a>.
    */
   @SuppressWarnings("ReferenceEquality")
-  static Type groundTargetType(Type targetType, VisitorState state, Config config) {
+  static Type groundTargetType(
+      Type targetType, VisitorState state, Config config, Handler handler) {
     if (!config.handleWildcardGenerics()) {
       return targetType;
     }
@@ -112,7 +178,7 @@ public class GenericsUtils {
     ListBuffer<Type> groundedTypeArguments = new ListBuffer<>();
     boolean changed = false;
     for (Type typeArgument : typeArguments) {
-      Type groundedTypeArgument = groundTypeArgument(typeArgument, state);
+      Type groundedTypeArgument = groundTypeArgument(typeArgument, state, config, handler);
       groundedTypeArguments.append(groundedTypeArgument);
       changed |= groundedTypeArgument != typeArgument;
     }
@@ -127,7 +193,8 @@ public class GenericsUtils {
    * rules for functional interface target types in JLS <a
    * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.9">9.9</a>.
    */
-  private static Type groundTypeArgument(Type typeArgument, VisitorState state) {
+  private static Type groundTypeArgument(
+      Type typeArgument, VisitorState state, Config config, Handler handler) {
     WildcardType wildcardType = asWildcard(typeArgument);
     if (wildcardType == null) {
       return typeArgument;
@@ -135,7 +202,7 @@ public class GenericsUtils {
     if (wildcardType.kind == BoundKind.SUPER) {
       return castToNonNull(wildcardType.getSuperBound());
     }
-    return wildcardUpperBound(wildcardType, state);
+    return wildcardUpperBound(wildcardType, state, config, handler);
   }
 
   /**
