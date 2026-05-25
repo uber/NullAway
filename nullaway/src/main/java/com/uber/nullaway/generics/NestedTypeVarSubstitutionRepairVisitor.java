@@ -1,6 +1,5 @@
 package com.uber.nullaway.generics;
 
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
 
 import com.google.errorprone.VisitorState;
@@ -282,15 +281,16 @@ final class NestedTypeVarSubstitutionRepairVisitor
   private Type repairTypeVarSubstitution(
       Type.TypeVar typeVar, Type actualArgType, Type callSiteType) {
     Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
-    if (repairedSubstitutions.containsKey(typeVarSymbol)) {
-      return castToNonNull(repairedSubstitutions.get(typeVarSymbol));
-    }
-    Type repairedSubstitution = callSiteType;
-    if (!actualArgType.isRaw() && !callSiteType.isRaw()) {
-      repairedSubstitution = repairNestedTypeVarSubstitutionFromActual(actualArgType, callSiteType);
-    }
-    repairedSubstitutions.put(typeVarSymbol, repairedSubstitution);
-    return repairedSubstitution;
+    return repairedSubstitutions.computeIfAbsent(
+        typeVarSymbol,
+        (unused) -> {
+          Type repairedSubstitution = callSiteType;
+          if (!actualArgType.isRaw() && !callSiteType.isRaw()) {
+            repairedSubstitution =
+                repairNestedTypeVarSubstitutionFromActual(actualArgType, callSiteType);
+          }
+          return repairedSubstitution;
+        });
   }
 
   /**
