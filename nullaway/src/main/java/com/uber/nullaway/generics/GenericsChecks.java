@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -38,7 +39,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
-import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -490,9 +490,11 @@ public final class GenericsChecks {
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
    * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
-   * @return Type of the tree with preserved annotations.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
+   *     other unhandled cases.
    */
-  private @Nullable Type getTreeType(Tree tree, VisitorState state, boolean calledFromDataflow) {
+  /* package-private */ @Nullable Type getTreeType(
+      Tree tree, VisitorState state, boolean calledFromDataflow) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
@@ -1490,14 +1492,6 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns an updated version of {@code path} with {@code leaf} as the leaf, if needed. If {@code
-   * leaf} is already the leaf of {@code path}, just return {@code path} unmodified.
-   */
-  private static TreePath pathWithLeaf(TreePath path, Tree leaf) {
-    return path.getLeaf() == leaf ? path : new TreePath(path, leaf);
-  }
-
-  /**
    * Sets up the environment mapping for a lambda expression so that dataflow analysis can be run
    * within the lambda body, handling the case where dataflow analysis is already running on the
    * enclosing method.
@@ -2151,11 +2145,11 @@ public final class GenericsChecks {
   }
 
   /**
-   * In narrow cases, javac drops nested type-use nullability annotations on type variables in its
-   * inferred type for a generic method at a call site. See
-   * https://github.com/uber/NullAway/issues/1455. This method aims to restore those annotations
-   * based on the types of actual parameters. It does not attempt to be a very general fix, as we do
-   * not fully understand the scenarios where this can arise.
+   * In narrow cases, javac drops or misplaces nested type-use nullability annotations on type
+   * variables in its inferred type for a generic method at a call site. See <a
+   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
+   * annotations based on the types of actual parameters. It does not attempt to be a very general
+   * fix, as we do not fully understand the scenarios where this can arise.
    *
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method (to identify formal
@@ -2167,89 +2161,20 @@ public final class GenericsChecks {
    *     annotations on type variables restored to match those on actual parameters passed at the
    *     call site
    */
-  @SuppressWarnings("ReferenceEquality")
   private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
       VisitorState state,
       boolean calledFromDataflow) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    if (methodSymbol.isVarArgs()) {
-      // skip handling of varargs for now
-      return methodTypeAtCallSite;
-    }
-    com.sun.tools.javac.util.List<Type> genericMethodParamTypes =
-        origMethodType.getParameterTypes();
-    com.sun.tools.javac.util.List<Type> callSiteParamTypes =
-        methodTypeAtCallSite.getParameterTypes();
-    List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
-    TreePath pathToInvocation = pathWithLeaf(state.getPath(), invocationTree);
-    // use this map to store repaired substitutions for method type variables, to ensure we use the
-    // same repaired substitution for all occurrences of the same type variable
-    Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
-    ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
-    boolean changed = false;
-    for (int i = 0; i < genericMethodParamTypes.size(); i++) {
-      Type callSiteParamType = callSiteParamTypes.get(i);
-      Type genericMethodParamType = genericMethodParamTypes.get(i);
-      // only attempt a repair when the generic method's parameter type is a type variable of the
-      // method
-      if (genericMethodParamType instanceof Type.TypeVar typeVar
-          && typeVar.tsym.owner == methodSymbol) {
-        Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
-        Type repairedSubstitution = repairedTopLevelSubstitutions.get(typeVarSymbol);
-        if (repairedSubstitution != null) {
-          // re-use the previous substitution, to ensure consistency
-          if (repairedSubstitution != callSiteParamType) {
-            changed = true;
-            callSiteParamType = repairedSubstitution;
-          }
-        } else { // need to compute the substitution
-          ExpressionTree actualParam = actualParams.get(i);
-          Type actualArgType =
-              getTreeType(
-                  actualParam,
-                  state.withPath(pathWithLeaf(pathToInvocation, actualParam)),
-                  calledFromDataflow);
-          // only handle cases of non-raw actual parameter types that have the same base type as the
-          // inferred parameter type at the call site
-          if (actualArgType != null
-              && !actualArgType.isRaw()
-              && state
-                  .getTypes()
-                  .isSameType(
-                      state.getTypes().erasure(actualArgType),
-                      state.getTypes().erasure(callSiteParamType))) {
-            // restore explicit nested annotations from the actual parameter type to the call site
-            // parameter type (this will only apply to nested type variables within
-            // callSiteParamType)
-            Type restoredType =
-                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    actualArgType, callSiteParamType, config, Collections.emptyMap());
-            // remember the substitution so we use it consistently at other parameter positions
-            repairedTopLevelSubstitutions.put(typeVarSymbol, restoredType);
-            if (restoredType != callSiteParamType) {
-              changed = true;
-              callSiteParamType = restoredType;
-            }
-          } else {
-            // remember that we did _not_ change anything, again for consistency across parameter
-            // positions
-            repairedTopLevelSubstitutions.put(typeVarSymbol, callSiteParamType);
-          }
-        }
-      }
-      updatedArgTypes.append(callSiteParamType);
-    }
-    if (!changed) {
-      return methodTypeAtCallSite;
-    }
-    return new Type.MethodType(
-        updatedArgTypes.toList(),
-        methodTypeAtCallSite.getReturnType(),
-        methodTypeAtCallSite.getThrownTypes(),
-        methodTypeAtCallSite.tsym);
+    return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
+        this,
+        invocationTree,
+        origMethodType,
+        methodTypeAtCallSite,
+        state,
+        config,
+        calledFromDataflow);
   }
 
   /**

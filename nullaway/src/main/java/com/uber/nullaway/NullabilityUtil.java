@@ -754,6 +754,14 @@ public class NullabilityUtil {
   }
 
   /**
+   * Returns an updated version of {@code path} with {@code leaf} as the leaf, if needed. If {@code
+   * leaf} is already the leaf of {@code path}, just return {@code path} unmodified.
+   */
+  public static TreePath pathWithLeaf(TreePath path, Tree leaf) {
+    return path.getLeaf() == leaf ? path : new TreePath(path, leaf);
+  }
+
+  /**
    * A pair of an expression tree and a VisitorState, used by {@link #stripParensAndUpdateTreePath}
    */
   public record ExprTreeAndState(ExpressionTree expr, VisitorState state) {}
