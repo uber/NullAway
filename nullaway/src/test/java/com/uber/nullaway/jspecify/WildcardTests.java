@@ -689,7 +689,6 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1500")
   @Test
   public void issue1500() {
     makeHelperWithInferenceFailureWarning()
@@ -704,11 +703,24 @@ public class WildcardTests extends NullAwayTestsBase {
                     return new Foo<>();
                 }
 
+                public static <T extends @Nullable Object> Foo<T> ofNoWildcard(Foo<T> foo) {
+                    return new Foo<>();
+                }
+
                 public Foo<T> or(Foo<? super T> other) {
                     return this;
                 }
               }
+              // We report an error here since we do not infer Foo<@Nullable Void> as the type of the Foo.of call;
+              // javac itself has a similar inference limitation, see https://godbolt.org/z/Y875ahYMx
+              // BUG: Diagnostic contains: incompatible types: Foo<Void> cannot be converted to Foo<@Nullable Void>
               static final Foo<@Nullable Void> FOO = Foo.of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
+
+              // This works due to the explicit type argument
+              static final Foo<@Nullable Void> FOO2 = Foo.<@Nullable Void>of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
+
+              // This works since ofNoWildcard does not use a lower-bounded wildcard in its parameter type
+              static final Foo<@Nullable Void> FOO3 = Foo.ofNoWildcard(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
             }""")
         .doTest();
   }
