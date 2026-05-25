@@ -4,7 +4,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
@@ -580,7 +579,6 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1522")
   @Test
   public void issue1522() {
     makeHelperWithInferenceFailureWarning()
@@ -599,6 +597,163 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <T> Foo<T> after(Foo<Optional<T>> foo) {
                 return foo.mapNotNull(x -> x.orElse(null));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1522SelfContained() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, U extends @Nullable Object> {
+                U apply(T t);
+              }
+              static class Optional<T> {
+                public @Nullable T orElse(@Nullable T other) {
+                    throw new RuntimeException();
+                }
+              }
+              static class Foo<T> {
+                public final <V> Foo<V> mapNotNull(Function<? super T, ? extends @Nullable V> mapper) {
+                  throw new RuntimeException();
+                }
+              }
+              static <T> Foo<T> after(Foo<Optional<T>> foo) {
+                return foo.mapNotNull(x -> x.orElse(null));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1522SelfContainedWithMethodReference() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, U extends @Nullable Object> {
+                U apply(T t);
+              }
+              static class Optional<T> {
+                public @Nullable T orElse(@Nullable T other) {
+                    throw new RuntimeException();
+                }
+              }
+              static class Foo<T> {
+                public final <V> Foo<V> mapNotNull(Function<? super T, ? extends @Nullable V> mapper) {
+                  throw new RuntimeException();
+                }
+              }
+              static <T> @Nullable T orElseNull(Optional<T> optional) {
+                return optional.orElse(null);
+              }
+              static <T> Foo<T> after(Foo<Optional<T>> foo) {
+                return foo.mapNotNull(Test::orElseNull);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void groundTargetTypePreservesNestedWildcards() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T t);
+              }
+              static class Box<T extends @Nullable Object> {
+                T get() {
+                  throw new RuntimeException();
+                }
+              }
+              static <R extends @Nullable Object> R invokeNested(
+                  Function<Box<? super String>, R> mapper) {
+                throw new RuntimeException();
+              }
+              static <R extends @Nullable Object> R invokeNestedWithUpperBound(
+                  Function<Box<? extends String>, R> mapper) {
+                throw new RuntimeException();
+              }
+              static <R extends @Nullable Object> R invokeTopLevelWildcard(
+                  Function<? super Box<? super String>, R> mapper) {
+                throw new RuntimeException();
+              }
+              static <R extends @Nullable Object> R invokeArray(
+                  Function<Box<? super String>[], R> mapper) {
+                throw new RuntimeException();
+              }
+              static void testNestedWildcard() {
+                invokeNested(box -> {
+                  // BUG: Diagnostic contains: dereferenced expression box.get() is @Nullable
+                  box.get().hashCode();
+                  return null;
+                });
+                invokeNestedWithUpperBound(box -> {
+                  // safe since the upper bound of the Box type variable is @NonNull String,
+                  // so box.get() cannot be null
+                  box.get().hashCode();
+                  return null;
+                });
+              }
+              static void testTopLevelWildcardBound() {
+                invokeTopLevelWildcard(box -> {
+                  // BUG: Diagnostic contains: dereferenced expression box.get() is @Nullable
+                  box.get().hashCode();
+                  return null;
+                });
+              }
+              static void testArrayWithNestedWildcard() {
+                invokeArray(boxes -> {
+                  // BUG: Diagnostic contains: dereferenced expression boxes[0].get() is @Nullable
+                  boxes[0].get().hashCode();
+                  return null;
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void groundTargetTypePreservesNestedWildcardsForMethodReferences() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Function<T extends @Nullable Object, R extends @Nullable Object> {
+                R apply(T t);
+              }
+              static class Box<T extends @Nullable Object> {}
+              static <R extends @Nullable Object> R invokeExtendsNullable(
+                  Function<Box<? extends @Nullable String>, R> mapper) {
+                throw new RuntimeException();
+              }
+              static @Nullable Object needsBoxExtendsString(Box<? extends String> box) {
+                return null;
+              }
+              static void test() {
+                // BUG: Diagnostic contains: parameter type of referenced method is Box<? extends String>
+                invokeExtendsNullable(Test::needsBoxExtendsString);
               }
             }
             """)

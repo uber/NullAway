@@ -1,5 +1,7 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -11,9 +13,13 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.CapturedType;
+import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
+import com.sun.tools.javac.util.List;
+import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
 import javax.lang.model.type.TypeKind;
 import org.jspecify.annotations.Nullable;
@@ -76,6 +82,60 @@ public class GenericsUtils {
       return capturedType.wildcard;
     }
     return null;
+  }
+
+  /**
+   * Returns a non-wildcard functional interface parameterization for lambda and method-reference
+   * checking. For immediate wildcard type arguments, use the bound that determines the functional
+   * interface descriptor, preserving wildcards in nested type positions.
+   *
+   * <p>This implements the ground target type behavior used for lambda and method-reference target
+   * typing; see JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-15.html#jls-15.27.3">15.27.3</a>,
+   * JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-15.html#jls-15.13.2">15.13.2</a>,
+   * and the non-wildcard parameterization rules in JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.9">9.9</a>.
+   */
+  @SuppressWarnings("ReferenceEquality")
+  static Type groundTargetType(Type targetType, VisitorState state, Config config) {
+    if (!config.handleWildcardGenerics()) {
+      return targetType;
+    }
+    if (!(targetType instanceof ClassType classType) || targetType.isRaw()) {
+      return targetType;
+    }
+    List<Type> typeArguments = classType.getTypeArguments();
+    if (typeArguments.isEmpty()) {
+      return targetType;
+    }
+    ListBuffer<Type> groundedTypeArguments = new ListBuffer<>();
+    boolean changed = false;
+    for (Type typeArgument : typeArguments) {
+      Type groundedTypeArgument = groundTypeArgument(typeArgument, state);
+      groundedTypeArguments.append(groundedTypeArgument);
+      changed |= groundedTypeArgument != typeArgument;
+    }
+    return changed
+        ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
+            targetType, classType.getEnclosingType(), groundedTypeArguments.toList())
+        : targetType;
+  }
+
+  /**
+   * Grounds one immediate wildcard type argument according to the non-wildcard parameterization
+   * rules for functional interface target types in JLS <a
+   * href="https://docs.oracle.com/javase/specs/jls/se21/html/jls-9.html#jls-9.9">9.9</a>.
+   */
+  private static Type groundTypeArgument(Type typeArgument, VisitorState state) {
+    WildcardType wildcardType = asWildcard(typeArgument);
+    if (wildcardType == null) {
+      return typeArgument;
+    }
+    if (wildcardType.kind == BoundKind.SUPER) {
+      return castToNonNull(wildcardType.getSuperBound());
+    }
+    return wildcardUpperBound(wildcardType, state);
   }
 
   /**
