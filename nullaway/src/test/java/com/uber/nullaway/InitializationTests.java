@@ -242,4 +242,44 @@ public class InitializationTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void initializerAnnotationOnConstructor() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CustomInitializerAnnotations=com.uber.MyInitializer"))
+        .addSourceLines(
+            "MyInitializer.java",
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            @Retention(RetentionPolicy.CLASS)
+            @Target({ElementType.METHOD, ElementType.CONSTRUCTOR})
+            public @interface MyInitializer {}
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            class Test {
+              Object f;
+              @MyInitializer
+              // BUG: Diagnostic contains: @Initializer annotation (or a configured initializer annotation) is not allowed on constructors
+              public Test() {
+                this.f = new Object();
+              }
+              @MyInitializer
+              public void init() {
+                this.f = new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
 }
