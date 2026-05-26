@@ -4,13 +4,13 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
-import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
+import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
-import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -32,13 +32,11 @@ import org.jspecify.annotations.Nullable;
  */
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
-  private final CodeAnnotationInfo codeAnnotationInfo;
   private final Handler handler;
   private final VisitorState state;
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
-    this.codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     this.handler = analysis.getHandler();
     this.state = state;
   }
@@ -90,7 +88,15 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public @Nullable Void visitType(Type subtype, Type supertype) {
-      // handle flow into a type variable.  the check for !(subtype instanceof TypeVar) is a
+      if (config.handleWildcardGenerics()) {
+        WildcardType supertypeWildcard = GenericsUtils.asWildcard(supertype);
+        if (supertypeWildcard != null) {
+          Verify.verify(!localVariableType, "A local variable should not have a wildcard type");
+          constrainSubtypeToWildcard(subtype, supertypeWildcard);
+          return null;
+        }
+      }
+      // handle flow into a type variable. The check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
         directlyConstrainTypePair(subtype, supertype);
@@ -116,17 +122,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         int numTypeArgs = supertypeTypeArguments.size();
         Verify.verify(numTypeArgs == subtypeTypeArguments.size());
         for (int i = 0; i < numTypeArgs; i++) {
-          Type rhsTypeArg = supertypeTypeArguments.get(i);
-          Type lhsTypeArg = subtypeTypeArguments.get(i);
-          // constrain in both directions
-          // TODO should we have a more optimized way to equate two types?  this just makes each
-          //  type a subtype of the other
-          lhsTypeArg.accept(this, rhsTypeArg);
-          rhsTypeArg.accept(this, lhsTypeArg);
+          Type supertypeTypeArg = supertypeTypeArguments.get(i);
+          Type subtypeTypeArg = subtypeTypeArguments.get(i);
+          constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg);
         }
       }
       // if supertype is not a ClassType, we still call visitType to handle the case where
-      // supertype is a TypeVar
+      // supertype is a TypeVar or a wildcard
       return visitType(subtype, supertype);
     }
 
@@ -141,7 +143,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         subtypeComponentType.accept(this, superComponentType);
       }
       // if supertype is not an ArrayType, we still call visitType to handle the case where
-      // supertype is a TypeVar
+      // supertype is a TypeVar or a wildcard
       return visitType(subtype, supertype);
     }
 
@@ -151,6 +153,105 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         directlyConstrainTypePair(subtype, supertype);
       }
       return visitType(subtype, supertype);
+    }
+
+    @Override
+    public @Nullable Void visitWildcardType(WildcardType subtype, Type supertype) {
+      if (config.handleWildcardGenerics()) {
+        Verify.verify(!localVariableType, "A wildcard type cannot be assigned to a local variable");
+        constrainWildcardToSupertype(subtype, supertype);
+      }
+      return null;
+    }
+
+    /**
+     * Adds nullability constraints for containment of one type argument by another during generic
+     * class/interface subtyping. For non-wildcard arguments, NullAway requires identical
+     * nullability. When either side is a wildcard, containment is reduced to constraints between
+     * the wildcard bound and the opposing argument.
+     */
+    private void constrainTypeArgumentContainment(Type subtypeTypeArg, Type supertypeTypeArg) {
+      if (!config.handleWildcardGenerics()) {
+        equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
+        return;
+      }
+      WildcardType supertypeWildcard = GenericsUtils.asWildcard(supertypeTypeArg);
+      if (supertypeWildcard != null) {
+        constrainContainedByWildcard(subtypeTypeArg, supertypeWildcard);
+        return;
+      }
+      WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
+      if (subtypeWildcard != null) {
+        constrainWildcardToSupertype(subtypeWildcard, supertypeTypeArg);
+        return;
+      }
+      equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
+    }
+
+    private void equateTypeArguments(Type subtypeTypeArg, Type supertypeTypeArg) {
+      // constrain in both directions
+      // TODO should we have a more optimized way to equate two types?  this just makes each
+      //  type a subtype of the other
+      subtypeTypeArg.accept(this, supertypeTypeArg);
+      supertypeTypeArg.accept(this, subtypeTypeArg);
+    }
+
+    /**
+     * Adds constraints for type-argument containment where the formal argument is a wildcard. For
+     * {@code ? extends S} and {@code ?}, containment requires the actual argument's effective upper
+     * bound to be a subtype of {@code S}. For {@code ? super S}, concrete actual arguments require
+     * {@code S <: subtypeTypeArg}; {@code ? super T} actual arguments require {@code S <: T}. Other
+     * actual wildcard forms place no useful nullability constraint.
+     */
+    private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
+      switch (supertypeWildcard.kind) {
+        case UNBOUND, EXTENDS -> {
+          Type subtypeUpperBound =
+              GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
+          subtypeUpperBound.accept(
+              this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
+        }
+        case SUPER -> {
+          Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
+          WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
+          if (subtypeWildcard != null) {
+            if (subtypeWildcard.kind == BoundKind.SUPER) {
+              supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
+            }
+            // the subtype wildcard could have an extends bound, but as far as I know we do not
+            // need to generate constraints for this case
+            // TODO revisit if needed
+          } else {
+            supertypeLowerBound.accept(this, subtypeTypeArg);
+          }
+        }
+      }
+    }
+
+    /**
+     * Adds constraints for a top-level subtype relation {@code subtype <: supertypeWildcard}. For
+     * {@code ? extends S} and {@code ?}, this reduces to {@code subtype <: S}. A {@code ? super S}
+     * supertype places no useful nullability constraint on {@code subtype}.
+     */
+    private void constrainSubtypeToWildcard(Type subtype, WildcardType supertypeWildcard) {
+      if (supertypeWildcard.kind != BoundKind.SUPER) {
+        subtype.accept(
+            this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
+      }
+    }
+
+    /**
+     * Adds constraints for a top-level subtype relation {@code subtypeWildcard <: supertype}. For
+     * {@code ? extends S} and {@code ?}, this reduces to {@code S <: supertype}. For {@code ? super
+     * S}, use the lower bound and reduce to {@code S <: supertype}.
+     */
+    private void constrainWildcardToSupertype(WildcardType subtypeWildcard, Type supertype) {
+      if (subtypeWildcard.kind == BoundKind.SUPER) {
+        castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertype);
+      } else {
+        GenericsUtils.wildcardUpperBound(subtypeWildcard, state, config, handler)
+            .accept(this, supertype);
+      }
     }
   }
 
@@ -209,8 +310,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
+    Verify.verify(
+        s instanceof TypeVariable || t instanceof TypeVariable,
+        "At least one argument must be a type variable but got %s and %s",
+        s,
+        t);
     /* variable-to-variable edge */
-    if (isTypeVariable(s) && isTypeVariable(t)) {
+    if (treatAsTypeVariableForInference(s) && treatAsTypeVariableForInference(t)) {
       TypeVariable sv = (TypeVariable) s;
       TypeVariable tv = (TypeVariable) t;
       getState(sv.asElement()).supertypes.add(tv.asElement());
@@ -219,10 +325,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     /* top-level nullability rules */
     if (isKnownNonNull(t)) {
-      requireNonNull(s);
+      constrainAsNonNull(s, t);
     }
     if (isKnownNullable(s)) {
-      requireNullable(t);
+      constrainAsNullable(t, s);
     }
   }
 
@@ -237,45 +343,63 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return false;
     }
     if (st.nullness != NullnessState.UNKNOWN) {
-      throw new UnsatisfiableConstraintsException(
-          "Contradictory nullability for " + typeVarElement + ": " + st.nullness + " vs. " + n);
+      throw new UnsatisfiableConstraintsException(typeVarElement);
     }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
-      throw new UnsatisfiableConstraintsException(
-          typeVarElement + " cannot be @Nullable (upper bound is @NonNull)");
+      throw new UnsatisfiableConstraintsException(typeVarElement);
     }
     st.nullness = n;
     return true;
   }
 
-  private void requireNullable(Type t) throws UnsatisfiableConstraintsException {
-    if (isTypeVariable(t)) {
+  /**
+   * Constrain a type to be @Nullable due to its being a supertype of some known @Nullable type
+   *
+   * @param t the type to constrain
+   * @param knownNullableType the known nullable type
+   * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
+   */
+  private void constrainAsNullable(Type t, Type knownNullableType)
+      throws UnsatisfiableConstraintsException {
+    if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NULLABLE);
     } else if (isKnownNonNull(t)) {
-      throw new UnsatisfiableConstraintsException("Cannot treat @NonNull type as @Nullable: " + t);
+      TypeVariable typeVar =
+          knownNullableType instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) t;
+      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 
-  private void requireNonNull(Type t) throws UnsatisfiableConstraintsException {
-    if (isTypeVariable(t)) {
+  /**
+   * Constrain a type to be @NonNull due to its being a subtype of some known @NonNull type
+   *
+   * @param t the type to constrain
+   * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
+   */
+  private void constrainAsNonNull(Type t, Type knownNonNullType)
+      throws UnsatisfiableConstraintsException {
+    if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NONNULL);
     } else if (isKnownNullable(t)) {
-      throw new UnsatisfiableConstraintsException("Cannot treat @Nullable type as @NonNull: " + t);
+      TypeVariable typeVar =
+          t instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) knownNonNullType;
+      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 
   /* ───────────────────── helpers & stubs ───────────────────── */
 
   private VarState getState(Element typeVarElement) {
-    return vars.computeIfAbsent(typeVarElement, v -> new VarState(upperBoundIsNullable(v)));
+    return vars.computeIfAbsent(
+        typeVarElement,
+        v -> new VarState(GenericsUtils.upperBoundIsNullable(v, config, handler, state)));
   }
 
-  private boolean isTypeVariable(Type t) {
+  private boolean treatAsTypeVariableForInference(Type t) {
     if (t instanceof TypeVar tv) {
-      // For now ignore capture variables, like "capture#1 of ? extends X".  Also, only treat as a
-      // type variable if it _doesn't_ have an explicit @Nullable or @NonNull annotation.
-      return !tv.isCaptured()
-          && !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
+      // Only treat as a type variable if it _doesn't_ have an explicit @Nullable or @NonNull
+      // annotation.
+      return !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
           && !Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors().stream(), config);
     } else {
       return false;
@@ -289,43 +413,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Everything non-nullable *and* non-variable counts as @NonNull. */
   private boolean isKnownNonNull(Type t) {
-    return !isKnownNullable(t) && !isTypeVariable(t);
-  }
-
-  private boolean upperBoundIsNullable(Element typeVarElement) {
-    if (fromUnannotatedMethod(typeVarElement)) {
-      return true;
-    }
-    // first, check if library model overrides the upper bound nullability
-    Element enclosingElement = typeVarElement.getEnclosingElement();
-    if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol) {
-      int typeVarIndex =
-          methodSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
-      // TODO typeVarIndex is -1 in some cases; see test
-      //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
-      //  Investigate further.
-      if (typeVarIndex >= 0
-          && handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex, state)) {
-        return true;
-      }
-    } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol) {
-      int typeVarIndex =
-          classSymbol.getTypeParameters().indexOf((Symbol.TypeVariableSymbol) typeVarElement);
-      if (typeVarIndex >= 0
-          && handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
-        return true;
-      }
-    }
-    // otherwise, check the actual upper bound annotations
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-        upperBound.getAnnotationMirrors();
-    return com.uber.nullaway.Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-  }
-
-  private boolean fromUnannotatedMethod(Element typeVarElement) {
-    Symbol enclosingElement = (Symbol) typeVarElement.getEnclosingElement();
-    return enclosingElement != null
-        && codeAnnotationInfo.isSymbolUnannotated(enclosingElement, config, handler);
+    return !isKnownNullable(t) && !treatAsTypeVariableForInference(t);
   }
 }

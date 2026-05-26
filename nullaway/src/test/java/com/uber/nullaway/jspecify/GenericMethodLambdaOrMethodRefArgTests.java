@@ -964,6 +964,48 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1528() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.function.Function;
+            import java.util.stream.Stream;
+            @NullMarked
+            class Test {
+              <T> Test and(Stream<T> stream, Function<T, @Nullable Pair> mapper) {
+                return this;
+              }
+              static class Pair {
+                private final String name;
+                private final @Nullable String value;
+                private Pair(String name, @Nullable String value) {
+                  this.name = name;
+                  this.value = value;
+                }
+                static Pair fromMapEntry(Map.Entry<String, @Nullable String> entry) {
+                  return new Pair(entry.getKey(), entry.getValue());
+                }
+                static Pair fromMapEntryWildcard(Map.Entry<String, ? extends @Nullable String> entry) {
+                  return new Pair(entry.getKey(), entry.getValue());
+                }
+              }
+              Test and(Map<String, String> map) {
+                // BUG: Diagnostic contains: parameter type of referenced method is Entry<String, @Nullable String>
+                return and(map.entrySet().stream(), Pair::fromMapEntry);
+              }
+              Test andWildcard(Map<String, String> map) {
+                return and(map.entrySet().stream(), Pair::fromMapEntryWildcard);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericMethodLambdaArgWildCard() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(

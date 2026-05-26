@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -27,9 +28,11 @@ import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.tree.WildcardTree;
 import com.sun.source.util.TreePath;
-import com.sun.source.util.TreeScanner;
+import com.sun.source.util.TreePathScanner;
 import com.sun.tools.javac.code.Attribute;
+import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TargetType;
@@ -37,7 +40,6 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
-import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -114,6 +116,12 @@ public final class GenericsChecks {
    */
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
+  /** Maps each {@code var}-declared local to its inferred NullAway type */
+  private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
+
+  /** Maps each {@code var}-declared local to its declaration tree */
+  private final Map<Symbol, VariableTree> varLocalDeclarations = new LinkedHashMap<>();
+
   public @Nullable Type getInferredPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
         tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
@@ -156,6 +164,11 @@ public final class GenericsChecks {
     for (int i = 0; i < typeArguments.size(); i++) {
       Tree curTypeArg = typeArguments.get(i);
       if (curTypeArg instanceof AnnotatedTypeTree annotatedType) {
+        // Annotations directly on wildcards are illegal in JSpecify mode and are diagnosed in
+        // checkForNullnessAnnotationsOnWildcards().
+        if (annotatedType.getUnderlyingType() instanceof WildcardTree) {
+          continue;
+        }
         for (AnnotationTree annotation : annotatedType.getAnnotations()) {
           Type annotationType = ASTHelpers.getType(annotation);
           if (annotationType != null
@@ -180,6 +193,36 @@ public final class GenericsChecks {
         reportInvalidInstantiationError(
             nullableTypeArguments.get(i), baseType, baseTypeArgs.get(i), state);
       }
+    }
+  }
+
+  /**
+   * Reports nullness annotations written directly on a wildcard, which is not a legal annotation
+   * location under JSpecify.
+   */
+  public void checkForNullnessAnnotationsOnWildcards(
+      AnnotatedTypeTree annotatedType, VisitorState state) {
+    if (!(annotatedType.getUnderlyingType() instanceof WildcardTree)) {
+      return;
+    }
+    for (AnnotationTree annotation : annotatedType.getAnnotations()) {
+      Type annotationType = ASTHelpers.getType(annotation);
+      if (annotationType == null) {
+        continue;
+      }
+      String annotationName = annotationType.toString();
+      if (!Nullness.isNullableAnnotation(annotationName, config)
+          && !Nullness.isNonNullAnnotation(annotationName, config)) {
+        continue;
+      }
+      ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+      ErrorMessage errorMessage =
+          new ErrorMessage(
+              ErrorMessage.MessageTypes.UNRECOGNIZED_NULLNESS_ANNOTATION_LOCATION,
+              "illegal location for annotation: nullness annotations cannot be written directly on a wildcard; annotate the wildcard bound instead");
+      state.reportMatch(
+          errorBuilder.createErrorDescription(
+              errorMessage, analysis.buildDescription(annotation), state, null));
     }
   }
 
@@ -465,9 +508,29 @@ public final class GenericsChecks {
    * Foo<@Nullable A>}).
    *
    * @param tree A tree for which we need the type with preserved annotations.
+   * @param state the visitor state
    * @return Type of the tree with preserved annotations.
    */
   /* package-private */ @Nullable Type getTreeType(Tree tree, VisitorState state) {
+    return getTreeType(tree, state, false);
+  }
+
+  /**
+   * This method returns the type of the given tree, including any type use annotations.
+   *
+   * <p>This method is required because in some cases, the type returned by {@link
+   * com.google.errorprone.util.ASTHelpers#getType(Tree)} fails to preserve type use annotations,
+   * e.g., when dealing with {@link com.sun.source.tree.NewClassTree} (e.g., {@code new
+   * Foo<@Nullable A>}).
+   *
+   * @param tree A tree for which we need the type with preserved annotations.
+   * @param state the visitor state
+   * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
+   *     other unhandled cases.
+   */
+  /* package-private */ @Nullable Type getTreeType(
+      Tree tree, VisitorState state, boolean calledFromDataflow) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
@@ -491,7 +554,8 @@ public final class GenericsChecks {
         // For constructor calls using diamond operator, infer from assignment context.
         // TODO handle diamond constructor calls passed to generic methods
         // https://github.com/uber/NullAway/issues/1470
-        Type fromAssignmentContext = getDiamondTypeFromContext(newClassTree, state);
+        Type fromAssignmentContext =
+            getDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
         if (fromAssignmentContext != null) {
           return fromAssignmentContext;
         }
@@ -532,6 +596,11 @@ public final class GenericsChecks {
             return lambdaParameterType;
           }
         }
+        // If it's a local variable declared using `var`, get the inferred type
+        Type inferredVarLocalType = getInferredVarLocalType(symbol, state, calledFromDataflow);
+        if (inferredVarLocalType != null) {
+          return inferredVarLocalType;
+        }
         result = ASTHelpers.getType(tree);
         // type on the tree itself can be missing nested annotations in certain cases, so use the
         // type on the symbol instead.  for type variables, we've found that the type on the symbol
@@ -545,19 +614,35 @@ public final class GenericsChecks {
         // the symbol for the assigned location instead, if available
         Symbol lhsSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
         if (lhsSymbol != null) {
-          result = lhsSymbol.type;
+          Type inferredVarLocalType = getInferredVarLocalType(lhsSymbol, state, calledFromDataflow);
+          result = inferredVarLocalType != null ? inferredVarLocalType : lhsSymbol.type;
         } else {
           result = ASTHelpers.getType(assignmentTree);
         }
       } else {
         result = ASTHelpers.getType(tree);
         if (result != null) {
-          // for method invocations and field reads, there may be annotations on type variables in
-          // the return / field type that need to be restored
           if (tree instanceof MethodInvocationTree invocationTree) {
+            // for a call to an instance method, we may need to run inference on a nested call
+            // inside the receiver in order to figure out the proper nullability of the receiver's
+            // type arguments.  E.g., for a call `foo(x,y).bar().baz()`, where `foo` is a generic
+            // method, we need to run inference on the call to `foo` to determine the receiver type
+            // of the `bar()` call, which could in turn impact the receiver type of the `baz()`
+            // call.  We invoke getEnclosingTypeForCallExpression, which will run
+            // inference if needed, and then recompute the type as a member of the returned
+            // enclosing type
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
+            Type invokedMethodType = symbol.type;
+            Type enclosingType =
+                getEnclosingTypeForCallExpression(
+                    symbol, invocationTree, state.getPath(), state, calledFromDataflow);
+            if (enclosingType != null) {
+              invokedMethodType =
+                  TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
+            }
             Type.MethodType methodType =
-                handler.onOverrideMethodType(symbol, symbol.type.asMethodType(), state);
+                handler.onOverrideMethodType(symbol, invokedMethodType.asMethodType(), state);
+            // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
@@ -565,6 +650,7 @@ public final class GenericsChecks {
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
+              // restore explicit annotations from the field's declared type
               Type fieldType = memberSelectSymbol.type;
               result =
                   TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
@@ -592,9 +678,10 @@ public final class GenericsChecks {
    * Gets the type of a constructor call using a diamond operator from its assignment context, if
    * available.
    */
-  private @Nullable Type getDiamondTypeFromContext(NewClassTree tree, VisitorState state) {
+  private @Nullable Type getDiamondTypeFromContext(
+      NewClassTree tree, VisitorState state, boolean calledFromDataflow) {
     return getDiamondTypeFromParentContext(
-        tree, state, castToNonNull(state.getPath().getParentPath()));
+        tree, state, castToNonNull(state.getPath().getParentPath()), calledFromDataflow);
   }
 
   /**
@@ -602,7 +689,7 @@ public final class GenericsChecks {
    * parent context.
    */
   private @Nullable Type getDiamondTypeFromParentContext(
-      NewClassTree tree, VisitorState state, TreePath parentPath) {
+      NewClassTree tree, VisitorState state, TreePath parentPath, boolean calledFromDataflow) {
     Tree parent = parentPath.getLeaf();
     while (parent instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
@@ -612,7 +699,7 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof VariableTree || parent instanceof AssignmentTree) {
-      return getTreeType(parent, state);
+      return getTreeType(parent, state.withPath(parentPath), calledFromDataflow);
     }
     if (parent instanceof ReturnTree) {
       TreePath enclosingMethodOrLambda =
@@ -641,7 +728,8 @@ public final class GenericsChecks {
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
       // get the type returned by the parent constructor call
-      Type parentClassType = getTreeType(parentConstructorCall, state.withPath(parentPath));
+      Type parentClassType =
+          getTreeType(parentConstructorCall, state.withPath(parentPath), calledFromDataflow);
       if (parentClassType != null) {
         Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
         // get the proper type for the constructor, as a member of the type returned by the
@@ -777,15 +865,19 @@ public final class GenericsChecks {
     if (!assignedToLocal
         && (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree)
         && isAssignmentToField(tree)) {
-      maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType);
+      maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType, state);
     }
+    boolean varLocalDeclaration =
+        tree instanceof VariableTree varTree && isVarLocalVariableDeclaration(varTree);
     TreePath pathToRhs = new TreePath(state.getPath(), rhsTree);
-    Type rhsType = getTreeType(rhsTree, state.withPath(pathToRhs));
+    Type rhsType =
+        varLocalDeclaration
+            ? getInferredTypeForVarLocalDeclaration(
+                (VariableTree) tree, rhsTree, pathToRhs, state, false)
+            : getTypeForRhsOfAssignment(rhsTree, pathToRhs, lhsType, assignedToLocal, state, false);
     if (rhsType != null) {
-      if (isGenericCallNeedingInference(rhsTree)) {
-        rhsType =
-            inferGenericMethodCallType(
-                state, (MethodInvocationTree) rhsTree, null, lhsType, assignedToLocal, false);
+      if (varLocalDeclaration) {
+        lhsType = rhsType;
       }
       boolean isAssignmentValid = subtypeParameterNullability(lhsType, rhsType, state);
       if (!isAssignmentValid) {
@@ -795,7 +887,104 @@ public final class GenericsChecks {
   }
 
   private static boolean isAssignmentToLocalVariable(Tree tree) {
-    return isAssignmentToKind(tree, ElementKind.LOCAL_VARIABLE);
+    return isAssignmentToKind(tree, ElementKind.LOCAL_VARIABLE)
+        || isAssignmentToKind(tree, ElementKind.RESOURCE_VARIABLE);
+  }
+
+  private static boolean isVarLocalVariableDeclaration(VariableTree tree) {
+    return tree instanceof JCTree.JCVariableDecl variableDecl && variableDecl.declaredUsingVar();
+  }
+
+  /**
+   * Associates the {@code Symbol} for a {@code var}-declared local with the local's declaration.
+   * This is used in case we observe a use of the local before we have processed the declaration
+   * (e.g., due to dataflow analysis), and need to jump to the declaration to infer the variable's
+   * type.
+   */
+  public void registerVarLocalDeclaration(VariableTree tree) {
+    if (!isVarLocalVariableDeclaration(tree)) {
+      return;
+    }
+    Symbol symbol = ASTHelpers.getSymbol(tree);
+    if (symbol != null
+        && (symbol.getKind().equals(ElementKind.LOCAL_VARIABLE)
+            || symbol.getKind().equals(ElementKind.RESOURCE_VARIABLE))) {
+      varLocalDeclarations.put(symbol, (JCTree.JCVariableDecl) tree);
+    }
+  }
+
+  /**
+   * Gets the inferred type for a local variable declared with {@code var}.
+   *
+   * @param symbol symbol for the local
+   * @param state visitor state
+   * @param calledFromDataflow whether this method was called as part of dataflow analysis
+   * @return the inferred type, or {@code null} if the symbol is not for a var-declared local
+   */
+  private @Nullable Type getInferredVarLocalType(
+      Symbol symbol, VisitorState state, boolean calledFromDataflow) {
+    Type cachedType = inferredVarLocalTypes.get(symbol);
+    if (cachedType != null) {
+      return cachedType;
+    }
+    VariableTree variableDecl = varLocalDeclarations.get(symbol);
+    if (variableDecl == null) {
+      return null;
+    }
+    ExpressionTree initializer = variableDecl.getInitializer();
+    if (initializer == null) {
+      // this can happen for enhanced for loops
+      // TODO handle this properly; see https://github.com/uber/NullAway/issues/1581
+      return typeOrNullIfRaw(symbol.type);
+    }
+    TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
+    return getInferredTypeForVarLocalDeclaration(
+        variableDecl, initializer, pathToInitializer, state, calledFromDataflow);
+  }
+
+  private @Nullable Type getInferredTypeForVarLocalDeclaration(
+      VariableTree varTree,
+      ExpressionTree initializer,
+      TreePath pathToInitializer,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    Type rhsType =
+        getTypeForRhsOfAssignment(
+            initializer,
+            pathToInitializer,
+            null,
+            isAssignmentToLocalVariable(varTree),
+            state,
+            calledFromDataflow);
+    // do _not_ cache the inferred type if called from dataflow, since it may rely on incomplete
+    // results from the dataflow analysis
+    if (rhsType != null && !calledFromDataflow) {
+      Symbol symbol = ASTHelpers.getSymbol(varTree);
+      if (symbol != null) {
+        inferredVarLocalTypes.put(symbol, rhsType);
+      }
+    }
+    return rhsType;
+  }
+
+  private @Nullable Type getTypeForRhsOfAssignment(
+      ExpressionTree rhsTree,
+      TreePath pathToRhs,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    if (isGenericCallNeedingInference(rhsTree)) {
+      return inferGenericMethodCallType(
+          state.withPath(pathToRhs),
+          (MethodInvocationTree) rhsTree,
+          pathToRhs,
+          typeFromAssignmentContext,
+          assignedToLocal,
+          calledFromDataflow);
+    } else {
+      return getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
+    }
   }
 
   private static boolean isAssignmentToField(Tree tree) {
@@ -902,7 +1091,8 @@ public final class GenericsChecks {
           solver,
           methodSymbol,
           invocationTree,
-          allInvocations);
+          allInvocations,
+          calledFromDataflow);
       typeVarNullability = new HashMap<>(solver.solve());
       // The solver only computes a solution for variables that appear in constraints. For
       // unconstrained variables, treat them as NONNULL, consistent with solver behavior for
@@ -912,22 +1102,6 @@ public final class GenericsChecks {
         typeVarNullability.putIfAbsent(typeVar, ConstraintSolver.InferredNullability.NONNULL);
       }
 
-      // Store inferred types for lambda arguments
-      new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
-          .forEach(
-              (argument, argPos, formalParamType, unused) -> {
-                if (argument instanceof LambdaExpressionTree
-                    || argument instanceof MemberReferenceTree) {
-                  Type polyExprTreeType = ASTHelpers.getType(argument);
-                  if (polyExprTreeType != null) {
-                    Type typeWithInferredNullability =
-                        TypeSubstitutionUtils.updateTypeWithInferredNullability(
-                            polyExprTreeType, formalParamType, typeVarNullability, state, config);
-                    inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
-                  }
-                }
-              });
-
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
       // don't cache result if we were called from dataflow, since the result may rely on dataflow
       // facts that do not reflect the fixed point
@@ -935,22 +1109,41 @@ public final class GenericsChecks {
         for (MethodInvocationTree invTree : allInvocations) {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
         }
+        // Store inferred types for lambda or method reference arguments
+        new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
+            .forEach(
+                (argument, argPos, formalParamType, unused) -> {
+                  if (argument instanceof LambdaExpressionTree
+                      || argument instanceof MemberReferenceTree) {
+                    Type polyExprTreeType = ASTHelpers.getType(argument);
+                    if (polyExprTreeType != null) {
+                      Type formalParamGroundTargetType =
+                          GenericsUtils.groundTargetType(formalParamType, state, config, handler);
+                      Type typeWithInferredNullability =
+                          TypeSubstitutionUtils.updateTypeWithInferredNullability(
+                              polyExprTreeType,
+                              formalParamGroundTargetType,
+                              typeVarNullability,
+                              state,
+                              config);
+                      inferredPolyExpressionTypes.put(argument, typeWithInferredNullability);
+                    }
+                  }
+                });
       }
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
+      String inferenceFailureMessage = inferenceFailureMessage(e);
       if (config.warnOnGenericInferenceFailure()) {
         ErrorBuilder errorBuilder = analysis.getErrorBuilder();
         ErrorMessage errorMessage =
             new ErrorMessage(
-                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
-                String.format(
-                    "Failed to infer type argument nullability for call %s: %s",
-                    state.getSourceForNode(invocationTree), e.getMessage()));
+                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, inferenceFailureMessage);
         state.reportMatch(
             errorBuilder.createErrorDescription(
                 errorMessage, analysis.buildDescription(invocationTree), state, null));
       }
-      InferenceFailure failureResult = new InferenceFailure(e.getMessage());
+      InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       // don't cache result if we were called from dataflow, since the result may rely on dataflow
       // facts that do not reflect the fixed point
       if (!calledFromDataflow) {
@@ -960,6 +1153,12 @@ public final class GenericsChecks {
       }
       return failureResult;
     }
+  }
+
+  private String inferenceFailureMessage(UnsatisfiableConstraintsException e) {
+    return String.format(
+        "inference failure: type variable %s constrained to be both @NonNull and @Nullable",
+        e.getTypeVariable());
   }
 
   /**
@@ -978,6 +1177,7 @@ public final class GenericsChecks {
    * @param allInvocations a set of all method invocations that require inference, including nested
    *     ones. This is an output parameter that gets mutated while generating the constraints to add
    *     nested invocations.
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   private void generateConstraintsForCall(
@@ -988,7 +1188,8 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree methodInvocationTree,
-      Set<MethodInvocationTree> allInvocations)
+      Set<MethodInvocationTree> allInvocations,
+      boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
     Type.MethodType methodType =
         handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
@@ -998,11 +1199,20 @@ public final class GenericsChecks {
           methodType.getReturnType(), typeFromAssignmentContext, assignedToLocal);
     }
     // then, handle parameters
+    TreePath pathToInvocation =
+        path != null ? path : pathWithLeaf(state.getPath(), methodInvocationTree);
     new InvocationArguments(methodInvocationTree, methodType)
         .forEach(
-            (argument, argPos, formalParamType, unused) ->
-                generateConstraintsForPseudoAssignment(
-                    state, path, solver, allInvocations, argument, formalParamType));
+            (argument, argPos, formalParamType, unused) -> {
+              TreePath pathToArgument = new TreePath(pathToInvocation, argument);
+              generateConstraintsForPseudoAssignment(
+                  state.withPath(pathToArgument),
+                  solver,
+                  allInvocations,
+                  argument,
+                  formalParamType,
+                  calledFromDataflow);
+            });
   }
 
   /**
@@ -1010,22 +1220,25 @@ public final class GenericsChecks {
    * (parameter passing or return).
    *
    * @param state the visitor state
-   * @param path the tree path to {@code rhsExpr} if available
    * @param solver the constraint solver
    * @param allInvocations a set of all method invocations that require inference, including nested
    *     ones. This is an output parameter that gets mutated while generating the constraints to add
    *     nested invocations.
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
   private void generateConstraintsForPseudoAssignment(
       VisitorState state,
-      @Nullable TreePath path,
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       ExpressionTree rhsExpr,
-      Type lhsType) {
-    rhsExpr = ASTHelpers.stripParentheses(rhsExpr);
+      Type lhsType,
+      boolean calledFromDataflow) {
+    NullabilityUtil.ExprTreeAndState exprTreeAndState =
+        NullabilityUtil.stripParensAndUpdateTreePath(rhsExpr, state);
+    rhsExpr = exprTreeAndState.expr();
+    state = exprTreeAndState.state();
     // if the parameter is itself a generic call requiring inference, generate constraints for
     // that call
     if (isGenericCallNeedingInference(rhsExpr)) {
@@ -1033,18 +1246,27 @@ public final class GenericsChecks {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(invTree);
       allInvocations.add(invTree);
       generateConstraintsForCall(
-          state, path, lhsType, false, solver, symbol, invTree, allInvocations);
+          state,
+          state.getPath(),
+          lhsType,
+          false,
+          solver,
+          symbol,
+          invTree,
+          allInvocations,
+          calledFromDataflow);
     } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
-      handleLambdaInGenericMethodInference(state, path, solver, allInvocations, lhsType, lambda);
+      handleLambdaInGenericMethodInference(
+          state, state.getPath(), solver, allInvocations, lhsType, lambda, calledFromDataflow);
     } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
       handleMethodRefInGenericMethodInference(state, solver, lhsType, memberReferenceTree);
     } else { // all other cases
-      Type argumentType = getTreeType(rhsExpr, state);
+      Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
       if (argumentType == null) {
         // bail out of any checking involving raw types for now
         return;
       }
-      argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, path);
+      argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
       solver.addSubtypeConstraint(argumentType, lhsType, false);
     }
   }
@@ -1062,6 +1284,7 @@ public final class GenericsChecks {
    *     nested invocations.
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
   private void handleLambdaInGenericMethodInference(
       VisitorState state,
@@ -1069,33 +1292,47 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Set<MethodInvocationTree> allInvocations,
       Type lhsType,
-      LambdaExpressionTree lambda) {
+      LambdaExpressionTree lambda,
+      boolean calledFromDataflow) {
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
 
+    Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
     // get the return type of the functional interface method, viewed as a member of the lhs
     // type, so the generic method's type variables are substituted in
     Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(state.getTypes(), lhsType, fiMethod, config)
+        TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Tree body = lambda.getBody();
-    // augment our current TreePath so that the lambda is the leaf, in case dataflow analysis needs
-    // to be run within it
-    if (path == null) {
-      path = state.getPath();
-    }
-    TreePath lambdaPath = new TreePath(path, lambda);
+    // Ensure our current TreePath has the lambda as the leaf, in case dataflow analysis needs to be
+    // run within it.
+    TreePath lambdaPath = pathWithLeaf(path != null ? path : state.getPath(), lambda);
     if (body instanceof ExpressionTree returnedExpression) {
       // Case 1: Expression body, e.g., () -> null
+      TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
       generateConstraintsForPseudoAssignment(
-          state, lambdaPath, solver, allInvocations, returnedExpression, fiReturnType);
+          state.withPath(returnedExpressionPath),
+          solver,
+          allInvocations,
+          returnedExpression,
+          fiReturnType,
+          calledFromDataflow);
     } else if (body instanceof BlockTree) {
       // Case 2: Block body, e.g., () -> { return null; }
-      List<ExpressionTree> returnExpressions = ReturnFinder.findReturnExpressions(body);
-      for (ExpressionTree returnExpr : returnExpressions) {
+      TreePath bodyPath = new TreePath(lambdaPath, body);
+      List<TreePath> returnPaths = ReturnFinder.findReturnPaths(bodyPath);
+      for (TreePath returnPath : returnPaths) {
+        ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
+        ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
+        TreePath returnExprPath = new TreePath(returnPath, returnExpr);
         generateConstraintsForPseudoAssignment(
-            state, lambdaPath, solver, allInvocations, returnExpr, fiReturnType);
+            state.withPath(returnExprPath),
+            solver,
+            allInvocations,
+            returnExpr,
+            fiReturnType,
+            calledFromDataflow);
       }
     }
   }
@@ -1114,9 +1351,10 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
+    Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
     GenericsUtils.processMethodRefTypeRelations(
         this,
-        lhsType,
+        groundTargetType,
         memberReferenceTree,
         state,
         (subtype, supertype, unused) -> {
@@ -1177,8 +1415,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * A visitor that scans a {@link Tree} (typically a lambda or method body) to find all {@code
-   * return} statements and collect their expressions.
+   * A visitor that scans a {@link TreePath} (typically to a lambda or method body) to find all
+   * {@code return} statements and collect their paths.
    *
    * <p>This scanner is specifically designed to be "shallow." It will <b>not</b> descend into
    * nested lambdas, local classes, or anonymous classes, ensuring it only finds {@code return}
@@ -1188,32 +1426,33 @@ public final class GenericsChecks {
    *
    * <pre>
    * Tree lambdaBody = myLambda.getBody();
-   * List<ExpressionTree> returns = ReturnFinder.findReturnExpressions(lambdaBody);
+   * TreePath lambdaBodyPath = new TreePath(lambdaPath, lambdaBody);
+   * List<TreePath> returns = ReturnFinder.findReturnPaths(lambdaBodyPath);
    * </pre>
    */
-  static class ReturnFinder extends TreeScanner<@Nullable Void, @Nullable Void> {
+  static class ReturnFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
 
-    private final List<ExpressionTree> returnExpressions = new ArrayList<>();
+    private final List<TreePath> returnPaths = new ArrayList<>();
 
     /**
-     * Scans the given tree and returns all found return expressions.
+     * Scans the given path and returns all found paths to return statements with expressions.
      *
-     * @param tree The tree (e.g., a lambda body) to scan.
-     * @return A list of all return expressions found.
+     * @param path The path to a tree (e.g., a lambda body) to scan.
+     * @return A list of all paths to return statements with expressions found.
      */
-    public static List<ExpressionTree> findReturnExpressions(Tree tree) {
+    public static List<TreePath> findReturnPaths(TreePath path) {
       ReturnFinder finder = new ReturnFinder();
-      finder.scan(tree, null);
-      return finder.getReturnExpressions();
+      finder.scan(path, null);
+      return finder.getReturnPaths();
     }
 
     /**
-     * Gets the list of return expressions found by this visitor.
+     * Gets the list of return statement paths found by this visitor.
      *
-     * @return The list of return expressions.
+     * @return The list of return statement paths.
      */
-    public List<ExpressionTree> getReturnExpressions() {
-      return returnExpressions;
+    public List<TreePath> getReturnPaths() {
+      return returnPaths;
     }
 
     @Override
@@ -1236,9 +1475,8 @@ public final class GenericsChecks {
 
     @Override
     public @Nullable Void visitReturn(ReturnTree node, @Nullable Void p) {
-      ExpressionTree expression = node.getExpression();
-      if (expression != null) {
-        returnExpressions.add(expression);
+      if (node.getExpression() != null) {
+        returnPaths.add(getCurrentPath());
       }
       // We've processed this return, don't scan its children
       return null;
@@ -1259,14 +1497,13 @@ public final class GenericsChecks {
     if (!shouldRunDataflowForExpression(exprType, expr)) {
       return exprType;
     }
-    TreePath currentPath = path != null ? path : state.getPath();
     // We need a TreePath whose leaf is the expression, as the calls to `getNullness` /
     // `getNullnessFromRunning` below return the nullness of the leaf of the path.
-    // Just appending expr to currentPath is a bit sketchy, as it may not actually be the valid
-    // tree path to the expression.  However, all we need the path for (beyond the leaf) is to
+    // Just appending expr to the current path is a bit sketchy, as it may not actually be the
+    // valid tree path to the expression. However, all we need the path for (beyond the leaf) is to
     // discover the enclosing method/lambda/initializer, and for that purpose this should be
-    // sufficient.
-    TreePath exprPath = new TreePath(currentPath, expr);
+    // sufficient. pathWithLeaf avoids appending expr when the provided path is already at expr.
+    TreePath exprPath = pathWithLeaf(path != null ? path : state.getPath(), expr);
     TreePath enclosingPath = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(exprPath);
     if (enclosingPath == null) {
       return exprType;
@@ -1416,7 +1653,12 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(retExpr)) {
         returnExpressionType =
             inferGenericMethodCallType(
-                state, (MethodInvocationTree) retExpr, null, formalReturnType, false, false);
+                state.withPath(pathToRetExpr),
+                (MethodInvocationTree) retExpr,
+                pathToRetExpr,
+                formalReturnType,
+                false,
+                false);
       }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state);
@@ -1439,7 +1681,8 @@ public final class GenericsChecks {
    */
   private boolean identicalTypeParameterNullability(
       Type lhsType, Type rhsType, VisitorState state) {
-    return lhsType.accept(new CheckIdenticalNullabilityVisitor(state, this, config), rhsType);
+    return lhsType.accept(
+        new CheckIdenticalNullabilityVisitor(state, this, config, handler), rhsType);
   }
 
   /**
@@ -1450,7 +1693,7 @@ public final class GenericsChecks {
    * @param rhsType type for the rhs of the assignment
    * @param state the visitor state
    */
-  private boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
+  boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
     if (lhsType.isRaw()) {
       return true;
     }
@@ -1511,8 +1754,10 @@ public final class GenericsChecks {
     Tree falsePartTree = tree.getFalseExpression();
 
     Type condExprType = getConditionalExpressionType(tree, state);
-    Type truePartType = getTreeType(truePartTree, state);
-    Type falsePartType = getTreeType(falsePartTree, state);
+    Type truePartType =
+        getTreeType(truePartTree, state.withPath(pathWithLeaf(state.getPath(), truePartTree)));
+    Type falsePartType =
+        getTreeType(falsePartTree, state.withPath(pathWithLeaf(state.getPath(), falsePartTree)));
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
@@ -1541,7 +1786,7 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getTreeType(parent, state);
+      return getTreeType(parent, state.withPath(parentPath));
     }
     return getTreeType(tree, state);
   }
@@ -1568,7 +1813,7 @@ public final class GenericsChecks {
         if (currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree) {
           TreePath parentPath = currentPath.getParentPath();
           if (parentPath != null) {
-            enclosingType = getDiamondTypeFromParentContext(newClassTree, state, parentPath);
+            enclosingType = getDiamondTypeFromParentContext(newClassTree, state, parentPath, false);
           }
         }
       }
@@ -1599,12 +1844,14 @@ public final class GenericsChecks {
               }
 
               if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
+                Type groundFormalParameter =
+                    GenericsUtils.groundTargetType(formalParameter, state, config, handler);
                 // the type of the method reference tree provided by javac may not capture
                 // nullability of nested types. So, do explicit type checks based on the return and
                 // parameter types of the referenced method
                 GenericsUtils.processMethodRefTypeRelations(
                     this,
-                    formalParameter,
+                    groundFormalParameter,
                     memberReferenceTree,
                     state,
                     (subtype, supertype, relationKind) -> {
@@ -1618,20 +1865,20 @@ public final class GenericsChecks {
                         }
                       }
                     });
+                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
                 return;
               }
 
-              Type actualParameterType = null;
+              TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
+              Type actualParameterType;
               if (currentActualParam instanceof LambdaExpressionTree) {
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter);
+                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
               }
               Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
-                TreePath pathToActualParam = new TreePath(state.getPath(), currentActualParam);
-                actualParameterType =
-                    getTreeType(currentActualParam, state.withPath(pathToActualParam));
+                actualParameterType = getTreeType(currentActualParam, state.withPath(pathToParam));
               }
               if (actualParameterType != null) {
                 if (isGenericCallNeedingInference(currentActualParam)) {
@@ -1639,9 +1886,9 @@ public final class GenericsChecks {
                   // and the formal parameter type
                   actualParameterType =
                       inferGenericMethodCallType(
-                          state,
+                          state.withPath(pathToParam),
                           (MethodInvocationTree) currentActualParam,
-                          null,
+                          pathToParam,
                           formalParameter,
                           false,
                           false);
@@ -1765,7 +2012,7 @@ public final class GenericsChecks {
             && newClassTree.getClassBody() != null) {
           Type newClassType = ASTHelpers.getType(newClassTree);
           if (newClassType != null && newClassType.tsym.equals(symbol)) {
-            Type typeFromTree = getTreeType(newClassTree, state);
+            Type typeFromTree = getTreeType(newClassTree, state.withPath(path));
             if (typeFromTree != null) {
               verify(
                   state.getTypes().isAssignable(symbol.type, typeFromTree),
@@ -1800,7 +2047,7 @@ public final class GenericsChecks {
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
         overriddenMethodType.getClass());
-    return getTypeNullness(overriddenMethodType.getReturnType());
+    return getReturnTypeNullness(overriddenMethodType.getReturnType(), state);
   }
 
   /**
@@ -1932,7 +2179,7 @@ public final class GenericsChecks {
       if (result instanceof InferenceSuccess successResult) {
         methodTypeAtCallSite =
             restoreNestedNullabilityForTypeVarArguments(
-                invocationTree, methodType, methodTypeAtCallSite, state);
+                invocationTree, methodType, methodTypeAtCallSite, state, calledFromDataflow);
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -1945,11 +2192,11 @@ public final class GenericsChecks {
   }
 
   /**
-   * In narrow cases, javac drops nested type-use nullability annotations on type variables in its
-   * inferred type for a generic method at a call site. See
-   * https://github.com/uber/NullAway/issues/1455. This method aims to restore those annotations
-   * based on the types of actual parameters. It does not attempt to be a very general fix, as we do
-   * not fully understand the scenarios where this can arise.
+   * In narrow cases, javac drops or misplaces nested type-use nullability annotations on type
+   * variables in its inferred type for a generic method at a call site. See <a
+   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
+   * annotations based on the types of actual parameters. It does not attempt to be a very general
+   * fix, as we do not fully understand the scenarios where this can arise.
    *
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method (to identify formal
@@ -1961,83 +2208,20 @@ public final class GenericsChecks {
    *     annotations on type variables restored to match those on actual parameters passed at the
    *     call site
    */
-  @SuppressWarnings("ReferenceEquality")
   private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
-      VisitorState state) {
-    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    if (methodSymbol.isVarArgs()) {
-      // skip handling of varargs for now
-      return methodTypeAtCallSite;
-    }
-    com.sun.tools.javac.util.List<Type> genericMethodParamTypes =
-        origMethodType.getParameterTypes();
-    com.sun.tools.javac.util.List<Type> callSiteParamTypes =
-        methodTypeAtCallSite.getParameterTypes();
-    List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
-
-    // use this map to store repaired substitutions for method type variables, to ensure we use the
-    // same repaired substitution for all occurrences of the same type variable
-    Map<Symbol.TypeVariableSymbol, Type> repairedTopLevelSubstitutions = new HashMap<>();
-    ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
-    boolean changed = false;
-    for (int i = 0; i < genericMethodParamTypes.size(); i++) {
-      Type callSiteParamType = callSiteParamTypes.get(i);
-      Type genericMethodParamType = genericMethodParamTypes.get(i);
-      // only attempt a repair when the generic method's parameter type is a type variable of the
-      // method
-      if (genericMethodParamType instanceof Type.TypeVar typeVar
-          && typeVar.tsym.owner == methodSymbol) {
-        Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
-        Type repairedSubstitution = repairedTopLevelSubstitutions.get(typeVarSymbol);
-        if (repairedSubstitution != null) {
-          // re-use the previous substitution, to ensure consistency
-          if (repairedSubstitution != callSiteParamType) {
-            changed = true;
-            callSiteParamType = repairedSubstitution;
-          }
-        } else { // need to compute the substitution
-          Type actualArgType = getTreeType(actualParams.get(i), state);
-          // only handle cases of non-raw actual parameter types that have the same base type as the
-          // inferred parameter type at the call site
-          if (actualArgType != null
-              && !actualArgType.isRaw()
-              && state
-                  .getTypes()
-                  .isSameType(
-                      state.getTypes().erasure(actualArgType),
-                      state.getTypes().erasure(callSiteParamType))) {
-            // restore explicit nested annotations from the actual parameter type to the call site
-            // parameter type (this will only apply to nested type variables within
-            // callSiteParamType)
-            Type restoredType =
-                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    actualArgType, callSiteParamType, config, Collections.emptyMap());
-            // remember the substitution so we use it consistently at other parameter positions
-            repairedTopLevelSubstitutions.put(typeVarSymbol, restoredType);
-            if (restoredType != callSiteParamType) {
-              changed = true;
-              callSiteParamType = restoredType;
-            }
-          } else {
-            // remember that we did _not_ change anything, again for consistency across parameter
-            // positions
-            repairedTopLevelSubstitutions.put(typeVarSymbol, callSiteParamType);
-          }
-        }
-      }
-      updatedArgTypes.append(callSiteParamType);
-    }
-    if (!changed) {
-      return methodTypeAtCallSite;
-    }
-    return new Type.MethodType(
-        updatedArgTypes.toList(),
-        methodTypeAtCallSite.getReturnType(),
-        methodTypeAtCallSite.getThrownTypes(),
-        methodTypeAtCallSite.tsym);
+      VisitorState state,
+      boolean calledFromDataflow) {
+    return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
+        this,
+        invocationTree,
+        origMethodType,
+        methodTypeAtCallSite,
+        state,
+        config,
+        calledFromDataflow);
   }
 
   /**
@@ -2077,7 +2261,8 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getInvocationInferenceInfoForAssignment(parent, invocation, state);
+      return getInvocationInferenceInfoForAssignment(
+          parent, invocation, state.withPath(parentPath), calledFromDataflow);
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
@@ -2098,7 +2283,8 @@ public final class GenericsChecks {
           // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
           // we want to find the outermost invocation that requires inference, since that is
           // the one whose assignment context is relevant
-          return getInvocationAndContextForInference(parentPath, state, calledFromDataflow);
+          return getInvocationAndContextForInference(
+              parentPath, state.withPath(parentPath), calledFromDataflow);
         }
         // the generic invocation is either a regular parameter to the parent call, or the
         // receiver expression
@@ -2122,7 +2308,7 @@ public final class GenericsChecks {
                       ASTHelpers.getSymbol(parentInvocation),
                       parentInvocation,
                       parentPath,
-                      state,
+                      state.withPath(parentPath),
                       calledFromDataflow);
             } else {
               throw new RuntimeException(
@@ -2141,10 +2327,21 @@ public final class GenericsChecks {
   }
 
   private InvocationAndContext getInvocationInferenceInfoForAssignment(
-      Tree assignment, MethodInvocationTree invocation, VisitorState state) {
+      Tree assignment,
+      MethodInvocationTree invocation,
+      VisitorState state,
+      boolean calledFromDataflow) {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
-    Type treeType = getTreeType(assignment, state);
+    TreePath path = state.getPath();
+    if (path.getLeaf() != assignment) {
+      state = state.withPath(pathWithLeaf(path, assignment));
+    }
+    Type treeType =
+        assignment instanceof VariableTree variableTree
+                && isVarLocalVariableDeclaration(variableTree)
+            ? null // no info from assignment context if declared with `var`
+            : getTreeType(assignment, state, calledFromDataflow);
     return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
@@ -2197,7 +2394,8 @@ public final class GenericsChecks {
       // type variables declared on the enclosing class
       if (substitutedParamTypes != null
           && Objects.equals(
-              getParameterTypeNullness(substitutedParamTypes.get(paramIndex), isVarargsParam),
+              getParameterTypeNullness(
+                  substitutedParamTypes.get(paramIndex), isVarargsParam, state),
               Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
@@ -2247,8 +2445,9 @@ public final class GenericsChecks {
         }
       } else if (methodSelect instanceof MemberSelectTree memberSelectTree) {
         ExpressionTree receiver = ASTHelpers.stripParentheses(memberSelectTree.getExpression());
+        TreePath curPath = path != null ? path : state.getPath();
+        TreePath receiverPath = pathWithLeaf(curPath, receiver);
         if (isGenericCallNeedingInference(receiver)) {
-          var receiverPath = path == null ? null : new TreePath(path, receiver);
           enclosingType =
               inferGenericMethodCallType(
                   state,
@@ -2258,14 +2457,14 @@ public final class GenericsChecks {
                   false,
                   calledFromDataflow);
         } else {
-          enclosingType = getTreeType(receiver, state);
+          enclosingType = getTreeType(receiver, state.withPath(receiverPath), calledFromDataflow);
         }
       }
     } else {
       Verify.verify(tree instanceof NewClassTree);
       // for a constructor invocation, the type from the invocation itself is the "enclosing type"
       // for the purposes of determining type arguments
-      enclosingType = getTreeType(tree, state);
+      enclosingType = getTreeType(tree, state, calledFromDataflow);
     }
     return enclosingType;
   }
@@ -2334,7 +2533,7 @@ public final class GenericsChecks {
     Type methodType =
         TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
     Type paramType = methodType.getParameterTypes().get(parameterIndex);
-    return getParameterTypeNullness(paramType, isVarargsParam);
+    return getParameterTypeNullness(paramType, isVarargsParam, state);
   }
 
   /**
@@ -2401,7 +2600,7 @@ public final class GenericsChecks {
    * @param isVarargsParam true if the parameter is a varargs parameter
    * @return The nullness of the parameter type
    */
-  private Nullness getParameterTypeNullness(Type type, boolean isVarargsParam) {
+  private Nullness getParameterTypeNullness(Type type, boolean isVarargsParam, VisitorState state) {
     if (isVarargsParam) {
       // type better be an array type
       verify(
@@ -2411,9 +2610,14 @@ public final class GenericsChecks {
       // use the component type to determine nullness
       Type.ArrayType arrayType = (Type.ArrayType) type;
       Type componentType = arrayType.getComponentType();
-      return getTypeNullness(componentType);
+      return getParameterTypeNullness(componentType, false, state);
     } else {
-      // For non-varargs, we just check the type itself
+      if (config.handleWildcardGenerics()) {
+        Type.WildcardType wildcardType = GenericsUtils.asWildcard(type);
+        if (wildcardType != null && wildcardType.kind == BoundKind.SUPER) {
+          return getTypeNullness(castToNonNull(wildcardType.getSuperBound()));
+        }
+      }
       return getTypeNullness(type);
     }
   }
@@ -2427,6 +2631,34 @@ public final class GenericsChecks {
         Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
     if (hasNullableAnnotation) {
       return Nullness.NULLABLE;
+    }
+    return Nullness.NONNULL;
+  }
+
+  /**
+   * Returns the nullness of a return type. For wildcard and javac captured wildcard types, use the
+   * effective upper bound: a read from {@code Foo<? extends @Nullable Object>} or {@code Foo<?
+   * super String>} can produce any value permitted by the capture's upper bound.
+   */
+  private Nullness getReturnTypeNullness(Type type, VisitorState state) {
+    return getReturnTypeNullness(type, state, false);
+  }
+
+  private Nullness getReturnTypeNullness(
+      Type type, VisitorState state, boolean followTypeVarUpperBound) {
+    if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
+      return Nullness.NULLABLE;
+    }
+    if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
+      Type effectiveUpperBound =
+          GenericsUtils.effectiveWildcardUpperBound(type, state, config, handler);
+      return getReturnTypeNullness(effectiveUpperBound, state, true);
+    }
+    if (followTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
+      Type upperBound = typeVar.getUpperBound();
+      if (upperBound != null) {
+        return getReturnTypeNullness(upperBound, state, true);
+      }
     }
     return Nullness.NONNULL;
   }
@@ -2484,6 +2716,8 @@ public final class GenericsChecks {
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
     inferredPolyExpressionTypes.clear();
+    inferredVarLocalTypes.clear();
+    varLocalDeclarations.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
@@ -2497,7 +2731,8 @@ public final class GenericsChecks {
    * <p>This is used to compensate for javac dropping annotations on type variables in poly
    * expression target types, so later checks use the correctly annotated functional interface type.
    */
-  private void maybeStorePolyExpressionTypeFromTarget(Tree polyExpressionTree, Type targetType) {
+  private void maybeStorePolyExpressionTypeFromTarget(
+      Tree polyExpressionTree, Type targetType, VisitorState state) {
     if (targetType.isRaw() || inferredPolyExpressionTypes.containsKey(polyExpressionTree)) {
       return;
     }
@@ -2505,9 +2740,10 @@ public final class GenericsChecks {
     if (polyExpressionType == null) {
       return;
     }
+    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
     Type polyExpressionTypeWithTargetAnnotations =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            targetType, polyExpressionType, config, Collections.emptyMap());
+            groundTargetType, polyExpressionType, config, Collections.emptyMap());
     inferredPolyExpressionTypes.put(polyExpressionTree, polyExpressionTypeWithTargetAnnotations);
   }
 

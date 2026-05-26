@@ -714,9 +714,29 @@ public class AccessPathNullnessPropagation
     return variableElement != null && variableElement.getKind() == EXCEPTION_PARAMETER;
   }
 
+  /**
+   * In JSpecify mode, this method invokes {@link
+   * GenericsChecks#registerVarLocalDeclaration(VariableTree)} to register {@code var}-declared
+   * locals. This is required since sometimes during dataflow analysis, we require the full generic
+   * type of such a variable at a use, which may require running generic method inference on the
+   * right-hand side of the declaration. javac does not provide an efficient way to retrieve a local
+   * variable declaration given its {@code Symbol}. So, as an efficient alternative, we cache all
+   * such declarations when they are first visited by dataflow analysis, in case inference needs to
+   * be performed later at a use.
+   *
+   * <p>Note that the above assumes dataflow analysis will always see the declaration of a local
+   * before any use. This depends on the worklist ordering used by the dataflow solver, which is a
+   * fragile dependence. But, any alternative would require running a separate visitor over the
+   * whole method body (or a traversal of the full CFG) to find the declarations, which could be
+   * expensive. So, we go with this approach, and our tests should catch if there is some unexpected
+   * change in worklist orderings.
+   */
   @Override
   public TransferResult<Nullness, NullnessStore> visitVariableDeclaration(
       VariableDeclarationNode node, TransferInput<Nullness, NullnessStore> input) {
+    if (config.isJSpecifyMode()) {
+      genericsChecks.registerVarLocalDeclaration(node.getTree());
+    }
     ReadableUpdates updates = new ReadableUpdates();
     if (isCatchVariable(node)) {
       updates.set(node, NONNULL);

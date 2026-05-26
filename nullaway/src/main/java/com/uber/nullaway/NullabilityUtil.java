@@ -196,27 +196,19 @@ public class NullabilityUtil {
   }
 
   /**
-   * Check if any direct annotation a symbol matches a given predicate. Works for both source and
-   * bytecode.
+   * Check if any direct annotation a symbol matches a given predicate. Includes code for backward
+   * compatibility with older JDKs where javac did not place type-use annotations on Symbols from
+   * bytecodes.
    *
    * @param symbol the symbol
    * @param config NullAway configuration
    * @param predicate the predicate to match annotation names against
    * @return true if any annotation on the symbol matches the predicate, false otherwise
    */
-  public static boolean hasAnyAnnotationMatching(
+  public static boolean hasAnyAnnotationMatchingBackCompat(
       Symbol symbol, Config config, Predicate<String> predicate) {
-    // check for declaration annotations
-    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
-      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
-        return true;
-      }
-    }
-    // check for type use annotations
-    for (AnnotationMirror annotationMirror : symbol.type.getAnnotationMirrors()) {
-      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
-        return true;
-      }
+    if (hasAnyAnnotationMatching(symbol, predicate)) {
+      return true;
     }
     // to handle bytecodes, also check direct type-use annotations stored in attributes
     Symbol typeAnnotationOwner =
@@ -227,6 +219,33 @@ public class NullabilityUtil {
         continue;
       }
       if (predicate.test(typeCompound.getAnnotationType().toString())) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Check if any direct annotation a symbol matches a given predicate.
+   *
+   * @param symbol the symbol
+   * @param predicate the predicate to match annotation names against
+   * @return true if any annotation on the symbol matches the predicate, false otherwise
+   */
+  public static boolean hasAnyAnnotationMatching(Symbol symbol, Predicate<String> predicate) {
+    // check for declaration annotations
+    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
+      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
+        return true;
+      }
+    }
+    // check for type use annotations.  For MethodSymbols, look on the return type
+    Type annotatedType =
+        symbol instanceof Symbol.MethodSymbol methodSymbol
+            ? methodSymbol.getReturnType()
+            : symbol.type;
+    for (AnnotationMirror annotationMirror : annotatedType.getAnnotationMirrors()) {
+      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
         return true;
       }
     }
@@ -735,6 +754,14 @@ public class NullabilityUtil {
   }
 
   /**
+   * Returns an updated version of {@code path} with {@code leaf} as the leaf, if needed. If {@code
+   * leaf} is already the leaf of {@code path}, just return {@code path} unmodified.
+   */
+  public static TreePath pathWithLeaf(TreePath path, Tree leaf) {
+    return path.getLeaf() == leaf ? path : new TreePath(path, leaf);
+  }
+
+  /**
    * A pair of an expression tree and a VisitorState, used by {@link #stripParensAndUpdateTreePath}
    */
   public record ExprTreeAndState(ExpressionTree expr, VisitorState state) {}
@@ -751,11 +778,8 @@ public class NullabilityUtil {
       ExpressionTree expr, VisitorState state) {
     TreePath path = state.getPath();
     if (path.getLeaf() != expr) {
-      // if the expression is not the leaf of the path, we can't update the path to point to the
-      // stripped expression, so we just return the original expression and state
-      // TODO fix all cases where this happens and remove this fallback case
-      //  Tracked in https://github.com/uber/NullAway/issues/1479
-      return new ExprTreeAndState(expr, state);
+      throw new RuntimeException(
+          String.format("Wrong leaf %s in path to %s", path.getLeaf(), expr));
     }
     ExpressionTree resultExpr = expr;
     while (resultExpr instanceof ParenthesizedTree) {

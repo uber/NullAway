@@ -882,7 +882,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 String field = "hello";
                 void testField() {
                     String s = null;
-                    // BUG: Diagnostic contains: Failed to infer type argument nullability
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                     field = id(s);
                 }
                 @Nullable String field2 = null;
@@ -894,6 +894,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     s = "hello";
                     field2 = id(s);
                     field2.hashCode();
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeVarToNonNullField() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+                static <T extends @Nullable Object> @Nullable T f(T t) {
+                    return null;
+                }
+                String field = "hello";
+                void testField() {
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    field = f("hello");
                 }
             }
             """)
@@ -1206,7 +1229,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     return Optional.ofNullable(value);
                 }
                 public static <U extends @Nullable Object> Optional<U> optionalResultPositive1(@Nullable U value) {
-                    // BUG: Diagnostic contains: Failed to infer type argument nullability
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                     return Optional.of(value);
                 }
                 // identical to above, testing the other error message
@@ -1549,6 +1572,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 return supplier;
               }
               void test() {
+                // Here, javac computes the formal parameter type as Supplier<OuterT>.
+                // Our repair updates the type to Supplier<@Nullable OuterT>, matching
+                // the actual parameter, so we get no error.
                 acceptSup(sup);
               }
               <T extends Supplier<?>> void acceptTwoSup(T supplier1, T supplier2) {
@@ -1557,6 +1583,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
               Supplier<OuterT> make2() {
                 throw new RuntimeException();
               }
+              // tests that our repair computes a consistent substitution for the type variables
               void test2() {
                 // BUG: Diagnostic contains: incompatible types: Supplier<OuterT> cannot be converted to Supplier<@Nullable OuterT>
                 acceptTwoSup(sup, sup2);
@@ -1622,6 +1649,97 @@ public class GenericMethodTests extends NullAwayTestsBase {
               }
             }
             """)
+        .doTest();
+  }
+
+  @Test
+  public void nestedReceivers() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {
+                static <U extends @Nullable Object> Foo<U> of(Foo<U> other) {
+                  throw new RuntimeException();
+                }
+                Foo<T> or(Foo<T> other) { return this; }
+              }
+              // infer Foo<@Nullable String> as the type of the Foo.of() call via
+              // its parameter, and use that type to determine the return type of
+              // the or() call is Foo<@Nullable String>
+              static Foo<@Nullable String> FOO =
+                Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
+
+              // like the case above, but more deeply nested
+              static Foo<@Nullable String> FOO2 =
+                Foo.of(new Foo<@Nullable String>())
+                  .or(new Foo<@Nullable String>())
+                  .or(new Foo<@Nullable String>());
+
+              // a true positive case
+              // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+              static Foo<String> WRONG =
+                Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void caffeineNestedArgToGenericMethod() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static interface Cache<K, V extends @Nullable Object> {
+                Policy<K, @NonNull V> policy();
+              }
+              static interface Policy<K, V> {
+                Map<K, CompletableFuture<V>> refreshes();
+              }
+              static <K,V> void m(@Nullable Map<K,V> map) {}
+              void test(Cache<Integer, @Nullable Object> cache) {
+                // javac computes the formal parameter type as @Nullable Map<Integer, CompletableFuture<@Nullable Object>>,
+                // presumably based on the @Nullable Object type argument for cache.
+                // NullAway determines the type of the actual parameter correctly as
+                // Map<Integer, CompletableFuture<Object>> (due to the @NonNull annotation on V in the signature for policy).
+                // The type repair in NestedTypeVarSubstitutionRepairVisitor fixes the javac type so we don't report
+                // an error here.
+                m(cache.policy().refreshes());
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericMethodRepairPreservesTopLevelNullability() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> void accept(Box<@Nullable T> box) {}
+              void test(Box<CompletableFuture<Object>> box) {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                accept(box);
+              }
+            }""")
         .doTest();
   }
 

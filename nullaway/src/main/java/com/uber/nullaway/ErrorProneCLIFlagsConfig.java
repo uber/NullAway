@@ -104,6 +104,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_WARN_ON_GENERIC_INFERENCE_FAILURE =
       EP_FL_NAMESPACE + ":WarnOnGenericInferenceFailure";
 
+  static final String FL_HANDLE_WILDCARD_GENERICS = EP_FL_NAMESPACE + ":HandleWildcardGenerics";
+
   static final String ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG =
       "DO NOT report an issue to Error Prone for this crash!  NullAway configuration is "
           + "incorrect.  "
@@ -231,6 +233,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean treatGeneratedAsUnannotated;
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
+  private final boolean handleWildcardGenerics;
   private final boolean legacyAnnotationLocation;
   private final boolean warnOnInferenceFailure;
   private final ImmutableSet<MethodClassAndName> knownInitializers;
@@ -303,6 +306,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
     acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     jspecifyMode = flags.getBoolean(FL_JSPECIFY_MODE).orElse(false);
+    handleWildcardGenerics = flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(
@@ -603,6 +607,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isJSpecifyMode() {
     return jspecifyMode;
+  }
+
+  @Override
+  public boolean handleWildcardGenerics() {
+    return handleWildcardGenerics;
   }
 
   @Override

@@ -19,8 +19,24 @@ plugins {
     id 'jacoco'
 }
 
+// we pull in the snapshot version of Jacoco to support running on JDK 27 early access builds
+// This repositories declaration is scoped so we can only pull in a snapshot version of Jacoco
+// from the snapshots repo, not any other dependency
+repositories {
+    maven {
+        name = "SonatypeSnapshots"
+        url = uri("https://central.sonatype.com/repository/maven-snapshots/")
+        mavenContent {
+            snapshotsOnly()
+        }
+        content {
+            includeGroup("org.jacoco")
+        }
+    }
+}
+
 jacoco {
-    toolVersion = "0.8.14"
+    toolVersion = "0.8.15-SNAPSHOT"
 }
 
 // Do not generate reports for individual projects

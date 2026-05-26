@@ -32,25 +32,29 @@ public class SuggestedFixesTests {
     makeTestHelper()
         .addInputLines(
             "Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  void test() {",
-            "    Object[] arr = new Object[1];",
-            "    arr[0] = null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              void test() {
+                Object[] arr = new Object[1];
+                arr[0] = null;
+              }
+            }
+            """)
         .addOutputLines(
             "out/Test.java",
-            "package com.uber;",
-            "import org.jspecify.annotations.Nullable;",
-            "class Test {",
-            "  @SuppressWarnings(\"NullAway\")",
-            "  void test() {",
-            "    Object[] arr = new Object[1];",
-            "    arr[0] = null;",
-            "  }",
-            "}")
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("NullAway")
+              void test() {
+                Object[] arr = new Object[1];
+                arr[0] = null;
+              }
+            }
+            """)
         .doTest();
   }
 }

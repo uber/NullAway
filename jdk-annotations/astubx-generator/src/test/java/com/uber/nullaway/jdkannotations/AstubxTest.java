@@ -54,19 +54,21 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "AnnotationExample.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class AnnotationExample {",
-            "    @Nullable",
-            "    public String makeUpperCase(String inputString) {",
-            "        if (inputString == null || inputString.isEmpty()) {",
-            "            return null;",
-            "        } else {",
-            "            return inputString.toUpperCase();",
-            "        }",
-            "    }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class AnnotationExample {
+                @Nullable
+                public String makeUpperCase(String inputString) {
+                    if (inputString == null || inputString.isEmpty()) {
+                        return null;
+                    } else {
+                        return inputString.toUpperCase();
+                    }
+                }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -84,18 +86,20 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "NullableUpperBound.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class NullableUpperBound<T extends @Nullable Object> {",
-            "        T nullableObject;",
-            "        public T getNullable() {",
-            "            return nullableObject;",
-            "        }",
-            "        public @Nullable T withAnnotation() {",
-            "            return nullableObject;",
-            "        }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class NullableUpperBound<T extends @Nullable Object> {
+                    T nullableObject;
+                    public T getNullable() {
+                        return nullableObject;
+                    }
+                    public @Nullable T withAnnotation() {
+                        return nullableObject;
+                    }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -116,20 +120,22 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "ReturnAnnotation.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class ReturnAnnotation {",
-            "  public static class UpperBoundExample<T extends @Nullable Object> {",
-            "    T nullableObject;",
-            "    public T getNullable() {",
-            "      return nullableObject;",
-            "    }",
-            "    public @Nullable T withAnnotation() {",
-            "        return nullableObject;",
-            "    }",
-            "  }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class ReturnAnnotation {
+              public static class UpperBoundExample<T extends @Nullable Object> {
+                T nullableObject;
+                public T getNullable() {
+                  return nullableObject;
+                }
+                public @Nullable T withAnnotation() {
+                    return nullableObject;
+                }
+              }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -150,11 +156,13 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "NullMarkedClass.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "@NullMarked",
-            "public class NullMarkedClass {",
-            "  public static class Nested {}",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            public class NullMarkedClass {
+              public static class Nested {}
+            }
+            """)
         .doTest();
     runTest(ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of("NullMarkedClass"));
   }
@@ -164,10 +172,12 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "NotNullMarked.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "public class NotNullMarked {",
-            "  public static class Nested {}",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            public class NotNullMarked {
+              public static class Nested {}
+            }
+            """)
         .doTest();
     runTest(ImmutableMap.of(), ImmutableMap.of(), ImmutableSet.of());
   }
@@ -177,18 +187,20 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "NullableParameters.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class NullableParameters{",
-            " public static Object getNewObjectIfNull(@Nullable Object object) {",
-            "   if (object == null) {",
-            "     return new Object();",
-            "   } else {",
-            "     return object;",
-            "   }",
-            " }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class NullableParameters{
+             public static Object getNewObjectIfNull(@Nullable Object object) {
+               if (object == null) {
+                 return new Object();
+               } else {
+                 return object;
+               }
+             }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -206,17 +218,19 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "NullUnmarked.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "public class NullUnmarked{",
-            " public static Object getNewObjectIfNull(@Nullable Object object) {",
-            "   if (object == null) {",
-            "     return new Object();",
-            "   } else {",
-            "     return object;",
-            "   }",
-            " }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            public class NullUnmarked{
+             public static Object getNewObjectIfNull(@Nullable Object object) {
+               if (object == null) {
+                 return new Object();
+               } else {
+                 return object;
+               }
+             }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -234,19 +248,21 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "NullableParameters.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "import java.util.Arrays;",
-            "@NullMarked",
-            "public class NullableParameters{",
-            " public static Object[] getNewObjectArrayIfNull(Object @Nullable [] objectArray) {",
-            "   if (Arrays.stream(objectArray).allMatch(e -> e == null)) {",
-            "     return new Object[]{new Object(),new Object()};",
-            "   } else {",
-            "     return objectArray;",
-            "   }",
-            " }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Arrays;
+            @NullMarked
+            public class NullableParameters{
+             public static Object[] getNewObjectArrayIfNull(Object @Nullable [] objectArray) {
+               if (Arrays.stream(objectArray).allMatch(e -> e == null)) {
+                 return new Object[]{new Object(),new Object()};
+               } else {
+                 return objectArray;
+               }
+             }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -264,14 +280,16 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "ArrayParameters.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class ArrayParameters {",
-            "  public static void arrayNullable(String @Nullable [] arr) {}",
-            "  public static void elementsNullable(@Nullable String[] arr) {}",
-            "  public static void bothNullable(@Nullable String @Nullable [] arr) {}",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class ArrayParameters {
+              public static void arrayNullable(String @Nullable [] arr) {}
+              public static void elementsNullable(@Nullable String[] arr) {}
+              public static void bothNullable(@Nullable String @Nullable [] arr) {}
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -309,14 +327,16 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "Generic.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class Generic<T> {",
-            " public String getString(@Nullable T t) {",
-            "   return t.toString();",
-            " }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Generic<T> {
+             public String getString(@Nullable T t) {
+               return t.toString();
+             }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -334,22 +354,24 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "ParameterizedTypeArray.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "import java.util.List;",
-            "import java.util.ArrayList;",
-            "@NullMarked",
-            "public class ParameterizedTypeArray {",
-            "  public List<String>[] identity(List<String>[] listArray) {",
-            "    return listArray;",
-            "  }",
-            "  public List<@Nullable String>[] nullableIdentity(List<@Nullable String>[] listArray) {",
-            "    return listArray;",
-            "  }",
-            "  public List<? extends @Nullable String> wildcardIdentity(List<? super @Nullable String> listArray) {",
-            "    return null;",
-            "  }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            import java.util.ArrayList;
+            @NullMarked
+            public class ParameterizedTypeArray {
+              public List<String>[] identity(List<String>[] listArray) {
+                return listArray;
+              }
+              public List<@Nullable String>[] nullableIdentity(List<@Nullable String>[] listArray) {
+                return listArray;
+              }
+              public List<? extends @Nullable String> wildcardIdentity(List<? super @Nullable String> listArray) {
+                return null;
+              }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -397,17 +419,19 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "PrimitiveType.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class PrimitiveType {",
-            "    public int multiply(@Nullable Integer num1, @Nullable Integer num2) {",
-            "       if(num1!=null && num2!=null){",
-            "           return num1*num2;",
-            "       }",
-            "       return -1;",
-            "    }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class PrimitiveType {
+                public int multiply(@Nullable Integer num1, @Nullable Integer num2) {
+                   if(num1!=null && num2!=null){
+                       return num1*num2;
+                   }
+                   return -1;
+                }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -425,16 +449,18 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "VoidReturn.java",
-            "import org.jspecify.annotations.NullMarked;",
-            "import org.jspecify.annotations.Nullable;",
-            "@NullMarked",
-            "public class VoidReturn {",
-            "    public void printMultiply(@Nullable Integer num1, @Nullable Integer num2) {",
-            "       if(num1!=null && num2!=null){",
-            "           System.out.println(num1*num2);",
-            "       }",
-            "    }",
-            "}")
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class VoidReturn {
+                public void printMultiply(@Nullable Integer num1, @Nullable Integer num2) {
+                   if(num1!=null && num2!=null){
+                       System.out.println(num1*num2);
+                   }
+                }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -452,12 +478,14 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Test {",
-            "  <K, T extends @Nullable Object> void nullableTypeVar(K k, T t) {}",
-            "  <T> void nonNullTypeVar() {}",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              <K, T extends @Nullable Object> void nullableTypeVar(K k, T t) {}
+              <T> void nonNullTypeVar() {}
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -475,11 +503,13 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Test {",
-            "  public static int varargs(Object @Nullable ... args) { return 0; }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              public static int varargs(Object @Nullable ... args) { return 0; }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -497,11 +527,13 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Test {",
-            "  public static int varargs(@Nullable Object... args) { return 0; }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              public static int varargs(@Nullable Object... args) { return 0; }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
@@ -523,11 +555,13 @@ public class AstubxTest {
     compilationHelper
         .addSourceLines(
             "Test.java",
-            "import org.jspecify.annotations.*;",
-            "@NullMarked",
-            "public class Test {",
-            "  public static int varargs(@Nullable Object @Nullable ... args) { return 0; }",
-            "}")
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              public static int varargs(@Nullable Object @Nullable ... args) { return 0; }
+            }
+            """)
         .doTest();
     ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
         ImmutableMap.of(
