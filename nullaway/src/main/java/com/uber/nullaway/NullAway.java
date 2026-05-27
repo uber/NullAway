@@ -1695,7 +1695,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
-      if (!symbol.type.isPrimitive() && !skipFieldInitializationCheckingDueToAnnotation(symbol)) {
+      if (!shouldSkipFieldInitializationCheck(state, symbol, null)) {
         if (mayBeNullExpr(state, initializer)) {
           ErrorMessage errorMessage =
               new ErrorMessage(
@@ -2583,9 +2583,7 @@ public class NullAway extends BugChecker
           // field declaration
           VariableTree varTree = (VariableTree) memberTree;
           Symbol fieldSymbol = ASTHelpers.getSymbol(varTree);
-          if (fieldSymbol.type.isPrimitive()
-              || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)
-              || handler.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state)) {
+          if (shouldSkipFieldInitializationCheck(state, fieldSymbol, classSymbol)) {
             continue;
           }
           if (varTree.getInitializer() != null) {
@@ -2623,6 +2621,19 @@ public class NullAway extends BugChecker
         ImmutableSet.copyOf(constructors),
         ImmutableSet.copyOf(instanceInitializerMethods),
         ImmutableSet.copyOf(staticInitializerMethods));
+  }
+
+  private boolean shouldSkipFieldInitializationCheck(
+      VisitorState state, Symbol fieldSymbol, @Nullable ClassSymbol classSymbol) {
+    if (classSymbol == null) {
+      if (fieldSymbol.owner instanceof ClassSymbol ownerSymbol) {
+        classSymbol = ownerSymbol;
+      }
+    }
+    return fieldSymbol.type.isPrimitive()
+        || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)
+        || (classSymbol != null
+            && handler.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state));
   }
 
   private boolean isConstructor(MethodTree methodTree) {
