@@ -40,6 +40,7 @@ public class JakartaPersistenceHandler implements Handler {
   /** Field or accessor annotations that exclude a member from persistence handling. */
   private static final Set<String> JPA_TRANSIENT_ANNOTS =
       Set.of(
+          "java.beans.Transient",
           "javax.persistence.Transient",
           "jakarta.persistence.Transient",
           "org.springframework.data.annotation.Transient");
@@ -265,6 +266,10 @@ public class JakartaPersistenceHandler implements Handler {
     String methodName = methodSymbol.getSimpleName().toString();
     if (methodName.startsWith("get") && methodName.length() > 3) {
       String propertyName = methodName.substring(3);
+      return decapitalize(propertyName);
+    }
+    if (methodName.startsWith("is") && methodName.length() > 2) {
+      String propertyName = methodName.substring(2);
       return decapitalize(propertyName);
     }
     return null;

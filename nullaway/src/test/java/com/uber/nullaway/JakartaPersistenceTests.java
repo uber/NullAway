@@ -340,6 +340,33 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mappingOnIsGetterInfersPropertyAccess() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import jakarta.persistence.Entity;
+            import jakarta.persistence.Id;
+            @Entity
+            class Test {
+              boolean active;
+              String name;
+              @Id
+              public boolean isActive() {
+                return active;
+              }
+              public void setActive(boolean active) { this.active = active; }
+              public String getName() {
+                return name;
+              }
+              public void setName(String name) { this.name = name; }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void ignoreStaticGetter() {
     addJpaAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(
