@@ -1695,7 +1695,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
-      if (!symbol.type.isPrimitive() && !skipFieldInitializationCheckingDueToAnnotation(symbol)) {
+      if (!shouldSkipFieldInitializationCheck(state, symbol, null)) {
         if (mayBeNullExpr(state, initializer)) {
           ErrorMessage errorMessage =
               new ErrorMessage(
@@ -2583,8 +2583,7 @@ public class NullAway extends BugChecker
           // field declaration
           VariableTree varTree = (VariableTree) memberTree;
           Symbol fieldSymbol = ASTHelpers.getSymbol(varTree);
-          if (fieldSymbol.type.isPrimitive()
-              || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)) {
+          if (shouldSkipFieldInitializationCheck(state, fieldSymbol, classSymbol)) {
             continue;
           }
           if (varTree.getInitializer() != null) {
@@ -2624,6 +2623,19 @@ public class NullAway extends BugChecker
         ImmutableSet.copyOf(staticInitializerMethods));
   }
 
+  private boolean shouldSkipFieldInitializationCheck(
+      VisitorState state, Symbol fieldSymbol, @Nullable ClassSymbol classSymbol) {
+    if (classSymbol == null) {
+      if (fieldSymbol.owner instanceof ClassSymbol ownerSymbol) {
+        classSymbol = ownerSymbol;
+      }
+    }
+    return fieldSymbol.type.isPrimitive()
+        || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)
+        || (classSymbol != null
+            && handler.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state));
+  }
+
   private boolean isConstructor(MethodTree methodTree) {
     return ASTHelpers.getSymbol(methodTree).isConstructor()
         && !ASTHelpers.isGeneratedConstructor(methodTree);
@@ -2656,14 +2668,8 @@ public class NullAway extends BugChecker
    */
   private boolean skipFieldInitializationCheckingDueToAnnotation(Symbol fieldSymbol) {
     return NullabilityUtil.getAllAnnotations(fieldSymbol, config)
-        .anyMatch(
-            anno -> {
-              String annotationName = anno.getAnnotationType().toString();
-              if (config.isExcludedFieldAnnotation(annotationName)) {
-                return true;
-              }
-              return handler.shouldSkipFieldInitializationCheck(anno);
-            });
+        .map(anno -> anno.getAnnotationType().toString())
+        .anyMatch(config::isExcludedFieldAnnotation);
   }
 
   // classSymbol must be a top-level class
