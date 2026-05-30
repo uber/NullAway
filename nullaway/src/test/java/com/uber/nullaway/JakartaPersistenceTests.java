@@ -388,4 +388,37 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void lombokGetterSetter() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "Super.java",
+            """
+            package com.uber;
+            import jakarta.persistence.*;
+            @MappedSuperclass
+            @lombok.Getter
+            @lombok.Setter
+            abstract class Super {
+              @Column private Object o1;
+              @Id private Object o2;
+            }
+            """)
+        .addSourceLines(
+            "Sub.java",
+            """
+            package com.uber;
+            import jakarta.persistence.*;
+            @Entity
+            @lombok.Getter
+            @lombok.Setter
+            @lombok.NoArgsConstructor
+            class Sub extends Super {
+              @Column private Object o3;
+              @Id private Object o4;
+            }
+            """)
+        .doTest();
+  }
 }
