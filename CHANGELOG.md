@@ -1,8 +1,11 @@
 Changelog
 =========
 
-Version 0.13.5
+Version 0.13.6
 --------------
+
+(NOTE: originally these notes appeared with the 0.13.5 release, but that release was pushed
+incorrectly due to an error in our release process.)
 
 Includes various bug fixes, particularly in JSpecify mode.  Also, the nullaway-annotations
 artifact now includes a `@Contract` annotation.  NullAway also now has a built-in handler
@@ -47,6 +50,12 @@ has multiple known bugs, and we do not yet recommend enabling it.
   - Use Temurin JDK 17 always in CI (#1565)
   - Tell agents not to run multiple Gradle builds in parallel (#1582)
   - Update Codecov action to v6 (#1587)
+
+Version 0.13.5
+--------------
+
+DO NOT USE THIS RELEASE.  It was pushed incorrectly due to an error in our release process.
+Please use version 0.13.6 instead.
 
 Version 0.13.4
 --------------
