@@ -27,6 +27,7 @@ ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED=false ./gradlew publishToMavenLocal
 Releasing
 =========
 
+ 0. `git checkout master && git pull`
  1. Change the version in `gradle.properties` to a non-SNAPSHOT version.
  2. Update the `CHANGELOG.md` for the impending release.
  3. `git commit -am "Prepare for release X.Y.Z."` (where X.Y.Z is the new version)
@@ -34,6 +35,8 @@ Releasing
  5. `./gradlew clean publish`
  6. Update the `gradle.properties` to the next SNAPSHOT version.
  7. `git commit -am "Prepare next development version."`
- 8. `git push && git push --tags`
+ 8. `git push && git push --tags`.  Go to GitHub and double check that the `master` branch has been
+    pushed correctly and the new tag also appears correctly.  Do not proceed to step 9 if there are
+    any issues here.
  9. Visit [Maven Central Repository](https://central.sonatype.com/publishing/deployments) and publish the artifact.
  10. Go to [this page](https://github.com/uber/NullAway/releases/new) to create a new release on GitHub, using the release notes from `CHANGELOG.md`.
