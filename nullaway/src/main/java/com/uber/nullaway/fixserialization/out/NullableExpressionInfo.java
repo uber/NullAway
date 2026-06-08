@@ -46,7 +46,7 @@ public record NullableExpressionInfo(
     int position) {
 
   public void writeXml(XMLStreamWriter writer) throws XMLStreamException {
-    writer.writeStartElement("infos");
+    writer.writeStartElement("nullableExpressionInfo");
     Serializer.writeTextElement(writer, "expression", expression);
     Serializer.writeTextElement(writer, "kind", kind);
     Serializer.writeTextElement(writer, "class", enclosingClass);

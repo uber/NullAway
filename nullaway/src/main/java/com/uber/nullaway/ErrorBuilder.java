@@ -59,8 +59,9 @@ import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.SerializationService;
 import com.uber.nullaway.fixserialization.out.NullableExpressionInfo;
+import com.uber.nullaway.fixserialization.scanners.OriginLocation;
 import com.uber.nullaway.fixserialization.scanners.OriginScanner;
-import com.uber.nullaway.fixserialization.scanners.OriginTrace;
+import com.uber.nullaway.handlers.Handler;
 import java.util.Iterator;
 import java.util.List;
 import java.util.Objects;
@@ -83,10 +84,14 @@ public class ErrorBuilder {
   /** Additional identifiers for this check, to be checked for in @SuppressWarnings annotations. */
   private final Set<String> allNames;
 
-  ErrorBuilder(Config config, String suppressionName, Set<String> allNames) {
+  /** Handler used when querying whether origin symbols come from annotated code. */
+  private final Handler handler;
+
+  ErrorBuilder(Config config, String suppressionName, Set<String> allNames, Handler handler) {
     this.config = config;
     this.suppressionName = suppressionName;
     this.allNames = allNames;
+    this.handler = handler;
   }
 
   /**
@@ -213,7 +218,7 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder, state);
     }
 
-    Set<OriginTrace> origins = Set.of();
+    Set<OriginLocation> origins = Set.of();
     if (config.serializationIsActive()) {
       if (nullableExpression != null && inquiry != null) {
         Symbol nullableExpressionSymbol = ASTHelpers.getSymbol(nullableExpression);
@@ -243,7 +248,15 @@ public class ErrorBuilder {
               ? suggestTree
               : state.getPath().getLeaf();
       SerializationService.serializeReportingError(
-          config, state, errorTree, nonNullTarget, errorMessage, origins, nullableExpressionInfo);
+          config,
+          state,
+          errorTree,
+          nonNullTarget,
+          errorMessage,
+          origins,
+          nullableExpressionInfo,
+          CodeAnnotationInfo.instance(state.context),
+          handler);
     }
 
     // #letbuildersbuild

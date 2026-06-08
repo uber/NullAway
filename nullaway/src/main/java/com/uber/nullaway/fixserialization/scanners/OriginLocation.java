@@ -31,6 +31,6 @@ import com.sun.tools.javac.code.Symbol;
  * A provenance symbol together with the AST tree where it contributes to a local variable's value.
  *
  * @param origin The origin symbol.
- * @param trace The tree where the origin contributes to the value of the local variable.
+ * @param tree The tree where the origin contributes to the value of the local variable.
  */
-public record OriginTrace(Symbol origin, Tree trace) {}
+public record OriginLocation(Symbol origin, Tree tree) {}

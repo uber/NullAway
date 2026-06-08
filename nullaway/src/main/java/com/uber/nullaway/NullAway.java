@@ -308,7 +308,7 @@ public class NullAway extends BugChecker
   public NullAway() {
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
-    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), handler);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
     this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
@@ -325,7 +325,7 @@ public class NullAway extends BugChecker
                 .addAll(allNames())
                 .addAll(config.getSuppressionNameAliases())
                 .build();
-    errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames);
+    errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames, handler);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
     this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
@@ -1975,16 +1975,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expr = tree.getExpression();
     Symbol derefedSymbol = ASTHelpers.getSymbol(expr);
-    NullableExpressionInfo exprInfo =
-        derefedSymbol != null
-            ? new NullableExpressionInfo(
-                state.getSourceForNode(expr),
-                derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT),
-                Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
-                !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
-                Serializer.serializeSymbol(derefedSymbol, adapter),
-                ((JCTree) expr).pos().getStartPosition())
-            : null;
+    NullableExpressionInfo exprInfo = buildNullableExpressionInfo(expr, derefedSymbol, state);
     String message = "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable";
     ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
@@ -2885,6 +2876,35 @@ public class NullAway extends BugChecker
     return AccessPathNullnessAnalysis.instance(state, this);
   }
 
+  /**
+   * Builds {@link NullableExpressionInfo} metadata for a {@code @Nullable} expression, consumed by
+   * the Annotator during fix serialization.
+   *
+   * @param sourceExpr expression whose source text and position are recorded.
+   * @param symbol symbol of the nullable expression, or {@code null} if unavailable.
+   * @param state the visitor state.
+   * @return the metadata, or {@code null} if serialization is disabled, {@code symbol} is {@code
+   *     null}, or {@code sourceExpr} has no source text. We skip building it when serialization is
+   *     off to avoid doing this work as part of the main analysis.
+   */
+  private @Nullable NullableExpressionInfo buildNullableExpressionInfo(
+      ExpressionTree sourceExpr, @Nullable Symbol symbol, VisitorState state) {
+    if (!config.serializationIsActive() || symbol == null) {
+      return null;
+    }
+    String expressionSource = state.getSourceForNode(sourceExpr);
+    if (expressionSource == null) {
+      return null;
+    }
+    return new NullableExpressionInfo(
+        expressionSource,
+        symbol.getKind().toString().toLowerCase(Locale.ROOT),
+        Serializer.serializeSymbol(symbol.enclClass(), adapter),
+        !codeAnnotationInfo.isSymbolUnannotated(symbol, config, handler),
+        Serializer.serializeSymbol(symbol, adapter),
+        ((JCTree) sourceExpr).pos().getStartPosition());
+  }
+
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
     Symbol baseExpressionSymbol = ASTHelpers.getSymbol(baseExpression);
@@ -2904,15 +2924,7 @@ public class NullAway extends BugChecker
       ExpressionTree stripped = NullabilityUtil.stripParensAndCasts(baseExpression);
       Symbol derefedSymbol = ASTHelpers.getSymbol(stripped);
       NullableExpressionInfo exprInfo =
-          derefedSymbol != null
-              ? new NullableExpressionInfo(
-                  state.getSourceForNode(baseExpression),
-                  derefedSymbol.getKind().toString().toLowerCase(Locale.ROOT),
-                  Serializer.serializeSymbol(derefedSymbol.enclClass(), adapter),
-                  !codeAnnotationInfo.isSymbolUnannotated(derefedSymbol, config, handler),
-                  Serializer.serializeSymbol(derefedSymbol, adapter),
-                  ((JCTree) baseExpression).pos().getStartPosition())
-              : null;
+          buildNullableExpressionInfo(baseExpression, derefedSymbol, state);
       String message =
           "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);

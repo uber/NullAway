@@ -24,20 +24,20 @@ package com.uber.nullaway.fixserialization.out;
 
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
-import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
-import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import com.uber.nullaway.CodeAnnotationInfo;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Serializer;
 import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import com.uber.nullaway.fixserialization.location.SymbolLocation;
-import com.uber.nullaway.fixserialization.scanners.OriginTrace;
-import java.net.URI;
+import com.uber.nullaway.fixserialization.scanners.OriginLocation;
+import com.uber.nullaway.handlers.Handler;
 import java.nio.file.Path;
 import java.util.Locale;
 import java.util.Set;
@@ -73,15 +73,25 @@ public class ErrorInfo {
   /** Structured metadata about the nullable expression, if available. */
   private final @Nullable NullableExpressionInfo nullableExpressionInfo;
 
-  private final Set<OriginTrace> origins;
+  private final Set<OriginLocation> origins;
+
+  /** Used together with {@link #config} and {@link #handler} to query symbol annotatedness. */
+  private final CodeAnnotationInfo codeAnnotationInfo;
+
+  private final Config config;
+
+  private final Handler handler;
 
   public ErrorInfo(
       TreePath path,
       Tree errorTree,
       ErrorMessage errorMessage,
       @Nullable Symbol nonnullTarget,
-      Set<OriginTrace> origins,
-      @Nullable NullableExpressionInfo nullableExpressionInfo) {
+      Set<OriginLocation> origins,
+      @Nullable NullableExpressionInfo nullableExpressionInfo,
+      Config config,
+      CodeAnnotationInfo codeAnnotationInfo,
+      Handler handler) {
     this.classAndMemberInfo =
         (errorMessage.getMessageType().equals(FIELD_NO_INIT)
                 || errorMessage.getMessageType().equals(METHOD_NO_INIT))
@@ -95,6 +105,9 @@ public class ErrorInfo {
         Serializer.pathToSourceFileFromURI(path.getCompilationUnit().getSourceFile().toUri());
     this.origins = origins;
     this.nullableExpressionInfo = nullableExpressionInfo;
+    this.config = config;
+    this.codeAnnotationInfo = codeAnnotationInfo;
+    this.handler = handler;
   }
 
   /**
@@ -191,8 +204,8 @@ public class ErrorInfo {
     }
     if (!origins.isEmpty()) {
       writer.writeStartElement("origins");
-      for (OriginTrace trace : origins) {
-        Symbol sym = trace.origin();
+      for (OriginLocation location : origins) {
+        Symbol sym = location.origin();
         writer.writeStartElement("origin");
         writer.writeStartElement("location");
         SymbolLocation.createLocationFromSymbol(sym).writeXmlFields(writer, adapter);
@@ -201,12 +214,15 @@ public class ErrorInfo {
             writer, "kind", sym.getKind().toString().toLowerCase(Locale.ROOT));
         Serializer.writeTextElement(
             writer, "class", Serializer.serializeSymbol(sym.enclClass(), adapter));
-        Serializer.writeTextElement(writer, "isAnnotated", Boolean.toString(isAnnotated(sym)));
-        Serializer.writeTextElement(writer, "expression", trace.trace().toString());
+        Serializer.writeTextElement(
+            writer,
+            "isAnnotated",
+            Boolean.toString(!codeAnnotationInfo.isSymbolUnannotated(sym, config, handler)));
+        Serializer.writeTextElement(writer, "expression", location.tree().toString());
         Serializer.writeTextElement(
             writer,
             "position",
-            Integer.toString(((JCTree) trace.trace()).pos().getStartPosition()));
+            Integer.toString(((JCTree) location.tree()).pos().getStartPosition()));
         Serializer.writeTextElement(writer, "symbol", Serializer.serializeSymbol(sym, adapter));
         writer.writeEndElement();
       }
@@ -216,19 +232,5 @@ public class ErrorInfo {
       nullableExpressionInfo.writeXml(writer);
     }
     writer.writeEndElement();
-  }
-
-  /**
-   * Checks if the symbol is from annotated code.
-   *
-   * @param symbol The symbol to check.
-   * @return True if the symbol is from annotated code, false otherwise.
-   */
-  private static boolean isAnnotated(Symbol symbol) {
-    // TODO for now we follow a very simple heuristic to determine if a symbol is annotated and
-    // check if the path to the symbol exists
-    Symbol.ClassSymbol enclosingClass = castToNonNull(ASTHelpers.enclosingClass(symbol));
-    URI pathInURI = enclosingClass.sourcefile != null ? enclosingClass.sourcefile.toUri() : null;
-    return Serializer.pathToSourceFileFromURI(pathInURI) != null;
   }
 }

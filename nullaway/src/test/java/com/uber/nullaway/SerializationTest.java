@@ -2451,7 +2451,7 @@ public class SerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void xmlOutputForLocalVariableOriginTrace() {
+  public void xmlOutputForLocalVariableOriginLocation() {
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
@@ -2485,7 +2485,7 @@ public class SerializationTest extends NullAwayTestsBase {
   }
 
   @Test
-  public void xmlOutputForLocalVariableOriginTraceInEnhancedFor() {
+  public void xmlOutputForLocalVariableOriginLocationInEnhancedFor() {
     makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",
