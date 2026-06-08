@@ -9,6 +9,8 @@ test class or method within that module, you can use the `--tests` flag. For exa
 ./gradlew :nullaway:test --tests "com.uber.nullaway.NullAwayTest"
 ```
 
+Do _not_ try to run multiple Gradle build commands in parallel; it is not supported and often leads to a failure.
+
 # Changelog
 
 Our `CHANGELOG.md` file should be formatted as follows:
@@ -21,3 +23,6 @@ Our `CHANGELOG.md` file should be formatted as follows:
 
 Do not add top-level `@Nullable` annotations on local variables.  NullAway infers the nullability of local variables and
 ignores these explicit annotations.
+
+You do _not_ need to run `./gradlew spotlessJavaCheck` to check formatting.  We have a pre-commit hook that
+automatically formats code before it is committed.

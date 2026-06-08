@@ -4,7 +4,6 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -12,7 +11,6 @@ import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.TypeVar;
 import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
-import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -34,13 +32,11 @@ import org.jspecify.annotations.Nullable;
  */
 public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
-  private final CodeAnnotationInfo codeAnnotationInfo;
   private final Handler handler;
   private final VisitorState state;
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
-    this.codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
     this.handler = analysis.getHandler();
     this.state = state;
   }
@@ -210,9 +206,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
       switch (supertypeWildcard.kind) {
         case UNBOUND, EXTENDS -> {
-          Type subtypeUpperBound = GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state);
+          Type subtypeUpperBound =
+              GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
           subtypeUpperBound.accept(
-              this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state));
+              this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
         }
         case SUPER -> {
           Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
@@ -238,7 +235,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      */
     private void constrainSubtypeToWildcard(Type subtype, WildcardType supertypeWildcard) {
       if (supertypeWildcard.kind != BoundKind.SUPER) {
-        subtype.accept(this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state));
+        subtype.accept(
+            this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
       }
     }
 
@@ -251,7 +249,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (subtypeWildcard.kind == BoundKind.SUPER) {
         castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertype);
       } else {
-        GenericsUtils.wildcardUpperBound(subtypeWildcard, state).accept(this, supertype);
+        GenericsUtils.wildcardUpperBound(subtypeWildcard, state, config, handler)
+            .accept(this, supertype);
       }
     }
   }
@@ -391,7 +390,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── helpers & stubs ───────────────────── */
 
   private VarState getState(Element typeVarElement) {
-    return vars.computeIfAbsent(typeVarElement, v -> new VarState(upperBoundIsNullable(v)));
+    return vars.computeIfAbsent(
+        typeVarElement,
+        v -> new VarState(GenericsUtils.upperBoundIsNullable(v, config, handler, state)));
   }
 
   private boolean treatAsTypeVariableForInference(Type t) {
@@ -413,45 +414,5 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Everything non-nullable *and* non-variable counts as @NonNull. */
   private boolean isKnownNonNull(Type t) {
     return !isKnownNullable(t) && !treatAsTypeVariableForInference(t);
-  }
-
-  private boolean upperBoundIsNullable(Element typeVarElement) {
-    if (fromUnannotatedMethod(typeVarElement)) {
-      return true;
-    }
-    // first, check if library model overrides the upper bound nullability
-    Element enclosingElement = typeVarElement.getEnclosingElement();
-    if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol
-        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
-      int typeVarIndex = methodSymbol.getTypeParameters().indexOf(typeVariableSymbol);
-      // TODO typeVarIndex is -1 in some cases; see test
-      //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
-      //  Investigate further.
-      if (typeVarIndex >= 0
-          && handler.onOverrideMethodTypeVariableUpperBound(methodSymbol, typeVarIndex, state)) {
-        return true;
-      }
-    } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol
-        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
-      int typeVarIndex = classSymbol.getTypeParameters().indexOf(typeVariableSymbol);
-      if (typeVarIndex >= 0
-          && handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
-        return true;
-      }
-    }
-    // otherwise, check the actual upper bound annotations
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-        upperBound.getAnnotationMirrors();
-    return com.uber.nullaway.Nullness.hasNullableAnnotation(annotationMirrors.stream(), config);
-  }
-
-  private boolean fromUnannotatedMethod(Element typeVarElement) {
-    Element enclosingElement = typeVarElement.getEnclosingElement();
-    if (!(enclosingElement instanceof Symbol.MethodSymbol)
-        && !(enclosingElement instanceof Symbol.ClassSymbol)) {
-      return false;
-    }
-    return codeAnnotationInfo.isSymbolUnannotated((Symbol) enclosingElement, config, handler);
   }
 }

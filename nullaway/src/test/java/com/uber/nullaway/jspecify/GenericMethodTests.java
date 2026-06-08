@@ -1572,6 +1572,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 return supplier;
               }
               void test() {
+                // Here, javac computes the formal parameter type as Supplier<OuterT>.
+                // Our repair updates the type to Supplier<@Nullable OuterT>, matching
+                // the actual parameter, so we get no error.
                 acceptSup(sup);
               }
               <T extends Supplier<?>> void acceptTwoSup(T supplier1, T supplier2) {
@@ -1580,6 +1583,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
               Supplier<OuterT> make2() {
                 throw new RuntimeException();
               }
+              // tests that our repair computes a consistent substitution for the type variables
               void test2() {
                 // BUG: Diagnostic contains: incompatible types: Supplier<OuterT> cannot be converted to Supplier<@Nullable OuterT>
                 acceptTwoSup(sup, sup2);
@@ -1682,6 +1686,60 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 Foo.of(new Foo<@Nullable String>()).or(new Foo<@Nullable String>());
             }
             """)
+        .doTest();
+  }
+
+  @Test
+  public void caffeineNestedArgToGenericMethod() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.Map;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static interface Cache<K, V extends @Nullable Object> {
+                Policy<K, @NonNull V> policy();
+              }
+              static interface Policy<K, V> {
+                Map<K, CompletableFuture<V>> refreshes();
+              }
+              static <K,V> void m(@Nullable Map<K,V> map) {}
+              void test(Cache<Integer, @Nullable Object> cache) {
+                // javac computes the formal parameter type as @Nullable Map<Integer, CompletableFuture<@Nullable Object>>,
+                // presumably based on the @Nullable Object type argument for cache.
+                // NullAway determines the type of the actual parameter correctly as
+                // Map<Integer, CompletableFuture<Object>> (due to the @NonNull annotation on V in the signature for policy).
+                // The type repair in NestedTypeVarSubstitutionRepairVisitor fixes the javac type so we don't report
+                // an error here.
+                m(cache.policy().refreshes());
+              }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void nestedGenericMethodRepairPreservesTopLevelNullability() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> void accept(Box<@Nullable T> box) {}
+              void test(Box<CompletableFuture<Object>> box) {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                accept(box);
+              }
+            }""")
         .doTest();
   }
 

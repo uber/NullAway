@@ -1,5 +1,7 @@
 package com.uber.nullaway.handlers;
 
+import com.google.errorprone.VisitorState;
+import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullabilityUtil;
 import java.util.regex.Pattern;
 import javax.lang.model.element.AnnotationMirror;
@@ -18,17 +20,16 @@ public class SpringHandler implements Handler {
   private static final Pattern VALUE_NULL_SPEL_PATTERN =
       Pattern.compile("#\\{[^}]*\\bnull\\b[^}]*}");
 
-  /**
-   * Returns true when a field annotated with Spring {@code @Value} should be treated as initialized
-   * externally.
-   */
   @Override
-  public boolean shouldSkipFieldInitializationCheck(AnnotationMirror annotationMirror) {
-    if (!annotationMirror.getAnnotationType().toString().equals(VALUE_ANNOT)) {
-      return false;
+  public boolean shouldSkipFieldInitializationCheck(
+      Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
+    for (AnnotationMirror annotationMirror : fieldSymbol.getAnnotationMirrors()) {
+      if (annotationMirror.getAnnotationType().toString().equals(VALUE_ANNOT)) {
+        String annotationValue = NullabilityUtil.getAnnotationValue(annotationMirror);
+        return annotationValue == null || !containsNullSpELExpression(annotationValue);
+      }
     }
-    String annotationValue = NullabilityUtil.getAnnotationValue(annotationMirror);
-    return annotationValue == null || !containsNullSpELExpression(annotationValue);
+    return false;
   }
 
   private static boolean containsNullSpELExpression(String annotationValue) {

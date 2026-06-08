@@ -1,6 +1,62 @@
 Changelog
 =========
 
+Version 0.13.6
+--------------
+
+(NOTE: originally these notes appeared with the 0.13.5 release, but that release was pushed
+incorrectly due to an error in our release process.)
+
+Includes various bug fixes, particularly in JSpecify mode.  Also, the nullaway-annotations
+artifact now includes a `@Contract` annotation.  NullAway also now has a built-in handler
+to reason about field initialization in classes managed by Jakarta Persistence.
+
+Work has begun on support  for wildcards in JSpecify mode.  Currently, this support is off
+by default, guarded by the configuration flag `HandleWildcardGenerics`.  The support still
+has multiple known bugs, and we do not yet recommend enabling it.
+
+* Initial subtype checking for wildcards (#1520)
+* Handle subtype checking for wildcard super bounds (#1547)
+* Handle most remaining wildcard subtyping / containment cases (#1548)
+* Test case for #1528 (#1556)
+* Initial inference for wildcards (#1549)
+* Fix wildcard inference bug with method references (#1553)
+* Fix nullability for return and parameter wildcards (#1558)
+* Test case for trick to assert chain of accesses is non-null (#1566)
+* Improve inference failure error message (#1567)
+* Adjust more TreePaths to have correct leaf before calling getTreeType (#1570)
+* Add Contract annotation to nullaway-annotations by @codingkiddo (#1569)
+* Run inference for generic method calls nested inside receivers (#1571)
+* Refactor hasAnyAnnotationMatching method (#1583)
+* Improve handling of `var`-declared local variables (#1573)
+* Compensate for more annotations inserted by `javac` (#1574)
+* Enable test for issue 1500 and add comment (#1560)
+* Use ground target types when handling lambdas and method refs passed to generic methods (#1575)
+* Fix for unbounded wildcard passed to `@NullUnmarked` type variable (#1577)
+* Detect and warn on annotations directly on wildcard types (#1579)
+* Enable HandleWildcardGenerics flag when building NullAway (#1586)
+* Report error when @Initializer is used on a constructor by @Vinu2111 (#1546)
+* Add a handler for Jakarta Persistence to reason about field initialization (#1584)
+* Revert "Report error when @Initializer is used on a constructor (#1546)" (#1588)
+* Maintenance
+  - Use Jacoco 0.8.15 snapshot (#1550)
+  - Update to Gradle 9.5.0 (#1554)
+  - Test with latest Error Prone snapshot on CI (#1555)
+  - Add Spring Boot as an integration test (#1557)
+  - Enable generic bytecode tests on JDK 17 (#1561)
+  - Update spotless and guava-latest deps, removed unused semver4j (#1562)
+  - Use text blocks in more tests (#1563)
+  - Use text blocks for addInputLines and addOutputLines calls (#1564)
+  - Use Temurin JDK 17 always in CI (#1565)
+  - Tell agents not to run multiple Gradle builds in parallel (#1582)
+  - Update Codecov action to v6 (#1587)
+
+Version 0.13.5
+--------------
+
+DO NOT USE THIS RELEASE.  It was pushed incorrectly due to an error in our release process.
+Please use version 0.13.6 instead.
+
 Version 0.13.4
 --------------
 

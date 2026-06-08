@@ -69,7 +69,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * {@code symbol}. Used to reason whether a field may be null.
    */
   public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotationMatching(
+    return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
         symbol,
         config,
         annot -> isNullableAnnotation(annot, config) || isMonotonicNonNullAnnotation(annot));
@@ -208,7 +208,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNonNullAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotationMatching(
+    return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
         symbol, config, annot -> isNonNullAnnotation(annot, config));
   }
 
@@ -220,7 +220,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNullableAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotationMatching(
+    return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
         symbol, config, annot -> isNullableAnnotation(annot, config));
   }
 
