@@ -933,6 +933,30 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void conditionalExpr() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            final class Test {
+              interface ClassLike<T extends @Nullable Object> {
+                String name();
+              }
+              static String guardedNullableWildcard(@Nullable ClassLike<?> maybeClass) {
+                return (maybeClass != null ? maybeClass : fallback()).name();
+              }
+              static ClassLike<?> fallback() {
+                throw new RuntimeException();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
