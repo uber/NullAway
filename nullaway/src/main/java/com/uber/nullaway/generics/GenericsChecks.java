@@ -636,13 +636,13 @@ public final class GenericsChecks {
             Type enclosingType =
                 getEnclosingTypeForCallExpression(
                     symbol, invocationTree, state.getPath(), state, calledFromDataflow);
-            // boolean recomputedMemberType = false;
             if (enclosingType != null) {
               invokedMethodType =
                   TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
             }
             Type.MethodType methodType =
                 handler.onOverrideMethodType(symbol, invokedMethodType.asMethodType(), state);
+            // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
