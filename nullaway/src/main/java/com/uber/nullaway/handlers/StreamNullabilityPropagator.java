@@ -48,6 +48,7 @@ import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
@@ -190,9 +191,16 @@ class StreamNullabilityPropagator implements Handler {
 
   private @Nullable NullAway analysis;
 
+  private @Nullable Handler mainHandler;
+
   StreamNullabilityPropagator(ImmutableList<StreamTypeRecord> models) {
     super();
     this.models = models;
+  }
+
+  @Initializer
+  void initMainHandler(Handler mainHandler) {
+    this.mainHandler = mainHandler;
   }
 
   @Override
@@ -295,11 +303,12 @@ class StreamNullabilityPropagator implements Handler {
       Type.MethodType methodType,
       VisitorState state,
       @Nullable MethodInvocationTree invocationTree) {
-    if (analysis == null || invocationTree == null) {
+    if (invocationTree == null) {
       return methodType;
     }
     if (isNullRejectingFilterInvocation(invocationTree, state)) {
-      Type updatedReturnType = refineFilterExpressionType(methodType.getReturnType(), state);
+      Type returnType = methodType.getReturnType();
+      Type updatedReturnType = refineFilterExpressionType(returnType, state);
       return new Type.MethodType(
           methodType.argtypes, updatedReturnType, methodType.thrown, methodType.tsym);
     }
@@ -309,9 +318,13 @@ class StreamNullabilityPropagator implements Handler {
   private boolean isNullRejectingFilterInvocation(
       MethodInvocationTree invocationTree, VisitorState state) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    if (methodSymbol == null
-        || invocationTree.getArguments().size() != 1
-        || !isObjectsNonNullMethodReference(invocationTree.getArguments().get(0))) {
+    Handler handler = mainHandler;
+    if (methodSymbol == null || invocationTree.getArguments().size() != 1 || handler == null) {
+      return false;
+    }
+    Symbol predicateMethodSymbol = ASTHelpers.getSymbol(invocationTree.getArguments().get(0));
+    if (!(predicateMethodSymbol instanceof Symbol.MethodSymbol predicateMethod)
+        || !handler.isSingleArgNullImpliesFalseMethod(predicateMethod, state)) {
       return false;
     }
     Type receiverType = ASTHelpers.getReceiverType(invocationTree);
@@ -324,29 +337,6 @@ class StreamNullabilityPropagator implements Handler {
       }
     }
     return false;
-  }
-
-  private static boolean isObjectsNonNullMethodReference(ExpressionTree argTree) {
-    if (!(argTree instanceof MemberReferenceTree memberReferenceTree)
-        || !memberReferenceTree.getName().contentEquals("nonNull")
-        || !isJavaUtilObjects(memberReferenceTree.getQualifierExpression())) {
-      return false;
-    }
-    Symbol symbol = ASTHelpers.getSymbol(argTree);
-    return !(symbol instanceof Symbol.MethodSymbol methodSymbol)
-        || methodSymbol.getParameters().size() == 1;
-  }
-
-  private static boolean isJavaUtilObjects(ExpressionTree tree) {
-    Symbol symbol = ASTHelpers.getSymbol(tree);
-    if (symbol instanceof Symbol.ClassSymbol classSymbol
-        && classSymbol.getQualifiedName().contentEquals("java.util.Objects")) {
-      return true;
-    }
-    Type type = ASTHelpers.getType(tree);
-    return type != null
-        && type.tsym instanceof Symbol.ClassSymbol classSymbol
-        && classSymbol.getQualifiedName().contentEquals("java.util.Objects");
   }
 
   private Type refineFilterExpressionType(Type type, VisitorState state) {

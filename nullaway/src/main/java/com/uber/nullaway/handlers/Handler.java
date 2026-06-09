@@ -511,6 +511,15 @@ public interface Handler {
   }
 
   /**
+   * Returns true if the given single-argument method is known to return {@code false} whenever its
+   * only argument is {@code null}.
+   */
+  default boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return false;
+  }
+
+  /**
    * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
    * their knowledge of the method return nullability to the rest of NullAway.
    */

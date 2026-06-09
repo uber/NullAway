@@ -375,4 +375,15 @@ class CompositeHandler implements Handler {
     }
     return false;
   }
+
+  @Override
+  public boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    for (Handler h : handlers) {
+      if (h.isSingleArgNullImpliesFalseMethod(methodSymbol, state)) {
+        return true;
+      }
+    }
+    return false;
+  }
 }

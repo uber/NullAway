@@ -426,6 +426,13 @@ public class LibraryModelsHandler implements Handler {
     return libraryModels.nullMarkedClasses().contains(className);
   }
 
+  @Override
+  public boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return methodSymbol.getParameters().size() == 1
+        && getOptLibraryModels(state.context).nullImpliesFalseParameters(methodSymbol).contains(0);
+  }
+
   /** Updates method types based on nested annotation information from library models. */
   @Override
   @SuppressWarnings("ReferenceEquality")

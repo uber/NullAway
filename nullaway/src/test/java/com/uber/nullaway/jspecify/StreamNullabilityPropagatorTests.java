@@ -52,6 +52,64 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void filterLibraryModeledNullRejectingPredicateRefinesStreamElementType() {
+    makeHelper()
+        .addSourceLines(
+            "org/springframework/util/StringUtils.java",
+            """
+            package org.springframework.util;
+
+            public final class StringUtils {
+              public static boolean hasLength(String value) {
+                return value != null && !value.isEmpty();
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.springframework.util.StringUtils;
+
+            @NullMarked
+            class Test {
+              static List<String> nullableStringsToNonNull(List<@Nullable String> values) {
+                return values.stream().filter(StringUtils::hasLength).toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void filterContractNullRejectingPredicateRefinesStreamElementType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              @Contract("null -> false")
+              static boolean hasLength(@Nullable String value) {
+                return value != null && !value.isEmpty();
+              }
+
+              static List<String> nullableStringsToNonNull(List<@Nullable String> values) {
+                return values.stream().filter(Test::hasLength).toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void unrelatedFilterDoesNotRefineStreamElementType() {
     makeHelper()
         .addSourceLines(
