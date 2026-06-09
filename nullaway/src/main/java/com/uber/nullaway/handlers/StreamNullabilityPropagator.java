@@ -52,11 +52,14 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.generics.TypeMetadataBuilder;
+import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.stream.CollectLikeMethodRecord;
 import com.uber.nullaway.handlers.stream.MapLikeMethodRecord;
 import com.uber.nullaway.handlers.stream.MapOrCollectLikeMethodRecord;
 import com.uber.nullaway.handlers.stream.MapOrCollectMethodToFilterInstanceRecord;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
+import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -68,6 +71,7 @@ import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
 import org.checkerframework.nullaway.dataflow.cfg.node.LocalVariableNode;
+import org.jspecify.annotations.Nullable;
 
 /**
  * This Handler transfers nullability info through chains of calls to methods of
@@ -183,6 +187,8 @@ class StreamNullabilityPropagator implements Handler {
       new LinkedHashMap<>();
   private final ImmutableList<StreamTypeRecord> models;
 
+  private @Nullable NullAway analysis;
+
   StreamNullabilityPropagator(ImmutableList<StreamTypeRecord> models) {
     super();
     this.models = models;
@@ -191,6 +197,7 @@ class StreamNullabilityPropagator implements Handler {
   @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+    this.analysis = analysis;
     // Clear compilation unit specific state
     this.filterMethodOrLambdaSet.clear();
     this.observableOuterCallInChain.clear();
@@ -279,6 +286,83 @@ class StreamNullabilityPropagator implements Handler {
     } else if (argTree instanceof MemberReferenceTree) {
       observableCallToInnerMethodOrLambda.put(tree, argTree);
     }
+  }
+
+  @Override
+  public Type onOverrideExpressionType(
+      ExpressionTree expressionTree, Type type, VisitorState state) {
+    if (analysis == null || !(expressionTree instanceof MethodInvocationTree invocationTree)) {
+      return type;
+    }
+    if (isNullRejectingFilterInvocation(invocationTree, state)) {
+      return refineFilterExpressionType(type);
+    }
+    return type;
+  }
+
+  private boolean isNullRejectingFilterInvocation(
+      MethodInvocationTree invocationTree, VisitorState state) {
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    if (methodSymbol == null
+        || invocationTree.getArguments().size() != 1
+        || !isObjectsNonNullMethodReference(invocationTree.getArguments().get(0))) {
+      return false;
+    }
+    Type receiverType = ASTHelpers.getReceiverType(invocationTree);
+    if (receiverType == null) {
+      return false;
+    }
+    for (StreamTypeRecord streamType : models) {
+      if (streamType.matchesType(receiverType, state) && streamType.isFilterMethod(methodSymbol)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  private static boolean isObjectsNonNullMethodReference(ExpressionTree argTree) {
+    if (!(argTree instanceof MemberReferenceTree memberReferenceTree)
+        || !memberReferenceTree.getName().contentEquals("nonNull")
+        || !isJavaUtilObjects(memberReferenceTree.getQualifierExpression())) {
+      return false;
+    }
+    Symbol symbol = ASTHelpers.getSymbol(argTree);
+    return !(symbol instanceof Symbol.MethodSymbol methodSymbol)
+        || methodSymbol.getParameters().size() == 1;
+  }
+
+  private static boolean isJavaUtilObjects(ExpressionTree tree) {
+    Symbol symbol = ASTHelpers.getSymbol(tree);
+    if (symbol instanceof Symbol.ClassSymbol classSymbol
+        && classSymbol.getQualifiedName().contentEquals("java.util.Objects")) {
+      return true;
+    }
+    Type type = ASTHelpers.getType(tree);
+    return type != null
+        && type.tsym instanceof Symbol.ClassSymbol classSymbol
+        && classSymbol.getQualifiedName().contentEquals("java.util.Objects");
+  }
+
+  private Type refineFilterExpressionType(Type type) {
+    if (!(type instanceof Type.ClassType classType)) {
+      return type;
+    }
+    List<Type> typeArgs = classType.getTypeArguments();
+    if (typeArgs.size() != 1) {
+      return type;
+    }
+    Type streamElementType = typeArgs.get(0);
+    if (!Nullness.hasNullableAnnotation(
+        streamElementType.getAnnotationMirrors().stream(), castToNonNull(analysis).getConfig())) {
+      return type;
+    }
+    Type updatedElementType =
+        TypeSubstitutionUtils.removeNullableAnnotation(
+            streamElementType, castToNonNull(analysis).getConfig());
+    java.util.List<Type> updatedTypeArgs = new ArrayList<>(1);
+    updatedTypeArgs.add(updatedElementType);
+    return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
+        classType, classType.getEnclosingType(), updatedTypeArgs);
   }
 
   /**

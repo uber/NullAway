@@ -492,6 +492,19 @@ public interface Handler {
   }
 
   /**
+   * Method to override the type of an expression.
+   *
+   * @param expressionTree the expression tree
+   * @param type original expression type
+   * @param state The current visitor state.
+   * @return the possibly modified expression type
+   */
+  default Type onOverrideExpressionType(
+      ExpressionTree expressionTree, Type type, VisitorState state) {
+    return type;
+  }
+
+  /**
    * Method to determine whether a field should be treated as initialized externally (e.g. by a
    * framework), using the field and its enclosing class.
    *

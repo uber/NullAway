@@ -363,6 +363,16 @@ class CompositeHandler implements Handler {
   }
 
   @Override
+  public Type onOverrideExpressionType(
+      ExpressionTree expressionTree, Type type, VisitorState state) {
+    Type currentType = type;
+    for (Handler h : handlers) {
+      currentType = h.onOverrideExpressionType(expressionTree, currentType, state);
+    }
+    return currentType;
+  }
+
+  @Override
   public boolean shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
     for (Handler h : handlers) {
