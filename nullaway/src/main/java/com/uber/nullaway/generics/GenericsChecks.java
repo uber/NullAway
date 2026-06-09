@@ -636,28 +636,17 @@ public final class GenericsChecks {
             Type enclosingType =
                 getEnclosingTypeForCallExpression(
                     symbol, invocationTree, state.getPath(), state, calledFromDataflow);
-            boolean recomputedMemberType = false;
+            // boolean recomputedMemberType = false;
             if (enclosingType != null) {
               invokedMethodType =
                   TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
-              recomputedMemberType = true;
             }
             Type.MethodType methodType =
                 handler.onOverrideMethodType(symbol, invokedMethodType.asMethodType(), state);
             Type returnType = methodType.getReturnType();
-            if (recomputedMemberType && !(invokedMethodType instanceof Type.ForAll)) {
-              // If the receiver type was recomputed above, the member return type is already the
-              // call-site return type. Using javac's expression type as the base can preserve stale
-              // nested annotations from before the receiver refinement.
-              result = returnType;
-            } else {
-              // For generic method calls, keep javac's expression type as the base because it
-              // contains call-site inference results for method type variables. Then restore any
-              // explicit annotations from the declared/recomputed return type.
-              result =
-                  TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                      returnType, result, config, Collections.emptyMap());
-            }
+            result =
+                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                    returnType, result, config, Collections.emptyMap());
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
