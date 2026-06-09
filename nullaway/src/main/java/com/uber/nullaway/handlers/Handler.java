@@ -484,24 +484,15 @@ public interface Handler {
    * @param methodSymbol symbol of the method
    * @param methodType original method type
    * @param state The current visitor state.
+   * @param invocationTree the invocation tree for the method, if available
    * @return the possibly modified method type
    */
   default Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType methodType,
+      VisitorState state,
+      @Nullable MethodInvocationTree invocationTree) {
     return methodType;
-  }
-
-  /**
-   * Method to override the type of an expression.
-   *
-   * @param expressionTree the expression tree
-   * @param type original expression type
-   * @param state The current visitor state.
-   * @return the possibly modified expression type
-   */
-  default Type onOverrideExpressionType(
-      ExpressionTree expressionTree, Type type, VisitorState state) {
-    return type;
   }
 
   /**

@@ -290,15 +290,20 @@ class StreamNullabilityPropagator implements Handler {
   }
 
   @Override
-  public Type onOverrideExpressionType(
-      ExpressionTree expressionTree, Type type, VisitorState state) {
-    if (analysis == null || !(expressionTree instanceof MethodInvocationTree invocationTree)) {
-      return type;
+  public Type.MethodType onOverrideMethodType(
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType methodType,
+      VisitorState state,
+      @Nullable MethodInvocationTree invocationTree) {
+    if (analysis == null || invocationTree == null) {
+      return methodType;
     }
     if (isNullRejectingFilterInvocation(invocationTree, state)) {
-      return refineFilterExpressionType(type, state);
+      Type updatedReturnType = refineFilterExpressionType(methodType.getReturnType(), state);
+      return new Type.MethodType(
+          methodType.argtypes, updatedReturnType, methodType.thrown, methodType.tsym);
     }
-    return type;
+    return methodType;
   }
 
   private boolean isNullRejectingFilterInvocation(

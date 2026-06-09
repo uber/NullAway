@@ -430,7 +430,10 @@ public class LibraryModelsHandler implements Handler {
   @Override
   @SuppressWarnings("ReferenceEquality")
   public Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType methodType,
+      VisitorState state,
+      @Nullable MethodInvocationTree invocationTree) {
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(state.context);
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
         optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
