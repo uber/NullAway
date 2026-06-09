@@ -362,11 +362,11 @@ class StreamNullabilityPropagator implements Handler {
         streamElementType.getAnnotationMirrors().stream(), castToNonNull(analysis).getConfig())) {
       return type;
     }
+    // Rather than just stripping the @Nullable annotation, use an explicit @NonNull annotation, as
+    // the explicit annotation will override @Nullable annotations placed by javac
     Type updatedElementType =
         TypeSubstitutionUtils.typeWithAnnot(
-            TypeSubstitutionUtils.removeNullableAnnotation(
-                streamElementType, castToNonNull(analysis).getConfig()),
-            GenericsChecks.getSyntheticNonNullAnnotType(state));
+            streamElementType, GenericsChecks.getSyntheticNonNullAnnotType(state));
     java.util.List<Type> updatedTypeArgs = new ArrayList<>(1);
     updatedTypeArgs.add(updatedElementType);
     return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
