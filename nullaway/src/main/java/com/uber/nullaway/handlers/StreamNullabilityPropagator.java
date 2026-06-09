@@ -52,6 +52,7 @@ import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.NullnessStore;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.TypeMetadataBuilder;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.stream.CollectLikeMethodRecord;
@@ -295,7 +296,7 @@ class StreamNullabilityPropagator implements Handler {
       return type;
     }
     if (isNullRejectingFilterInvocation(invocationTree, state)) {
-      return refineFilterExpressionType(type);
+      return refineFilterExpressionType(type, state);
     }
     return type;
   }
@@ -343,7 +344,7 @@ class StreamNullabilityPropagator implements Handler {
         && classSymbol.getQualifiedName().contentEquals("java.util.Objects");
   }
 
-  private Type refineFilterExpressionType(Type type) {
+  private Type refineFilterExpressionType(Type type, VisitorState state) {
     if (!(type instanceof Type.ClassType classType)) {
       return type;
     }
@@ -357,8 +358,10 @@ class StreamNullabilityPropagator implements Handler {
       return type;
     }
     Type updatedElementType =
-        TypeSubstitutionUtils.removeNullableAnnotation(
-            streamElementType, castToNonNull(analysis).getConfig());
+        TypeSubstitutionUtils.typeWithAnnot(
+            TypeSubstitutionUtils.removeNullableAnnotation(
+                streamElementType, castToNonNull(analysis).getConfig()),
+            GenericsChecks.getSyntheticNonNullAnnotType(state));
     java.util.List<Type> updatedTypeArgs = new ArrayList<>(1);
     updatedTypeArgs.add(updatedElementType);
     return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
