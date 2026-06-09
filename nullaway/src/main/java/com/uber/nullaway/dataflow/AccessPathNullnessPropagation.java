@@ -527,6 +527,23 @@ public class AccessPathNullnessPropagation
       handleEnhancedForOverKeySet(localVariableNode, rhs, input, updates);
     }
 
+    if (target instanceof LocalVariableNode localVariableNode) {
+      com.sun.tools.javac.code.Type targetType = ASTHelpers.getType(target.getTree());
+      
+      // NullAway requires us to prove targetType is not null before using it!
+      if (targetType != null && targetType.getTag() == com.sun.tools.javac.code.TypeTag.BOOLEAN) {
+        NullnessStore thenStore = input.getThenStore();
+        NullnessStore elseStore = input.getElseStore();
+        
+        if (!thenStore.equals(elseStore)) {
+           AccessPath booleanAp = AccessPath.fromLocal(localVariableNode);
+           if (booleanAp != null) {
+               updates.setConditional(booleanAp, thenStore, elseStore);
+           }
+        }
+      }
+    }
+
     if (target instanceof ArrayAccessNode arrayAccessNode) {
       setNonnullIfAnalyzeable(updates, arrayAccessNode.getArray());
     }
@@ -1298,6 +1315,8 @@ public class AccessPathNullnessPropagation
     void set(MethodInvocationNode node, Nullness value);
 
     void set(AccessPath ap, Nullness value);
+
+    void setConditional(AccessPath booleanAp, NullnessStore ifTrue, NullnessStore ifFalse);
   }
 
   private final class ReadableUpdates implements Updates {
@@ -1337,6 +1356,11 @@ public class AccessPathNullnessPropagation
     @Override
     public void set(AccessPath ap, Nullness value) {
       values.put(checkNotNull(ap), value);
+    }
+
+    @Override
+    public void setConditional(AccessPath booleanAp, NullnessStore ifTrue, NullnessStore ifFalse) {
+      // Stub for conditional update extraction to be passed to the store builder
     }
   }
 }
