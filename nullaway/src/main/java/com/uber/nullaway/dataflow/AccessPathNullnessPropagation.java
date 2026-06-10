@@ -530,7 +530,7 @@ public class AccessPathNullnessPropagation
     if (target instanceof LocalVariableNode localVariableNode) {
       com.sun.tools.javac.code.Type targetType = ASTHelpers.getType(target.getTree());
       
-      // NullAway requires us to prove targetType is not null before using it!
+      // Check targetType is non-null since ASTHelpers.getType() may return null.
       if (targetType != null && targetType.getTag() == com.sun.tools.javac.code.TypeTag.BOOLEAN) {
         NullnessStore thenStore = input.getThenStore();
         NullnessStore elseStore = input.getElseStore();
