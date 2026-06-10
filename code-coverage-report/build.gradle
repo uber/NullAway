@@ -19,10 +19,6 @@ plugins {
     id 'jacoco-report-aggregation'
 }
 
-// Use JDK 21 for this module, via a toolchain.  We need JDK 21 since this module
-// depends on jdk-recent-unit-tests.
-java.toolchain.languageVersion.set JavaLanguageVersion.of(21)
-
 repositories {
     mavenCentral()
     google()
