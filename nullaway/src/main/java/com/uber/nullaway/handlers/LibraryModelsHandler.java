@@ -1163,8 +1163,6 @@ public class LibraryModelsHandler implements Handler {
               "<V>map(java.util.function.Function<? super T,? extends V>)",
               "apply",
               ImmutableSet.of(0))
-          .withMapMethodFromSignature(
-              "forEach(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
           .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
           .withMapMethodAllFromName("concatMap", "apply", ImmutableSet.of(0))
           .withUseAndPassthroughMethodFromSignature(
