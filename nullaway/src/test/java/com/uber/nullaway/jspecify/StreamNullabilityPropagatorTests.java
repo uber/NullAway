@@ -64,7 +64,7 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
             "org/springframework/util/StringUtils.java",
             """
             package org.springframework.util;
-
+            // stub for Spring's StringUtils class for which we have a library model
             public final class StringUtils {
               public static boolean hasLength(String value) {
                 return value != null && !value.isEmpty();
