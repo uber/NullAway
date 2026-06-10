@@ -30,6 +30,20 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void reactorSupportPositiveCases() {
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwayReactorSupportPositiveCases.java")
+        .doTest();
+  }
+
+  @Test
+  public void reactorSupportNegativeCases() {
+    defaultCompilationHelper
+        .addSourceFile("testdata/NullAwayReactorSupportNegativeCases.java")
+        .doTest();
+  }
+
+  @Test
   public void streamSupportNegativeCases() {
     defaultCompilationHelper
         .addSourceFile("testdata/NullAwayStreamSupportNegativeCases.java")
