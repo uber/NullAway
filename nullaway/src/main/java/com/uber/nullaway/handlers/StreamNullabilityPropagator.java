@@ -295,7 +295,14 @@ class StreamNullabilityPropagator implements Handler {
     }
   }
 
+  /**
+   * If the invocation is a call of the form {@code s.filter(meth)}, where {@code s} has type {@code
+   * Stream<@Nullable Foo>} and {@code meth} is a null-filtering method like {@code
+   * Objects::nonNull}, updates the return type of the invocation to be {@code Stream<@NonNull
+   * Foo>}.
+   */
   @Override
+  @SuppressWarnings("ReferenceEquality") // reference equality check on types ok in this case
   public Type.MethodType onOverrideMethodType(
       Symbol.MethodSymbol methodSymbol,
       Type.MethodType methodType,
@@ -306,38 +313,43 @@ class StreamNullabilityPropagator implements Handler {
     }
     if (isNullRejectingFilterInvocation(invocationTree, state)) {
       Type returnType = methodType.getReturnType();
-      Type updatedReturnType = refineFilterExpressionType(returnType, state);
-      return new Type.MethodType(
-          methodType.argtypes, updatedReturnType, methodType.thrown, methodType.tsym);
+      Type updatedReturnType = updateFilterTypeArgToNonNull(returnType, state);
+      if (updatedReturnType != returnType) {
+        return new Type.MethodType(
+            methodType.argtypes, updatedReturnType, methodType.thrown, methodType.tsym);
+      }
     }
     return methodType;
   }
 
+  /**
+   * Checks if invocation tree is of the form {@code s.filter(meth)} where {@code s} has some type
+   * {@code Stream<@Nullable Foo>} and {@code meth} is a null-filtering method like {@code
+   * Objects::nonNull}
+   */
   private boolean isNullRejectingFilterInvocation(
       MethodInvocationTree invocationTree, VisitorState state) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    Handler handler = mainHandler;
-    if (methodSymbol == null || invocationTree.getArguments().size() != 1 || handler == null) {
-      return false;
-    }
-    Symbol predicateMethodSymbol = ASTHelpers.getSymbol(invocationTree.getArguments().get(0));
-    if (!(predicateMethodSymbol instanceof Symbol.MethodSymbol predicateMethod)
-        || !handler.isSingleArgNullImpliesFalseMethod(predicateMethod, state)) {
+    if (methodSymbol == null
+        || methodSymbol.isStatic()
+        || invocationTree.getArguments().size() != 1
+        || mainHandler == null) {
       return false;
     }
     Type receiverType = ASTHelpers.getReceiverType(invocationTree);
-    if (receiverType == null) {
-      return false;
-    }
     for (StreamTypeRecord streamType : models) {
       if (streamType.matchesType(receiverType, state) && streamType.isFilterMethod(methodSymbol)) {
-        return true;
+        Symbol predicateMethodSymbol = ASTHelpers.getSymbol(invocationTree.getArguments().get(0));
+        if (predicateMethodSymbol instanceof Symbol.MethodSymbol predicateMethod
+            && mainHandler.isSingleArgNullImpliesFalseMethod(predicateMethod, state)) {
+          return true;
+        }
       }
     }
     return false;
   }
 
-  private Type refineFilterExpressionType(Type type, VisitorState state) {
+  private Type updateFilterTypeArgToNonNull(Type type, VisitorState state) {
     if (!(type instanceof Type.ClassType classType)) {
       return type;
     }
@@ -351,7 +363,7 @@ class StreamNullabilityPropagator implements Handler {
       return type;
     }
     // Rather than just stripping the @Nullable annotation, use an explicit @NonNull annotation, as
-    // the explicit annotation will override @Nullable annotations placed by javac
+    // the explicit annotation will override other @Nullable annotations placed by javac
     Type updatedElementType =
         TypeSubstitutionUtils.typeWithAnnot(
             streamElementType, GenericsChecks.getSyntheticNonNullAnnotType(state));
