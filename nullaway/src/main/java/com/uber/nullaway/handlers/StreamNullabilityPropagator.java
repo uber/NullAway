@@ -48,7 +48,6 @@ import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
-import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathElement;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
@@ -198,7 +197,6 @@ class StreamNullabilityPropagator implements Handler {
     this.models = models;
   }
 
-  @Initializer
   void initMainHandler(Handler mainHandler) {
     this.mainHandler = mainHandler;
   }

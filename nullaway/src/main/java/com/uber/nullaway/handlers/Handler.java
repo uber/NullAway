@@ -511,8 +511,8 @@ public interface Handler {
   }
 
   /**
-   * Returns true if the given single-argument method is known to return {@code false} whenever its
-   * only argument is {@code null}.
+   * Returns true if the given method takes a single argument and returns {@code false} whenever the
+   * argument is {@code null}.
    */
   default boolean isSingleArgNullImpliesFalseMethod(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
