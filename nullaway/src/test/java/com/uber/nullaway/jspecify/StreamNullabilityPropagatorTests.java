@@ -9,7 +9,7 @@ import org.junit.Test;
 public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
 
   @Test
-  public void filterObjectsNonNullRefinesStreamElementType() {
+  public void filterRefinesStreamElementType() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -36,6 +36,12 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
                     .reduce(Double::sum);
               }
 
+              static Optional<Double> sumDoublesMissingfilter(@Nullable Double... doubles) {
+                return Arrays.stream(doubles)
+                    // BUG: Diagnostic contains: incompatible types
+                    .reduce(Double::sum);
+              }
+
               static Optional<Double> sumDoublesWithExplicitMap(@Nullable Double... doubles) {
                 return Arrays.stream(doubles)
                     .filter(Objects::nonNull)
@@ -52,7 +58,7 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void filterLibraryModeledNullRejectingPredicateRefinesStreamElementType() {
+  public void filterWithStringUtilsHasLength() {
     makeHelper()
         .addSourceLines(
             "org/springframework/util/StringUtils.java",
@@ -84,7 +90,7 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void filterContractNullRejectingPredicateRefinesStreamElementType() {
+  public void filterWithContractMethod() {
     makeHelper()
         .addSourceLines(
             "Test.java",
