@@ -69,6 +69,7 @@ dependencies {
     testImplementation libs.jakarta.inject
     testImplementation libs.javax.inject
     testImplementation libs.rxjava2
+    testImplementation libs.reactor.core
     testImplementation libs.commons.lang
     testImplementation libs.commons.lang3
     testImplementation project(":test-library-models")
