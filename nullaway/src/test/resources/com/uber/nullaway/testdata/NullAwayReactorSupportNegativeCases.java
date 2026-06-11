@@ -120,4 +120,18 @@ public class NullAwayReactorSupportNegativeCases {
                 .filter(c -> c.get() != null)
                 .flatMap(c -> Mono.just(c.get().length()));
     }
+
+    // Mono: filter + doOnNext (use-and-passthrough) + map
+    private Mono<Integer> monoFilterDoOnNextThenMap(
+            Mono<NullableContainer<String>> mono) {
+        return mono
+                .filter(c -> c.get() != null)
+                .doOnNext(
+                        c -> {
+                            if (c.get().length() == 0) {
+                                throw new RuntimeException();
+                            }
+                        })
+                .map(c -> c.get().length());
+    }
 }

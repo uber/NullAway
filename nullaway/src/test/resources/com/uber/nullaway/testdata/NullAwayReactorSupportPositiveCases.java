@@ -48,13 +48,13 @@ public class NullAwayReactorSupportPositiveCases {
         return Math.random() > 0.5;
     }
 
-    // no filter before map — should warn
+    // no filter before map - should warn
     private Flux<Integer> fluxMapWithoutFilter(Flux<NullableContainer<String>> flux) {
         // BUG: Diagnostic contains: dereferenced expression
         return flux.map(c -> c.get().length());
     }
 
-    // filter condition doesn't guarantee non-null — should warn
+    // filter condition doesn't guarantee non-null - should warn
     private Flux<Integer> fluxFilterWithOrThenMap(Flux<NullableContainer<String>> flux) {
         return flux
                 .filter(c -> c.get() != null || perhaps())
@@ -65,9 +65,39 @@ public class NullAwayReactorSupportPositiveCases {
                         });
     }
 
-    // Mono: no filter before map — should warn
+    // Mono: no filter before map - should warn
     private Mono<Integer> monoMapWithoutFilter(Mono<NullableContainer<String>> mono) {
         // BUG: Diagnostic contains: dereferenced expression
         return mono.map(c -> c.get().length());
+    }
+
+    // Flux: doOnNext without filter - should warn
+    private Flux<Integer> fluxDoOnNextWithoutFilter(Flux<NullableContainer<String>> flux) {
+        return flux
+                .doOnNext(
+                        c -> {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            System.out.println(c.get().length());
+                        })
+                .map(
+                        c -> {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return c.get().length();
+                        });
+    }
+
+    // Mono: doOnNext without filter - should warn
+    private Mono<Integer> monoDoOnNextWithoutFilter(Mono<NullableContainer<String>> mono) {
+        return mono
+                .doOnNext(
+                        c -> {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            System.out.println(c.get().length());
+                        })
+                .map(
+                        c -> {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return c.get().length();
+                        });
     }
 }
