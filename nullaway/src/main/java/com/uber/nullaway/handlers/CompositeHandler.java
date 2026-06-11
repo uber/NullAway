@@ -387,6 +387,9 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       h.onDataflowVisitAssignment(node, state, apContext, inputs, store, updates);
     }
+  }
+
+  @Override
   public boolean isSingleArgNullImpliesFalseMethod(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
     for (Handler h : handlers) {
