@@ -1178,6 +1178,8 @@ public class LibraryModelsHandler implements Handler {
               "apply",
               ImmutableSet.of(0))
           .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
+          .withUseAndPassthroughMethodFromSignature(
+              "doOnNext(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
           .end();
     }
   }
