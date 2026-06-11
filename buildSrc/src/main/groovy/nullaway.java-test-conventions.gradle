@@ -44,23 +44,6 @@ tasks.named("jacocoTestReport") {
     enabled = false
 }
 
-// Share sources folder with other projects for aggregated JaCoCo reports
-configurations.create('transitiveSourcesElements') {
-    visible = false
-    canBeResolved = false
-    canBeConsumed = true
-    extendsFrom(configurations.implementation)
-    attributes {
-        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
-        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
-        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'source-folders'))
-    }
-    sourceSets.main.java.srcDirs.forEach {
-        outgoing.artifact(it)
-    }
-}
-
-
 configurations {
     // A configuration holding the jars for the Error Prone version to use when testing with JDK 17
     errorProneJdk17
@@ -139,23 +122,4 @@ def epJdk17Test = tasks.register("testJdk17", Test) {
 
 tasks.named('check').configure {
     dependsOn(epJdk17Test)
-}
-
-// Share the coverage data to be aggregated for the whole product
-configurations.create('coverageDataElements') {
-    visible = false
-    canBeResolved = false
-    canBeConsumed = true
-    extendsFrom(configurations.implementation)
-    attributes {
-        attribute(Usage.USAGE_ATTRIBUTE, objects.named(Usage, Usage.JAVA_RUNTIME))
-        attribute(Category.CATEGORY_ATTRIBUTE, objects.named(Category, Category.DOCUMENTATION))
-        attribute(DocsType.DOCS_TYPE_ATTRIBUTE, objects.named(DocsType, 'jacoco-coverage-data'))
-    }
-    // This will cause the test tasks to run if the coverage data is requested by the aggregation task
-    tasks.withType(Test).forEach {task ->
-        // tasks.named(task.name) is a hack to introduce the right task dependence in Gradle.  We will fix this
-        // correctly when addressing https://github.com/uber/NullAway/issues/871
-        outgoing.artifact(tasks.named(task.name).map { t -> t.extensions.getByType(JacocoTaskExtension).destinationFile })
-    }
 }
