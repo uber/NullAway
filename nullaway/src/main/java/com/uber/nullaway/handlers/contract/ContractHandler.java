@@ -98,6 +98,27 @@ public class ContractHandler implements Handler {
   }
 
   @Override
+  public boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    if (methodSymbol.getParameters().size() != 1) {
+      return false;
+    }
+    for (String clause : ContractUtils.getContractClauses(methodSymbol, config)) {
+      String[] parts = clause.split("->");
+      if (parts.length != 2) {
+        continue;
+      }
+      String[] antecedent = parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
+      if (antecedent.length == 1
+          && antecedent[0].trim().equals("null")
+          && parts[1].trim().equals("false")) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  @Override
   public void onMatchTopLevelClass(
       NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
     this.analysis = analysis;
