@@ -135,8 +135,10 @@ subprojects { project ->
     if (project.name != "jar-infer" && project.name != "library-model" && project.name != "jdk-annotations" && project.name != "nullaway-bom") {
         project.apply plugin: "com.diffplug.spotless"
         spotless {
-            java {
-                googleJavaFormat(libs.versions.google.java.format.get())
+            project.plugins.withId('java') {
+                java {
+                    googleJavaFormat(libs.versions.google.java.format.get())
+                }
             }
         }
     }
