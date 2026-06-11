@@ -755,8 +755,10 @@ public class NullabilityUtil {
 
   /**
    * Returns an updated version of {@code path} with {@code leaf} as the leaf, if needed. If {@code
-   * leaf} is already the leaf of {@code path}, just return {@code path} unmodified.
+   * leaf} is already the leaf of {@code path} (compared using reference equality), just return
+   * {@code path} unmodified.
    */
+  @SuppressWarnings("ReferenceEquality") // deliberate
   public static TreePath pathWithLeaf(TreePath path, Tree leaf) {
     return path.getLeaf() == leaf ? path : new TreePath(path, leaf);
   }
@@ -777,7 +779,9 @@ public class NullabilityUtil {
   public static ExprTreeAndState stripParensAndUpdateTreePath(
       ExpressionTree expr, VisitorState state) {
     TreePath path = state.getPath();
-    if (path.getLeaf() != expr) {
+    @SuppressWarnings("ReferenceEquality")
+    boolean leafNotExpr = path.getLeaf() != expr;
+    if (leafNotExpr) {
       throw new RuntimeException(
           String.format("Wrong leaf %s in path to %s", path.getLeaf(), expr));
     }
@@ -786,6 +790,7 @@ public class NullabilityUtil {
       resultExpr = ((ParenthesizedTree) resultExpr).getExpression();
       path = new TreePath(path, resultExpr);
     }
+    @SuppressWarnings("ReferenceEquality")
     VisitorState resultState = path == state.getPath() ? state : state.withPath(path);
     return new ExprTreeAndState(resultExpr, resultState);
   }
