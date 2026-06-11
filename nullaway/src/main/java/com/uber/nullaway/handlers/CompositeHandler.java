@@ -377,13 +377,15 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean isSingleArgNullImpliesFalseMethod(
-      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+  public void onDataflowVisitAssignment(
+      org.checkerframework.nullaway.dataflow.cfg.node.AssignmentNode node,
+      com.google.errorprone.VisitorState state,
+      com.uber.nullaway.dataflow.AccessPath.AccessPathContext apContext,
+      com.uber.nullaway.dataflow.AccessPathNullnessPropagation.SubNodeValues inputs,
+      com.uber.nullaway.dataflow.NullnessStore store,
+      com.uber.nullaway.dataflow.AccessPathNullnessPropagation.Updates updates) {
     for (Handler h : handlers) {
-      if (h.isSingleArgNullImpliesFalseMethod(methodSymbol, state)) {
-        return true;
-      }
+      h.onDataflowVisitAssignment(node, state, apContext, inputs, store, updates);
     }
-    return false;
   }
 }
