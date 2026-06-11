@@ -641,7 +641,8 @@ public final class GenericsChecks {
                   TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
             }
             Type.MethodType methodType =
-                handler.onOverrideMethodType(symbol, invokedMethodType.asMethodType(), state);
+                handler.onOverrideMethodType(
+                    symbol, invokedMethodType.asMethodType(), state, invocationTree);
             // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
             result =
@@ -1192,7 +1193,8 @@ public final class GenericsChecks {
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
     Type.MethodType methodType =
-        handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
+        handler.onOverrideMethodType(
+            methodSymbol, methodSymbol.type.asMethodType(), state, methodInvocationTree);
     // first, handle the return type flow
     if (typeFromAssignmentContext != null) {
       solver.addSubtypeConstraint(
@@ -1411,7 +1413,7 @@ public final class GenericsChecks {
       result = getInferredMethodTypeForGenericMethodReference(result, state);
     }
     // finally, run any handlers
-    return handler.onOverrideMethodType(overridingMethod, result, state);
+    return handler.onOverrideMethodType(overridingMethod, result, state, null);
   }
 
   /**
@@ -1834,7 +1836,13 @@ public final class GenericsChecks {
     }
 
     Type.MethodType finalMethodType =
-        handler.onOverrideMethodType(methodSymbol, invokedMethodType.asMethodType(), state);
+        handler.onOverrideMethodType(
+            methodSymbol,
+            invokedMethodType.asMethodType(),
+            state,
+            tree instanceof MethodInvocationTree methodInvocationTree
+                ? methodInvocationTree
+                : null);
     new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {

@@ -354,10 +354,13 @@ class CompositeHandler implements Handler {
 
   @Override
   public Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType methodType,
+      VisitorState state,
+      @Nullable MethodInvocationTree invocationTree) {
     Type.MethodType currentType = methodType;
     for (Handler h : handlers) {
-      currentType = h.onOverrideMethodType(methodSymbol, currentType, state);
+      currentType = h.onOverrideMethodType(methodSymbol, currentType, state, invocationTree);
     }
     return currentType;
   }
@@ -384,5 +387,13 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       h.onDataflowVisitAssignment(node, state, apContext, inputs, store, updates);
     }
+  public boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    for (Handler h : handlers) {
+      if (h.isSingleArgNullImpliesFalseMethod(methodSymbol, state)) {
+        return true;
+      }
+    }
+    return false;
   }
 }

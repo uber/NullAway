@@ -60,7 +60,9 @@ public class Handlers {
     LibraryModelsHandler libraryModelsHandler = new LibraryModelsHandler(config);
     handlerListBuilder.add(libraryModelsHandler);
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
-    handlerListBuilder.add(StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator());
+    StreamNullabilityPropagator javaStreamNullabilityPropagator =
+        StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator();
+    handlerListBuilder.add(javaStreamNullabilityPropagator);
     handlerListBuilder.add(
         StreamNullabilityPropagatorFactory.fromSpecs(
             libraryModelsHandler.getStreamNullabilitySpecs()));
@@ -90,6 +92,7 @@ public class Handlers {
       restrictiveAnnotationHandler.initMainHandler(mainHandler);
     }
     libraryModelsHandler.initMainHandler(mainHandler);
+    javaStreamNullabilityPropagator.initMainHandler(mainHandler);
 
     return mainHandler;
   }
