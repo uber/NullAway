@@ -65,12 +65,6 @@ public class NullAwayReactorSupportPositiveCases {
                         });
     }
 
-    // Mono: no filter before map - should warn
-    private Mono<Integer> monoMapWithoutFilter(Mono<NullableContainer<String>> mono) {
-        // BUG: Diagnostic contains: dereferenced expression
-        return mono.map(c -> c.get().length());
-    }
-
     // Flux: doOnNext without filter - should warn
     private Flux<Integer> fluxDoOnNextWithoutFilter(Flux<NullableContainer<String>> flux) {
         return flux
@@ -84,6 +78,12 @@ public class NullAwayReactorSupportPositiveCases {
                             // BUG: Diagnostic contains: dereferenced expression
                             return c.get().length();
                         });
+    }
+
+    // Mono: no filter before map - should warn
+    private Mono<Integer> monoMapWithoutFilter(Mono<NullableContainer<String>> mono) {
+        // BUG: Diagnostic contains: dereferenced expression
+        return mono.map(c -> c.get().length());
     }
 
     // Mono: doOnNext without filter - should warn
