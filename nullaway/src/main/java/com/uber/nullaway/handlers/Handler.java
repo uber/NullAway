@@ -484,10 +484,14 @@ public interface Handler {
    * @param methodSymbol symbol of the method
    * @param methodType original method type
    * @param state The current visitor state.
+   * @param invocationTree the invocation tree for the method, if available
    * @return the possibly modified method type
    */
   default Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType methodType,
+      VisitorState state,
+      @Nullable MethodInvocationTree invocationTree) {
     return methodType;
   }
 
@@ -503,6 +507,15 @@ public interface Handler {
    */
   default boolean shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
+    return false;
+  }
+
+  /**
+   * Returns true if the given method takes a single argument and returns {@code false} whenever the
+   * argument is {@code null}.
+   */
+  default boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
     return false;
   }
 
