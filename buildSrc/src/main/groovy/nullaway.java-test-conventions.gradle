@@ -123,3 +123,21 @@ def epJdk17Test = tasks.register("testJdk17", Test) {
 tasks.named('check').configure {
     dependsOn(epJdk17Test)
 }
+
+// The built-in jacoco-report-aggregation plugin aggregates coverage per test suite,
+// matching the variant whose org.gradle.testsuite.name == "test". That auto-created
+// variant (coverageDataElementsForTest) only carries the default `test` task's exec
+// data. testJdk17/21/26/27 are plain Test tasks that re-run the `test` source set
+// under other JDKs, so without this their coverage is dropped from aggregation.
+// This attaches their exec files to the `test` suite's coverage variant and
+// replaces the old hand-rolled `coverageDataElements` configuration
+// See https://github.com/uber/NullAway/pull/1598#issuecomment-4693680548
+configurations.named('coverageDataElementsForTest') {
+    tasks.withType(Test).matching { it.name != 'test' }.each { testTask ->
+        // tasks.named(...).map { } keeps the exec-file reference lazy and carries the
+        // task dependency, so requesting the coverage data runs the JDK-specific tests.
+        outgoing.artifact(
+                tasks.named(testTask.name).map { t -> t.extensions.getByType(JacocoTaskExtension).destinationFile }
+        )
+    }
+}
