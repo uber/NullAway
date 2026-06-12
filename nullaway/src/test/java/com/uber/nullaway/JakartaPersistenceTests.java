@@ -444,6 +444,34 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void jpaZeroArgSkipDoesNotSuppressInitializerReadBeforeInit() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "JpaInitializerRead.java",
+            """
+            package com.uber;
+            import com.uber.nullaway.annotations.Initializer;
+            import jakarta.persistence.Access;
+            import jakarta.persistence.AccessType;
+            import jakarta.persistence.Entity;
+            @Entity
+            @Access(AccessType.FIELD)
+            class JpaInitializerRead {
+              private String name;
+
+              public JpaInitializerRead() {}
+
+              @Initializer
+              public void init() {
+                // BUG: Diagnostic contains: read of @NonNull field name before initialization
+                name.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lombokGetterSetter() {
     addJpaAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(
