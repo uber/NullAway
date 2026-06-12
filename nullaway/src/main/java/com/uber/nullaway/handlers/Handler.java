@@ -520,7 +520,7 @@ public interface Handler {
         return first;
       }
       // one is YES and the other is ONLY_FOR_ZERO_ARG_CONSTRUCTORS; prefer YES
-      return first == YES ? first : second;
+      return YES;
     }
   }
 
