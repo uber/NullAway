@@ -137,7 +137,8 @@ configurations.named('coverageDataElementsForTest') {
         // tasks.named(...).map { } keeps the exec-file reference lazy and carries the
         // task dependency, so requesting the coverage data runs the JDK-specific tests.
         outgoing.artifact(
-                tasks.named(testTask.name).map { t -> t.extensions.getByType(JacocoTaskExtension).destinationFile }
-        )
+                tasks.named(testTask.name).map { t ->
+                    t.extensions.getByType(JacocoTaskExtension).destinationFile
+                })
     }
 }
