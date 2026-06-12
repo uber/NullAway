@@ -48,6 +48,37 @@ tasks.withType(JavaCompile) {
 }
 ```
 
+or to `build.gradle.kts` if you use the [Kotlin Gradle DSL](https://docs.gradle.org/current/userguide/kotlin_dsl.html): 
+
+```kotlin
+plugins {
+  // we assume you are already using the Java plugin
+  id("net.ltgt.errorprone") version "<plugin version>"
+}
+dependencies {
+  errorprone("com.uber.nullaway:nullaway:<NullAway version>")
+
+  // Some source of nullability annotations; JSpecify recommended,
+  // but others supported as well.
+  api("org.jspecify:jspecify:1.0.0")
+
+  errorprone("com.google.errorprone:error_prone_core:<Error Prone version>")
+}
+
+tasks.withType<JavaCompile>().configureEach {
+    options.errorprone {
+        check("NullAway", net.ltgt.gradle.errorprone.CheckSeverity.ERROR)
+        option("NullAway:AnnotatedPackages", "com.uber")
+        
+        // Disable NullAway on test code
+        if (name.lowercase().contains("test")) {
+            disable("NullAway")
+        }
+    }
+}
+```
+
+
 Let's walk through this script step by step.  The `plugins` section pulls in the [Gradle Error Prone plugin](https://github.com/tbroyer/gradle-errorprone-plugin) for Error Prone integration.
 
 In `dependencies`, the first `errorprone` line loads NullAway, and the `api` line loads the [JSpecify](https://jspecify.dev) library which provides suitable nullability annotations, e.g., `org.jspecify.annotations.Nullable`.  NullAway allows for any `@Nullable` annotation to be used, so, e.g., `@Nullable` from the AndroidX annotations Library or JetBrains annotations is also fine. The second `errorprone` line sets the version of Error Prone is used.
