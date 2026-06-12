@@ -2230,10 +2230,9 @@ public class NullAway extends BugChecker
     // framework-specific reporting suppressions
     ImmutableSet<Symbol> reportableNotInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;
-    SetMultimap<MethodTree, Symbol> reportableConstructorInitInfo;
+    SetMultimap<MethodTree, Symbol> reportableConstructorInitInfo = LinkedHashMultimap.create();
     if (entities.constructors().isEmpty()) {
       constructorInitInfo = null;
-      reportableConstructorInitInfo = null;
       notInitializedInConstructors = entities.nonnullInstanceFields();
       reportableNotInitializedInConstructors =
           reportableFieldsForConstructorInitialization(
