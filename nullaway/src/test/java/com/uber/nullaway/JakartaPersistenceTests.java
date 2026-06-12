@@ -390,6 +390,60 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void jpaManagedFieldsSkippedOnlyForZeroArgConstructors() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "TestEntity.java",
+            """
+            package com.uber;
+            import jakarta.persistence.Entity;
+            import jakarta.persistence.Id;
+            @Entity
+            class TestEntity {
+              private String name;
+              private String extraInfo;
+
+              public TestEntity() {}
+
+              // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field extraInfo
+              public TestEntity(String name) {
+                this.name = name;
+              }
+
+              @Id
+              public String getName() {
+                return name;
+              }
+              public void setName(String name) {
+                this.name = name;
+              }
+              public String getExtraInfo() {
+                return extraInfo;
+              }
+              public void setExtraInfo(String extraInfo) {
+                this.extraInfo = extraInfo;
+              }
+            }
+            """)
+        .addSourceLines(
+            "ZeroArgOnlyEntity.java",
+            """
+            package com.uber;
+            import jakarta.persistence.Access;
+            import jakarta.persistence.AccessType;
+            import jakarta.persistence.Entity;
+            @Entity
+            @Access(AccessType.FIELD)
+            class ZeroArgOnlyEntity {
+              private String name;
+
+              public ZeroArgOnlyEntity() {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lombokGetterSetter() {
     addJpaAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(

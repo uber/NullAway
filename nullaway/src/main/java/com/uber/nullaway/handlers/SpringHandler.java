@@ -27,16 +27,18 @@ public class SpringHandler implements Handler {
       Pattern.compile("#\\{[^}]*\\bnull\\b[^}]*}");
 
   @Override
-  public boolean shouldSkipFieldInitializationCheck(
+  public FieldSkipResult shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
     for (AnnotationMirror annotationMirror : fieldSymbol.getAnnotationMirrors()) {
       if (ASTHelpers.isSameType(
           (Type) annotationMirror.getAnnotationType(), VALUE_TYPE_SUPPLIER.get(state), state)) {
         String annotationValue = NullabilityUtil.getAnnotationValue(annotationMirror);
-        return annotationValue == null || !containsNullSpELExpression(annotationValue);
+        return annotationValue == null || !containsNullSpELExpression(annotationValue)
+            ? FieldSkipResult.YES
+            : FieldSkipResult.NO;
       }
     }
-    return false;
+    return FieldSkipResult.NO;
   }
 
   private static boolean containsNullSpELExpression(String annotationValue) {

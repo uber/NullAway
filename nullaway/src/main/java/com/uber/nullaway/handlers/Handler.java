@@ -510,9 +510,15 @@ public interface Handler {
 
     /** combine two {@link FieldSkipResult}s, preferring to skip more field checks */
     public static FieldSkipResult combine(FieldSkipResult first, FieldSkipResult second) {
-      if (first == second) return first;
-      if (first == NO) return second;
-      if (second == NO) return first;
+      if (first == second) {
+        return first;
+      }
+      if (first == NO) {
+        return second;
+      }
+      if (second == NO) {
+        return first;
+      }
       // one is YES and the other is ONLY_FOR_ZERO_ARG_CONSTRUCTORS; prefer YES
       return first == YES ? first : second;
     }
