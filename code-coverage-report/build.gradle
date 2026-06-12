@@ -19,11 +19,6 @@ plugins {
     id 'jacoco-report-aggregation'
 }
 
-repositories {
-    mavenCentral()
-    google()
-}
-
 dependencies {
     jacocoAggregation project(':annotations')
     jacocoAggregation project(':nullaway')
