@@ -367,14 +367,18 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public boolean shouldSkipFieldInitializationCheck(
+  public FieldSkipResult shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
+    FieldSkipResult result = FieldSkipResult.NO;
     for (Handler h : handlers) {
-      if (h.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state)) {
-        return true;
+      result =
+          FieldSkipResult.combine(
+              result, h.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state));
+      if (result == FieldSkipResult.YES) {
+        return result;
       }
     }
-    return false;
+    return result;
   }
 
   @Override
