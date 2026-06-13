@@ -705,7 +705,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInGeneratedCode=true"))
         .addSourceLines(
             "Test.java",
             """
@@ -731,7 +731,7 @@ public class FrameworkTests extends NullAwayTestsBase {
               }
               LombokDTO testBuilderUnsafe(@Nullable String s1, @Nullable String s2) {
                  // No error, because the code of LombokDTO.Builder is @Generated and we are
-                 // building with TreatGeneratedAsUnannotated=true
+                 // building with IgnoreAnnotationsInGeneratedCode=true
                  return LombokDTO.builder().nullableField(s1).field(s2).build();
               }
             }
@@ -864,7 +864,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines("Test.java", sourceLines)
         .doTest();
   }
