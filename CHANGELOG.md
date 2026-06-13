@@ -930,7 +930,7 @@ Version 0.9.7
 Version 0.9.6
 -------------
 * Initial support for JSpecify's @NullMarked annotation (#493)
-  - Fix bug in handling of IgnoreAnnotationsInGeneratedCode (#580)
+  - Fix bug in handling of TreatGeneratedAsUnannotated (#580)
     (Note: this bug is not in any released NullAway version, but was temporarily
      introduced to the main/master branch by #493)
 * Improved tracking of map nullness
@@ -1189,7 +1189,7 @@ Version 0.6.3
 Version 0.6.2
 -------------
 * Handle lambda override with AcknowledgeRestrictiveAnnotations (#255)
-* Handle interaction between AcknowledgeRestrictiveAnnotations and IgnoreAnnotationsInGeneratedCode (#254)
+* Handle interaction between AcknowledgeRestrictiveAnnotations and TreatGeneratedAsUnannotated (#254)
 
 Version 0.6.1
 -------------
@@ -1201,7 +1201,7 @@ Version 0.6.1
 * Update net.ltgt.errorprone to 0.6, and build updates ((#248)
 * Restrictive annotated method overriding (#249)
    Note: This can require significant annotation changes if
-   `-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false` is set.
+   `-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true` is set.
    Not a new minor version, since that option is false by default.
 * Fix error on checking the initTree2PrevFieldInit cache. (#252)
 * Add support for renamed android.support packages in models. (#253)

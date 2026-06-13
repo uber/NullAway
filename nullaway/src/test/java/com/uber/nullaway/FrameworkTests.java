@@ -855,7 +855,8 @@ public class FrameworkTests extends NullAwayTestsBase {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=true"))
         .addSourceLines("Test.java", sourceLines)
         .doTest();
     // test *with* restrictive annotations enabled
