@@ -302,7 +302,10 @@ class StreamNullabilityPropagator implements Handler {
    * Foo>}.
    */
   @Override
-  @SuppressWarnings("ReferenceEquality") // reference equality check on types ok in this case
+  @SuppressWarnings({
+    "ReferenceEquality",
+    "TypeEquals"
+  }) // reference equality check on types ok in this case
   public Type.MethodType onOverrideMethodType(
       Symbol.MethodSymbol methodSymbol,
       Type.MethodType methodType,

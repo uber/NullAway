@@ -47,9 +47,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class NullawayJavac {
 
-  //////////////////////
   // state required to run javac via the standard APIs
-  //////////////////////
   private final List<JavaFileObject> compilationUnits;
   private final JavaCompiler compiler;
   private final @Nullable DiagnosticListener<JavaFileObject> diagnosticListener;
