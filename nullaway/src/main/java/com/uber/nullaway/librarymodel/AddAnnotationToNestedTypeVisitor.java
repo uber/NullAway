@@ -16,7 +16,7 @@ import com.uber.nullaway.generics.TypeSubstitutionUtils;
  * return a new type with the annotation added at the specified nested location, or the original
  * type if no change was made.
  */
-@SuppressWarnings("ReferenceEquality")
+@SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
 public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Integer> {
   private final ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath;
   private final Type annotationType;

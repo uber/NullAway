@@ -754,6 +754,7 @@ public final class GenericsChecks {
    * Returns the inferred/declared formal parameter type corresponding to actual parameter {@code
    * argumentTree}.
    */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality checks
   private @Nullable Type getFormalParameterTypeForArgument(
       Tree invocationTree, Type.MethodType invocationType, Tree argumentTree) {
     AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
@@ -1801,6 +1802,7 @@ public final class GenericsChecks {
    * @param tree the tree representing the method call
    * @param state the visitor state
    */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality checks
   public void compareGenericTypeParameterNullabilityForCall(
       Symbol.MethodSymbol methodSymbol, Tree tree, VisitorState state) {
     Config config = analysis.getConfig();
@@ -2308,7 +2310,10 @@ public final class GenericsChecks {
           ExpressionTree methodSelect =
               ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
           if (methodSelect instanceof MemberSelectTree mst) {
-            if (ASTHelpers.stripParentheses(mst.getExpression()) == invocation) {
+            @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
+            boolean invocationIsReceiver =
+                ASTHelpers.stripParentheses(mst.getExpression()) == invocation;
+            if (invocationIsReceiver) {
               // the invocation is the receiver expression, so we want the enclosing type of the
               // parent invocation
               formalParamType =
@@ -2342,7 +2347,9 @@ public final class GenericsChecks {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
     TreePath path = state.getPath();
-    if (path.getLeaf() != assignment) {
+    @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
+    boolean leafIsAssignment = path.getLeaf() != assignment;
+    if (leafIsAssignment) {
       state = state.withPath(pathWithLeaf(path, assignment));
     }
     Type treeType =

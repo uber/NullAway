@@ -24,6 +24,7 @@ import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
 
 /** Utility method related to substituting type arguments for type variables. */
+@SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
 public class TypeSubstitutionUtils {
 
   /**

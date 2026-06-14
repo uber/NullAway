@@ -436,7 +436,7 @@ public class LibraryModelsHandler implements Handler {
 
   /** Updates method types based on nested annotation information from library models. */
   @Override
-  @SuppressWarnings("ReferenceEquality")
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   public Type.MethodType onOverrideMethodType(
       Symbol.MethodSymbol methodSymbol,
       Type.MethodType methodType,
