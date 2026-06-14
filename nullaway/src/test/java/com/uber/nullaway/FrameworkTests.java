@@ -1508,12 +1508,27 @@ public class FrameworkTests extends NullAwayTestsBase {
                       static class Foo {
                         @Nullable String bar;
                       }
+                      static class NullableContainer<T> {
+                        @Nullable private T ref;
+                        public NullableContainer() { ref = null; }
+                        @Nullable public T get() { return ref; }
+                      }
                       void testNegative(Flux<Foo> flux) {
                         flux.filter(foo -> foo.bar != null).map(foo -> foo.bar.length());
+                      }
+                      void testNegativeParam(Flux<String> flux) {
+                        flux.filter(s -> s != null).map(s -> s.length());
+                      }
+                      void testNegativeContainer(Flux<NullableContainer<String>> flux) {
+                        flux.filter(c -> c.get() != null).map(c -> c.get().length());
                       }
                       void testPositive(Flux<Foo> flux) {
                         // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
                         flux.map(foo -> foo.bar.length());
+                      }
+                      void testPositiveMapWithoutFilter(Flux<NullableContainer<String>> flux) {
+                        // BUG: Diagnostic contains: dereferenced expression
+                        flux.map(c -> c.get().length());
                       }
                     }
                     """)
@@ -1533,17 +1548,26 @@ public class FrameworkTests extends NullAwayTestsBase {
                       static class Foo {
                         @Nullable String bar;
                       }
-                      void testDistinct(Flux<Foo> flux) {
-                        flux.filter(foo -> foo.bar != null).distinct().map(foo -> foo.bar.length());
+                      static class NullableContainer<T> {
+                        @Nullable private T ref;
+                        public NullableContainer() { ref = null; }
+                        @Nullable public T get() { return ref; }
                       }
-                      void testDistinctUntilChanged(Flux<Foo> flux) {
-                        flux.filter(foo -> foo.bar != null).distinctUntilChanged().map(foo -> foo.bar.length());
+                      void testDistinct(Flux<Foo> fluxFoo, Flux<String> fluxString) {
+                        fluxFoo.filter(foo -> foo.bar != null).distinct().map(foo -> foo.bar.length());
+                        fluxString.filter(s -> s != null).distinct().map(s -> s.length());
                       }
-                      void testTake(Flux<Foo> flux) {
-                        flux.filter(foo -> foo.bar != null).take(10).map(foo -> foo.bar.length());
+                      void testDistinctUntilChanged(Flux<Foo> fluxFoo, Flux<NullableContainer<String>> fluxContainer) {
+                        fluxFoo.filter(foo -> foo.bar != null).distinctUntilChanged().map(foo -> foo.bar.length());
+                        fluxContainer.filter(c -> c.get() != null).distinctUntilChanged().map(c -> c.get().length());
                       }
-                      void testSkip(Flux<Foo> flux) {
-                        flux.filter(foo -> foo.bar != null).skip(1).map(foo -> foo.bar.length());
+                      void testTake(Flux<Foo> fluxFoo, Flux<String> fluxString) {
+                        fluxFoo.filter(foo -> foo.bar != null).take(10).map(foo -> foo.bar.length());
+                        fluxString.filter(s -> s != null).take(10).map(s -> s.length());
+                      }
+                      void testSkip(Flux<Foo> fluxFoo, Flux<String> fluxString) {
+                        fluxFoo.filter(foo -> foo.bar != null).skip(1).map(foo -> foo.bar.length());
+                        fluxString.filter(s -> s != null).skip(1).map(s -> s.length());
                       }
                     }
                     """)
@@ -1563,16 +1587,33 @@ public class FrameworkTests extends NullAwayTestsBase {
                       static class Foo {
                         @Nullable String bar;
                       }
+                      static class NullableContainer<T> {
+                        @Nullable private T ref;
+                        public NullableContainer() { ref = null; }
+                        @Nullable public T get() { return ref; }
+                      }
                       void testNegative(Flux<Foo> flux) {
                         flux
                             .filter(foo -> foo.bar != null)
                             .doOnNext(foo -> { if (foo.bar.length() == 0) throw new RuntimeException(); })
                             .map(foo -> foo.bar.length());
                       }
+                      void testNegativeContainer(Flux<NullableContainer<String>> flux) {
+                        flux
+                            .filter(c -> c.get() != null)
+                            .doOnNext(c -> { if (c.get().length() == 0) throw new RuntimeException(); })
+                            .map(c -> c.get().length());
+                      }
                       void testPositive(Flux<Foo> flux) {
                         flux.doOnNext(foo -> {
                           // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
                           System.out.println(foo.bar.length());
+                        });
+                      }
+                      void testPositiveDoOnNextWithoutFilter(Flux<NullableContainer<String>> flux) {
+                        flux.doOnNext(c -> {
+                          // BUG: Diagnostic contains: dereferenced expression
+                          System.out.println(c.get().length());
                         });
                       }
                     }
@@ -1593,11 +1634,22 @@ public class FrameworkTests extends NullAwayTestsBase {
                       static class Foo {
                         @Nullable String bar;
                       }
+                      static class NullableContainer<T> {
+                        @Nullable private T ref;
+                        public NullableContainer() { ref = null; }
+                        @Nullable public T get() { return ref; }
+                      }
                       void testFlatMap(Flux<Foo> flux) {
                         flux.filter(foo -> foo.bar != null).flatMap(foo -> Flux.just(foo.bar.length()));
                       }
                       void testConcatMap(Flux<Foo> flux) {
                         flux.filter(foo -> foo.bar != null).concatMap(foo -> Flux.just(foo.bar.length()));
+                      }
+                      void testFlatMapContainer(Flux<NullableContainer<String>> flux) {
+                        flux.filter(c -> c.get() != null).flatMap(c -> Flux.just(c.get().length()));
+                      }
+                      void testConcatMapContainer(Flux<NullableContainer<String>> flux) {
+                        flux.filter(c -> c.get() != null).concatMap(c -> Flux.just(c.get().length()));
                       }
                     }
                     """)
@@ -1617,6 +1669,11 @@ public class FrameworkTests extends NullAwayTestsBase {
                       static class Foo {
                         @Nullable String bar;
                       }
+                      static class NullableContainer<T> {
+                        @Nullable private T ref;
+                        public NullableContainer() { ref = null; }
+                        @Nullable public T get() { return ref; }
+                      }
                       private static boolean perhaps() { return Math.random() > 0.5; }
                       void testPositive(Flux<Foo> flux) {
                         flux
@@ -1624,6 +1681,14 @@ public class FrameworkTests extends NullAwayTestsBase {
                             .map(foo -> {
                               // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
                               return foo.bar.length();
+                            });
+                      }
+                      void testPositiveContainer(Flux<NullableContainer<String>> flux) {
+                        flux
+                            .filter(c -> c.get() != null || perhaps())
+                            .map(c -> {
+                              // BUG: Diagnostic contains: dereferenced expression
+                              return c.get().length();
                             });
                       }
                     }
@@ -1644,6 +1709,11 @@ public class FrameworkTests extends NullAwayTestsBase {
                       static class Foo {
                         @Nullable String bar;
                       }
+                      static class NullableContainer<T> {
+                        @Nullable private T ref;
+                        public NullableContainer() { ref = null; }
+                        @Nullable public T get() { return ref; }
+                      }
                       void testNegative(Mono<Foo> mono) {
                         mono.filter(foo -> foo.bar != null).map(foo -> foo.bar.length());
                       }
@@ -1658,6 +1728,22 @@ public class FrameworkTests extends NullAwayTestsBase {
                         mono.doOnNext(foo -> {
                           // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
                           System.out.println(foo.bar.length());
+                        });
+                      }
+                      void testNegativeContainer(Mono<NullableContainer<String>> mono) {
+                        mono.filter(c -> c.get() != null).map(c -> c.get().length());
+                      }
+                      void testNegativeFlatMapContainer(Mono<NullableContainer<String>> mono) {
+                        mono.filter(c -> c.get() != null).flatMap(c -> Mono.just(c.get().length()));
+                      }
+                      void testPositiveMapWithoutFilterContainer(Mono<NullableContainer<String>> mono) {
+                        // BUG: Diagnostic contains: dereferenced expression
+                        mono.map(c -> c.get().length());
+                      }
+                      void testPositiveDoOnNextWithoutFilterContainer(Mono<NullableContainer<String>> mono) {
+                        mono.doOnNext(c -> {
+                          // BUG: Diagnostic contains: dereferenced expression
+                          System.out.println(c.get().length());
                         });
                       }
                     }
