@@ -1176,8 +1176,8 @@ public class NullAway extends BugChecker
             null,
             state,
             null);
-    if (description != Description.NO_MATCH) {
-      return description;
+    if (!description.equals(Description.NO_MATCH)) {
+      state.reportMatch(description);
     }
     // if the body has a return statement, that gets checked in matchReturn().  We need this code
     // for lambdas with expression bodies
@@ -1203,7 +1203,7 @@ public class NullAway extends BugChecker
     // purposes.  The error message will be slightly inaccurate
     Description derefErrorDescription =
         matchDereference(tree.getQualifierExpression(), tree, state);
-    if (derefErrorDescription != Description.NO_MATCH) {
+    if (!derefErrorDescription.equals(Description.NO_MATCH)) {
       state.reportMatch(derefErrorDescription);
     }
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(tree);

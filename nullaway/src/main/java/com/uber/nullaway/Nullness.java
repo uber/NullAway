@@ -24,6 +24,7 @@ import com.sun.tools.javac.util.List;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.ElementKind;
+import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.dataflow.analysis.AbstractValue;
 
 /**
@@ -257,6 +258,9 @@ public enum Nullness implements AbstractValue<Nullness> {
     }
   }
 
+  @SuppressWarnings(
+      "TypeToString") // fixing this will require threading a VisitorState object through many
+  // places
   private static boolean isRecordEqualsParam(Symbol.MethodSymbol symbol, int paramInd) {
     if (!symbol.owner.getKind().equals(ElementKind.RECORD)) {
       return false;
@@ -267,7 +271,7 @@ public enum Nullness implements AbstractValue<Nullness> {
     // Check for a boolean return type and a single parameter of type java.lang.Object
     Type type = symbol.type;
     List<Type> parameterTypes = type.getParameterTypes();
-    if (!(type.getReturnType().toString().equals("boolean")
+    if (!(type.getReturnType().getKind() == TypeKind.BOOLEAN
         && parameterTypes != null
         && parameterTypes.size() == 1
         && parameterTypes.get(0).toString().equals("java.lang.Object"))) {

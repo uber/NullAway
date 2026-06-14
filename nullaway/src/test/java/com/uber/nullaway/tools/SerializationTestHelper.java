@@ -118,7 +118,7 @@ public class SerializationTestHelper<T extends Display> {
           .append(notFound.size())
           .append(" expected outputs were NOT found:")
           .append("\n")
-          .append(notFound.stream().map(T::toString).collect(Collectors.toList()))
+          .append(notFound.stream().map(Display::toString).collect(Collectors.toList()))
           .append("\n");
     }
     if (actualOutput.size() != 0) {
@@ -126,7 +126,7 @@ public class SerializationTestHelper<T extends Display> {
           .append(actualOutput.size())
           .append(" unexpected outputs were found:")
           .append("\n")
-          .append(actualOutput.stream().map(T::toString).collect(Collectors.toList()))
+          .append(actualOutput.stream().map(Display::toString).collect(Collectors.toList()))
           .append("\n");
     }
     fail(errorMessage.toString());
