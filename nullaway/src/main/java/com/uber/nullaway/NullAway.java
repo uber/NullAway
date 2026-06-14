@@ -2083,9 +2083,16 @@ public class NullAway extends BugChecker
         } else {
           // we need to call paramHasNullableAnnotation here since the invoked method may be defined
           // in a class file
+          boolean hasNullableAnno = Nullness.paramHasNullableAnnotation(methodSymbol, i, config);
+          
+          // Fix for Issue #1002: In JSpecify mode, check element nullability for varargs
+          if (config.isJSpecifyMode() && methodSymbol.isVarArgs() && i == formalParams.size() - 1) {
+            hasNullableAnno = NullabilityUtil.nullableVarargsElementsForSourceOrBytecode(param, config);
+          }
+
           argumentNullness.setParameterNullness(
               i,
-              Nullness.paramHasNullableAnnotation(methodSymbol, i, config)
+              hasNullableAnno
                   ? Nullness.NULLABLE
                   : ((config.isJSpecifyMode()
                           && (tree instanceof MethodInvocationTree || tree instanceof NewClassTree))
