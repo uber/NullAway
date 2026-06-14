@@ -34,6 +34,7 @@ apiguardian = "1.0.0"
 jetbrains-annotations = "24.1.0"
 checker-compat-qual = "2.5.5"
 rxjava2 = "2.1.2"
+reactor = "3.8.6"
 commons-lang3 = "3.8.1"
 commons-lang = "2.6"
 jsr305 = "3.0.2"
@@ -97,6 +98,7 @@ jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "j
 checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "check-framework" }
 checker-compat-qual = { module = "org.checkerframework:checker-compat-qual", version.ref = "checker-compat-qual" }
 rxjava2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava2" }
+reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 commons-lang = { module = "commons-lang:commons-lang", version.ref = "commons-lang" }
 jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
