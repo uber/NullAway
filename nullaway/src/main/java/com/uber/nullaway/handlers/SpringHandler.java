@@ -33,8 +33,9 @@ public class SpringHandler implements Handler {
       if (ASTHelpers.isSameType(
           (Type) annotationMirror.getAnnotationType(), VALUE_TYPE_SUPPLIER.get(state), state)) {
         String annotationValue = NullabilityUtil.getAnnotationValue(annotationMirror);
-        // We return FieldSkipResult.YES here since Spring framework initialization can also invoke
-        // constructors with arguments and then initialize other fields
+        // We return FieldSkipResult.YES here when there is an appropriate @Value annotation, since
+        // Spring framework initialization can also invoke constructors that have arguments and then
+        // initialize other fields
         return annotationValue == null || !containsNullSpELExpression(annotationValue)
             ? FieldSkipResult.YES
             : FieldSkipResult.NO;

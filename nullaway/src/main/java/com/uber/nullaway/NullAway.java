@@ -2223,8 +2223,7 @@ public class NullAway extends BugChecker
     FieldInitEntities entities = collectEntities(tree, state);
     Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(tree);
     class2Entities.put(classSymbol, entities);
-    // set of all non-null instance fields f such that *some* constructor does not initialize f;
-    // used as an initialization fact by read-before-init checking
+    // set of all non-null instance fields f such that *some* constructor does not initialize f
     ImmutableSet<Symbol> notInitializedInConstructors;
     // fields for which we should report constructor initialization errors after applying
     // framework-specific reporting suppressions
