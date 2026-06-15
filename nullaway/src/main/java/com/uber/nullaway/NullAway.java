@@ -1683,7 +1683,7 @@ public class NullAway extends BugChecker
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
-      if (!shouldSkipFieldInitializationCheck(state, symbol, null)) {
+      if (getFieldInitializationSkipResult(state, symbol, null) != Handler.FieldSkipResult.YES) {
         if (mayBeNullExpr(state, initializer)) {
           ErrorMessage errorMessage =
               new ErrorMessage(
@@ -2225,13 +2225,24 @@ public class NullAway extends BugChecker
     class2Entities.put(classSymbol, entities);
     // set of all non-null instance fields f such that *some* constructor does not initialize f
     ImmutableSet<Symbol> notInitializedInConstructors;
+    // fields for which we should report constructor initialization errors after applying
+    // framework-specific reporting suppressions
+    ImmutableSet<Symbol> reportableNotInitializedInConstructors;
     SetMultimap<MethodTree, Symbol> constructorInitInfo;
+    SetMultimap<MethodTree, Symbol> reportableConstructorInitInfo = LinkedHashMultimap.create();
     if (entities.constructors().isEmpty()) {
       constructorInitInfo = null;
       notInitializedInConstructors = entities.nonnullInstanceFields();
+      reportableNotInitializedInConstructors =
+          reportableFieldsForConstructorInitialization(
+              entities.nonnullInstanceFields(), null, state);
     } else {
       constructorInitInfo = checkConstructorInitialization(entities, state);
+      reportableConstructorInitInfo =
+          reportableConstructorInitializationInfo(constructorInitInfo, state);
       notInitializedInConstructors = ImmutableSet.copyOf(constructorInitInfo.values());
+      reportableNotInitializedInConstructors =
+          ImmutableSet.copyOf(reportableConstructorInitInfo.values());
     }
     // Filter out final fields, since javac will already check initialization
     notInitializedInConstructors =
@@ -2239,9 +2250,14 @@ public class NullAway extends BugChecker
             Sets.filter(
                 notInitializedInConstructors,
                 symbol -> !symbol.getModifiers().contains(Modifier.FINAL)));
+    reportableNotInitializedInConstructors =
+        ImmutableSet.copyOf(
+            Sets.filter(
+                reportableNotInitializedInConstructors,
+                symbol -> !symbol.getModifiers().contains(Modifier.FINAL)));
     class2ConstructorUninit.putAll(classSymbol, notInitializedInConstructors);
     Set<Symbol> notInitializedAtAll =
-        notAssignedInAnyInitializer(entities, notInitializedInConstructors, state);
+        notAssignedInAnyInitializer(entities, reportableNotInitializedInConstructors, state);
     SetMultimap<Element, Element> errorFieldsForInitializer = LinkedHashMultimap.create();
     // non-null if we have a single initializer method
     Symbol.MethodSymbol singleInitializerMethod = null;
@@ -2267,8 +2283,8 @@ public class NullAway extends BugChecker
         }
       } else {
         // report it on each constructor that does not initialize it
-        for (MethodTree methodTree : constructorInitInfo.keySet()) {
-          Set<Symbol> uninitFieldsForConstructor = constructorInitInfo.get(methodTree);
+        for (MethodTree methodTree : reportableConstructorInitInfo.keySet()) {
+          Set<Symbol> uninitFieldsForConstructor = reportableConstructorInitInfo.get(methodTree);
           if (uninitFieldsForConstructor.contains(uninitField)) {
             errorFieldsForInitializer.put(ASTHelpers.getSymbol(methodTree), uninitField);
           }
@@ -2380,6 +2396,41 @@ public class NullAway extends BugChecker
           result.put(constructor, fieldSymbol);
         }
       }
+    }
+    return result;
+  }
+
+  /**
+   * Applies framework-specific constructor initialization reporting suppressions to the given
+   * constructor initialization facts.
+   *
+   * <p>A {@code null} constructor represents the implicit zero-argument constructor for a class
+   * with no declared constructors. For zero-argument constructors, fields marked by a handler with
+   * {@link Handler.FieldSkipResult#ONLY_FOR_ZERO_ARG_CONSTRUCTORS} are excluded from reporting,
+   * while still being tracked elsewhere as not actually initialized by the constructor. For
+   * constructors with arguments, all fields remain subject to the normal initialization check.
+   */
+  private ImmutableSet<Symbol> reportableFieldsForConstructorInitialization(
+      ImmutableSet<Symbol> fields, @Nullable MethodTree constructor, VisitorState state) {
+    if (constructor != null && !constructor.getParameters().isEmpty()) {
+      return fields;
+    }
+    return ImmutableSet.copyOf(
+        Sets.filter(
+            fields,
+            field ->
+                getFieldInitializationSkipResult(state, field, null)
+                    != Handler.FieldSkipResult.ONLY_FOR_ZERO_ARG_CONSTRUCTORS));
+  }
+
+  private SetMultimap<MethodTree, Symbol> reportableConstructorInitializationInfo(
+      SetMultimap<MethodTree, Symbol> constructorInitInfo, VisitorState state) {
+    SetMultimap<MethodTree, Symbol> result = LinkedHashMultimap.create();
+    for (MethodTree constructor : constructorInitInfo.keySet()) {
+      result.putAll(
+          constructor,
+          reportableFieldsForConstructorInitialization(
+              ImmutableSet.copyOf(constructorInitInfo.get(constructor)), constructor, state));
     }
     return result;
   }
@@ -2571,7 +2622,8 @@ public class NullAway extends BugChecker
           // field declaration
           VariableTree varTree = (VariableTree) memberTree;
           Symbol fieldSymbol = ASTHelpers.getSymbol(varTree);
-          if (shouldSkipFieldInitializationCheck(state, fieldSymbol, classSymbol)) {
+          if (getFieldInitializationSkipResult(state, fieldSymbol, classSymbol)
+              == Handler.FieldSkipResult.YES) {
             continue;
           }
           if (varTree.getInitializer() != null) {
@@ -2611,17 +2663,21 @@ public class NullAway extends BugChecker
         ImmutableSet.copyOf(staticInitializerMethods));
   }
 
-  private boolean shouldSkipFieldInitializationCheck(
+  private Handler.FieldSkipResult getFieldInitializationSkipResult(
       VisitorState state, Symbol fieldSymbol, @Nullable ClassSymbol classSymbol) {
     if (classSymbol == null) {
       if (fieldSymbol.owner instanceof ClassSymbol ownerSymbol) {
         classSymbol = ownerSymbol;
       }
     }
-    return fieldSymbol.type.isPrimitive()
-        || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)
-        || (classSymbol != null
-            && handler.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state));
+    if (fieldSymbol.type.isPrimitive()
+        || skipFieldInitializationCheckingDueToAnnotation(fieldSymbol)) {
+      return Handler.FieldSkipResult.YES;
+    }
+    if (classSymbol != null) {
+      return handler.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state);
+    }
+    return Handler.FieldSkipResult.NO;
   }
 
   private boolean isConstructor(MethodTree methodTree) {
