@@ -1478,7 +1478,7 @@ public class FrameworkTests extends NullAwayTestsBase {
   @Test
   public void filesIsDirectory() {
     defaultCompilationHelper
-        .addSourceLines( // force changes
+        .addSourceLines(
             "Foo.java",
             """
             package com.uber;
