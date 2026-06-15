@@ -597,10 +597,15 @@ public final class GenericsChecks {
       tree = exprTreeAndState.expr();
       state = exprTreeAndState.state();
     }
-    if (tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree) {
+    if (tree instanceof LambdaExpressionTree
+        || tree instanceof MemberReferenceTree
+        || tree instanceof ConditionalExpressionTree) {
       Type result = inferredPolyExpressionTypes.get(tree);
       if (result == null) {
-        result = ASTHelpers.getType(tree);
+        result =
+            tree instanceof ConditionalExpressionTree conditionalExpressionTree
+                ? getConditionalExpressionType(conditionalExpressionTree, state, calledFromDataflow)
+                : ASTHelpers.getType(tree);
       }
       return typeOrNullIfRaw(result);
     }
@@ -803,9 +808,13 @@ public final class GenericsChecks {
       }
     }
     if (parent instanceof ConditionalExpressionTree) {
-      // TODO infer diamond type from the overall conditional expression type
-      //  tracked in https://github.com/uber/NullAway/issues/1477
-      return null;
+      TreePath conditionalPath = getOutermostConditionalExpressionPath(parentPath);
+      TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
+          getTargetTypeForConditionalExpression(
+              (ConditionalExpressionTree) conditionalPath.getLeaf(),
+              state.withPath(conditionalPath),
+              calledFromDataflow);
+      return targetTypeAndAssignmentKind.typeFromAssignmentContext();
     }
     return null;
   }
@@ -1043,6 +1052,13 @@ public final class GenericsChecks {
           pathToRhs,
           typeFromAssignmentContext,
           assignedToLocal,
+          calledFromDataflow);
+    } else if (rhsTree instanceof ConditionalExpressionTree conditionalExpressionTree) {
+      return inferConditionalExpressionType(
+          state.withPath(pathToRhs),
+          conditionalExpressionTree,
+          pathToRhs,
+          typeFromAssignmentContext,
           calledFromDataflow);
     } else {
       return getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
@@ -1317,6 +1333,25 @@ public final class GenericsChecks {
           symbol,
           invTree,
           allInvocations,
+          calledFromDataflow);
+    } else if (rhsExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
+      ExpressionTree trueExpression = conditionalExpressionTree.getTrueExpression();
+      TreePath pathToTrueExpression = new TreePath(state.getPath(), trueExpression);
+      generateConstraintsForPseudoAssignment(
+          state.withPath(pathToTrueExpression),
+          solver,
+          allInvocations,
+          trueExpression,
+          lhsType,
+          calledFromDataflow);
+      ExpressionTree falseExpression = conditionalExpressionTree.getFalseExpression();
+      TreePath pathToFalseExpression = new TreePath(state.getPath(), falseExpression);
+      generateConstraintsForPseudoAssignment(
+          state.withPath(pathToFalseExpression),
+          solver,
+          allInvocations,
+          falseExpression,
+          lhsType,
           calledFromDataflow);
     } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
       handleLambdaInGenericMethodInference(
@@ -1722,6 +1757,14 @@ public final class GenericsChecks {
                 formalReturnType,
                 false,
                 false);
+      } else if (retExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
+        returnExpressionType =
+            inferConditionalExpressionType(
+                state.withPath(pathToRetExpr),
+                conditionalExpressionTree,
+                pathToRetExpr,
+                formalReturnType,
+                false);
       }
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state);
@@ -1816,11 +1859,33 @@ public final class GenericsChecks {
     Tree truePartTree = tree.getTrueExpression();
     Tree falsePartTree = tree.getFalseExpression();
 
-    Type condExprType = getConditionalExpressionType(tree, state);
+    TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
+        getTargetTypeForConditionalExpression(tree, state, false);
+    boolean hasTargetType =
+        targetTypeAndAssignmentKind.typeFromAssignmentContext() != null
+            || inferredPolyExpressionTypes.containsKey(tree);
+    Type condExprType =
+        inferConditionalExpressionType(
+            state,
+            tree,
+            state.getPath(),
+            targetTypeAndAssignmentKind.typeFromAssignmentContext(),
+            false);
+    if (!hasTargetType) {
+      return;
+    }
+    TreePath pathToTruePart = pathWithLeaf(state.getPath(), truePartTree);
+    TreePath pathToFalsePart = pathWithLeaf(state.getPath(), falsePartTree);
     Type truePartType =
-        getTreeType(truePartTree, state.withPath(pathWithLeaf(state.getPath(), truePartTree)));
+        condExprType == null
+            ? getTreeType(truePartTree, state.withPath(pathToTruePart))
+            : getTypeForRhsOfAssignment(
+                tree.getTrueExpression(), pathToTruePart, condExprType, false, state, false);
     Type falsePartType =
-        getTreeType(falsePartTree, state.withPath(pathWithLeaf(state.getPath(), falsePartTree)));
+        condExprType == null
+            ? getTreeType(falsePartTree, state.withPath(pathToFalsePart))
+            : getTypeForRhsOfAssignment(
+                tree.getFalseExpression(), pathToFalsePart, condExprType, false, state, false);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
@@ -1839,19 +1904,137 @@ public final class GenericsChecks {
   }
 
   private @Nullable Type getConditionalExpressionType(
-      ConditionalExpressionTree tree, VisitorState state) {
-    // hack: sometimes array nullability doesn't get computed correctly for a conditional expression
-    // on the RHS of an assignment.  So, look at the type of the assignment tree.
-    TreePath parentPath = state.getPath().getParentPath();
+      ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
+    Type cachedType = inferredPolyExpressionTypes.get(tree);
+    if (cachedType != null) {
+      return cachedType;
+    }
+    TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
+        getTargetTypeForConditionalExpression(tree, state, calledFromDataflow);
+    Type typeFromAssignmentContext = targetTypeAndAssignmentKind.typeFromAssignmentContext();
+    return typeFromAssignmentContext != null
+        ? typeFromAssignmentContext
+        : typeOrNullIfRaw(ASTHelpers.getType(tree));
+  }
+
+  private @Nullable Type inferConditionalExpressionType(
+      VisitorState state,
+      ConditionalExpressionTree tree,
+      TreePath path,
+      @Nullable Type typeFromAssignmentContext,
+      boolean calledFromDataflow) {
+    Type cachedType = inferredPolyExpressionTypes.get(tree);
+    if (cachedType != null) {
+      return cachedType;
+    }
+    boolean hasTargetType = typeFromAssignmentContext != null;
+    Type condExprType = typeFromAssignmentContext;
+    if (condExprType == null) {
+      TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
+          getTargetTypeForConditionalExpression(tree, state.withPath(path), calledFromDataflow);
+      condExprType = targetTypeAndAssignmentKind.typeFromAssignmentContext();
+      hasTargetType = condExprType != null;
+    }
+    if (condExprType == null) {
+      condExprType = typeOrNullIfRaw(ASTHelpers.getType(tree));
+    }
+    if (condExprType == null || condExprType.isRaw()) {
+      return null;
+    }
+    if (hasTargetType && !calledFromDataflow) {
+      inferredPolyExpressionTypes.put(tree, condExprType);
+    }
+    return condExprType;
+  }
+
+  private record TargetTypeAndAssignmentKind(
+      @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {}
+
+  private TargetTypeAndAssignmentKind getTargetTypeForConditionalExpression(
+      ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
+    TreePath conditionalPath =
+        Objects.equals(state.getPath().getLeaf(), tree)
+            ? state.getPath()
+            : pathWithLeaf(state.getPath(), tree);
+    conditionalPath = getOutermostConditionalExpressionPath(conditionalPath);
+    TreePath parentPath = conditionalPath.getParentPath();
+    if (parentPath == null) {
+      return new TargetTypeAndAssignmentKind(null, false);
+    }
     Tree parent = parentPath.getLeaf();
     while (parent instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
+      if (parentPath == null) {
+        return new TargetTypeAndAssignmentKind(null, false);
+      }
       parent = parentPath.getLeaf();
     }
+    VisitorState parentState = state.withPath(parentPath);
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getTreeType(parent, state.withPath(parentPath));
+      return new TargetTypeAndAssignmentKind(
+          getTreeType(parent, parentState, calledFromDataflow),
+          isAssignmentToLocalVariable(parent));
     }
-    return getTreeType(tree, state);
+    if (parent instanceof ReturnTree) {
+      TreePath enclosingMethodOrLambda =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
+      if (enclosingMethodOrLambda != null
+          && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
+        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
+        if (methodSymbol != null) {
+          return new TargetTypeAndAssignmentKind(methodSymbol.getReturnType(), false);
+        }
+      }
+      return new TargetTypeAndAssignmentKind(null, false);
+    }
+    if (parent instanceof MethodInvocationTree parentInvocation) {
+      if (isGenericCallNeedingInference(parentInvocation)) {
+        return new TargetTypeAndAssignmentKind(null, false);
+      }
+      Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
+      if (methodType == null) {
+        return new TargetTypeAndAssignmentKind(null, false);
+      }
+      return new TargetTypeAndAssignmentKind(
+          getFormalParameterTypeForArgument(
+              parentInvocation, methodType.asMethodType(), conditionalPath.getLeaf()),
+          false);
+    }
+    if (parent instanceof NewClassTree parentConstructorCall) {
+      Type parentClassType = getTreeType(parentConstructorCall, parentState, calledFromDataflow);
+      if (parentClassType != null) {
+        Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
+        Type parentCtorType =
+            TypeSubstitutionUtils.memberType(
+                state.getTypes(), parentClassType, parentCtorSymbol, config);
+        return new TargetTypeAndAssignmentKind(
+            getFormalParameterTypeForArgument(
+                parentConstructorCall, parentCtorType.asMethodType(), conditionalPath.getLeaf()),
+            false);
+      }
+    }
+    return new TargetTypeAndAssignmentKind(null, false);
+  }
+
+  private TreePath getOutermostConditionalExpressionPath(TreePath path) {
+    TreePath conditionalPath = path;
+    TreePath parentPath = conditionalPath.getParentPath();
+    while (parentPath != null) {
+      Tree parent = parentPath.getLeaf();
+      while (parent instanceof ParenthesizedTree) {
+        parentPath = parentPath.getParentPath();
+        if (parentPath == null) {
+          return conditionalPath;
+        }
+        parent = parentPath.getLeaf();
+      }
+      if (!(parent instanceof ConditionalExpressionTree)) {
+        return conditionalPath;
+      }
+      conditionalPath = parentPath;
+      parentPath = conditionalPath.getParentPath();
+    }
+    return conditionalPath;
   }
 
   /**
@@ -1967,6 +2150,15 @@ public final class GenericsChecks {
                           pathToParam,
                           formalParameter,
                           false,
+                          false);
+                } else if (currentActualParam
+                    instanceof ConditionalExpressionTree conditionalExpressionTree) {
+                  actualParameterType =
+                      inferConditionalExpressionType(
+                          state.withPath(pathToParam),
+                          conditionalExpressionTree,
+                          pathToParam,
+                          formalParameter,
                           false);
                 }
                 if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
@@ -2399,6 +2591,17 @@ public final class GenericsChecks {
           }
         }
         return new InvocationAndContext(invocation, formalParamType, false);
+      } else if (exprParent instanceof ConditionalExpressionTree) {
+        TreePath conditionalPath = getOutermostConditionalExpressionPath(parentPath);
+        TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
+            getTargetTypeForConditionalExpression(
+                (ConditionalExpressionTree) conditionalPath.getLeaf(),
+                state.withPath(conditionalPath),
+                calledFromDataflow);
+        return new InvocationAndContext(
+            invocation,
+            targetTypeAndAssignmentKind.typeFromAssignmentContext(),
+            targetTypeAndAssignmentKind.assignedToLocal());
       }
     }
     // an unhandled case; for now, give up and return no assignment context
