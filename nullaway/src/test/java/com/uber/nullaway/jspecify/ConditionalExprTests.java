@@ -249,6 +249,110 @@ public class ConditionalExprTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void conditionalGenericMethodInferenceWithDataflow() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            final class Test {
+              String nonNullField = "hello";
+              @Nullable String nullableField;
+              static <T extends @Nullable Object> T id(T t) {
+                return t;
+              }
+              void test(boolean flag, @Nullable String s) {
+                if (s != null) {
+                  nonNullField = flag ? id(s) : id("fallback");
+                }
+                nullableField = flag ? id(s) : id("fallback");
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nonNullField = flag ? id(s) : id("fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void conditionalGenericTypeArgumentInferenceWithDataflow() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            final class Test {
+              static final class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> Box<T> box(T t) {
+                return new Box<T>();
+              }
+              void test(boolean flag, @Nullable String s) {
+                if (s != null) {
+                  Box<String> nonNullBox = flag ? box(s) : box("fallback");
+                }
+                Box<@Nullable String> nullableBox = flag ? box(s) : box("fallback");
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Box<String> bad = flag ? box(s) : box("fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void conditionalGenericMethodInferenceDataflowAndLoops() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            final class Test {
+              static <T extends @Nullable Object> T id(T t) {
+                return t;
+              }
+              void testLoop1(boolean flag) {
+                String s = "hello";
+                while (true) {
+                  String t = flag ? id(s) : id("fallback");
+                  // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                  t.hashCode();
+                  s = null;
+                }
+              }
+              void testLoop2(boolean flag) {
+                String t = "hello";
+                while (true) {
+                  // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                  t.hashCode();
+                  String s = null;
+                  t = flag ? id(s) : id("fallback");
+                }
+              }
+              void testLoop3(boolean flag) {
+                String t = "hello";
+                String s = "hello";
+                t.hashCode();
+                int i = 2;
+                while (i > 0) {
+                  t = flag ? id(s) : id("fallback");
+                  s = null;
+                  i--;
+                }
+                // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                t.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
