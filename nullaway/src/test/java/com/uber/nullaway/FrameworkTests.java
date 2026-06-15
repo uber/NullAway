@@ -1502,4 +1502,38 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void springValueSpelWithNullInConditional() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Value.java",
+            """
+            package org.springframework.beans.factory.annotation;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+            @Retention(RetentionPolicy.RUNTIME)
+            public @interface Value {
+              String value();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.springframework.beans.factory.annotation.Value;
+            class Test {
+              // SpEL conditional: 'null' is used as a comparison operand, not as a
+              // return value. However, the heuristic regex matches the word "null"
+              // anywhere inside #{...}, triggering a false positive.
+              @Value("#{someBean != null ? someBean.value : 'default'}")
+              // BUG: Diagnostic contains: @NonNull field spelConditionalNullCheck not initialized
+              String spelConditionalNullCheck;
+            }
+            """)
+        .doTest();
+  }
 }
