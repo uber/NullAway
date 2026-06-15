@@ -1880,12 +1880,22 @@ public final class GenericsChecks {
         condExprType == null
             ? getTreeType(truePartTree, state.withPath(pathToTruePart))
             : getTypeForRhsOfAssignment(
-                tree.getTrueExpression(), pathToTruePart, condExprType, false, state, false);
+                tree.getTrueExpression(),
+                pathToTruePart,
+                condExprType,
+                targetTypeAndAssignmentKind.assignedToLocal(),
+                state,
+                false);
     Type falsePartType =
         condExprType == null
             ? getTreeType(falsePartTree, state.withPath(pathToFalsePart))
             : getTypeForRhsOfAssignment(
-                tree.getFalseExpression(), pathToFalsePart, condExprType, false, state, false);
+                tree.getFalseExpression(),
+                pathToFalsePart,
+                condExprType,
+                targetTypeAndAssignmentKind.assignedToLocal(),
+                state,
+                false);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
