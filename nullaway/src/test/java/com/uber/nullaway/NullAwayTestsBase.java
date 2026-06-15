@@ -19,6 +19,7 @@ public abstract class NullAwayTestsBase {
             List.of(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=true",
                 "-XepOpt:NullAway:KnownInitializers="
                     + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases.Super.doInit,"
                     + "com.uber.nullaway.testdata.CheckFieldInitNegativeCases"

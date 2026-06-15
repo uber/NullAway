@@ -177,7 +177,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInGeneratedCode=true"))
         .addSourceLines(
             "Generated.java",
             """
@@ -204,7 +204,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CustomGeneratedCodeAnnotations=com.uber.MyGeneratedMarkerAnnotation",
-                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInGeneratedCode=true"))
         .addSourceLines(
             "MyGeneratedMarkerAnnotation.java",
             """
@@ -246,6 +246,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=true",
                 "-XepOpt:NullAway:UnannotatedClasses=com.uber.UnAnnot"))
         .addSourceLines(
             "UnAnnot.java",
