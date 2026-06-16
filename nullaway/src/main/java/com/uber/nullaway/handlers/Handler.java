@@ -495,6 +495,35 @@ public interface Handler {
     return methodType;
   }
 
+  enum FieldSkipResult {
+    /** do not skip the check */
+    NO,
+
+    /** always skip the check */
+    YES,
+
+    /**
+     * Only skip the check for constructors with no arguments. If a constructor with arguments does
+     * not initialize the field, report a warning.
+     */
+    ONLY_FOR_ZERO_ARG_CONSTRUCTORS;
+
+    /** combine two {@link FieldSkipResult}s, preferring to skip more field checks */
+    public static FieldSkipResult combine(FieldSkipResult first, FieldSkipResult second) {
+      if (first == second) {
+        return first;
+      }
+      if (first == NO) {
+        return second;
+      }
+      if (second == NO) {
+        return first;
+      }
+      // one is YES and the other is ONLY_FOR_ZERO_ARG_CONSTRUCTORS; prefer YES
+      return YES;
+    }
+  }
+
   /**
    * Method to determine whether a field should be treated as initialized externally (e.g. by a
    * framework), using the field and its enclosing class.
@@ -502,12 +531,11 @@ public interface Handler {
    * @param classSymbol the symbol for the class declaring the field
    * @param fieldSymbol the symbol for the field
    * @param state visitor state
-   * @return {@code true} if initialization checking for the field should be skipped, {@code false}
-   *     otherwise
+   * @return a {@link FieldSkipResult} capturing when the check should be skipped
    */
-  default boolean shouldSkipFieldInitializationCheck(
+  default FieldSkipResult shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
-    return false;
+    return FieldSkipResult.NO;
   }
 
   /**

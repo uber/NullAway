@@ -450,6 +450,14 @@ public class FrameworkTests extends NullAwayTestsBase {
                 literalValue.toString();
               }
             }
+            class ValueFieldWithConstructor {
+              private final String name;
+              @Value("${app.description}")
+              String description;
+              ValueFieldWithConstructor(String name) {
+                this.name = name;
+              }
+            }
             """)
         .addSourceLines(
             "PositiveCases.java",
