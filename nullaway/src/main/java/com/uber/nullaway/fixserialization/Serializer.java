@@ -30,12 +30,16 @@ import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.OutputStream;
+import java.io.StringWriter;
 import java.io.Writer;
 import java.net.URI;
 import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import javax.xml.stream.XMLOutputFactory;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -43,8 +47,13 @@ import org.jspecify.annotations.Nullable;
  * of this class.
  */
 public class Serializer {
+
+  private static final XMLOutputFactory XML_OUTPUT_FACTORY = XMLOutputFactory.newInstance();
+
   /** Path to write errors. */
   private final Path errorOutputPath;
+
+  private final Path errorOutputXmlPath;
 
   /** Path to write suggested fix metadata. */
   private final Path fieldInitializationOutputPath;
@@ -59,6 +68,7 @@ public class Serializer {
   public Serializer(FixSerializationConfig config, SerializationAdapter serializationAdapter) {
     String outputDirectory = config.outputDirectory;
     this.errorOutputPath = Paths.get(outputDirectory, "errors.tsv");
+    this.errorOutputXmlPath = Paths.get(outputDirectory, "errors.xml");
     this.fieldInitializationOutputPath = Paths.get(outputDirectory, "field_init.tsv");
     this.serializationAdapter = serializationAdapter;
     serializeVersion(outputDirectory);
@@ -72,7 +82,35 @@ public class Serializer {
    */
   public void serializeErrorInfo(ErrorInfo errorInfo) {
     errorInfo.initEnclosing();
-    appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
+    if (isXmlMode()) {
+      appendToFile(buildErrorXml(errorInfo), errorOutputXmlPath);
+    } else {
+      appendToFile(serializationAdapter.serializeError(errorInfo), errorOutputPath);
+    }
+  }
+
+  private String buildErrorXml(ErrorInfo errorInfo) {
+    StringWriter sw = new StringWriter();
+    try {
+      XMLStreamWriter writer = XML_OUTPUT_FACTORY.createXMLStreamWriter(sw);
+      errorInfo.writeXml(writer, serializationAdapter);
+      writer.flush();
+      writer.close();
+    } catch (XMLStreamException e) {
+      throw new RuntimeException("Failed to serialize error to XML", e);
+    }
+    return sw.toString();
+  }
+
+  /**
+   * Whether the active serialization adapter emits errors as XML rather than TSV. V4 switched the
+   * error log to XML to carry the structured Annotator auto-fix metadata; earlier versions remain
+   * TSV. Each {@code <error>} record is appended as a standalone XML fragment (there is no
+   * post-analysis hook to emit a closing root element), so downstream consumers should treat the
+   * file as a fragment stream rather than a single well-formed XML document.
+   */
+  private boolean isXmlMode() {
+    return serializationAdapter.getSerializationVersion() >= 4;
   }
 
   public void serializeFieldInitializationInfo(FieldInitializationInfo info) {
@@ -127,7 +165,11 @@ public class Serializer {
       if (config.fieldInitInfoEnabled) {
         initializeFile(fieldInitializationOutputPath, FieldInitializationInfo.header());
       }
-      initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
+      if (isXmlMode()) {
+        initializeFile(errorOutputXmlPath, "");
+      } else {
+        initializeFile(errorOutputPath, serializationAdapter.getErrorsOutputFileHeader());
+      }
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting serializer", e);
     }
@@ -194,5 +236,13 @@ public class Serializer {
       case METHOD, CONSTRUCTOR -> adapter.serializeMethodSignature((Symbol.MethodSymbol) symbol);
       default -> symbol.flatName().toString();
     };
+  }
+
+  /** Writes a leaf element {@code <name>value</name>} to {@code writer}. */
+  public static void writeTextElement(XMLStreamWriter writer, String name, String value)
+      throws XMLStreamException {
+    writer.writeStartElement(name);
+    writer.writeCharacters(value);
+    writer.writeEndElement();
   }
 }
