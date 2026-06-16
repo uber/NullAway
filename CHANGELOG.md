@@ -1,6 +1,19 @@
 Changelog
 =========
 
+Version 0.13.7
+--------------
+
+This is a minor bug fix release addressing a couple of issues observed in 0.13.6.
+
+* Add support for filtering null objects from streams in #1597
+* Report init warnings for JPA constructors with arguments in #1604
+* Maintenance
+  - Update release instructions in #1593
+  - Switch code coverage aggregation to use built-in jacoco plugin by @subhramit in #1598
+  - Bump Error Prone to 2.50.0 in #1601
+
+
 Version 0.13.6
 --------------
 
