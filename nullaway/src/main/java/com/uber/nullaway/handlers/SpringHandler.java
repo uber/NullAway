@@ -20,11 +20,18 @@ public class SpringHandler implements Handler {
   /**
    * Matches a SpEL fragment like {@code #{...}} when it contains {@code null} as a standalone
    * token. This lets us distinguish Spring {@code @Value} expressions that may produce {@code null}
-   * from plain property placeholders or string literals containing the letters {@code null}. This
-   * is a heuristic match and may have false positives.
+   * from plain property placeholders or string literals containing the letters {@code null}.
    */
   private static final Pattern VALUE_NULL_SPEL_PATTERN =
       Pattern.compile("#\\{[^}]*\\bnull\\b[^}]*}");
+
+  /**
+   * Matches {@code null} used as an operand in equality comparisons ({@code == null}, {@code !=
+   * null}, {@code null ==}, {@code null !=}). These occurrences do not produce a {@code null} value
+   * and should be excluded from the SpEL null detection heuristic.
+   */
+  private static final Pattern NULL_COMPARISON_PATTERN =
+      Pattern.compile("[!=]=\\s*\\bnull\\b|\\bnull\\b\\s*[!=]=");
 
   @Override
   public FieldSkipResult shouldSkipFieldInitializationCheck(
@@ -45,6 +52,12 @@ public class SpringHandler implements Handler {
   }
 
   private static boolean containsNullSpELExpression(String annotationValue) {
-    return VALUE_NULL_SPEL_PATTERN.matcher(annotationValue).find();
+    if (!VALUE_NULL_SPEL_PATTERN.matcher(annotationValue).find()) {
+      return false;
+    }
+    // Strip null occurrences that are only used in equality comparisons (e.g., != null, == null)
+    // and re-check whether any standalone null token remains as a potential return value.
+    String withoutComparisons = NULL_COMPARISON_PATTERN.matcher(annotationValue).replaceAll("");
+    return VALUE_NULL_SPEL_PATTERN.matcher(withoutComparisons).find();
   }
 }
