@@ -1526,12 +1526,80 @@ public class FrameworkTests extends NullAwayTestsBase {
             package com.uber;
             import org.springframework.beans.factory.annotation.Value;
             class Test {
-              // SpEL conditional: 'null' is used as a comparison operand, not as a
-              // return value. However, the heuristic regex matches the word "null"
-              // anywhere inside #{...}, triggering a false positive.
+              // SpEL conditional: 'null' is used only as a comparison operand, not as a
+              // return value. The heuristic correctly strips comparison-only nulls.
               @Value("#{someBean != null ? someBean.value : 'default'}")
-              // BUG: Diagnostic contains: @NonNull field spelConditionalNullCheck not initialized
               String spelConditionalNullCheck;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void springValueSpelNullAsReturnValue() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Value.java",
+            """
+            package org.springframework.beans.factory.annotation;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+            @Retention(RetentionPolicy.RUNTIME)
+            public @interface Value {
+              String value();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.springframework.beans.factory.annotation.Value;
+            class Test {
+              // Boundary: null appears in a comparison AND as a ternary return value (then-branch).
+              @Value("#{someBean != null ? null : 'default'}")
+              // BUG: Diagnostic contains: @NonNull field nullInThenBranch not initialized
+              String nullInThenBranch;
+              // Boundary: null appears in a comparison AND as a ternary return value (else-branch).
+              @Value("#{someBean != null ? someBean.value : null}")
+              // BUG: Diagnostic contains: @NonNull field nullInElseBranch not initialized
+              String nullInElseBranch;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void springValueSpelNullComparisonLeftSide() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Value.java",
+            """
+            package org.springframework.beans.factory.annotation;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
+            @Retention(RetentionPolicy.RUNTIME)
+            public @interface Value {
+              String value();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.springframework.beans.factory.annotation.Value;
+            class Test {
+              // Boundary: null on the LEFT side of != comparison (symmetric case).
+              @Value("#{null != someBean ? someBean.value : 'default'}")
+              String nullOnLeftNeq;
+              // Boundary: null on the LEFT side of == comparison (symmetric case).
+              @Value("#{null == someBean ? 'default' : someBean.value}")
+              String nullOnLeftEq;
             }
             """)
         .doTest();
