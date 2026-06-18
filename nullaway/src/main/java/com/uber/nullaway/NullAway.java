@@ -847,16 +847,11 @@ public class NullAway extends BugChecker
           // Check if the parameter type is a type variable and the corresponding generic type
           // argument is @Nullable
           if (memberReferenceTree != null || lambdaExpressionTree != null) {
-            // For a method reference or lambda, try to use a type inferred by GenericsChecks for
-            // the tree.  Fall back on the type inferred by javac.
             Tree polyExprTree =
                 castToNonNull(
                     memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
             Type functionalInterfaceType =
-                genericsChecks.getInferredPolyExpressionType(polyExprTree);
-            if (functionalInterfaceType == null) {
-              functionalInterfaceType = ASTHelpers.getType(polyExprTree);
-            }
+                getFunctionalInterfaceTypeForPolyExpression(polyExprTree, state);
             paramNullness =
                 genericsChecks.getGenericMethodParameterNullness(
                     i, overriddenMethod, functionalInterfaceType, state);
@@ -1129,7 +1124,11 @@ public class NullAway extends BugChecker
       if (inferredType != null) {
         lambdaType = inferredType;
       }
-      if (genericsChecks
+      Nullness invocationTargetReturnNullness =
+          genericsChecks.getFunctionalInterfaceReturnNullnessFromEnclosingInvocation(
+              lambdaTree, methodSymbol, state);
+      if (Nullness.NULLABLE.equals(invocationTargetReturnNullness)
+          || genericsChecks
               .getGenericMethodReturnTypeNullness(methodSymbol, lambdaType, state)
               .equals(Nullness.NULLABLE)
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
@@ -1291,13 +1290,8 @@ public class NullAway extends BugChecker
     // using the type arguments from the type enclosing the overriding method
     if (config.isJSpecifyMode()) {
       if (memberReferenceTree != null) {
-        // For a method reference, we get generic type arguments from javac's inferred type for the
-        // tree, which properly preserves type-use annotations
         Type functionalInterfaceType =
-            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-        if (functionalInterfaceType == null) {
-          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-        }
+            getFunctionalInterfaceTypeForPolyExpression(memberReferenceTree, state);
         return genericsChecks
                 .getGenericMethodReturnTypeNullness(
                     overriddenMethod, functionalInterfaceType, state)
@@ -1312,6 +1306,21 @@ public class NullAway extends BugChecker
       }
     }
     return true;
+  }
+
+  private @Nullable Type getFunctionalInterfaceTypeForPolyExpression(
+      Tree polyExpressionTree, VisitorState state) {
+    // For a method reference or lambda, prefer a target type restored from the enclosing
+    // invocation's formal parameter. Fall back to a type cached by GenericsChecks, then to javac.
+    Type functionalInterfaceType =
+        genericsChecks.getGroundTargetTypeFromEnclosingInvocation(polyExpressionTree, state);
+    if (functionalInterfaceType == null) {
+      functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExpressionTree);
+    }
+    if (functionalInterfaceType == null) {
+      functionalInterfaceType = ASTHelpers.getType(polyExpressionTree);
+    }
+    return functionalInterfaceType;
   }
 
   @Override

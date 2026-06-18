@@ -499,6 +499,100 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void lambdaReturnUsesNestedLibraryModelAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "com/uber/lib/unannotated/LambdaBox.java",
+            """
+            package com.uber.lib.unannotated;
+
+            public class LambdaBox<T> {}
+            """)
+        .addSourceLines(
+            "com/uber/lib/unannotated/LambdaModel.java",
+            """
+            package com.uber.lib.unannotated;
+
+            import java.util.function.Function;
+
+            public class LambdaModel {
+              public static <U> LambdaBox<U> map(Function<String, ? extends U> mapper) {
+                return new LambdaBox<>();
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaBox;
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              LambdaBox<String> test() {
+                return LambdaModel.map(unused -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceReturnUsesNestedLibraryModelAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "com/uber/lib/unannotated/LambdaBox.java",
+            """
+            package com.uber.lib.unannotated;
+
+            public class LambdaBox<T> {}
+            """)
+        .addSourceLines(
+            "com/uber/lib/unannotated/LambdaModel.java",
+            """
+            package com.uber.lib.unannotated;
+
+            import java.util.function.Function;
+
+            public class LambdaModel {
+              public static <U> LambdaBox<U> map(Function<String, ? extends U> mapper) {
+                return new LambdaBox<>();
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaBox;
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              LambdaBox<String> test() {
+                return LambdaModel.map(Test::returnsNullable);
+              }
+
+              static @Nullable String returnsNullable(String unused) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())

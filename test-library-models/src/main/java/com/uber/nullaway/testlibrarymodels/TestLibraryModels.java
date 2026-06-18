@@ -172,6 +172,8 @@ public class TestLibraryModels implements LibraryModels {
   public ImmutableSet<String> nullMarkedClasses() {
     return ImmutableSet.of(
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
+        "com.uber.lib.unannotated.LambdaBox",
+        "com.uber.lib.unannotated.LambdaModel",
         "com.uber.lib.unannotated.NestedAnnots",
         "com.uber.lib.unannotated.NullMarkedVarargsWithModel");
   }
@@ -253,6 +255,17 @@ public class TestLibraryModels implements LibraryModels {
                 1,
                 new NestedAnnotationInfo(
                     Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.LambdaModel",
+                "<U>map(java.util.function.Function<java.lang.String,? extends U>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 1),
+                        new TypePathEntry(WILDCARD_BOUND, 0)))))
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
