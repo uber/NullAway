@@ -1756,4 +1756,23 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")));
   }
+
+  @Test
+  public void testIssue1611OptionalOr() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "import org.jspecify.annotations.NullMarked;",
+            "import java.util.Optional;",
+            "@NullMarked",
+            "public class Main {",
+            "  public static Optional<String> getKey(@Nullable String key) {",
+            "    // BUG: Diagnostic contains: incompatible types",
+            "    return Optional.ofNullable(key).or(() -> Optional.ofNullable(System.getenv(\"DEFAULT_KEY\")));",
+            "  }",
+            "}")
+        .doTest();
+  }
 }
