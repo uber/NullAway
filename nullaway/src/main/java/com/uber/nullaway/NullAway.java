@@ -1310,12 +1310,12 @@ public class NullAway extends BugChecker
 
   private @Nullable Type getFunctionalInterfaceTypeForPolyExpression(
       Tree polyExpressionTree, VisitorState state) {
-    // For a method reference or lambda, prefer a target type restored from the enclosing
-    // invocation's formal parameter. Fall back to a type cached by GenericsChecks, then to javac.
-    Type functionalInterfaceType =
-        genericsChecks.getGroundTargetTypeFromEnclosingInvocation(polyExpressionTree, state);
+    // For a method reference or lambda, prefer a type cached by GenericsChecks. Fall back to a
+    // target type restored from the enclosing invocation's formal parameter, then to javac.
+    Type functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExpressionTree);
     if (functionalInterfaceType == null) {
-      functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExpressionTree);
+      functionalInterfaceType =
+          genericsChecks.getGroundTargetTypeFromEnclosingInvocation(polyExpressionTree, state);
     }
     if (functionalInterfaceType == null) {
       functionalInterfaceType = ASTHelpers.getType(polyExpressionTree);

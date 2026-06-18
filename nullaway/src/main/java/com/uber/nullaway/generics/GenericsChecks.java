@@ -1228,7 +1228,10 @@ public final class GenericsChecks {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
         }
         // Store inferred types for lambda or method reference arguments
-        new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
+        Type.MethodType methodType =
+            handler.onOverrideMethodType(
+                methodSymbol, methodSymbol.type.asMethodType(), state, invocationTree);
+        new InvocationArguments(invocationTree, methodType)
             .forEach(
                 (argument, argPos, formalParamType, unused) -> {
                   if (argument instanceof LambdaExpressionTree
