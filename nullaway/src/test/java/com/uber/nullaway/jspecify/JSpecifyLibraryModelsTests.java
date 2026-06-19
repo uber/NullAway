@@ -34,45 +34,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void optionalOfNullableOr() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            import java.util.Optional;
-            import org.jspecify.annotations.*;
-
-            @NullMarked
-            class Test {
-              static Optional<String> getKey(@Nullable String key) {
-                return Optional.ofNullable(key).or(() -> Optional.ofNullable(System.getenv("DEFAULT_KEY")));
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void optionalOfNullableFilter() {
-    makeHelper()
-        .addSourceLines(
-            "Repro.java",
-            """
-            import java.util.Optional;
-            import org.jspecify.annotations.*;
-
-            @NullMarked
-            public record Repro(@Nullable String name) {
-              public Optional<String> getNameOpt() {
-                return Optional.ofNullable(name).filter(it -> true);
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void optionalExplicitNullableAnnotations() {
+  public void optionalMethods() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -110,6 +72,25 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void optionalMapWithLambdaArg() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              Optional<String> mapCanReturnNullable(Optional<String> value) {
+                return value.map(unused -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("TODO file issue")
   @Test
   public void optionalOrElseGet() {
@@ -132,21 +113,38 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore(
-      "Lambda return checking does not yet use nested nullable type-use annotations from library models")
   @Test
-  public void optionalMapAllowsNullableLambdaReturn() {
+  public void issue1611() {
     makeHelper()
         .addSourceLines(
             "Test.java",
+            """
+                    import java.util.Optional;
+                    import org.jspecify.annotations.*;
+
+                    @NullMarked
+                    class Test {
+                      static Optional<String> getKey(@Nullable String key) {
+                        return Optional.ofNullable(key).or(() -> Optional.ofNullable(System.getenv("DEFAULT_KEY")));
+                      }
+                    }
+                    """)
+        .doTest();
+  }
+
+  @Test
+  public void optionalOfNullableFilterIssue1597() {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
             """
             import java.util.Optional;
             import org.jspecify.annotations.*;
 
             @NullMarked
-            class Test {
-              Optional<String> mapCanReturnNullable(Optional<String> value) {
-                return value.map(unused -> null);
+            public record Repro(@Nullable String name) {
+              public Optional<String> getNameOpt() {
+                return Optional.ofNullable(name).filter(it -> true);
               }
             }
             """)
