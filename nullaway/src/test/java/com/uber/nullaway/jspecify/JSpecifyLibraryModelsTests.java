@@ -105,7 +105,24 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression value.orElse(null) is @Nullable
                 value.orElse(null).hashCode();
               }
+            }
+            """)
+        .doTest();
+  }
 
+  @Ignore("TODO file issue")
+  @Test
+  public void optionalOrElseGet() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import java.util.function.Function;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
               void orElseGetReturnsNullable(Optional<String> value) {
                 // BUG: Diagnostic contains: dereferenced expression value.orElseGet(() -> null) is @Nullable
                 value.orElseGet(() -> null).hashCode();

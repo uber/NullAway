@@ -985,9 +985,9 @@ public class LibraryModelsHandler implements Handler {
             .add(methodRef("android.webkit.WebView", "getUrl()"))
             .add(methodRef("android.widget.TextView", "getLayout()"))
             .add(methodRef("java.util.Optional", "orElse(T)"))
-            .add(
-                methodRef(
-                    "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"))
+            // .add(
+            //    methodRef(
+            //        "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"))
             .add(methodRef("java.lang.System", "console()"))
             .build();
 
@@ -1098,19 +1098,19 @@ public class LibraryModelsHandler implements Handler {
                         new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of()),
                         0,
                         new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of())))
-                .put(
-                    methodRef(
-                        "java.util.Optional",
-                        "orElseGet(java.util.function.Supplier<? extends T>)"),
-                    ImmutableSetMultimap.of(
-                        -1,
-                        new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of()),
-                        0,
-                        new NestedAnnotationInfo(
-                            Annotation.NULLABLE,
-                            ImmutableList.of(
-                                new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0),
-                                new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0)))))
+                /*.put(
+                methodRef(
+                    "java.util.Optional",
+                    "orElseGet(java.util.function.Supplier<? extends T>)"),
+                ImmutableSetMultimap.of(
+                    -1,
+                    new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of()),
+                    0,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(
+                            new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0),
+                            new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0)))))*/
                 .build();
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =
