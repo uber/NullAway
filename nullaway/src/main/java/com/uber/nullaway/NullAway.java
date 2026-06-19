@@ -1160,7 +1160,9 @@ public class NullAway extends BugChecker
     }
     Symbol.MethodSymbol funcInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
-    genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+    if (config.isJSpecifyMode()) {
+      genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+    }
     // we need to update environment mapping before running the handler, as some handlers
     // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(state.getPath(), state);
@@ -1199,7 +1201,9 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
-    genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+    if (config.isJSpecifyMode()) {
+      genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+    }
     // Technically the qualifier expression of a method reference gets passed to
     // Objects.requireNonNull, but it's fine to treat it as a dereference for error-checking
     // purposes.  The error message will be slightly inaccurate

@@ -171,9 +171,9 @@ public final class GenericsChecks {
     if (modeledMethodType == methodType) {
       return;
     }
-    Type formalParameter =
+    Type formalParameterType =
         getFormalParameterTypeForArgument(invocationTree, modeledMethodType, polyExpressionTree);
-    if (formalParameter == null || formalParameter.isRaw()) {
+    if (formalParameterType == null || formalParameterType.isRaw()) {
       return;
     }
     Type polyExpressionType = inferredPolyExpressionTypes.get(polyExpressionTree);
@@ -182,7 +182,7 @@ public final class GenericsChecks {
     }
     if (polyExpressionType != null) {
       Type groundTargetType =
-          GenericsUtils.groundTargetType(formalParameter, state, config, handler);
+          GenericsUtils.groundTargetType(formalParameterType, state, config, handler);
       Type modeledPolyExpressionType =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
               groundTargetType, polyExpressionType, config, Collections.emptyMap());

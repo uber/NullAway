@@ -507,26 +507,6 @@ public class CustomLibraryModelsTests {
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:OnlyNullMarked=true")))
         .addSourceLines(
-            "com/uber/lib/unannotated/LambdaBox.java",
-            """
-            package com.uber.lib.unannotated;
-
-            public class LambdaBox<T> {}
-            """)
-        .addSourceLines(
-            "com/uber/lib/unannotated/LambdaModel.java",
-            """
-            package com.uber.lib.unannotated;
-
-            import java.util.function.Function;
-
-            public class LambdaModel {
-              public static <U> LambdaBox<U> map(Function<String, ? extends U> mapper) {
-                return new LambdaBox<>();
-              }
-            }
-            """)
-        .addSourceLines(
             "Test.java",
             """
             import com.uber.lib.unannotated.LambdaBox;
@@ -555,26 +535,6 @@ public class CustomLibraryModelsTests {
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:OnlyNullMarked=true")))
-        .addSourceLines(
-            "com/uber/lib/unannotated/LambdaBox.java",
-            """
-            package com.uber.lib.unannotated;
-
-            public class LambdaBox<T> {}
-            """)
-        .addSourceLines(
-            "com/uber/lib/unannotated/LambdaModel.java",
-            """
-            package com.uber.lib.unannotated;
-
-            import java.util.function.Function;
-
-            public class LambdaModel {
-              public static <U> LambdaBox<U> map(Function<String, ? extends U> mapper) {
-                return new LambdaBox<>();
-              }
-            }
-            """)
         .addSourceLines(
             "Test.java",
             """
@@ -609,19 +569,6 @@ public class CustomLibraryModelsTests {
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:OnlyNullMarked=true")))
         .addSourceLines(
-            "com/uber/lib/unannotated/LambdaModel.java",
-            """
-            package com.uber.lib.unannotated;
-
-            import java.util.function.Function;
-
-            public class LambdaModel {
-              public static String apply(Function<String, String> mapper) {
-                return mapper.apply("");
-              }
-            }
-            """)
-        .addSourceLines(
             "Test.java",
             """
             import com.uber.lib.unannotated.LambdaModel;
@@ -652,24 +599,6 @@ public class CustomLibraryModelsTests {
                     "-d",
                     temporaryFolder.getRoot().getAbsolutePath(),
                     "-XepOpt:NullAway:OnlyNullMarked=true")))
-        .addSourceLines(
-            "com/uber/lib/unannotated/LambdaConsumer.java",
-            """
-            package com.uber.lib.unannotated;
-
-            public interface LambdaConsumer<T> {
-              void accept(T value);
-            }
-            """)
-        .addSourceLines(
-            "com/uber/lib/unannotated/LambdaModel.java",
-            """
-            package com.uber.lib.unannotated;
-
-            public class LambdaModel {
-              public static void consume(LambdaConsumer<? super String> consumer) {}
-            }
-            """)
         .addSourceLines(
             "Test.java",
             """
