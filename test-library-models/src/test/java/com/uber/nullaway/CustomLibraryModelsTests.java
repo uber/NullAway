@@ -632,6 +632,8 @@ public class CustomLibraryModelsTests {
               void test() {
                 LambdaModel.apply(unused -> null);
                 LambdaModel.apply(Test::returnsNullable);
+                LambdaModel.apply((unused -> null));
+                LambdaModel.apply((Test::returnsNullable));
               }
 
               static @Nullable String returnsNullable(String unused) {

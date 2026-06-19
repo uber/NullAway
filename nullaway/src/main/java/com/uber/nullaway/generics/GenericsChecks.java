@@ -130,7 +130,12 @@ public final class GenericsChecks {
     return inferredPolyExpressionTypes.get(tree);
   }
 
-  /** Stores the library-modeled target type for a direct invocation argument, if one exists. */
+  /**
+   * Handles cases where a poly expression (lambda or method reference) is passed as a parameter,
+   * and the invoked function has a library model for the corresponding formal. In such cases, we
+   * ensure the appropriate formal parameter type from the library model is used when inferring the
+   * type of the poly expression, and cache the result.
+   */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   public void maybeStoreLibraryModeledPolyExpressionType(
       Tree polyExpressionTree, VisitorState state) {
@@ -1912,7 +1917,10 @@ public final class GenericsChecks {
                 return;
               }
 
-              if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
+              ExpressionTree actualParameterWithoutParentheses =
+                  ASTHelpers.stripParentheses(currentActualParam);
+              if (actualParameterWithoutParentheses
+                  instanceof MemberReferenceTree memberReferenceTree) {
                 Type groundFormalParameter =
                     GenericsUtils.groundTargetType(formalParameter, state, config, handler);
                 // the type of the method reference tree provided by javac may not capture
@@ -1934,16 +1942,19 @@ public final class GenericsChecks {
                         }
                       }
                     });
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
+                maybeStorePolyExpressionTypeFromTarget(
+                    actualParameterWithoutParentheses, formalParameter, state);
                 return;
               }
 
               TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
               Type actualParameterType;
-              if (currentActualParam instanceof LambdaExpressionTree) {
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
+              if (actualParameterWithoutParentheses instanceof LambdaExpressionTree) {
+                maybeStorePolyExpressionTypeFromTarget(
+                    actualParameterWithoutParentheses, formalParameter, state);
               }
-              Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);
+              Type inferredPolyType =
+                  inferredPolyExpressionTypes.get(actualParameterWithoutParentheses);
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
