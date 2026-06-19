@@ -374,13 +374,18 @@ public class CustomLibraryModelsTests {
 
             @NullMarked
             class Box<T> {
-              void accept(T value) {}
+              T orElse(T other) {
+                return other;
+              }
             }
 
             @NullMarked
             class Test {
-              void use(Box<?> box) {
-                box.accept(null);
+              void use(Object source, Box<?> box) {
+                Object sourceToUse =
+                    source instanceof Box<?> matched ? matched.orElse(null) : source;
+                // BUG: Diagnostic contains: dereferenced expression box.orElse(null) is @Nullable
+                box.orElse(null).toString();
               }
             }
             """)
