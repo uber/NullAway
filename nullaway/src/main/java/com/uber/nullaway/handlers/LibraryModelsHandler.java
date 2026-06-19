@@ -985,6 +985,7 @@ public class LibraryModelsHandler implements Handler {
             .add(methodRef("android.webkit.WebView", "getUrl()"))
             .add(methodRef("android.widget.TextView", "getLayout()"))
             .add(methodRef("java.util.Optional", "orElse(T)"))
+            // https://github.com/uber/NullAway/issues/1616
             // .add(
             //    methodRef(
             //        "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"))
@@ -1098,6 +1099,7 @@ public class LibraryModelsHandler implements Handler {
                         new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of()),
                         0,
                         new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of())))
+                // https://github.com/uber/NullAway/issues/1616
                 /*.put(
                 methodRef(
                     "java.util.Optional",
