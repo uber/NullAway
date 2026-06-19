@@ -359,6 +359,35 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void topLevelAnnotationOnWildcardSubstitutedMethodType() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Box<T> {
+              void accept(T value) {}
+            }
+
+            @NullMarked
+            class Test {
+              void use(Box<?> box) {
+                box.accept(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void deeplyNestedTypeAnnot() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(

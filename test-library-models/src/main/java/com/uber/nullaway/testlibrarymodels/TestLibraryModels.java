@@ -318,6 +318,10 @@ public class TestLibraryModels implements LibraryModels {
                 0,
                 new NestedAnnotationInfo(
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .put(
+            methodRef("com.uber.Box", "accept(T)"),
+            ImmutableSetMultimap.of(
+                0, new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of())))
         .build();
   }
 }
