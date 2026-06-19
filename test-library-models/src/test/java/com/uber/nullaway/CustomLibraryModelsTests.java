@@ -370,14 +370,8 @@ public class CustomLibraryModelsTests {
             "Test.java",
             """
             package com.uber;
+            import com.uber.lib.unannotated.Box;
             import org.jspecify.annotations.*;
-
-            @NullMarked
-            class Box<T> {
-              T orElse(T other) {
-                return other;
-              }
-            }
 
             @NullMarked
             class Test {
