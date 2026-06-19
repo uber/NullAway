@@ -91,7 +91,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("TODO file issue")
+  @Ignore("https://github.com/uber/NullAway/issues/1616")
   @Test
   public void optionalOrElseGet() {
     makeHelper()
