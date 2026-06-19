@@ -144,15 +144,11 @@ public final class GenericsChecks {
             || polyExpressionTree instanceof MemberReferenceTree,
         "Expected lambda or method reference tree but got: %s",
         polyExpressionTree.getKind());
-    TreePath polyExpressionPath = state.getPath();
-    while (polyExpressionPath != null
-        && ASTHelpers.stripParentheses(polyExpressionPath.getLeaf()) != polyExpressionTree) {
-      polyExpressionPath = polyExpressionPath.getParentPath();
-    }
-    if (polyExpressionPath == null) {
-      return;
-    }
-    TreePath invocationPath = polyExpressionPath.getParentPath();
+    Preconditions.checkArgument(
+        state.getPath().getLeaf() == polyExpressionTree,
+        "Expected current path leaf to be the poly expression");
+    TreePath invocationPath = state.getPath().getParentPath();
+    // Skip parentheses around the invocation argument.
     while (invocationPath != null && invocationPath.getLeaf() instanceof ParenthesizedTree) {
       invocationPath = invocationPath.getParentPath();
     }
