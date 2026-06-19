@@ -538,6 +538,10 @@ public class CustomLibraryModelsTests {
               LambdaBox<String> test() {
                 return LambdaModel.map(unused -> null);
               }
+
+              LambdaBox<String> testExplicitTypeArgument() {
+                return LambdaModel.<String>map(unused -> null);
+              }
             }
             """)
         .doTest();
@@ -582,6 +586,52 @@ public class CustomLibraryModelsTests {
             class Test {
               LambdaBox<String> test() {
                 return LambdaModel.map(Test::returnsNullable);
+              }
+
+              LambdaBox<String> testExplicitTypeArgument() {
+                return LambdaModel.<String>map(Test::returnsNullable);
+              }
+
+              static @Nullable String returnsNullable(String unused) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonGenericModeledMethodUsesModeledFunctionReturn() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "com/uber/lib/unannotated/LambdaModel.java",
+            """
+            package com.uber.lib.unannotated;
+
+            import java.util.function.Function;
+
+            public class LambdaModel {
+              public static String apply(Function<String, String> mapper) {
+                return mapper.apply("");
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              void test() {
+                LambdaModel.apply(unused -> null);
+                LambdaModel.apply(Test::returnsNullable);
               }
 
               static @Nullable String returnsNullable(String unused) {

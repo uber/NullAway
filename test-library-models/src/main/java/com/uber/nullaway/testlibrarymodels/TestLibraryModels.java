@@ -270,6 +270,14 @@ public class TestLibraryModels implements LibraryModels {
         .put(
             methodRef(
                 "com.uber.lib.unannotated.LambdaModel",
+                "apply(java.util.function.Function<java.lang.String,java.lang.String>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 1)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.LambdaModel",
                 "consume(com.uber.lib.unannotated.LambdaConsumer<? super java.lang.String>)"),
             ImmutableSetMultimap.of(
                 0,

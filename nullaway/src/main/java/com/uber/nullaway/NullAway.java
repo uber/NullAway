@@ -847,11 +847,16 @@ public class NullAway extends BugChecker
           // Check if the parameter type is a type variable and the corresponding generic type
           // argument is @Nullable
           if (memberReferenceTree != null || lambdaExpressionTree != null) {
+            // For a method reference or lambda, try to use a type inferred by GenericsChecks for
+            // the tree.  Fall back on the type inferred by javac.
             Tree polyExprTree =
                 castToNonNull(
                     memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
             Type functionalInterfaceType =
-                getFunctionalInterfaceTypeForPolyExpression(polyExprTree, state);
+                genericsChecks.getInferredPolyExpressionType(polyExprTree);
+            if (functionalInterfaceType == null) {
+              functionalInterfaceType = ASTHelpers.getType(polyExprTree);
+            }
             paramNullness =
                 genericsChecks.getGenericMethodParameterNullness(
                     i, overriddenMethod, functionalInterfaceType, state);
@@ -1124,11 +1129,7 @@ public class NullAway extends BugChecker
       if (inferredType != null) {
         lambdaType = inferredType;
       }
-      Nullness invocationTargetReturnNullness =
-          genericsChecks.getFunctionalInterfaceReturnNullnessFromEnclosingInvocation(
-              lambdaTree, methodSymbol, state);
-      if (Nullness.NULLABLE.equals(invocationTargetReturnNullness)
-          || genericsChecks
+      if (genericsChecks
               .getGenericMethodReturnTypeNullness(methodSymbol, lambdaType, state)
               .equals(Nullness.NULLABLE)
           || genericsChecks.passingLambdaOrMethodRefWithGenericReturnToUnmarkedCode(
@@ -1159,6 +1160,7 @@ public class NullAway extends BugChecker
     }
     Symbol.MethodSymbol funcInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
+    genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
     // we need to update environment mapping before running the handler, as some handlers
     // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(state.getPath(), state);
@@ -1197,6 +1199,7 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
     // Technically the qualifier expression of a method reference gets passed to
     // Objects.requireNonNull, but it's fine to treat it as a dereference for error-checking
     // purposes.  The error message will be slightly inaccurate
@@ -1290,8 +1293,13 @@ public class NullAway extends BugChecker
     // using the type arguments from the type enclosing the overriding method
     if (config.isJSpecifyMode()) {
       if (memberReferenceTree != null) {
+        // For a method reference, we get generic type arguments from javac's inferred type for the
+        // tree, which properly preserves type-use annotations
         Type functionalInterfaceType =
-            getFunctionalInterfaceTypeForPolyExpression(memberReferenceTree, state);
+            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
+        if (functionalInterfaceType == null) {
+          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
+        }
         return genericsChecks
                 .getGenericMethodReturnTypeNullness(
                     overriddenMethod, functionalInterfaceType, state)
@@ -1306,21 +1314,6 @@ public class NullAway extends BugChecker
       }
     }
     return true;
-  }
-
-  private @Nullable Type getFunctionalInterfaceTypeForPolyExpression(
-      Tree polyExpressionTree, VisitorState state) {
-    // For a method reference or lambda, prefer a type cached by GenericsChecks. Fall back to a
-    // target type restored from the enclosing invocation's formal parameter, then to javac.
-    Type functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExpressionTree);
-    if (functionalInterfaceType == null) {
-      functionalInterfaceType =
-          genericsChecks.getGroundTargetTypeFromEnclosingInvocation(polyExpressionTree, state);
-    }
-    if (functionalInterfaceType == null) {
-      functionalInterfaceType = ASTHelpers.getType(polyExpressionTree);
-    }
-    return functionalInterfaceType;
   }
 
   @Override

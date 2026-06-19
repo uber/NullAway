@@ -130,120 +130,63 @@ public final class GenericsChecks {
     return inferredPolyExpressionTypes.get(tree);
   }
 
-  /**
-   * If a lambda is being passed as an invocation argument, returns the nullness of the return type
-   * of its functional interface method as a member of the invocation's formal parameter type.
-   *
-   * <p>This is needed before lambda body checking, which can happen before the enclosing invocation
-   * itself is checked and caches the lambda target type.
-   */
-  public @Nullable Nullness getFunctionalInterfaceReturnNullnessFromEnclosingInvocation(
-      LambdaExpressionTree lambdaTree,
-      Symbol.MethodSymbol functionalInterfaceMethod,
-      VisitorState state) {
-    Type groundTargetType = getGroundTargetTypeFromEnclosingInvocation(lambdaTree, state);
-    if (groundTargetType == null) {
-      return null;
-    }
-    Type functionalInterfaceMethodType =
-        TypeSubstitutionUtils.memberType(
-            state.getTypes(), groundTargetType, functionalInterfaceMethod, config);
-    verify(
-        functionalInterfaceMethodType instanceof ExecutableType,
-        "expected ExecutableType but instead got %s",
-        functionalInterfaceMethodType.getClass());
-    return getReturnTypeNullness(functionalInterfaceMethodType.getReturnType(), state);
-  }
-
-  /**
-   * If a lambda or method reference is being passed as an invocation argument, returns the grounded
-   * functional-interface target type from the corresponding formal parameter type.
-   */
-  public @Nullable Type getGroundTargetTypeFromEnclosingInvocation(
-      Tree polyExpressionTree, VisitorState state) {
-    Type formalParameterType =
-        getFormalParameterTypeFromEnclosingInvocation(polyExpressionTree, state);
-    if (formalParameterType == null || formalParameterType.isRaw()) {
-      return null;
-    }
-    return GenericsUtils.groundTargetType(formalParameterType, state, config, handler);
-  }
-
-  @SuppressWarnings("ReferenceEquality") // deliberate Tree identity comparison
-  private @Nullable Type getFormalParameterTypeFromEnclosingInvocation(
+  /** Stores the library-modeled target type for a direct invocation argument, if one exists. */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  public void maybeStoreLibraryModeledPolyExpressionType(
       Tree polyExpressionTree, VisitorState state) {
     Preconditions.checkArgument(
         polyExpressionTree instanceof LambdaExpressionTree
             || polyExpressionTree instanceof MemberReferenceTree,
         "Expected lambda or method reference tree but got: %s",
         polyExpressionTree.getKind());
-    TreePath path = state.getPath();
-    while (path != null && ASTHelpers.stripParentheses(path.getLeaf()) != polyExpressionTree) {
-      path = path.getParentPath();
+    TreePath polyExpressionPath = state.getPath();
+    while (polyExpressionPath != null
+        && ASTHelpers.stripParentheses(polyExpressionPath.getLeaf()) != polyExpressionTree) {
+      polyExpressionPath = polyExpressionPath.getParentPath();
     }
-    if (path == null || path.getParentPath() == null) {
-      return null;
+    if (polyExpressionPath == null) {
+      return;
     }
-    TreePath invocationPath = path.getParentPath();
-    Tree parent = invocationPath.getLeaf();
-    Symbol invocationSymbol = ASTHelpers.getSymbol(parent);
-    if (!(invocationSymbol instanceof Symbol.MethodSymbol methodSymbol)) {
-      return null;
+    TreePath invocationPath = polyExpressionPath.getParentPath();
+    while (invocationPath != null && invocationPath.getLeaf() instanceof ParenthesizedTree) {
+      invocationPath = invocationPath.getParentPath();
     }
-    Type.MethodType methodType =
-        getInvocationMethodType(
-            methodSymbol, parent, state.withPath(invocationPath), invocationPath, false);
-    return getFormalParameterTypeForArgument(parent, methodType, polyExpressionTree);
-  }
-
-  @SuppressWarnings("ReferenceEquality") // deliberate Tree identity comparison
-  private Type.MethodType getInvocationMethodType(
-      Symbol.MethodSymbol methodSymbol,
-      Tree invocationTree,
-      VisitorState state,
-      @Nullable TreePath invocationPath,
-      boolean calledFromDataflow) {
-    Type invokedMethodType = methodSymbol.type;
-    Type enclosingType = null;
-    if (invocationTree instanceof NewClassTree newClassTree) {
-      if (hasInferredClassTypeArguments(newClassTree)) {
-        TreePath currentPath = invocationPath != null ? invocationPath : state.getPath();
-        if (currentPath != null
-            && ASTHelpers.stripParentheses(currentPath.getLeaf()) == invocationTree) {
-          TreePath parentPath = currentPath.getParentPath();
-          if (parentPath != null) {
-            enclosingType =
-                getDiamondTypeFromParentContext(
-                    newClassTree, state, parentPath, calledFromDataflow);
-          }
-        }
-      }
+    if (invocationPath == null
+        || !(invocationPath.getLeaf() instanceof MethodInvocationTree invocationTree)) {
+      return;
     }
-    if (enclosingType == null) {
-      enclosingType =
-          getEnclosingTypeForCallExpression(
-              methodSymbol, invocationTree, invocationPath, state, calledFromDataflow);
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    if (methodSymbol == null) {
+      return;
     }
-    if (enclosingType != null) {
-      invokedMethodType =
-          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+    Type attributedMethodType = ASTHelpers.getType(invocationTree.getMethodSelect());
+    if (attributedMethodType == null) {
+      return;
     }
-
-    // substitute type arguments for generic methods with explicit type arguments
-    if (invocationTree instanceof MethodInvocationTree
-        && invokedMethodType instanceof Type.ForAll) {
-      invokedMethodType =
-          substituteTypeArgsInGenericMethodType(
-              invocationTree, (Type.ForAll) invokedMethodType, invocationPath, state, false);
+    Type.MethodType methodType = attributedMethodType.asMethodType();
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(
+            methodSymbol, methodType, state.withPath(invocationPath), invocationTree);
+    if (modeledMethodType == methodType) {
+      return;
     }
-
-    return handler.onOverrideMethodType(
-        methodSymbol,
-        invokedMethodType.asMethodType(),
-        state,
-        invocationTree instanceof MethodInvocationTree methodInvocationTree
-            ? methodInvocationTree
-            : null);
+    Type formalParameter =
+        getFormalParameterTypeForArgument(invocationTree, modeledMethodType, polyExpressionTree);
+    if (formalParameter == null || formalParameter.isRaw()) {
+      return;
+    }
+    Type polyExpressionType = inferredPolyExpressionTypes.get(polyExpressionTree);
+    if (polyExpressionType == null) {
+      polyExpressionType = ASTHelpers.getType(polyExpressionTree);
+    }
+    if (polyExpressionType != null) {
+      Type groundTargetType =
+          GenericsUtils.groundTargetType(formalParameter, state, config, handler);
+      Type modeledPolyExpressionType =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              groundTargetType, polyExpressionType, config, Collections.emptyMap());
+      inferredPolyExpressionTypes.put(polyExpressionTree, modeledPolyExpressionType);
+    }
   }
 
   private final NullAway analysis;
@@ -1228,10 +1171,7 @@ public final class GenericsChecks {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
         }
         // Store inferred types for lambda or method reference arguments
-        Type.MethodType methodType =
-            handler.onOverrideMethodType(
-                methodSymbol, methodSymbol.type.asMethodType(), state, invocationTree);
-        new InvocationArguments(invocationTree, methodType)
+        new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
             .forEach(
                 (argument, argPos, formalParamType, unused) -> {
                   if (argument instanceof LambdaExpressionTree
@@ -1928,8 +1868,42 @@ public final class GenericsChecks {
     if (!config.isJSpecifyMode()) {
       return;
     }
+    Type invokedMethodType = methodSymbol.type;
+    Type enclosingType = null;
+    if (tree instanceof NewClassTree newClassTree) {
+      if (hasInferredClassTypeArguments(newClassTree)) {
+        TreePath currentPath = state.getPath();
+        if (currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree) {
+          TreePath parentPath = currentPath.getParentPath();
+          if (parentPath != null) {
+            enclosingType = getDiamondTypeFromParentContext(newClassTree, state, parentPath, false);
+          }
+        }
+      }
+    }
+    if (enclosingType == null) {
+      enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, null, state, false);
+    }
+    if (enclosingType != null) {
+      invokedMethodType =
+          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+    }
+
+    // substitute type arguments for generic methods with explicit type arguments
+    if (tree instanceof MethodInvocationTree && invokedMethodType instanceof Type.ForAll) {
+      invokedMethodType =
+          substituteTypeArgsInGenericMethodType(
+              tree, (Type.ForAll) invokedMethodType, null, state, false);
+    }
+
     Type.MethodType finalMethodType =
-        getInvocationMethodType(methodSymbol, tree, state, state.getPath(), false);
+        handler.onOverrideMethodType(
+            methodSymbol,
+            invokedMethodType.asMethodType(),
+            state,
+            tree instanceof MethodInvocationTree methodInvocationTree
+                ? methodInvocationTree
+                : null);
     new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
