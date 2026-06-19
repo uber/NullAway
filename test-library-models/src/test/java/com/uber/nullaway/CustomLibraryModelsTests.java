@@ -593,6 +593,58 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void functionalInterfaceParameterUsesNestedLibraryModelLowerBound() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "com/uber/lib/unannotated/LambdaConsumer.java",
+            """
+            package com.uber.lib.unannotated;
+
+            public interface LambdaConsumer<T> {
+              void accept(T value);
+            }
+            """)
+        .addSourceLines(
+            "com/uber/lib/unannotated/LambdaModel.java",
+            """
+            package com.uber.lib.unannotated;
+
+            public class LambdaModel {
+              public static void consume(LambdaConsumer<? super String> consumer) {}
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              void test() {
+                LambdaModel.consume(value -> {
+                  // BUG: Diagnostic contains: dereferenced expression value is @Nullable
+                  value.length();
+                });
+                LambdaModel.consume(Test::acceptsNullable);
+                // BUG: Diagnostic contains: parameter value of referenced method is @NonNull
+                LambdaModel.consume(Test::acceptsNonNull);
+              }
+
+              static void acceptsNullable(@Nullable String value) {}
+
+              static void acceptsNonNull(String value) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
