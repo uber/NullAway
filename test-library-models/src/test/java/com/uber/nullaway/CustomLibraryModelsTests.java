@@ -609,7 +609,7 @@ public class CustomLibraryModelsTests {
             class Test {
               void test() {
                 LambdaModel.consume(value -> {
-                  // BUG: Diagnostic contains: dereferenced expression value is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
                   value.length();
                 });
                 LambdaModel.consume(Test::acceptsNullable);
