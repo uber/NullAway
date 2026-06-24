@@ -275,7 +275,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
             public class Test {
               void foo() {
                 RestrictivelyAnnotatedFI func = (x) -> {
-                  // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                   x.toString();
                   return new Object();
                 };

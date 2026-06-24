@@ -301,7 +301,7 @@ public class GuavaAssertionsTests extends NullAwayTestsBase {
             class Test {
               private void foo(@Nullable Object a) {
                 Preconditions.checkArgument(this.hashCode() != 5);
-                // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.toString();
               }
             }
@@ -325,7 +325,7 @@ public class GuavaAssertionsTests extends NullAwayTestsBase {
             class Test {
               private void foo(@Nullable Object a) {
                 Preconditions.checkArgument(this.hashCode() != 5 || a != null);
-                // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.toString();
               }
             }
@@ -351,7 +351,7 @@ public class GuavaAssertionsTests extends NullAwayTestsBase {
                 try {
                   Preconditions.checkArgument(a != null);
                 } catch (IllegalArgumentException e) {}
-                // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.toString();
               }
             }
@@ -377,7 +377,7 @@ public class GuavaAssertionsTests extends NullAwayTestsBase {
                 try {
                   Preconditions.checkState(a != null);
                 } catch (IllegalStateException e) {}
-                // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.toString();
               }
             }

@@ -29,7 +29,7 @@ public class SuppressionTests extends NullAwayTestsBase {
               }
               @SuppressWarnings("Baz")
               void baz(@Nullable Object o) {
-                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                 o.getClass();
               }
             }
@@ -247,7 +247,7 @@ public class SuppressionTests extends NullAwayTestsBase {
                 f.next.next.hashCode();
                 f.next.next.next.hashCode();
                 // one too many
-                // BUG: Diagnostic contains: dereferenced expression f.next.next.next.next is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'f.next.next.next.next' is @Nullable
                 f.next.next.next.next.hashCode();
               }
 
@@ -258,7 +258,7 @@ public class SuppressionTests extends NullAwayTestsBase {
                 f.getNext().getNext().hashCode();
                 f.getNext().getNext().getNext().hashCode();
                 // one too many
-                // BUG: Diagnostic contains: dereferenced expression f.getNext().getNext().getNext().getNext() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'f.getNext().getNext().getNext().getNext()' is @Nullable
                 f.getNext().getNext().getNext().getNext().hashCode();
               }
             }

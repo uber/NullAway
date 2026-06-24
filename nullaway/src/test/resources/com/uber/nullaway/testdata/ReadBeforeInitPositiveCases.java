@@ -32,10 +32,10 @@ public class ReadBeforeInitPositiveCases {
     Object g;
 
     T1() {
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       System.out.println(f.toString());
       f = new Object();
-      // BUG: Diagnostic contains: read of @NonNull field g before
+      // BUG: Diagnostic contains: read of @NonNull field 'g' before
       System.out.println(g.toString());
       g = new Object();
     }
@@ -44,7 +44,7 @@ public class ReadBeforeInitPositiveCases {
       if (b) {
         f = new Object();
       }
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       System.out.println(f.toString());
       f = new Object();
       g = new Object();
@@ -57,14 +57,14 @@ public class ReadBeforeInitPositiveCases {
     Object f2;
 
     {
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       System.out.println(f.toString());
     }
 
-    // BUG: Diagnostic contains: read of @NonNull field f2 before
+    // BUG: Diagnostic contains: read of @NonNull field 'f2' before
     Object g = f2;
 
-    // BUG: Diagnostic contains: read of @NonNull field f2 before
+    // BUG: Diagnostic contains: read of @NonNull field 'f2' before
     Object h = str(f2);
 
     T2() {
@@ -83,11 +83,11 @@ public class ReadBeforeInitPositiveCases {
     static Object f2;
 
     static {
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       System.out.println(f.toString());
     }
 
-    // BUG: Diagnostic contains: read of @NonNull field f2 before
+    // BUG: Diagnostic contains: read of @NonNull field 'f2' before
     static Object g = f2;
 
     static {
@@ -102,7 +102,7 @@ public class ReadBeforeInitPositiveCases {
     Object g;
 
     InvokePrivate() {
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       f.toString();
       initF();
       initG();
@@ -123,7 +123,7 @@ public class ReadBeforeInitPositiveCases {
     Object f;
 
     StoreInLocal() {
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       Object x = this.f;
       x.toString();
       this.f = new Object();
@@ -136,7 +136,7 @@ public class ReadBeforeInitPositiveCases {
     Object baz;
 
     NestedWrite() {
-      // BUG: Diagnostic contains: read of @NonNull field foo before
+      // BUG: Diagnostic contains: read of @NonNull field 'foo' before
       this.foo.baz = new Object();
       this.foo = new NestedWrite();
       this.baz = new Object();
@@ -149,7 +149,7 @@ public class ReadBeforeInitPositiveCases {
 
     @Initializer
     public void init() {
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       f.toString();
       f = new Object();
     }
@@ -175,7 +175,7 @@ public class ReadBeforeInitPositiveCases {
     @Initializer
     public void init() {
       g.toString();
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       f.toString();
     }
   }
@@ -188,7 +188,7 @@ public class ReadBeforeInitPositiveCases {
     @Initializer
     static void init() {
       g.toString();
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       f.toString();
     }
 
@@ -203,7 +203,7 @@ public class ReadBeforeInitPositiveCases {
 
     @Initializer
     void init() {
-      // BUG: Diagnostic contains: read of @NonNull field f before
+      // BUG: Diagnostic contains: read of @NonNull field 'f' before
       f = Util.id(f);
     }
   }

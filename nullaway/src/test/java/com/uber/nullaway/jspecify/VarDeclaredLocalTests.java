@@ -27,12 +27,12 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
               }
               void test() {
                 var foo1 = make(null);
-                // BUG: Diagnostic contains: dereferenced expression foo1.get() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'foo1.get()' is @Nullable
                 foo1.get().hashCode();
                 var foo2 = make(new Object());
                 foo2.get().hashCode();
                 var foo3 = make(null);
-                // BUG: Diagnostic contains: dereferenced expression foo3.get() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'foo3.get()' is @Nullable
                 foo3.get().hashCode();
               }
             }
@@ -125,14 +125,14 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
               }
               void test() {
                 for (var foo1 = make(null); foo1 == null; ) {
-                  // BUG: Diagnostic contains: dereferenced expression foo1.get() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'foo1.get()' is @Nullable
                   foo1.get().hashCode();
                 }
                 for (var foo1 = make(new Object()); foo1 == null; ) {
                   foo1.get().hashCode();
                 }
                 for (var foo1 = make(null); foo1 == null; ) {
-                  // BUG: Diagnostic contains: dereferenced expression foo1.get() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'foo1.get()' is @Nullable
                   foo1.get().hashCode();
                 }
               }
@@ -161,7 +161,7 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                 String s = "hello";
                 while (true) {
                   var foo = make(s);
-                  // BUG: Diagnostic contains: dereferenced expression foo.get() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'foo.get()' is @Nullable
                   foo.get().hashCode();
                   s = null;
                 }
@@ -196,7 +196,7 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                   @Override
                   public void run() {
                     var foo = make(null);
-                    // BUG: Diagnostic contains: dereferenced expression foo.get() is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'foo.get()' is @Nullable
                     foo.get().hashCode();
                   }
                 };
