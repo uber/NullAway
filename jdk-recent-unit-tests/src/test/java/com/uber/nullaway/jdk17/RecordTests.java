@@ -58,7 +58,7 @@ public class RecordTests {
               public void testRecordConstructors() {
                 Rec rec = new Rec(new Object(), null);
                 rec.first().toString();
-                // BUG: Diagnostic contains: dereferenced expression 'rec.second()
+                // BUG: Diagnostic contains: dereferenced expression 'rec.second()' is @Nullable
                 rec.second().toString();
               }
             }
@@ -85,7 +85,7 @@ public class RecordTests {
                 }
                 void derefs() {
                   first().toString();
-                  // BUG: Diagnostic contains: dereferenced expression 'second()
+                  // BUG: Diagnostic contains: dereferenced expression 'second()' is @Nullable
                   second().toString();
                 }
               }
@@ -113,7 +113,7 @@ public class RecordTests {
                 }
                 void derefs() {
                   first.toString();
-                  // BUG: Diagnostic contains: dereferenced expression 'second
+                  // BUG: Diagnostic contains: dereferenced expression 'second' is @Nullable
                   second.toString();
                 }
               }
@@ -134,7 +134,7 @@ public class RecordTests {
               record Rec(Object first, @Nullable Object second) {
                 Rec {
                   first.toString();
-                  // BUG: Diagnostic contains: dereferenced expression 'second
+                  // BUG: Diagnostic contains: dereferenced expression 'second' is @Nullable
                   second.toString();
                 }
               }

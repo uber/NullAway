@@ -126,7 +126,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 }
               }
               static void bar() {
-                // BUG: Diagnostic contains: dereferenced expression 'Inner.foo()
+                // BUG: Diagnostic contains: dereferenced expression 'Inner.foo()' is @Nullable
                 Inner.foo().toString();
               }
             }

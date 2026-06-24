@@ -823,7 +823,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             package com.uber;
             class Test {
               void foo() {
-                 // BUG: Diagnostic contains: dereferenced expression 'System.console()
+                 // BUG: Diagnostic contains: dereferenced expression 'System.console()' is @Nullable
                 System.console().toString();
               }
             }

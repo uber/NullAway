@@ -330,7 +330,7 @@ public class JDKIntegrationTest {
               static void testPositive() {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                 ParameterAnnotation.takesNonNullGenericArray(null);
-                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableGenericArray()
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableGenericArray()' is @Nullable
                 ReturnAnnotation.returnNullableGenericArray().hashCode();
               }
               static void testNegative() {
@@ -358,7 +358,7 @@ public class JDKIntegrationTest {
             import com.uber.nullaway.jdkannotations.ReturnAnnotation;
             class Test {
               static void testPositive() {
-                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableGenericContainingNullable()
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableGenericContainingNullable()' is @Nullable
                 ReturnAnnotation.returnNullableGenericContainingNullable().hashCode();
               }
               static void testNegative() {

@@ -38,13 +38,13 @@ public class CapturingScopes {
 
           @Override
           public void run() {
-            // BUG: Diagnostic contains: dereferenced expression 'outerVar
+            // BUG: Diagnostic contains: dereferenced expression 'outerVar' is @Nullable
             System.out.println(outerVar.toString());
           }
         });
       } else {
         return () -> {
-          // BUG: Diagnostic contains: dereferenced expression 'outerVar
+          // BUG: Diagnostic contains: dereferenced expression 'outerVar' is @Nullable
           outerVar.hashCode();
         };
       }
@@ -64,9 +64,9 @@ public class CapturingScopes {
         void foo() {
           // safe
           var1.toString();
-          // BUG: Diagnostic contains: dereferenced expression 'var2
+          // BUG: Diagnostic contains: dereferenced expression 'var2' is @Nullable
           var2.hashCode();
-          // BUG: Diagnostic contains: dereferenced expression 'var3
+          // BUG: Diagnostic contains: dereferenced expression 'var3' is @Nullable
           var3.hashCode();
         }
       }
@@ -82,9 +82,9 @@ public class CapturingScopes {
           Object var2 = o;
           class Local2 {
             void bar() {
-              // BUG: Diagnostic contains: dereferenced expression 'var1
+              // BUG: Diagnostic contains: dereferenced expression 'var1' is @Nullable
               var1.hashCode();
-              // BUG: Diagnostic contains: dereferenced expression 'var2
+              // BUG: Diagnostic contains: dereferenced expression 'var2' is @Nullable
               var2.hashCode();
             }
           }
@@ -99,7 +99,7 @@ public class CapturingScopes {
       Function<String, String> f =
           (x) -> {
             Object o = null;
-            // BUG: Diagnostic contains: dereferenced expression 'o
+            // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
             Function<String, String> g = (y) -> x.toString() + o.toString() + y.toString();
             return g.apply("hello");
           };

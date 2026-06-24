@@ -62,7 +62,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
             public class Test {
               public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {
                 if (c.get("KEY_STR") != null && c.get("KEY_STR").get(0) != null) {
-                  // BUG: Diagnostic contains: dereferenced expression 'c.get("KEY_STR").get(42)
+                  // BUG: Diagnostic contains: dereferenced expression 'c.get("KEY_STR").get(42)' is @Nullable
                   c.get("KEY_STR").get(42).toString();
                 }
               }

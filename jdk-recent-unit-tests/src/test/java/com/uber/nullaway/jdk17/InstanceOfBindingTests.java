@@ -39,7 +39,7 @@ public class InstanceOfBindingTests {
                   s.toString();
                   o.toString();
                 }
-                // BUG: Diagnostic contains: dereferenced expression 'o
+                // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                 o.toString();
               }
             }
