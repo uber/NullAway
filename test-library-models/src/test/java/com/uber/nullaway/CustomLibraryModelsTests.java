@@ -378,7 +378,7 @@ public class CustomLibraryModelsTests {
               void use(Object source, Box<?> box) {
                 Object sourceToUse =
                     source instanceof Box<?> matched ? matched.orElse(null) : source;
-                // BUG: Diagnostic contains: dereferenced expression box.orElse(null) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'box.orElse(null)' is @Nullable
                 box.orElse(null).toString();
               }
             }
