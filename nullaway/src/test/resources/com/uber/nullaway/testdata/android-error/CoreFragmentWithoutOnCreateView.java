@@ -7,7 +7,7 @@ import android.os.Bundle;
 public class CoreFragmentWithoutOnCreateView extends Fragment {
 
   private Object mOnCreateInitialisedField;
-  // BUG: Diagnostic contains: @NonNull field mOnCreateViewInitialisedField not initialized
+  // BUG: Diagnostic contains: @NonNull field 'mOnCreateViewInitialisedField' not initialized
   private Object mOnCreateViewInitialisedField;
   private Object mOnAttachInitialisedField;
 

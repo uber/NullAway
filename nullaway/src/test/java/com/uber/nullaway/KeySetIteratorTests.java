@@ -37,7 +37,7 @@ public class KeySetIteratorTests extends NullAwayTestsBase {
                 for (Object k: m.keySet()) {
                   m.get(k).toString();
                 }
-                // BUG: Diagnostic contains: dereferenced expression m.get(k) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'm.get(k)' is @Nullable
                 m.get(k).toString();
               }
             }
@@ -72,7 +72,7 @@ public class KeySetIteratorTests extends NullAwayTestsBase {
                 }
                 for (Object k: mw.getMF2(j).keySet()) {
                   // Report error since we cannot represent mw.getMF2(j).get(k) with an access path
-                  // BUG: Diagnostic contains: dereferenced expression mw.getMF2(j).get(k) is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'mw.getMF2(j).get(k)' is @Nullable
                   mw.getMF2(j).get(k).toString();
                 }
               }

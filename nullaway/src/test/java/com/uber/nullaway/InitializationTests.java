@@ -117,7 +117,7 @@ public class InitializationTests extends NullAwayTestsBase {
             """
             package com.uber;
             class Test2 {
-              // BUG: Diagnostic contains: @NonNull field f not initialized
+              // BUG: Diagnostic contains: @NonNull field 'f' not initialized
               Object f;
             // must be on a constructor!
               @ExternalInitConstructor

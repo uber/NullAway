@@ -192,7 +192,7 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
               static class FieldExplicitAccessEntity {
                 @Access(AccessType.FIELD) Long idExplicitAccess;
                 // @Access annotation does not apply to this other field
-                // BUG: Diagnostic contains: @NonNull field JpaEntities$FieldExplicitAccessEntity.name not initialized
+                // BUG: Diagnostic contains: @NonNull field 'JpaEntities$FieldExplicitAccessEntity.name' not initialized
                 String name;
               }
             }
@@ -224,18 +224,18 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
             @Entity
             class JpaNonPersistentFields {
               @Id Long id;
-              // BUG: Diagnostic contains: @NonNull field javaTransient not initialized
+              // BUG: Diagnostic contains: @NonNull field 'javaTransient' not initialized
               transient String javaTransient;
               @jakarta.persistence.Transient
-              // BUG: Diagnostic contains: @NonNull field jakartaTransient not initialized
+              // BUG: Diagnostic contains: @NonNull field 'jakartaTransient' not initialized
               String jakartaTransient;
               @javax.persistence.Transient
-              // BUG: Diagnostic contains: @NonNull field javaxTransient not initialized
+              // BUG: Diagnostic contains: @NonNull field 'javaxTransient' not initialized
               String javaxTransient;
               @org.springframework.data.annotation.Transient
-              // BUG: Diagnostic contains: @NonNull field springDataTransient not initialized
+              // BUG: Diagnostic contains: @NonNull field 'springDataTransient' not initialized
               String springDataTransient;
-              // BUG: Diagnostic contains: @NonNull static field staticField not initialized
+              // BUG: Diagnostic contains: @NonNull static field 'staticField' not initialized
               static String staticField;
             }
             """)
@@ -246,7 +246,7 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
             import jakarta.persistence.Entity;
             @Entity
             class UnknownJpaAccess {
-              // BUG: Diagnostic contains: @NonNull field name not initialized
+              // BUG: Diagnostic contains: @NonNull field 'name' not initialized
               String name;
             }
             """)
@@ -269,9 +269,9 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
             class PropertyAccessEntity {
               Long id;
               String name;
-              // BUG: Diagnostic contains: @NonNull field helper not initialized
+              // BUG: Diagnostic contains: @NonNull field 'helper' not initialized
               String helper;
-              // BUG: Diagnostic contains: @NonNull field derived not initialized
+              // BUG: Diagnostic contains: @NonNull field 'derived' not initialized
               String derived;
               @Id
               public Long getId() {
@@ -377,7 +377,7 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
             import jakarta.persistence.Id;
             @Entity
             class Test {
-              // BUG: Diagnostic contains: @NonNull field id not initialized
+              // BUG: Diagnostic contains: @NonNull field 'id' not initialized
               Long id;
               @Id
               public static Long getId() {
@@ -405,7 +405,7 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
 
               public TestEntity() {}
 
-              // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field extraInfo
+              // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'extraInfo'
               public TestEntity(String name) {
                 this.name = name;
               }
@@ -463,7 +463,7 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
 
               @Initializer
               public void init() {
-                // BUG: Diagnostic contains: read of @NonNull field name before initialization
+                // BUG: Diagnostic contains: read of @NonNull field 'name' before initialization
                 name.toString();
               }
             }

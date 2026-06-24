@@ -76,7 +76,7 @@ public class OptionalEmptinessTests extends NullAwayTestsBase {
               @SuppressWarnings("NullAway.Optional")
               void SupWarn() {
                 Object a = null;
-                  // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                   a.toString();
                 }
             }
@@ -657,7 +657,7 @@ public class OptionalEmptinessTests extends NullAwayTestsBase {
               }
               void baz(@Nullable Object o) {
                 // unrelated errors not suppressed
-                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                 o.toString();
               }
               public static class Inner {

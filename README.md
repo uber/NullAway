@@ -117,7 +117,7 @@ static void log(@Nullable Object x) {
 ```
 With this annotation, NullAway points out the possible null dereference:
 ```
-warning: [NullAway] dereferenced expression x is @Nullable
+warning: [NullAway] dereferenced expression 'x' is @Nullable
     System.out.println(x.toString());
                         ^
 ```
