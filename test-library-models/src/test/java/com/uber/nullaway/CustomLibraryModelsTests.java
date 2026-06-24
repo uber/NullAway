@@ -376,6 +376,9 @@ public class CustomLibraryModelsTests {
             @NullMarked
             class Test {
               void use(Object source, Box<?> box) {
+                // We have a library model on the orElse method making its parameter and return type @Nullable.
+                // This test ensures we do not crash when we invoke orElse on a Box<?>; before we tried to create
+                // the invalid type `@Nullable ?` which led to an assertion failure
                 Object sourceToUse =
                     source instanceof Box<?> matched ? matched.orElse(null) : source;
                 // BUG: Diagnostic contains: dereferenced expression 'box.orElse(null)' is @Nullable
