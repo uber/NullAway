@@ -60,6 +60,8 @@ public class Handlers {
     LibraryModelsHandler libraryModelsHandler = new LibraryModelsHandler(config);
     handlerListBuilder.add(libraryModelsHandler);
     handlerListBuilder.add(StreamNullabilityPropagatorFactory.getRxStreamNullabilityPropagator());
+    handlerListBuilder.add(
+        StreamNullabilityPropagatorFactory.getReactorStreamNullabilityPropagator());
     StreamNullabilityPropagator javaStreamNullabilityPropagator =
         StreamNullabilityPropagatorFactory.getJavaStreamNullabilityPropagator();
     handlerListBuilder.add(javaStreamNullabilityPropagator);

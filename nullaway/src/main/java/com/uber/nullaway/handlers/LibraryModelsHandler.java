@@ -60,7 +60,6 @@ import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.generics.GenericsChecks;
-import com.uber.nullaway.handlers.stream.StreamModelBuilder;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
@@ -1162,35 +1161,6 @@ public class LibraryModelsHandler implements Handler {
     public ImmutableSet<FieldRef> nullableFields() {
       // No nullable fields by default.
       return ImmutableSet.of();
-    }
-
-    @Override
-    public ImmutableList<StreamTypeRecord> customStreamNullabilitySpecs() {
-      return StreamModelBuilder.start()
-          .addStreamTypeFromName("reactor.core.publisher.Flux")
-          .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
-          .withMapMethodFromSignature(
-              "<V>map(java.util.function.Function<? super T,? extends V>)",
-              "apply",
-              ImmutableSet.of(0))
-          .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
-          .withMapMethodAllFromName("concatMap", "apply", ImmutableSet.of(0))
-          .withUseAndPassthroughMethodFromSignature(
-              "doOnNext(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
-          .withPassthroughMethodFromSignature("distinct()")
-          .withPassthroughMethodFromSignature("take(long)")
-          .withPassthroughMethodFromSignature("skip(long)")
-          .withPassthroughMethodAllFromName("distinctUntilChanged")
-          .addStreamTypeFromName("reactor.core.publisher.Mono")
-          .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
-          .withMapMethodFromSignature(
-              "<R>map(java.util.function.Function<? super T,? extends R>)",
-              "apply",
-              ImmutableSet.of(0))
-          .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
-          .withUseAndPassthroughMethodFromSignature(
-              "doOnNext(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
-          .end();
     }
   }
 
