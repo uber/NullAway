@@ -1528,7 +1528,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                         flux.filter(c -> c.get() != null).map(c -> c.get().length());
                       }
                       void testPositiveField(Flux<Foo> flux) {
-                        // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                         flux.map(foo -> foo.bar.length());
                       }
                       void testPositiveMethodReturn(Flux<NullableContainer<String>> flux) {
@@ -1591,7 +1591,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                       }
                       void testPositive(Flux<Foo> flux) {
                         flux.doOnNext(foo -> {
-                          // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                          // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                           System.out.println(foo.bar.length());
                         });
                       }
@@ -1642,7 +1642,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                         flux
                             .filter(foo -> foo.bar != null || perhaps())
                             .map(foo -> {
-                              // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                              // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                               return foo.bar.length();
                             });
                       }
@@ -1671,12 +1671,12 @@ public class FrameworkTests extends NullAwayTestsBase {
                         mono.filter(foo -> foo.bar != null).flatMap(foo -> Mono.just(foo.bar.length()));
                       }
                       void testPositiveMapWithoutFilter(Mono<Foo> mono) {
-                        // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                         mono.map(foo -> foo.bar.length());
                       }
                       void testPositiveDoOnNextWithoutFilter(Mono<Foo> mono) {
                         mono.doOnNext(foo -> {
-                          // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                          // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                           System.out.println(foo.bar.length());
                         });
                       }
