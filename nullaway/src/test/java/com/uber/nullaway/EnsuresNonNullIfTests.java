@@ -82,7 +82,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
                 if(hasNullableItem()) {
                   nullableItem.call();
                 }
-                // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableItem' is @Nullable
                 nullableItem.call();
                 return 0;
               }
@@ -218,9 +218,9 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
               }
               public int runOk() {
                 if(hasNullableItem() || hasNullableItem2()) {
-                  // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'nullableItem' is @Nullable
                   nullableItem.call();
-                  // BUG: Diagnostic contains: dereferenced expression nullableItem2 is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'nullableItem2' is @Nullable
                   nullableItem2.call();
                   return 1;
                 }
@@ -321,7 +321,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
                   return 1;
                 }
                 nullableItem.call();
-                // BUG: Diagnostic contains: dereferenced expression nullableItem2 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableItem2' is @Nullable
                 nullableItem2.call();
                 return 0;
               }
@@ -565,9 +565,9 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
                 return nullableItem == null || nullableItem2 == null;
               }
               public int runOk() {
-                // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableItem' is @Nullable
                 nullableItem.call();
-                // BUG: Diagnostic contains: dereferenced expression nullableItem2 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableItem2' is @Nullable
                 nullableItem2.call();
                 return 0;
               }
@@ -852,7 +852,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
               }
               public void runOk() {
                 hasNullableItem();
-                // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableItem' is @Nullable
                 nullableItem.call();
               }
             }
@@ -1002,7 +1002,7 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
                 if(hasNullableItem()) {
                   nullableItem.call();
                 }
-                // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableItem' is @Nullable
                 nullableItem.call();
                 return 0;
               }

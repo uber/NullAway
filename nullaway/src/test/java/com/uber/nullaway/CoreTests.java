@@ -297,17 +297,17 @@ public class CoreTests extends NullAwayTestsBase {
              HIGH, MEDIUM, LOW }
             class TestPositive {
                void foo(@Nullable Integer s) {
-                // BUG: Diagnostic contains: switch selector expression s is @Nullable
+                // BUG: Diagnostic contains: switch selector expression 's' is @Nullable
                 switch(s) {
                   case 5: break;
                 }
                 String x = null;
-                // BUG: Diagnostic contains: switch selector expression x is @Nullable
+                // BUG: Diagnostic contains: switch selector expression 'x' is @Nullable
                 switch(x) {
                   default: break;
                 }
                 Level level = null;
-                // BUG: Diagnostic contains: switch selector expression level is @Nullable
+                // BUG: Diagnostic contains: switch selector expression 'level' is @Nullable
                 switch (level) {
                   default: break; }
                 }
@@ -406,7 +406,7 @@ public class CoreTests extends NullAwayTestsBase {
             package com.uber;
             import javax.annotation.Nullable;
             class Test {
-              // BUG: Diagnostic contains: @NonNull static field o not initialized
+              // BUG: Diagnostic contains: @NonNull static field 'o' not initialized
               static Object o;
               Object f, g;
               public Test() {
@@ -472,7 +472,7 @@ public class CoreTests extends NullAwayTestsBase {
             class Test {
               Object f;
               private native void foo();
-              // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field f
+              // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f'
               Test() {
                 foo();
               }
@@ -498,7 +498,7 @@ public class CoreTests extends NullAwayTestsBase {
             import java.util.List;
             public class Test {
               public void testEnhancedFor(@Nullable List<String> l) {
-                // BUG: Diagnostic contains: enhanced-for expression l is @Nullable
+                // BUG: Diagnostic contains: enhanced-for expression 'l' is @Nullable
                 for (String x: l) {}
               }
             }
@@ -567,9 +567,9 @@ public class CoreTests extends NullAwayTestsBase {
             public class Test {
               public void derefTernary(boolean b) {
                 Object o1 = null, o2 = new Object();
-                // BUG: Diagnostic contains: dereferenced expression (b ? o1 : o2) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression '(b ? o1 : o2)' is @Nullable
                 (b ? o1 : o2).toString();
-                // BUG: Diagnostic contains: dereferenced expression (b ? o2 : o1) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression '(b ? o2 : o1)' is @Nullable
                 (b ? o2 : o1).toString();
                 // This case is safe
                 (b ? o2 : o2).toString();
@@ -600,7 +600,7 @@ public class CoreTests extends NullAwayTestsBase {
                  return null; // No error, should detect @Null
                }
                String bar(@Null Object item){
-                 // BUG: Diagnostic contains: dereferenced expression item is @Nullable
+                 // BUG: Diagnostic contains: dereferenced expression 'item' is @Nullable
                  return item.toString();
                }
             }
@@ -1245,7 +1245,7 @@ public class CoreTests extends NullAwayTestsBase {
             import org.jspecify.annotations.Nullable;
             public class TestCase {
               public static void testPositive(@Nullable Object lock) {
-                // BUG: Diagnostic contains: synchronized block expression "lock" is @Nullable
+                // BUG: Diagnostic contains: synchronized block expression 'lock' is @Nullable
                 synchronized (lock) {}
               }
               public static void testNegative(Object lock) {
@@ -1288,7 +1288,7 @@ public class CoreTests extends NullAwayTestsBase {
                     return outer.new Inner() {};
                 }
                 static Inner testPositive(@Nullable Outer outer) {
-                    // BUG: Diagnostic contains: dereferenced expression outer is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'outer' is @Nullable
                     return outer.new Inner() {};
                 }
             }

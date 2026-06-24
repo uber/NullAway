@@ -82,7 +82,7 @@ public class PureExceptLambdaTests extends NullAwayTestsBase {
                   throw new IllegalArgumentException();
                 }
                 // Without nullness preserving annotation, we should not propagate the non-null fact into the lambda
-                // BUG: Diagnostic contains: dereferenced expression this.f is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'this.f' is @Nullable
                 OrdinaryLibrary.withConsumer("x", v -> System.out.println(this.f.toString()));
               }
             }

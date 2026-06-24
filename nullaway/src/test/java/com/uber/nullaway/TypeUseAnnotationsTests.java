@@ -134,7 +134,7 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             class Test {
               Test.@Nullable Foo f1;
               // @Nullable does not apply to the inner type
-              // BUG: Diagnostic contains: @NonNull field f2 not initialized
+              // BUG: Diagnostic contains: @NonNull field 'f2' not initialized
               @Nullable Test.Foo f2;
               class Foo { }
               public void test() {
@@ -167,7 +167,7 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             class Test {
                  Bar.@Nullable Foo f1;
                  // @Nullable does not apply to the inner type
-                 // BUG: Diagnostic contains: @NonNull field f2 not initialized
+                 // BUG: Diagnostic contains: @NonNull field 'f2' not initialized
                  @Nullable Bar.Foo f2;
                  public void test() {
                     // BUG: Diagnostic contains: dereferenced
@@ -189,7 +189,7 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             import java.util.Set;
             import org.checkerframework.checker.nullness.qual.Nullable;
             class Test {
-              // BUG: Diagnostic contains: @NonNull field s not initialized
+              // BUG: Diagnostic contains: @NonNull field 's' not initialized
               Set<@Nullable Foo> s; // i.e. Set<Test.@Nullable Foo>
               class Foo { }
               public void test() {
@@ -394,7 +394,7 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
                 };
               }
               public static String test1() {
-                // BUG: Diagnostic contains: dereferenced expression getNullableSupplierOfNullable() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'getNullableSupplierOfNullable()' is @Nullable
                 return getNullableSupplierOfNullable().toString();
               }
               public static String test2() {

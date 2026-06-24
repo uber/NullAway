@@ -32,31 +32,31 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     Object y = invokeWithReturn(() -> { return genericMethod(null);});
                     // legal, should infer x is a @NonNull String
                     x.hashCode();
-                    // BUG: Diagnostic contains: dereferenced expression y is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'y' is @Nullable
                     y.hashCode();
                     // Block-bodied with parenthesized return
                     Object x_block_paren = invokeWithReturn(() -> { return (genericMethod("value"));});
                     Object y_block_paren = invokeWithReturn(() -> { return (genericMethod(null));});
                     // legal, should infer x_block_paren is a @NonNull String
                     x_block_paren.hashCode();
-                    // BUG: Diagnostic contains: dereferenced expression y_block_paren is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'y_block_paren' is @Nullable
                     y_block_paren.hashCode();
                     // Expression-bodied
                     Object x_expr = invokeWithReturn(() -> genericMethod("value"));
                     Object y_expr = invokeWithReturn(() -> genericMethod(null));
                     // legal, should infer x_expr is a @NonNull String
                     x_expr.hashCode();
-                    // BUG: Diagnostic contains: dereferenced expression y_expr is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'y_expr' is @Nullable
                     y_expr.hashCode();
                     // Expression-bodied with parenthesized return
                     Object x_expr_paren = invokeWithReturn(() -> (genericMethod("value")));
                     Object y_expr_paren = invokeWithReturn(() -> (genericMethod(null)));
                     // legal, should infer x_expr_paren is a @NonNull String
                     x_expr_paren.hashCode();
-                    // BUG: Diagnostic contains: dereferenced expression y_expr_paren is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'y_expr_paren' is @Nullable
                     y_expr_paren.hashCode();
                     Object x2 = invokeWithReturn(() ->{ Object y2 = null; return y2;});
-                    // BUG: Diagnostic contains: dereferenced expression x2 is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'x2' is @Nullable
                     x2.hashCode();
                 }
             }
@@ -113,7 +113,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     invoke(() -> null);
                     // legal, should infer R -> @Nullable Object
                     Object x = invokeWithReturn(() -> null);
-                    // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                     x.hashCode();
                 }
             }
@@ -136,7 +136,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               static void test() {
                 String t = run(s -> s == null ? null : s);
-                // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                 t.hashCode();
               }
             }
@@ -159,7 +159,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               static void test() {
                 String t = run(s -> { String result = null; return result; });
-                // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                 t.hashCode();
               }
             }
@@ -183,7 +183,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               static void test() {
                 final String result = null;
                 String t = run(s -> result);
-                // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                 t.hashCode();
               }
             }
@@ -211,7 +211,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 // Since f is not final, we won't propagate facts about it into the lambda
                 // So, we should infer T -> @Nullable String
                 String t = run(s -> x.f);
-                // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                 t.hashCode();
               }
             }
@@ -407,7 +407,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 String s1 = create(Foo::create);
                 s1.hashCode(); // should be legal
                 String s2 = create(Foo::createNullable);
-                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 's2' is @Nullable
                 s2.hashCode();
                 // BUG: Diagnostic contains: parameter of functional interface method java.util.function.Function.apply(T) is @Nullable
                 String s3 = createWithNullable(Foo::create);
@@ -443,7 +443,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 String s1 = create(Foo::get);
                 s1.hashCode(); // should be legal
                 String s2 = create(Foo::getNullable);
-                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 's2' is @Nullable
                 s2.hashCode();
               }
             }
@@ -476,7 +476,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               void test() {
                 String s = createBoth(Foo::get, Foo::getNullable);
-                // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
                 s.hashCode();
               }
             }
@@ -587,12 +587,12 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 String s1 = create(foo::make);
                 s1.hashCode(); // should be legal
                 String s2 = create(fooNullable::make);
-                // BUG: Diagnostic contains: dereferenced expression s2 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 's2' is @Nullable
                 s2.hashCode();
                 // this is ok; we can infer V -> @Nullable String; foo::make returns a @NonNull String,
                 // which is compatible
                 String s3 = createMulti(foo::make, fooNullable::make);
-                // BUG: Diagnostic contains: dereferenced expression s3 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 's3' is @Nullable
                 s3.hashCode();
               }
             }
@@ -1055,7 +1055,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 }
                 static void test(List<String> list) {
                     list.stream().map(Test::mapToNull).forEach(s -> {
-                        // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
                         s.hashCode();
                     });
                 }

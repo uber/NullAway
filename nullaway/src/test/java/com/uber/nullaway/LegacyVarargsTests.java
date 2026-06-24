@@ -58,7 +58,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             import javax.annotation.Nullable;
             public class Utilities {
              public static String takesNullableVarargs(Object o, @Nullable Object... others) {
-              // BUG: Diagnostic contains: [NullAway] dereferenced expression others is @Nullable
+              // BUG: Diagnostic contains: [NullAway] dereferenced expression 'others' is @Nullable
               String s = o.toString() + " " + others.toString();
               return s;
              }
@@ -93,7 +93,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             import org.checkerframework.checker.nullness.qual.Nullable;
             public class Utilities {
              public static String takesNullableVarargs(Object o, @Nullable Object... others) {
-              // BUG: Diagnostic contains: [NullAway] dereferenced expression others is @Nullable
+              // BUG: Diagnostic contains: [NullAway] dereferenced expression 'others' is @Nullable
               String s = o.toString() + " " + others.toString();
               for (Object other : others) {
                 // no error since we do not reason about array element nullability
@@ -244,7 +244,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -281,7 +281,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -326,7 +326,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -369,7 +369,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, @Nullable Object... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -412,7 +412,7 @@ public class LegacyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
