@@ -10,7 +10,7 @@ public class AndroidxFragmentWithoutOnAttach extends Fragment {
 
   private Object mOnCreateInitialisedField;
   private Object mOnCreateViewInitialisedField;
-  // BUG: Diagnostic contains: @NonNull field mOnAttachInitialisedField not initialized
+  // BUG: Diagnostic contains: @NonNull field 'mOnAttachInitialisedField' not initialized
   private Object mOnAttachInitialisedField;
 
   @Override

@@ -44,7 +44,7 @@ public class ArrayTests extends NullAwayTestsBase {
               static void foo() {
                   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                   o1 = fizz;
-                  // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz' is @Nullable
                   o1 = fizz.length;
               }
             }
@@ -66,7 +66,7 @@ public class ArrayTests extends NullAwayTestsBase {
               static void foo() {
                   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                   o1 = fizz;
-                  // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz' is @Nullable
                   o1 = fizz.length;
               }
             }

@@ -51,7 +51,7 @@ public class BytecodeInteractionsTests extends NullAwayTestsBase {
             import com.uber.lib.*;
             class Test {
               void foo(CFNullableStuff c) {
-                // BUG: Diagnostic contains: dereferenced expression c.f
+                // BUG: Diagnostic contains: dereferenced expression 'c.f
                 c.f.toString();
               }
             }

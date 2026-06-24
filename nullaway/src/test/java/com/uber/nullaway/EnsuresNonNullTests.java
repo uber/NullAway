@@ -19,7 +19,7 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
               public void run() {
                 nullableItem.call();
                 nullableItem = null;
-                // BUG: Diagnostic contains: dereferenced expression nullableItem is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableItem' is @Nullable
                 nullableItem.call();
 
               }
@@ -62,7 +62,7 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
               @RequiresNonNull("this.nullableItem")
               // BUG: Diagnostic contains: Cannot refer to static field nullableItem using this.
               public static void test() {
-              // BUG: Diagnostic contains:  dereferenced expression nullableItem is @Nullable
+              // BUG: Diagnostic contains:  dereferenced expression 'nullableItem' is @Nullable
                 nullableItem.call();
               }
               @EnsuresNonNull("this.nullableItem")
@@ -73,7 +73,7 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
               @RequiresNonNull("nullableItem2")
               // BUG: Diagnostic contains: For @RequiresNonNull annotation, cannot find instance field nullableItem2 in class Foo
               public static void test4() {
-              // BUG: Diagnostic contains:  dereferenced expression nullableItem is @Nullable
+              // BUG: Diagnostic contains:  dereferenced expression 'nullableItem' is @Nullable
                 nullableItem.call();
               }
               @EnsuresNonNull("nullableItem2")
@@ -129,11 +129,11 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
               @Nullable Item b;
               public void test0() { }
               public void test1() {
-                // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.call();
               }
               public void test2() {
-                // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.call();
               }
               @RequiresNonNull("a")
@@ -143,7 +143,7 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
               @RequiresNonNull("b")
               // BUG: Diagnostic contains: precondition inheritance is violated, method in child class cannot have a stricter precondition than its closest overridden method, adding @requiresNonNull for fields [a] makes this method precondition stricter
               public void test4() {
-                // BUG: Diagnostic contains: dereferenced expression a is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.call();
                 b.call();
               }
@@ -410,7 +410,7 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
               public void run() {
                 staticNullableItem.call();
                 staticNullableItem = null;
-                // BUG: Diagnostic contains: dereferenced expression staticNullableItem is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'staticNullableItem' is @Nullable
                 staticNullableItem.call();
               }
 

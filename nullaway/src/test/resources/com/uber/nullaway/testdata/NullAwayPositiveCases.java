@@ -237,12 +237,12 @@ public class NullAwayPositiveCases {
   }
 
   static void invokeOnNull2(@Nullable Object p) {
-    // BUG: Diagnostic contains: dereferenced expression p is @Nullable
+    // BUG: Diagnostic contains: dereferenced expression 'p' is @Nullable
     p.toString();
   }
 
   static void derefNullable(@Nullable Inner x) {
-    // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+    // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
     Object y = x.f2;
   }
 

@@ -33,7 +33,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
             import org.jspecify.annotations.NullMarked;
             @NullMarked
             class Marked {
-              // BUG: Diagnostic contains: @NonNull field uninit not initialized
+              // BUG: Diagnostic contains: @NonNull field 'uninit' not initialized
               Object uninit;
             }
             """)

@@ -28,7 +28,7 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               void test(Foo<String> foo) {
                 foo.doSomething(
                     t -> {
-                      // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                      // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                       return "length: " + t.length();
                     });
               }
@@ -53,7 +53,7 @@ public class GenericLambdaTests extends NullAwayTestsBase {
                 @Nullable Function<@Nullable T, T> field;
                 void assignField(Box<String> box) {
                   box.field = t -> {
-                    // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                     t.length();
                     return t;
                   };
@@ -61,7 +61,7 @@ public class GenericLambdaTests extends NullAwayTestsBase {
                 void assignLocal() {
                   Function<@Nullable T, T> local =
                       t -> {
-                        // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                         t.length();
                         return t;
                       };
@@ -87,7 +87,7 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               static class Box<T extends @Nullable CharSequence> {
                 Function<@Nullable T, T> make() {
                   return t -> {
-                    // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                     t.length();
                     return t;
                   };

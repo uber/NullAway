@@ -24,7 +24,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
               }
               void testPositive() {
                 AtomicReference<@Nullable Integer> x = new AtomicReference<>(Integer.valueOf(3));
-                // BUG: Diagnostic contains: dereferenced expression x.get() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x.get()' is @Nullable
                 x.get().hashCode();
               }
             }

@@ -87,7 +87,7 @@ public class SyncLambdasTests extends NullAwayTestsBase {
                     this.resolved = new Object();
                     this.target.forEach((key, value) -> {
                         // error since this is a custom type, not inheriting from java.util.Map
-                        // BUG: Diagnostic contains: dereferenced expression this.resolved is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 'this.resolved' is @Nullable
                         System.out.println(this.resolved.toString());
                     });
                 }
@@ -117,7 +117,7 @@ public class SyncLambdasTests extends NullAwayTestsBase {
                     Iterable<Object> l2 = l;
                     l2.forEach(v -> System.out.println(v + this.f.toString()));
                     this.f = null;
-                    // BUG: Diagnostic contains: dereferenced expression this.f is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'this.f' is @Nullable
                     l2.forEach(v -> System.out.println(v + this.f.toString()));
                 }
             }

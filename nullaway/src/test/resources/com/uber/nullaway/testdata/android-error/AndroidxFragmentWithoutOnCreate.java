@@ -8,7 +8,7 @@ import android.view.ViewGroup;
 import androidx.fragment.app.Fragment;
 
 public class AndroidxFragmentWithoutOnCreate extends Fragment {
-  // BUG: Diagnostic contains: @NonNull field mOnCreateInitialisedField not initialized
+  // BUG: Diagnostic contains: @NonNull field 'mOnCreateInitialisedField' not initialized
   private Object mOnCreateInitialisedField;
   private Object mOnCreateViewInitialisedField;
   private Object mOnAttachInitialisedField;

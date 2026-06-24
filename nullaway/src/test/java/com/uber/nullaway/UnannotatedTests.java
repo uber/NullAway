@@ -126,7 +126,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 }
               }
               static void bar() {
-                // BUG: Diagnostic contains: dereferenced expression Inner.foo()
+                // BUG: Diagnostic contains: dereferenced expression 'Inner.foo()
                 Inner.foo().toString();
               }
             }
@@ -267,7 +267,7 @@ public class UnannotatedTests extends NullAwayTestsBase {
                 UnAnnot.retNull().toString();
                 // make sure other classes in the package still get analyzed
                 Object x = nullRetSameClass();
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 x.hashCode();
               }
             }

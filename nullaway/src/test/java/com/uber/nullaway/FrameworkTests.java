@@ -82,7 +82,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                 Map<Integer, String> testPositive1() {
                   List<Foo> foos = new ArrayList<>();
                   return foos.stream()
-                      // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                      // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                       .collect(Collectors.toMap(foo -> foo.bar.length(), foo -> foo.baz));
                 }
                 Map<Integer, String> testPositive2() {
@@ -90,7 +90,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                   return foos.stream()
                       .filter(foo -> foo.baz != null)
                       .collect(Collectors.toMap(
-                        // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                         new Function<Foo,Integer>() { public Integer apply(Foo foo) { return foo.bar.length(); } },
                         foo -> foo.baz));
                 }
@@ -124,7 +124,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                 Map<Integer, List<Foo>> testPositive() {
                   List<Foo> foos = new ArrayList<>();
                   return foos.stream()
-                      // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                      // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                       .collect(Collectors.groupingBy(foo -> foo.bar.length()));
                 }
             }
@@ -158,7 +158,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                 Map<Integer, String> testPositive() {
                   List<Foo> foos = new ArrayList<>();
                   return foos.stream()
-                      // BUG: Diagnostic contains: dereferenced expression foo.bar is @Nullable
+                      // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
                       .collect(ImmutableMap.toImmutableMap(foo -> foo.bar.length(), foo -> foo.baz));
                 }
             }
@@ -267,7 +267,7 @@ public class FrameworkTests extends NullAwayTestsBase {
               @Nullable
               Object nullable = new Object();
               public void setNullable(@Nullable Object nullable) {this.nullable = nullable;}
-              // BUG: Diagnostic contains: dereferenced expression nullable is @Nullable
+              // BUG: Diagnostic contains: dereferenced expression 'nullable' is @Nullable
               public void run() {System.out.println(nullable.toString());}
             }
             """)
@@ -280,7 +280,7 @@ public class FrameworkTests extends NullAwayTestsBase {
               @CheckForNull
               Object checkForNull = new Object();
               public void setCheckForNull(@CheckForNull Object checkForNull) {this.checkForNull = checkForNull;}
-              // BUG: Diagnostic contains: dereferenced expression checkForNull is @Nullable
+              // BUG: Diagnostic contains: dereferenced expression 'checkForNull' is @Nullable
               public void run() {System.out.println(checkForNull.toString());}
             }
             """)
@@ -318,7 +318,7 @@ public class FrameworkTests extends NullAwayTestsBase {
                 return o.orElse(null);
               }
               public void bar(Optional<Object> o) {
-                // BUG: Diagnostic contains: dereferenced expression o.orElse(null) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o.orElse(null)' is @Nullable
                 System.out.println(o.orElse(null).toString());
               }
             }
@@ -466,10 +466,10 @@ public class FrameworkTests extends NullAwayTestsBase {
             import org.springframework.beans.factory.annotation.Value;
             class PositiveCases {
               @Value("#{null}")
-              // BUG: Diagnostic contains: @NonNull field spelNullValue not initialized
+              // BUG: Diagnostic contains: @NonNull field 'spelNullValue' not initialized
               String spelNullValue;
               @Value("${missing:#{null}}")
-              // BUG: Diagnostic contains: @NonNull field placeholderWithNullDefault not initialized
+              // BUG: Diagnostic contains: @NonNull field 'placeholderWithNullDefault' not initialized
               String placeholderWithNullDefault;
             }
             """)
@@ -823,7 +823,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             package com.uber;
             class Test {
               void foo() {
-                 // BUG: Diagnostic contains: dereferenced expression System.console()
+                 // BUG: Diagnostic contains: dereferenced expression 'System.console()
                 System.console().toString();
               }
             }

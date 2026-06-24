@@ -41,7 +41,7 @@ public class ThriftTests extends NullAwayTestsBase {
               }
               public void testPos(Generated g) {
                 if (!g.isSetId()) {
-                  // BUG: Diagnostic contains: dereferenced expression g.getId() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'g.getId()' is @Nullable
                   g.getId().hashCode();
                 } else {
                   g.id.toString();

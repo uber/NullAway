@@ -41,11 +41,11 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             class Test {
               static Integer @Nullable [] fizz = {1};
               static void foo() {
-                // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz' is @Nullable
                 int bar = fizz.length;
               }
               static void bar() {
-                // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz' is @Nullable
                 int bar = fizz[0];
               }
             }
@@ -84,7 +84,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static @Nullable String [] fizz = {"1"};
               static Object foo = new Object();
               static void foo() {
-                  // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz[0]' is @Nullable
                   int bar = fizz[0].length();
                   // OK: valid dereference since only elements of the array can be null
                   foo = fizz.length;
@@ -136,7 +136,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                   // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                   o1 = fizz;
                   // This should not report an error while using JSpecify type-use annotation
-                  // BUG: Diagnostic contains: dereferenced expression fizz is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz' is @Nullable
                   o1 = fizz.length;
               }
             }
@@ -158,7 +158,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void foo() {
                  if (fizz != null) {
                     String s = fizz[0];
-                    // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
                     int l1 = s.length();
                     if (s != null){
                        // OK: handled by null check
@@ -478,7 +478,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               if (fizz[i]!=null) {
                fizz[i].toString();
             }
-                // BUG: Diagnostic contains: dereferenced expression fizz[i] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[i]' is @Nullable
                fizz[i].toString();
               }
             }
@@ -501,7 +501,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // OK: constant integer indexes are handled by dataflow
                fizz[0].toString();
             }
-                // BUG: Diagnostic contains: dereferenced expression fizz[0] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[0]' is @Nullable
                fizz[0].toString();
               }
             }
@@ -525,7 +525,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // OK: local variable indexes are handled by dataflow
                   fizz[index].toString();
                 }
-                // BUG: Diagnostic contains: dereferenced expression fizz[index] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[index]' is @Nullable
                 fizz[index].toString();
               }
             }
@@ -570,7 +570,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                   if (s != null) {
                     s.toString();
                   }
-                  // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
                   s.toString();
                 }
               }
@@ -596,15 +596,15 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void foo() {
                 if (fizz[getIndex()] != null) {
                 // index methods aren't handled by dataflow
-                // BUG: Diagnostic contains: dereferenced expression fizz[getIndex()] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[getIndex()]' is @Nullable
                   fizz[getIndex()].toString();
                 }
                 if (fizz[i] != null) {
                 // wrapper class indexes aren't handled by dataflow
-                // BUG: Diagnostic contains: dereferenced expression fizz[i] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[i]' is @Nullable
                   fizz[i].toString();
                 }
-                // BUG: Diagnostic contains: dereferenced expression fizz[getIndex()] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[getIndex()]' is @Nullable
                 fizz[getIndex()].toString();
               }
             }
@@ -626,10 +626,10 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 int i = 0;
                 if (fizz[i+1] != null) {
                 // index expressions aren't handled by dataflow
-                // BUG: Diagnostic contains: dereferenced expression fizz[i+1] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[i+1]' is @Nullable
                   fizz[i+1].toString();
                 }
-                // BUG: Diagnostic contains: dereferenced expression fizz[i+1] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'fizz[i+1]' is @Nullable
                 fizz[i+1].toString();
               }
             }
@@ -650,10 +650,10 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void foo() {
                 if (getArray()[0] != null) {
                 // array resulting from method invocation isn't handled by dataflow
-                // BUG: Diagnostic contains: dereferenced expression getArray()[0] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'getArray()[0]' is @Nullable
                   getArray()[0].toString();
                 }
-                // BUG: Diagnostic contains: dereferenced expression getArray()[0] is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'getArray()[0]' is @Nullable
                 getArray()[0].toString();
               }
             }
@@ -674,7 +674,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void foo() {
                 int i = 0;
                 if (fizz[i] != null) {
-                  // BUG: Diagnostic contains: dereferenced expression fizz[i+1] is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz[i+1]' is @Nullable
                   fizz[i+1].toString();
                 }
               }
@@ -707,17 +707,17 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                        // annotation is treated as declaration
                        String bar = foo2[0].toString();
                   }
-                  // BUG: Diagnostic contains: dereferenced expression foo2 is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'foo2' is @Nullable
                   String bar = foo2[0].toString();
               }
               static @Nullable String @Nullable [] foo3 = null;
               static void fizz() {
                   if (foo3 !=null){
                        // annotation is also applied to the elements
-                  // BUG: Diagnostic contains: dereferenced expression foo3[0] is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'foo3[0]' is @Nullable
                        String bar = foo3[0].toString();
                   }
-                  // BUG: Diagnostic contains: dereferenced expression foo3 is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'foo3' is @Nullable
                   String bar = foo3[0].toString();
               }
               @Nullable Object [][] foo4 = null;

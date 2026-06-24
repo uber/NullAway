@@ -733,9 +733,9 @@ public class NullAway extends BugChecker
     }
     if (!hasNullCaseLabel && mayBeNullExpr(state, switchSelectorExpression)) {
       String message =
-          "switch selector expression "
+          "switch selector expression '"
               + state.getSourceForNode(switchSelectorExpression)
-              + " is @Nullable";
+              + "' is @Nullable";
       ErrorMessage errorMessage =
           new ErrorMessage(MessageTypes.SWITCH_EXPRESSION_NULLABLE, message);
 
@@ -1443,7 +1443,7 @@ public class NullAway extends BugChecker
       ErrorMessage errorMessage =
           new ErrorMessage(
               MessageTypes.NONNULL_FIELD_READ_BEFORE_INIT,
-              "read of @NonNull field " + symbol + " before initialization");
+              "read of @NonNull field '" + symbol + "' before initialization");
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(tree), state, null);
     } else {
       return Description.NO_MATCH;
@@ -1956,7 +1956,7 @@ public class NullAway extends BugChecker
     ErrorMessage errorMessage =
         new ErrorMessage(
             MessageTypes.DEREFERENCE_NULLABLE,
-            "enhanced-for expression " + state.getSourceForNode(expr) + " is @Nullable");
+            "enhanced-for expression '" + state.getSourceForNode(expr) + "' is @Nullable");
     if (mayBeNullExpr(state, expr)) {
       return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
     }
@@ -2002,9 +2002,9 @@ public class NullAway extends BugChecker
       ErrorMessage errorMessage =
           new ErrorMessage(
               MessageTypes.DEREFERENCE_NULLABLE,
-              "synchronized block expression \""
+              "synchronized block expression '"
                   + state.getSourceForNode(lockExpr)
-                  + "\" is @Nullable");
+                  + "' is @Nullable");
       return errorBuilder.createErrorDescription(
           errorMessage, buildDescription(lockExpr), state, null);
     }
@@ -2915,7 +2915,7 @@ public class NullAway extends BugChecker
     }
     if (mayBeNullExpr(state, baseExpression)) {
       String message =
-          "dereferenced expression " + state.getSourceForNode(baseExpression) + " is @Nullable";
+          "dereferenced expression '" + state.getSourceForNode(baseExpression) + "' is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
 
       return errorBuilder.createErrorDescriptionForNullAssignment(

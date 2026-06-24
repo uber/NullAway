@@ -38,13 +38,13 @@ public class CapturingScopes {
 
           @Override
           public void run() {
-            // BUG: Diagnostic contains: dereferenced expression outerVar
+            // BUG: Diagnostic contains: dereferenced expression 'outerVar
             System.out.println(outerVar.toString());
           }
         });
       } else {
         return () -> {
-          // BUG: Diagnostic contains: dereferenced expression outerVar
+          // BUG: Diagnostic contains: dereferenced expression 'outerVar
           outerVar.hashCode();
         };
       }
@@ -64,9 +64,9 @@ public class CapturingScopes {
         void foo() {
           // safe
           var1.toString();
-          // BUG: Diagnostic contains: dereferenced expression var2
+          // BUG: Diagnostic contains: dereferenced expression 'var2
           var2.hashCode();
-          // BUG: Diagnostic contains: dereferenced expression var3
+          // BUG: Diagnostic contains: dereferenced expression 'var3
           var3.hashCode();
         }
       }
@@ -82,9 +82,9 @@ public class CapturingScopes {
           Object var2 = o;
           class Local2 {
             void bar() {
-              // BUG: Diagnostic contains: dereferenced expression var1
+              // BUG: Diagnostic contains: dereferenced expression 'var1
               var1.hashCode();
-              // BUG: Diagnostic contains: dereferenced expression var2
+              // BUG: Diagnostic contains: dereferenced expression 'var2
               var2.hashCode();
             }
           }
@@ -99,7 +99,7 @@ public class CapturingScopes {
       Function<String, String> f =
           (x) -> {
             Object o = null;
-            // BUG: Diagnostic contains: dereferenced expression o
+            // BUG: Diagnostic contains: dereferenced expression 'o
             Function<String, String> g = (y) -> x.toString() + o.toString() + y.toString();
             return g.apply("hello");
           };
@@ -113,7 +113,7 @@ public class CapturingScopes {
       HashMap<String, String> map =
           new HashMap<String, String>() {
             {
-              // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+              // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
               put("hi", o.toString());
             }
           };
@@ -141,7 +141,7 @@ public class CapturingScopes {
 
             class Inner {
               void foo() {
-                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                 o.toString();
               }
             }

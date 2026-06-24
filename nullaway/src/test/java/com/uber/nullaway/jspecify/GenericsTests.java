@@ -656,7 +656,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 return o.toString();
               }
               static void testPositive() {
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 A<@Nullable Object> p = x -> x.toString();
               }
               static void testNegative() {
@@ -788,7 +788,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 String function(T1 o);
               }
               static void testPositive() {
-                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                 A<@Nullable Object> p = o -> o.toString();
               }
               static void testNegative() {
@@ -812,7 +812,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 String function(T1 o1,T2 o2);
               }
               static void testPositive() {
-                // BUG: Diagnostic contains: dereferenced expression o1 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o1' is @Nullable
                 A<@Nullable Object,Object> p = (o1,o2) -> o1.toString();
               }
               static void testNegative() {
@@ -1698,12 +1698,12 @@ public class GenericsTests extends NullAwayTestsBase {
                 String s1 = (new Fn<String, @Nullable String>() {
                   public @Nullable String apply(String s) { return null; }
                 }).apply("hi");
-                // BUG: Diagnostic contains: dereferenced expression s1
+                // BUG: Diagnostic contains: dereferenced expression 's1
                 s1.hashCode();
                 String s2 = (new FnClass<String, @Nullable String>() {
                   public @Nullable String apply(String s) { return null; }
                 }).apply("hi");
-                // BUG: Diagnostic contains: dereferenced expression s2
+                // BUG: Diagnostic contains: dereferenced expression 's2
                 s2.hashCode();
                 (new Fn<String, String>() {
                   public String apply(String s) { return "hi"; }
@@ -1907,9 +1907,9 @@ public class GenericsTests extends NullAwayTestsBase {
                 // No error due to @Contract
                 (new TestFunc1()).apply("hello").hashCode();
                 Fn1<@Nullable String, @Nullable String> fn1 = new TestFunc1();
-                // BUG: Diagnostic contains: dereferenced expression fn1.apply("hello")
+                // BUG: Diagnostic contains: dereferenced expression 'fn1.apply("hello")
                 fn1.apply("hello").hashCode();
-                // BUG: Diagnostic contains: dereferenced expression (new TestFunc2())
+                // BUG: Diagnostic contains: dereferenced expression '(new TestFunc2())
                 (new TestFunc2()).apply("hello").hashCode();
                 Fn2<@Nullable String, @Nullable String> fn2 = new TestFunc2();
                 // No error due to @Contract

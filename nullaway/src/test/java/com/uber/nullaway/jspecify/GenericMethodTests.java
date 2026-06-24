@@ -511,7 +511,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     this.<String>foo(f);
                 }
                 void testPositive2(Function<@Nullable String, @Nullable String> f) {
-                    // BUG: Diagnostic contains: dereferenced expression this.<String>foo(f) is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'this.<String>foo(f)' is @Nullable
                     this.<String>foo(f).hashCode();
                 }
             }
@@ -810,14 +810,14 @@ public class GenericMethodTests extends NullAwayTestsBase {
               static void use() {
                 // should infer T -> @Nullable String
                 String result = firstOrDefault(Collections.singletonList(null), "hello");
-                // BUG: Diagnostic contains: dereferenced expression result is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
                 result.hashCode();
                 // should infer T -> @NonNull String
                 String result2 = firstOrDefault(Collections.singletonList("bye"), "hello");
                 result2.hashCode();
                 // should infer T -> @Nullable String (testing that inference is called from dataflow)
                 String result3 = firstOrDefault(Collections.singletonList(null), "hello");
-                // BUG: Diagnostic contains: dereferenced expression result3 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'result3' is @Nullable
                 result3.hashCode();
               }
             }
@@ -847,7 +847,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 String x = null;
                 // should infer T -> @Nullable String
                 String result = firstOrDefault(Collections.singletonList(x), "hello");
-                // BUG: Diagnostic contains: dereferenced expression result is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
                 result.hashCode();
               }
             }
@@ -871,7 +871,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 void testPositive() {
                     String s = null;
                     String t = id(s);
-                    // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                     t.hashCode();
                 }
                 void testNegative() {
@@ -889,7 +889,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 void testField2() {
                     String s = null;
                     field2 = id(s);
-                    // BUG: Diagnostic contains: dereferenced expression field2 is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'field2' is @Nullable
                     field2.hashCode();
                     s = "hello";
                     field2 = id(s);
@@ -940,7 +940,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     String s = "hello";
                     while (true) {
                         String t = id(s);
-                        // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                         t.hashCode();
                         s = null;
                     }
@@ -948,7 +948,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 void testLoop2() {
                     String t = "hello";
                     while (true) {
-                        // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                         t.hashCode();
                         String s = null;
                         t = id(s);
@@ -964,7 +964,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                         s = null;
                         i--;
                     }
-                    // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                     t.hashCode();
                 }
             }
@@ -988,7 +988,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 @Nullable String field;
                 void testPositive() {
                     String t = id(field);
-                    // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                     t.hashCode();
                 }
                 void testNegative() {
@@ -1001,7 +1001,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     String s = "hello";
                     // dataflow can't prove the argument is non-null
                     String t = id(s == null ? null : s);
-                    // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                     t.hashCode();
                 }
             }
@@ -1154,7 +1154,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // legal, should infer T -> @Nullable String
                 // we can pass String[] due to covariant subtyping
                 String s1 = f(arr, null);
-                // BUG: Diagnostic contains: dereferenced expression s1 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 's1' is @Nullable
                 s1.hashCode();
                 String s2 = f(arr, "hi");
                 // legal
@@ -1325,7 +1325,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // to ensure that dataflow runs
                 Object x = new Object(); x.toString();
                 Object y = null;
-                // BUG: Diagnostic contains: dereferenced expression id(y) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'id(y)' is @Nullable
                 id(y).toString();
               }
               static Object testReturn() {
