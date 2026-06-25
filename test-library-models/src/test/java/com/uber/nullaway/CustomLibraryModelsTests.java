@@ -226,7 +226,7 @@ public class CustomLibraryModelsTests {
               void foo() {
                 RestrictivelyAnnotatedFIWithModelOverride func = (x) -> {
                  // Param is @NullableDecl in bytecode, and overriding library model is ignored, thus unsafe
-                 // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                 // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                  return x.toString();
                 };
               }
@@ -267,7 +267,7 @@ public class CustomLibraryModelsTests {
                   }
                }
                String dereferenceTest() {
-                  // BUG: Diagnostic contains: dereferenced expression uwm.nullableFieldUnannotated1 is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'uwm.nullableFieldUnannotated1' is @Nullable
                   return uwm.nullableFieldUnannotated1.toString();
                }
                void assignmentTest() {
@@ -322,7 +322,7 @@ public class CustomLibraryModelsTests {
             public class Test {
               void test() {
                 ProviderNullMarkedViaModel<@Nullable Object> p = ProviderNullMarkedViaModel.of(null);
-                // BUG: Diagnostic contains: dereferenced expression p.get() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'p.get()' is @Nullable
                 p.get().toString();
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                 ProviderNullMarkedViaModel<Object> q = ProviderNullMarkedViaModel.of(null);

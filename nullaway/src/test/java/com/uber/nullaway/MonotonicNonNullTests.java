@@ -58,7 +58,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
               @MonotonicNonNull Object f1;
               void testPositive() {
                 Runnable r = () -> {
-                  // BUG: Diagnostic contains: dereferenced expression f1
+                  // BUG: Diagnostic contains: dereferenced expression 'f1' is @Nullable
                   f1.toString();
                 };
               }
@@ -85,7 +85,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
               @MonotonicNonNull Object f1;
               void testPositiveParam(Test t) {
                 Runnable r = () -> {
-                  // BUG: Diagnostic contains: dereferenced expression t.f1
+                  // BUG: Diagnostic contains: dereferenced expression 't.f1' is @Nullable
                   t.f1.toString();
                 };
               }
@@ -98,7 +98,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
               void testPositiveLocal() {
                 Test t = new Test();
                 Runnable r = () -> {
-                  // BUG: Diagnostic contains: dereferenced expression t.f1
+                  // BUG: Diagnostic contains: dereferenced expression 't.f1' is @Nullable
                   t.f1.toString();
                 };
               }
@@ -127,7 +127,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
               static final Test t = new Test();
               void testPositive() {
                 Runnable r = () -> {
-                  // BUG: Diagnostic contains: dereferenced expression t.f1
+                  // BUG: Diagnostic contains: dereferenced expression 't.f1' is @Nullable
                   t.f1.toString();
                 };
               }
@@ -156,7 +156,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
               @Nullable static Object f2;
               void testPositive() {
                 Runnable r = () -> {
-                  // BUG: Diagnostic contains: dereferenced expression f1
+                  // BUG: Diagnostic contains: dereferenced expression 'f1' is @Nullable
                   f1.toString();
                 };
               }
@@ -169,7 +169,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
               void testPositive2() {
                 f2 = new Object();
                 Runnable r = () -> {
-                  // BUG: Diagnostic contains: dereferenced expression f2
+                  // BUG: Diagnostic contains: dereferenced expression 'f2' is @Nullable
                   f2.toString();
                 };
               }
@@ -192,7 +192,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
                 Runnable r = new Runnable() {
                   @Override
                   public void run() {
-                    // BUG: Diagnostic contains: dereferenced expression f1
+                    // BUG: Diagnostic contains: dereferenced expression 'f1' is @Nullable
                     f1.toString();
                   }
                 };
@@ -231,7 +231,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
                 f2.x = new Object();
                 Runnable r = () -> {
                   // report a bug since f2 may be overwritten
-                  // BUG: Diagnostic contains: dereferenced expression f2.x
+                  // BUG: Diagnostic contains: dereferenced expression 'f2.x' is @Nullable
                   f2.x.toString();
                 };
               }
@@ -240,7 +240,7 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
                 f3.x = new Object();
                 Runnable r = () -> {
                   // report a bug since f3 may be overwritten
-                  // BUG: Diagnostic contains: dereferenced expression f3.x
+                  // BUG: Diagnostic contains: dereferenced expression 'f3.x' is @Nullable
                   f3.x.toString();
                 };
               }

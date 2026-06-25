@@ -62,7 +62,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
             public class Test {
               public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {
                 if (c.get("KEY_STR") != null && c.get("KEY_STR").get(0) != null) {
-                  // BUG: Diagnostic contains: dereferenced expression c.get("KEY_STR").get(42)
+                  // BUG: Diagnostic contains: dereferenced expression 'c.get("KEY_STR").get(42)' is @Nullable
                   c.get("KEY_STR").get(42).toString();
                 }
               }
@@ -129,7 +129,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
               private Integer intKey = 42; // No guarantee it's a constant
               public void testEnhancedFor(NullableContainer<String, NullableContainer<Integer, Object>> c) {
                 if (c.get("KEY_STR") != null && c.get("KEY_STR").get(this.intKey) != null) {
-                  // BUG: Diagnostic contains: dereferenced expression c.get("KEY_STR").get
+                  // BUG: Diagnostic contains: dereferenced expression 'c.get("KEY_STR").get
                   c.get("KEY_STR").get(this.intKey).toString();
                 }
               }
@@ -222,7 +222,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
                 if (foo.o == null) {
                   (new Foo()).o = new Object();
                 }
-                // BUG: Diagnostic contains: dereferenced expression foo.o is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'foo.o' is @Nullable
                 return foo.o.toString();
               }
             }
@@ -309,7 +309,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
                 this.mutableFoo = foo;
               }
               public Predicate<String> testReadFinalFromLambdaNoCheck() {
-                // BUG: Diagnostic contains: dereferenced expression foo is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'foo' is @Nullable
                 return (s -> foo.toString().equals(s));
               }
               public Predicate<String> testReadFinalFromLambdaAfterCheck() {
@@ -319,7 +319,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
               }
               public Predicate<String> testReadMutableFromLambdaAfterCheck() {
                 Preconditions.checkNotNull(mutableFoo);
-                // BUG: Diagnostic contains: dereferenced expression mutableFoo is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'mutableFoo' is @Nullable
                 return (s -> mutableFoo.toString().equals(s));
               }
               public Function<String, Predicate<String>> testReadFinalFromLambdaAfterCheckDeepContext() {
@@ -337,21 +337,21 @@ public class AccessPathsTests extends NullAwayTestsBase {
               public Predicate<String> testReadFinalFromLambdaAfterCheckDeepAPIncomplete() {
                 Preconditions.checkNotNull(foo);
                 Preconditions.checkNotNull(foo.bar);
-                // BUG: Diagnostic contains: dereferenced expression foo.bar.foo is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'foo.bar.foo' is @Nullable
                 return (s -> foo.bar.foo.toString().equals(s));
               }
               public Predicate<String> testReadMutableFromLambdaAfterCheckDeepAP1() {
                 Preconditions.checkNotNull(foo);
                 Preconditions.checkNotNull(foo.mutableBar);
                 Preconditions.checkNotNull(foo.mutableBar.foo);
-                // BUG: Diagnostic contains: dereferenced expression foo.mutableBar is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'foo.mutableBar' is @Nullable
                 return (s -> foo.mutableBar.foo.toString().equals(s));
               }
               public Predicate<String> testReadMutableFromLambdaAfterCheckDeepAP2() {
                 Preconditions.checkNotNull(foo);
                 Preconditions.checkNotNull(foo.bar);
                 Preconditions.checkNotNull(foo.bar.mutableFoo);
-                // BUG: Diagnostic contains: dereferenced expression foo.bar.mutableFoo is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'foo.bar.mutableFoo' is @Nullable
                 return (s -> foo.bar.mutableFoo.toString().equals(s));
               }
               public boolean testReadFinalFromLambdaAfterCheckLocalClass(String s) {
@@ -368,7 +368,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
                    public Inner() { }
                    // At the time of declaring this, foo is not known to be non-null!
                    public boolean doTest(String s)  {
-                     // BUG: Diagnostic contains: dereferenced expression foo is @Nullable
+                     // BUG: Diagnostic contains: dereferenced expression 'foo' is @Nullable
                      return foo.toString().equals(s);
                    }
                 }
@@ -382,7 +382,7 @@ public class AccessPathsTests extends NullAwayTestsBase {
                 class Inner {
                    public Inner() { }
                    public boolean doTest(String s) {
-                     // BUG: Diagnostic contains: dereferenced expression mutableFoo is @Nullable
+                     // BUG: Diagnostic contains: dereferenced expression 'mutableFoo' is @Nullable
                      return mutableFoo.toString().equals(s);
                    }
                    public boolean doTestSafe(String s) {
@@ -403,13 +403,13 @@ public class AccessPathsTests extends NullAwayTestsBase {
                    @Nullable private Foo foo;
                    public Inner() { this.foo = null; }
                    public boolean doTest(String s)  {
-                     // BUG: Diagnostic contains: dereferenced expression foo is @Nullable
+                     // BUG: Diagnostic contains: dereferenced expression 'foo' is @Nullable
                      return foo.toString().equals(s);
                    }
                    public boolean doTestSafe(String s)  {
                      // TODO: Technically safe, but it would need recognizing Test.this.[...] as the same AP as
                      //       that from the closure.
-                     // BUG: Diagnostic contains: dereferenced expression Test.this.foo is @Nullable
+                     // BUG: Diagnostic contains: dereferenced expression 'Test.this.foo' is @Nullable
                      return Test.this.foo.toString().equals(s);
                    }
                 }
@@ -447,11 +447,11 @@ public class AccessPathsTests extends NullAwayTestsBase {
                 }
                 public void testPositive() {
                   if (Foo.this.bar != null) {
-                    // BUG: Diagnostic contains: dereferenced expression this.bar is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'this.bar' is @Nullable
                     this.bar.toString();
                   }
                   if (this.bar != null) {
-                    // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'Foo.this.bar' is @Nullable
                     Foo.this.bar.toString();
                   }
                 }
@@ -459,14 +459,14 @@ public class AccessPathsTests extends NullAwayTestsBase {
               public void testUnhandled1() {
                 if (bar != null) {
                   // This is safe but we don't currently handle it
-                  // BUG: Diagnostic contains: dereferenced expression Foo.this.bar is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'Foo.this.bar' is @Nullable
                   Foo.this.bar.toString();
                 }
               }
               public void testUnhandled2() {
                 if (Foo.this.bar != null) {
                   // This is safe but we don't currently handle it
-                  // BUG: Diagnostic contains: dereferenced expression bar is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'bar' is @Nullable
                   bar.toString();
                 }
               }
@@ -506,11 +506,11 @@ public class AccessPathsTests extends NullAwayTestsBase {
               public void putThenGetFooValueOf() {
                 map.put(valueOf(10), new Object());
                 // Unknown valueOf method so we report a warning
-                // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10)) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'map.get(valueOf(10))' is @Nullable
                 map.get(valueOf(10)).toString();
                 map.put(valueOf(10,20), new Object());
                 // Unknown valueOf method so we report a warning
-                // BUG: Diagnostic contains: dereferenced expression map.get(valueOf(10,20)) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'map.get(valueOf(10,20))' is @Nullable
                 map.get(valueOf(10,20)).toString();
               }
             }

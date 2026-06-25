@@ -460,7 +460,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
               public static Object test() {
                 class Foo {
                   private Object o;
-                  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field o
+                  // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'o'
                   public Foo() { }
                   public String foo(String s) {
                     return s;
@@ -660,7 +660,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 return null;
               }
               public static String unsafeStringOrDefault(@Nullable Object o1, String s) {
-                // BUG: Diagnostic contains: dereferenced expression o1 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o1' is @Nullable
                 return o1.toString();
               }
             }
@@ -697,7 +697,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             import org.jspecify.annotations.Nullable;
             public class MarkedImplicitly {
               public static String directlyUnsafeStringOrDefault(@Nullable Object o1, String s) {
-                // BUG: Diagnostic contains: dereferenced expression o1 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o1' is @Nullable
                 return o1.toString();
               }
               public static String indirectlyUnsafeStringOrDefault(@Nullable Object o1, String s) {
@@ -900,7 +900,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                     return o.toString();
                   }
                   public static String takeNullable(@Nullable Object o) {
-                    // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                    // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                     return o.toString();
                   }
                 }
@@ -1023,7 +1023,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
               }
               public static void caller() {
                 // Error due to explicit @Nullable annotation
-                // BUG: Diagnostic contains: dereferenced expression callee() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'callee()' is @Nullable
                 callee().toString();
               }
             }
@@ -1151,7 +1151,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
               @NullMarked
               public String derefUnmarkedField() {
                 // Error, since callee still has restrictive annotations!
-                // BUG: Diagnostic contains: dereferenced expression f is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'f' is @Nullable
                 return f.toString();
               }
             }
@@ -1240,10 +1240,10 @@ public class NullMarkednessTests extends NullAwayTestsBase {
               public void test() {
                 Object o = getNewObject();
                 nonNullCallee(o).toString();
-                // BUG: Diagnostic contains: dereferenced expression nullableCallee(o) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'nullableCallee(o)' is @Nullable
                 nullableCallee(o).toString();
                 unmarkedCallee(o).toString();
-                // BUG: Diagnostic contains: dereferenced expression unmarkedNullableCallee(o) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'unmarkedNullableCallee(o)' is @Nullable
                 unmarkedNullableCallee(o).toString();
               }
             }

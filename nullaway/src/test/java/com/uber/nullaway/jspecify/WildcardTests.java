@@ -387,7 +387,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 T get() { throw new RuntimeException(); }
               }
               static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
-                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'f.get()' is @Nullable
                 f.get().hashCode();
               }
               static void testNonNullExtendsBound(Foo<? extends Object> f) {
@@ -395,11 +395,11 @@ public class WildcardTests extends NullAwayTestsBase {
                 f.get().hashCode();
               }
               static void testNullableSuperBound(Foo<? super @Nullable String> f) {
-                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'f.get()' is @Nullable
                 f.get().hashCode();
               }
               static void testNonNullSuperBound(Foo<? super String> f) {
-                // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'f.get()' is @Nullable
                 f.get().hashCode();
               }
             }""")
@@ -421,7 +421,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static class NullableBound<U extends @Nullable Object> {
                 void test(Foo<? extends U> f) {
-                  // BUG: Diagnostic contains: dereferenced expression f.get() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'f.get()' is @Nullable
                   f.get().hashCode();
                 }
               }
@@ -450,7 +450,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static void testNullableExtendsBound(Foo<? extends @Nullable Object> f) {
                 Object x = f.get();
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 x.hashCode();
               }
               static void testNonNullExtendsBound(Foo<? extends Object> f) {
@@ -460,12 +460,12 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static void testNullableSuperBound(Foo<? super @Nullable String> f) {
                 Object x = f.get();
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 x.hashCode();
               }
               static void testNonNullSuperBound(Foo<? super String> f) {
                 Object x = f.get();
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 x.hashCode();
               }
             }""")
@@ -701,7 +701,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static void testNestedWildcard() {
                 invokeNested(box -> {
-                  // BUG: Diagnostic contains: dereferenced expression box.get() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
                   box.get().hashCode();
                   return null;
                 });
@@ -714,14 +714,14 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static void testTopLevelWildcardBound() {
                 invokeTopLevelWildcard(box -> {
-                  // BUG: Diagnostic contains: dereferenced expression box.get() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
                   box.get().hashCode();
                   return null;
                 });
               }
               static void testArrayWithNestedWildcard() {
                 invokeArray(boxes -> {
-                  // BUG: Diagnostic contains: dereferenced expression boxes[0].get() is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'boxes[0].get()' is @Nullable
                   boxes[0].get().hashCode();
                   return null;
                 });
@@ -827,7 +827,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 static void doNothing(@Nullable Object o) {}
                 static void testPositive(List<String> list) {
                     list.stream().map(Test::mapToNull).forEach(s -> {
-                        // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                        // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
                         s.hashCode();
                     });
                     // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional interface method Test.Consumer.accept(T) is @Nullable

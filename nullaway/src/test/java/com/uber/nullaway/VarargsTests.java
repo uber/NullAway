@@ -306,7 +306,7 @@ public class VarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -345,7 +345,7 @@ public class VarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -390,7 +390,7 @@ public class VarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -479,7 +479,7 @@ public class VarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }

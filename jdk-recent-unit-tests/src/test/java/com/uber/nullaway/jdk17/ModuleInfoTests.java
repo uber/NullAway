@@ -68,7 +68,7 @@ public class ModuleInfoTests {
             public class Test {
               public static void main(String[] args) {
                 String s = null;
-                // BUG: Diagnostic contains: dereferenced expression s is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
                 s.hashCode();
               }
             }
