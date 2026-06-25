@@ -536,4 +536,34 @@ public class Java8Tests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void testIssue1538StreamSorted() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.util.List;
+            import java.util.stream.Collectors;
+            import java.util.Comparator;
+            public class Test {
+              private String key = "";
+              @Nullable
+              private String value;
+              public String getKey() { return key; }
+              @Nullable
+              public String getValue() { return value; }
+              public String test(List<Test> testList) {
+                return testList.stream()
+                    .filter(test -> test.getValue() != null)
+                    .sorted(Comparator.comparing(Test::getKey))
+                    .map(c -> c.getValue().toUpperCase())
+                    .collect(Collectors.joining(","));
+              }
+            }
+            """)
+        .doTest();
+  }
 }
