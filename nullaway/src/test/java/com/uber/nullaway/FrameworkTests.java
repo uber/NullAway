@@ -837,15 +837,15 @@ public class FrameworkTests extends NullAwayTestsBase {
         .addSourceLines(
             "Test.java",
             """
-                    package com.uber;
-                    import java.util.Map;
-                    class Test {
-                      void testMapRemove(Map<String, Object> map) {
-                        // BUG: Diagnostic contains: dereferenced expression 'map.remove("key")' is @Nullable
-                        map.remove("key").toString();
-                      }
-                    }
-                    """)
+          package com.uber;
+          import java.util.Map;
+          class Test {
+            void testMapRemove(Map<String, Object> map) {
+              // BUG: Diagnostic contains: dereferenced expression 'map.remove("key")' is @Nullable
+              map.remove("key").toString();
+            }
+          }
+          """)
         .doTest();
   }
 
