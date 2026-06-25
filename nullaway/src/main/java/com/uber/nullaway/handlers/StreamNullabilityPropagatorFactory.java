@@ -95,6 +95,7 @@ public class StreamNullabilityPropagatorFactory {
             // nullability information from filter(...) should still be propagated to map(...),
             // ignoring the interleaving call to m().
             .withPassthroughMethodFromSignature("distinct()")
+            .withPassthroughMethodAllFromName("sorted")
             // List of methods of java.util.stream.Stream that both use the nullability information
             // internally (like map does), but also don't change the values flowing through the
             // stream
