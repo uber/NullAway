@@ -832,6 +832,24 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void defaultLibraryModelsMapRemove() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+                    package com.uber;
+                    import java.util.Map;
+                    class Test {
+                      void testMapRemove(Map<String, Object> map) {
+                        // BUG: Diagnostic contains: dereferenced expression 'map.remove("key")' is @Nullable
+                        map.remove("key").toString();
+                      }
+                    }
+                    """)
+        .doTest();
+  }
+
+  @Test
   public void mapGetOrDefault() {
     String[] sourceLines =
         new String[] {
