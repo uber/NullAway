@@ -175,4 +175,40 @@ public class SyncLambdasTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void forEachOnMapWithAnonymousClass() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            import java.util.HashMap;
+            import java.util.function.BiConsumer;
+            import org.jspecify.annotations.Nullable;
+            public class Test {
+                private @Nullable Map<Object, Object> target;
+                private @Nullable Map<Object, Object> resolved;
+                public void initialize() {
+                    if (this.target == null) {
+                        throw new IllegalArgumentException();
+                    }
+                    this.resolved = new HashMap<>();
+                    // Unlike a lambda callback, an anonymous class callback does NOT propagate
+                    // nullness facts from the enclosing scope. 'Test.this.resolved' is known
+                    // non-null at this point, but inside the anonymous class method NullAway
+                    // cannot use that fact because the access path changes (this$0.resolved).
+                    this.target.forEach(new BiConsumer<Object, Object>() {
+                        @Override
+                        public void accept(Object key, Object value) {
+                            // BUG: Diagnostic contains: dereferenced expression Test.this.resolved is @Nullable
+                            Test.this.resolved.put(key, value);
+                        }
+                    });
+                }
+            }
+            """)
+        .doTest();
+  }
 }
