@@ -169,6 +169,37 @@ public class StreamNullabilityPropagatorFactory {
     return new StreamNullabilityPropagator(rxModels);
   }
 
+  /** Returns a handler for Project Reactor (reactor.core.publisher.*) stream APIs */
+  public static StreamNullabilityPropagator getReactorStreamNullabilityPropagator() {
+    ImmutableList<StreamTypeRecord> reactorModels =
+        StreamModelBuilder.start()
+            .addStreamTypeFromName("reactor.core.publisher.Flux")
+            .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
+            .withMapMethodFromSignature(
+                "<V>map(java.util.function.Function<? super T,? extends V>)",
+                "apply",
+                ImmutableSet.of(0))
+            .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
+            .withMapMethodAllFromName("concatMap", "apply", ImmutableSet.of(0))
+            .withUseAndPassthroughMethodFromSignature(
+                "doOnNext(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
+            .withPassthroughMethodFromSignature("distinct()")
+            .withPassthroughMethodFromSignature("take(long)")
+            .withPassthroughMethodFromSignature("skip(long)")
+            .withPassthroughMethodAllFromName("distinctUntilChanged")
+            .addStreamTypeFromName("reactor.core.publisher.Mono")
+            .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
+            .withMapMethodFromSignature(
+                "<R>map(java.util.function.Function<? super T,? extends R>)",
+                "apply",
+                ImmutableSet.of(0))
+            .withMapMethodAllFromName("flatMap", "apply", ImmutableSet.of(0))
+            .withUseAndPassthroughMethodFromSignature(
+                "doOnNext(java.util.function.Consumer<? super T>)", "accept", ImmutableSet.of(0))
+            .end();
+    return new StreamNullabilityPropagator(reactorModels);
+  }
+
   /**
    * Create a new StreamNullabilityPropagator from a list of StreamTypeRecord specs.
    *
