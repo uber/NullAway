@@ -58,7 +58,7 @@ public class GrpcTest {
                     // for the true positives in the tests below to manifest. Using the
                     // default optimistic-nullness assumptions for third-party code, results
                     // in assuming that all calls to Metadata.get(...) return non-null.
-                    "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"));
+                    "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"));
   }
 
   @Test
