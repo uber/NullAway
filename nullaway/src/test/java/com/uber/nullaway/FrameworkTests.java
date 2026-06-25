@@ -1503,7 +1503,7 @@ public class FrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
- @Test
+  @Test
   public void reactorFluxFilterThenMap() {
     defaultCompilationHelper
         .addSourceLines(
@@ -1539,7 +1539,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
- 
+
   @Test
   public void reactorFluxFilterPassthroughThenMap() {
     defaultCompilationHelper
@@ -1569,7 +1569,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
- 
+
   @Test
   public void reactorFluxFilterDoOnNextThenMap() {
     defaultCompilationHelper
@@ -1599,7 +1599,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
- 
+
   @Test
   public void reactorFluxFilterThenFlatMap() {
     defaultCompilationHelper
@@ -1623,7 +1623,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
- 
+
   @Test
   public void reactorFluxFilterOrConditionNoNullSafety() {
     defaultCompilationHelper
@@ -1650,7 +1650,7 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
- 
+
   @Test
   public void reactorMonoFilterThenMap() {
     defaultCompilationHelper
