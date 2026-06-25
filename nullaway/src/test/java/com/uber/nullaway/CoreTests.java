@@ -1295,4 +1295,27 @@ public class CoreTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void testConditionalNullnessBoolean() {
+    defaultCompilationHelper
+      .addSourceLines(
+        "Test.java",
+        "package com.uber;",
+        "import javax.annotation.Nullable;",
+        "public class Test {",
+        "  public double execute(int a) {",
+        "    Object x = (a > 0) ? new Object() : null;",
+        "    boolean triggered = (a > 6);",
+        "    if (triggered) { x = null; }",
+        "    else { triggered = false; }",
+        "    if (!triggered) {",
+        "      // BUG: Diagnostic contains: dereferenced expression",
+        "      return x.hashCode();",
+        "    }",
+        "    return 0.0;",
+        "  }",
+        "}")
+      .doTest();
+  }
 }
