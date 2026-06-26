@@ -2,7 +2,6 @@ package com.uber.nullaway.librarymodel;
 
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
-import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Type;
@@ -89,8 +88,12 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
 
   @Override
   public Type visitWildcardType(Type.WildcardType t, Integer pathIndex) {
-    Preconditions.checkArgument(
-        pathIndex != typePath.size(), "cannot apply an annotation directly to a wildcard type");
+    if (pathIndex == typePath.size()) {
+      // Nullness annotations directly on wildcards are not legal under JSpecify.  This case can
+      // arise when member-type substitution replaces an annotated type variable with a wildcard;
+      // leave the wildcard unchanged and rely on the dedicated top-level parameter/return model.
+      return t;
+    }
     NestedAnnotationInfo.TypePathEntry entry = typePath.get(pathIndex);
     if (entry.kind() != NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND) {
       return t;
