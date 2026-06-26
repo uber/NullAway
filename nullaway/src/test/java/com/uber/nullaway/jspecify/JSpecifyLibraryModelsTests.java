@@ -64,7 +64,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
               }
 
               void orElseReturnsNullable(Optional<String> value) {
-                // BUG: Diagnostic contains: dereferenced expression value.orElse(null) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'value.orElse(null)' is @Nullable
                 value.orElse(null).hashCode();
               }
             }
@@ -105,7 +105,7 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void orElseGetReturnsNullable(Optional<String> value) {
-                // BUG: Diagnostic contains: dereferenced expression value.orElseGet(() -> null) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'value.orElseGet(() -> null)' is @Nullable
                 value.orElseGet(() -> null).hashCode();
               }
             }
