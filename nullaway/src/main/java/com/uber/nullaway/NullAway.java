@@ -1160,12 +1160,12 @@ public class NullAway extends BugChecker
     }
     Symbol.MethodSymbol funcInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
+    // we update the environment mapping before running any handlers, as some handlers
+    // (like Rx nullability) run dataflow analysis
+    updateEnvironmentMapping(state.getPath(), state);
     if (config.isJSpecifyMode()) {
       genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
     }
-    // we need to update environment mapping before running the handler, as some handlers
-    // (like Rx nullability) run dataflow analysis
-    updateEnvironmentMapping(state.getPath(), state);
     handler.onMatchLambdaExpression(
         tree, new MethodAnalysisContext(this, state, funcInterfaceMethod));
     if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
