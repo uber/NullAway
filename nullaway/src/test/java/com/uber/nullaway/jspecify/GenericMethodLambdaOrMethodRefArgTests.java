@@ -1122,6 +1122,34 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void lambdaReturnUsesNullableInvocationTargetType() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static void accept(Function<String, @Nullable String> mapper) {}
+
+              void expressionBody() {
+                accept(unused -> null);
+              }
+
+              void blockBody() {
+                accept(unused -> {
+                  return null;
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

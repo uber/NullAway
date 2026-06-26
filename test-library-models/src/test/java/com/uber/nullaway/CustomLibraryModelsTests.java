@@ -499,6 +499,133 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void lambdaReturnUsesNestedLibraryModelAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaBox;
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              LambdaBox<String> test() {
+                return LambdaModel.map(unused -> null);
+              }
+
+              LambdaBox<String> testExplicitTypeArgument() {
+                return LambdaModel.<String>map(unused -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceReturnUsesNestedLibraryModelAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaBox;
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              LambdaBox<String> test() {
+                return LambdaModel.map(Test::returnsNullable);
+              }
+
+              LambdaBox<String> testExplicitTypeArgument() {
+                return LambdaModel.<String>map(Test::returnsNullable);
+              }
+
+              static @Nullable String returnsNullable(String unused) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonGenericModeledMethodUsesModeledFunctionReturn() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              void test() {
+                LambdaModel.apply(unused -> null);
+                LambdaModel.apply(Test::returnsNullable);
+                LambdaModel.apply((unused -> null));
+                LambdaModel.apply((Test::returnsNullable));
+              }
+
+              static @Nullable String returnsNullable(String unused) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void functionalInterfaceParameterUsesNestedLibraryModelLowerBound() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              void test() {
+                LambdaModel.consume(value -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.length();
+                });
+                LambdaModel.consume(Test::acceptsNullable);
+                // BUG: Diagnostic contains: parameter value of referenced method is @NonNull
+                LambdaModel.consume(Test::acceptsNonNull);
+              }
+
+              static void acceptsNullable(@Nullable String value) {}
+
+              static void acceptsNonNull(String value) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())

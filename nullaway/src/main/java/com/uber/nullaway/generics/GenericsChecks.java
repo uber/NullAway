@@ -130,6 +130,66 @@ public final class GenericsChecks {
     return inferredPolyExpressionTypes.get(tree);
   }
 
+  /**
+   * Handles cases where a poly expression (lambda or method reference) is passed as a parameter,
+   * and the invoked function has a library model for the corresponding formal. In such cases, we
+   * ensure the appropriate formal parameter type from the library model is used when inferring the
+   * type of the poly expression, and cache the result.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  public void maybeStoreLibraryModeledPolyExpressionType(
+      Tree polyExpressionTree, VisitorState state) {
+    Preconditions.checkArgument(
+        polyExpressionTree instanceof LambdaExpressionTree
+            || polyExpressionTree instanceof MemberReferenceTree,
+        "Expected lambda or method reference tree but got: %s",
+        polyExpressionTree.getKind());
+    Preconditions.checkArgument(
+        state.getPath().getLeaf() == polyExpressionTree,
+        "Expected current path leaf to be the poly expression");
+    TreePath invocationPath = state.getPath().getParentPath();
+    // Skip parentheses around the invocation argument.
+    while (invocationPath != null && invocationPath.getLeaf() instanceof ParenthesizedTree) {
+      invocationPath = invocationPath.getParentPath();
+    }
+    if (invocationPath == null
+        || !(invocationPath.getLeaf() instanceof MethodInvocationTree invocationTree)) {
+      return;
+    }
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    if (methodSymbol == null) {
+      return;
+    }
+    Type attributedMethodType = ASTHelpers.getType(invocationTree.getMethodSelect());
+    if (attributedMethodType == null) {
+      return;
+    }
+    Type.MethodType methodType = attributedMethodType.asMethodType();
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(
+            methodSymbol, methodType, state.withPath(invocationPath), invocationTree);
+    if (modeledMethodType == methodType) {
+      return;
+    }
+    Type formalParameterType =
+        getFormalParameterTypeForArgument(invocationTree, modeledMethodType, polyExpressionTree);
+    if (formalParameterType == null || formalParameterType.isRaw()) {
+      return;
+    }
+    Type polyExpressionType = inferredPolyExpressionTypes.get(polyExpressionTree);
+    if (polyExpressionType == null) {
+      polyExpressionType = ASTHelpers.getType(polyExpressionTree);
+    }
+    if (polyExpressionType != null) {
+      Type groundTargetType =
+          GenericsUtils.groundTargetType(formalParameterType, state, config, handler);
+      Type modeledPolyExpressionType =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              groundTargetType, polyExpressionType, config, Collections.emptyMap());
+      inferredPolyExpressionTypes.put(polyExpressionTree, modeledPolyExpressionType);
+    }
+  }
+
   private final NullAway analysis;
   private final Config config;
   private final Handler handler;
@@ -1853,7 +1913,10 @@ public final class GenericsChecks {
                 return;
               }
 
-              if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
+              ExpressionTree actualParameterWithoutParentheses =
+                  ASTHelpers.stripParentheses(currentActualParam);
+              if (actualParameterWithoutParentheses
+                  instanceof MemberReferenceTree memberReferenceTree) {
                 Type groundFormalParameter =
                     GenericsUtils.groundTargetType(formalParameter, state, config, handler);
                 // the type of the method reference tree provided by javac may not capture
@@ -1875,16 +1938,19 @@ public final class GenericsChecks {
                         }
                       }
                     });
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
+                maybeStorePolyExpressionTypeFromTarget(
+                    actualParameterWithoutParentheses, formalParameter, state);
                 return;
               }
 
               TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
               Type actualParameterType;
-              if (currentActualParam instanceof LambdaExpressionTree) {
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
+              if (actualParameterWithoutParentheses instanceof LambdaExpressionTree) {
+                maybeStorePolyExpressionTypeFromTarget(
+                    actualParameterWithoutParentheses, formalParameter, state);
               }
-              Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);
+              Type inferredPolyType =
+                  inferredPolyExpressionTypes.get(actualParameterWithoutParentheses);
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
