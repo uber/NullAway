@@ -1078,10 +1078,6 @@ public class LibraryModelsHandler implements Handler {
                             ImmutableList.of(
                                 new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0)))))
                 .put(
-                    methodRef("java.util.Optional", "<T>ofNullable(T)"),
-                    ImmutableSetMultimap.of(
-                        0, new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of())))
-                .put(
                     methodRef(
                         "java.util.Optional",
                         "<U>map(java.util.function.Function<? super T,? extends U>)"),
@@ -1092,21 +1088,12 @@ public class LibraryModelsHandler implements Handler {
                             ImmutableList.of(
                                 new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 1),
                                 new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0)))))
-                .put(
-                    methodRef("java.util.Optional", "orElse(T)"),
-                    ImmutableSetMultimap.of(
-                        -1,
-                        new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of()),
-                        0,
-                        new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of())))
                 // https://github.com/uber/NullAway/issues/1616
                 /*.put(
                 methodRef(
                     "java.util.Optional",
                     "orElseGet(java.util.function.Supplier<? extends T>)"),
                 ImmutableSetMultimap.of(
-                    -1,
-                    new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of()),
                     0,
                     new NestedAnnotationInfo(
                         Annotation.NULLABLE,
