@@ -474,7 +474,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void wildcardSuperBoundsAndInference() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -502,7 +502,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void superWildcardToConcreteTypeVariable() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -530,7 +530,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void methodRefParameterExtendsWildcardToConcreteParameter() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -557,7 +557,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void genericMethodLambdaArgWildCard() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -581,7 +581,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void issue1522() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -605,7 +605,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void issue1522SelfContained() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -635,7 +635,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void issue1522SelfContainedWithMethodReference() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -668,7 +668,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void groundTargetTypePreservesNestedWildcards() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -733,7 +733,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void groundTargetTypePreservesNestedWildcardsForMethodReferences() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -766,7 +766,7 @@ public class WildcardTests extends NullAwayTestsBase {
    */
   @Test
   public void nullableWildcardFromCaffeine() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -799,7 +799,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void mapStreamValuesToNullable() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -846,7 +846,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void issue1500() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -882,7 +882,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void unboundWildcardTypeVarUnmarked() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -905,7 +905,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void nullableOnWildcard() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -937,13 +937,5 @@ public class WildcardTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:OnlyNullMarked=true")));
-  }
-
-  private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
-    return makeTestHelperWithArgs(
-        JSpecifyJavacConfig.withJSpecifyModeArgs(
-            Arrays.asList(
-                "-XepOpt:NullAway:OnlyNullMarked=true",
-                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")));
   }
 }
