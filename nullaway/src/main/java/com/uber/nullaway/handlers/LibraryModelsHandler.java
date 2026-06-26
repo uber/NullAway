@@ -971,6 +971,7 @@ public class LibraryModelsHandler implements Handler {
             .add(methodRef("java.lang.ref.WeakReference", "get()"))
             .add(methodRef("java.nio.file.Path", "getParent()"))
             .add(methodRef("java.util.Map", "get(java.lang.Object)"))
+            .add(methodRef("java.util.Map", "remove(java.lang.Object)"))
             .add(methodRef("javax.lang.model.element.Element", "getEnclosingElement()"))
             .add(methodRef("javax.lang.model.element.ExecutableElement", "getDefaultValue()"))
             .add(methodRef("javax.lang.model.element.PackageElement", "getEnclosingElement()"))
