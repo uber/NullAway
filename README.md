@@ -83,7 +83,7 @@ If you have explicitly disabled this behavior then NullAway will not correctly r
 
 If you are using a Lombok version earlier than 1.18.34, you must enable the following configuration option in an applicable `lombok.config` file:
 
-```
+```properties
 lombok.addLombokGeneratedAnnotation = true
 ```
 
