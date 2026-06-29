@@ -1520,4 +1520,186 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void reactorFluxFilterThenMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import reactor.core.publisher.Flux;
+            class Test {
+              static class Foo {
+                @Nullable String bar;
+              }
+              static class NullableContainer<T> {
+                @Nullable private T ref;
+                public NullableContainer() { ref = null; }
+                @Nullable public T get() { return ref; }
+              }
+              void testNegativeField(Flux<Foo> flux) {
+                flux.filter(foo -> foo.bar != null).map(foo -> foo.bar.length());
+              }
+              void testNegativeMethodReturn(Flux<NullableContainer<String>> flux) {
+                flux.filter(c -> c.get() != null).map(c -> c.get().length());
+              }
+              void testPositiveField(Flux<Foo> flux) {
+                // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
+                flux.map(foo -> foo.bar.length());
+              }
+              void testPositiveMethodReturn(Flux<NullableContainer<String>> flux) {
+                // BUG: Diagnostic contains: dereferenced expression
+                flux.map(c -> c.get().length());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void reactorFluxFilterPassthroughThenMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import reactor.core.publisher.Flux;
+            class Test {
+              static class Foo {
+                @Nullable String bar;
+              }
+              void testDistinct(Flux<Foo> flux) {
+                flux.filter(foo -> foo.bar != null).distinct().map(foo -> foo.bar.length());
+              }
+              void testDistinctUntilChanged(Flux<Foo> flux) {
+                flux.filter(foo -> foo.bar != null).distinctUntilChanged().map(foo -> foo.bar.length());
+              }
+              void testTake(Flux<Foo> flux) {
+                flux.filter(foo -> foo.bar != null).take(10).map(foo -> foo.bar.length());
+              }
+              void testSkip(Flux<Foo> flux) {
+                flux.filter(foo -> foo.bar != null).skip(1).map(foo -> foo.bar.length());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void reactorFluxFilterDoOnNextThenMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import reactor.core.publisher.Flux;
+            class Test {
+              static class Foo {
+                @Nullable String bar;
+              }
+              void testNegative(Flux<Foo> flux) {
+                flux
+                    .filter(foo -> foo.bar != null)
+                    .doOnNext(foo -> { if (foo.bar.length() == 0) throw new RuntimeException(); })
+                    .map(foo -> foo.bar.length());
+              }
+              void testPositive(Flux<Foo> flux) {
+                flux.doOnNext(foo -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
+                  System.out.println(foo.bar.length());
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void reactorFluxFilterThenFlatMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import reactor.core.publisher.Flux;
+            class Test {
+              static class Foo {
+                @Nullable String bar;
+              }
+              void testFlatMap(Flux<Foo> flux) {
+                flux.filter(foo -> foo.bar != null).flatMap(foo -> Flux.just(foo.bar.length()));
+              }
+              void testConcatMap(Flux<Foo> flux) {
+                flux.filter(foo -> foo.bar != null).concatMap(foo -> Flux.just(foo.bar.length()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void reactorFluxFilterOrConditionNoNullSafety() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import reactor.core.publisher.Flux;
+            class Test {
+              static class Foo {
+                @Nullable String bar;
+              }
+              private static boolean perhaps() { return Math.random() > 0.5; }
+              void testPositive(Flux<Foo> flux) {
+                flux
+                    .filter(foo -> foo.bar != null || perhaps())
+                    .map(foo -> {
+                      // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
+                      return foo.bar.length();
+                    });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void reactorMonoFilterThenMap() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import reactor.core.publisher.Mono;
+            class Test {
+              static class Foo {
+                @Nullable String bar;
+              }
+              void testNegative(Mono<Foo> mono) {
+                mono.filter(foo -> foo.bar != null).map(foo -> foo.bar.length());
+              }
+              void testNegativeFlatMap(Mono<Foo> mono) {
+                mono.filter(foo -> foo.bar != null).flatMap(foo -> Mono.just(foo.bar.length()));
+              }
+              void testPositiveMapWithoutFilter(Mono<Foo> mono) {
+                // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
+                mono.map(foo -> foo.bar.length());
+              }
+              void testPositiveDoOnNextWithoutFilter(Mono<Foo> mono) {
+                mono.doOnNext(foo -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'foo.bar' is @Nullable
+                  System.out.println(foo.bar.length());
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
 }

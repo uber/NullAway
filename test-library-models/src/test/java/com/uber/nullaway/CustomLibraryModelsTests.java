@@ -359,6 +359,37 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void topLevelAnnotationOnWildcardSubstitutedMethodType() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.Box;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              void use(Object source, Box<?> box) {
+                // We have a library model on the orElse method making its parameter and return type @Nullable.
+                // This test ensures we do not crash when we invoke orElse on a Box<?>; before we tried to create
+                // the invalid type `@Nullable ?` which led to an assertion failure
+                Object sourceToUse =
+                    source instanceof Box<?> matched ? matched.orElse(null) : source;
+                // BUG: Diagnostic contains: dereferenced expression 'box.orElse(null)' is @Nullable
+                box.orElse(null).toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void deeplyNestedTypeAnnot() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
@@ -493,6 +524,133 @@ public class CustomLibraryModelsTests {
                 NestedAnnots.multipleArgs(
                     new NestedAnnots<String>(), new NestedAnnots<@Nullable Integer>());
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void lambdaReturnUsesNestedLibraryModelAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaBox;
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              LambdaBox<String> test() {
+                return LambdaModel.map(unused -> null);
+              }
+
+              LambdaBox<String> testExplicitTypeArgument() {
+                return LambdaModel.<String>map(unused -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceReturnUsesNestedLibraryModelAnnotation() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaBox;
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              LambdaBox<String> test() {
+                return LambdaModel.map(Test::returnsNullable);
+              }
+
+              LambdaBox<String> testExplicitTypeArgument() {
+                return LambdaModel.<String>map(Test::returnsNullable);
+              }
+
+              static @Nullable String returnsNullable(String unused) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonGenericModeledMethodUsesModeledFunctionReturn() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              void test() {
+                LambdaModel.apply(unused -> null);
+                LambdaModel.apply(Test::returnsNullable);
+                LambdaModel.apply((unused -> null));
+                LambdaModel.apply((Test::returnsNullable));
+              }
+
+              static @Nullable String returnsNullable(String unused) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void functionalInterfaceParameterUsesNestedLibraryModelLowerBound() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.LambdaModel;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              void test() {
+                LambdaModel.consume(value -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.length();
+                });
+                LambdaModel.consume(Test::acceptsNullable);
+                // BUG: Diagnostic contains: parameter value of referenced method is @NonNull
+                LambdaModel.consume(Test::acceptsNonNull);
+              }
+
+              static void acceptsNullable(@Nullable String value) {}
+
+              static void acceptsNonNull(String value) {}
             }
             """)
         .doTest();
