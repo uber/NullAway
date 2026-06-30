@@ -42,12 +42,20 @@ import org.jspecify.annotations.Nullable;
  */
 public class NullnessStore implements Store<NullnessStore> {
 
-  private static final NullnessStore EMPTY = new NullnessStore(ImmutableMap.of());
+  private static final NullnessStore EMPTY = new NullnessStore(
+      ImmutableMap.of(), ImmutableMap.of(), ImmutableMap.of());
 
   private final ImmutableMap<AccessPath, Nullness> contents;
+  private final ImmutableMap<AccessPath, ImmutableMap<AccessPath, Nullness>> conditionalIfTrue;
+  private final ImmutableMap<AccessPath, ImmutableMap<AccessPath, Nullness>> conditionalIfFalse;
 
-  private NullnessStore(Map<AccessPath, Nullness> contents) {
+  private NullnessStore(
+      Map<AccessPath, Nullness> contents,
+      Map<AccessPath, ImmutableMap<AccessPath, Nullness>> conditionalIfTrue,
+      Map<AccessPath, ImmutableMap<AccessPath, Nullness>> conditionalIfFalse) {
     this.contents = ImmutableMap.copyOf(contents);
+    this.conditionalIfTrue = ImmutableMap.copyOf(conditionalIfTrue);
+    this.conditionalIfFalse = ImmutableMap.copyOf(conditionalIfFalse);
   }
 
   /**
@@ -193,7 +201,11 @@ public class NullnessStore implements Store<NullnessStore> {
         upperBoundContentsBuilder.put(ap, smallValue.leastUpperBound(largeValue));
       }
     }
-    return new NullnessStore(upperBoundContentsBuilder.build());
+    return new NullnessStore(
+        upperBoundContentsBuilder.build(), 
+        ImmutableMap.of(), 
+        ImmutableMap.of()
+    );
   }
 
   @Override
@@ -277,7 +289,9 @@ public class NullnessStore implements Store<NullnessStore> {
     return new NullnessStore(
         contents.entrySet().stream()
             .filter(e -> pred.test(e.getKey()))
-            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)));
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue)),
+        this.conditionalIfTrue,
+        this.conditionalIfFalse);
   }
 
   /**
@@ -334,19 +348,27 @@ public class NullnessStore implements Store<NullnessStore> {
   /** class for building up instances of the store. */
   public static final class Builder {
     private final ImmutableMap.Builder<AccessPath, Nullness> contents;
+    private final ImmutableMap.Builder<AccessPath, ImmutableMap<AccessPath, Nullness>> conditionalIfTrue;
+    private final ImmutableMap.Builder<AccessPath, ImmutableMap<AccessPath, Nullness>> conditionalIfFalse;
 
     Builder(NullnessStore prototype) {
       contents = ImmutableMap.builder();
+      conditionalIfTrue = ImmutableMap.builder();
+      conditionalIfFalse = ImmutableMap.builder();
+
       if (!prototype.contents.isEmpty()) {
         contents.putAll(prototype.contents);
+      }
+      if (!prototype.conditionalIfTrue.isEmpty()) {
+        conditionalIfTrue.putAll(prototype.conditionalIfTrue);
+      }
+      if (!prototype.conditionalIfFalse.isEmpty()) {
+        conditionalIfFalse.putAll(prototype.conditionalIfFalse);
       }
     }
 
     /**
-     * Sets the value for the given variable. {@code element} must come from a call to {@link
-     * LocalVariableNode#getElement()} or {@link
-     * org.checkerframework.nullaway.javacutil.TreeUtils#elementFromDeclaration} ({@link
-     * org.checkerframework.nullaway.dataflow.cfg.node.VariableDeclarationNode#getTree()}).
+     * Sets the value for the given variable.
      *
      * @param ap relevant access path
      * @param value fact for access path
@@ -357,13 +379,26 @@ public class NullnessStore implements Store<NullnessStore> {
       return this;
     }
 
+    public NullnessStore.Builder setConditionalInformation(
+        AccessPath booleanAp, 
+        ImmutableMap<AccessPath, Nullness> ifTrue, 
+        ImmutableMap<AccessPath, Nullness> ifFalse) {
+      conditionalIfTrue.put(booleanAp, ifTrue);
+      conditionalIfFalse.put(booleanAp, ifFalse);
+      return this;
+    }
+
     /**
      * Construct the immutable NullnessStore instance.
      *
      * @return a store constructed from everything added to the builder
      */
     public NullnessStore build() {
-      return new NullnessStore(contents.buildKeepingLast());
+      return new NullnessStore(
+          contents.buildKeepingLast(),
+          conditionalIfTrue.buildKeepingLast(),
+          conditionalIfFalse.buildKeepingLast()
+      );
     }
   }
 }
