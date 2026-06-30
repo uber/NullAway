@@ -12,8 +12,8 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInGeneratedCode=true",
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Generated.java",
             """
@@ -45,7 +45,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=false"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=true"))
         .addSourceLines(
             "Test.java",
             """
@@ -73,7 +73,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -104,7 +104,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
                 // should be permissive even when AcknowledgeRestrictiveAnnotations is set
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -132,7 +132,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false",
                 "-XepOpt:NullAway:AcknowledgeAndroidRecent=true"))
         .addSourceLines(
             "Test.java",
@@ -161,7 +161,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -194,7 +194,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -221,7 +221,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "TestNegativeCases.java",
             """
@@ -265,7 +265,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -292,6 +292,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=true",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
         .addSourceLines(
             "Test.java",
@@ -321,7 +322,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
                 // Note: this is the OFF case.
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=false"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=true"))
         .addSourceLines(
             "AnnotatedStringIDFunctions.java",
             """
@@ -394,7 +395,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.nullaway.[a-zA-Z0-9.]+.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "AnnotatedStringIDFunctions.java",
             """
@@ -468,7 +469,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -499,7 +500,7 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """

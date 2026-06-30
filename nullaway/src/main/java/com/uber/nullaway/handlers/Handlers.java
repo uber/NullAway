@@ -47,7 +47,7 @@ public class Handlers {
     MethodNameUtil methodNameUtil = new MethodNameUtil();
 
     RestrictiveAnnotationHandler restrictiveAnnotationHandler = null;
-    if (config.acknowledgeRestrictiveAnnotations()) {
+    if (!config.ignoreAnnotationsInUnmarkedCode()) {
       // This runs before LibraryModelsHandler, so that library models can override third-party
       // bytecode annotations
       restrictiveAnnotationHandler = new RestrictiveAnnotationHandler(config);

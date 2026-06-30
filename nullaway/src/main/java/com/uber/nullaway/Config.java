@@ -69,12 +69,11 @@ public interface Config {
   boolean fromExplicitlyUnannotatedPackage(String className);
 
   /**
-   * Checks if (tool) generated code should be considered always unannoatated.
+   * Checks if annotations in (tool) generated code should be ignored.
    *
-   * @return true if code marked as generated code should be treated as unannotated, even if it
-   *     comes from a package otherwise configured as annotated.
+   * @return true if annotations in code marked as generated code should be ignored.
    */
-  boolean treatGeneratedAsUnannotated();
+  boolean ignoreAnnotationsInGeneratedCode();
 
   /**
    * Checks if a class should be excluded.
@@ -190,15 +189,13 @@ public interface Config {
   boolean assertsEnabled();
 
   /**
-   * Checks if acknowledging restrictive annotations is enabled.
+   * Checks if annotations in unmarked code should be ignored.
    *
-   * @return true if the null checker should acknowledge stricter nullability annotations whenever
-   *     they are available in unannotated code, defaulting to optimistic defaults only when
-   *     explicit annotations are missing. false if any annotations in code not explicitly marked as
-   *     annotated should be ignored completely and unannotated code should always be treated
-   *     optimistically.
+   * @return true if the null checker should ignore annotations in unmarked code.
+   * false if annotations in code not explicitly marked as
+   * annotated should be acknowledged (the default).
    */
-  boolean acknowledgeRestrictiveAnnotations();
+  boolean ignoreAnnotationsInUnmarkedCode();
 
   /**
    * Checks if optional emptiness checking is enabled.

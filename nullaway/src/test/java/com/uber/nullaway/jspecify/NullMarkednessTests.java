@@ -1119,7 +1119,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 // Flag is required for now, but might no longer be need with @NullMarked!
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Foo.java",
             """
@@ -1166,7 +1166,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -1194,7 +1194,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 // Flag is required for now, but might no longer be need with @NullMarked!
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "StaticMethods.java",
             """
@@ -1261,7 +1261,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 // Flag is required for now, but might no longer be need with @NullMarked!
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -1304,8 +1304,8 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 // Flag is required for now, but might no longer be need with @NullMarked!
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber.dontcare",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
-                "-XepOpt:NullAway:TreatGeneratedAsUnannotated=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false",
+                "-XepOpt:NullAway:IgnoreAnnotationsInGeneratedCode=true"))
         .addSourceLines(
             "Test.java",
             """
@@ -1386,7 +1386,8 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             Arrays.asList(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=true"))
         .addSourceLines(
             "Test.java",
             """

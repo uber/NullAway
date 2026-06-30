@@ -40,7 +40,7 @@ public class NullawayReleaseCompiler extends AbstractBenchmarkCompiler {
   protected List<String> getExtraErrorProneArgs() {
     return Arrays.asList(
         "-XepOpt:NullAway:CheckOptionalEmptiness=true",
-        "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+        "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false",
         "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.NullabilityUtil.castToNonNull");
   }
 

@@ -617,7 +617,7 @@ public class CoreTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedClasses=com.uber.Other",
                 "-XepOpt:NullAway:CustomNonnullAnnotations=qual.NoNull",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines("qual/NoNull.java", "package qual;", "public @interface NoNull {", "}")
         .addSourceLines(
             "Other.java",
