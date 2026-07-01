@@ -83,7 +83,9 @@ public class SynchronousCallbackHandler implements Handler {
                   ownerType, state.getTypeFromString(methodRef.enclosingClass), state)) {
             int parameterIndex = -1;
             for (int i = 0; i < methodInvocationTree.getArguments().size(); i++) {
-              if (methodInvocationTree.getArguments().get(i) == leafNode) {
+              @SuppressWarnings("ReferenceEquality")
+              boolean foundLeaf = methodInvocationTree.getArguments().get(i) == leafNode;
+              if (foundLeaf) {
                 parameterIndex = i;
                 break;
               }

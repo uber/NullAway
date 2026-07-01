@@ -578,14 +578,14 @@ public class SerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplay(
                 "METHOD_NO_INIT",
-                "initializer method does not guarantee @NonNull fields h (line 5), f (line 5) are initialized along all control-flow paths",
+                "initializer method does not guarantee @NonNull fields 'h' (line 5), 'f' (line 5) are initialized along all control-flow paths",
                 "com.uber.Test",
                 "Test(boolean)",
                 184,
                 "com/uber/android/Test.java"),
             new ErrorDisplay(
                 "METHOD_NO_INIT",
-                "initializer method does not guarantee @NonNull fields g (line 5), i (line 5) are initialized along all control-flow paths",
+                "initializer method does not guarantee @NonNull fields 'g' (line 5), 'i' (line 5) are initialized along all control-flow paths",
                 "com.uber.Test",
                 "Test(boolean,boolean)",
                 425,
@@ -612,17 +612,17 @@ public class SerializationTest extends NullAwayTestsBase {
             """
             package com.uber;
             public class Test {
-               // BUG: Diagnostic contains: field f not initialized
+               // BUG: Diagnostic contains: field 'f' not initialized
                Object f;
             }
             """)
         .setExpectedOutputs(
             new ErrorDisplay(
                 "FIELD_NO_INIT",
-                "field f not initialized",
+                "field 'f' not initialized",
                 "com.uber.Test",
                 "f",
-                97,
+                99,
                 "com/uber/android/Test.java",
                 "FIELD",
                 "com.uber.Test",
@@ -654,7 +654,7 @@ public class SerializationTest extends NullAwayTestsBase {
             import javax.annotation.Nullable;
             public class Super {
                Object foo;
-               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo
+               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'foo'
                Super(boolean b) {
                }
                String test(@Nullable Object o) {
@@ -694,17 +694,17 @@ public class SerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplay(
                 "METHOD_NO_INIT",
-                "initializer method does not guarantee @NonNull field foo",
+                "initializer method does not guarantee @NonNull field 'foo'",
                 "com.uber.Super",
                 "Super(boolean)",
-                180,
+                182,
                 "com/uber/Super.java"),
             new ErrorDisplay(
                 "ASSIGN_FIELD_NULLABLE",
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.Super",
                 "test(java.lang.Object)",
-                323,
+                325,
                 "com/uber/Super.java",
                 "FIELD",
                 "com.uber.Super",
@@ -714,17 +714,17 @@ public class SerializationTest extends NullAwayTestsBase {
                 "com/uber/Super.java"),
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression o is @Nullable",
+                "dereferenced expression 'o' is @Nullable",
                 "com.uber.Super",
                 "test(java.lang.Object)",
-                430,
+                432,
                 "com/uber/Super.java"),
             new ErrorDisplay(
                 "RETURN_NULLABLE",
                 "returning @Nullable expression from method",
                 "com.uber.Super",
                 "test(java.lang.Object)",
-                521,
+                523,
                 "com/uber/Super.java",
                 "METHOD",
                 "com.uber.Super",
@@ -858,7 +858,7 @@ public class SerializationTest extends NullAwayTestsBase {
                Object foo;
                Object bar;
                @Nullable Object nullableFoo;
-               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo
+               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'foo'
                Test() {
                    // We are not tracing initializations in constructors.
                    bar = new Object();
@@ -1372,7 +1372,7 @@ public class SerializationTest extends NullAwayTestsBase {
             public class Main {
                public void run(){
                  Foo foo = new Foo() {
-                   // BUG: Diagnostic contains: @NonNull field Main$1.bar not initialized
+                   // BUG: Diagnostic contains: @NonNull field 'Main$1.bar' not initialized
                    Object bar;
                  };
                }
@@ -1381,10 +1381,10 @@ public class SerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplay(
                 "FIELD_NO_INIT",
-                "@NonNull field Main$1.bar not initialized",
+                "@NonNull field 'Main$1.bar' not initialized",
                 "com.uber.Main$1",
                 "bar",
-                206,
+                208,
                 "com/uber/Main.java",
                 "FIELD",
                 "com.uber.Main$1",
@@ -1417,7 +1417,7 @@ public class SerializationTest extends NullAwayTestsBase {
             public class Main {
                public void run(){
                  class Foo {
-                   // BUG: Diagnostic contains: @NonNull field Main$1Foo.bar not initialized
+                   // BUG: Diagnostic contains: @NonNull field 'Main$1Foo.bar' not initialized
                    Object bar;
                  };
                }
@@ -1426,10 +1426,10 @@ public class SerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplay(
                 "FIELD_NO_INIT",
-                "@NonNull field Main$1Foo.bar not initialized",
+                "@NonNull field 'Main$1Foo.bar' not initialized",
                 "com.uber.Main$1Foo",
                 "bar",
-                199,
+                201,
                 "com/uber/Main.java",
                 "FIELD",
                 "com.uber.Main$1Foo",
@@ -1698,11 +1698,11 @@ public class SerializationTest extends NullAwayTestsBase {
                @Nullable B b2 = null;
                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                Object baz1 = b1.foo;
-               // BUG: Diagnostic contains: dereferenced expression b2 is @Nullable
+               // BUG: Diagnostic contains: dereferenced expression 'b2' is @Nullable
                Object baz2 = b2.foo;
                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                Object baz3 = b1.nonnullC.val;
-               // BUG: Diagnostic contains: dereferenced expression b1.nullableC is @Nullable
+               // BUG: Diagnostic contains: dereferenced expression 'b1.nullableC' is @Nullable
                @Nullable Object baz4 = b1.nullableC.val;
             }
             class B {
@@ -1733,7 +1733,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.A",
                 "baz2",
-                295,
+                297,
                 "com/uber/A.java",
                 "FIELD",
                 "com.uber.A",
@@ -1746,7 +1746,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.A",
                 "baz3",
-                401,
+                403,
                 "com/uber/A.java",
                 "FIELD",
                 "com.uber.A",
@@ -1756,17 +1756,17 @@ public class SerializationTest extends NullAwayTestsBase {
                 "com/uber/A.java"),
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression b2 is @Nullable",
+                "dereferenced expression 'b2' is @Nullable",
                 "com.uber.A",
                 "baz2",
-                309,
+                311,
                 "com/uber/A.java"),
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression b1.nullableC is @Nullable",
+                "dereferenced expression 'b1.nullableC' is @Nullable",
                 "com.uber.A",
                 "baz4",
-                541,
+                545,
                 "com/uber/A.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
@@ -1805,7 +1805,7 @@ public class SerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression f is @Nullable",
+                "dereferenced expression 'f' is @Nullable",
                 "com.uber.A",
                 "A(java.lang.Object)",
                 194,
@@ -1852,7 +1852,7 @@ public class SerializationTest extends NullAwayTestsBase {
                   class Foo {
                       // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                       Object baz1 = other1.foo;
-                      // BUG: Diagnostic contains: dereferenced expression other2 is @Nullable
+                      // BUG: Diagnostic contains: dereferenced expression 'other2' is @Nullable
                       Object baz2 = other2.foo;
                   }
                }
@@ -1880,7 +1880,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "assigning @Nullable expression to @NonNull field",
                 "com.uber.A$1Foo",
                 "baz2",
-                391,
+                393,
                 "com/uber/A.java",
                 "FIELD",
                 "com.uber.A$1Foo",
@@ -1890,10 +1890,10 @@ public class SerializationTest extends NullAwayTestsBase {
                 "com/uber/A.java"),
             new ErrorDisplay(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression other2 is @Nullable",
+                "dereferenced expression 'other2' is @Nullable",
                 "com.uber.A$1Foo",
                 "baz2",
-                405,
+                407,
                 "com/uber/A.java"))
         .setFactory(errorDisplayFactory)
         .setOutputFileNameAndHeader(ERROR_FILE_NAME, ERROR_FILE_HEADER)
@@ -1919,7 +1919,7 @@ public class SerializationTest extends NullAwayTestsBase {
             import javax.annotation.Nullable;
             public class Super {
                Object foo;
-               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field foo
+               // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'foo'
                Super(boolean b) {
                }
                String test(@Nullable Object o) {
@@ -1959,7 +1959,7 @@ public class SerializationTest extends NullAwayTestsBase {
         .setExpectedOutputs(
             new ErrorDisplayV1(
                 "METHOD_NO_INIT",
-                "initializer method does not guarantee @NonNull field foo",
+                "initializer method does not guarantee @NonNull field 'foo'",
                 "com.uber.Super",
                 "Super(boolean)"),
             new ErrorDisplayV1(
@@ -1975,7 +1975,7 @@ public class SerializationTest extends NullAwayTestsBase {
                 "com/uber/Super.java"),
             new ErrorDisplayV1(
                 "DEREFERENCE_NULLABLE",
-                "dereferenced expression o is @Nullable",
+                "dereferenced expression 'o' is @Nullable",
                 "com.uber.Super",
                 "test(java.lang.Object)"),
             new ErrorDisplayV1(
@@ -2444,7 +2444,7 @@ public class SerializationTest extends NullAwayTestsBase {
     assertXmlContains(
         tempRoot,
         "<message_type>DEREFERENCE_NULLABLE</message_type>",
-        "<message>dereferenced expression f is @Nullable</message>",
+        "<message>dereferenced expression 'f' is @Nullable</message>",
         "<enc_class>com.uber.Foo</enc_class>",
         "<enc_member>bar()</enc_member>",
         "<offset>246</offset>");
@@ -2468,7 +2468,7 @@ public class SerializationTest extends NullAwayTestsBase {
             "   public void foo(Object p) { }",
             "   public void bar(boolean b, Object p) {",
             "     Object l = b ? f : p;",
-            "     // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
             "     l.toString();",
             "   }",
             "}")
@@ -2476,10 +2476,10 @@ public class SerializationTest extends NullAwayTestsBase {
     assertXmlContains(
         root,
         "<message_type>DEREFERENCE_NULLABLE</message_type>",
-        "<message>dereferenced expression l is @Nullable</message>",
+        "<message>dereferenced expression 'l' is @Nullable</message>",
         "<enc_class>com.uber.Foo</enc_class>",
         "<enc_member>bar(boolean,java.lang.Object)</enc_member>",
-        "<offset>274</offset>",
+        "<offset>276</offset>",
         "<origins>",
         "<symbol>f</symbol>");
   }
@@ -2514,7 +2514,7 @@ public class SerializationTest extends NullAwayTestsBase {
             "   public void bar() {",
             "     for(Bar b : list){",
             "       Map<String, String> l = b.baz();",
-            "       // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "       // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
             "       for(String s : l.values()) {}",
             "     }",
             "   }",
@@ -2523,10 +2523,10 @@ public class SerializationTest extends NullAwayTestsBase {
     assertXmlContains(
         root,
         "<message_type>DEREFERENCE_NULLABLE</message_type>",
-        "<message>dereferenced expression l is @Nullable</message>",
+        "<message>dereferenced expression 'l' is @Nullable</message>",
         "<enc_class>com.uber.Foo</enc_class>",
         "<enc_member>bar()</enc_member>",
-        "<offset>331</offset>",
+        "<offset>333</offset>",
         "<origins>");
   }
 
@@ -2550,7 +2550,7 @@ public class SerializationTest extends NullAwayTestsBase {
             "     if (b) {",
             "       l = f;",
             "     }",
-            "     // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
             "     l.toString();",
             "   }",
             "}")
@@ -2580,7 +2580,7 @@ public class SerializationTest extends NullAwayTestsBase {
             "   public void bar() {",
             "     Object a = f;",
             "     Object b = a;",
-            "     // BUG: Diagnostic contains: dereferenced expression b is @Nullable",
+            "     // BUG: Diagnostic contains: dereferenced expression 'b' is @Nullable",
             "     b.toString();",
             "   }",
             "}")
@@ -2609,7 +2609,7 @@ public class SerializationTest extends NullAwayTestsBase {
             "   @Nullable Object get() { return null; }",
             "   public void bar() {",
             "     Object l = get();",
-            "     // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
             "     l.toString();",
             "   }",
             "}")
@@ -2645,7 +2645,7 @@ public class SerializationTest extends NullAwayTestsBase {
             "   Bar b = new Bar();",
             "   public void bar() {",
             "     Object l = b.val;",
-            "     // BUG: Diagnostic contains: dereferenced expression l is @Nullable",
+            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
             "     l.toString();",
             "   }",
             "}")

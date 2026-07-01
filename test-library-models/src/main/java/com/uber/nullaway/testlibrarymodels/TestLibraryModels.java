@@ -51,6 +51,8 @@ public class TestLibraryModels implements LibraryModels {
         methodRef(
             "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
             "bothNullable(java.lang.String...)"),
+        0,
+        methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
         0);
   }
 
@@ -97,7 +99,8 @@ public class TestLibraryModels implements LibraryModels {
     return ImmutableSet.of(
         methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
-        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"));
+        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
+        methodRef("com.uber.lib.unannotated.Box", "orElse(T)"));
   }
 
   @Override
@@ -172,6 +175,9 @@ public class TestLibraryModels implements LibraryModels {
   public ImmutableSet<String> nullMarkedClasses() {
     return ImmutableSet.of(
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
+        "com.uber.lib.unannotated.LambdaBox",
+        "com.uber.lib.unannotated.LambdaConsumer",
+        "com.uber.lib.unannotated.LambdaModel",
         "com.uber.lib.unannotated.NestedAnnots",
         "com.uber.lib.unannotated.NullMarkedVarargsWithModel");
   }
@@ -255,6 +261,36 @@ public class TestLibraryModels implements LibraryModels {
                     Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
         .put(
             methodRef(
+                "com.uber.lib.unannotated.LambdaModel",
+                "<U>map(java.util.function.Function<java.lang.String,? extends U>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 1),
+                        new TypePathEntry(WILDCARD_BOUND, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.LambdaModel",
+                "apply(java.util.function.Function<java.lang.String,java.lang.String>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 1)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.LambdaModel",
+                "consume(com.uber.lib.unannotated.LambdaConsumer<? super java.lang.String>)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 0),
+                        new TypePathEntry(WILDCARD_BOUND, 1)))))
+        .put(
+            methodRef(
                 "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
                 "nullableContents(java.lang.String...)"),
             ImmutableSetMultimap.of(
@@ -285,6 +321,13 @@ public class TestLibraryModels implements LibraryModels {
                 0,
                 new NestedAnnotationInfo(
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .put(
+            methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of()),
+                0,
+                new NestedAnnotationInfo(Annotation.NULLABLE, ImmutableList.of())))
         .build();
   }
 }

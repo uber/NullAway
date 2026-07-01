@@ -46,6 +46,7 @@ class RunOnceForwardAnalysisImpl<
    * <p>We should remove this method if / when CF issue 7726 is fixed in a suitable manner.
    */
   @Override
+  @SuppressWarnings("ReferenceEquality") // intentional reference comparison
   public @Nullable V getValue(Node n) {
     if (isRunning) {
       if (currentNode == null

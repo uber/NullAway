@@ -605,9 +605,9 @@ public class ErrorBuilder {
     Element uninitField;
     if (uninitFields.size() == 1) {
       uninitField = uninitFields.iterator().next();
-      message.append("field ");
+      message.append("field '");
       message.append(uninitField.toString());
-      message.append(" (line ");
+      message.append("' (line ");
       message.append(getLineNumForElement(uninitField, state));
       message.append(") is initialized");
     } else {
@@ -616,7 +616,11 @@ public class ErrorBuilder {
       while (it.hasNext()) {
         uninitField = it.next();
         message.append(
-            uninitField.toString() + " (line " + getLineNumForElement(uninitField, state) + ")");
+            "'"
+                + uninitField.toString()
+                + "' (line "
+                + getLineNumForElement(uninitField, state)
+                + ")");
         if (it.hasNext()) {
           message.append(", ");
         } else {
@@ -650,7 +654,7 @@ public class ErrorBuilder {
       state.reportMatch(
           createErrorDescription(
               new ErrorMessage(
-                  FIELD_NO_INIT, "@NonNull static field " + fieldName + " not initialized"),
+                  FIELD_NO_INIT, "@NonNull static field '" + fieldName + "' not initialized"),
               tree,
               builder,
               state,
@@ -658,7 +662,7 @@ public class ErrorBuilder {
     } else {
       state.reportMatch(
           createErrorDescription(
-              new ErrorMessage(FIELD_NO_INIT, "@NonNull field " + fieldName + " not initialized"),
+              new ErrorMessage(FIELD_NO_INIT, "@NonNull field '" + fieldName + "' not initialized"),
               tree,
               builder,
               state,

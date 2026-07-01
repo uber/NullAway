@@ -106,7 +106,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * parameter type was actually repaired. otherwise, returns {@link #methodTypeAtCallSite}.
    */
   // suppress since we want to check for a specific identical Type object to check for changes
-  @SuppressWarnings("ReferenceEquality")
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   private Type.MethodType repairMethodTypeInternal() {
     if (methodSymbol.isVarArgs()) {
       // skip handling of varargs for now
@@ -178,7 +178,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * type as the new type to be used at this level. (The actual repair logic only kicks in when
    * visiting a nested type variable.)
    */
-  @SuppressWarnings("ReferenceEquality")
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   @Override
   public Type visitClassType(Type.ClassType genericClassType, RepairContext context) {
     if (!(context.actualArgType() instanceof Type.ClassType)
@@ -240,8 +240,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * type as the new type to be used at this level. (The actual repair logic only kicks in when
    * visiting a nested type variable.)
    */
-  // suppress since we want to check for a specific identical Type object to check for changes
-  @SuppressWarnings("ReferenceEquality")
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   @Override
   public Type visitArrayType(Type.ArrayType genericArrayType, RepairContext context) {
     if (!(context.actualArgType() instanceof Type.ArrayType actualArrayType)

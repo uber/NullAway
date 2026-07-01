@@ -130,6 +130,66 @@ public final class GenericsChecks {
     return inferredPolyExpressionTypes.get(tree);
   }
 
+  /**
+   * Handles cases where a poly expression (lambda or method reference) is passed as a parameter,
+   * and the invoked function has a library model for the corresponding formal. In such cases, we
+   * ensure the appropriate formal parameter type from the library model is used when inferring the
+   * type of the poly expression, and cache the result.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  public void maybeStoreLibraryModeledPolyExpressionType(
+      Tree polyExpressionTree, VisitorState state) {
+    Preconditions.checkArgument(
+        polyExpressionTree instanceof LambdaExpressionTree
+            || polyExpressionTree instanceof MemberReferenceTree,
+        "Expected lambda or method reference tree but got: %s",
+        polyExpressionTree.getKind());
+    Preconditions.checkArgument(
+        state.getPath().getLeaf() == polyExpressionTree,
+        "Expected current path leaf to be the poly expression");
+    TreePath invocationPath = state.getPath().getParentPath();
+    // Skip parentheses around the invocation argument.
+    while (invocationPath != null && invocationPath.getLeaf() instanceof ParenthesizedTree) {
+      invocationPath = invocationPath.getParentPath();
+    }
+    if (invocationPath == null
+        || !(invocationPath.getLeaf() instanceof MethodInvocationTree invocationTree)) {
+      return;
+    }
+    Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    if (methodSymbol == null) {
+      return;
+    }
+    Type attributedMethodType = ASTHelpers.getType(invocationTree.getMethodSelect());
+    if (attributedMethodType == null) {
+      return;
+    }
+    Type.MethodType methodType = attributedMethodType.asMethodType();
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(
+            methodSymbol, methodType, state.withPath(invocationPath), invocationTree);
+    if (modeledMethodType == methodType) {
+      return;
+    }
+    Type formalParameterType =
+        getFormalParameterTypeForArgument(invocationTree, modeledMethodType, polyExpressionTree);
+    if (formalParameterType == null || formalParameterType.isRaw()) {
+      return;
+    }
+    Type polyExpressionType = inferredPolyExpressionTypes.get(polyExpressionTree);
+    if (polyExpressionType == null) {
+      polyExpressionType = ASTHelpers.getType(polyExpressionTree);
+    }
+    if (polyExpressionType != null) {
+      Type groundTargetType =
+          GenericsUtils.groundTargetType(formalParameterType, state, config, handler);
+      Type modeledPolyExpressionType =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              groundTargetType, polyExpressionType, config, Collections.emptyMap());
+      inferredPolyExpressionTypes.put(polyExpressionTree, modeledPolyExpressionType);
+    }
+  }
+
   private final NullAway analysis;
   private final Config config;
   private final Handler handler;
@@ -641,7 +701,8 @@ public final class GenericsChecks {
                   TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
             }
             Type.MethodType methodType =
-                handler.onOverrideMethodType(symbol, invokedMethodType.asMethodType(), state);
+                handler.onOverrideMethodType(
+                    symbol, invokedMethodType.asMethodType(), state, invocationTree);
             // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
             result =
@@ -753,6 +814,7 @@ public final class GenericsChecks {
    * Returns the inferred/declared formal parameter type corresponding to actual parameter {@code
    * argumentTree}.
    */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality checks
   private @Nullable Type getFormalParameterTypeForArgument(
       Tree invocationTree, Type.MethodType invocationType, Tree argumentTree) {
     AtomicReference<@Nullable Type> formalParamTypeRef = new AtomicReference<>();
@@ -1192,7 +1254,8 @@ public final class GenericsChecks {
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
     Type.MethodType methodType =
-        handler.onOverrideMethodType(methodSymbol, methodSymbol.type.asMethodType(), state);
+        handler.onOverrideMethodType(
+            methodSymbol, methodSymbol.type.asMethodType(), state, methodInvocationTree);
     // first, handle the return type flow
     if (typeFromAssignmentContext != null) {
       solver.addSubtypeConstraint(
@@ -1411,7 +1474,7 @@ public final class GenericsChecks {
       result = getInferredMethodTypeForGenericMethodReference(result, state);
     }
     // finally, run any handlers
-    return handler.onOverrideMethodType(overridingMethod, result, state);
+    return handler.onOverrideMethodType(overridingMethod, result, state, null);
   }
 
   /**
@@ -1799,6 +1862,7 @@ public final class GenericsChecks {
    * @param tree the tree representing the method call
    * @param state the visitor state
    */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality checks
   public void compareGenericTypeParameterNullabilityForCall(
       Symbol.MethodSymbol methodSymbol, Tree tree, VisitorState state) {
     Config config = analysis.getConfig();
@@ -1834,7 +1898,13 @@ public final class GenericsChecks {
     }
 
     Type.MethodType finalMethodType =
-        handler.onOverrideMethodType(methodSymbol, invokedMethodType.asMethodType(), state);
+        handler.onOverrideMethodType(
+            methodSymbol,
+            invokedMethodType.asMethodType(),
+            state,
+            tree instanceof MethodInvocationTree methodInvocationTree
+                ? methodInvocationTree
+                : null);
     new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
@@ -1843,7 +1913,10 @@ public final class GenericsChecks {
                 return;
               }
 
-              if (currentActualParam instanceof MemberReferenceTree memberReferenceTree) {
+              ExpressionTree actualParameterWithoutParentheses =
+                  ASTHelpers.stripParentheses(currentActualParam);
+              if (actualParameterWithoutParentheses
+                  instanceof MemberReferenceTree memberReferenceTree) {
                 Type groundFormalParameter =
                     GenericsUtils.groundTargetType(formalParameter, state, config, handler);
                 // the type of the method reference tree provided by javac may not capture
@@ -1865,16 +1938,19 @@ public final class GenericsChecks {
                         }
                       }
                     });
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
+                maybeStorePolyExpressionTypeFromTarget(
+                    actualParameterWithoutParentheses, formalParameter, state);
                 return;
               }
 
               TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
               Type actualParameterType;
-              if (currentActualParam instanceof LambdaExpressionTree) {
-                maybeStorePolyExpressionTypeFromTarget(currentActualParam, formalParameter, state);
+              if (actualParameterWithoutParentheses instanceof LambdaExpressionTree) {
+                maybeStorePolyExpressionTypeFromTarget(
+                    actualParameterWithoutParentheses, formalParameter, state);
               }
-              Type inferredPolyType = inferredPolyExpressionTypes.get(currentActualParam);
+              Type inferredPolyType =
+                  inferredPolyExpressionTypes.get(actualParameterWithoutParentheses);
               if (inferredPolyType != null) {
                 actualParameterType = inferredPolyType;
               } else {
@@ -2300,7 +2376,10 @@ public final class GenericsChecks {
           ExpressionTree methodSelect =
               ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
           if (methodSelect instanceof MemberSelectTree mst) {
-            if (ASTHelpers.stripParentheses(mst.getExpression()) == invocation) {
+            @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
+            boolean invocationIsReceiver =
+                ASTHelpers.stripParentheses(mst.getExpression()) == invocation;
+            if (invocationIsReceiver) {
               // the invocation is the receiver expression, so we want the enclosing type of the
               // parent invocation
               formalParamType =
@@ -2334,7 +2413,9 @@ public final class GenericsChecks {
     Preconditions.checkArgument(
         assignment instanceof AssignmentTree || assignment instanceof VariableTree);
     TreePath path = state.getPath();
-    if (path.getLeaf() != assignment) {
+    @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
+    boolean leafIsAssignment = path.getLeaf() != assignment;
+    if (leafIsAssignment) {
       state = state.withPath(pathWithLeaf(path, assignment));
     }
     Type treeType =

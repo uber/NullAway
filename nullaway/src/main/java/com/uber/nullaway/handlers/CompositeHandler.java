@@ -50,6 +50,7 @@ import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
 import java.util.List;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.function.Predicate;
 import org.checkerframework.nullaway.dataflow.cfg.UnderlyingAST;
@@ -257,10 +258,10 @@ class CompositeHandler implements Handler {
       Predicate<AccessPath> curFilter = h.getAccessPathPredicateForNestedMethod(path, state);
       // here we do some optimization, to try to avoid unnecessarily returning a deeply nested
       // Predicate object (which would be more costly to test)
-      if (curFilter != FALSE_AP_PREDICATE) {
-        if (curFilter == TRUE_AP_PREDICATE) {
+      if (!Objects.equals(curFilter, FALSE_AP_PREDICATE)) {
+        if (Objects.equals(curFilter, TRUE_AP_PREDICATE)) {
           return curFilter;
-        } else if (filter == FALSE_AP_PREDICATE) {
+        } else if (Objects.equals(filter, FALSE_AP_PREDICATE)) {
           filter = curFilter;
         } else {
           filter = filter.or(curFilter);
@@ -354,19 +355,37 @@ class CompositeHandler implements Handler {
 
   @Override
   public Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType methodType,
+      VisitorState state,
+      @Nullable MethodInvocationTree invocationTree) {
     Type.MethodType currentType = methodType;
     for (Handler h : handlers) {
-      currentType = h.onOverrideMethodType(methodSymbol, currentType, state);
+      currentType = h.onOverrideMethodType(methodSymbol, currentType, state, invocationTree);
     }
     return currentType;
   }
 
   @Override
-  public boolean shouldSkipFieldInitializationCheck(
+  public FieldSkipResult shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
+    FieldSkipResult result = FieldSkipResult.NO;
     for (Handler h : handlers) {
-      if (h.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state)) {
+      result =
+          FieldSkipResult.combine(
+              result, h.shouldSkipFieldInitializationCheck(classSymbol, fieldSymbol, state));
+      if (result == FieldSkipResult.YES) {
+        return result;
+      }
+    }
+    return result;
+  }
+
+  @Override
+  public boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    for (Handler h : handlers) {
+      if (h.isSingleArgNullImpliesFalseMethod(methodSymbol, state)) {
         return true;
       }
     }

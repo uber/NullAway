@@ -28,6 +28,7 @@ import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
 import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
+import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -426,11 +427,21 @@ public class LibraryModelsHandler implements Handler {
     return libraryModels.nullMarkedClasses().contains(className);
   }
 
+  @Override
+  public boolean isSingleArgNullImpliesFalseMethod(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return methodSymbol.getParameters().size() == 1
+        && getOptLibraryModels(state.context).nullImpliesFalseParameters(methodSymbol).contains(0);
+  }
+
   /** Updates method types based on nested annotation information from library models. */
   @Override
-  @SuppressWarnings("ReferenceEquality")
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   public Type.MethodType onOverrideMethodType(
-      Symbol.MethodSymbol methodSymbol, Type.MethodType methodType, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType methodType,
+      VisitorState state,
+      @Nullable MethodInvocationTree invocationTree) {
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(state.context);
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
         optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
@@ -740,6 +751,9 @@ public class LibraryModelsHandler implements Handler {
                     "android.view.GestureDetector.OnGestureListener",
                     "onScroll(android.view.MotionEvent,android.view.MotionEvent,float,float)"),
                 0)
+            .put(methodRef("java.util.Optional", "<T>ofNullable(T)"), 0)
+            .put(methodRef("java.util.Optional", "orElse(T)"), 0)
+            .put(methodRef("java.util.Optional", "equals(java.lang.Object)"), 0)
             .build();
 
     private static final ImmutableSetMultimap<MethodRef, Integer> NON_NULL_PARAMETERS =
@@ -970,6 +984,11 @@ public class LibraryModelsHandler implements Handler {
             .add(methodRef("android.view.View", "getHandler()"))
             .add(methodRef("android.webkit.WebView", "getUrl()"))
             .add(methodRef("android.widget.TextView", "getLayout()"))
+            .add(methodRef("java.util.Optional", "orElse(T)"))
+            // https://github.com/uber/NullAway/issues/1616
+            // .add(
+            //    methodRef(
+            //        "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"))
             .add(methodRef("java.lang.System", "console()"))
             .build();
 
@@ -1045,21 +1064,48 @@ public class LibraryModelsHandler implements Handler {
     private static final ImmutableMap<
             MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
         NESTED_ANNOTATIONS_FOR_METHODS =
-            ImmutableMap.of(
+            new ImmutableMap.Builder<
+                    MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>()
+                .put(
+                    methodRef(
+                        "java.util.concurrent.atomic.AtomicReferenceFieldUpdater",
+                        "<U,W>newUpdater(java.lang.Class<U>,java.lang.Class<W>,java.lang.String)"),
+                    // turns Class<W> into Class<@NonNull W>
+                    ImmutableSetMultimap.of(
+                        1,
+                        new NestedAnnotationInfo(
+                            Annotation.NONNULL,
+                            ImmutableList.of(
+                                new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0)))))
+                .put(
+                    methodRef(
+                        "java.util.Optional",
+                        "<U>map(java.util.function.Function<? super T,? extends U>)"),
+                    ImmutableSetMultimap.of(
+                        0,
+                        new NestedAnnotationInfo(
+                            Annotation.NULLABLE,
+                            ImmutableList.of(
+                                new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 1),
+                                new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0)))))
+                // https://github.com/uber/NullAway/issues/1616
+                /*.put(
                 methodRef(
-                    "java.util.concurrent.atomic.AtomicReferenceFieldUpdater",
-                    "<U,W>newUpdater(java.lang.Class<U>,java.lang.Class<W>,java.lang.String)"),
-                // turns Class<W> into Class<@NonNull W>
+                    "java.util.Optional",
+                    "orElseGet(java.util.function.Supplier<? extends T>)"),
                 ImmutableSetMultimap.of(
-                    1,
+                    0,
                     new NestedAnnotationInfo(
-                        Annotation.NONNULL,
+                        Annotation.NULLABLE,
                         ImmutableList.of(
-                            new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0)))));
+                            new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0),
+                            new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0)))))*/
+                .build();
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =
         new ImmutableSet.Builder<String>()
             .add("java.util.function.Function")
+            .add("java.util.Optional")
             .add("java.util.concurrent.atomic.AtomicReference")
             .add("java.util.concurrent.atomic.AtomicReferenceFieldUpdater")
             .build();

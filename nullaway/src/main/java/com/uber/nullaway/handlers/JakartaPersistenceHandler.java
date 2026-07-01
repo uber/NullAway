@@ -130,42 +130,48 @@ public class JakartaPersistenceHandler implements Handler {
 
   /**
    * Detects whether a field is handled by JPA persistence, in which case we can skip the field
-   * initialization check. Our logic is as follows:
+   * initialization check for zero-argument constructors. Our logic is as follows:
    *
    * <ol>
    *   <li>If the field is not in a JPA-managed type (based on the annotations on the enclosing
    *       class), or if the field is ineligible for persistence (e.g., due to being transient),
-   *       return false.
-   *   <li>Otherwise, if the field is annotated {@code @Access(FIELD)}, return true.
+   *       return {@link FieldSkipResult#NO}.
+   *   <li>Otherwise, if the field is annotated {@code @Access(FIELD)}, return {@link
+   *       FieldSkipResult#ONLY_FOR_ZERO_ARG_CONSTRUCTORS}.
    *   <li>Otherwise, determine the access type for the enclosing class, based on mapping
    *       annotations on fields / methods in the class and in superclasses. Then:
    *       <ol>
-   *         <li>If the access type is FIELD, return true.
-   *         <li>If the access type is PROPERTY, return true if the field is the backing field for a
-   *             persistent property (the field should have a getter _and_ setter, and the getter
-   *             should have a mapping annotation).
-   *         <li>If we cannot determine the access type, return false.
+   *         <li>If the access type is FIELD, return {@link
+   *             FieldSkipResult#ONLY_FOR_ZERO_ARG_CONSTRUCTORS}.
+   *         <li>If the access type is PROPERTY, return {@link
+   *             FieldSkipResult#ONLY_FOR_ZERO_ARG_CONSTRUCTORS} if the field is the backing field
+   *             for a persistent property (the field should have a getter _and_ setter, and the
+   *             getter should have a mapping annotation).
+   *         <li>If we cannot determine the access type, return {@link FieldSkipResult#NO}.
    *       </ol>
    * </ol>
    */
   @Override
-  public boolean shouldSkipFieldInitializationCheck(
+  public FieldSkipResult shouldSkipFieldInitializationCheck(
       Symbol.ClassSymbol classSymbol, Symbol fieldSymbol, VisitorState state) {
     // There must be an appropriate annotation on the enclosing class, and the field must be
     // eligible for persistence
     if (!hasAnyAnnotationMatching(classSymbol, JPA_MANAGED_TYPE_ANNOTS::contains)
         || !isJpaFieldEligibleForPersistence(fieldSymbol)) {
-      return false;
+      return FieldSkipResult.NO;
     }
     // if the field itself has an @Access(FIELD) annotation, it is managed
     if (hasJpaAccessAnnotation(fieldSymbol, "FIELD")) {
-      return true;
+      return FieldSkipResult.ONLY_FOR_ZERO_ARG_CONSTRUCTORS;
     }
     // otherwise, determine the access type for the enclosing class, and proceed appropriately
     return switch (getJpaAccess(classSymbol)) {
-      case FIELD -> true;
-      case PROPERTY -> isBackingFieldForPersistentProperty(classSymbol, fieldSymbol);
-      case UNKNOWN -> false;
+      case FIELD -> FieldSkipResult.ONLY_FOR_ZERO_ARG_CONSTRUCTORS;
+      case PROPERTY ->
+          isBackingFieldForPersistentProperty(classSymbol, fieldSymbol)
+              ? FieldSkipResult.ONLY_FOR_ZERO_ARG_CONSTRUCTORS
+              : FieldSkipResult.NO;
+      case UNKNOWN -> FieldSkipResult.NO;
     };
   }
 

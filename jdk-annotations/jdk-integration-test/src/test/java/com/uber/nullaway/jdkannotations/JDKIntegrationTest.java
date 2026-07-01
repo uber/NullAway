@@ -330,7 +330,7 @@ public class JDKIntegrationTest {
               static void testPositive() {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                 ParameterAnnotation.takesNonNullGenericArray(null);
-                // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.returnNullableGenericArray()
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableGenericArray()' is @Nullable
                 ReturnAnnotation.returnNullableGenericArray().hashCode();
               }
               static void testNegative() {
@@ -358,7 +358,7 @@ public class JDKIntegrationTest {
             import com.uber.nullaway.jdkannotations.ReturnAnnotation;
             class Test {
               static void testPositive() {
-                // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.returnNullableGenericContainingNullable()
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableGenericContainingNullable()' is @Nullable
                 ReturnAnnotation.returnNullableGenericContainingNullable().hashCode();
               }
               static void testNegative() {
@@ -500,7 +500,7 @@ public class JDKIntegrationTest {
             import java.util.List;
             class Test<T> {
               void testCall() {
-                // BUG: Diagnostic contains: dereferenced expression ReturnAnnotation.getList(6, null) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.getList(6, null)' is @Nullable
                 ReturnAnnotation.getList(6, null).isEmpty();
               }
             }
@@ -528,7 +528,7 @@ public class JDKIntegrationTest {
             import java.util.List;
             class Test {
               void testCall() {
-                // BUG: Diagnostic contains: dereferenced expression ParameterAnnotation.nullableTypeParam(1, null) is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'ParameterAnnotation.nullableTypeParam(1, null)' is @Nullable
                 ParameterAnnotation.nullableTypeParam(1, null).toString();
                 ParameterAnnotation.nullableTypeParam(1, "string").toString();
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
@@ -537,7 +537,7 @@ public class JDKIntegrationTest {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                 ParameterAnnotation.nonNullTypeParam(null);
                 Object x = ParameterAnnotation.twoNullableTypeParam(null, "string");
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 x.toString();
               }
             }

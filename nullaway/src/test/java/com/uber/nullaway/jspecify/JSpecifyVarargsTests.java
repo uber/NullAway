@@ -63,7 +63,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
              public static String takesNullableVarargs(Object o, @Nullable Object... others) {
               String s = o.toString() + " " + others.toString();
               for (Object other : others) {
-                // BUG: Diagnostic contains: dereferenced expression other is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'other' is @Nullable
                 s += other.toString();
               }
               return s;
@@ -102,7 +102,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
              public static String takesNullableVarargs(Object o, @Nullable Object... others) {
               String s = o.toString() + " " + others.toString();
               for (Object other : others) {
-                // BUG: Diagnostic contains: dereferenced expression other is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'other' is @Nullable
                 s += other.toString();
               }
               return s;
@@ -251,7 +251,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -290,9 +290,9 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
-                // BUG: Diagnostic contains: dereferenced expression other is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'other' is @Nullable
                 s += other.toString();
               }
               return s;
@@ -336,7 +336,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
                 s += (other == null) ? "(null) " : other.toString() + " ";
               }
@@ -383,7 +383,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
              public static String takesNullableVarargsArray(Object o, @Nullable Object... others) {
               String s = o.toString() + " ";
               for (Object other : others) {
-                // BUG: Diagnostic contains: dereferenced expression other is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'other' is @Nullable
                 s += other.toString();
               }
               return s;
@@ -426,9 +426,9 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
             public class Utilities {
              public static String takesNullableVarargsArray(Object o, @Nullable Object @Nullable... others) {
               String s = o.toString() + " ";
-              // BUG: Diagnostic contains: enhanced-for expression others is @Nullable
+              // BUG: Diagnostic contains: enhanced-for expression 'others' is @Nullable
               for (Object other : others) {
-                // BUG: Diagnostic contains: dereferenced expression other is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'other' is @Nullable
                 s += other.toString();
               }
               return s;
@@ -712,7 +712,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               void test() {
                 NullableVarargsArrayConsumer consumer =
                     inputs -> {
-                      // BUG: Diagnostic contains: dereferenced expression inputs is @Nullable
+                      // BUG: Diagnostic contains: dereferenced expression 'inputs' is @Nullable
                       inputs.toString();
                     };
               }

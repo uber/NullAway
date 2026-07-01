@@ -46,11 +46,11 @@ public class Java8Tests extends NullAwayTestsBase {
               }
 
               static void testNullableParam() {
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 NullableParamFunction n = (x) -> x.toString();
                 // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface
                 NullableParamFunction n2 = (Object x) -> x.toString();
-                // BUG: Diagnostic contains: dereferenced expression x is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
                 NonNullParamFunction n3 = (@Nullable Object x) -> x.toString();
                 // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface
                 NullableParamFunction n4 = (@Nonnull Object x) -> x.toString();
@@ -499,7 +499,7 @@ public class Java8Tests extends NullAwayTestsBase {
             import java.util.stream.Collectors;
             class Test {
               public static boolean testPositive(@Nullable String text, java.util.Set<String> s) {
-                // BUG: Diagnostic contains: dereferenced expression text is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'text' is @Nullable
                 return s.stream().anyMatch(text::contains);
               }
               public static String[] testNegative(Object[] arr) {
@@ -532,6 +532,36 @@ public class Java8Tests extends NullAwayTestsBase {
                   NullableParamFunctionTypeUse n3 = (@Nullable Object x) -> (x == null) ? "null" : x.toString();
                   NullableParamFunctionTypeUse n4 = (x) -> (x == null) ? "null" : x.toString();
                 }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void testIssue1538StreamSorted() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import java.util.List;
+            import java.util.stream.Collectors;
+            import java.util.Comparator;
+            public class Test {
+              private String key = "";
+              @Nullable
+              private String value;
+              public String getKey() { return key; }
+              @Nullable
+              public String getValue() { return value; }
+              public String test(List<Test> testList) {
+                return testList.stream()
+                    .filter(test -> test.getValue() != null)
+                    .sorted(Comparator.comparing(Test::getKey))
+                    .map(c -> c.getValue().toUpperCase())
+                    .collect(Collectors.joining(","));
+              }
             }
             """)
         .doTest();

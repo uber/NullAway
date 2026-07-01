@@ -280,39 +280,36 @@ public class NullnessAnnotationSerializer implements Plugin {
                   if (typeHasJSpecifyAnnotation(type.getAnnotationMirrors())) {
                     return true;
                   }
-                  switch (type.getKind()) {
-                    case ARRAY -> {
-                      return hasJSpecifyAnnotationDeep(
-                          ((javax.lang.model.type.ArrayType) type).getComponentType());
-                    }
+                  return switch (type.getKind()) {
+                    case ARRAY ->
+                        hasJSpecifyAnnotationDeep(
+                            ((javax.lang.model.type.ArrayType) type).getComponentType());
                     case DECLARED -> {
                       for (TypeMirror arg :
                           ((javax.lang.model.type.DeclaredType) type).getTypeArguments()) {
                         if (hasJSpecifyAnnotationDeep(arg)) {
-                          return true;
+                          yield true;
                         }
                       }
-                      return false;
+                      yield false;
                     }
                     case WILDCARD -> {
                       javax.lang.model.type.WildcardType wt =
                           (javax.lang.model.type.WildcardType) type;
-                      return hasJSpecifyAnnotationDeep(wt.getExtendsBound())
+                      yield hasJSpecifyAnnotationDeep(wt.getExtendsBound())
                           || hasJSpecifyAnnotationDeep(wt.getSuperBound());
                     }
                     case INTERSECTION -> {
                       for (TypeMirror b :
                           ((javax.lang.model.type.IntersectionType) type).getBounds()) {
                         if (hasJSpecifyAnnotationDeep(b)) {
-                          return true;
+                          yield true;
                         }
                       }
-                      return false;
+                      yield false;
                     }
-                    default -> {
-                      return false;
-                    }
-                  }
+                    default -> false;
+                  };
                 }
               }.scan(cu, null);
             } else if (e.getKind() == com.sun.source.util.TaskEvent.Kind.COMPILATION) {

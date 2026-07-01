@@ -57,7 +57,7 @@ public class SwitchTests {
             class SwitchExpr {
               public void testSwitchExpressionAssign(int i) {
                 Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };
-                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                 o.toString();
                 Object o2 = switch (i) { case 3, 4, 5 -> new Object(); default -> "hello"; };
                 // This dereference is safe
@@ -77,7 +77,7 @@ public class SwitchTests {
             package com.uber;
             class SwitchExpr {
               public void testDirectlyDerefedSwitchExpr(int i) {
-                // BUG: Diagnostic contains: dereferenced expression (switch
+                // BUG: Diagnostic contains: dereferenced expression '(switch
                 (switch (i) { case 3, 4, 5 -> new Object(); default -> null; }).toString();
                 // This deference is safe
                 (switch (i) { case 3, 4, 5 -> new Object(); default -> "hello"; }).toString();
@@ -121,14 +121,14 @@ public class SwitchTests {
                   case 3, 4, 5 -> { o = new Object(); }
                   default -> { o = null; }
                 }
-                // BUG: Diagnostic contains: dereferenced expression o is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
                 o.toString();
                 Object o2 = null;
                 switch (i) {
                   case 3, 4, 5 -> { o2 = null; }
                   default -> { o2 = new Object(); }
                 }
-                // BUG: Diagnostic contains: dereferenced expression o2 is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 'o2' is @Nullable
                 o2.toString();
                 Object o3 = null;
                 switch (i) {
@@ -153,7 +153,7 @@ public class SwitchTests {
             class SwitchExpr {
               public void testSwitchExprUnbox() {
                 Integer i = null;
-                // BUG: Diagnostic contains: switch selector expression i is @Nullable
+                // BUG: Diagnostic contains: switch selector expression 'i' is @Nullable
                 Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };
                 int j1 = 0;
                 // BUG: Diagnostic contains: unboxing of a @Nullable value
@@ -207,7 +207,7 @@ public class SwitchTests {
                 };
               }
               static Object handleNullableEnumNoCaseNull(@Nullable NullableEnum nullableEnum) {
-                // BUG: Diagnostic contains: switch selector expression nullableEnum is @Nullable
+                // BUG: Diagnostic contains: switch selector expression 'nullableEnum' is @Nullable
                 return switch (nullableEnum) {
                   case A -> new Object();
                   case B -> new Object();
@@ -234,7 +234,7 @@ public class SwitchTests {
               static Object testPositive1(@Nullable NullableEnum nullableEnum) {
                 return switch (nullableEnum) {
                   case A -> new Object();
-                  // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'nullableEnum' is @Nullable
                   case null -> nullableEnum.hashCode();
                   default -> nullableEnum.toString();
                 };
@@ -242,7 +242,7 @@ public class SwitchTests {
               static Object testPositive2(@Nullable NullableEnum nullableEnum) {
                 return switch (nullableEnum) {
                   case A -> new Object();
-                  // BUG: Diagnostic contains: dereferenced expression nullableEnum is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 'nullableEnum' is @Nullable
                   case null, default -> nullableEnum.toString();
                 };
               }
