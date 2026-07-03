@@ -321,7 +321,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
                 String s = "hello";
                 while (true) {
                   String t = flag ? id(s) : id("fallback");
-                  // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                   t.hashCode();
                   s = null;
                 }
@@ -329,7 +329,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
               void testLoop2(boolean flag) {
                 String t = "hello";
                 while (true) {
-                  // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                  // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                   t.hashCode();
                   String s = null;
                   t = flag ? id(s) : id("fallback");
@@ -345,7 +345,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
                   s = null;
                   i--;
                 }
-                // BUG: Diagnostic contains: dereferenced expression t is @Nullable
+                // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
                 t.hashCode();
               }
             }
