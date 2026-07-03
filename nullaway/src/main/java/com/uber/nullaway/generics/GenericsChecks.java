@@ -111,8 +111,8 @@ public final class GenericsChecks {
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
   /**
-   * Maps each poly expression ({@code LambdaExpressionTree} or {@code MemberReferenceTree}) passed
-   * as a parameter to a generic method to its inferred type, if inference succeeded.
+   * Maps poly expressions for which we have computed a context-derived type to that type, if
+   * inference succeeded.
    */
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
@@ -1867,9 +1867,13 @@ public final class GenericsChecks {
     TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
         getTargetTypeForConditionalExpression(tree, state, calledFromDataflow);
     Type typeFromAssignmentContext = targetTypeAndAssignmentKind.typeFromAssignmentContext();
-    return typeFromAssignmentContext != null
-        ? typeFromAssignmentContext
-        : typeOrNullIfRaw(ASTHelpers.getType(tree));
+    if (typeFromAssignmentContext != null) {
+      if (!calledFromDataflow) {
+        inferredPolyExpressionTypes.put(tree, typeFromAssignmentContext);
+      }
+      return typeFromAssignmentContext;
+    }
+    return typeOrNullIfRaw(ASTHelpers.getType(tree));
   }
 
   private @Nullable Type inferConditionalExpressionType(
