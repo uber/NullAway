@@ -756,67 +756,9 @@ public final class GenericsChecks {
    */
   private @Nullable Type getDiamondTypeFromParentContext(
       NewClassTree tree, VisitorState state, TreePath parentPath, boolean calledFromDataflow) {
-    Tree parent = parentPath.getLeaf();
-    while (parent instanceof ParenthesizedTree) {
-      parentPath = parentPath.getParentPath();
-      if (parentPath == null) {
-        return null;
-      }
-      parent = parentPath.getLeaf();
-    }
-    if (parent instanceof VariableTree || parent instanceof AssignmentTree) {
-      return getTreeType(parent, state.withPath(parentPath), calledFromDataflow);
-    }
-    if (parent instanceof ReturnTree) {
-      TreePath enclosingMethodOrLambda =
-          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
-      if (enclosingMethodOrLambda != null
-          && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
-        Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
-        if (methodSymbol != null) {
-          return methodSymbol.getReturnType();
-        }
-      }
-      return null;
-    }
-    if (parent instanceof MethodInvocationTree parentInvocation) {
-      if (isGenericCallNeedingInference(parentInvocation)) {
-        // TODO support full integration of diamond constructor calls with generic method inference
-        // https://github.com/uber/NullAway/issues/1470
-        // for now, just give up and return null
-        return null;
-      }
-      Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
-      if (methodType == null) {
-        return null;
-      }
-      return getFormalParameterTypeForArgument(parentInvocation, methodType.asMethodType(), tree);
-    }
-    if (parent instanceof NewClassTree parentConstructorCall) {
-      // get the type returned by the parent constructor call
-      Type parentClassType =
-          getTreeType(parentConstructorCall, state.withPath(parentPath), calledFromDataflow);
-      if (parentClassType != null) {
-        Symbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
-        // get the proper type for the constructor, as a member of the type returned by the
-        // constructor
-        Type parentCtorType =
-            TypeSubstitutionUtils.memberType(
-                state.getTypes(), parentClassType, parentCtorSymbol, config);
-        return getFormalParameterTypeForArgument(
-            parentConstructorCall, parentCtorType.asMethodType(), tree);
-      }
-    }
-    if (parent instanceof ConditionalExpressionTree) {
-      TreePath conditionalPath = getOutermostConditionalExpressionPath(parentPath);
-      TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
-          getTargetTypeForConditionalExpression(
-              (ConditionalExpressionTree) conditionalPath.getLeaf(),
-              state.withPath(conditionalPath),
-              calledFromDataflow);
-      return targetTypeAndAssignmentKind.typeFromAssignmentContext();
-    }
-    return null;
+    return getTargetTypeFromParentContext(
+            tree, new TreePath(parentPath, tree), state, calledFromDataflow)
+        .typeFromAssignmentContext();
   }
 
   /**
@@ -1969,8 +1911,14 @@ public final class GenericsChecks {
         Objects.equals(state.getPath().getLeaf(), tree)
             ? state.getPath()
             : pathWithLeaf(state.getPath(), tree);
-    conditionalPath = getOutermostConditionalExpressionPath(conditionalPath);
-    TreePath parentPath = conditionalPath.getParentPath();
+    return getTargetTypeFromParentContext(tree, conditionalPath, state, calledFromDataflow);
+  }
+
+  private TargetTypeAndAssignmentKind getTargetTypeFromParentContext(
+      Tree tree, TreePath path, VisitorState state, boolean calledFromDataflow) {
+    Tree expressionTree = tree;
+    TreePath expressionPath = path;
+    TreePath parentPath = expressionPath.getParentPath();
     if (parentPath == null) {
       return new TargetTypeAndAssignmentKind(null, false);
     }
@@ -1982,11 +1930,25 @@ public final class GenericsChecks {
       }
       parent = parentPath.getLeaf();
     }
+    if (parent instanceof ConditionalExpressionTree) {
+      expressionPath = getOutermostConditionalExpressionPath(parentPath);
+      expressionTree = expressionPath.getLeaf();
+      parentPath = expressionPath.getParentPath();
+      if (parentPath == null) {
+        return new TargetTypeAndAssignmentKind(null, false);
+      }
+      parent = parentPath.getLeaf();
+      while (parent instanceof ParenthesizedTree) {
+        parentPath = parentPath.getParentPath();
+        if (parentPath == null) {
+          return new TargetTypeAndAssignmentKind(null, false);
+        }
+        parent = parentPath.getLeaf();
+      }
+    }
     VisitorState parentState = state.withPath(parentPath);
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return new TargetTypeAndAssignmentKind(
-          getTreeType(parent, parentState, calledFromDataflow),
-          isAssignmentToLocalVariable(parent));
+      return getTargetTypeForAssignmentContext(parent, parentState, calledFromDataflow);
     }
     if (parent instanceof ReturnTree) {
       TreePath enclosingMethodOrLambda =
@@ -2010,7 +1972,7 @@ public final class GenericsChecks {
       }
       return new TargetTypeAndAssignmentKind(
           getFormalParameterTypeForArgument(
-              parentInvocation, methodType.asMethodType(), conditionalPath.getLeaf()),
+              parentInvocation, methodType.asMethodType(), expressionTree),
           false);
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
@@ -2022,11 +1984,25 @@ public final class GenericsChecks {
                 state.getTypes(), parentClassType, parentCtorSymbol, config);
         return new TargetTypeAndAssignmentKind(
             getFormalParameterTypeForArgument(
-                parentConstructorCall, parentCtorType.asMethodType(), conditionalPath.getLeaf()),
+                parentConstructorCall, parentCtorType.asMethodType(), expressionTree),
             false);
       }
     }
     return new TargetTypeAndAssignmentKind(null, false);
+  }
+
+  private TargetTypeAndAssignmentKind getTargetTypeForAssignmentContext(
+      Tree assignmentOrVariable, VisitorState state, boolean calledFromDataflow) {
+    Preconditions.checkArgument(
+        assignmentOrVariable instanceof AssignmentTree
+            || assignmentOrVariable instanceof VariableTree);
+    Type targetType =
+        assignmentOrVariable instanceof VariableTree variableTree
+                && isVarLocalVariableDeclaration(variableTree)
+            ? null
+            : getTreeType(assignmentOrVariable, state, calledFromDataflow);
+    return new TargetTypeAndAssignmentKind(
+        targetType, isAssignmentToLocalVariable(assignmentOrVariable));
   }
 
   private TreePath getOutermostConditionalExpressionPath(TreePath path) {
@@ -2545,8 +2521,12 @@ public final class GenericsChecks {
       parent = parentPath.getLeaf();
     }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
-      return getInvocationInferenceInfoForAssignment(
-          parent, invocation, state.withPath(parentPath), calledFromDataflow);
+      TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
+          getTargetTypeForAssignmentContext(parent, state.withPath(parentPath), calledFromDataflow);
+      return new InvocationAndContext(
+          invocation,
+          targetTypeAndAssignmentKind.typeFromAssignmentContext(),
+          targetTypeAndAssignmentKind.assignedToLocal());
     } else if (parent instanceof ReturnTree) {
       // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
@@ -2622,27 +2602,6 @@ public final class GenericsChecks {
     }
     // an unhandled case; for now, give up and return no assignment context
     return new InvocationAndContext(invocation, null, false);
-  }
-
-  private InvocationAndContext getInvocationInferenceInfoForAssignment(
-      Tree assignment,
-      MethodInvocationTree invocation,
-      VisitorState state,
-      boolean calledFromDataflow) {
-    Preconditions.checkArgument(
-        assignment instanceof AssignmentTree || assignment instanceof VariableTree);
-    TreePath path = state.getPath();
-    @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
-    boolean leafIsAssignment = path.getLeaf() != assignment;
-    if (leafIsAssignment) {
-      state = state.withPath(pathWithLeaf(path, assignment));
-    }
-    Type treeType =
-        assignment instanceof VariableTree variableTree
-                && isVarLocalVariableDeclaration(variableTree)
-            ? null // no info from assignment context if declared with `var`
-            : getTreeType(assignment, state, calledFromDataflow);
-    return new InvocationAndContext(invocation, treeType, isAssignmentToLocalVariable(assignment));
   }
 
   /**

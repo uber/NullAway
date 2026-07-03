@@ -45,6 +45,36 @@ public class GenericDiamondTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varLocalDoesNotProvideTargetTypeForDiamondInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Box<T extends @Nullable Object> {
+                private final T value;
+                Box(T value) {
+                  this.value = value;
+                }
+                T get() {
+                  return value;
+                }
+              }
+              void test() {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                var inferredFromInitializer = new Box<>(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Box<String> explicitNonNullTarget = new Box<>(null);
+                Box<@Nullable String> explicitNullableTarget = new Box<>(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void returnDiamond() {
     makeHelper()
         .addSourceLines(

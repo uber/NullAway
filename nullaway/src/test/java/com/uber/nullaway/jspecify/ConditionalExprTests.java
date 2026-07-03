@@ -162,6 +162,35 @@ public class ConditionalExprTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varConditionalDoesNotProvideTargetTypeForGenericMethodInference() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            final class Test {
+              interface Box<T extends @Nullable Object> {
+                T get();
+              }
+              static <T extends @Nullable Object> Box<T> box(T t) {
+                throw new RuntimeException();
+              }
+              void test(boolean flag) {
+                var inferredFromInitializer = flag ? box(null) : box("fallback");
+                Box<@Nullable String> explicitNullableTarget =
+                    flag ? box(null) : box("fallback");
+                Box<String> explicitNonNullTarget =
+                    // BUG: Diagnostic contains: passing @Nullable parameter
+                    flag ? box(null) : box("fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nestedConditionalInfersGenericTypeArguments() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
@@ -210,6 +239,39 @@ public class ConditionalExprTests extends NullAwayTestsBase {
                     flag ? new Box<>(null) : new Box<>("fallback");
                 Box<String> nonNullBoxOk =
                     flag ? new Box<>("value") : new Box<>("fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void varConditionalDoesNotProvideTargetTypeForDiamondInference() {
+    makeHelperWithInferenceFailureWarning()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            final class Test {
+              static final class Box<T extends @Nullable Object> {
+                private final T value;
+                Box(T value) {
+                  this.value = value;
+                }
+                T get() {
+                  return value;
+                }
+              }
+              void test(boolean flag) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                var inferredFromInitializer = flag ? new Box<>(null) : new Box<>("fallback");
+                Box<@Nullable String> explicitNullableTarget =
+                    flag ? new Box<>(null) : new Box<>("fallback");
+                Box<String> explicitNonNullTarget =
+                    // BUG: Diagnostic contains: passing @Nullable parameter
+                    flag ? new Box<>(null) : new Box<>("fallback");
               }
             }
             """)
