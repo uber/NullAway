@@ -602,6 +602,10 @@ public final class GenericsChecks {
         || tree instanceof ConditionalExpressionTree) {
       Type result = inferredPolyExpressionTypes.get(tree);
       if (result == null) {
+        // For lambda and method ref poly expressions, their nullness-enhanced type should have
+        // already been cached via an inference call from a parent tree.  In contrast, the
+        // nullness-enhanced type of a conditional expression tree may not have been computed, so we
+        // invoke getConditionalExpressionType here to do so
         result =
             tree instanceof ConditionalExpressionTree conditionalExpressionTree
                 ? getConditionalExpressionType(conditionalExpressionTree, state, calledFromDataflow)
