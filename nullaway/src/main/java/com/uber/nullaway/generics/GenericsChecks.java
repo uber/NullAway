@@ -1281,6 +1281,8 @@ public final class GenericsChecks {
           allInvocations,
           calledFromDataflow);
     } else if (rhsExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
+      // generate constraints for both the true and false sub-expressions of the conditional
+      // expression
       ExpressionTree trueExpression = conditionalExpressionTree.getTrueExpression();
       TreePath pathToTrueExpression = new TreePath(state.getPath(), trueExpression);
       generateConstraintsForPseudoAssignment(
@@ -1823,45 +1825,50 @@ public final class GenericsChecks {
     if (!hasTargetType) {
       return;
     }
+    if (condExprType == null) {
+      return;
+    }
     TreePath pathToTruePart = pathWithLeaf(state.getPath(), truePartTree);
     TreePath pathToFalsePart = pathWithLeaf(state.getPath(), falsePartTree);
     Type truePartType =
-        condExprType == null
-            ? getTreeType(truePartTree, state.withPath(pathToTruePart))
-            : getTypeForRhsOfAssignment(
-                tree.getTrueExpression(),
-                pathToTruePart,
-                condExprType,
-                targetTypeAndAssignmentKind.assignedToLocal(),
-                state,
-                false);
+        getTypeForRhsOfAssignment(
+            tree.getTrueExpression(),
+            pathToTruePart,
+            condExprType,
+            targetTypeAndAssignmentKind.assignedToLocal(),
+            state,
+            false);
     Type falsePartType =
-        condExprType == null
-            ? getTreeType(falsePartTree, state.withPath(pathToFalsePart))
-            : getTypeForRhsOfAssignment(
-                tree.getFalseExpression(),
-                pathToFalsePart,
-                condExprType,
-                targetTypeAndAssignmentKind.assignedToLocal(),
-                state,
-                false);
+        getTypeForRhsOfAssignment(
+            tree.getFalseExpression(),
+            pathToFalsePart,
+            condExprType,
+            targetTypeAndAssignmentKind.assignedToLocal(),
+            state,
+            false);
     // The condExpr type should be the least-upper bound of the true and false part types.  To check
     // the nullability annotations, we check that the true and false parts are assignable to the
     // type of the whole expression
-    if (condExprType != null) {
-      if (truePartType != null) {
-        if (!subtypeParameterNullability(condExprType, truePartType, state)) {
-          reportMismatchedTypeForTernaryOperator(truePartTree, condExprType, truePartType, state);
-        }
+    if (truePartType != null) {
+      if (!subtypeParameterNullability(condExprType, truePartType, state)) {
+        reportMismatchedTypeForTernaryOperator(truePartTree, condExprType, truePartType, state);
       }
-      if (falsePartType != null) {
-        if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
-          reportMismatchedTypeForTernaryOperator(falsePartTree, condExprType, falsePartType, state);
-        }
+    }
+    if (falsePartType != null) {
+      if (!subtypeParameterNullability(condExprType, falsePartType, state)) {
+        reportMismatchedTypeForTernaryOperator(falsePartTree, condExprType, falsePartType, state);
       }
     }
   }
 
+  /**
+   * Returns the type to use for a conditional expression.
+   *
+   * <p>If a target/contextual type for the conditional expression has already been cached, returns
+   * it. Otherwise, this method tries to recover a target type from the conditional expression's
+   * parent context and caches it, unless called from dataflow. If no target type is available,
+   * falls back to javac's type for the conditional expression.
+   */
   private @Nullable Type getConditionalExpressionType(
       ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
     Type cachedType = inferredPolyExpressionTypes.get(tree);
@@ -1880,6 +1887,15 @@ public final class GenericsChecks {
     return typeOrNullIfRaw(ASTHelpers.getType(tree));
   }
 
+  /**
+   * Infers the type to use for a conditional expression in a pseudo-assignment context.
+   *
+   * <p>If {@code typeFromAssignmentContext} is non-null, it is used as the conditional expression's
+   * target type. Otherwise, this method tries to recover a target type from the parent context.
+   * When a target type is found, it is cached unless called from dataflow. If no target type is
+   * available, this method falls back to javac's type for the conditional expression. Returns
+   * {@code null} for raw or otherwise unavailable types.
+   */
   private @Nullable Type inferConditionalExpressionType(
       VisitorState state,
       ConditionalExpressionTree tree,
