@@ -1922,6 +1922,17 @@ public final class GenericsChecks {
     return getTargetTypeFromParentContext(tree, conditionalPath, state, calledFromDataflow);
   }
 
+  /**
+   * Returns the target type supplied by the parent context for an expression, if one is available.
+   *
+   * <p>Handles assignment and variable declaration contexts, method and constructor arguments,
+   * return expressions, and expressions nested inside conditional expressions. If {@code path} is
+   * inside a nested conditional expression, this method first climbs to the outermost conditional
+   * expression, since the surrounding target type applies to that expression as a whole.
+   *
+   * <p>A {@code var}-declared local variable does not provide a target type; its type is inferred
+   * from the initializer.
+   */
   private TargetTypeAndAssignmentKind getTargetTypeFromParentContext(
       Tree tree, TreePath path, VisitorState state, boolean calledFromDataflow) {
     Tree expressionTree = tree;
@@ -1933,24 +1944,15 @@ public final class GenericsChecks {
     Tree parent = parentPath.getLeaf();
     while (parent instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
-      if (parentPath == null) {
-        return new TargetTypeAndAssignmentKind(null, false);
-      }
       parent = parentPath.getLeaf();
     }
     if (parent instanceof ConditionalExpressionTree) {
       expressionPath = getOutermostConditionalExpressionPath(parentPath);
       expressionTree = expressionPath.getLeaf();
       parentPath = expressionPath.getParentPath();
-      if (parentPath == null) {
-        return new TargetTypeAndAssignmentKind(null, false);
-      }
       parent = parentPath.getLeaf();
       while (parent instanceof ParenthesizedTree) {
         parentPath = parentPath.getParentPath();
-        if (parentPath == null) {
-          return new TargetTypeAndAssignmentKind(null, false);
-        }
         parent = parentPath.getLeaf();
       }
     }
@@ -1972,6 +1974,10 @@ public final class GenericsChecks {
     }
     if (parent instanceof MethodInvocationTree parentInvocation) {
       if (isGenericCallNeedingInference(parentInvocation)) {
+        // The parent invocation's formal parameter type is still part of the inference problem, not
+        // a solved target type. Generic method inference will handle this expression from the
+        // parent
+        // call side.
         return new TargetTypeAndAssignmentKind(null, false);
       }
       Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
@@ -1999,6 +2005,13 @@ public final class GenericsChecks {
     return new TargetTypeAndAssignmentKind(null, false);
   }
 
+  /**
+   * Returns target-type information for an assignment or variable declaration context.
+   *
+   * <p>For explicit variable declarations and assignments, the assigned location's type is the
+   * target type. For {@code var}-declared locals, no target type is returned because the local's
+   * type is inferred from the initializer.
+   */
   private TargetTypeAndAssignmentKind getTargetTypeForAssignmentContext(
       Tree assignmentOrVariable, VisitorState state, boolean calledFromDataflow) {
     Preconditions.checkArgument(
@@ -2013,6 +2026,13 @@ public final class GenericsChecks {
         targetType, isAssignmentToLocalVariable(assignmentOrVariable));
   }
 
+  /**
+   * Returns the outermost conditional expression enclosing {@code path}, ignoring parentheses
+   * between nested conditionals.
+   *
+   * <p>If {@code path} is not enclosed by another conditional expression, returns {@code path}
+   * itself.
+   */
   private TreePath getOutermostConditionalExpressionPath(TreePath path) {
     TreePath conditionalPath = path;
     TreePath parentPath = conditionalPath.getParentPath();
@@ -2020,9 +2040,6 @@ public final class GenericsChecks {
       Tree parent = parentPath.getLeaf();
       while (parent instanceof ParenthesizedTree) {
         parentPath = parentPath.getParentPath();
-        if (parentPath == null) {
-          return conditionalPath;
-        }
         parent = parentPath.getLeaf();
       }
       if (!(parent instanceof ConditionalExpressionTree)) {
