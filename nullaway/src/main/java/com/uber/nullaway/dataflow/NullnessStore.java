@@ -290,6 +290,30 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
+   * Return all the fields of the given parameter in the store that are Non-Null.
+   *
+   * @param parameter The parameter element
+   * @return Set of fields (represented as {@code Element}s) of the given parameter that are
+   *     non-null
+   */
+  public Set<Element> getNonNullParameterFields(Element parameter) {
+    Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(Nullness.NONNULL);
+    Set<Element> result = new LinkedHashSet<>();
+    for (AccessPath ap : nonnullAccessPaths) {
+      if (ap.getRoot() != null && ap.getRoot().equals(parameter)) {
+        ImmutableList<AccessPathElement> elements = ap.getElements();
+        if (elements.size() == 1) {
+          Element elem = elements.get(0).getJavaElement();
+          if (elem.getKind().equals(ElementKind.FIELD)) {
+            result.add(elem);
+          }
+        }
+      }
+    }
+    return result;
+  }
+
+  /**
    * Return all the static fields in the store that are Non-Null.
    *
    * @return Set of static fields (represented as {@code Element}s) that are non-null

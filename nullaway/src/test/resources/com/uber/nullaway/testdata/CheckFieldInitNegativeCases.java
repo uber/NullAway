@@ -346,4 +346,21 @@ public class CheckFieldInitNegativeCases {
       }
     });
   }
+
+  enum EnumWithStaticInitializer {
+    A,
+    B;
+
+    static {
+      init(A, "x");
+      init(B, "y");
+    }
+
+    @Initializer
+    static void init(EnumWithStaticInitializer e, String value) {
+      e.field = value;
+    }
+
+    String field;
+  }
 }

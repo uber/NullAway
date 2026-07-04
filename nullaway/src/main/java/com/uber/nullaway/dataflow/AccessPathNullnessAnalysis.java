@@ -179,6 +179,26 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
+   * Get the fields of the given parameter that are guaranteed to be nonnull after a method or
+   * initializer block.
+   *
+   * @param path tree path of method, or initializer block
+   * @param context Javac context
+   * @param parameter parameter element
+   * @return fields guaranteed to be nonnull at exit of method (or initializer block)
+   */
+  public Set<Element> getNonnullFieldsOfParameterAtExit(
+      TreePath path, Context context, Element parameter) {
+    NullnessStore nullnessResult = dataFlow.finalResult(path, context, nullnessPropagation);
+    if (nullnessResult == null) {
+      // this case can occur if the method always throws an exception
+      // be conservative and say nothing is initialized
+      return Collections.emptySet();
+    }
+    return nullnessResult.getNonNullParameterFields(parameter);
+  }
+
+  /**
    * Get the instance fields that are guaranteed to be nonnull before the current expression.
    *
    * @param path tree path of some expression
