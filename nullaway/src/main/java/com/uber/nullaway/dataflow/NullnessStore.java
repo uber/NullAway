@@ -297,20 +297,7 @@ public class NullnessStore implements Store<NullnessStore> {
    *     non-null
    */
   public Set<Element> getNonNullParameterFields(Element parameter) {
-    Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(Nullness.NONNULL);
-    Set<Element> result = new LinkedHashSet<>();
-    for (AccessPath ap : nonnullAccessPaths) {
-      if (ap.getRoot() != null && ap.getRoot().equals(parameter)) {
-        ImmutableList<AccessPathElement> elements = ap.getElements();
-        if (elements.size() == 1) {
-          Element elem = elements.get(0).getJavaElement();
-          if (elem.getKind().equals(ElementKind.FIELD)) {
-            result.add(elem);
-          }
-        }
-      }
-    }
-    return result;
+    return getFieldsWithRootMatching(Nullness.NONNULL, parameter::equals);
   }
 
   /**
@@ -338,11 +325,15 @@ public class NullnessStore implements Store<NullnessStore> {
    * @return Set of fields (represented as {@code Element}s) with the given {@code nullness}.
    */
   public Set<Element> getReceiverFields(Nullness nullness) {
+    return getFieldsWithRootMatching(nullness, root -> root == null);
+  }
+
+  private Set<Element> getFieldsWithRootMatching(
+      Nullness nullness, Predicate<Element> rootMatches) {
     Set<AccessPath> nonnullAccessPaths = this.getAccessPathsWithValue(nullness);
     Set<Element> result = new LinkedHashSet<>();
     for (AccessPath ap : nonnullAccessPaths) {
-      // A null root represents the receiver
-      if (ap.getRoot() == null) {
+      if (rootMatches.test(ap.getRoot())) {
         ImmutableList<AccessPathElement> elements = ap.getElements();
         if (elements.size() == 1) {
           Element elem = elements.get(0).getJavaElement();

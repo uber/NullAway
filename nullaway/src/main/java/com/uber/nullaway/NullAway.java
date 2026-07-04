@@ -2343,12 +2343,14 @@ public class NullAway extends BugChecker
       if (initMethodTree.getBody() == null || initMethodTree.getParameters().isEmpty()) {
         continue;
       }
-      Element firstParam = ASTHelpers.getSymbol(initMethodTree.getParameters().get(0));
       AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(state);
-      Set<Element> nonnullAtExit =
-          nullnessAnalysis.getNonnullFieldsOfParameterAtExit(
-              new TreePath(state.getPath(), initMethodTree), state.context, firstParam);
-      initInSomeInitializerBuilder.addAll(nonnullAtExit);
+      for (VariableTree param : initMethodTree.getParameters()) {
+        Element paramElement = ASTHelpers.getSymbol(param);
+        Set<Element> nonnullAtExit =
+            nullnessAnalysis.getNonnullFieldsOfParameterAtExit(
+                new TreePath(state.getPath(), initMethodTree), state.context, paramElement);
+        initInSomeInitializerBuilder.addAll(nonnullAtExit);
+      }
     }
     for (BlockTree block : entities.instanceInitializerBlocks()) {
       addInitializedFieldsForBlock(
