@@ -34,7 +34,7 @@ public final class JSpecifyJavacConfig {
   public static List<String> withJSpecifyModeArgs(List<String> args) {
     List<String> result = new ArrayList<>(args.size() + JSPECIFY_MODE_ARGS.size());
     result.addAll(args);
-    result.addAll(JSPECIFY_MODE_ARGS);
+    result.addAll(JSPECIFY_MODE_AGS);
     return Collections.unmodifiableList(result);
   }
 

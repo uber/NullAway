@@ -33,7 +33,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodConditionalArmWithFieldAssignmentContext() {
+  public void genericMethodCallInOneArm() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -59,7 +59,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodConditionalBothArmsWithFieldAssignmentContext() {
+  public void genericMethodCallInBothArms() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -85,7 +85,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void nestedGenericMethodConditionalWithFieldAssignmentContext() {
+  public void nestedConditionalExpressions() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
@@ -111,7 +111,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodConditionalAsMethodArgument() {
+  public void conditionalAsMethodArgument() {
     makeHelperWithInferenceFailureWarning()
         .addSourceLines(
             "Test.java",
