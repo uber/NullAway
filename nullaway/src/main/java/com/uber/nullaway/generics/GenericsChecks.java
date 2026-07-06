@@ -504,6 +504,17 @@ public final class GenericsChecks {
    */
   private @Nullable String wildcardBoundMismatch(
       Type.WildcardType lhsWildcard, Type.WildcardType rhsWildcard, VisitorState state) {
+    // first, check upper bounds
+    Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
+    Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
+    String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
+    String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
+    if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
+      return String.format(
+          "target wildcard upper bound is %s; source wildcard upper bound is %s",
+          prettyLhsUpperBound, prettyRhsUpperBound);
+    }
+    // otherwise, lower bounds
     if (lhsWildcard.kind == BoundKind.SUPER && rhsWildcard.kind == BoundKind.SUPER) {
       Type lhsLowerBound = castToNonNull(lhsWildcard.getSuperBound());
       Type rhsLowerBound = castToNonNull(rhsWildcard.getSuperBound());
@@ -515,16 +526,8 @@ public final class GenericsChecks {
             prettyLhsLowerBound, prettyRhsLowerBound);
       }
     }
-    Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
-    Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
-    String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
-    String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
-    if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
-      return String.format(
-          "target wildcard upper bound is %s; source wildcard upper bound is %s",
-          prettyLhsUpperBound, prettyRhsUpperBound);
-    }
-    return firstDifferingWildcardBound(lhsUpperBound, rhsUpperBound, state);
+    // otherwise, give up
+    return null;
   }
 
   private void reportInvalidReturnTypeError(
