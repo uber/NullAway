@@ -538,4 +538,43 @@ public class AccessPathsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void mapContainsKeyMakesMapRemoveSafe() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void testMapRemoveAfterContainsKey(Map<String, Object> map) {
+                if (map.containsKey("key")) {
+                  map.remove("key").toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapContainsKeyDifferentKeyDoesNotMakeMapRemoveSafe() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void testMapRemoveAfterContainsKeyDifferentKey(Map<String, Object> map) {
+                if (map.containsKey("key1")) {
+                  // BUG: Diagnostic contains: dereferenced expression 'map.remove("key2")' is @Nullable
+                  map.remove("key2").toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
 }
