@@ -449,13 +449,15 @@ public final class GenericsChecks {
 
   /**
    * Returns a description of the first wildcard bound difference between {@code lhsType} and {@code
-   * rhsType}, or {@code null} if no such difference can be found.
+   * rhsType}, or {@code null} if no such difference can be found. Recursively traverses {@code
+   * lhsType} and {@code rhsType} to find such a difreence.
    *
    * <p>This is used to improve diagnostics when two types pretty-print identically, but differ in
    * the effective upper or lower bounds of a wildcard nested somewhere inside the type.
    */
   private @Nullable String firstDifferingWildcardBound(
       Type lhsType, Type rhsType, VisitorState state) {
+    // base case: both wildcard types
     Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsType);
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsType);
     if (lhsWildcard != null && rhsWildcard != null) {
