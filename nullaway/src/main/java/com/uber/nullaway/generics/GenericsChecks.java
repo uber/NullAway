@@ -450,10 +450,10 @@ public final class GenericsChecks {
   /**
    * Returns a description of the first wildcard bound difference between {@code lhsType} and {@code
    * rhsType}, or {@code null} if no such difference can be found. Recursively traverses {@code
-   * lhsType} and {@code rhsType} to find such a difreence.
+   * lhsType} and {@code rhsType} to find such a difference.
    *
-   * <p>This is used to improve diagnostics when two types pretty-print identically, but differ in
-   * the effective upper or lower bounds of a wildcard nested somewhere inside the type.
+   * <p>This is especially useful when two types pretty-print identically, but differ in the
+   * effective upper bound of a wildcard nested somewhere inside the type.
    */
   private @Nullable String firstDifferingWildcardBound(
       Type lhsType, Type rhsType, VisitorState state) {
@@ -495,16 +495,11 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns a diagnostic fragment describing how two wildcard bounds differ, or {@code null} if
-   * their relevant bounds pretty-print the same.
-   *
-   * <p>For {@code ? super} wildcards, lower bounds are compared first since they are the explicit
-   * user-written bounds. Otherwise, this compares the effective upper bounds used by NullAway's
-   * wildcard containment checks.
+   * Returns a diagnostic fragment describing how two wildcard effective upper bounds differ, or
+   * {@code null} if those bounds pretty-print the same.
    */
   private @Nullable String wildcardBoundMismatch(
       Type.WildcardType lhsWildcard, Type.WildcardType rhsWildcard, VisitorState state) {
-    // first, check upper bounds
     Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
     Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
     String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
@@ -514,19 +509,6 @@ public final class GenericsChecks {
           "target wildcard upper bound is %s; source wildcard upper bound is %s",
           prettyLhsUpperBound, prettyRhsUpperBound);
     }
-    // otherwise, lower bounds
-    if (lhsWildcard.kind == BoundKind.SUPER && rhsWildcard.kind == BoundKind.SUPER) {
-      Type lhsLowerBound = castToNonNull(lhsWildcard.getSuperBound());
-      Type rhsLowerBound = castToNonNull(rhsWildcard.getSuperBound());
-      String prettyLhsLowerBound = prettyTypeForError(lhsLowerBound, state);
-      String prettyRhsLowerBound = prettyTypeForError(rhsLowerBound, state);
-      if (!prettyLhsLowerBound.equals(prettyRhsLowerBound)) {
-        return String.format(
-            "target wildcard lower bound is %s; source wildcard lower bound is %s",
-            prettyLhsLowerBound, prettyRhsLowerBound);
-      }
-    }
-    // otherwise, give up
     return null;
   }
 
