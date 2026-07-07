@@ -958,6 +958,31 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void identicalLookingWildcardNestedInArrayErrorMessage() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            @NullMarked
+            final class Test {
+              static final class Flux<T> {}
+              @NullUnmarked
+              static final class Flow<T> {}
+              static <T> Flux<T>[] asFluxArray(Flow<? extends T> flow) {
+                throw new RuntimeException();
+              }
+              static Flux<?>[] convert(Object source) {
+                // BUG: Diagnostic contains: incompatible types: Flux<?> [] cannot be converted to Flux<?> [] (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object)
+                return asFluxArray((Flow<?>) source);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
