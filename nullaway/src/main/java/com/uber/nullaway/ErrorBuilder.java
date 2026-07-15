@@ -121,6 +121,20 @@ public class ErrorBuilder {
         null);
   }
 
+  /**
+   * Create an error description for a nullability warning involving a nullable expression, using
+   * the enclosing suppressible node as the suggestion location.
+   *
+   * @param errorMessage the error message object.
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param inquiry predicate used to test whether an expression may be null, used for origin
+   *     tracing during fix serialization.
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @param nullableExpression the nullable expression that triggered the error.
+   * @return the error description
+   */
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
@@ -140,6 +154,23 @@ public class ErrorBuilder {
         null);
   }
 
+  /**
+   * Create an error description for a nullability warning, carrying structured {@link
+   * NullableExpressionInfo} for fix serialization and using the enclosing suppressible node as the
+   * suggestion location.
+   *
+   * @param errorMessage the error message object.
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param inquiry predicate used to test whether an expression may be null, used for origin
+   *     tracing during fix serialization.
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @param nullableExpression the nullable expression that triggered the error.
+   * @param nullableExpressionInfo structured metadata about the nullable expression, serialized for
+   *     the Annotator; may be {@code null}.
+   * @return the error description
+   */
   public Description createErrorDescriptionWithInfo(
       ErrorMessage errorMessage,
       Description.Builder descriptionBuilder,
@@ -160,6 +191,17 @@ public class ErrorBuilder {
         nullableExpressionInfo);
   }
 
+  /**
+   * create an error description for a nullability warning
+   *
+   * @param errorMessage the error message object.
+   * @param suggestTree the location at which a fix suggestion should be made
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @return the error description
+   */
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
@@ -170,6 +212,20 @@ public class ErrorBuilder {
         errorMessage, suggestTree, descriptionBuilder, state, null, nonNullTarget, null, null);
   }
 
+  /**
+   * create an error description for a nullability warning involving a nullable expression.
+   *
+   * @param errorMessage the error message object.
+   * @param suggestTree the location at which a fix suggestion should be made
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param inquiry predicate used to test whether an expression may be null, used for origin
+   *     tracing during fix serialization.
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @param nullableExpression the nullable expression that triggered the error.
+   * @return the error description
+   */
   public Description createErrorDescription(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,
@@ -189,6 +245,24 @@ public class ErrorBuilder {
         null);
   }
 
+  /**
+   * create an error description for a nullability warning, with full control over the suggestion
+   * location and the metadata serialized for the Annotator's automatic fix generation.
+   *
+   * @param errorMessage the error message object.
+   * @param suggestTree the location at which a fix suggestion should be made
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param inquiry predicate used to test whether an expression may be null; when non-null and fix
+   *     serialization is active, it drives {@link OriginScanner} origin tracing.
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @param nullableExpression the nullable expression that triggered the error; used for origin
+   *     tracing when it is a local variable.
+   * @param nullableExpressionInfo structured metadata about the nullable expression, serialized for
+   *     the Annotator; may be {@code null}.
+   * @return the error description
+   */
   public Description createErrorDescriptionWithInfo(
       ErrorMessage errorMessage,
       @Nullable Tree suggestTree,

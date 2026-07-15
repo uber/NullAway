@@ -298,6 +298,10 @@ public class NullAway extends BugChecker
     return genericsChecks;
   }
 
+  /**
+   * Adapter for the fix serialization format version in use, controlling how errors and their
+   * metadata are written out for the Annotator.
+   */
   private final SerializationAdapter adapter;
 
   /**
@@ -310,9 +314,9 @@ public class NullAway extends BugChecker
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
     errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), handler);
+    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
-    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
   }
 
   @Inject // For future Error Prone versions in which checkers are loaded using Guice
@@ -327,9 +331,9 @@ public class NullAway extends BugChecker
                 .addAll(config.getSuppressionNameAliases())
                 .build();
     errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames, handler);
+    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
-    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
   }
 
   public boolean isMethodUnannotated(@Nullable MethodInvocationNode invocationNode) {
@@ -1989,11 +1993,12 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     ExpressionTree expr = tree.getExpression();
-    Symbol derefedSymbol = ASTHelpers.getSymbol(expr);
-    NullableExpressionInfo exprInfo = buildNullableExpressionInfo(expr, derefedSymbol, state);
-    String message = "enhanced-for expression '" + state.getSourceForNode(expr) + "' is @Nullable";
-    ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
     if (mayBeNullExpr(state, expr)) {
+      Symbol derefedSymbol = ASTHelpers.getSymbol(expr);
+      NullableExpressionInfo exprInfo = buildNullableExpressionInfo(expr, derefedSymbol, state);
+      String message =
+          "enhanced-for expression '" + state.getSourceForNode(expr) + "' is @Nullable";
+      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
       return errorBuilder.createErrorDescriptionWithInfo(
           errorMessage,
           buildDescription(expr),
@@ -2073,7 +2078,7 @@ public class NullAway extends BugChecker
           ErrorMessage errorMessage =
               new ErrorMessage(
                   MessageTypes.UNBOX_NULLABLE,
-                  "unboxing of a @Nullable value - " + state.getSourceForNode(tree));
+                  "unboxing of a @Nullable expression '" + state.getSourceForNode(tree) + "'");
           state.reportMatch(
               errorBuilder.createErrorDescription(
                   errorMessage,
