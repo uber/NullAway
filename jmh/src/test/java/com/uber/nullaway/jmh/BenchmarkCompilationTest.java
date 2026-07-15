@@ -14,7 +14,7 @@ public class BenchmarkCompilationTest {
     assertTrue(new AutodisposeCompiler().compile());
   }
 
-  @Ignore
+  @Ignore("https://github.com/uber/NullAway/issues/1629")
   @Test
   public void testCaffeine() throws IOException {
     assertTrue(new CaffeineCompiler().compile());
