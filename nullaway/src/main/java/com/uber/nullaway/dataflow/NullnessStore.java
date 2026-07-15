@@ -19,6 +19,7 @@ package com.uber.nullaway.dataflow;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.util.ASTHelpers;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath.IteratorContentsKey;
 import java.util.LinkedHashSet;
@@ -98,7 +99,14 @@ public class NullnessStore implements Store<NullnessStore> {
       VisitorState state,
       Nullness defaultValue,
       AccessPath.AccessPathContext apContext) {
-    AccessPath accessPath = AccessPath.fromMethodCall(node, state, apContext);
+    AccessPath accessPath;
+    if (AccessPath.isMapRemove(ASTHelpers.getSymbol(node.getTree()), state)) {
+      // Map.remove(key) returns the value associated with key before removing the entry, so use the
+      // pre-invocation fact for the corresponding Map.get(key) access path.
+      accessPath = AccessPath.getForMapInvocation(node, state, apContext);
+    } else {
+      accessPath = AccessPath.fromMethodCall(node, state, apContext);
+    }
     if (accessPath == null) {
       return defaultValue;
     }

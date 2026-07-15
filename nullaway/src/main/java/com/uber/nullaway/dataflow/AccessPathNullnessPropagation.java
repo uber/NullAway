@@ -1108,6 +1108,13 @@ public class AccessPathNullnessPropagation
           bothUpdates.set(getAccessPath, NONNULL);
         }
       }
+    } else if (AccessPath.isMapRemove(callee, state)) {
+      AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
+      if (getAccessPath != null) {
+        // remove() returns the old value, whose nullness is computed from the input store, but the
+        // corresponding map entry is absent in the outgoing store.
+        bothUpdates.set(getAccessPath, NULLABLE);
+      }
     }
   }
 

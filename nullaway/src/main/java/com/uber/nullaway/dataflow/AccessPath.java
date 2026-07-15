@@ -186,8 +186,14 @@ public final class AccessPath implements MapKey {
   static @Nullable AccessPath fromMethodCall(
       MethodInvocationNode node, VisitorState state, AccessPathContext apContext) {
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(node.getTree());
-    if (isMapGet(methodSymbol, state) || isMapRemove(methodSymbol, state)) {
+    if (isMapGet(methodSymbol, state)) {
       return fromMapGetCall(node, state, apContext);
+    }
+    // A Map.remove() invocation cannot be represented by a stable access path: unlike Map.get(),
+    // evaluating it changes the state of the corresponding map entry.  Its return nullness is
+    // handled specially in NullnessStore.valueOfMethodCall().
+    if (isMapRemove(methodSymbol, state)) {
+      return null;
     }
     return fromVanillaMethodCall(node, apContext);
   }
@@ -636,7 +642,7 @@ public final class AccessPath implements MapKey {
     return NullabilityUtil.isMapMethod(symbol, state, "get", 1);
   }
 
-  private static boolean isMapRemove(Symbol.MethodSymbol symbol, VisitorState state) {
+  static boolean isMapRemove(Symbol.MethodSymbol symbol, VisitorState state) {
     return NullabilityUtil.isMapMethod(symbol, state, "remove", 1);
   }
 
