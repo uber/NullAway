@@ -356,14 +356,71 @@ public class NullabilityUtil {
   public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
-    return Stream.concat(
-        varSymbol.getAnnotationMirrors().stream(),
-        symbol.getRawTypeAttributes().stream()
-            .filter(
-                t ->
-                    t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
-                        && t.position.parameter_index == paramInd
-                        && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
+    Stream<? extends AnnotationMirror> result =
+        Stream.concat(
+            varSymbol.getAnnotationMirrors().stream(),
+            symbol.getRawTypeAttributes().stream()
+                .filter(
+                    t ->
+                        t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
+                            && t.position.parameter_index == paramInd
+                            && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
+
+    if (isCanonicalRecordConstructor(symbol)) {
+      Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) symbol.owner;
+      List<?> recordComponents = classSymbol.getRecordComponents();
+      if (recordComponents != null && paramInd < recordComponents.size()) {
+        Symbol recordComponent = (Symbol) recordComponents.get(paramInd);
+        result =
+            Stream.concat(
+                result,
+                Stream.concat(
+                    recordComponent.getAnnotationMirrors().stream(),
+                    recordComponent.type.getAnnotationMirrors().stream()));
+      }
+    }
+    return result;
+  }
+
+  /**
+   * Checks if a symbol represents the canonical constructor of a record. We verify this by checking
+   * that it is a constructor of a record, has the same number of parameters as the record
+   * components, and the parameter types match the record component types exactly.
+   */
+  private static boolean isCanonicalRecordConstructor(Symbol.MethodSymbol symbol) {
+    if (!symbol.isConstructor() || !symbol.owner.getKind().equals(ElementKind.RECORD)) {
+      return false;
+    }
+    Symbol.ClassSymbol classSymbol = (Symbol.ClassSymbol) symbol.owner;
+    List<?> recordComponents = classSymbol.getRecordComponents();
+    if (recordComponents == null || symbol.getParameters().size() != recordComponents.size()) {
+      return false;
+    }
+    for (int i = 0; i < recordComponents.size(); i++) {
+      if (!isSameTypeIgnoredAnnotations(
+          symbol.getParameters().get(i).type, ((Symbol) recordComponents.get(i)).type)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /** Recursively compares two types for equality, ignoring any annotations present on them. */
+  @SuppressWarnings({"TypeEquals", "ReferenceEquality"})
+  private static boolean isSameTypeIgnoredAnnotations(Type t1, Type t2) {
+    if (t1 == t2) {
+      return true;
+    }
+    if (t1 == null || t2 == null) {
+      return false;
+    }
+    if (t1 instanceof Type.ArrayType arrayType1 && t2 instanceof Type.ArrayType arrayType2) {
+      return isSameTypeIgnoredAnnotations(arrayType1.elemtype, arrayType2.elemtype);
+    }
+    if (t1.tsym != null && t2.tsym != null) {
+      return t1.tsym.equals(t2.tsym);
+    }
+    return false;
   }
 
   /**

@@ -817,6 +817,31 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void recordConstructorWithCompactConstructor() {
+    makeHelper()
+        .addSourceLines(
+            "TestRecord.java",
+            """
+            package com.uber;
+            import java.util.Objects;
+            import org.jspecify.annotations.Nullable;
+
+            public record TestRecord(Object type, String filename, byte @Nullable [] value) {
+
+              public static TestRecord file(final String filename) {
+                return new TestRecord(new Object(), filename, null);
+              }
+
+              public TestRecord {
+                Objects.requireNonNull(type, "type");
+                Objects.requireNonNull(filename, "filename");
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
