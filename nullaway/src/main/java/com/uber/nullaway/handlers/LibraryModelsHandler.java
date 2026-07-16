@@ -403,9 +403,12 @@ public class LibraryModelsHandler implements Handler {
         getOptLibraryModels(state.context).failIfNullParameters(callee);
     ImmutableSet<Integer> castToNonNullParameters =
         getOptLibraryModels(state.context).castToNonNullMethod(callee);
-    String qualifiedName = ASTHelpers.enclosingClass(callee) + "." + callee.getSimpleName();
+    String cliCastToNonNull = config.getCastToNonNullMethod();
     boolean isCliCastToNonNull =
-        qualifiedName.equals(config.getCastToNonNullMethod()) && callee.getParameters().size() == 1;
+        cliCastToNonNull != null
+            && callee.getParameters().size() == 1
+            && cliCastToNonNull.equals(
+                ASTHelpers.enclosingClass(callee) + "." + callee.getSimpleName());
 
     Set<Integer> allNonNullParams;
     if (castToNonNullParameters.isEmpty() && !isCliCastToNonNull) {
