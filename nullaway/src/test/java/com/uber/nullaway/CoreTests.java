@@ -397,6 +397,31 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @SuppressWarnings("deprecation")
+  @Test
+  public void testCastToNonNullPropagation() {
+    defaultCompilationHelper
+        .addSourceFile("testdata/Util.java")
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import static com.uber.nullaway.testdata.Util.castToNonNull;
+            class Test {
+              static class Foo {
+                @Nullable String getToken() { return ""; }
+              }
+              void test(Foo value) {
+                if (castToNonNull(value.getToken()).contains("abc")) {
+                  value.getToken().length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void testReadStaticInConstructor() {
     defaultCompilationHelper

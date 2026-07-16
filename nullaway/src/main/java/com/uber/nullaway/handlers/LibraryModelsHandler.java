@@ -401,8 +401,25 @@ public class LibraryModelsHandler implements Handler {
       AccessPath.AccessPathContext apContext) {
     ImmutableSet<Integer> requiredNonNullParameters =
         getOptLibraryModels(state.context).failIfNullParameters(callee);
+    ImmutableSet<Integer> castToNonNullParameters =
+        getOptLibraryModels(state.context).castToNonNullMethod(callee);
+    String qualifiedName = ASTHelpers.enclosingClass(callee) + "." + callee.getSimpleName();
+    boolean isCliCastToNonNull =
+        qualifiedName.equals(config.getCastToNonNullMethod()) && callee.getParameters().size() == 1;
+
+    Set<Integer> allNonNullParams;
+    if (castToNonNullParameters.isEmpty() && !isCliCastToNonNull) {
+      allNonNullParams = requiredNonNullParameters;
+    } else {
+      allNonNullParams = new HashSet<>(requiredNonNullParameters);
+      allNonNullParams.addAll(castToNonNullParameters);
+      if (isCliCastToNonNull) {
+        allNonNullParams.add(0);
+      }
+    }
+
     for (AccessPath accessPath :
-        accessPathsAtIndexes(requiredNonNullParameters, arguments, state, apContext)) {
+        accessPathsAtIndexes(allNonNullParams, arguments, state, apContext)) {
       bothUpdates.set(accessPath, NONNULL);
     }
   }
