@@ -63,6 +63,8 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 }
               }
               void test() {
+                // NOTE: reporting a warning on the next line is a current limitation
+                // of NullAway; there should be no warning. See https://github.com/uber/NullAway/issues/1633.
                 // BUG: Diagnostic contains: passing @Nullable parameter
                 var inferredFromInitializer = new Box<>(null);
                 // BUG: Diagnostic contains: passing @Nullable parameter
