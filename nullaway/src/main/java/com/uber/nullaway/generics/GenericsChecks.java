@@ -1998,13 +1998,12 @@ public final class GenericsChecks {
         return new TargetTypeAndAssignmentKind(null, false);
       }
       Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
-      if (methodType == null) {
-        return new TargetTypeAndAssignmentKind(null, false);
-      }
-      return new TargetTypeAndAssignmentKind(
+      if (methodType != null) {
+        return new TargetTypeAndAssignmentKind(
           getFormalParameterTypeForArgument(
               parentInvocation, methodType.asMethodType(), expressionTree),
           false);
+      }
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
       Type parentClassType = getTreeType(parentConstructorCall, parentState, calledFromDataflow);
