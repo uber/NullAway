@@ -1991,6 +1991,7 @@ public final class GenericsChecks {
         }
       }
     }
+    // 2c. `foo(..., [expr]);` => target is called method's formal argument type
     if (parent instanceof MethodInvocationTree parentInvocation) {
       if (isGenericCallNeedingInference(parentInvocation)) {
         // The parent invocation's formal parameter type is still part of the inference problem, not
