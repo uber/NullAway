@@ -1974,6 +1974,8 @@ public final class GenericsChecks {
       }
     }
     VisitorState parentState = state.withPath(parentPath);
+    // 2. We are at the right point in the tree now. Three cases:
+    // 2a. `foo = [expr];` or `var foo = [expr];` (use getTargetTypeForAssignmentContext)
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
       return getTargetTypeForAssignmentContext(parent, parentState, calledFromDataflow);
     }
