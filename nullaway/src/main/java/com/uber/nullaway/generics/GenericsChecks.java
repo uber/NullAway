@@ -1957,6 +1957,7 @@ public final class GenericsChecks {
     if (parentPath == null) {
       return new TargetTypeAndAssignmentKind(null, false);
     }
+    // 1. Climb up to corresponding "assignment-like" context:
     Tree parent = parentPath.getLeaf();
     while (parent instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
