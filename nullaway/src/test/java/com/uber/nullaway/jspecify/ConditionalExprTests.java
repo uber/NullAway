@@ -77,6 +77,8 @@ public class ConditionalExprTests extends NullAwayTestsBase {
                 nullableField = flag ? id(null) : id("fallback");
                 // BUG: Diagnostic contains: passing @Nullable parameter
                 nonNullField = flag ? id(null) : id("fallback");
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nonNullField = flag ? id("fallback") : id(null);
                 nonNullField = flag ? id("value") : id("fallback");
               }
             }
@@ -103,6 +105,8 @@ public class ConditionalExprTests extends NullAwayTestsBase {
                 nullableField = first ? id(null) : second ? id("value") : "fallback";
                 // BUG: Diagnostic contains: passing @Nullable parameter
                 nonNullField = first ? id(null) : second ? id("value") : "fallback";
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nonNullField = first ? id("value") : second ? id(null) : "fallback";
                 nonNullField = first ? id("first") : second ? id("second") : "fallback";
               }
             }
