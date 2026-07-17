@@ -1987,7 +1987,6 @@ public final class GenericsChecks {
           return new TargetTypeAndAssignmentKind(methodSymbol.getReturnType(), false);
         }
       }
-      return new TargetTypeAndAssignmentKind(null, false);
     }
     if (parent instanceof MethodInvocationTree parentInvocation) {
       if (isGenericCallNeedingInference(parentInvocation)) {
@@ -2000,9 +1999,9 @@ public final class GenericsChecks {
       Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
       if (methodType != null) {
         return new TargetTypeAndAssignmentKind(
-          getFormalParameterTypeForArgument(
-              parentInvocation, methodType.asMethodType(), expressionTree),
-          false);
+            getFormalParameterTypeForArgument(
+                parentInvocation, methodType.asMethodType(), expressionTree),
+            false);
       }
     }
     if (parent instanceof NewClassTree parentConstructorCall) {
