@@ -1815,6 +1815,9 @@ public final class GenericsChecks {
     boolean hasTargetType =
         targetTypeAndAssignmentKind.typeFromAssignmentContext() != null
             || inferredPolyExpressionTypes.containsKey(tree);
+    if (!hasTargetType) {
+      return;
+    }
     Type condExprType =
         inferConditionalExpressionType(
             state,
@@ -1822,9 +1825,6 @@ public final class GenericsChecks {
             state.getPath(),
             targetTypeAndAssignmentKind.typeFromAssignmentContext(),
             false);
-    if (!hasTargetType) {
-      return;
-    }
     if (condExprType == null) {
       return;
     }
@@ -1931,10 +1931,7 @@ public final class GenericsChecks {
 
   private TargetTypeAndAssignmentKind getTargetTypeForConditionalExpression(
       ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
-    TreePath conditionalPath =
-        Objects.equals(state.getPath().getLeaf(), tree)
-            ? state.getPath()
-            : pathWithLeaf(state.getPath(), tree);
+    TreePath conditionalPath = pathWithLeaf(state.getPath(), tree);
     return getTargetTypeFromParentContext(tree, conditionalPath, state, calledFromDataflow);
   }
 
@@ -1996,8 +1993,7 @@ public final class GenericsChecks {
       if (isGenericCallNeedingInference(parentInvocation)) {
         // The parent invocation's formal parameter type is still part of the inference problem, not
         // a solved target type. Generic method inference will handle this expression from the
-        // parent
-        // call side.
+        // parent call side.
         return new TargetTypeAndAssignmentKind(null, false);
       }
       Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
