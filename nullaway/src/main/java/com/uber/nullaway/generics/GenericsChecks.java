@@ -2022,6 +2022,7 @@ public final class GenericsChecks {
             false);
       }
     }
+    // Fall back to an unknown target type
     return new TargetTypeAndAssignmentKind(null, false);
   }
 
