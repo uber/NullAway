@@ -2008,6 +2008,7 @@ public final class GenericsChecks {
             false);
       }
     }
+    // (Also 2c, but for constructors)
     if (parent instanceof NewClassTree parentConstructorCall) {
       Type parentClassType = getTreeType(parentConstructorCall, parentState, calledFromDataflow);
       if (parentClassType != null) {
