@@ -356,14 +356,20 @@ public class NullabilityUtil {
   public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
-    return Stream.concat(
-        varSymbol.getAnnotationMirrors().stream(),
-        symbol.getRawTypeAttributes().stream()
-            .filter(
-                t ->
-                    t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
-                        && t.position.parameter_index == paramInd
-                        && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)));
+    // On modern javac versions, type-use annotations are attached directly to the parameter's
+    // type. Keep reading raw attributes as well for backward compatibility with older javac
+    // behavior and legacy annotation-location handling.
+    Stream<? extends AnnotationMirror> typeUseAnnotations =
+        Stream.concat(
+                varSymbol.type.getAnnotationMirrors().stream(),
+                symbol.getRawTypeAttributes().stream()
+                    .filter(
+                        t ->
+                            t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
+                                && t.position.parameter_index == paramInd
+                                && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)))
+            .distinct();
+    return Stream.concat(varSymbol.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
 
   /**

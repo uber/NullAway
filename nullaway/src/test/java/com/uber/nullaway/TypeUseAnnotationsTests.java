@@ -406,6 +406,33 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void recordConstructorParameter() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public record Test(String name, byte @Nullable [] value, Object marker) {
+              public static Test file() {
+                return new Test("file", null, new Object());
+              }
+              public static Test nullName() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                return new Test(null, new byte[0], new Object());
+              }
+              public static Test nullMarker() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                return new Test("file", new byte[0], null);
+              }
+              public Test {
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeLegacyModeHelper() {
     return makeTestHelperWithArgs(
         Arrays.asList(

@@ -817,6 +817,28 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void recordConstructorParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public record Test(Object type, String filename, byte @Nullable [] value) {
+              public static Test file(final String filename) {
+                return new Test(new Object(), filename, null);
+              }
+              public Test {
+                Objects.requireNonNull(type, "type");
+                Objects.requireNonNull(filename, "filename");
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
