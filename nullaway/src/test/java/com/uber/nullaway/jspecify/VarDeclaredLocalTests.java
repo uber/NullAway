@@ -41,6 +41,36 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varLocalDoesNotProvideTargetTypeForGenericMethodInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {
+                T get();
+              }
+              static <U extends @Nullable Object> Box<U> box(U u) {
+                throw new RuntimeException();
+              }
+              void test() {
+                var inferredFromInitializer = box(null);
+                // BUG: Diagnostic contains: dereferenced expression 'inferredFromInitializer.get()' is @Nullable
+                inferredFromInitializer.get().hashCode();
+                // BUG: Diagnostic contains: inference failure
+                Box<String> explicitNonNullTarget = box(null);
+                Box<@Nullable String> explicitNullableTarget = box(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void varLocalReassigned() {
     makeHelper()
         .addSourceLines(

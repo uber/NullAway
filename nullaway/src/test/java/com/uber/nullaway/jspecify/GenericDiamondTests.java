@@ -45,6 +45,38 @@ public class GenericDiamondTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varLocalDoesNotProvideTargetTypeForDiamondInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Box<T extends @Nullable Object> {
+                private final T value;
+                Box(T value) {
+                  this.value = value;
+                }
+                T get() {
+                  return value;
+                }
+              }
+              void test() {
+                // NOTE: reporting a warning on the next line is a current limitation
+                // of NullAway; there should be no warning. See https://github.com/uber/NullAway/issues/1633.
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                var inferredFromInitializer = new Box<>(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Box<String> explicitNonNullTarget = new Box<>(null);
+                Box<@Nullable String> explicitNullableTarget = new Box<>(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void returnDiamond() {
     makeHelper()
         .addSourceLines(
