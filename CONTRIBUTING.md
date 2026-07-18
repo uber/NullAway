@@ -29,3 +29,11 @@ Guiding Principles
 * We allow anyone to participate in our projects. Tasks can be carried out by anyone that demonstrates the capability to complete them
 * Always be respectful of one another. Assume the best in others and act with empathy at all times
 * Collaborate closely with individuals maintaining the project or experienced users. Getting ideas out in the open and seeing a proposal before it's a pull request helps reduce redundancy and ensures we're all connected to the decision making process
+
+AI usage
+--------
+
+We allow for AI-generated code in PRs, but, we require that contributors have manually reviewed and understood
+all changes in the PR.  If you are a first-time contributor, and you used AI tools as part of generating your PR,
+please indicate which AI tools were used in your PR description, and attest that you have read and understood all
+changes in the PR.
