@@ -183,15 +183,14 @@ public class NullabilityUtil {
 
   /**
    * NOTE: this method does not work for getting all annotations of parameters of methods from class
-   * files. For that case, use {@link #getAllAnnotationsForParameter(Symbol.MethodSymbol, int,
-   * Config)}
+   * files. For that case, use {@link #getAllAnnotationsForParameter(Symbol.MethodSymbol, int)}
    *
    * @param symbol the symbol
    * @return all annotations on the symbol and on the type of the symbol
    */
-  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol, Config config) {
+  public static Stream<? extends AnnotationMirror> getAllAnnotations(Symbol symbol) {
     // for methods, we care about annotations on the return type, not on the method type itself
-    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol, config);
+    Stream<? extends AnnotationMirror> typeUseAnnotations = getTypeUseAnnotations(symbol);
     return Stream.concat(symbol.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
 
@@ -201,12 +200,11 @@ public class NullabilityUtil {
    * bytecodes.
    *
    * @param symbol the symbol
-   * @param config NullAway configuration
    * @param predicate the predicate to match annotation names against
    * @return true if any annotation on the symbol matches the predicate, false otherwise
    */
   public static boolean hasAnyAnnotationMatchingBackCompat(
-      Symbol symbol, Config config, Predicate<String> predicate) {
+      Symbol symbol, Predicate<String> predicate) {
     if (hasAnyAnnotationMatching(symbol, predicate)) {
       return true;
     }
@@ -215,7 +213,7 @@ public class NullabilityUtil {
         symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
     for (Attribute.TypeCompound typeCompound : typeAnnotationOwner.getRawTypeAttributes()) {
       if (!targetTypeMatches(symbol, typeCompound.position)
-          || !isDirectTypeUseAnnotation(typeCompound, symbol, config)) {
+          || !isDirectTypeUseAnnotation(typeCompound, symbol)) {
         continue;
       }
       if (predicate.test(typeCompound.getAnnotationType().toString())) {
@@ -350,15 +348,14 @@ public class NullabilityUtil {
    *
    * @param symbol the method symbol
    * @param paramInd index of the parameter
-   * @param config NullAway configuration
    * @return all declaration and type-use annotations for the parameter
    */
   public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
-      Symbol.MethodSymbol symbol, int paramInd, Config config) {
+      Symbol.MethodSymbol symbol, int paramInd) {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
     // On modern javac versions, type-use annotations are attached directly to the parameter's
     // type. Keep reading raw attributes as well for backward compatibility with older javac
-    // behavior and legacy annotation-location handling.
+    // behavior.
     Stream<? extends AnnotationMirror> typeUseAnnotations =
         Stream.concat(
                 varSymbol.type.getAnnotationMirrors().stream(),
@@ -367,7 +364,7 @@ public class NullabilityUtil {
                         t ->
                             t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
                                 && t.position.parameter_index == paramInd
-                                && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol, config)))
+                                && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol)))
             .distinct();
     return Stream.concat(varSymbol.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
@@ -376,21 +373,20 @@ public class NullabilityUtil {
    * Gets the type use annotations on a symbol, ignoring annotations on components of the type (type
    * arguments, wildcards, etc.)
    */
-  public static Stream<Attribute.TypeCompound> getTypeUseAnnotations(Symbol symbol, Config config) {
-    return getTypeUseAnnotations(symbol, config, /* onlyDirect= */ true);
+  public static Stream<Attribute.TypeCompound> getTypeUseAnnotations(Symbol symbol) {
+    return getTypeUseAnnotations(symbol, /* onlyDirect= */ true);
   }
 
   /**
    * Gets the type use annotations on a symbol
    *
    * @param symbol the symbol
-   * @param config NullAway configuration
    * @param onlyDirect if true, only return annotations that are directly on the type, not on
    *     components of the type (type arguments, wildcards, array contents, etc.)
    * @return the type use annotations on the symbol
    */
   private static Stream<Attribute.TypeCompound> getTypeUseAnnotations(
-      Symbol symbol, Config config, boolean onlyDirect) {
+      Symbol symbol, boolean onlyDirect) {
     // Adapted from Error Prone's MoreAnnotations class:
     // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L84-L91
     Symbol typeAnnotationOwner =
@@ -402,13 +398,13 @@ public class NullabilityUtil {
       return rawTypeAttributes.filter(
           (t) ->
               t.position.type.equals(TargetType.METHOD_RETURN)
-                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol, config)));
+                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol)));
     } else {
       // filter for annotations directly on the type
       return rawTypeAttributes.filter(
           t ->
               targetTypeMatches(symbol, t.position)
-                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol, config)));
+                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol)));
     }
   }
 
@@ -464,51 +460,24 @@ public class NullabilityUtil {
    *
    * @param t the annotation and its position in the type
    * @param symbol the symbol for the annotated element
-   * @param config NullAway configuration
    * @return {@code true} if the annotation should be treated as applying directly to the top-level
    *     type, false otherwise
    */
-  private static boolean isDirectTypeUseAnnotation(
-      Attribute.TypeCompound t, Symbol symbol, Config config) {
+  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Symbol symbol) {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
     // annotation is directly on the type.
-    // We care about both annotations directly on the outer type and also those directly
-    // on an inner type or array dimension, but wish to discard annotations on wildcards,
-    // or type arguments.
-    // For arrays, when the LegacyAnnotationLocations flag is passed, we treat annotations on the
-    // outer type and on any dimension of the array as applying to the nullability of the array
-    // itself, not the elements.
-    // In JSpecify mode and without the LegacyAnnotationLocations flag, annotations on array
-    // dimensions are *not* treated as applying to the top-level type, consistent with the JSpecify
-    // spec.
-    // Annotations which are *not* on the inner type are not treated as being applied to the inner
-    // type. This can be bypassed the LegacyAnnotationLocations flag, in which
-    // annotations on all locations are treated as applying to the inner type.
-    // We don't allow mixing of inner types and array dimensions in the same location
-    // (i.e. `Foo.@Nullable Bar []` is meaningless).
-    // These aren't correct semantics for type use annotations, but a series of hacky
-    // compromises to keep some semblance of backwards compatibility until we can do a
-    // proper deprecation of the incorrect behaviors for type use annotations when their
-    // semantics don't match those of a declaration annotation in the same position.
-    // See https://github.com/uber/NullAway/issues/708
-    boolean locationHasInnerTypes = false;
-    boolean locationHasArray = false;
+    // Annotations on array dimensions, wildcards, or type arguments do not apply to the top-level
+    // type. For nested classes, an annotation applies directly only when placed on the innermost
+    // type.
     int innerTypeCount = 0;
-    int nestingDepth = getNestingDepth(symbol.type);
     for (TypePathEntry entry : t.position.location) {
       switch (entry.tag) {
         case INNER_TYPE -> {
-          locationHasInnerTypes = true;
           innerTypeCount++;
         }
         case ARRAY -> {
-          if (config.isJSpecifyMode() || !config.isLegacyAnnotationLocation()) {
-            // Annotations on array element types do not apply to the top-level
-            // type outside of legacy mode
-            return false;
-          }
-          locationHasArray = true;
+          return false;
         }
         default -> {
           // Wildcard or type argument!
@@ -516,16 +485,12 @@ public class NullabilityUtil {
         }
       }
     }
-    if (config.isLegacyAnnotationLocation()) {
-      // Make sure it's not a mix of inner types and arrays for this annotation's location
-      return !(locationHasInnerTypes && locationHasArray);
-    }
     // For non-nested classes annotations apply to the innermost type.
     if (!isTypeOfNestedClass(symbol.type)) {
       return true;
     }
     // For nested classes the annotation is only valid if it is on the innermost type.
-    return innerTypeCount == nestingDepth - 1;
+    return innerTypeCount == getNestingDepth(symbol.type) - 1;
   }
 
   private static int getNestingDepth(Type type) {
@@ -679,7 +644,7 @@ public class NullabilityUtil {
       Config config,
       BiPredicate<String, Config> typeUseCheck,
       BiPredicate<Symbol, Config> declarationCheck) {
-    if (getTypeUseAnnotations(arraySymbol, config, /* onlyDirect= */ false)
+    if (getTypeUseAnnotations(arraySymbol, /* onlyDirect= */ false)
         .anyMatch(
             t -> {
               // the location list should be of length 1 and the entry tag should be ARRAY

@@ -22,8 +22,6 @@
 
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
-import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -227,28 +225,6 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void typeUseAnnotationOnInnerMultiLevelLegacy() {
-    makeLegacyModeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            import org.checkerframework.checker.nullness.qual.Nullable;
-            class A { class B { class C {} } }
-            class Test {
-                 @Nullable A.B.C foo1 = null;
-                 A.@Nullable B.C foo2 = null;
-                 A.B.@Nullable C foo3 = null;
-                 @Nullable A.B foo4 = null;
-                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
-                 A.B.@Nullable C [][] foo5 = null;
-                 A.B.C @Nullable [][] foo6 = null;
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void declarationAnnotationOnInnerMultiLevel() {
     defaultCompilationHelper
         .addSourceLines(
@@ -298,37 +274,6 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void typeUseAndDeclarationAnnotationOnInnerMultiLevelLegacy() {
-    makeLegacyModeHelper()
-        .addSourceLines(
-            "Nullable.java",
-            """
-            package com.uber;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Target;
-            @Target({ElementType.METHOD, ElementType.FIELD, ElementType.PARAMETER, ElementType.LOCAL_VARIABLE, ElementType.TYPE_USE})
-            public @interface Nullable {}
-            """)
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            class A { class B { class C {} } }
-            class Test {
-                 // ok, treated as declaration
-                 @Nullable A.B.C foo1 = null;
-                 // ok, treated as type-use
-                 A.@Nullable B.C foo2 = null;
-                 // ok, treated as type-use
-                 A.B.@Nullable C foo3 = null;
-                 // ok, treated as declaration
-                 @Nullable A.B foo4 = null;
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void typeUseAnnotationOnMethodReturnType() {
     defaultCompilationHelper
         .addSourceLines(
@@ -344,26 +289,6 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
                  public A.@Nullable B.C method2() { return null; }
                  public A.B.@Nullable C method3() { return null; }
                  // BUG: Diagnostic contains: Type-use nullability annotations should be applied on inner class
-                 public @Nullable A.B method4() { return null; }
-                 public @Nullable A method5() { return null; }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void typeUseAnnotationOnMethodReturnTypeLegacy() {
-    makeLegacyModeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            import org.checkerframework.checker.nullness.qual.Nullable;
-            class A { class B { class C {} } }
-            class Test {
-                 public @Nullable A.B.C method1() { return null; }
-                 public A.@Nullable B.C method2() { return null; }
-                 public A.B.@Nullable C method3() { return null; }
                  public @Nullable A.B method4() { return null; }
                  public @Nullable A method5() { return null; }
             }
@@ -431,12 +356,5 @@ public class TypeUseAnnotationsTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
-  }
-
-  private CompilationTestHelper makeLegacyModeHelper() {
-    return makeTestHelperWithArgs(
-        Arrays.asList(
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-            "-XepOpt:NullAway:LegacyAnnotationLocations=true"));
   }
 }
