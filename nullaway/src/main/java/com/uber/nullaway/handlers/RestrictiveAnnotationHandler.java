@@ -57,10 +57,10 @@ public class RestrictiveAnnotationHandler implements Handler {
 
   /**
    * Returns true iff the symbol is considered unannotated but restrictively annotated
-   * {@code @Nullable} under {@code AcknowledgeRestrictiveAnnotations=true} logic.
+   * {@code @Nullable} under {@code IgnoreAnnotationsInUnmarkedCode=false} logic.
    *
    * <p>In particular, this means the symbol is explicitly annotated as {@code @Nullable} and, if
-   * {@code TreatGeneratedAsUnannotated=true}, it is not within generated code.
+   * {@code IgnoreAnnotationsInGeneratedCode=true}, it is not within generated code.
    *
    * @param symbol the symbol being checked
    * @param context Javac Context or Error Prone SubContext
@@ -72,7 +72,7 @@ public class RestrictiveAnnotationHandler implements Handler {
     return (codeAnnotationInfo.isSymbolUnannotated(symbol, config, mainHandler)
         // with the generated-as-unannotated option enabled, we want to ignore annotations in
         // generated code no matter what
-        && !(config.treatGeneratedAsUnannotated() && codeAnnotationInfo.isGenerated(symbol, config))
+        && !(config.ignoreAnnotationsInGeneratedCode() && codeAnnotationInfo.isGenerated(symbol, config))
         && Nullness.hasNullableAnnotation(symbol, config));
   }
 

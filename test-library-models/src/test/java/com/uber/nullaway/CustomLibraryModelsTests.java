@@ -83,7 +83,7 @@ public class CustomLibraryModelsTests {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false"))
         .addSourceLines(
             "Test.java",
             """
@@ -210,7 +210,7 @@ public class CustomLibraryModelsTests {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
-                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XepOpt:NullAway:IgnoreAnnotationsInUnmarkedCode=false",
                 "-XepOpt:NullAway:IgnoreLibraryModelsFor=com.uber.lib.unannotated.RestrictivelyAnnotatedFIWithModelOverride.apply"))
         .addSourceLines(
             "Test.java",

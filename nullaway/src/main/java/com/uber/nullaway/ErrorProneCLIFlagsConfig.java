@@ -58,7 +58,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
   static final String FL_CLASS_ANNOTATIONS_GENERATED =
       EP_FL_NAMESPACE + ":CustomGeneratedCodeAnnotations";
-  static final String FL_GENERATED_UNANNOTATED = EP_FL_NAMESPACE + ":TreatGeneratedAsUnannotated";
+  static final String FL_IGNORE_ANNOTATIONS_IN_GENERATED_CODE = EP_FL_NAMESPACE + ":IgnoreAnnotationsInGeneratedCode";
   static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_JSPECIFY_MODE = EP_FL_NAMESPACE + ":JSpecifyMode";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
@@ -69,8 +69,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
-  static final String FL_ACKNOWLEDGE_RESTRICTIVE =
-      EP_FL_NAMESPACE + ":AcknowledgeRestrictiveAnnotations";
+  static final String FL_IGNORE_ANNOTATIONS_IN_UNMARKED_CODE =
+      EP_FL_NAMESPACE + ":IgnoreAnnotationsInUnmarkedCode";
   static final String FL_CHECK_OPTIONAL_EMPTINESS = EP_FL_NAMESPACE + ":CheckOptionalEmptiness";
   static final String FL_CHECK_CONTRACTS = EP_FL_NAMESPACE + ":CheckContracts";
   static final String FL_HANDLE_TEST_ASSERTION_LIBRARIES =
@@ -224,13 +224,13 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final Pattern fieldAnnotPattern;
   private final boolean isExhaustiveOverride;
   private final boolean isSuggestSuppressions;
-  private final boolean isAcknowledgeRestrictive;
+  private final boolean ignoreAnnotationsInUnmarkedCode;
   private final boolean checkOptionalEmptiness;
   private final boolean checkContracts;
   private final boolean handleTestAssertionLibraries;
   private final ImmutableSet<String> optionalClassPaths;
   private final boolean assertsEnabled;
-  private final boolean treatGeneratedAsUnannotated;
+  private final boolean ignoreAnnotationsInGeneratedCode;
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
   private final boolean handleWildcardGenerics;
@@ -298,12 +298,12 @@ final class ErrorProneCLIFlagsConfig implements Config {
     contractAnnotations = getFlagStringSet(flags, FL_CONTRACT_ANNOT, DEFAULT_CONTRACT_ANNOT);
     isExhaustiveOverride = flags.getBoolean(FL_EXHAUSTIVE_OVERRIDE).orElse(false);
     isSuggestSuppressions = flags.getBoolean(FL_SUGGEST_SUPPRESSIONS).orElse(false);
-    isAcknowledgeRestrictive = flags.getBoolean(FL_ACKNOWLEDGE_RESTRICTIVE).orElse(false);
+    ignoreAnnotationsInUnmarkedCode = flags.getBoolean(FL_IGNORE_ANNOTATIONS_IN_UNMARKED_CODE).orElse(false);
     checkOptionalEmptiness = flags.getBoolean(FL_CHECK_OPTIONAL_EMPTINESS).orElse(false);
     checkContracts = flags.getBoolean(FL_CHECK_CONTRACTS).orElse(false);
     handleTestAssertionLibraries =
         flags.getBoolean(FL_HANDLE_TEST_ASSERTION_LIBRARIES).orElse(false);
-    treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
+    ignoreAnnotationsInGeneratedCode = flags.getBoolean(FL_IGNORE_ANNOTATIONS_IN_GENERATED_CODE).orElse(false);
     acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     jspecifyMode = flags.getBoolean(FL_JSPECIFY_MODE).orElse(false);
     handleWildcardGenerics = flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(false);
@@ -339,13 +339,13 @@ final class ErrorProneCLIFlagsConfig implements Config {
     /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
-    if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
+    if (acknowledgeAndroidRecent && ignoreAnnotationsInUnmarkedCode) {
       throw new IllegalStateException(
           "-XepOpt:"
               + FL_ACKNOWLEDGE_ANDROID_RECENT
-              + " should only be set when -XepOpt:"
-              + FL_ACKNOWLEDGE_RESTRICTIVE
-              + " is also set");
+              + " should not be set when -XepOpt:"
+              + FL_IGNORE_ANNOTATIONS_IN_UNMARKED_CODE
+              + " is set");
     }
     serializationActivationFlag = flags.getBoolean(FL_FIX_SERIALIZATION).orElse(false);
     Optional<String> fixSerializationConfigPath = flags.get(FL_FIX_SERIALIZATION_CONFIG_PATH);
@@ -429,8 +429,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   }
 
   @Override
-  public boolean treatGeneratedAsUnannotated() {
-    return treatGeneratedAsUnannotated;
+  public boolean ignoreAnnotationsInGeneratedCode() {
+    return ignoreAnnotationsInGeneratedCode;
   }
 
   @Override
@@ -519,9 +519,9 @@ final class ErrorProneCLIFlagsConfig implements Config {
   }
 
   @Override
-  public boolean acknowledgeRestrictiveAnnotations() {
+  public boolean ignoreAnnotationsInUnmarkedCode() {
     // restrictive annotations must always be acknowledged in JSpecify mode
-    return isAcknowledgeRestrictive || jspecifyMode;
+    return ignoreAnnotationsInUnmarkedCode && !jspecifyMode;
   }
 
   @Override

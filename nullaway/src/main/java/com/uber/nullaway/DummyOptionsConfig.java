@@ -65,7 +65,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean treatGeneratedAsUnannotated() {
+  public boolean ignoreAnnotationsInGeneratedCode() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 
@@ -150,7 +150,7 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean acknowledgeRestrictiveAnnotations() {
+  public boolean ignoreAnnotationsInUnmarkedCode() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
 

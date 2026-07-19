@@ -997,7 +997,7 @@ public class NullAway extends BugChecker
     boolean result = false;
     if (isMethodAnnotated) {
       result = !Nullness.hasNullableAnnotation(paramSymbol, config);
-    } else if (config.acknowledgeRestrictiveAnnotations()) {
+    } else if (!config.ignoreAnnotationsInUnmarkedCode()) {
       // can still be @NonNull if there is a restrictive annotation
       result = Nullness.hasNonNullAnnotation(paramSymbol, config);
     }
