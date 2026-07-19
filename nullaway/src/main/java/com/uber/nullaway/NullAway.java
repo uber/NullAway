@@ -603,8 +603,7 @@ public class NullAway extends BugChecker
         || symbol instanceof ModuleElement) {
       return Description.NO_MATCH;
     }
-    if ((tree.getExpression() instanceof AnnotatedTypeTree)
-        && !config.isLegacyAnnotationLocation()) {
+    if (tree.getExpression() instanceof AnnotatedTypeTree) {
       checkNullableAnnotationPositionInType(
           ((AnnotatedTypeTree) tree.getExpression()).getAnnotations(), tree, state);
     }
@@ -676,10 +675,8 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
-    if (!config.isLegacyAnnotationLocation()) {
-      checkNullableAnnotationPositionInType(
-          tree.getModifiers().getAnnotations(), tree.getReturnType(), state);
-    }
+    checkNullableAnnotationPositionInType(
+        tree.getModifiers().getAnnotations(), tree.getReturnType(), state);
     // if the method is overriding some other method,
     // check that nullability annotations are consistent with
     // overridden method (if overridden method is in an annotated
@@ -1676,10 +1673,8 @@ public class NullAway extends BugChecker
     if (tree.getInitializer() != null && config.isJSpecifyMode()) {
       genericsChecks.checkTypeParameterNullnessForAssignability(tree, state);
     }
-    if (!config.isLegacyAnnotationLocation()) {
-      checkNullableAnnotationPositionInType(
-          tree.getModifiers().getAnnotations(), tree.getType(), state);
-    }
+    checkNullableAnnotationPositionInType(
+        tree.getModifiers().getAnnotations(), tree.getType(), state);
 
     if (symbol.type.isPrimitive() && tree.getInitializer() != null) {
       doUnboxingCheck(state, tree.getInitializer());
@@ -2442,8 +2437,7 @@ public class NullAway extends BugChecker
   }
 
   private boolean symbolHasExternalInitAnnotation(Symbol symbol) {
-    return StreamSupport.stream(
-            NullabilityUtil.getAllAnnotations(symbol, config).spliterator(), false)
+    return StreamSupport.stream(NullabilityUtil.getAllAnnotations(symbol).spliterator(), false)
         .map((anno) -> anno.getAnnotationType().toString())
         .anyMatch(config::isExternalInitClassAnnotation);
   }
@@ -2717,7 +2711,7 @@ public class NullAway extends BugChecker
    * @return true if the field has an annotation indicating that we should skip initialization
    */
   private boolean skipFieldInitializationCheckingDueToAnnotation(Symbol fieldSymbol) {
-    return NullabilityUtil.getAllAnnotations(fieldSymbol, config)
+    return NullabilityUtil.getAllAnnotations(fieldSymbol)
         .map(anno -> anno.getAnnotationType().toString())
         .anyMatch(config::isExcludedFieldAnnotation);
   }

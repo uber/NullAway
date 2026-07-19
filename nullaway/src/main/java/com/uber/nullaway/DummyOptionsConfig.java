@@ -225,11 +225,6 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
-  public boolean isLegacyAnnotationLocation() {
-    throw new IllegalStateException(ERROR_MESSAGE);
-  }
-
-  @Override
   public boolean warnOnGenericInferenceFailure() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
