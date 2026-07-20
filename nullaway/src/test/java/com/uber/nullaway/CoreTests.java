@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -399,7 +400,7 @@ public class CoreTests extends NullAwayTestsBase {
 
   @SuppressWarnings("deprecation")
   @Test
-  public void testCastToNonNullPropagation() {
+  public void testCastToNonNullPropagationDefault() {
     defaultCompilationHelper
         .addSourceFile("testdata/Util.java")
         .addSourceLines(
@@ -414,6 +415,98 @@ public class CoreTests extends NullAwayTestsBase {
               }
               void test(Foo value) {
                 if (castToNonNull(value.getToken()).contains("abc")) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value.getToken()' is @Nullable
+                  value.getToken().length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @SuppressWarnings("deprecation")
+  @Test
+  public void testCastToNonNullPropagationExplicitFalse() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+                "-XepOpt:NullAway:CastToNonNullMethodFailsOnNull=false"))
+        .addSourceFile("testdata/Util.java")
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import static com.uber.nullaway.testdata.Util.castToNonNull;
+            class Test {
+              static class Foo {
+                @Nullable String getToken() { return ""; }
+              }
+              void test(Foo value) {
+                if (castToNonNull(value.getToken()).contains("abc")) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value.getToken()' is @Nullable
+                  value.getToken().length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @SuppressWarnings("deprecation")
+  @Test
+  public void testCastToNonNullPropagationFailsOnNullEnabled() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull",
+                "-XepOpt:NullAway:CastToNonNullMethodFailsOnNull=true"))
+        .addSourceFile("testdata/Util.java")
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import static com.uber.nullaway.testdata.Util.castToNonNull;
+            class Test {
+              static class Foo {
+                @Nullable String getToken() { return ""; }
+              }
+              void test(Foo value) {
+                if (castToNonNull(value.getToken()).contains("abc")) {
+                  value.getToken().length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void testObjectsRequireNonNullPropagationUnchanged() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CastToNonNullMethodFailsOnNull=false"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            class Test {
+              static class Foo {
+                @Nullable String getToken() { return ""; }
+              }
+              void test(Foo value) {
+                if (Objects.requireNonNull(value.getToken()).contains("abc")) {
                   value.getToken().length();
                 }
               }

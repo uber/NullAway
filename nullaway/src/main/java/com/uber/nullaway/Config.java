@@ -241,6 +241,14 @@ public interface Config {
   @Nullable String getCastToNonNullMethod();
 
   /**
+   * Checks whether the <code>castToNonNull()</code> method should be treated as failing on null.
+   *
+   * @return true if <code>castToNonNull()</code> methods are guaranteed to throw when passed null,
+   *     false otherwise
+   */
+  boolean castToNonNullMethodFailsOnNull();
+
+  /**
    * Gets the suppression name aliases.
    *
    * @return the name aliases that should be honored as part of a @SuppressWarnings annotation.

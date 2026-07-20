@@ -66,6 +66,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotations";
   static final String FL_NONNULL_ANNOT = EP_FL_NAMESPACE + ":CustomNonnullAnnotations";
   static final String FL_CTNN_METHOD = EP_FL_NAMESPACE + ":CastToNonNullMethod";
+  static final String FL_CTNN_METHOD_FAILS_ON_NULL =
+      EP_FL_NAMESPACE + ":CastToNonNullMethodFailsOnNull";
   static final String FL_EXTERNAL_INIT_ANNOT = EP_FL_NAMESPACE + ":ExternalInitAnnotations";
   static final String FL_CONTRACT_ANNOT = EP_FL_NAMESPACE + ":CustomContractAnnotations";
   static final String FL_UNANNOTATED_CLASSES = EP_FL_NAMESPACE + ":UnannotatedClasses";
@@ -243,6 +245,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final ImmutableSet<String> externalInitAnnotations;
   private final ImmutableSet<String> contractAnnotations;
   private final @Nullable String castToNonNullMethod;
+  private final boolean castToNonNullMethodFailsOnNull;
   private final String autofixSuppressionComment;
   private final ImmutableSet<String> suppressionNameAliases;
   private final ImmutableSet<String> skippedLibraryModels;
@@ -312,6 +315,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
         getPackagePattern(
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
+    castToNonNullMethodFailsOnNull = flags.getBoolean(FL_CTNN_METHOD_FAILS_ON_NULL).orElse(false);
     legacyAnnotationLocation = flags.getBoolean(FL_LEGACY_ANNOTATION_LOCATION).orElse(false);
     if (legacyAnnotationLocation && jspecifyMode) {
       throw new IllegalStateException(
@@ -552,6 +556,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public @Nullable String getCastToNonNullMethod() {
     return castToNonNullMethod;
+  }
+
+  @Override
+  public boolean castToNonNullMethodFailsOnNull() {
+    return castToNonNullMethodFailsOnNull;
   }
 
   @Override

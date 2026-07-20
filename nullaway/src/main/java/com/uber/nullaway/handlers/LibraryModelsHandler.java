@@ -401,24 +401,28 @@ public class LibraryModelsHandler implements Handler {
       AccessPath.AccessPathContext apContext) {
     ImmutableSet<Integer> requiredNonNullParameters =
         getOptLibraryModels(state.context).failIfNullParameters(callee);
-    ImmutableSet<Integer> castToNonNullParameters =
-        getOptLibraryModels(state.context).castToNonNullMethod(callee);
-    String cliCastToNonNull = config.getCastToNonNullMethod();
-    boolean isCliCastToNonNull =
-        cliCastToNonNull != null
-            && callee.getParameters().size() == 1
-            && cliCastToNonNull.equals(
-                ASTHelpers.enclosingClass(callee) + "." + callee.getSimpleName());
-
     Set<Integer> allNonNullParams;
-    if (castToNonNullParameters.isEmpty() && !isCliCastToNonNull) {
-      allNonNullParams = requiredNonNullParameters;
-    } else {
-      allNonNullParams = new HashSet<>(requiredNonNullParameters);
-      allNonNullParams.addAll(castToNonNullParameters);
-      if (isCliCastToNonNull) {
-        allNonNullParams.add(0);
+    if (config.castToNonNullMethodFailsOnNull()) {
+      ImmutableSet<Integer> castToNonNullParameters =
+          getOptLibraryModels(state.context).castToNonNullMethod(callee);
+      String cliCastToNonNull = config.getCastToNonNullMethod();
+      boolean isCliCastToNonNull =
+          cliCastToNonNull != null
+              && callee.getParameters().size() == 1
+              && cliCastToNonNull.equals(
+                  ASTHelpers.enclosingClass(callee) + "." + callee.getSimpleName());
+
+      if (castToNonNullParameters.isEmpty() && !isCliCastToNonNull) {
+        allNonNullParams = requiredNonNullParameters;
+      } else {
+        allNonNullParams = new HashSet<>(requiredNonNullParameters);
+        allNonNullParams.addAll(castToNonNullParameters);
+        if (isCliCastToNonNull) {
+          allNonNullParams.add(0);
+        }
       }
+    } else {
+      allNonNullParams = requiredNonNullParameters;
     }
 
     for (AccessPath accessPath :
