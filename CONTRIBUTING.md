@@ -39,6 +39,8 @@ please disclose in the PR description which AI tools were used and how they were
 that you have read and understood all the changes in your PR.  Here are two example disclosures (taken from the
 [JabRef policy](https://github.com/JabRef/jabref/blob/main/AI_USAGE_POLICY.md)):
 
+<!-- first example -->
 > I used Claude to help debug a test failure. I reviewed the suggested fix, tested it locally, and verified it solves the issue without side effects.
 
+<!-- second example -->
 > I used ChatGPT to help me understand an error message and suggest debugging steps. I implemented the fix myself after verifying it.
