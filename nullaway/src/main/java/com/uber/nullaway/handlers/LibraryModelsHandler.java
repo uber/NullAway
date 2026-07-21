@@ -1660,9 +1660,7 @@ public class LibraryModelsHandler implements Handler {
       if (isJarInferEnabled) {
         try {
           InputStream androidStubxIS =
-              Class.forName(ANDROID_MODEL_CLASS)
-                  .getClassLoader()
-                  .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+              Class.forName(ANDROID_MODEL_CLASS).getResourceAsStream(ANDROID_ASTUBX_LOCATION);
           if (androidStubxIS != null) {
             cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
             astubxLoadLog("Loaded Android RT models.");
@@ -1679,7 +1677,8 @@ public class LibraryModelsHandler implements Handler {
 
       // hardcoded loading of stubx files from jdk nullness inferred output.astubx
       if (isJSpecifyJDKEnabled) {
-        try (InputStream in = getClass().getClassLoader().getResourceAsStream("output.astubx")) {
+        try (InputStream in =
+            ExternalStubxLibraryModels.class.getResourceAsStream("output.astubx")) {
           if (in == null) {
             astubxLoadLog("JDK astubx model not found on classpath: output.astubx");
           } else {
