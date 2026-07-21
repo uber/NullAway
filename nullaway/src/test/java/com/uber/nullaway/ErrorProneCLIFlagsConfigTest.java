@@ -72,4 +72,15 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
     assertTrue(
         e.getMessage().contains("Running NullAway in JSpecify mode requires either JDK 22+"));
   }
+
+  @Test
+  public void jspecifyJDKOutsideJSpecifyMode() {
+    CompilationTestHelper compilationTestHelper =
+        makeTestHelperWithArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked", "-XepOpt:NullAway:JSpecifyJDKModels=true"))
+            .addSourceLines("Stub.java", "package com.uber; class Stub {}");
+    AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
+    assertTrue(e.getMessage().contains("should only be set in JSpecify mode"));
+  }
 }
