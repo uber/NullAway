@@ -20,9 +20,14 @@ public final class JSpecifyJavacConfig {
   public static final String ADD_TYPE_ANNOTATIONS_FLAG = "-XDaddTypeAnnotationsToSymbol=true";
   public static final String HANDLE_WILDCARD_GENERICS_FLAG =
       "-XepOpt:NullAway:HandleWildcardGenerics=true";
+  public static final String USE_JSPECIFY_JDK_MODELS = "-XepOpt:NullAway:JSpecifyJDKModels=true";
 
   private static final List<String> JSPECIFY_MODE_ARGS =
-      List.of(JSPECIFY_MODE_FLAG, ADD_TYPE_ANNOTATIONS_FLAG, HANDLE_WILDCARD_GENERICS_FLAG);
+      List.of(
+          JSPECIFY_MODE_FLAG,
+          ADD_TYPE_ANNOTATIONS_FLAG,
+          HANDLE_WILDCARD_GENERICS_FLAG,
+          USE_JSPECIFY_JDK_MODELS);
 
   private JSpecifyJavacConfig() {}
 
