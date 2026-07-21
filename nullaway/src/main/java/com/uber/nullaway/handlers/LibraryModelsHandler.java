@@ -24,6 +24,7 @@ package com.uber.nullaway.handlers;
 
 import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
@@ -55,7 +56,6 @@ import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -1590,8 +1590,7 @@ public class LibraryModelsHandler implements Handler {
         makeOptimizedNestedAnnotationLookup(
             Names names,
             ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>> refs) {
-      return makeOptimizedLookup(
-          names, refs.keySet(), ref -> NullabilityUtil.castToNonNull(refs.get(ref)));
+      return makeOptimizedLookup(names, refs.keySet(), ref -> castToNonNull(refs.get(ref)));
     }
 
     private <T> NameIndexedMap<T> makeOptimizedLookup(
@@ -1660,7 +1659,8 @@ public class LibraryModelsHandler implements Handler {
       if (isJarInferEnabled) {
         try {
           InputStream androidStubxIS =
-              Class.forName(ANDROID_MODEL_CLASS).getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+              castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
+                  .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
           if (androidStubxIS != null) {
             cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
             astubxLoadLog("Loaded Android RT models.");
@@ -1678,7 +1678,7 @@ public class LibraryModelsHandler implements Handler {
       // hardcoded loading of stubx files from jdk nullness inferred output.astubx
       if (isJSpecifyJDKEnabled) {
         try (InputStream in =
-            ExternalStubxLibraryModels.class.getResourceAsStream("output.astubx")) {
+            castToNonNull(getClass().getClassLoader()).getResourceAsStream("output.astubx")) {
           if (in == null) {
             astubxLoadLog("JDK astubx model not found on classpath: output.astubx");
           } else {
