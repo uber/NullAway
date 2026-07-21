@@ -330,6 +330,10 @@ final class ErrorProneCLIFlagsConfig implements Config {
     /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
     jspecifyJDKModelsEnabled = flags.getBoolean(FL_JSPECIFY_JDK_ENABLED).orElse(false);
+    if (jspecifyJDKModelsEnabled && !jspecifyMode) {
+      throw new IllegalStateException(
+          "-XepOpt:%s should only be set in JSpecify mode".formatted(FL_JSPECIFY_JDK_ENABLED));
+    }
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
     if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
       throw new IllegalStateException(
