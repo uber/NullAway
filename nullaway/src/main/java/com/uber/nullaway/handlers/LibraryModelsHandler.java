@@ -1658,12 +1658,11 @@ public class LibraryModelsHandler implements Handler {
     ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
-      // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
       if (isJarInferEnabled) {
-        try {
-          InputStream androidStubxIS =
-              castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
-                  .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
+        // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
+        try (InputStream androidStubxIS =
+            castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
+                .getResourceAsStream(ANDROID_ASTUBX_LOCATION)) {
           if (androidStubxIS != null) {
             cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
             astubxLoadLog("Loaded Android RT models.");
@@ -1674,12 +1673,12 @@ public class LibraryModelsHandler implements Handler {
                   + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
 
         } catch (IOException e) {
-          astubxLoadLog("Cannot load Android RT models: " + e.getMessage());
+          astubxLoadLog("Loading Android RT models failed: " + e.getMessage());
         }
       }
 
-      // hardcoded loading of JSpecify JDK astubx from jspecify-jdk.astubx
       if (isJSpecifyJDKEnabled) {
+        // hardcoded loading of JSpecify JDK astubx from jspecify-jdk.astubx
         try (InputStream in =
             castToNonNull(getClass().getClassLoader())
                 .getResourceAsStream(JSPECIFY_JDK_ASTUBX_FILENAME)) {
