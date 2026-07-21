@@ -240,6 +240,75 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void modeledNullableParameterUsedByFilterMethodReference() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "List.java",
+            """
+            package com.uber;
+
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            public interface List<T extends @Nullable Object> {
+              Stream<T> stream();
+            }
+            """)
+        .addSourceLines(
+            "Stream.java",
+            """
+            package com.uber;
+
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            public interface Stream<T extends @Nullable Object> {
+              Stream<T> filter(Predicate<? super T> predicate);
+              boolean anyMatch(Predicate<? super T> predicate);
+            }
+            """)
+        .addSourceLines(
+            "Predicate.java",
+            """
+            package com.uber;
+
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            public interface Predicate<T extends @Nullable Object> {
+              boolean test(T value);
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+
+            import com.uber.lib.unannotated.UnannotatedWithModels;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static boolean hasNonNullString(List<@Nullable String> strings) {
+                return strings.stream()
+                    .filter(UnannotatedWithModels::isNonNull)
+                    .anyMatch(string -> true);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void libraryModelsAndOverridingFieldNullability() {
     makeLibraryModelsTestHelperWithArgs(
             Arrays.asList(
