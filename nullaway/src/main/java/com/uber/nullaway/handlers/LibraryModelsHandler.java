@@ -1642,6 +1642,9 @@ public class LibraryModelsHandler implements Handler {
     /** astubx file name used in our Android SDK JarInfer models */
     private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
 
+    /** astubx file name used for the JSpecify JDK models */
+    private static final String JSPECIFY_JDK_ASTUBX_FILENAME = "jspecify-jdk.astubx";
+
     /** Class we expect to be present in a jar containing Android SDK JarInfer models */
     private static final String ANDROID_MODEL_CLASS =
         "com.uber.nullaway.jarinfer.AndroidJarInferModels";
@@ -1675,14 +1678,17 @@ public class LibraryModelsHandler implements Handler {
         }
       }
 
-      // hardcoded loading of stubx files from jdk nullness inferred output.astubx
+      // hardcoded loading of JSpecify JDK astubx from jspecify-jdk.astubx
       if (isJSpecifyJDKEnabled) {
         try (InputStream in =
-            castToNonNull(getClass().getClassLoader()).getResourceAsStream("output.astubx")) {
+            castToNonNull(getClass().getClassLoader())
+                .getResourceAsStream(JSPECIFY_JDK_ASTUBX_FILENAME)) {
           if (in == null) {
-            astubxLoadLog("JDK astubx model not found on classpath: output.astubx");
+            astubxLoadLog(
+                "JDK astubx model not found on classpath: %s"
+                    .formatted(JSPECIFY_JDK_ASTUBX_FILENAME));
           } else {
-            cacheUtil.parseStubStream(in, "output.astubx");
+            cacheUtil.parseStubStream(in, JSPECIFY_JDK_ASTUBX_FILENAME);
             astubxLoadLog("Loaded JDK astubx model.");
           }
         } catch (IOException e) {
