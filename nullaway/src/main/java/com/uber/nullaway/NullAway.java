@@ -816,10 +816,19 @@ public class NullAway extends BugChecker
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
     Type.MethodType jspecifyMemberReferenceMethodType = null;
+    // Keep handler-provided nullness for the referenced method separate from nullness for the
+    // functional interface method. Library models may change the referenced method's signature.
+    MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
+      Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
       jspecifyMemberReferenceMethodType =
-          genericsChecks.getMemberReferenceMethodType(
-              memberReferenceTree, castToNonNull(overridingMethod), state);
+          genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
+      referencedMethodParameterNullnessOverrides =
+          handler.onOverrideMethodInvocationParametersNullability(
+              state.context,
+              referencedMethod,
+              isOverridingMethodAnnotated,
+              MethodParameterNullness.create(referencedMethod));
     }
 
     MethodParameterNullness overriddenMethodArgumentNullness =
@@ -921,6 +930,15 @@ public class NullAway extends BugChecker
               isOverridingMethodAnnotated,
               memberReferenceTree,
               jspecifyMemberReferenceMethodType);
+      // A non-null entry is an explicit handler override, so it takes precedence over the result
+      // derived above from annotations and generic type substitution.
+      if (referencedMethodParameterNullnessOverrides != null) {
+        Nullness referencedParameterNullnessOverride =
+            referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
+        if (referencedParameterNullnessOverride != null) {
+          paramIsNonNull = referencedParameterNullnessOverride.equals(Nullness.NONNULL);
+        }
+      }
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
       // nullability from the corresponding functional interface method.
