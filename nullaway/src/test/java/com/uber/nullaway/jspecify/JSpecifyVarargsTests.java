@@ -776,6 +776,23 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void methodHandleInvokeWithConditionalOperatorTest() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.lang.invoke.MethodHandle;
+            class Test {
+              public static void test(MethodHandle methodHandle, boolean value) throws Throwable {
+                methodHandle.invoke(value ? 1 : 0);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
