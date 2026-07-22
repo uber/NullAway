@@ -526,15 +526,15 @@ public class NullAway extends BugChecker
       ExpressionTree arrayExpr = arrayAccess.getExpression();
       ExpressionTree expression = tree.getExpression();
       Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
-      if (arraySymbol != null) {
-        boolean isElementNullable = isArrayElementNullable(arraySymbol, config);
-        if (!isElementNullable && mayBeNullExpr(state, expression)) {
-          String message = "Writing @Nullable expression into array with @NonNull contents.";
-          ErrorMessage errorMessage =
-              new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
-          return errorBuilder.createErrorDescription(
-              errorMessage, buildDescription(tree), state, arraySymbol);
-        }
+      boolean isElementNullable =
+          isArrayElementNullable(ASTHelpers.getType(arrayExpr), config)
+              || (arraySymbol != null && isArrayElementNullable(arraySymbol, config));
+      if (!isElementNullable && mayBeNullExpr(state, expression)) {
+        String message = "Writing @Nullable expression into array with @NonNull contents.";
+        ErrorMessage errorMessage =
+            new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
+        return errorBuilder.createErrorDescription(
+            errorMessage, buildDescription(tree), state, arraySymbol);
       }
     }
 

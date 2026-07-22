@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Version Next
+------------
+
+* JSpecify: Preserve array element nullability through method invocations like requireNonNull (Fixes #1521) by @kamilkrzywanski
+
 Version 0.13.8
 --------------
 
