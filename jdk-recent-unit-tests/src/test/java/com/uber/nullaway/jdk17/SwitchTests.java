@@ -156,7 +156,7 @@ public class SwitchTests {
                 // BUG: Diagnostic contains: switch selector expression 'i' is @Nullable
                 Object o = switch (i) { case 3, 4, 5 -> new Object(); default -> null; };
                 int j1 = 0;
-                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
                 int j2 = 3 + (switch (j1) { case 3, 4, 5 -> Integer.valueOf(4); default -> null; });
                 // This is safe
                 int j3 = 3 + (switch (j1) { case 3, 4, 5 -> Integer.valueOf(4); default -> Integer.valueOf(6); });
