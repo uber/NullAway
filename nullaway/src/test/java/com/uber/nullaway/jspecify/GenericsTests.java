@@ -2584,8 +2584,6 @@ public class GenericsTests extends NullAwayTestsBase {
                 static class K<T extends @Nullable Object> {}
                 void foo(K<@Nullable Object> k) {
                     K<? extends @Nullable Object> k2 = k;
-                    // TODO should get no error here
-                    // BUG: Diagnostic contains: returning @Nullable
                     Supplier<? extends @Nullable Object> s = () -> null;
                 }
             }
