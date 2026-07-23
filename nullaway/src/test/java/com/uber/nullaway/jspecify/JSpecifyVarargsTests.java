@@ -776,6 +776,29 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Tests that a conditional argument to the signature-polymorphic {@code MethodHandle.invoke} does
+   * not cause a {@link ClassCastException} when javac adapts its varargs parameter to a non-array
+   * call-site type. Regression test for <a
+   * href="https://github.com/uber/NullAway/issues/1643">issue #1643</a>.
+   */
+  @Test
+  public void methodHandleInvokeWithConditionalOperatorTest() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.lang.invoke.MethodHandle;
+            class Test {
+              public static void test(MethodHandle methodHandle, boolean value) throws Throwable {
+                methodHandle.invoke(value ? 1 : 0);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

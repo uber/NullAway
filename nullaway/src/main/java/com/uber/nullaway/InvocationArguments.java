@@ -60,8 +60,13 @@ public class InvocationArguments {
     com.sun.tools.javac.util.List<Type> parameterTypes = invokedMethodType.getParameterTypes();
     this.paramTypesArr = parameterTypes.toArray(new Type[parameterTypes.size()]);
 
-    // Precompute varargs state and related types
-    this.isVarArgs = methodSymbol.isVarArgs();
+    // Precompute varargs state and related types. For signature-polymorphic methods such as
+    // MethodHandle.invoke(), the symbol is varargs but javac adapts the invocation type to a
+    // fixed-arity signature whose final parameter is not necessarily an array.
+    this.isVarArgs =
+        methodSymbol.isVarArgs()
+            && paramTypesArr.length > 0
+            && paramTypesArr[paramTypesArr.length - 1] instanceof Type.ArrayType;
     if (this.isVarArgs) {
       this.varArgsIndex = paramTypesArr.length - 1;
       this.varArgsArrayType = (Type.ArrayType) paramTypesArr[varArgsIndex];
