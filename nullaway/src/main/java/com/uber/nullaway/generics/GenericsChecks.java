@@ -879,9 +879,7 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    if (!assignedToLocal
-        && (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree)
-        && isAssignmentToField(tree)) {
+    if (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree) {
       maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType, state);
     }
     boolean varLocalDeclaration =
@@ -1009,10 +1007,6 @@ public final class GenericsChecks {
     } else {
       return getTreeType(rhsTree, state.withPath(pathToRhs), calledFromDataflow);
     }
-  }
-
-  private static boolean isAssignmentToField(Tree tree) {
-    return isAssignmentToKind(tree, ElementKind.FIELD);
   }
 
   private static boolean isAssignmentToKind(Tree tree, ElementKind kind) {
