@@ -1657,7 +1657,7 @@ public class LibraryModelsHandler implements Handler {
 
     ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
       String libraryModelLogName = "LM";
-      StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
+      StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName, isJarInferEnabled);
       if (isJarInferEnabled) {
         // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
         try (InputStream androidStubxIS =

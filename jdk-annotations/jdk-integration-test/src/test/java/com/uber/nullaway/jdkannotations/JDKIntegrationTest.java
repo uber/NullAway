@@ -83,10 +83,11 @@ public class JDKIntegrationTest {
   public void libraryModelWithoutJarInferEnabledTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
         .addSourceLines(
             "Test.java",
             """
