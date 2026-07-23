@@ -308,13 +308,6 @@ public interface Config {
   boolean handleWildcardGenerics();
 
   /**
-   * Checks if legacy annotation locations are enabled.
-   *
-   * @return true if both type use and declaration annotation locations should be honored
-   */
-  boolean isLegacyAnnotationLocation();
-
-  /**
    * Checks if a warning should be issued when generic type inference fails to infer a type
    * argument's nullability.
    *

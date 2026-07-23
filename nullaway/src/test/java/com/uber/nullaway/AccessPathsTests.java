@@ -538,4 +538,93 @@ public class AccessPathsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void mapContainsKeyMakesMapRemoveSafe() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void testMapRemoveAfterContainsKey(Map<String, Object> map) {
+                if (map.containsKey("key")) {
+                  map.remove("key").toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapContainsKeyDifferentKeyDoesNotMakeMapRemoveSafe() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void testMapRemoveAfterContainsKeyDifferentKey(Map<String, Object> map) {
+                if (map.containsKey("key1")) {
+                  // BUG: Diagnostic contains: dereferenced expression 'map.remove("key2")' is @Nullable
+                  map.remove("key2").toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapRemoveConsumesContainsKeyFact() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void testConsecutiveRemoves(Map<String, Object> map, String key) {
+                if (map.containsKey(key)) {
+                  map.remove(key).toString();
+                  // BUG: Diagnostic contains: dereferenced expression 'map.remove(key)' is @Nullable
+                  map.remove(key).toString();
+                }
+              }
+              void testGetAfterRemove(Map<String, Object> map, String key) {
+                if (map.containsKey(key)) {
+                  map.remove(key).toString();
+                  // BUG: Diagnostic contains: dereferenced expression 'map.get(key)' is @Nullable
+                  map.get(key).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapRemoveResultCheckDoesNotRefineMapEntry() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void testMapRemoveResultCheck(Map<String, Object> map, String key) {
+                if (map.remove(key) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'map.remove(key)' is @Nullable
+                  map.remove(key).toString();
+                  // BUG: Diagnostic contains: dereferenced expression 'map.get(key)' is @Nullable
+                  map.get(key).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
 }

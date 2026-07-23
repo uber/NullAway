@@ -72,7 +72,6 @@ public enum Nullness implements AbstractValue<Nullness> {
   public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
     return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
         symbol,
-        config,
         annot -> isNullableAnnotation(annot, config) || isMonotonicNonNullAnnotation(annot));
   }
 
@@ -210,7 +209,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean hasNonNullAnnotation(Symbol symbol, Config config) {
     return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
-        symbol, config, annot -> isNonNullAnnotation(annot, config));
+        symbol, annot -> isNonNullAnnotation(annot, config));
   }
 
   /**
@@ -222,15 +221,15 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean hasNullableAnnotation(Symbol symbol, Config config) {
     return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
-        symbol, config, annot -> isNullableAnnotation(annot, config));
+        symbol, annot -> isNullableAnnotation(annot, config));
   }
 
   private static boolean hasNullableTypeUseAnnotation(Symbol symbol, Config config) {
-    return hasNullableAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol, config), config);
+    return hasNullableAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol), config);
   }
 
   private static boolean hasNonNullTypeUseAnnotation(Symbol symbol, Config config) {
-    return hasNonNullAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol, config), config);
+    return hasNonNullAnnotation(NullabilityUtil.getTypeUseAnnotations(symbol), config);
   }
 
   /**
@@ -247,14 +246,12 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (isRecordEqualsParam(symbol, paramInd)) {
       return true;
     }
-    if (symbol.isVarArgs()
-        && paramInd == symbol.getParameters().size() - 1
-        && !config.isLegacyAnnotationLocation()) {
+    if (symbol.isVarArgs() && paramInd == symbol.getParameters().size() - 1) {
       return NullabilityUtil.nullableVarargsElementsForSourceOrBytecode(
           symbol.getParameters().get(paramInd), config);
     } else {
       return hasNullableAnnotation(
-          NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
+          NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
     }
   }
 
@@ -289,14 +286,12 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean paramHasNonNullAnnotation(
       Symbol.MethodSymbol symbol, int paramInd, Config config) {
-    if (symbol.isVarArgs()
-        && paramInd == symbol.getParameters().size() - 1
-        && !config.isLegacyAnnotationLocation()) {
+    if (symbol.isVarArgs() && paramInd == symbol.getParameters().size() - 1) {
       return NullabilityUtil.nonnullVarargsElementsForSourceOrBytecode(
           symbol.getParameters().get(paramInd), config);
     } else {
       return hasNonNullAnnotation(
-          NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd, config), config);
+          NullabilityUtil.getAllAnnotationsForParameter(symbol, paramInd), config);
     }
   }
 
@@ -306,9 +301,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * written as {@code foo(Object @Nullable... args}}
    */
   public static boolean varargsArrayIsNullable(Symbol paramSymbol, Config config) {
-    return hasNullableTypeUseAnnotation(paramSymbol, config)
-        || (config.isLegacyAnnotationLocation()
-            && hasNullableDeclarationAnnotation(paramSymbol, config));
+    return hasNullableTypeUseAnnotation(paramSymbol, config);
   }
 
   /**
@@ -318,8 +311,6 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public static boolean varargsArrayIsNonNull(Symbol paramSymbol, Config config) {
     return hasNonNullTypeUseAnnotation(paramSymbol, config)
-        || (config.isLegacyAnnotationLocation()
-            && hasNonNullDeclarationAnnotation(paramSymbol, config))
         // For Kotlin-generated class files, we treat the presence of a JetBrains @NotNull
         // declaration annotation on a varargs parameter as indicating that the varargs array itself
         // is non-null.  See https://github.com/uber/NullAway/issues/720

@@ -29,3 +29,18 @@ Guiding Principles
 * We allow anyone to participate in our projects. Tasks can be carried out by anyone that demonstrates the capability to complete them
 * Always be respectful of one another. Assume the best in others and act with empathy at all times
 * Collaborate closely with individuals maintaining the project or experienced users. Getting ideas out in the open and seeing a proposal before it's a pull request helps reduce redundancy and ensures we're all connected to the decision making process
+
+AI usage
+--------
+
+We allow for AI-generated code in PRs, but, we require that contributors have manually reviewed and understood
+all the changes.  If you are a first-time contributor, and you used AI tools as part of generating your PR,
+please disclose in the PR description which AI tools were used and how they were used, and also attest
+that you have read and understood all the changes in your PR.  Here are two example disclosures (taken from the
+[JabRef policy](https://github.com/JabRef/jabref/blob/main/AI_USAGE_POLICY.md)):
+
+<!-- first example -->
+> I used Claude to help debug a test failure. I reviewed the suggested fix, tested it locally, and verified it solves the issue without side effects.
+
+<!-- second example -->
+> I used ChatGPT to help me understand an error message and suggest debugging steps. I implemented the fix myself after verifying it.

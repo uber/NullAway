@@ -1,6 +1,25 @@
 Changelog
 =========
 
+Version 0.13.8
+--------------
+
+Mostly minor bug fixes.  Note that NullAway now treats `Map.remove` as returning `@Nullable` (#1623), which may lead
+to newly-reported warnings.
+
+* Quote syntax element references in error messages by @AryamannSingh7 (#1620)
+* Fix stream nullability propagation through sorted() (Fixes #1538) by @dyrpsf (#1610)
+* Add support for reactor by @subhramit (#1599)
+* Fix issue with passing poly expression to a function parameter with type from library model (#1614)
+* Fix crash with library model @Nullable being applied to wildcard (#1615)
+* Add more modeling for Optional (#1613)
+* Update lombok section at README.md by @jevanlingen (#1624)
+* Model Map.remove as nullable by @codingkiddo (#1623)
+* Better support for conditional expressions in JSpecify mode (#1608)
+* Fix issue with reading annotations on record constructor parameters due to javac bug (#1636)
+* Maintenance
+  - Update to Gradle 9.6.1 and AGP 9.3.0 (#1634)
+
 Version 0.13.7
 --------------
 
