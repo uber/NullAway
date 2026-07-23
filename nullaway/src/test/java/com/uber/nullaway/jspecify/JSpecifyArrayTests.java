@@ -862,6 +862,14 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
                 Objects.requireNonNull(bar)[0] = null;
               }
+
+              static <T extends @Nullable Object> T id(T t) {
+                return t;
+              }
+
+              void requireNonNullThroughIdentity() {
+                Objects.requireNonNull(id(foo))[0] = null;
+              }
             }
             """)
         .doTest();

@@ -28,6 +28,7 @@ import static com.google.errorprone.util.ASTHelpers.isStatic;
 import static com.uber.nullaway.ErrorBuilder.errMsgForInitializer;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.isArrayElementNullable;
+import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
 import static com.uber.nullaway.Nullness.isNullableAnnotation;
 import static java.lang.annotation.ElementType.TYPE_PARAMETER;
 import static java.lang.annotation.ElementType.TYPE_USE;
@@ -525,10 +526,15 @@ public class NullAway extends BugChecker
       // check for a write of a @Nullable value into @NonNull array contents
       ExpressionTree arrayExpr = arrayAccess.getExpression();
       ExpressionTree expression = tree.getExpression();
+      TreePath pathToArrayExpr =
+          pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
+      Type arrayType = genericsChecks.getTreeType(arrayExpr, state.withPath(pathToArrayExpr));
       Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
       boolean isElementNullable =
-          isArrayElementNullable(ASTHelpers.getType(arrayExpr), config)
-              || (arraySymbol != null && isArrayElementNullable(arraySymbol, config));
+          isArrayElementNullable(arrayType, config)
+              || (arrayType == null
+                  && arraySymbol != null
+                  && isArrayElementNullable(arraySymbol, config));
       if (!isElementNullable && mayBeNullExpr(state, expression)) {
         String message = "Writing @Nullable expression into array with @NonNull contents.";
         ErrorMessage errorMessage =
