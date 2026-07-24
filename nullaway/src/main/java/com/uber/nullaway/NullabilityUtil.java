@@ -64,6 +64,7 @@ import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
+import javax.lang.model.type.TypeKind;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 import org.jspecify.annotations.Nullable;
 
@@ -580,6 +581,22 @@ public class NullabilityUtil {
         config,
         Nullness::isNullableAnnotation,
         Nullness::hasNullableDeclarationAnnotation);
+  }
+
+  /**
+   * Checks if the given array type has a {@code @Nullable} annotation for its elements.
+   *
+   * @param arrayType the array type, or {@code null}
+   * @param config NullAway configuration
+   * @return true if the array type has a {@code @Nullable} annotation for its elements, false
+   *     otherwise
+   */
+  public static boolean isArrayElementNullable(@Nullable Type arrayType, Config config) {
+    return arrayType != null
+        && arrayType.getKind() == TypeKind.ARRAY
+        && Nullness.hasNullableAnnotation(
+            ((Type.ArrayType) arrayType).getComponentType().getAnnotationMirrors().stream(),
+            config);
   }
 
   /**

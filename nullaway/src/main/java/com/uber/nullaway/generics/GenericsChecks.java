@@ -569,9 +569,10 @@ public final class GenericsChecks {
    *
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
-   * @return Type of the tree with preserved annotations.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
+   *     other unhandled cases.
    */
-  /* package-private */ @Nullable Type getTreeType(Tree tree, VisitorState state) {
+  public @Nullable Type getTreeType(Tree tree, VisitorState state) {
     return getTreeType(tree, state, false);
   }
 
