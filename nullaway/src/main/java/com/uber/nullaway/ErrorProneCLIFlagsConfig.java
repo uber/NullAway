@@ -316,8 +316,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
             getFlagStringSet(flags, FL_EXCLUDED_FIELD_ANNOT, DEFAULT_EXCLUDED_FIELD_ANNOT));
     castToNonNullMethod = flags.get(FL_CTNN_METHOD).orElse(null);
     warnOnInferenceFailure =
-        jspecifyExperimental
-            || flags.getBoolean(FL_WARN_ON_GENERIC_INFERENCE_FAILURE).orElse(false);
+        flags.getBoolean(FL_WARN_ON_GENERIC_INFERENCE_FAILURE).orElse(jspecifyExperimental);
     autofixSuppressionComment = flags.get(FL_SUPPRESS_COMMENT).orElse("");
     optionalClassPaths =
         new ImmutableSet.Builder<String>()
