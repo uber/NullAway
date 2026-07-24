@@ -420,10 +420,16 @@ public final class GenericsChecks {
   private String errorMessageForIncompatibleTypesAtPseudoAssignment(
       Type lhsType, Type rhsType, VisitorState state) {
     String prettyRhsType = prettyTypeForError(rhsType, state);
+    String prettyLhsType = prettyTypeForError(lhsType, state);
     String result =
         String.format(
-            "incompatible types: %s cannot be converted to %s",
-            prettyRhsType, prettyTypeForError(lhsType, state));
+            "incompatible types: %s cannot be converted to %s", prettyRhsType, prettyLhsType);
+    if (prettyRhsType.equals(prettyLhsType)) {
+      String wildcardBoundMismatch = firstDifferingWildcardBound(lhsType, rhsType, state);
+      if (wildcardBoundMismatch != null) {
+        result += " (" + wildcardBoundMismatch + ")";
+      }
+    }
     if (!ASTHelpers.isSameType(lhsType, rhsType, state)
         && lhsType.getKind() == TypeKind.DECLARED
         && rhsType.getKind() == TypeKind.DECLARED) {
@@ -439,6 +445,71 @@ public final class GenericsChecks {
       }
     }
     return result;
+  }
+
+  /**
+   * Returns a description of the first wildcard bound difference between {@code lhsType} and {@code
+   * rhsType}, or {@code null} if no such difference can be found. Recursively traverses {@code
+   * lhsType} and {@code rhsType} to find such a difference.
+   *
+   * <p>This is especially useful when two types pretty-print identically, but differ in the
+   * effective upper bound of a wildcard nested somewhere inside the type.
+   */
+  private @Nullable String firstDifferingWildcardBound(
+      Type lhsType, Type rhsType, VisitorState state) {
+    // base case: both wildcard types
+    Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsType);
+    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsType);
+    if (lhsWildcard != null && rhsWildcard != null) {
+      return wildcardBoundMismatch(lhsWildcard, rhsWildcard, state);
+    }
+    if (lhsType instanceof Type.ClassType lhsClassType && rhsType instanceof Type.ClassType) {
+      Type rhsTypeAsSuper =
+          TypeSubstitutionUtils.asSuper(
+              state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsType.tsym, config);
+      if (!(rhsTypeAsSuper instanceof Type.ClassType rhsClassType)
+          || rhsTypeAsSuper.isRaw()
+          || lhsType.isRaw()) {
+        return null;
+      }
+      List<Type> lhsTypeArguments = lhsClassType.getTypeArguments();
+      List<Type> rhsTypeArguments = rhsClassType.getTypeArguments();
+      if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
+        return null;
+      }
+      for (int i = 0; i < lhsTypeArguments.size(); i++) {
+        String mismatch =
+            firstDifferingWildcardBound(lhsTypeArguments.get(i), rhsTypeArguments.get(i), state);
+        if (mismatch != null) {
+          return mismatch;
+        }
+      }
+      return firstDifferingWildcardBound(
+          lhsClassType.getEnclosingType(), rhsClassType.getEnclosingType(), state);
+    }
+    if (lhsType instanceof Type.ArrayType lhsArrayType
+        && rhsType instanceof Type.ArrayType rhsArrayType) {
+      return firstDifferingWildcardBound(lhsArrayType.elemtype, rhsArrayType.elemtype, state);
+    }
+    return null;
+  }
+
+  /**
+   * Returns a diagnostic fragment describing how two wildcard effective upper bounds differ, or
+   * {@code null} if those bounds pretty-print the same.
+   */
+  private @Nullable String wildcardBoundMismatch(
+      Type.WildcardType lhsWildcard, Type.WildcardType rhsWildcard, VisitorState state) {
+    Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
+    Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
+    String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
+    String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
+    if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
+      return String.format(
+          "target wildcard upper bound is %s; source wildcard upper bound is %s",
+          prettyLhsUpperBound, prettyRhsUpperBound);
+    }
+    return null;
   }
 
   private void reportInvalidReturnTypeError(
