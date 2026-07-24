@@ -816,10 +816,19 @@ public class NullAway extends BugChecker
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
     Type.MethodType jspecifyMemberReferenceMethodType = null;
+    // Keep handler-provided nullness for the referenced method separate from nullness for the
+    // functional interface method. Library models may change the referenced method's signature.
+    MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
+      Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
       jspecifyMemberReferenceMethodType =
-          genericsChecks.getMemberReferenceMethodType(
-              memberReferenceTree, castToNonNull(overridingMethod), state);
+          genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
+      referencedMethodParameterNullnessOverrides =
+          handler.onOverrideMethodInvocationParametersNullability(
+              state.context,
+              referencedMethod,
+              isOverridingMethodAnnotated,
+              MethodParameterNullness.create(referencedMethod));
     }
 
     MethodParameterNullness overriddenMethodArgumentNullness =
@@ -920,7 +929,8 @@ public class NullAway extends BugChecker
               overridingMethod,
               isOverridingMethodAnnotated,
               memberReferenceTree,
-              jspecifyMemberReferenceMethodType);
+              jspecifyMemberReferenceMethodType,
+              referencedMethodParameterNullnessOverrides);
       // in the case where we have a parameter of a lambda expression, we do
       // *not* force the parameter to be annotated with @Nullable; instead we "inherit"
       // nullability from the corresponding functional interface method.
@@ -981,6 +991,8 @@ public class NullAway extends BugChecker
    *     member reference; otherwise {@code null}
    * @param memberReferenceMethodType if the overriding method is a member reference, the method
    *     type of the member reference after handling generics; otherwise {@code null}
+   * @param referencedMethodParameterNullnessOverrides handler-provided parameter nullness for the
+   *     referenced method, or {@code null} if the overriding method is not a member reference
    * @return true if the parameter of the overriding method is effectively {@code @NonNull}, false
    *     otherwise
    */
@@ -990,7 +1002,16 @@ public class NullAway extends BugChecker
       Symbol.@Nullable MethodSymbol overridingMethod,
       boolean isMethodAnnotated,
       @Nullable MemberReferenceTree memberReferenceTree,
-      Type.@Nullable MethodType memberReferenceMethodType) {
+      Type.@Nullable MethodType memberReferenceMethodType,
+      @Nullable MethodParameterNullness referencedMethodParameterNullnessOverrides) {
+    if (referencedMethodParameterNullnessOverrides != null) {
+      Nullness parameterNullnessOverride =
+          referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
+      if (parameterNullnessOverride != null) {
+        // An explicit handler value takes precedence over annotations and generic substitution.
+        return parameterNullnessOverride.equals(Nullness.NONNULL);
+      }
+    }
     boolean result = false;
     if (isMethodAnnotated) {
       result = !Nullness.hasNullableAnnotation(paramSymbol, config);
