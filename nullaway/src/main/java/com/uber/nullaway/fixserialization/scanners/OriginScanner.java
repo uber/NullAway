@@ -102,7 +102,7 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
         return Set.of();
       }
       ExpressionTree expr = node.getExpression();
-      if (!inquiry.test(state, expr)) {
+      if (!inquiry.test(ExpressionToSymbolScanner.stateForTree(state, expr), expr)) {
         return Set.of();
       }
       return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
@@ -123,7 +123,9 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
         return Set.of();
       }
       ExpressionTree initializer = node.getInitializer();
-      if (initializer == null || !inquiry.test(state, initializer)) {
+      if (initializer == null
+          || !inquiry.test(
+              ExpressionToSymbolScanner.stateForTree(state, initializer), initializer)) {
         return Set.of();
       }
       return initializer.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
@@ -141,7 +143,7 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
         return Set.of();
       }
       ExpressionTree expr = node.getExpression();
-      if (!inquiry.test(state, expr)) {
+      if (!inquiry.test(ExpressionToSymbolScanner.stateForTree(state, expr), expr)) {
         return Set.of();
       }
       return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()

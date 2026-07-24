@@ -34,6 +34,8 @@ import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.Tree;
+import com.sun.source.util.TreePath;
 import com.sun.source.util.TreeScanner;
 import com.sun.tools.javac.code.Symbol;
 import java.util.HashSet;
@@ -58,6 +60,22 @@ public class ExpressionToSymbolScanner
     this.state = state;
   }
 
+  /**
+   * Returns a {@link VisitorState} whose path locates {@code node} within the current compilation
+   * unit.
+   *
+   * <p>Origin tracing walks the entire enclosing method, so the nullability {@code inquiry} for a
+   * visited expression must run against that expression's own path rather than the fixed diagnostic
+   * path. Otherwise path-sensitive checks (dataflow, generic-return inference) either read the
+   * wrong program point or fail outright (e.g. {@code mayBeNullExpr} searching for a method
+   * invocation as a descendant of the dereference site). Falls back to {@code state} if the path
+   * cannot be found.
+   */
+  static VisitorState stateForTree(VisitorState state, Tree node) {
+    TreePath path = TreePath.getPath(state.getPath().getCompilationUnit(), node);
+    return path == null ? state : state.withPath(path);
+  }
+
   @Override
   public Set<Symbol> reduce(@Nullable Set<Symbol> r1, @Nullable Set<Symbol> r2) {
     if (r1 == null) {
@@ -75,7 +93,7 @@ public class ExpressionToSymbolScanner
    */
   private Set<Symbol> symbolIfNullable(
       ExpressionTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
-    if (!inquiry.test(state, node)) {
+    if (!inquiry.test(stateForTree(state, node), node)) {
       return Set.of();
     }
     Symbol symbol = defaultResult(node);
@@ -126,14 +144,14 @@ public class ExpressionToSymbolScanner
   @Override
   public Set<Symbol> visitConditionalExpression(
       ConditionalExpressionTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
-    if (!inquiry.test(state, node)) {
+    if (!inquiry.test(stateForTree(state, node), node)) {
       return Set.of();
     }
     Set<Symbol> symbols = new HashSet<>();
-    if (inquiry.test(state, node.getTrueExpression())) {
+    if (inquiry.test(stateForTree(state, node.getTrueExpression()), node.getTrueExpression())) {
       symbols.addAll(node.getTrueExpression().accept(this, inquiry));
     }
-    if (inquiry.test(state, node.getFalseExpression())) {
+    if (inquiry.test(stateForTree(state, node.getFalseExpression()), node.getFalseExpression())) {
       symbols.addAll(node.getFalseExpression().accept(this, inquiry));
     }
     return symbols;

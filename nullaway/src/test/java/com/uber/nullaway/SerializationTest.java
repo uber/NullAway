@@ -2622,6 +2622,38 @@ public class SerializationTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void xmlOutputForGenericMethodCallOriginInJSpecifyMode() {
+    // Regression test: origin tracing must use a path appropriate to each visited expression, not
+    // the fixed diagnostic path.  Here the traced local's initializer is a call to a generic method
+    // (type-variable return), which in JSpecify mode routes through mayBeNullMethodCall ->
+    // TreePath.getPath(diagnosticPath, invocation).  Since the invocation is not a descendant of the
+    // dereference site, that lookup used to return null and trip a Verify.verify crash.
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:SerializeFixMetadata=true",
+                    "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath)))
+        .addSourceLines(
+            "com/uber/Foo.java",
+            "package com.uber;",
+            "import org.jspecify.annotations.Nullable;",
+            "public class Foo {",
+            "   static <T extends @Nullable Object> T pick(T x) { return x; }",
+            "   public void bar(@Nullable Object p) {",
+            "     Object l = pick(p);",
+            "     // BUG: Diagnostic contains: dereferenced expression 'l' is @Nullable",
+            "     l.toString();",
+            "   }",
+            "}")
+        .doTest();
+    assertXmlContains(
+        root, "<message_type>DEREFERENCE_NULLABLE</message_type>", "<origins>", "<symbol>pick");
+  }
+
+  @Test
   public void xmlOutputForMemberSelectOrigin() {
     makeTestHelperWithArgs(
             Arrays.asList(
