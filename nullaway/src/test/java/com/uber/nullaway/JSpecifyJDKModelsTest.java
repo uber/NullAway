@@ -64,7 +64,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   @Test
   public void listContainingNullsWithoutModel() {
     makeTestHelperWithArgs(
-            // We specifically exclude the JSpecifyJDKModels flag here
+            // We specifically exclude the JSpecifyJDKModels flag here (so we can't use `withJSpecifyModeArgs`)
             List.of(
                 "-XepOpt:NullAway:AnnotatedPackages=foo",
                 JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
