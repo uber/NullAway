@@ -61,6 +61,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   static final String FL_GENERATED_UNANNOTATED = EP_FL_NAMESPACE + ":TreatGeneratedAsUnannotated";
   static final String FL_ACKNOWLEDGE_ANDROID_RECENT = EP_FL_NAMESPACE + ":AcknowledgeAndroidRecent";
   static final String FL_JSPECIFY_MODE = EP_FL_NAMESPACE + ":JSpecifyMode";
+  static final String FL_JSPECIFY_EXPERIMENTAL = EP_FL_NAMESPACE + ":JSpecifyExperimental";
   static final String FL_EXCLUDED_FIELD_ANNOT = EP_FL_NAMESPACE + ":ExcludedFieldAnnotations";
   static final String FL_INITIALIZER_ANNOT = EP_FL_NAMESPACE + ":CustomInitializerAnnotations";
   static final String FL_NULLABLE_ANNOT = EP_FL_NAMESPACE + ":CustomNullableAnnotations";
@@ -268,6 +269,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final FixSerializationConfig fixSerializationConfig;
 
   ErrorProneCLIFlagsConfig(ErrorProneFlags flags) {
+    boolean jspecifyExperimental = flags.getBoolean(FL_JSPECIFY_EXPERIMENTAL).orElse(false);
     boolean annotatedPackagesPassed = flags.get(FL_ANNOTATED_PACKAGES).isPresent();
     boolean onlyNullMarked = flags.getBoolean(FL_ONLY_NULLMARKED).orElse(false);
     // exactly one of AnnotatedPackages or OnlyNullMarked should be passed in
@@ -306,7 +308,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
     acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     jspecifyMode = flags.getBoolean(FL_JSPECIFY_MODE).orElse(false);
-    handleWildcardGenerics = flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(false);
+    handleWildcardGenerics =
+        jspecifyExperimental || flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(false);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(
@@ -329,7 +332,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
     /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
-    jspecifyJDKModelsEnabled = flags.getBoolean(FL_JSPECIFY_JDK_ENABLED).orElse(false);
+    jspecifyJDKModelsEnabled =
+        jspecifyExperimental || flags.getBoolean(FL_JSPECIFY_JDK_ENABLED).orElse(false);
     if (jspecifyJDKModelsEnabled && !jspecifyMode) {
       throw new IllegalStateException(
           "-XepOpt:%s should only be set in JSpecify mode".formatted(FL_JSPECIFY_JDK_ENABLED));
