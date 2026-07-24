@@ -8,12 +8,18 @@ import org.jspecify.annotations.NullMarked;
  * of nullability annotation and the type path to reach it.
  *
  * @param annotation the nullability annotation
- * @param typePath the type path to reach the annotation. If empty, the annotation applies to the
- *     outermost type. Otherwise, each entry indicates one step in how to navigate to the nested
- *     type.
+ * @param typePath the nonempty type path to reach the nested annotation. Top-level annotations must
+ *     be represented using the dedicated parameter or return models.
  */
 @NullMarked
 public record NestedAnnotationInfo(Annotation annotation, ImmutableList<TypePathEntry> typePath) {
+
+  public NestedAnnotationInfo {
+    if (typePath.isEmpty()) {
+      throw new IllegalArgumentException(
+          "Nested annotation type paths must be nonempty; use a top-level parameter or return model");
+    }
+  }
 
   /**
    * Class for a single entry in a type path, indicating how to navigate the "next step" in the type
