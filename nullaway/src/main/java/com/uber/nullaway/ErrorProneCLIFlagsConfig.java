@@ -87,6 +87,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   /** --- JarInfer configs --- */
   static final String FL_JI_ENABLED = EP_FL_NAMESPACE + ":JarInferEnabled";
 
+  static final String FL_JSPECIFY_JDK_ENABLED = EP_FL_NAMESPACE + ":JSpecifyJDKModels";
+
   static final String FL_ERROR_URL = EP_FL_NAMESPACE + ":ErrorURL";
 
   /** --- Serialization configs --- */
@@ -247,6 +249,8 @@ final class ErrorProneCLIFlagsConfig implements Config {
   /** --- JarInfer configs --- */
   private final boolean jarInferEnabled;
 
+  private final boolean jspecifyJDKModelsEnabled;
+
   private final String errorURL;
 
   /** --- Fully qualified names of custom nonnull/nullable annotation --- */
@@ -325,6 +329,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
 
     /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
+    jspecifyJDKModelsEnabled = flags.getBoolean(FL_JSPECIFY_JDK_ENABLED).orElse(false);
+    if (jspecifyJDKModelsEnabled && !jspecifyMode) {
+      throw new IllegalStateException(
+          "-XepOpt:%s should only be set in JSpecify mode".formatted(FL_JSPECIFY_JDK_ENABLED));
+    }
     errorURL = flags.get(FL_ERROR_URL).orElse(DEFAULT_URL);
     if (acknowledgeAndroidRecent && !isAcknowledgeRestrictive) {
       throw new IllegalStateException(
@@ -579,6 +588,11 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isJarInferEnabled() {
     return jarInferEnabled;
+  }
+
+  @Override
+  public boolean isJSpecifyJDKModels() {
+    return jspecifyJDKModelsEnabled;
   }
 
   @Override

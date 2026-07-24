@@ -286,6 +286,13 @@ public interface Config {
   boolean isJarInferEnabled();
 
   /**
+   * Checks if <a href="https://github.com/jspecify/jdk">JSpecify JDK models</a> should be enabled.
+   *
+   * @return true if JSpecify JDK models should be enabled, false otherwise
+   */
+  boolean isJSpecifyJDKModels();
+
+  /**
    * Gets the URL to show with NullAway error messages.
    *
    * @return the URL to show with NullAway error messages

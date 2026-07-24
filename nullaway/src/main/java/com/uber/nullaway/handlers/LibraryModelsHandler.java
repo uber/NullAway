@@ -24,6 +24,7 @@ package com.uber.nullaway.handlers;
 
 import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
@@ -55,7 +56,6 @@ import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -65,7 +65,9 @@ import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
 import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
+import java.io.IOException;
 import java.io.InputStream;
+import java.io.UncheckedIOException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -532,8 +534,9 @@ public class LibraryModelsHandler implements Handler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
-    if (config.isJarInferEnabled()) {
-      libModelsBuilder.add(new ExternalStubxLibraryModels());
+    if (config.isJarInferEnabled() || config.isJSpecifyJDKModels()) {
+      libModelsBuilder.add(
+          new ExternalStubxLibraryModels(config.isJarInferEnabled(), config.isJSpecifyJDKModels()));
     }
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
@@ -1587,8 +1590,7 @@ public class LibraryModelsHandler implements Handler {
         makeOptimizedNestedAnnotationLookup(
             Names names,
             ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>> refs) {
-      return makeOptimizedLookup(
-          names, refs.keySet(), ref -> NullabilityUtil.castToNonNull(refs.get(ref)));
+      return makeOptimizedLookup(names, refs.keySet(), ref -> castToNonNull(refs.get(ref)));
     }
 
     private <T> NameIndexedMap<T> makeOptimizedLookup(
@@ -1640,6 +1642,9 @@ public class LibraryModelsHandler implements Handler {
     /** astubx file name used in our Android SDK JarInfer models */
     private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
 
+    /** astubx file name used for the JSpecify JDK models */
+    private static final String JSPECIFY_JDK_ASTUBX_FILENAME = "jspecify-jdk.astubx";
+
     /** Class we expect to be present in a jar containing Android SDK JarInfer models */
     private static final String ANDROID_MODEL_CLASS =
         "com.uber.nullaway.jarinfer.AndroidJarInferModels";
@@ -1650,26 +1655,44 @@ public class LibraryModelsHandler implements Handler {
     private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
     private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
 
-    ExternalStubxLibraryModels() {
+    ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
       String libraryModelLogName = "LM";
       StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName);
-      // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
-      try {
-        InputStream androidStubxIS =
-            Class.forName(ANDROID_MODEL_CLASS)
-                .getClassLoader()
-                .getResourceAsStream(ANDROID_ASTUBX_LOCATION);
-        if (androidStubxIS != null) {
-          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
-          astubxLoadLog("Loaded Android RT models.");
-        }
-      } catch (ClassNotFoundException e) {
-        astubxLoadLog(
-            "Cannot find Android RT models locator class."
-                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
+      if (isJarInferEnabled) {
+        // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
+        try (InputStream androidStubxIS =
+            castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
+                .getResourceAsStream(ANDROID_ASTUBX_LOCATION)) {
+          if (androidStubxIS != null) {
+            cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+            astubxLoadLog("Loaded Android RT models.");
+          }
+        } catch (ClassNotFoundException e) {
+          astubxLoadLog(
+              "Cannot find Android RT models locator class."
+                  + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
 
-      } catch (Exception e) {
-        astubxLoadLog("Cannot load Android RT models.");
+        } catch (IOException e) {
+          astubxLoadLog("Loading Android RT models failed: " + e.getMessage());
+        }
+      }
+
+      if (isJSpecifyJDKEnabled) {
+        // hardcoded loading of JSpecify JDK astubx from jspecify-jdk.astubx
+        try (InputStream in =
+            castToNonNull(getClass().getClassLoader())
+                .getResourceAsStream(JSPECIFY_JDK_ASTUBX_FILENAME)) {
+          if (in == null) {
+            throw new IllegalStateException(
+                "JDK astubx model not found on classpath: %s"
+                    .formatted(JSPECIFY_JDK_ASTUBX_FILENAME));
+          } else {
+            cacheUtil.parseStubStream(in, JSPECIFY_JDK_ASTUBX_FILENAME);
+            astubxLoadLog("Loaded JDK astubx model.");
+          }
+        } catch (IOException e) {
+          throw new UncheckedIOException(e);
+        }
       }
 
       argAnnotCache = cacheUtil.getArgAnnotCache();
