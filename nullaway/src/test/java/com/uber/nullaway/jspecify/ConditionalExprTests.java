@@ -426,6 +426,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  // TODO rename this method and other similar test methods
   private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

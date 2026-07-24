@@ -58,6 +58,10 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
                 value.equals(null);
               }
 
+              void orElseAcceptsNullableForWildcard(Optional<?> value) {
+                value.orElse(null);
+              }
+
               void ofRejectsNull() {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
                 Optional.of(null);
