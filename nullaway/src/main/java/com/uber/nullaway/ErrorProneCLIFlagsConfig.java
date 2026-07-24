@@ -309,7 +309,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
     acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     jspecifyMode = flags.getBoolean(FL_JSPECIFY_MODE).orElse(false);
     handleWildcardGenerics =
-        jspecifyExperimental || flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(false);
+        flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(jspecifyExperimental);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
     fieldAnnotPattern =
         getPackagePattern(
@@ -333,7 +333,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
     /* --- JarInfer configs --- */
     jarInferEnabled = flags.getBoolean(FL_JI_ENABLED).orElse(false);
     jspecifyJDKModelsEnabled =
-        jspecifyExperimental || flags.getBoolean(FL_JSPECIFY_JDK_ENABLED).orElse(false);
+        flags.getBoolean(FL_JSPECIFY_JDK_ENABLED).orElse(jspecifyExperimental);
     if (jspecifyJDKModelsEnabled && !jspecifyMode) {
       throw new IllegalStateException(
           "-XepOpt:%s should only be set in JSpecify mode".formatted(FL_JSPECIFY_JDK_ENABLED));
