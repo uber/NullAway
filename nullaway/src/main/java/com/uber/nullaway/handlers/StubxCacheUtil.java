@@ -127,12 +127,11 @@ public class StubxCacheUtil {
     for (JarInferStubxProvider provider : astubxProviders) {
       for (String astubxPath : provider.pathsToStubxFiles()) {
         Class<? extends JarInferStubxProvider> providerClass = provider.getClass();
-        InputStream stubxInputStream = providerClass.getResourceAsStream(astubxPath);
-        if (stubxInputStream == null) {
-          throw new RuntimeException("could not get input stream for " + astubxPath);
-        }
         String stubxLocation = providerClass + ":" + astubxPath;
-        try {
+        try (InputStream stubxInputStream = providerClass.getResourceAsStream(astubxPath)) {
+          if (stubxInputStream == null) {
+            throw new RuntimeException("could not get input stream for " + astubxPath);
+          }
           parseStubStream(stubxInputStream, stubxLocation);
           LOG(DEBUG, "DEBUG", "loaded stubx file " + stubxLocation);
         } catch (IOException e) {

@@ -1683,7 +1683,7 @@ public class LibraryModelsHandler implements Handler {
             castToNonNull(getClass().getClassLoader())
                 .getResourceAsStream(JSPECIFY_JDK_ASTUBX_FILENAME)) {
           if (in == null) {
-            astubxLoadLog(
+            throw new IllegalStateException(
                 "JDK astubx model not found on classpath: %s"
                     .formatted(JSPECIFY_JDK_ASTUBX_FILENAME));
           } else {
