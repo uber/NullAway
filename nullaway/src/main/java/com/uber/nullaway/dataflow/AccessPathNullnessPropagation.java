@@ -547,6 +547,8 @@ public class AccessPathNullnessPropagation
       }
     }
 
+    handler.onDataflowVisitAssignment(node, state, apContext, values(input), input.getRegularStore(), updates);
+
     return updateRegularStore(value, input, updates);
   }
 
@@ -741,6 +743,7 @@ public class AccessPathNullnessPropagation
     if (isCatchVariable(node)) {
       updates.set(node, NONNULL);
     }
+
     /*
      * We can return whatever we want here because a variable declaration is not an expression and
      * thus no one can use its value directly. Any updates to the nullness of the variable are
