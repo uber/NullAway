@@ -52,7 +52,7 @@ import org.jspecify.annotations.Nullable;
  */
 public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
 
-  private final BiPredicate<ExpressionTree, VisitorState> inquiry;
+  private final BiPredicate<VisitorState, ExpressionTree> inquiry;
   private final VisitorState state;
 
   /**
@@ -64,12 +64,12 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
 
   public static final int NO_BOUND = Integer.MAX_VALUE;
 
-  public OriginScanner(BiPredicate<ExpressionTree, VisitorState> inquiry, VisitorState state) {
+  public OriginScanner(BiPredicate<VisitorState, ExpressionTree> inquiry, VisitorState state) {
     this(inquiry, state, NO_BOUND);
   }
 
   public OriginScanner(
-      BiPredicate<ExpressionTree, VisitorState> inquiry,
+      BiPredicate<VisitorState, ExpressionTree> inquiry,
       VisitorState state,
       int diagnosticStartPosition) {
     this.inquiry = inquiry;
@@ -102,7 +102,7 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
         return Set.of();
       }
       ExpressionTree expr = node.getExpression();
-      if (!inquiry.test(expr, state)) {
+      if (!inquiry.test(state, expr)) {
         return Set.of();
       }
       return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
@@ -123,7 +123,7 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
         return Set.of();
       }
       ExpressionTree initializer = node.getInitializer();
-      if (initializer == null || !inquiry.test(initializer, state)) {
+      if (initializer == null || !inquiry.test(state, initializer)) {
         return Set.of();
       }
       return initializer.accept(new ExpressionToSymbolScanner(state), inquiry).stream()
@@ -141,7 +141,7 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
         return Set.of();
       }
       ExpressionTree expr = node.getExpression();
-      if (!inquiry.test(expr, state)) {
+      if (!inquiry.test(state, expr)) {
         return Set.of();
       }
       return expr.accept(new ExpressionToSymbolScanner(state), inquiry).stream()

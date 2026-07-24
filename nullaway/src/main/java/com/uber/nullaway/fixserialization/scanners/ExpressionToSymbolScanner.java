@@ -45,12 +45,12 @@ import org.jspecify.annotations.Nullable;
  * Scanner that finds the symbols of all identifiers in expressions.
  *
  * <p>The scanner's parameter (the {@code P} type argument of {@link TreeScanner}) is a nullability
- * test: given an expression and the {@link VisitorState}, the {@link BiPredicate} returns {@code
+ * test: given the {@link VisitorState} and an expression, the {@link BiPredicate} returns {@code
  * true} if the expression may be {@code @Nullable}. Only symbols of expressions that pass this test
  * are collected.
  */
 public class ExpressionToSymbolScanner
-    extends TreeScanner<Set<Symbol>, BiPredicate<ExpressionTree, VisitorState>> {
+    extends TreeScanner<Set<Symbol>, BiPredicate<VisitorState, ExpressionTree>> {
 
   private final VisitorState state;
 
@@ -74,8 +74,8 @@ public class ExpressionToSymbolScanner
    * test, or an empty set otherwise.
    */
   private Set<Symbol> symbolIfNullable(
-      ExpressionTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
-    if (!inquiry.test(node, state)) {
+      ExpressionTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
+    if (!inquiry.test(state, node)) {
       return Set.of();
     }
     Symbol symbol = defaultResult(node);
@@ -95,45 +95,45 @@ public class ExpressionToSymbolScanner
 
   @Override
   public Set<Symbol> visitLiteral(
-      LiteralTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+      LiteralTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
     return Set.of();
   }
 
   @Override
   public Set<Symbol> visitIdentifier(
-      IdentifierTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+      IdentifierTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
     return symbolIfNullable(node, inquiry);
   }
 
   @Override
   public Set<Symbol> visitMemberReference(
-      MemberReferenceTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+      MemberReferenceTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
     return symbolIfNullable(node, inquiry);
   }
 
   @Override
   public Set<Symbol> visitMemberSelect(
-      MemberSelectTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+      MemberSelectTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
     return symbolIfNullable(node, inquiry);
   }
 
   @Override
   public Set<Symbol> visitMethodInvocation(
-      MethodInvocationTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
+      MethodInvocationTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
     return symbolIfNullable(node, inquiry);
   }
 
   @Override
   public Set<Symbol> visitConditionalExpression(
-      ConditionalExpressionTree node, BiPredicate<ExpressionTree, VisitorState> inquiry) {
-    if (!inquiry.test(node, state)) {
+      ConditionalExpressionTree node, BiPredicate<VisitorState, ExpressionTree> inquiry) {
+    if (!inquiry.test(state, node)) {
       return Set.of();
     }
     Set<Symbol> symbols = new HashSet<>();
-    if (inquiry.test(node.getTrueExpression(), state)) {
+    if (inquiry.test(state, node.getTrueExpression())) {
       symbols.addAll(node.getTrueExpression().accept(this, inquiry));
     }
-    if (inquiry.test(node.getFalseExpression(), state)) {
+    if (inquiry.test(state, node.getFalseExpression())) {
       symbols.addAll(node.getFalseExpression().accept(this, inquiry));
     }
     return symbols;

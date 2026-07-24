@@ -202,11 +202,6 @@ public class NullAway extends BugChecker
   private static final ImmutableSet<ElementType> TYPE_USE_OR_TYPE_PARAMETER =
       ImmutableSet.of(TYPE_USE, TYPE_PARAMETER);
 
-  /** Returns {@code true} if the given expression may be null. */
-  private boolean mayBeNullInquiry(ExpressionTree tree, VisitorState state) {
-    return mayBeNullExpr(state, tree);
-  }
-
   /**
    * Possible levels of null-marking / annotatedness for a class. This may be set to FULLY_MARKED or
    * FULLY_UNMARKED optimistically but then adjusted to PARTIALLY_MARKED later based on annotations
@@ -553,7 +548,7 @@ public class NullAway extends BugChecker
               errorMessage,
               buildDescription(tree),
               state,
-              this::mayBeNullInquiry,
+              this::mayBeNullExpr,
               arraySymbol,
               expression);
         }
@@ -578,7 +573,7 @@ public class NullAway extends BugChecker
           expression,
           buildDescription(tree),
           state,
-          this::mayBeNullInquiry,
+          this::mayBeNullExpr,
           ASTHelpers.getSymbol(tree.getVariable()),
           expression);
     }
@@ -765,7 +760,7 @@ public class NullAway extends BugChecker
           switchSelectorExpression,
           buildDescription(switchSelectorExpression),
           state,
-          this::mayBeNullInquiry,
+          this::mayBeNullExpr,
           null,
           switchSelectorExpression);
     }
@@ -1171,7 +1166,7 @@ public class NullAway extends BugChecker
           retExpr,
           buildDescription(errorTree),
           state,
-          this::mayBeNullInquiry,
+          this::mayBeNullExpr,
           methodSymbol,
           retExpr);
     }
@@ -1723,7 +1718,7 @@ public class NullAway extends BugChecker
               initializer,
               buildDescription(tree),
               state,
-              this::mayBeNullInquiry,
+              this::mayBeNullExpr,
               symbol,
               initializer);
         }
@@ -1998,7 +1993,7 @@ public class NullAway extends BugChecker
           errorMessage,
           buildDescription(expr),
           state,
-          this::mayBeNullInquiry,
+          this::mayBeNullExpr,
           null,
           expr,
           exprInfo);
@@ -2049,7 +2044,7 @@ public class NullAway extends BugChecker
                   + state.getSourceForNode(lockExpr)
                   + "' is @Nullable");
       return errorBuilder.createErrorDescription(
-          errorMessage, buildDescription(lockExpr), state, this::mayBeNullInquiry, null, lockExpr);
+          errorMessage, buildDescription(lockExpr), state, this::mayBeNullExpr, null, lockExpr);
     }
     return Description.NO_MATCH;
   }
@@ -2080,7 +2075,7 @@ public class NullAway extends BugChecker
                   tree,
                   buildDescription(tree),
                   state,
-                  this::mayBeNullInquiry,
+                  this::mayBeNullExpr,
                   null,
                   tree));
         }
@@ -2201,7 +2196,7 @@ public class NullAway extends BugChecker
                     actual,
                     buildDescription(actual),
                     state,
-                    this::mayBeNullInquiry,
+                    this::mayBeNullExpr,
                     formalParams.get(argPos),
                     actual));
           }
@@ -2260,7 +2255,7 @@ public class NullAway extends BugChecker
             actual,
             buildDescription(tree),
             state,
-            this::mayBeNullInquiry,
+            this::mayBeNullExpr,
             null,
             actual);
       }
@@ -3009,7 +3004,7 @@ public class NullAway extends BugChecker
           baseExpression,
           buildDescription(derefExpression),
           state,
-          this::mayBeNullInquiry,
+          this::mayBeNullExpr,
           null,
           baseExpression,
           exprInfo);
@@ -3023,7 +3018,7 @@ public class NullAway extends BugChecker
           derefExpression,
           buildDescription(derefExpression),
           state,
-          this::mayBeNullInquiry,
+          this::mayBeNullExpr,
           null,
           baseExpression);
     }
