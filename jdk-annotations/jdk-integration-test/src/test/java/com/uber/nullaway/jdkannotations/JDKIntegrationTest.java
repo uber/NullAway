@@ -83,6 +83,9 @@ public class JDKIntegrationTest {
   public void libraryModelWithoutJarInferEnabledTest() {
     compilationHelper
         .setArgs(
+            // Run this test in JSpecify mode to ensure that loading of JDK models does not also
+            // load
+            // external astubx files from JarInfer
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-d",
