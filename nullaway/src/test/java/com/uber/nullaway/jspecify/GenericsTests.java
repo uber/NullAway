@@ -2005,7 +2005,9 @@ public class GenericsTests extends NullAwayTestsBase {
             class Test {
               static void testNegative() {
                List<String> a = new ArrayList<String>();
-               Object[] o = a != null ? a.toArray() : null;
+               // TODO fix imprecise model of toArray()
+               // https://github.com/uber/NullAway/issues/1616
+               @Nullable Object[] o = a != null ? a.toArray() : null;
               }
             }
             """)
@@ -2582,6 +2584,8 @@ public class GenericsTests extends NullAwayTestsBase {
                 static class K<T extends @Nullable Object> {}
                 void foo(K<@Nullable Object> k) {
                     K<? extends @Nullable Object> k2 = k;
+                    // TODO should get no error here
+                    // BUG: Diagnostic contains: returning @Nullable
                     Supplier<? extends @Nullable Object> s = () -> null;
                 }
             }

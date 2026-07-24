@@ -36,9 +36,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   public void listContainingNullsWithModel() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
-                List.of(
-                    "-XepOpt:NullAway:AnnotatedPackages=foo",
-                    "-XepOpt:NullAway:JSpecifyJDKModels=true")))
+                List.of("-XepOpt:NullAway:AnnotatedPackages=foo")))
         .addSourceLines(
             "Test.java",
             """
@@ -66,8 +64,13 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   @Test
   public void listContainingNullsWithoutModel() {
     makeTestHelperWithArgs(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                List.of("-XepOpt:NullAway:AnnotatedPackages=foo")))
+            // We specifically exclude the JSpecifyJDKModels flag here (so we can't use
+            // `withJSpecifyModeArgs`)
+            List.of(
+                "-XepOpt:NullAway:AnnotatedPackages=foo",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
+                JSpecifyJavacConfig.HANDLE_WILDCARD_GENERICS_FLAG))
         .addSourceLines(
             "Test.java",
             """
