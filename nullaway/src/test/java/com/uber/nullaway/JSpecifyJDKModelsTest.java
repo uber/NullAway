@@ -23,6 +23,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                 @NullMarked
                 class Test {
                   void use(Attributes attrs) {
+                    // Attributes.get returns @Nullable in the models, but since we don't load
+                    // models here, we get no warning
                     attrs.get("key").toString();
                   }
                 }
