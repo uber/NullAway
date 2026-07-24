@@ -300,6 +300,8 @@ public class CustomLibraryModelsTests {
             class Test {
               static boolean hasNonNullString(List<@Nullable String> strings) {
                 return strings.stream()
+                    // we expect no warning here, since a library model indicates
+                    // the parameter of isNonNull is @Nullable
                     .filter(UnannotatedWithModels::isNonNull)
                     .anyMatch(string -> true);
               }
