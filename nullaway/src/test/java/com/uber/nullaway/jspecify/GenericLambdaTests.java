@@ -180,6 +180,65 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void varAndGenericInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            final class Test {
+                static void reproduce() {
+                    var future = future();
+                    run(() -> future.join());
+                }
+                private static CompletableFuture<?> future() {
+                    return new CompletableFuture<>();
+                }
+                private static <T extends @Nullable Object> T run(Action<T> action) {
+                    return action.run();
+                }
+                private interface Action<T extends @Nullable Object> {
+                    T run();
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void varAndGenericInferenceWithNonNullUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NonNull;
+            @NullMarked
+            final class Test {
+                static void reproduce() {
+                    var future = future();
+                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    run(() -> future.join());
+                }
+                private static CompletableFuture<?> future() {
+                    return new CompletableFuture<>();
+                }
+                private static <T> T run(Action<T> action) {
+                    return action.run();
+                }
+                private interface Action<T> {
+                    T run();
+                }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
