@@ -996,6 +996,8 @@ public class WildcardTests extends NullAwayTestsBase {
             final class Repro {
                 static List<?> readValues(List<String> inputs) {
                     return inputs.stream()
+                            // no error here: the lambda returns @Nullable Object, so we
+                            // should infer type variable R of Stream.map to be @Nullable Object
                             .map(input -> nullableBox().getOrThrow(RuntimeException::new))
                             .toList();
                 }
