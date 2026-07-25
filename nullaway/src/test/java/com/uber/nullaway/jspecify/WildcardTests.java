@@ -983,6 +983,35 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void weirdReducedFromJUnit() {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            final class Repro {
+                static List<?> readValues(List<String> inputs) {
+                    return inputs.stream()
+                            .map(input -> nullableBox().getOrThrow(RuntimeException::new))
+                            .toList();
+                }
+                private static Box<@Nullable Object> nullableBox() {
+                    return new Box<>(null);
+                }
+                private record Box<V extends @Nullable Object>(V value) {
+                    <E extends Exception> V getOrThrow(Function<? super Exception, E> exceptionTransformer) throws E {
+                        return value;
+                    }
+                }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
