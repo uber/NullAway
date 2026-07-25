@@ -436,7 +436,12 @@ public class LibraryModelsHandler implements Handler {
         && getOptLibraryModels(state.context).nullImpliesFalseParameters(methodSymbol).contains(0);
   }
 
-  /** Updates method types based on top-level parameter and nested annotation library models. */
+  /**
+   * Updates method types based on top-level parameter and nested annotation library models. For
+   * now, this method is only used in JSpecify mode, primarily for its handling of nested
+   * annotations. Outside of JSpecify mode, other handler methods are available for reasoning about
+   * top-level annotations only.
+   */
   @Override
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   public Type.MethodType onOverrideMethodType(
@@ -444,6 +449,7 @@ public class LibraryModelsHandler implements Handler {
       Type.MethodType methodType,
       VisitorState state,
       @Nullable MethodInvocationTree invocationTree) {
+    Verify.verify(config.isJSpecifyMode(), "Method only suitable for use in JSpecify mode");
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(state.context);
     ImmutableSet<Integer> explicitlyNullableParameters =
         config.isJSpecifyMode()
