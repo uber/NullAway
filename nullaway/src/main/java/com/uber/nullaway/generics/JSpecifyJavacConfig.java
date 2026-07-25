@@ -11,8 +11,9 @@ import java.util.List;
  * configuring NullAway compilation tests that rely on JSpecify annotations.
  *
  * <p>For tests, this utility ensures that they always pass {@code
- * -XepOpt:NullAway:JSpecifyMode=true}, {@code -XDaddTypeAnnotationsToSymbol=true}, and the
- * wildcard-support flag together.
+ * -XepOpt:NullAway:JSpecifyMode=true}, {@code -XDaddTypeAnnotationsToSymbol=true}, and the JSpecify
+ * experimental-features flag together. The experimental-features flag enables wildcard support,
+ * generic inference failure warnings, and JSpecify JDK models.
  */
 public final class JSpecifyJavacConfig {
 
