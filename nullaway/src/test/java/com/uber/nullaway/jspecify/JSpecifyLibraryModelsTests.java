@@ -58,6 +58,9 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
                 value.equals(null);
               }
 
+              // Regression test for applying the top-level @Nullable parameter
+              // library model for orElse.  With a wildcard type we shouldn't create
+              // the invalid type `@Nullable ?`
               void orElseAcceptsNullableForWildcard(Optional<?> value) {
                 value.orElse(null);
               }
