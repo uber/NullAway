@@ -984,7 +984,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void weirdReducedFromJUnit() {
+  public void lambdaInferenceUsesGenericInstanceMethodReceiverType() {
     makeHelper()
         .addSourceLines(
             "Repro.java",
