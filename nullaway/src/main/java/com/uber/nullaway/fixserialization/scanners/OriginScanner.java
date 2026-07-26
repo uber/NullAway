@@ -24,6 +24,8 @@
 
 package com.uber.nullaway.fixserialization.scanners;
 
+import static com.uber.nullaway.NullabilityUtil.castToNonNull;
+
 import com.google.common.collect.Sets;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -172,7 +174,7 @@ public class OriginScanner extends TreeScanner<Set<OriginLocation>, Symbol> {
     queue.add(target);
     Set<Symbol> visited = new HashSet<>();
     while (!queue.isEmpty()) {
-      Symbol current = queue.poll();
+      Symbol current = castToNonNull(queue.poll());
       if (visited.contains(current)) {
         continue;
       }
