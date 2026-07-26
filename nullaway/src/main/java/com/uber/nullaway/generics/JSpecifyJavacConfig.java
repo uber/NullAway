@@ -11,8 +11,9 @@ import java.util.List;
  * configuring NullAway compilation tests that rely on JSpecify annotations.
  *
  * <p>For tests, this utility ensures that they always pass {@code
- * -XepOpt:NullAway:JSpecifyMode=true}, {@code -XDaddTypeAnnotationsToSymbol=true}, and the
- * wildcard-support flag together.
+ * -XepOpt:NullAway:JSpecifyMode=true}, {@code -XDaddTypeAnnotationsToSymbol=true}, and the JSpecify
+ * experimental-features flag together. The experimental-features flag enables wildcard support,
+ * generic inference failure warnings, and JSpecify JDK models.
  */
 public final class JSpecifyJavacConfig {
 
@@ -20,14 +21,10 @@ public final class JSpecifyJavacConfig {
   public static final String ADD_TYPE_ANNOTATIONS_FLAG = "-XDaddTypeAnnotationsToSymbol=true";
   public static final String HANDLE_WILDCARD_GENERICS_FLAG =
       "-XepOpt:NullAway:HandleWildcardGenerics=true";
-  public static final String USE_JSPECIFY_JDK_MODELS = "-XepOpt:NullAway:JSpecifyJDKModels=true";
+  public static final String JSPECIFY_EXPERIMENTAL = "-XepOpt:NullAway:JSpecifyExperimental=true";
 
   private static final List<String> JSPECIFY_MODE_ARGS =
-      List.of(
-          JSPECIFY_MODE_FLAG,
-          ADD_TYPE_ANNOTATIONS_FLAG,
-          HANDLE_WILDCARD_GENERICS_FLAG,
-          USE_JSPECIFY_JDK_MODELS);
+      List.of(JSPECIFY_MODE_FLAG, ADD_TYPE_ANNOTATIONS_FLAG, JSPECIFY_EXPERIMENTAL);
 
   private JSpecifyJavacConfig() {}
 

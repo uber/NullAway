@@ -436,7 +436,12 @@ public class LibraryModelsHandler implements Handler {
         && getOptLibraryModels(state.context).nullImpliesFalseParameters(methodSymbol).contains(0);
   }
 
-  /** Updates method types based on nested annotation information from library models. */
+  /**
+   * Updates method types based on top-level parameter and nested annotation library models. For
+   * now, this method is only used in JSpecify mode, primarily for its handling of nested
+   * annotations. Outside of JSpecify mode, other handler methods are available for reasoning about
+   * top-level annotations only.
+   */
   @Override
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   public Type.MethodType onOverrideMethodType(
@@ -444,10 +449,15 @@ public class LibraryModelsHandler implements Handler {
       Type.MethodType methodType,
       VisitorState state,
       @Nullable MethodInvocationTree invocationTree) {
+    Verify.verify(config.isJSpecifyMode(), "Method only suitable for use in JSpecify mode");
     OptimizedLibraryModels optimizedLibraryModels = getOptLibraryModels(state.context);
+    ImmutableSet<Integer> explicitlyNullableParameters =
+        config.isJSpecifyMode()
+            ? optimizedLibraryModels.explicitlyNullableParameters(methodSymbol)
+            : ImmutableSet.of();
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
         optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
-    if (nestedAnnotations.isEmpty()) {
+    if (explicitlyNullableParameters.isEmpty() && nestedAnnotations.isEmpty()) {
       return methodType;
     }
     // update argument types, tracking if anything changed
@@ -460,10 +470,13 @@ public class LibraryModelsHandler implements Handler {
         l = l.tail, index++) {
       Type argType = l.head;
       ImmutableSet<NestedAnnotationInfo> annotationsForArg = nestedAnnotations.get(index);
-      Type updatedArgType =
-          annotationsForArg.isEmpty()
-              ? argType
-              : applyNestedAnnotations(argType, annotationsForArg, state);
+      Type updatedArgType = argType;
+      if (explicitlyNullableParameters.contains(index)) {
+        updatedArgType = applyTopLevelNullableAnnotation(updatedArgType, state);
+      }
+      if (!annotationsForArg.isEmpty()) {
+        updatedArgType = applyNestedAnnotations(updatedArgType, annotationsForArg, state);
+      }
       updatedArgTypes.append(updatedArgType);
       if (updatedArgType != argType) {
         changed = true;
@@ -485,6 +498,17 @@ public class LibraryModelsHandler implements Handler {
     }
     return new Type.MethodType(
         updatedArgTypes.toList(), updatedReturnType, methodType.thrown, methodType.tsym);
+  }
+
+  /**
+   * Applies a top-level {@code @Nullable} annotation to a type. This uses the nested-type visitor
+   * internally so that its wildcard safeguards are preserved, but top-level annotations must not be
+   * represented as {@link NestedAnnotationInfo} library models.
+   */
+  private static Type applyTopLevelNullableAnnotation(Type type, VisitorState state) {
+    return new AddAnnotationToNestedTypeVisitor(
+            ImmutableList.of(), GenericsChecks.getSyntheticNullableAnnotType(state))
+        .apply(type);
   }
 
   /**
