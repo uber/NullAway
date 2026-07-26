@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;

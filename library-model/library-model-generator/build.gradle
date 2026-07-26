@@ -18,6 +18,12 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+sourceSets {
+    main {
+        java.srcDir "src/shared/java"
+    }
+}
+
 dependencies {
     implementation libs.guava
     api libs.jspecify
