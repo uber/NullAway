@@ -114,6 +114,36 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferredGenericInstanceMethodReturnTypeUsesReceiverType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              record Holder<T extends @Nullable Object>(T value) {}
+              record Box<V extends @Nullable Object>(V value) {
+                <E extends Exception> Holder<V> getOrThrow(
+                    Function<? super Exception, E> exceptionTransformer) throws E {
+                  return new Holder<>(value);
+                }
+              }
+              static <T extends @Nullable Object> Box<T> box(T value) {
+                return new Box<>(value);
+              }
+              static void test() {
+                var holder = box(null).getOrThrow(RuntimeException::new);
+                // BUG: Diagnostic contains: dereferenced expression 'holder.value()' is @Nullable
+                holder.value().hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericMethodAndVoidType() {
     makeHelper()
         .addSourceLines(
