@@ -83,10 +83,13 @@ public class JDKIntegrationTest {
   public void libraryModelWithoutJarInferEnabledTest() {
     compilationHelper
         .setArgs(
-            Arrays.asList(
-                "-d",
-                temporaryFolder.getRoot().getAbsolutePath(),
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+            // Run this test in JSpecify mode to ensure that loading of JDK models does not also
+            // load external astubx files from JarInfer
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
         .addSourceLines(
             "Test.java",
             """

@@ -80,21 +80,23 @@ public class StubxCacheUtil {
   private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfoCache;
 
   /**
-   * Initializes a new {@code StubxCacheUtil} instance.
-   *
-   * <p>This sets up the caches for argument annotations and upper bounds, sets the log caller, and
-   * loads the stubx files.
+   * Initializes a new {@code StubxCacheUtil} instance, optionally loading JarInfer stubx files
+   * discovered on the classpath.
    *
    * @param logCaller Identifier for logging purposes.
+   * @param loadJarInferModels whether to load stubx files provided by {@link JarInferStubxProvider}
+   *     implementations
    */
-  public StubxCacheUtil(String logCaller) {
+  StubxCacheUtil(String logCaller, boolean loadJarInferModels) {
     argAnnotCache = new LinkedHashMap<>();
     upperBoundCache = new HashMap<>();
     nullMarkedClassesCache = new HashSet<>();
     methodTypeParamNullableUpperBoundCache = HashMultimap.create();
     nestedAnnotationInfoCache = new HashMap<>();
     this.logCaller = logCaller;
-    loadStubxFiles();
+    if (loadJarInferModels) {
+      loadStubxFiles();
+    }
   }
 
   public Map<String, Integer> getUpperBoundCache() {
@@ -127,9 +129,11 @@ public class StubxCacheUtil {
     for (JarInferStubxProvider provider : astubxProviders) {
       for (String astubxPath : provider.pathsToStubxFiles()) {
         Class<? extends JarInferStubxProvider> providerClass = provider.getClass();
-        InputStream stubxInputStream = providerClass.getResourceAsStream(astubxPath);
         String stubxLocation = providerClass + ":" + astubxPath;
-        try {
+        try (InputStream stubxInputStream = providerClass.getResourceAsStream(astubxPath)) {
+          if (stubxInputStream == null) {
+            throw new RuntimeException("could not get input stream for " + astubxPath);
+          }
           parseStubStream(stubxInputStream, stubxLocation);
           LOG(DEBUG, "DEBUG", "loaded stubx file " + stubxLocation);
         } catch (IOException e) {

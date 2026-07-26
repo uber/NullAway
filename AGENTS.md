@@ -24,5 +24,7 @@ Our `CHANGELOG.md` file should be formatted as follows:
 Do not add top-level `@Nullable` annotations on local variables.  NullAway infers the nullability of local variables and
 ignores these explicit annotations.
 
+Whenever you add a non-trivial method, add Javadoc, even if it's a private method.
+
 You do _not_ need to run `./gradlew spotlessJavaCheck` to check formatting.  We have a pre-commit hook that
 automatically formats code before it is committed.

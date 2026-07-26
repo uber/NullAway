@@ -38,7 +38,7 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
 
               static Optional<Double> sumDoublesMissingfilter(@Nullable Double... doubles) {
                 return Arrays.stream(doubles)
-                    // BUG: Diagnostic contains: incompatible types
+                    // BUG: Diagnostic contains: parameter a of referenced method is @NonNull
                     .reduce(Double::sum);
               }
 

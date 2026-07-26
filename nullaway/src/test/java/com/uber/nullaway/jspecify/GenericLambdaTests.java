@@ -9,6 +9,28 @@ import org.junit.Test;
 public class GenericLambdaTests extends NullAwayTestsBase {
 
   @Test
+  public void lambdaAssignedToLocalRespectsExtendsWildcardBoundNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void test() {
+                Supplier<? extends @Nullable Object> supplier = () -> null;
+                // BUG: Diagnostic contains: returning @Nullable
+                Supplier<? extends Object> nonNullSupplier = () -> null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaArgumentUsesAnnotatedTypeVar() {
     makeHelper()
         .addSourceLines(

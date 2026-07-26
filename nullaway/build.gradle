@@ -117,10 +117,6 @@ repositories {
     }
 }
 
-javadoc {
-    failOnError = false
-}
-
 apply plugin: 'com.vanniktech.maven.publish'
 
 // These --add-exports arguments are required when targeting JDK 11+ since Error Prone and NullAway access a bunch of
@@ -250,6 +246,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
         option("NullAway:CheckContracts")
         option("NullAway:JSpecifyMode")
         option("NullAway:HandleWildcardGenerics")
+        option("NullAway:JSpecifyJDKModels")
     }
     // Make sure the jar has already been built
     dependsOn 'jar'

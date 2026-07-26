@@ -28,6 +28,9 @@ jar{
 
 shadowJar {
     mergeServiceFiles()
+    filesMatching("META-INF/services/**") {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
     configurations = [
         project.configurations.runtimeClasspath
     ]

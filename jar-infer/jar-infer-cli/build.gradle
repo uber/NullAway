@@ -37,6 +37,9 @@ jar {
 
 shadowJar {
     mergeServiceFiles()
+    filesMatching("META-INF/services/**") {
+        duplicatesStrategy = DuplicatesStrategy.INCLUDE
+    }
     configurations = [
         project.configurations.runtimeClasspath
     ]
@@ -68,7 +71,7 @@ tasks.withType(PublishToMavenLocal) {
 publishing {
     publications {
         shadow(MavenPublication) { publication ->
-            project.shadow.component(publication)
+            from components.shadow
             // Since we are skipping the default maven publication, we append the `:sources` and
             // `:javadoc` artifacts here. They are also required for Maven Central validation.
             afterEvaluate {

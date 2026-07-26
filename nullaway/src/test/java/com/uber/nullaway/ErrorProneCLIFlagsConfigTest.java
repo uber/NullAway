@@ -5,7 +5,9 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.ErrorProneFlags;
 import java.util.List;
+import java.util.Map;
 import org.junit.Assume;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -71,5 +73,30 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
     assertTrue(
         e.getMessage().contains("Running NullAway in JSpecify mode requires either JDK 22+"));
+  }
+
+  @Test
+  public void jspecifyJDKOutsideJSpecifyMode() {
+    CompilationTestHelper compilationTestHelper =
+        makeTestHelperWithArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked", "-XepOpt:NullAway:JSpecifyJDKModels=true"))
+            .addSourceLines("Stub.java", "package com.uber; class Stub {}");
+    AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
+    assertTrue(e.getMessage().contains("should only be set in JSpecify mode"));
+  }
+
+  @Test
+  public void jspecifyExperimentalEnablesExperimentalFeatures() {
+    ErrorProneCLIFlagsConfig config =
+        new ErrorProneCLIFlagsConfig(
+            ErrorProneFlags.fromMap(
+                Map.of(
+                    "NullAway:AnnotatedPackages", "foo",
+                    "NullAway:JSpecifyMode", "true",
+                    "NullAway:JSpecifyExperimental", "true")));
+
+    assertTrue(config.isJSpecifyJDKModels());
+    assertTrue(config.handleWildcardGenerics());
   }
 }
