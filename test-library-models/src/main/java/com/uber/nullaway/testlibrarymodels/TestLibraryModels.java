@@ -17,9 +17,9 @@ package com.uber.nullaway.testlibrarymodels;
 
 import static com.uber.nullaway.LibraryModels.FieldRef.fieldRef;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
-import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
-import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
-import static com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND;
+import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
+import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
+import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND;
 
 import com.google.auto.service.AutoService;
 import com.google.common.collect.ImmutableList;
@@ -29,9 +29,9 @@ import com.google.common.collect.ImmutableSetMultimap;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.handlers.stream.StreamModelBuilder;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo.Annotation;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry;
 
 @AutoService(LibraryModels.class)
 public class TestLibraryModels implements LibraryModels {

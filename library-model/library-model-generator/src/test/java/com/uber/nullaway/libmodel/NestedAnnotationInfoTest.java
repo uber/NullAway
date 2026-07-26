@@ -1,12 +1,12 @@
-package com.uber.nullaway.librarymodel;
+package com.uber.nullaway.libmodel;
 
 import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 import com.google.common.collect.ImmutableList;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo.Annotation;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo.TypePathEntry.Kind;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo.Annotation;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind;
 import org.junit.Test;
 
 public class NestedAnnotationInfoTest {
