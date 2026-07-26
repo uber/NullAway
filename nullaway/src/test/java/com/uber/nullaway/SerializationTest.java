@@ -2626,7 +2626,8 @@ public class SerializationTest extends NullAwayTestsBase {
     // Regression test: origin tracing must use a path appropriate to each visited expression, not
     // the fixed diagnostic path.  Here the traced local's initializer is a call to a generic method
     // (type-variable return), which in JSpecify mode routes through mayBeNullMethodCall ->
-    // TreePath.getPath(diagnosticPath, invocation).  Since the invocation is not a descendant of the
+    // TreePath.getPath(diagnosticPath, invocation).  Since the invocation is not a descendant of
+    // the
     // dereference site, that lookup used to return null and trip a Verify.verify crash.
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(

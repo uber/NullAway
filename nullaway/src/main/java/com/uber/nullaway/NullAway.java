@@ -96,9 +96,6 @@ import com.sun.tools.javac.tree.JCTree;
 import com.uber.nullaway.ErrorMessage.MessageTypes;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
-import com.uber.nullaway.fixserialization.Serializer;
-import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
-import com.uber.nullaway.fixserialization.out.NullableExpressionInfo;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.handlers.Handler;
@@ -110,7 +107,6 @@ import java.util.ArrayList;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
@@ -294,12 +290,6 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Adapter for the fix serialization format version in use, controlling how errors and their
-   * metadata are written out for the Annotator.
-   */
-  private final SerializationAdapter adapter;
-
-  /**
    * Error Prone requires us to have an empty constructor for each Plugin, in addition to the
    * constructor taking an ErrorProneFlags object. This constructor should not be used anywhere
    * else. Checker objects constructed with this constructor will fail with IllegalStateException if
@@ -308,8 +298,7 @@ public class NullAway extends BugChecker
   public NullAway() {
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
-    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), handler);
-    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
+    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), handler, this::mayBeNullExpr);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
   }
@@ -325,8 +314,9 @@ public class NullAway extends BugChecker
                 .addAll(allNames())
                 .addAll(config.getSuppressionNameAliases())
                 .build();
-    errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames, handler);
-    this.adapter = SerializationAdapter.getAdapterForVersion(SerializationAdapter.LATEST_VERSION);
+    errorBuilder =
+        new ErrorBuilder(
+            config, canonicalName(), allSuppressionNames, handler, this::mayBeNullExpr);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
   }
@@ -545,12 +535,7 @@ public class NullAway extends BugChecker
           ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
           return errorBuilder.createErrorDescription(
-              errorMessage,
-              buildDescription(tree),
-              state,
-              this::mayBeNullExpr,
-              arraySymbol,
-              expression);
+              errorMessage, buildDescription(tree), state, arraySymbol, expression);
         }
       }
     }
@@ -573,7 +558,6 @@ public class NullAway extends BugChecker
           expression,
           buildDescription(tree),
           state,
-          this::mayBeNullExpr,
           ASTHelpers.getSymbol(tree.getVariable()),
           expression);
     }
@@ -760,7 +744,6 @@ public class NullAway extends BugChecker
           switchSelectorExpression,
           buildDescription(switchSelectorExpression),
           state,
-          this::mayBeNullExpr,
           null,
           switchSelectorExpression);
     }
@@ -1187,7 +1170,6 @@ public class NullAway extends BugChecker
           retExpr,
           buildDescription(errorTree),
           state,
-          this::mayBeNullExpr,
           methodSymbol,
           retExpr);
     }
@@ -1735,13 +1717,7 @@ public class NullAway extends BugChecker
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field");
           return errorBuilder.createErrorDescriptionForNullAssignment(
-              errorMessage,
-              initializer,
-              buildDescription(tree),
-              state,
-              this::mayBeNullExpr,
-              symbol,
-              initializer);
+              errorMessage, initializer, buildDescription(tree), state, symbol, initializer);
         }
       }
     }
@@ -2005,19 +1981,11 @@ public class NullAway extends BugChecker
     }
     ExpressionTree expr = tree.getExpression();
     if (mayBeNullExpr(state, expr)) {
-      Symbol derefedSymbol = ASTHelpers.getSymbol(expr);
-      NullableExpressionInfo exprInfo = buildNullableExpressionInfo(expr, derefedSymbol, state);
       String message =
           "enhanced-for expression '" + state.getSourceForNode(expr) + "' is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
-      return errorBuilder.createErrorDescriptionWithInfo(
-          errorMessage,
-          buildDescription(expr),
-          state,
-          this::mayBeNullExpr,
-          null,
-          expr,
-          exprInfo);
+      return errorBuilder.createErrorDescription(
+          errorMessage, buildDescription(expr), state, null, expr);
     }
     // auto-unboxing check in JSpecify mode
     if (!config.isJSpecifyMode()) {
@@ -2065,7 +2033,7 @@ public class NullAway extends BugChecker
                   + state.getSourceForNode(lockExpr)
                   + "' is @Nullable");
       return errorBuilder.createErrorDescription(
-          errorMessage, buildDescription(lockExpr), state, this::mayBeNullExpr, null, lockExpr);
+          errorMessage, buildDescription(lockExpr), state, null, lockExpr);
     }
     return Description.NO_MATCH;
   }
@@ -2092,13 +2060,7 @@ public class NullAway extends BugChecker
                   "unboxing of a @Nullable expression '" + state.getSourceForNode(tree) + "'");
           state.reportMatch(
               errorBuilder.createErrorDescription(
-                  errorMessage,
-                  tree,
-                  buildDescription(tree),
-                  state,
-                  this::mayBeNullExpr,
-                  null,
-                  tree));
+                  errorMessage, tree, buildDescription(tree), state, null, tree));
         }
       }
     }
@@ -2217,7 +2179,6 @@ public class NullAway extends BugChecker
                     actual,
                     buildDescription(actual),
                     state,
-                    this::mayBeNullExpr,
                     formalParams.get(argPos),
                     actual));
           }
@@ -2276,7 +2237,6 @@ public class NullAway extends BugChecker
             actual,
             buildDescription(tree),
             state,
-            this::mayBeNullExpr,
             null,
             actual);
       }
@@ -2968,35 +2928,6 @@ public class NullAway extends BugChecker
     return AccessPathNullnessAnalysis.instance(state, this);
   }
 
-  /**
-   * Builds {@link NullableExpressionInfo} metadata for a {@code @Nullable} expression, consumed by
-   * the Annotator during fix serialization.
-   *
-   * @param sourceExpr expression whose source text and position are recorded.
-   * @param symbol symbol of the nullable expression, or {@code null} if unavailable.
-   * @param state the visitor state.
-   * @return the metadata, or {@code null} if serialization is disabled, {@code symbol} is {@code
-   *     null}, or {@code sourceExpr} has no source text. We skip building it when serialization is
-   *     off to avoid doing this work as part of the main analysis.
-   */
-  private @Nullable NullableExpressionInfo buildNullableExpressionInfo(
-      ExpressionTree sourceExpr, @Nullable Symbol symbol, VisitorState state) {
-    if (!config.serializationIsActive() || symbol == null) {
-      return null;
-    }
-    String expressionSource = state.getSourceForNode(sourceExpr);
-    if (expressionSource == null) {
-      return null;
-    }
-    return new NullableExpressionInfo(
-        expressionSource,
-        symbol.getKind().toString().toLowerCase(Locale.ROOT),
-        Serializer.serializeSymbol(symbol.enclClass(), adapter),
-        !codeAnnotationInfo.isSymbolUnannotated(symbol, config, handler),
-        Serializer.serializeSymbol(symbol, adapter),
-        ((JCTree) sourceExpr).pos().getStartPosition());
-  }
-
   private Description matchDereference(
       ExpressionTree baseExpression, ExpressionTree derefExpression, VisitorState state) {
     Symbol baseExpressionSymbol = ASTHelpers.getSymbol(baseExpression);
@@ -3013,22 +2944,16 @@ public class NullAway extends BugChecker
       }
     }
     if (mayBeNullExpr(state, baseExpression)) {
-      ExpressionTree stripped = NullabilityUtil.stripParensAndCasts(baseExpression);
-      Symbol derefedSymbol = ASTHelpers.getSymbol(stripped);
-      NullableExpressionInfo exprInfo =
-          buildNullableExpressionInfo(baseExpression, derefedSymbol, state);
       String message =
           "dereferenced expression '" + state.getSourceForNode(baseExpression) + "' is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
-      return errorBuilder.createErrorDescriptionForNullAssignmentWithInfo(
+      return errorBuilder.createErrorDescriptionForNullAssignment(
           errorMessage,
           baseExpression,
           buildDescription(derefExpression),
           state,
-          this::mayBeNullExpr,
           null,
-          baseExpression,
-          exprInfo);
+          baseExpression);
     }
 
     Optional<ErrorMessage> handlerErrorMessage =
@@ -3039,7 +2964,6 @@ public class NullAway extends BugChecker
           derefExpression,
           buildDescription(derefExpression),
           state,
-          this::mayBeNullExpr,
           null,
           baseExpression);
     }

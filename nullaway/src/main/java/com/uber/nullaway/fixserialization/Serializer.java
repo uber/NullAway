@@ -238,6 +238,16 @@ public class Serializer {
     };
   }
 
+  /**
+   * Serializes the given {@link Symbol} using this serializer's configured format version.
+   *
+   * @param symbol the symbol to serialize.
+   * @return the serialized symbol.
+   */
+  public String serializeSymbol(@Nullable Symbol symbol) {
+    return serializeSymbol(symbol, serializationAdapter);
+  }
+
   /** Writes a leaf element {@code <name>value</name>} to {@code writer}. */
   public static void writeTextElement(XMLStreamWriter writer, String name, String value)
       throws XMLStreamException {
