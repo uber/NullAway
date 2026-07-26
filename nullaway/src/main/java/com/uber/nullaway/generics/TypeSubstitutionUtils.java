@@ -340,6 +340,11 @@ public class TypeSubstitutionUtils {
     }
 
     @Override
+    public Type visitCapturedType(Type.CapturedType t, Type other) {
+      return updateDirectNullabilityAnnotationsForType(t, other);
+    }
+
+    @Override
     public Type visitForAll(Type.ForAll t, Type other) {
       Type methodType = t.qtype;
       Type otherMethodType = ((Type.ForAll) other).qtype;
