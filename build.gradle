@@ -124,6 +124,10 @@ subprojects { project ->
     // Javadoc runs in a separate process, so it does not inherit --add-exports options from JavaCompile.
     // These exports are needed when documented APIs refer to javac internals.
     tasks.withType(Javadoc).configureEach {
+        // Many subprojects contain intentionally minimal test fixtures and samples. Keep doclint
+        // enabled for malformed documentation, but do not require API documentation for every
+        // public fixture member.
+        options.addBooleanOption("Xdoclint:all,-missing", true)
         options.addMultilineStringsOption("-add-exports").setValue([
             "jdk.compiler/com.sun.tools.javac.code=ALL-UNNAMED",
             "jdk.compiler/com.sun.tools.javac.processing=ALL-UNNAMED",

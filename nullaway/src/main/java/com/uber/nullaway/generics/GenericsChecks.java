@@ -1558,11 +1558,11 @@ public final class GenericsChecks {
    *
    * <p>Usage:
    *
-   * <pre>
+   * <pre>{@code
    * Tree lambdaBody = myLambda.getBody();
    * TreePath lambdaBodyPath = new TreePath(lambdaPath, lambdaBody);
    * List<TreePath> returns = ReturnFinder.findReturnPaths(lambdaBodyPath);
-   * </pre>
+   * }</pre>
    */
   static class ReturnFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
 
@@ -2354,16 +2354,16 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<String, @Nullable String> {
+   *     public @Nullable String apply(String p) {
+   *         return null;
    *     }
-   *     class C implements Fn<String, @Nullable String> {
-   *         public @Nullable String apply(String p) {
-   *             return null;
-   *         }
-   *     }
-   * </pre>
+   * }
+   * }</pre>
    *
    * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
@@ -2448,20 +2448,20 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<String, @Nullable String> {
+   *     public @Nullable String apply(String p) {
+   *         return null;
    *     }
-   *     class C implements Fn<String, @Nullable String> {
-   *         public @Nullable String apply(String p) {
-   *             return null;
-   *         }
-   *     }
-   *     static void m() {
-   *         Fn<String, @Nullable String> f = new C();
-   *         f.apply("hello").hashCode(); // NPE
-   *     }
-   * </pre>
+   * }
+   * static void m() {
+   *     Fn<String, @Nullable String> f = new C();
+   *     f.apply("hello").hashCode(); // NPE
+   * }
+   * }</pre>
    *
    * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code R}. So, the call {@code f.apply("hello")} returns {@code @Nullable} and an
@@ -2742,20 +2742,20 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<@Nullable String, String> {
+   *     public String apply(@Nullable String p) {
+   *         return "";
    *     }
-   *     class C implements Fn<@Nullable String, String> {
-   *         public String apply(@Nullable String p) {
-   *             return "";
-   *         }
-   *     }
-   *     static void m() {
-   *         Fn<@Nullable String, String> f = new C();
-   *         f.apply(null);
-   *     }
-   * </pre>
+   * }
+   * static void m() {
+   *     Fn<@Nullable String, String> f = new C();
+   *     f.apply(null);
+   * }
+   * }</pre>
    *
    * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code P}. So, it is legal to pass {@code null} as a parameter to {@code f.apply}.
@@ -2864,16 +2864,16 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<@Nullable String, String> {
+   *     public String apply(@Nullable String p) {
+   *         return "";
    *     }
-   *     class C implements Fn<@Nullable String, String> {
-   *         public String apply(@Nullable String p) {
-   *             return "";
-   *         }
-   *     }
-   * </pre>
+   * }
+   * }</pre>
    *
    * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
