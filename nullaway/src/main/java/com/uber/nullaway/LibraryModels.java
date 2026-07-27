@@ -30,7 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
-import com.uber.nullaway.librarymodel.NestedAnnotationInfo;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import java.util.Objects;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -192,8 +192,8 @@ public interface LibraryModels {
    * 8 streams or ReactiveX streams, so that NullAway is able to understand nullability invariants
    * across stream API calls. See {@link com.uber.nullaway.handlers.stream.StreamModelBuilder} for
    * details on how to construct these {@link com.uber.nullaway.handlers.stream.StreamTypeRecord}
-   * specs. A full example is available at {@link
-   * com.uber.nullaway.testlibrarymodels.TestLibraryModels}.
+   * specs. A full example is available in {@code TestLibraryModels} in the {@code
+   * test-library-models} subproject.
    *
    * @return A list of StreamTypeRecord specs (usually generated using StreamModelBuilder).
    */

@@ -20,6 +20,22 @@ plugins {
     id 'nullaway.java-test-conventions'
 }
 
+def libraryModelGeneratorSources =
+        project(":library-model:library-model-generator").file("src/shared/java")
+
+sourceSets {
+    main {
+        java.srcDir libraryModelGeneratorSources
+    }
+}
+
+spotless {
+    java {
+        // These files are formatted by the library-model-generator project's Spotless tasks.
+        targetExclude fileTree(libraryModelGeneratorSources)
+    }
+}
+
 configurations {
     // A configuration holding the jars for the oldest supported version of Error Prone, to use with tests
     errorProneOldest
@@ -245,8 +261,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
         option("NullAway:CheckOptionalEmptiness")
         option("NullAway:CheckContracts")
         option("NullAway:JSpecifyMode")
-        option("NullAway:HandleWildcardGenerics")
-        option("NullAway:JSpecifyJDKModels")
+        option("NullAway:JSpecifyExperimental")
     }
     // Make sure the jar has already been built
     dependsOn 'jar'

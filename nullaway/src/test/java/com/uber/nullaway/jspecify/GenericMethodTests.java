@@ -114,6 +114,36 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferredGenericInstanceMethodReturnTypeUsesReceiverType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              record Holder<T extends @Nullable Object>(T value) {}
+              record Box<V extends @Nullable Object>(V value) {
+                <E extends Exception> Holder<V> getOrThrow(
+                    Function<? super Exception, E> exceptionTransformer) throws E {
+                  return new Holder<>(value);
+                }
+              }
+              static <T extends @Nullable Object> Box<T> box(T value) {
+                return new Box<>(value);
+              }
+              static void test() {
+                var holder = box(null).getOrThrow(RuntimeException::new);
+                // BUG: Diagnostic contains: dereferenced expression 'holder.value()' is @Nullable
+                holder.value().hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericMethodAndVoidType() {
     makeHelper()
         .addSourceLines(
@@ -791,7 +821,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void firstOrDefaultSelfContained() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -857,7 +887,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void localsWithTypesFromDataflow() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -902,7 +932,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void nullableTypeVarToNonNullField() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -925,7 +955,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void dataflowAndLoops() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -974,7 +1004,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void otherExprsWithTypesFromDataflow() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1173,7 +1203,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
    */
   @Test
   public void rowMapperTest() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "TestRowMapper.java",
             """
@@ -1206,7 +1236,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void selfContainedOptional() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1248,7 +1278,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
    */
   @Test
   public void reassignLocal() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1365,7 +1395,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   /** Self-contained test for https://github.com/uber/NullAway/issues/1157. */
   @Test
   public void atomicReferenceFieldUpdaterSelfContained() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1385,7 +1415,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void atomicReferenceFieldUpdaterFromJDK() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1402,7 +1432,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void inferenceFromReceiverPassing() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1432,7 +1462,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void typeOfParameterWithInferredLambda() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1553,7 +1583,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void issue1455() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Foo.java",
             """
@@ -1635,7 +1665,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   @Ignore("https://github.com/uber/NullAway/issues/1493")
   @Test
   public void issue1493() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1654,7 +1684,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void nestedReceivers() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1691,7 +1721,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void caffeineNestedArgToGenericMethod() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1724,7 +1754,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void nestedGenericMethodRepairPreservesTopLevelNullability() {
-    makeHelperWithInferenceFailureWarning()
+    makeHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -1747,13 +1777,5 @@ public class GenericMethodTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
-  }
-
-  private CompilationTestHelper makeHelperWithInferenceFailureWarning() {
-    return makeTestHelperWithArgs(
-        JSpecifyJavacConfig.withJSpecifyModeArgs(
-            Arrays.asList(
-                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true")));
   }
 }

@@ -772,17 +772,9 @@ public final class GenericsChecks {
             // inference if needed, and then recompute the type as a member of the returned
             // enclosing type
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
-            Type invokedMethodType = symbol.type;
-            Type enclosingType =
-                getEnclosingTypeForCallExpression(
-                    symbol, invocationTree, state.getPath(), state, calledFromDataflow);
-            if (enclosingType != null) {
-              invokedMethodType =
-                  TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, symbol, config);
-            }
             Type.MethodType methodType =
-                handler.onOverrideMethodType(
-                    symbol, invokedMethodType.asMethodType(), state, invocationTree);
+                getMethodTypeForInvocation(
+                    symbol, invocationTree, state.getPath(), state, calledFromDataflow);
             // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
             result =
@@ -1119,7 +1111,6 @@ public final class GenericsChecks {
       boolean calledFromDataflow) {
     Verify.verify(isGenericCallNeedingInference(invocationTree));
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    Type type = methodSymbol.type;
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
     MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
     if (result == null) { // have not yet attempted inference for this call
@@ -1135,7 +1126,9 @@ public final class GenericsChecks {
     if (result instanceof InferenceSuccess) {
       typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
     }
-    Type methodReturnType = ((Type.ForAll) type).qtype.getReturnType();
+    Type methodReturnType =
+        getMethodTypeForInvocation(methodSymbol, invocationTree, path, state, calledFromDataflow)
+            .getReturnType();
     Type returnTypeAtCallSite = castToNonNull(ASTHelpers.getType(invocationTree));
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
         returnTypeAtCallSite, methodReturnType, typeVarNullability, state, config);
@@ -1199,7 +1192,10 @@ public final class GenericsChecks {
           inferredTypeVarNullabilityForGenericCalls.put(invTree, successResult);
         }
         // Store inferred types for lambda or method reference arguments
-        new InvocationArguments(invocationTree, methodSymbol.type.asMethodType())
+        Type.MethodType methodType =
+            getMethodTypeForInvocation(
+                methodSymbol, invocationTree, path, state, calledFromDataflow);
+        new InvocationArguments(invocationTree, methodType)
             .forEach(
                 (argument, argPos, formalParamType, unused) -> {
                   if (argument instanceof LambdaExpressionTree
@@ -1251,6 +1247,33 @@ public final class GenericsChecks {
   }
 
   /**
+   * Gets the type of a method at an invocation, substituting type arguments from the receiver and
+   * applying any handler-provided models.
+   *
+   * <p>Receiver substitution is necessary when an enclosing class type variable appears in the
+   * method signature. For example, for a method returning {@code T} on a receiver {@code
+   * Foo<@Nullable Object>}, the invocation return type is {@code @Nullable Object}, not the
+   * declaration-site type variable {@code T}.
+   */
+  private Type.MethodType getMethodTypeForInvocation(
+      Symbol.MethodSymbol methodSymbol,
+      MethodInvocationTree methodInvocationTree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    Type invokedMethodType = methodSymbol.type;
+    Type enclosingType =
+        getEnclosingTypeForCallExpression(
+            methodSymbol, methodInvocationTree, path, state, calledFromDataflow);
+    if (enclosingType != null) {
+      invokedMethodType =
+          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+    }
+    return handler.onOverrideMethodType(
+        methodSymbol, invokedMethodType.asMethodType(), state, methodInvocationTree);
+  }
+
+  /**
    * Generates inference constraints for a generic method call, including nested calls.
    *
    * @param state the visitor state
@@ -1281,8 +1304,8 @@ public final class GenericsChecks {
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
     Type.MethodType methodType =
-        handler.onOverrideMethodType(
-            methodSymbol, methodSymbol.type.asMethodType(), state, methodInvocationTree);
+        getMethodTypeForInvocation(
+            methodSymbol, methodInvocationTree, path, state, calledFromDataflow);
     // first, handle the return type flow
     if (typeFromAssignmentContext != null) {
       solver.addSubtypeConstraint(
@@ -1535,11 +1558,11 @@ public final class GenericsChecks {
    *
    * <p>Usage:
    *
-   * <pre>
+   * <pre>{@code
    * Tree lambdaBody = myLambda.getBody();
    * TreePath lambdaBodyPath = new TreePath(lambdaPath, lambdaBody);
    * List<TreePath> returns = ReturnFinder.findReturnPaths(lambdaBodyPath);
-   * </pre>
+   * }</pre>
    */
   static class ReturnFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
 
@@ -2331,16 +2354,16 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<String, @Nullable String> {
+   *     public @Nullable String apply(String p) {
+   *         return null;
    *     }
-   *     class C implements Fn<String, @Nullable String> {
-   *         public @Nullable String apply(String p) {
-   *             return null;
-   *         }
-   *     }
-   * </pre>
+   * }
+   * }</pre>
    *
    * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a return type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for
@@ -2425,20 +2448,20 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<String, @Nullable String> {
+   *     public @Nullable String apply(String p) {
+   *         return null;
    *     }
-   *     class C implements Fn<String, @Nullable String> {
-   *         public @Nullable String apply(String p) {
-   *             return null;
-   *         }
-   *     }
-   *     static void m() {
-   *         Fn<String, @Nullable String> f = new C();
-   *         f.apply("hello").hashCode(); // NPE
-   *     }
-   * </pre>
+   * }
+   * static void m() {
+   *     Fn<String, @Nullable String> f = new C();
+   *     f.apply("hello").hashCode(); // NPE
+   * }
+   * }</pre>
    *
    * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code R}. So, the call {@code f.apply("hello")} returns {@code @Nullable} and an
@@ -2719,20 +2742,20 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<@Nullable String, String> {
+   *     public String apply(@Nullable String p) {
+   *         return "";
    *     }
-   *     class C implements Fn<@Nullable String, String> {
-   *         public String apply(@Nullable String p) {
-   *             return "";
-   *         }
-   *     }
-   *     static void m() {
-   *         Fn<@Nullable String, String> f = new C();
-   *         f.apply(null);
-   *     }
-   * </pre>
+   * }
+   * static void m() {
+   *     Fn<@Nullable String, String> f = new C();
+   *     f.apply(null);
+   * }
+   * }</pre>
    *
    * <p>The declared type of {@code f} passes {@code Nullable String} as the type parameter for type
    * variable {@code P}. So, it is legal to pass {@code null} as a parameter to {@code f.apply}.
@@ -2841,16 +2864,16 @@ public final class GenericsChecks {
    *
    * <p>Consider the following example:
    *
-   * <pre>
-   *     interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
-   *         R apply(P p);
+   * <pre>{@code
+   * interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+   *     R apply(P p);
+   * }
+   * class C implements Fn<@Nullable String, String> {
+   *     public String apply(@Nullable String p) {
+   *         return "";
    *     }
-   *     class C implements Fn<@Nullable String, String> {
-   *         public String apply(@Nullable String p) {
-   *             return "";
-   *         }
-   *     }
-   * </pre>
+   * }
+   * }</pre>
    *
    * <p>Within the context of class {@code C}, the method {@code Fn.apply} has a parameter type of
    * {@code @Nullable String}, since {@code @Nullable String} is passed as the type parameter for

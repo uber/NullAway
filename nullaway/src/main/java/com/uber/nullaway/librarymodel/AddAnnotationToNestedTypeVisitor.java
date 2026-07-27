@@ -8,6 +8,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 
 /**
  * A visitor to add an annotation to a type at a specified type path. The desired annotation and
