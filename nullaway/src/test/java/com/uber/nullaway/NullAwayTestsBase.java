@@ -1,6 +1,7 @@
 package com.uber.nullaway;
 
 import com.google.errorprone.CompilationTestHelper;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
@@ -46,6 +47,12 @@ public abstract class NullAwayTestsBase {
    * @return the test helper
    */
   protected CompilationTestHelper makeTestHelperWithArgs(List<String> args) {
-    return CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
+    List<String> javacArgs = new ArrayList<>(args);
+    // Error Prone 2.46.0 and newer adds this option automatically. Add it explicitly so tests
+    // exercise the same standard annotation-mirror APIs with the oldest supported Error Prone.
+    if (!javacArgs.contains("-XDaddTypeAnnotationsToSymbol=true")) {
+      javacArgs.add("-XDaddTypeAnnotationsToSymbol=true");
+    }
+    return CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(javacArgs);
   }
 }
