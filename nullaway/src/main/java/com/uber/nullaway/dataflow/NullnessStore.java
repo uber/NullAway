@@ -39,7 +39,7 @@ import org.checkerframework.nullaway.dataflow.expression.JavaExpression;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Highly based on {@link com.google.errorprone.dataflow.LocalStore}, but for {@link AccessPath}s.
+ * Highly based on {@code com.google.errorprone.dataflow.LocalStore}, but for {@link AccessPath}s.
  */
 public class NullnessStore implements Store<NullnessStore> {
 

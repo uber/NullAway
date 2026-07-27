@@ -273,7 +273,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
   }
 
   /**
-   * On every method annotated with {@link EnsuresNonNullIf}, this method injects the {@code
+   * On every method annotated with {@code @EnsuresNonNullIf}, this method injects the {@code
    * Nonnull} value for the class fields given in the {@code @EnsuresNonNullIf} parameter to the
    * dataflow analysis.
    */

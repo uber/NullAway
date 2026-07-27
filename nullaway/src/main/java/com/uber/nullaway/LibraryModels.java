@@ -192,8 +192,8 @@ public interface LibraryModels {
    * 8 streams or ReactiveX streams, so that NullAway is able to understand nullability invariants
    * across stream API calls. See {@link com.uber.nullaway.handlers.stream.StreamModelBuilder} for
    * details on how to construct these {@link com.uber.nullaway.handlers.stream.StreamTypeRecord}
-   * specs. A full example is available at {@link
-   * com.uber.nullaway.testlibrarymodels.TestLibraryModels}.
+   * specs. A full example is available in {@code TestLibraryModels} in the {@code
+   * test-library-models} subproject.
    *
    * @return A list of StreamTypeRecord specs (usually generated using StreamModelBuilder).
    */
