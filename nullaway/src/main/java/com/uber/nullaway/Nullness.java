@@ -70,7 +70,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * {@code symbol}. Used to reason whether a field may be null.
    */
   public static boolean hasNullableOrMonotonicNonNullAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
+    return NullabilityUtil.hasAnyAnnotationMatching(
         symbol,
         annot -> isNullableAnnotation(annot, config) || isMonotonicNonNullAnnotation(annot));
   }
@@ -208,7 +208,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNonNullAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
+    return NullabilityUtil.hasAnyAnnotationMatching(
         symbol, annot -> isNonNullAnnotation(annot, config));
   }
 
@@ -220,7 +220,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    * Config)}
    */
   public static boolean hasNullableAnnotation(Symbol symbol, Config config) {
-    return NullabilityUtil.hasAnyAnnotationMatchingBackCompat(
+    return NullabilityUtil.hasAnyAnnotationMatching(
         symbol, annot -> isNullableAnnotation(annot, config));
   }
 
@@ -319,7 +319,7 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   /** Checks if the symbol has a {@code @Nullable} declaration annotation */
   public static boolean hasNullableDeclarationAnnotation(Symbol symbol, Config config) {
-    for (AnnotationMirror annotationMirror : symbol.getRawAttributes()) {
+    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
       if (isNullableAnnotation(annotationMirror.getAnnotationType().toString(), config)) {
         return true;
       }
@@ -329,7 +329,7 @@ public enum Nullness implements AbstractValue<Nullness> {
 
   /** Checks if the symbol has a {@code @NonNull} declaration annotation */
   public static boolean hasNonNullDeclarationAnnotation(Symbol symbol, Config config) {
-    for (AnnotationMirror annotationMirror : symbol.getRawAttributes()) {
+    for (AnnotationMirror annotationMirror : symbol.getAnnotationMirrors()) {
       if (isNonNullAnnotation(annotationMirror.getAnnotationType().toString(), config)) {
         return true;
       }

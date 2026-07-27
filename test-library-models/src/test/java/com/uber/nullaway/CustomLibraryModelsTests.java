@@ -211,6 +211,7 @@ public class CustomLibraryModelsTests {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
                 "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+                "-XDaddTypeAnnotationsToSymbol=true",
                 "-XepOpt:NullAway:IgnoreLibraryModelsFor=com.uber.lib.unannotated.RestrictivelyAnnotatedFIWithModelOverride.apply"))
         .addSourceLines(
             "Test.java",
