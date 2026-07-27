@@ -28,10 +28,21 @@ import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.JCDiagnostic;
+import com.uber.nullaway.CodeAnnotationInfo;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
+import com.uber.nullaway.fixserialization.location.SymbolLocation;
+import com.uber.nullaway.fixserialization.scanners.OriginLocation;
+import com.uber.nullaway.handlers.Handler;
 import java.nio.file.Path;
+import java.util.Locale;
+import java.util.Set;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 import org.jspecify.annotations.Nullable;
 
 /** Stores information regarding an error which will be reported by NullAway. */
@@ -59,8 +70,28 @@ public class ErrorInfo {
   /** Path to the containing source file where this error is reported. */
   private final @Nullable Path path;
 
+  /** Structured metadata about the nullable expression, if available. */
+  private final @Nullable NullableExpressionInfo nullableExpressionInfo;
+
+  private final Set<OriginLocation> origins;
+
+  /** Used together with {@link #config} and {@link #handler} to query symbol annotatedness. */
+  private final CodeAnnotationInfo codeAnnotationInfo;
+
+  private final Config config;
+
+  private final Handler handler;
+
   public ErrorInfo(
-      TreePath path, Tree errorTree, ErrorMessage errorMessage, @Nullable Symbol nonnullTarget) {
+      TreePath path,
+      Tree errorTree,
+      ErrorMessage errorMessage,
+      @Nullable Symbol nonnullTarget,
+      Set<OriginLocation> origins,
+      @Nullable NullableExpressionInfo nullableExpressionInfo,
+      Config config,
+      CodeAnnotationInfo codeAnnotationInfo,
+      Handler handler) {
     this.classAndMemberInfo =
         (errorMessage.getMessageType().equals(FIELD_NO_INIT)
                 || errorMessage.getMessageType().equals(METHOD_NO_INIT))
@@ -72,6 +103,11 @@ public class ErrorInfo {
     this.offset = treePosition.getStartPosition();
     this.path =
         Serializer.pathToSourceFileFromURI(path.getCompilationUnit().getSourceFile().toUri());
+    this.origins = origins;
+    this.nullableExpressionInfo = nullableExpressionInfo;
+    this.config = config;
+    this.codeAnnotationInfo = codeAnnotationInfo;
+    this.handler = handler;
   }
 
   /**
@@ -130,8 +166,71 @@ public class ErrorInfo {
     return path;
   }
 
+  /**
+   * Returns structured metadata about the nullable expression at the error site, if available.
+   *
+   * @return the nullable expression info, or {@code null} if not applicable.
+   */
+  public @Nullable NullableExpressionInfo getNullableExpressionInfo() {
+    return nullableExpressionInfo;
+  }
+
   /** Finds the class and member of program point where the error is reported. */
   public void initEnclosing() {
     classAndMemberInfo.findValues();
+  }
+
+  /**
+   * Writes an XML representation of the error information to {@code writer}.
+   *
+   * @param writer the writer to emit to.
+   * @param adapter adapter used to serialize symbols.
+   */
+  public void writeXml(XMLStreamWriter writer, SerializationAdapter adapter)
+      throws XMLStreamException {
+    writer.writeStartElement("error");
+    Serializer.writeTextElement(writer, "message_type", errorMessage.getMessageType().toString());
+    Serializer.writeTextElement(writer, "message", errorMessage.getMessage());
+    Serializer.writeTextElement(
+        writer, "enc_class", Serializer.serializeSymbol(getRegionClass(), adapter));
+    Serializer.writeTextElement(
+        writer, "enc_member", Serializer.serializeSymbol(getRegionMember(), adapter));
+    Serializer.writeTextElement(writer, "offset", Integer.toString(offset));
+    Serializer.writeTextElement(writer, "path", path != null ? path.toString() : "null");
+    if (nonnullTarget != null) {
+      writer.writeStartElement("nonnull_target");
+      SymbolLocation.createLocationFromSymbol(nonnullTarget).writeXmlFields(writer, adapter);
+      writer.writeEndElement();
+    }
+    if (!origins.isEmpty()) {
+      writer.writeStartElement("origins");
+      for (OriginLocation location : origins) {
+        Symbol sym = location.origin();
+        writer.writeStartElement("origin");
+        writer.writeStartElement("location");
+        SymbolLocation.createLocationFromSymbol(sym).writeXmlFields(writer, adapter);
+        writer.writeEndElement();
+        Serializer.writeTextElement(
+            writer, "kind", sym.getKind().toString().toLowerCase(Locale.ROOT));
+        Serializer.writeTextElement(
+            writer, "class", Serializer.serializeSymbol(sym.enclClass(), adapter));
+        Serializer.writeTextElement(
+            writer,
+            "isAnnotated",
+            Boolean.toString(!codeAnnotationInfo.isSymbolUnannotated(sym, config, handler)));
+        Serializer.writeTextElement(writer, "expression", location.tree().toString());
+        Serializer.writeTextElement(
+            writer,
+            "position",
+            Integer.toString(((JCTree) location.tree()).pos().getStartPosition()));
+        Serializer.writeTextElement(writer, "symbol", Serializer.serializeSymbol(sym, adapter));
+        writer.writeEndElement();
+      }
+      writer.writeEndElement();
+    }
+    if (nullableExpressionInfo != null) {
+      nullableExpressionInfo.writeXml(writer);
+    }
+    writer.writeEndElement();
   }
 }

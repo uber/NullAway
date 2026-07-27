@@ -28,9 +28,12 @@ import com.google.common.base.Preconditions;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.adapters.SerializationAdapter;
 import java.net.URI;
 import java.nio.file.Path;
 import javax.lang.model.element.ElementKind;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamWriter;
 import org.jspecify.annotations.Nullable;
 
 /** abstract base class for {@link SymbolLocation}. */
@@ -55,5 +58,17 @@ public abstract class AbstractSymbolLocation implements SymbolLocation {
     this.enclosingClass = castToNonNull(ASTHelpers.enclosingClass(target));
     URI pathInURI = enclosingClass.sourcefile != null ? enclosingClass.sourcefile.toUri() : null;
     this.path = Serializer.pathToSourceFileFromURI(pathInURI);
+  }
+
+  @Override
+  public void writeXmlFields(XMLStreamWriter writer, SerializationAdapter adapter)
+      throws XMLStreamException {
+    String[] infos = tabSeparatedToString(adapter).split("\t", -1);
+    Serializer.writeTextElement(writer, "target_kind", infos[0]);
+    Serializer.writeTextElement(writer, "target_class", infos[1]);
+    Serializer.writeTextElement(writer, "target_method", infos[2]);
+    Serializer.writeTextElement(writer, "target_param", infos[3]);
+    Serializer.writeTextElement(writer, "target_index", infos[4]);
+    Serializer.writeTextElement(writer, "target_path", infos[5]);
   }
 }

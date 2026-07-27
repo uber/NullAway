@@ -298,7 +298,7 @@ public class NullAway extends BugChecker
   public NullAway() {
     config = new DummyOptionsConfig();
     handler = Handlers.buildEmpty();
-    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of());
+    errorBuilder = new ErrorBuilder(config, "", ImmutableSet.of(), handler, this::mayBeNullExpr);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
   }
@@ -314,7 +314,9 @@ public class NullAway extends BugChecker
                 .addAll(allNames())
                 .addAll(config.getSuppressionNameAliases())
                 .build();
-    errorBuilder = new ErrorBuilder(config, canonicalName(), allSuppressionNames);
+    errorBuilder =
+        new ErrorBuilder(
+            config, canonicalName(), allSuppressionNames, handler, this::mayBeNullExpr);
     // annoying to leak `this` here; we assign the field last to make it as safe as possible
     genericsChecks = new GenericsChecks(this, config, handler);
   }
@@ -533,7 +535,7 @@ public class NullAway extends BugChecker
           ErrorMessage errorMessage =
               new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
           return errorBuilder.createErrorDescription(
-              errorMessage, buildDescription(tree), state, arraySymbol);
+              errorMessage, buildDescription(tree), state, arraySymbol, expression);
         }
       }
     }
@@ -556,7 +558,8 @@ public class NullAway extends BugChecker
           expression,
           buildDescription(tree),
           state,
-          ASTHelpers.getSymbol(tree.getVariable()));
+          ASTHelpers.getSymbol(tree.getVariable()),
+          expression);
     }
     handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     return Description.NO_MATCH;
@@ -741,7 +744,8 @@ public class NullAway extends BugChecker
           switchSelectorExpression,
           buildDescription(switchSelectorExpression),
           state,
-          null);
+          null,
+          switchSelectorExpression);
     }
 
     return Description.NO_MATCH;
@@ -1166,7 +1170,8 @@ public class NullAway extends BugChecker
           retExpr,
           buildDescription(errorTree),
           state,
-          methodSymbol);
+          methodSymbol,
+          retExpr);
     }
     return Description.NO_MATCH;
   }
@@ -1712,7 +1717,7 @@ public class NullAway extends BugChecker
                   MessageTypes.ASSIGN_FIELD_NULLABLE,
                   "assigning @Nullable expression to @NonNull field");
           return errorBuilder.createErrorDescriptionForNullAssignment(
-              errorMessage, initializer, buildDescription(tree), state, symbol);
+              errorMessage, initializer, buildDescription(tree), state, symbol, initializer);
         }
       }
     }
@@ -1975,12 +1980,12 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     ExpressionTree expr = tree.getExpression();
-    ErrorMessage errorMessage =
-        new ErrorMessage(
-            MessageTypes.DEREFERENCE_NULLABLE,
-            "enhanced-for expression '" + state.getSourceForNode(expr) + "' is @Nullable");
     if (mayBeNullExpr(state, expr)) {
-      return errorBuilder.createErrorDescription(errorMessage, buildDescription(expr), state, null);
+      String message =
+          "enhanced-for expression '" + state.getSourceForNode(expr) + "' is @Nullable";
+      ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
+      return errorBuilder.createErrorDescription(
+          errorMessage, buildDescription(expr), state, null, expr);
     }
     // auto-unboxing check in JSpecify mode
     if (!config.isJSpecifyMode()) {
@@ -2028,7 +2033,7 @@ public class NullAway extends BugChecker
                   + state.getSourceForNode(lockExpr)
                   + "' is @Nullable");
       return errorBuilder.createErrorDescription(
-          errorMessage, buildDescription(lockExpr), state, null);
+          errorMessage, buildDescription(lockExpr), state, null, lockExpr);
     }
     return Description.NO_MATCH;
   }
@@ -2050,10 +2055,12 @@ public class NullAway extends BugChecker
       if (!type.isPrimitive()) {
         if (mayBeNullExpr(state, tree)) {
           ErrorMessage errorMessage =
-              new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
+              new ErrorMessage(
+                  MessageTypes.UNBOX_NULLABLE,
+                  "unboxing of a @Nullable expression '" + state.getSourceForNode(tree) + "'");
           state.reportMatch(
               errorBuilder.createErrorDescription(
-                  errorMessage, tree, buildDescription(tree), state, null));
+                  errorMessage, tree, buildDescription(tree), state, null, tree));
         }
       }
     }
@@ -2172,7 +2179,8 @@ public class NullAway extends BugChecker
                     actual,
                     buildDescription(actual),
                     state,
-                    formalParams.get(argPos)));
+                    formalParams.get(argPos),
+                    actual));
           }
         });
     // Check for @NonNull being passed to castToNonNull (if configured)
@@ -2229,7 +2237,8 @@ public class NullAway extends BugChecker
             actual,
             buildDescription(tree),
             state,
-            null);
+            null,
+            actual);
       }
     }
     return Description.NO_MATCH;
@@ -2938,9 +2947,13 @@ public class NullAway extends BugChecker
       String message =
           "dereferenced expression '" + state.getSourceForNode(baseExpression) + "' is @Nullable";
       ErrorMessage errorMessage = new ErrorMessage(MessageTypes.DEREFERENCE_NULLABLE, message);
-
       return errorBuilder.createErrorDescriptionForNullAssignment(
-          errorMessage, baseExpression, buildDescription(derefExpression), state, null);
+          errorMessage,
+          baseExpression,
+          buildDescription(derefExpression),
+          state,
+          null,
+          baseExpression);
     }
 
     Optional<ErrorMessage> handlerErrorMessage =
@@ -2951,7 +2964,8 @@ public class NullAway extends BugChecker
           derefExpression,
           buildDescription(derefExpression),
           state,
-          null);
+          null,
+          baseExpression);
     }
 
     return Description.NO_MATCH;

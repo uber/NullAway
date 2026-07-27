@@ -27,10 +27,15 @@ import com.google.common.collect.ImmutableMap;
 import com.google.errorprone.VisitorState;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
+import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.fixserialization.out.ErrorInfo;
+import com.uber.nullaway.fixserialization.out.NullableExpressionInfo;
+import com.uber.nullaway.fixserialization.scanners.OriginLocation;
+import com.uber.nullaway.handlers.Handler;
 import java.util.Map;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
@@ -78,16 +83,35 @@ public class SerializationService {
    * @param state Visitor state.
    * @param errorTree Tree of the element involved in the reporting error.
    * @param errorMessage Error caused by the target.
+   * @param origins Symbol of the elements contributing to the nullability of the expression.
+   * @param nullableExpressionInfo structured metadata about the nullable expression, or {@code
+   *     null} if not applicable.
+   * @param codeAnnotationInfo used to determine whether origin symbols come from annotated code.
+   * @param handler NullAway handler, required by {@code codeAnnotationInfo}.
    */
   public static void serializeReportingError(
       Config config,
       VisitorState state,
       Tree errorTree,
       @Nullable Symbol target,
-      ErrorMessage errorMessage) {
+      ErrorMessage errorMessage,
+      Set<OriginLocation> origins,
+      @Nullable NullableExpressionInfo nullableExpressionInfo,
+      CodeAnnotationInfo codeAnnotationInfo,
+      Handler handler) {
     Serializer serializer = config.getSerializationConfig().getSerializer();
     Preconditions.checkNotNull(
         serializer, "Serializer shouldn't be null at this point, error in configuration setting!");
-    serializer.serializeErrorInfo(new ErrorInfo(state.getPath(), errorTree, errorMessage, target));
+    serializer.serializeErrorInfo(
+        new ErrorInfo(
+            state.getPath(),
+            errorTree,
+            errorMessage,
+            target,
+            origins,
+            nullableExpressionInfo,
+            config,
+            codeAnnotationInfo,
+            handler));
   }
 }

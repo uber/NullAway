@@ -191,9 +191,9 @@ public class CoreTests extends NullAwayTestsBase {
             class Test {
               static void assignments() {
                 String x = null; x += "hello";
-                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
                 Integer y = null; y += 3;
-                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
                 boolean b = false; Boolean c = null; b |= c;
               }
               static Integer returnCompound() {
@@ -215,7 +215,7 @@ public class CoreTests extends NullAwayTestsBase {
             class Test {
               static void indexUnbox() {
                 Integer x = null; int[] fizz = { 0, 1 };
-                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
                 int y = fizz[x];
               }
             }
@@ -236,7 +236,7 @@ public class CoreTests extends NullAwayTestsBase {
               static void foo(int x) {}
               void bar() {
                 Integer y = null;
-                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
                 foo(y);
               }
             }

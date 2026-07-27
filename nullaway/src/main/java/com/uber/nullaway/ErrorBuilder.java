@@ -24,6 +24,7 @@ package com.uber.nullaway;
 
 import static com.google.errorprone.util.ASTHelpers.hasDirectAnnotationWithSimpleName;
 import static com.google.errorprone.util.ASTHelpers.isStatic;
+import static com.uber.nullaway.ErrorMessage.MessageTypes.DEREFERENCE_NULLABLE;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.FIELD_NO_INIT;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL;
 import static com.uber.nullaway.ErrorMessage.MessageTypes.METHOD_NO_INIT;
@@ -45,6 +46,7 @@ import com.google.errorprone.matchers.Description;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotationTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ModifiersTree;
@@ -52,14 +54,22 @@ import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.JCTree.JCCompilationUnit;
 import com.sun.tools.javac.util.DiagnosticSource;
 import com.sun.tools.javac.util.JCDiagnostic.DiagnosticPosition;
 import com.uber.nullaway.fixserialization.SerializationService;
+import com.uber.nullaway.fixserialization.Serializer;
+import com.uber.nullaway.fixserialization.out.NullableExpressionInfo;
+import com.uber.nullaway.fixserialization.scanners.OriginLocation;
+import com.uber.nullaway.fixserialization.scanners.OriginScanner;
+import com.uber.nullaway.handlers.Handler;
 import java.util.Iterator;
 import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.BiPredicate;
 import java.util.stream.StreamSupport;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -77,10 +87,23 @@ public class ErrorBuilder {
   /** Additional identifiers for this check, to be checked for in @SuppressWarnings annotations. */
   private final Set<String> allNames;
 
-  ErrorBuilder(Config config, String suppressionName, Set<String> allNames) {
+  /** Handler used when querying whether origin symbols come from annotated code. */
+  private final Handler handler;
+
+  /** Predicate used to test whether an expression may be null during origin tracing. */
+  private final BiPredicate<VisitorState, ExpressionTree> nullabilityInquiry;
+
+  ErrorBuilder(
+      Config config,
+      String suppressionName,
+      Set<String> allNames,
+      Handler handler,
+      BiPredicate<VisitorState, ExpressionTree> nullabilityInquiry) {
     this.config = config;
     this.suppressionName = suppressionName;
     this.allNames = allNames;
+    this.handler = handler;
+    this.nullabilityInquiry = nullabilityInquiry;
   }
 
   /**
@@ -99,8 +122,36 @@ public class ErrorBuilder {
       VisitorState state,
       @Nullable Symbol nonNullTarget) {
     Tree enclosingSuppressTree = suppressibleNode(state.getPath());
-    return createErrorDescription(
-        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget);
+    return createErrorDescriptionImpl(
+        errorMessage, enclosingSuppressTree, descriptionBuilder, state, nonNullTarget, null);
+  }
+
+  /**
+   * Create an error description for a nullability warning involving a nullable expression, using
+   * the enclosing suppressible node as the suggestion location.
+   *
+   * @param errorMessage the error message object.
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @param nullableExpression the nullable expression that triggered the error.
+   * @return the error description
+   */
+  public Description createErrorDescription(
+      ErrorMessage errorMessage,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget,
+      ExpressionTree nullableExpression) {
+    Tree enclosingSuppressTree = suppressibleNode(state.getPath());
+    return createErrorDescriptionImpl(
+        errorMessage,
+        enclosingSuppressTree,
+        descriptionBuilder,
+        state,
+        nonNullTarget,
+        nullableExpression);
   }
 
   /**
@@ -120,6 +171,53 @@ public class ErrorBuilder {
       Description.Builder descriptionBuilder,
       VisitorState state,
       @Nullable Symbol nonNullTarget) {
+    return createErrorDescriptionImpl(
+        errorMessage, suggestTree, descriptionBuilder, state, nonNullTarget, null);
+  }
+
+  /**
+   * create an error description for a nullability warning involving a nullable expression.
+   *
+   * @param errorMessage the error message object.
+   * @param suggestTree the location at which a fix suggestion should be made
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @param nullableExpression the nullable expression that triggered the error.
+   * @return the error description
+   */
+  public Description createErrorDescription(
+      ErrorMessage errorMessage,
+      @Nullable Tree suggestTree,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget,
+      ExpressionTree nullableExpression) {
+    return createErrorDescriptionImpl(
+        errorMessage, suggestTree, descriptionBuilder, state, nonNullTarget, nullableExpression);
+  }
+
+  /**
+   * Creates an error description for a nullability warning and serializes any available metadata.
+   *
+   * @param errorMessage the error message object.
+   * @param suggestTree the location at which a fix suggestion should be made
+   * @param descriptionBuilder the description builder for the error.
+   * @param state the visitor state (used for e.g. suppression finding).
+   * @param nonNullTarget if non-null, this error involved a pseudo-assignment of a @Nullable
+   *     expression into a @NonNull target, and this parameter is the Symbol for that target.
+   * @param nullableExpression the nullable expression that triggered the error; used for origin
+   *     tracing when it is a local variable.
+   * @return the error description
+   */
+  private Description createErrorDescriptionImpl(
+      ErrorMessage errorMessage,
+      @Nullable Tree suggestTree,
+      Description.Builder descriptionBuilder,
+      VisitorState state,
+      @Nullable Symbol nonNullTarget,
+      @Nullable ExpressionTree nullableExpression) {
     Description.Builder builder = descriptionBuilder.setMessage(errorMessage.message);
     String checkName = CORE_CHECK_NAME;
     if (errorMessage.messageType.equals(GET_ON_EMPTY_OPTIONAL)) {
@@ -140,7 +238,29 @@ public class ErrorBuilder {
       builder = addSuggestedSuppression(errorMessage, suggestTree, builder, state);
     }
 
+    Set<OriginLocation> origins = Set.of();
+    NullableExpressionInfo nullableExpressionInfo = null;
     if (config.serializationIsActive()) {
+      if (nullableExpression != null) {
+        Symbol nullableExpressionSymbol = ASTHelpers.getSymbol(nullableExpression);
+        if (nullableExpressionSymbol != null
+            && nullableExpressionSymbol.getKind() == ElementKind.LOCAL_VARIABLE) {
+          // locate assignments to this local variable.  Use the nullable expression's start
+          // position as the bound: the enclosing leaf can start earlier (e.g. an outer
+          // MethodInvocationTree or enhanced-for), which would cause OriginScanner to drop
+          // assignments that sit between the leaf start and the actual use.
+          int diagPos = ((JCTree) nullableExpression).getStartPosition();
+          if (diagPos < 0) {
+            diagPos = ((JCTree) state.getPath().getLeaf()).getStartPosition();
+          }
+          origins =
+              new OriginScanner(nullabilityInquiry, state, diagPos)
+                  .retrieveOrigins(state.findEnclosing(MethodTree.class), nullableExpressionSymbol);
+        }
+        if (errorMessage.messageType.equals(DEREFERENCE_NULLABLE)) {
+          nullableExpressionInfo = buildNullableExpressionInfo(nullableExpression, state);
+        }
+      }
       // For the case of initializer errors, the leaf of state.getPath() may not be the field /
       // method on which the error is being reported (since we do a class-wide analysis to find such
       // errors).  In such cases, the suggestTree is the appropriate field / method tree, so use
@@ -152,11 +272,47 @@ public class ErrorBuilder {
               ? suggestTree
               : state.getPath().getLeaf();
       SerializationService.serializeReportingError(
-          config, state, errorTree, nonNullTarget, errorMessage);
+          config,
+          state,
+          errorTree,
+          nonNullTarget,
+          errorMessage,
+          origins,
+          nullableExpressionInfo,
+          CodeAnnotationInfo.instance(state.context),
+          handler);
     }
 
     // #letbuildersbuild
     return builder.build();
+  }
+
+  /**
+   * Builds metadata for a nullable expression consumed by the Annotator's automatic fixes.
+   *
+   * @param nullableExpression the expression whose source text and position should be recorded.
+   * @param state the visitor state.
+   * @return metadata for the expression, or {@code null} if it has no symbol or source text.
+   */
+  private @Nullable NullableExpressionInfo buildNullableExpressionInfo(
+      ExpressionTree nullableExpression, VisitorState state) {
+    ExpressionTree strippedExpression = NullabilityUtil.stripParensAndCasts(nullableExpression);
+    Symbol symbol = ASTHelpers.getSymbol(strippedExpression);
+    if (symbol == null) {
+      return null;
+    }
+    String expressionSource = state.getSourceForNode(nullableExpression);
+    if (expressionSource == null) {
+      return null;
+    }
+    Serializer serializer = Objects.requireNonNull(config.getSerializationConfig().getSerializer());
+    return new NullableExpressionInfo(
+        expressionSource,
+        symbol.getKind().toString().toLowerCase(Locale.ROOT),
+        serializer.serializeSymbol(symbol.enclClass()),
+        !CodeAnnotationInfo.instance(state.context).isSymbolUnannotated(symbol, config, handler),
+        serializer.serializeSymbol(symbol),
+        ((JCTree) nullableExpression).pos().getStartPosition());
   }
 
   private static boolean canHaveSuppressWarningsAnnotation(Tree tree) {
@@ -245,18 +401,14 @@ public class ErrorBuilder {
       @Nullable Tree suggestTreeIfCastToNonNull,
       Description.Builder descriptionBuilder,
       VisitorState state,
-      @Nullable Symbol nonNullTarget) {
-    if (config.getCastToNonNullMethod() != null) {
-      return createErrorDescription(
-          errorMessage, suggestTreeIfCastToNonNull, descriptionBuilder, state, nonNullTarget);
-    } else {
-      return createErrorDescription(
-          errorMessage,
-          suppressibleNode(state.getPath()),
-          descriptionBuilder,
-          state,
-          nonNullTarget);
-    }
+      @Nullable Symbol nonNullTarget,
+      ExpressionTree nullableExpression) {
+    Tree suggestTree =
+        config.getCastToNonNullMethod() != null
+            ? suggestTreeIfCastToNonNull
+            : suppressibleNode(state.getPath());
+    return createErrorDescriptionImpl(
+        errorMessage, suggestTree, descriptionBuilder, state, nonNullTarget, nullableExpression);
   }
 
   Description.Builder addSuppressWarningsFix(
