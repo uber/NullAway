@@ -44,10 +44,7 @@ import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Flags;
 import com.sun.tools.javac.code.Symbol;
-import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.TypeAnnotationPosition;
-import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntry;
 import com.sun.tools.javac.code.TypeTag;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
@@ -62,7 +59,6 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.AnnotationValue;
-import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.ExecutableElement;
 import org.checkerframework.nullaway.javacutil.AnnotationUtils;
 import org.jspecify.annotations.Nullable;
@@ -195,35 +191,6 @@ public class NullabilityUtil {
   }
 
   /**
-   * Check if any direct annotation a symbol matches a given predicate. Includes code for backward
-   * compatibility with older JDKs where javac did not place type-use annotations on Symbols from
-   * bytecodes.
-   *
-   * @param symbol the symbol
-   * @param predicate the predicate to match annotation names against
-   * @return true if any annotation on the symbol matches the predicate, false otherwise
-   */
-  public static boolean hasAnyAnnotationMatchingBackCompat(
-      Symbol symbol, Predicate<String> predicate) {
-    if (hasAnyAnnotationMatching(symbol, predicate)) {
-      return true;
-    }
-    // to handle bytecodes, also check direct type-use annotations stored in attributes
-    Symbol typeAnnotationOwner =
-        symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
-    for (Attribute.TypeCompound typeCompound : typeAnnotationOwner.getRawTypeAttributes()) {
-      if (!targetTypeMatches(symbol, typeCompound.position)
-          || !isDirectTypeUseAnnotation(typeCompound, symbol)) {
-        continue;
-      }
-      if (predicate.test(typeCompound.getAnnotationType().toString())) {
-        return true;
-      }
-    }
-    return false;
-  }
-
-  /**
    * Check if any direct annotation a symbol matches a given predicate.
    *
    * @param symbol the symbol
@@ -237,14 +204,24 @@ public class NullabilityUtil {
         return true;
       }
     }
-    // check for type use annotations.  For MethodSymbols, look on the return type
-    Type annotatedType =
-        symbol instanceof Symbol.MethodSymbol methodSymbol
-            ? methodSymbol.getReturnType()
-            : symbol.type;
-    for (AnnotationMirror annotationMirror : annotatedType.getAnnotationMirrors()) {
-      if (predicate.test(annotationMirror.getAnnotationType().toString())) {
-        return true;
+    // Check for type-use annotations. For methods, look on the return type and its enclosing types,
+    // since NullAway treats an annotation before the outer class of a nested return type as
+    // applying to the full return type.
+    if (symbol instanceof Symbol.MethodSymbol methodSymbol) {
+      for (Type currentType = methodSymbol.getReturnType();
+          currentType != null && !currentType.hasTag(TypeTag.NONE);
+          currentType = currentType.getEnclosingType()) {
+        for (AnnotationMirror annotationMirror : currentType.getAnnotationMirrors()) {
+          if (predicate.test(annotationMirror.getAnnotationType().toString())) {
+            return true;
+          }
+        }
+      }
+    } else {
+      for (AnnotationMirror annotationMirror : symbol.type.getAnnotationMirrors()) {
+        if (predicate.test(annotationMirror.getAnnotationType().toString())) {
+          return true;
+        }
       }
     }
     return false;
@@ -353,18 +330,11 @@ public class NullabilityUtil {
   public static Stream<? extends AnnotationMirror> getAllAnnotationsForParameter(
       Symbol.MethodSymbol symbol, int paramInd) {
     Symbol.VarSymbol varSymbol = symbol.getParameters().get(paramInd);
-    // On modern javac versions, type-use annotations are attached directly to the parameter's
-    // type. Keep reading raw attributes as well for backward compatibility with older javac
-    // behavior.
-    Stream<? extends AnnotationMirror> typeUseAnnotations =
+    Type parameterType = symbol.type.getParameterTypes().get(paramInd);
+    Stream<Attribute.TypeCompound> typeUseAnnotations =
         Stream.concat(
-                varSymbol.type.getAnnotationMirrors().stream(),
-                symbol.getRawTypeAttributes().stream()
-                    .filter(
-                        t ->
-                            t.position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)
-                                && t.position.parameter_index == paramInd
-                                && NullabilityUtil.isDirectTypeUseAnnotation(t, symbol)))
+                getTypeUseAnnotationsIncludingEnclosingTypes(varSymbol.type),
+                getTypeUseAnnotationsIncludingEnclosingTypes(parameterType))
             .distinct();
     return Stream.concat(varSymbol.getAnnotationMirrors().stream(), typeUseAnnotations);
   }
@@ -374,137 +344,30 @@ public class NullabilityUtil {
    * arguments, wildcards, etc.)
    */
   public static Stream<Attribute.TypeCompound> getTypeUseAnnotations(Symbol symbol) {
-    return getTypeUseAnnotations(symbol, /* onlyDirect= */ true);
-  }
-
-  /**
-   * Gets the type use annotations on a symbol
-   *
-   * @param symbol the symbol
-   * @param onlyDirect if true, only return annotations that are directly on the type, not on
-   *     components of the type (type arguments, wildcards, array contents, etc.)
-   * @return the type use annotations on the symbol
-   */
-  private static Stream<Attribute.TypeCompound> getTypeUseAnnotations(
-      Symbol symbol, boolean onlyDirect) {
-    // Adapted from Error Prone's MoreAnnotations class:
-    // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L84-L91
-    Symbol typeAnnotationOwner =
-        symbol.getKind().equals(ElementKind.PARAMETER) ? symbol.owner : symbol;
-    Stream<Attribute.TypeCompound> rawTypeAttributes =
-        typeAnnotationOwner.getRawTypeAttributes().stream();
+    Type annotatedType =
+        symbol instanceof Symbol.MethodSymbol methodSymbol
+            ? methodSymbol.getReturnType()
+            : symbol.type;
     if (symbol instanceof Symbol.MethodSymbol) {
-      // for methods, we want annotations on the return type
-      return rawTypeAttributes.filter(
-          (t) ->
-              t.position.type.equals(TargetType.METHOD_RETURN)
-                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol)));
-    } else {
-      // filter for annotations directly on the type
-      return rawTypeAttributes.filter(
-          t ->
-              targetTypeMatches(symbol, t.position)
-                  && (!onlyDirect || isDirectTypeUseAnnotation(t, symbol)));
+      return getTypeUseAnnotationsIncludingEnclosingTypes(annotatedType);
     }
-  }
-
-  // Adapted from Error Prone MoreAnnotations:
-  // https://github.com/google/error-prone/blob/5f71110374e63f3c35b661f538295fa15b5c1db2/check_api/src/main/java/com/google/errorprone/util/MoreAnnotations.java#L128
-  private static boolean targetTypeMatches(Symbol sym, TypeAnnotationPosition position) {
-    switch (sym.getKind()) {
-      case LOCAL_VARIABLE -> {
-        return position.type == TargetType.LOCAL_VARIABLE;
-      }
-      case FIELD, ENUM_CONSTANT -> {
-        // treated like a field
-        return position.type == TargetType.FIELD;
-      }
-      case CONSTRUCTOR, METHOD -> {
-        return position.type == TargetType.METHOD_RETURN;
-      }
-      case PARAMETER -> {
-        if (position.type.equals(TargetType.METHOD_FORMAL_PARAMETER)) {
-          int parameterIndex = position.parameter_index;
-          if (position.onLambda != null) {
-            com.sun.tools.javac.util.List<JCTree.JCVariableDecl> lambdaParams =
-                position.onLambda.params;
-            return parameterIndex >= 0
-                && parameterIndex < lambdaParams.size()
-                && lambdaParams.get(parameterIndex).sym.equals(sym);
-          } else {
-            return ((Symbol.MethodSymbol) sym.owner).getParameters().indexOf(sym) == parameterIndex;
-          }
-        } else {
-          return false;
-        }
-      }
-      case CLASS, ENUM, RECORD -> {
-        // treated like a class
-        // There are no type annotations on the top-level type of the class/enum/record being
-        // declared,
-        // only on other types in the signature (e.g. `class Foo extends Bar<@A Baz> {}`).
-        return false;
-      }
-      default -> {
-        throw new AssertionError("unsupported element kind " + sym.getKind() + " symbol " + sym);
-      }
-    }
+    return annotatedType.getAnnotationMirrors().stream();
   }
 
   /**
-   * Check whether a type-use annotation should be treated as applying directly to the top-level
-   * type
+   * Gets the type-use annotations directly on {@code type} or any of its enclosing types.
    *
-   * <p>For example {@code @Nullable List<T> lst} is a direct type use annotation of {@code lst},
-   * but {@code List<@Nullable T> lst} is not.
-   *
-   * @param t the annotation and its position in the type
-   * @param symbol the symbol for the annotated element
-   * @return {@code true} if the annotation should be treated as applying directly to the top-level
-   *     type, false otherwise
+   * <p>javac models an annotation written before the outer class in a nested type on that enclosing
+   * type. For method return and parameter nullability, NullAway treats such an annotation as
+   * applying to the full nested type.
    */
-  private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Symbol symbol) {
-    // location is a list of TypePathEntry objects, indicating whether the annotation is
-    // on an array, inner type, wildcard, or type argument. If it's empty, then the
-    // annotation is directly on the type.
-    // Annotations on array dimensions, wildcards, or type arguments do not apply to the top-level
-    // type. For nested classes, an annotation applies directly only when placed on the innermost
-    // type.
-    int innerTypeCount = 0;
-    for (TypePathEntry entry : t.position.location) {
-      switch (entry.tag) {
-        case INNER_TYPE -> {
-          innerTypeCount++;
-        }
-        case ARRAY -> {
-          return false;
-        }
-        default -> {
-          // Wildcard or type argument!
-          return false;
-        }
-      }
-    }
-    // For non-nested classes annotations apply to the innermost type.
-    if (!isTypeOfNestedClass(symbol.type)) {
-      return true;
-    }
-    // For nested classes the annotation is only valid if it is on the innermost type.
-    return innerTypeCount == getNestingDepth(symbol.type) - 1;
-  }
-
-  private static int getNestingDepth(Type type) {
-    int depth = 0;
-    for (Type curr = type;
-        curr != null && !curr.hasTag(TypeTag.NONE);
-        curr = curr.getEnclosingType()) {
-      depth++;
-    }
-    return depth;
-  }
-
-  private static boolean isTypeOfNestedClass(Type type) {
-    return type.tsym != null && type.tsym.owner instanceof Symbol.ClassSymbol;
+  private static Stream<Attribute.TypeCompound> getTypeUseAnnotationsIncludingEnclosingTypes(
+      Type type) {
+    Stream<Attribute.TypeCompound> annotations = type.getAnnotationMirrors().stream();
+    Type enclosingType = type.getEnclosingType();
+    return enclosingType == null || enclosingType.hasTag(TypeTag.NONE)
+        ? annotations
+        : Stream.concat(annotations, getTypeUseAnnotationsIncludingEnclosingTypes(enclosingType));
   }
 
   /**
@@ -644,19 +507,17 @@ public class NullabilityUtil {
       Config config,
       BiPredicate<String, Config> typeUseCheck,
       BiPredicate<Symbol, Config> declarationCheck) {
-    if (getTypeUseAnnotations(arraySymbol, /* onlyDirect= */ false)
-        .anyMatch(
-            t -> {
-              // the location list should be of length 1 and the entry tag should be ARRAY
-              com.sun.tools.javac.util.List<TypePathEntry> location = t.position.location;
-              TypePathEntry head = location.head;
-              boolean singleElementList = head != null && location.tail.isEmpty();
-              if (singleElementList && head.tag == TypeAnnotationPosition.TypePathEntryKind.ARRAY) {
-                return typeUseCheck.test(t.type.toString(), config);
-              }
-              return false;
-            })) {
-      return true;
+    Type annotatedType =
+        arraySymbol instanceof Symbol.MethodSymbol methodSymbol
+            ? methodSymbol.getReturnType()
+            : arraySymbol.type;
+    if (annotatedType instanceof Type.ArrayType arrayType) {
+      for (AnnotationMirror annotationMirror :
+          arrayType.getComponentType().getAnnotationMirrors()) {
+        if (typeUseCheck.test(annotationMirror.getAnnotationType().toString(), config)) {
+          return true;
+        }
+      }
     }
     // For varargs symbols we also check for declaration annotations on the parameter
     // NOTE this flag check does not work for the varargs parameter of a method defined in bytecodes
