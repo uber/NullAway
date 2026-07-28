@@ -1033,6 +1033,28 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void anotherCrasher() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package repro;
+            import java.util.concurrent.FutureTask;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            final class Test {
+                private final FutureTask<@Nullable Object> task;
+                Test(Supplier<?> delegate) {
+                    this.task = new FutureTask<>(delegate::get);
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableOnWildcard() {
     makeHelper()
         .addSourceLines(
