@@ -4,6 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
@@ -999,6 +1000,33 @@ public class WildcardTests extends NullAwayTestsBase {
               static Analysis<?, ?, ?> create(Transfer<?, ?> transfer) {
                 return new Analysis<>(transfer);
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void crasherOutsideExperimental() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            final class Test {
+                static void reproduce() {
+                    getOrThrow(Test::throwAsUncheckedException);
+                }
+                private static void getOrThrow(Function<? super Exception, RuntimeException> exceptionTransformer) {
+                }
+                private static RuntimeException throwAsUncheckedException(Throwable throwable) {
+                    return new RuntimeException(throwable);
+                }
             }
             """)
         .doTest();
