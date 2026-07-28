@@ -2,6 +2,7 @@ package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
+import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
@@ -36,9 +37,19 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsType instanceof NullType || rhsType.isPrimitive()) {
       return true;
     }
-    if (GenericsUtils.asWildcard(rhsType) != null) {
-      // TODO Handle wildcard types
-      return true;
+    Verify.verify(
+        !(rhsType instanceof Type.WildcardType),
+        "Unexpected direct wildcard RHS type %s when comparing against class type %s",
+        rhsType,
+        lhsType);
+    if (rhsType instanceof Type.CapturedType) {
+      Type rhsUpperBound =
+          GenericsUtils.effectiveWildcardUpperBound(rhsType, state, config, handler);
+      if (GenericsUtils.asWildcard(rhsUpperBound) != null) {
+        // Be conservative if resolving the captured type did not produce a usable concrete bound.
+        return true;
+      }
+      rhsType = rhsUpperBound;
     }
     if (lhsType.isIntersection()) {
       return handleIntersectionType((Type.IntersectionClassType) lhsType, rhsType);

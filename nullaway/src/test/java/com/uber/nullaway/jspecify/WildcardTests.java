@@ -407,6 +407,31 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void wildcardCaptureReturnPreservesNestedNullability() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static class Holder<T extends @Nullable Object> {
+                T get() {
+                  throw new RuntimeException();
+                }
+              }
+              static void test(Holder<? extends Box<@Nullable String>> holder) {
+                // BUG: Diagnostic contains: incompatible types
+                Box<String> box = holder.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void wildcardCaptureReturnWithTypeVariableUpperBound() {
     makeHelper()
         .addSourceLines(
