@@ -1005,8 +1005,9 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** ensures we avoid a crash related to wildcards when wildcard handling is disabled */
   @Test
-  public void crasherOutsideExperimental() {
+  public void methodRefParameterSuperWildcardWithHandlingDisabled() {
     makeTestHelperWithArgs(
             List.of(
                 "-XepOpt:NullAway:OnlyNullMarked=true",
@@ -1032,8 +1033,9 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** reduced from a crasher found when checking junit */
   @Test
-  public void anotherCrasher() {
+  public void methodRefReturnUnboundedWildcard() {
     makeHelper()
         .addSourceLines(
             "Test.java",
