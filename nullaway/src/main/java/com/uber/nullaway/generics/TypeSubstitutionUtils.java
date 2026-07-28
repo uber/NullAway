@@ -294,9 +294,11 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
-      if (other instanceof Type.WildcardType wt) {
+      Type.WildcardType wt = GenericsUtils.asWildcard(other);
+      if (wt != null) {
         // When the other type is a wildcard, restore nullability annotations from the bound that
-        // determines the functional interface type.
+        // determines the functional interface type. This also handles a captured wildcard, whose
+        // nested bound annotations may otherwise be lost.
         if (wt.kind == BoundKind.EXTENDS) {
           return visit(t, wt.getExtendsBound());
         } else if (wt.kind == BoundKind.SUPER) {
@@ -320,7 +322,8 @@ public class TypeSubstitutionUtils {
 
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
-      if (!(other instanceof Type.WildcardType wildcardType)) {
+      Type.WildcardType wildcardType = GenericsUtils.asWildcard(other);
+      if (wildcardType == null) {
         return wt;
       }
       Type t = wt.type;
