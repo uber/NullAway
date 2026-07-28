@@ -121,7 +121,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
     // Do not use GenericsUtils.asWildcard() for the LHS. A captured LHS is a type variable, not a
     // wildcard formal; unwrapping it can repeatedly expand recursive upper bounds (for example,
-    // F-bounded type parameters) as containment delegates back into subtype checking.
+    // F-bounded type parameters) as containment delegates back into subtype checking.  See test
+    // com.uber.nullaway.jspecify.WildcardTests.capturedLhsWithFBoundedTypeParametersDoesNotRecurse
     Type.WildcardType lhsWildcard =
         lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
