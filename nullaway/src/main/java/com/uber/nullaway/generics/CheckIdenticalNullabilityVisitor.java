@@ -119,7 +119,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * matching nested type arguments. Wildcard formals are delegated to {@link #wildcardContains}.
    */
   private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
-    Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsTypeArgument);
+    // Do not use GenericsUtils.asWildcard() for the LHS. A captured LHS is a type variable, not a
+    // wildcard formal; unwrapping it can repeatedly expand recursive upper bounds (for example,
+    // F-bounded type parameters) as containment delegates back into subtype checking.
+    Type.WildcardType lhsWildcard =
+        lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
     if (!config.handleWildcardGenerics() && (lhsWildcard != null || rhsWildcard != null)) {
       // Preserve the pre-flag behavior of skipping wildcard-aware checks entirely.

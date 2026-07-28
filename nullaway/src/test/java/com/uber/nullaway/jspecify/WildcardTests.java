@@ -954,6 +954,32 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void capturedLhsWithFBoundedTypeParametersDoesNotRecurse() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              interface Value<V extends Value<V>> {}
+              interface Store<S extends Store<S>> {}
+              interface Transfer<V extends Value<V>, S extends Store<S>> {}
+              static class Analysis<
+                  V extends Value<V>,
+                  S extends Store<S>,
+                  T extends Transfer<V, S>> {
+                Analysis(T transfer) {}
+              }
+              static Analysis<?, ?, ?> create(Transfer<?, ?> transfer) {
+                return new Analysis<>(transfer);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableOnWildcard() {
     makeHelper()
         .addSourceLines(
