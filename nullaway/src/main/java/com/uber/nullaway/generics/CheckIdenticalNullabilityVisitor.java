@@ -11,7 +11,6 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import javax.lang.model.type.NullType;
-import javax.lang.model.type.TypeKind;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -37,7 +36,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (rhsType instanceof NullType || rhsType.isPrimitive()) {
       return true;
     }
-    if (rhsType.getKind().equals(TypeKind.WILDCARD)) {
+    if (GenericsUtils.asWildcard(rhsType) != null) {
       // TODO Handle wildcard types
       return true;
     }
@@ -120,16 +119,21 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * matching nested type arguments. Wildcard formals are delegated to {@link #wildcardContains}.
    */
   private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
-    if (!config.handleWildcardGenerics()
-        && (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
-            || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD))) {
+    // Do not use GenericsUtils.asWildcard() for the LHS. A captured LHS is a type variable, not a
+    // wildcard formal; unwrapping it can repeatedly expand recursive upper bounds (for example,
+    // F-bounded type parameters) as containment delegates back into subtype checking.  See test
+    // com.uber.nullaway.jspecify.WildcardTests.capturedLhsWithFBoundedTypeParametersDoesNotRecurse
+    Type.WildcardType lhsWildcard =
+        lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
+    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
+    if (!config.handleWildcardGenerics() && (lhsWildcard != null || rhsWildcard != null)) {
       // Preserve the pre-flag behavior of skipping wildcard-aware checks entirely.
       return true;
     }
-    if (lhsTypeArgument instanceof Type.WildcardType lhsWildcard) {
+    if (lhsWildcard != null) {
       return wildcardContains(lhsWildcard, rhsTypeArgument);
     }
-    if (rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+    if (rhsWildcard != null) {
       // This case should only arise when generic method invocation inference / capture conversion
       // lets a wildcard actual argument flow into a non-wildcard formal type argument, e.g.,
       // passing Foo<? extends T> to <U> void m(Foo<U>). We do not yet support wildcard inference.
@@ -186,7 +190,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean superWildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
     // caller must ensure that lhsWildcard has a super bound
     Type lhsBound = castToNonNull(lhsWildcard.getSuperBound());
-    if (rhsTypeArgument instanceof Type.WildcardType rhsWildcard) {
+    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
+    if (rhsWildcard != null) {
       if (rhsWildcard.kind != BoundKind.SUPER) {
         // This case cannot occur outside of inference: if the rhs is ? extends T, that is never
         // assignable to ? super S, since the rhs could be an arbitrary subtype of T (which may be a

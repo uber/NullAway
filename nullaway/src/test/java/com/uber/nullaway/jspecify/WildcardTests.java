@@ -904,6 +904,82 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void capturedSuperWildcardReturnCheckedForContainment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> Box<T> identity(Box<T> box) {
+                return box;
+              }
+              void test(
+                  Box<? super String> nonNullBoundBox,
+                  Box<? super @Nullable String> nullableBoundBox) {
+                Box<? super String> ok = identity(nullableBoundBox);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable String> bad = identity(nonNullBoundBox);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void capturedSuperWildcardReturnCheckedRecursively() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {}
+              interface Nested<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> Box<T> identity(Box<T> box) {
+                return box;
+              }
+              void test(Box<? super Nested<String>> box) {
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super Nested<@Nullable String>> bad = identity(box);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void capturedLhsWithFBoundedTypeParametersDoesNotRecurse() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              interface Value<V extends Value<V>> {}
+              interface Store<S extends Store<S>> {}
+              interface Transfer<V extends Value<V>, S extends Store<S>> {}
+              static class Analysis<
+                  V extends Value<V>,
+                  S extends Store<S>,
+                  T extends Transfer<V, S>> {
+                Analysis(T transfer) {}
+              }
+              static Analysis<?, ?, ?> create(Transfer<?, ?> transfer) {
+                return new Analysis<>(transfer);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableOnWildcard() {
     makeHelper()
         .addSourceLines(
