@@ -3,6 +3,10 @@ package com.uber.lib.unannotated;
 /* @NullMarked */
 @SuppressWarnings("DoNotCallSuggester")
 public class NestedAnnots<T /* extends @Nullable Object */> {
+  public NestedAnnots<T> self() {
+    return this;
+  }
+
   public static <T /* extends @Nullable Object */> NestedAnnots<T> genericMethod(
       Class</* @NonNull */ T> clazz) {
     return new NestedAnnots<>();
@@ -21,6 +25,10 @@ public class NestedAnnots<T /* extends @Nullable Object */> {
   public static void wildcardUpper(NestedAnnots<? extends /* @NonNull */ String> t) {}
 
   public static void wildcardLower(NestedAnnots<? super /* @Nullable */ String> t) {}
+
+  public NestedAnnots<? extends /* @Nullable */ T> wildcardUpperTypeVariable() {
+    throw new RuntimeException();
+  }
 
   public static void multipleArgs(
       NestedAnnots<String> t1, NestedAnnots</* @Nullable */ Integer> t2) {}

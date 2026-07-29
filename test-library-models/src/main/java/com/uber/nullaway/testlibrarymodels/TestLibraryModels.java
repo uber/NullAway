@@ -254,6 +254,15 @@ public class TestLibraryModels implements LibraryModels {
                         new TypePathEntry(TYPE_ARGUMENT, 0),
                         new TypePathEntry(WILDCARD_BOUND, 1)))))
         .put(
+            methodRef("com.uber.lib.unannotated.NestedAnnots", "wildcardUpperTypeVariable()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 0),
+                        new TypePathEntry(WILDCARD_BOUND, 0)))))
+        .put(
             methodRef(
                 "com.uber.lib.unannotated.NestedAnnots",
                 "multipleArgs(com.uber.lib.unannotated.NestedAnnots<java.lang.String>,com.uber.lib.unannotated.NestedAnnots<java.lang.Integer>)"),
