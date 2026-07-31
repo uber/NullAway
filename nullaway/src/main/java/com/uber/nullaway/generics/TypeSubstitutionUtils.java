@@ -355,10 +355,12 @@ public class TypeSubstitutionUtils {
     }
 
     /**
-     * Restores annotations on both a captured type and its backing wildcard.
+     * Restores annotations on both the captured type {@code t} and its backing wildcard.
      *
-     * <p>The source may still be an ordinary wildcard when javac has capture-converted the
-     * corresponding destination type.
+     * <p>The corresponding type {@code other} may be an ordinary wildcard because javac can
+     * capture-convert {@code t} without capture-converting {@code other}. In such cases, the
+     * annotation on the bound of {@code other} should be restored to the bound of the wildcard
+     * corresponding to {@code t}.
      */
     @Override
     public Type visitCapturedType(Type.CapturedType t, Type other) {
