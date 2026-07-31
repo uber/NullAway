@@ -433,7 +433,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void wildcardCaptureRestoresConcreteAnnotatedBound() {
+  public void annotationRestoredFromUpperBoundToCapturedWildcard() {
     makeHelper()
         .addSourceLines(
             "Test.java",
