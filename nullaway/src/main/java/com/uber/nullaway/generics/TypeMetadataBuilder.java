@@ -24,6 +24,14 @@ public interface TypeMetadataBuilder {
 
   TypeMetadata create(com.sun.tools.javac.util.List<Attribute.TypeCompound> attrs);
 
+  /**
+   * Returns {@code typeToBeCloned} with {@code metaData}, without sharing mutable type-variable
+   * state with {@code typeToBeCloned}.
+   *
+   * <p>javac's metadata APIs normally return delegating wrappers for {@link Type.TypeVar} and
+   * {@link Type.CapturedType}. Implementations must first detach those types so later upper-bound
+   * mutation through the returned wrapper cannot affect compiler-owned types.
+   */
   Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metaData);
 
   Type.ClassType createClassType(Type baseType, Type enclosingType, List<Type> typeArgs);
@@ -31,6 +39,88 @@ public interface TypeMetadataBuilder {
   Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType);
 
   Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType);
+
+  /**
+   * Creates a mutable type variable that is detached from {@code baseType}, with {@code upperBound}
+   * as its upper bound.
+   *
+   * <p>Metadata must not be cloned directly from {@code baseType}. For type variables, javac's
+   * metadata APIs return a wrapper whose upper-bound getter and setter delegate to their receiver.
+   * The receiver must therefore be detached first, or mutating the apparent copy would mutate
+   * compiler-owned state.
+   */
+  Type.TypeVar createDetachedTypeVar(Type.TypeVar baseType, Type upperBound);
+
+  /**
+   * Creates a captured type detached from {@code baseType}, with {@code wildcard} as its backing
+   * wildcard and {@code upperBound} as its upper bound.
+   *
+   * <p>As with {@link #createDetachedTypeVar}, metadata may only be attached after constructing a
+   * detached receiver, because the resulting wrapper delegates upper-bound access and mutation to
+   * that receiver.
+   */
+  Type.CapturedType createDetachedCapturedType(
+      Type.CapturedType baseType, Type.WildcardType wildcard, Type upperBound);
+
+  /**
+   * Returns a safe receiver for javac's metadata-cloning APIs.
+   *
+   * <p>Only type variables and captures require detaching; metadata wrappers for other type
+   * implementations do not delegate mutable upper-bound state to their input.
+   */
+  private static Type detachMutableTypeForMetadata(
+      TypeMetadataBuilder builder, Type typeToBeCloned) {
+    if (typeToBeCloned instanceof Type.CapturedType capturedType) {
+      return builder.createDetachedCapturedType(
+          capturedType, capturedType.wildcard, capturedType.getUpperBound());
+    }
+    if (typeToBeCloned instanceof Type.TypeVar typeVariable) {
+      return builder.createDetachedTypeVar(typeVariable, typeVariable.getUpperBound());
+    }
+    return typeToBeCloned;
+  }
+
+  /**
+   * Creates a metadata-free type variable with independent mutable state and javac's expected base
+   * type identity.
+   */
+  private static Type.TypeVar createDetachedTypeVarWithoutMetadata(
+      Type.TypeVar originalType, Type upperBound) {
+    // This constructor is stable across the supported JDK versions, unlike the constructors that
+    // also accept metadata. javac compares type-variable objects by identity in its type relations,
+    // so baseType must return the original compiler-owned type variable when javac normalizes this
+    // detached view. getUpperBound and setUpperBound remain backed by this new object's own field.
+    return new Type.TypeVar(originalType.tsym, upperBound, originalType.lower) {
+      @Override
+      public Type baseType() {
+        return originalType.baseType();
+      }
+    };
+  }
+
+  /**
+   * Creates a metadata-free capture with independent mutable state and javac's expected base type
+   * identity.
+   */
+  private static Type.CapturedType createDetachedCapturedTypeWithoutMetadata(
+      Type.CapturedType originalType, Type.WildcardType wildcard, Type upperBound) {
+    // The symbol-taking constructor changed across supported JDK versions. This older constructor
+    // is stable; resetting tsym below preserves the symbol identity of the compiler-owned capture.
+    Type.CapturedType detachedType =
+        new Type.CapturedType(
+            originalType.tsym.name,
+            originalType.tsym.owner,
+            upperBound,
+            originalType.lower,
+            wildcard) {
+          @Override
+          public Type baseType() {
+            return originalType.baseType();
+          }
+        };
+    detachedType.tsym = originalType.tsym;
+    return detachedType;
+  }
 
   /**
    * Provides implementations for methods under TypeMetadataBuilder compatible with JDK 17 and
@@ -183,7 +273,8 @@ public interface TypeMetadataBuilder {
     @Override
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
       try {
-        return (Type) cloneWithMetadataHandle.invoke(typeToBeCloned, metadata);
+        Type detachedType = detachMutableTypeForMetadata(this, typeToBeCloned);
+        return (Type) cloneWithMetadataHandle.invoke(detachedType, metadata);
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -224,6 +315,33 @@ public interface TypeMetadataBuilder {
         throw new RuntimeException(e);
       }
     }
+
+    @Override
+    public Type.TypeVar createDetachedTypeVar(Type.TypeVar baseType, Type upperBound) {
+      if (baseType instanceof Type.CapturedType capturedType) {
+        return createDetachedCapturedType(capturedType, capturedType.wildcard, upperBound);
+      }
+      try {
+        TypeMetadata metadata = (TypeMetadata) getMetadataHandleV17.invoke(baseType);
+        Type.TypeVar detachedType = createDetachedTypeVarWithoutMetadata(baseType, upperBound);
+        return (Type.TypeVar) cloneWithMetadataHandle.invoke(detachedType, metadata);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
+
+    @Override
+    public Type.CapturedType createDetachedCapturedType(
+        Type.CapturedType baseType, Type.WildcardType wildcard, Type upperBound) {
+      try {
+        TypeMetadata metadata = (TypeMetadata) getMetadataHandleV17.invoke(baseType);
+        Type.CapturedType detachedType =
+            createDetachedCapturedTypeWithoutMetadata(baseType, wildcard, upperBound);
+        return (Type.CapturedType) cloneWithMetadataHandle.invoke(detachedType, metadata);
+      } catch (Throwable e) {
+        throw new RuntimeException(e);
+      }
+    }
   }
 
   /**
@@ -242,7 +360,8 @@ public interface TypeMetadataBuilder {
     /** In JDK 21+ cloneWithMetadata was removed; use dropMetadata/addMetadata. */
     @Override
     public Type cloneTypeWithMetadata(Type typeToBeCloned, TypeMetadata metadata) {
-      Type without = typeToBeCloned.dropMetadata(metadata.getClass());
+      Type detachedType = detachMutableTypeForMetadata(this, typeToBeCloned);
+      Type without = detachedType.dropMetadata(metadata.getClass());
       return without.addMetadata(metadata);
     }
 
@@ -263,6 +382,32 @@ public interface TypeMetadataBuilder {
     public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
       com.sun.tools.javac.util.List<TypeMetadata> metadata = baseType.getMetadata();
       return new Type.WildcardType(boundType, baseType.kind, baseType.tsym, metadata);
+    }
+
+    @Override
+    public Type.TypeVar createDetachedTypeVar(Type.TypeVar baseType, Type upperBound) {
+      if (baseType instanceof Type.CapturedType capturedType) {
+        return createDetachedCapturedType(capturedType, capturedType.wildcard, upperBound);
+      }
+      return copyMetadata(createDetachedTypeVarWithoutMetadata(baseType, upperBound), baseType);
+    }
+
+    @Override
+    public Type.CapturedType createDetachedCapturedType(
+        Type.CapturedType baseType, Type.WildcardType wildcard, Type upperBound) {
+      return (Type.CapturedType)
+          copyMetadata(
+              createDetachedCapturedTypeWithoutMetadata(baseType, wildcard, upperBound), baseType);
+    }
+
+    /** Copies all metadata from {@code baseType} to the initially metadata-free {@code newType}. */
+    private static Type.TypeVar copyMetadata(Type.TypeVar newType, Type.TypeVar baseType) {
+      Type.TypeVar result = newType;
+      // addMetadata prepends, so iterate backwards to preserve javac's metadata ordering.
+      for (TypeMetadata metadata : baseType.getMetadata().reverse()) {
+        result = (Type.TypeVar) result.addMetadata(metadata);
+      }
+      return result;
     }
   }
 }
