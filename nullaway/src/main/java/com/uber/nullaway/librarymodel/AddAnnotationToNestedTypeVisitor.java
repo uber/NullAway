@@ -122,7 +122,7 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
    *
    * <p>javac represents a captured wildcard as a type variable plus its original wildcard. A direct
    * annotation on the capture is insufficient because effective-bound computations unwrap the
-   * backing wildcard, so updates must be reflected there as well.
+   * backing wildcard, so updates must be reflected there.
    */
   @Override
   public Type visitCapturedType(Type.CapturedType t, Integer pathIndex) {
