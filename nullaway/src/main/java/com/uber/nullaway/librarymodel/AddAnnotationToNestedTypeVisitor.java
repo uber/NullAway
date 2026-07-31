@@ -100,11 +100,21 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
     if (entry.kind() != NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND) {
       return t;
     }
-    if (t.kind == BoundKind.UNBOUND) {
-      // TODO we need to add logic to _introduce_ a bound if none exists (add follow-up issue)
-      return t;
-    }
     int boundIndex = entry.index();
+    if (t.kind == BoundKind.UNBOUND) {
+      if (boundIndex != 0) {
+        // An unbounded wildcard has an implicit upper bound, but no lower bound.
+        return t;
+      }
+      Type.TypeVar formalTypeVariable =
+          Verify.verifyNotNull(
+              t.bound, "unbounded wildcard has no corresponding formal type variable");
+      Type upperBound = formalTypeVariable.getUpperBound();
+      Type updatedUpperBound = upperBound.accept(this, pathIndex + 1);
+      return updatedUpperBound == upperBound
+          ? t
+          : TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(t, updatedUpperBound);
+    }
     if (boundIndex == 0 && t.kind == BoundKind.EXTENDS) {
       Type newBound = t.type.accept(this, pathIndex + 1);
       return newBound == t.type ? t : TYPE_METADATA_BUILDER.createWildcardType(t, newBound);
@@ -132,11 +142,17 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
     } else {
       Verify.verify(pathIndex == typePath.size(), "path index out of bounds");
       if (t.wildcard.kind == BoundKind.UNBOUND) {
-        // Do not turn javac's placeholder bound for an unbounded wildcard into an explicit bound.
-        return t;
+        Type.TypeVar formalTypeVariable =
+            Verify.verifyNotNull(
+                t.wildcard.bound, "unbounded wildcard has no corresponding formal type variable");
+        Type updatedUpperBound =
+            TypeSubstitutionUtils.typeWithAnnot(formalTypeVariable.getUpperBound(), annotationType);
+        updatedWildcard =
+            TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(t.wildcard, updatedUpperBound);
+      } else {
+        Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(t.wildcard.type, annotationType);
+        updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
       }
-      Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(t.wildcard.type, annotationType);
-      updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
     }
     if (updatedWildcard == t.wildcard) {
       return t;
