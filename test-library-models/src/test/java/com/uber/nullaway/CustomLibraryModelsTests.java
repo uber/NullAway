@@ -584,7 +584,17 @@ public class CustomLibraryModelsTests {
             import org.jspecify.annotations.*;
             @NullMarked
             public class Test {
-              NestedAnnots<? extends String> test(
+
+              NestedAnnots<? extends String> testDirect(
+                  NestedAnnots<? extends String> receiver) {
+                // should reject since return type of wildcardUpperTypeVariable
+                // is modeled to be NestedAnnots<? extends @Nullable T>, which
+                // here is incompatible with the return type NestedAnnots<? extends String>
+                // BUG: Diagnostic contains: incompatible types
+                return receiver.wildcardUpperTypeVariable();
+              }
+
+              NestedAnnots<? extends String> testWithSelf(
                   NestedAnnots<? extends String> receiver) {
                 // should reject since return type of wildcardUpperTypeVariable
                 // is modeled to be NestedAnnots<? extends @Nullable T>, which
@@ -592,6 +602,18 @@ public class CustomLibraryModelsTests {
                 // BUG: Diagnostic contains: incompatible types
                 return receiver.self().wildcardUpperTypeVariable();
               }
+
+
+              NestedAnnots<? extends String> testWithVar(
+                  NestedAnnots<? extends String> receiver) {
+                var foo = receiver;
+                // should reject since return type of wildcardUpperTypeVariable
+                // is modeled to be NestedAnnots<? extends @Nullable T>, which
+                // here is incompatible with the return type NestedAnnots<? extends String>
+                // BUG: Diagnostic contains: incompatible types
+                return foo.wildcardUpperTypeVariable();
+              }
+
             }
             """)
         .doTest();
