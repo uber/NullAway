@@ -360,17 +360,28 @@ public class TypeSubstitutionUtils {
      * <p>The corresponding type {@code other} may be an ordinary wildcard because javac can
      * capture-convert {@code t} without capture-converting {@code other}. In such cases, the
      * annotation on the bound of {@code other} should be restored to the bound of the wildcard
-     * corresponding to {@code t}.
+     * corresponding to {@code t}. Alternatively, nested capture conversion can make {@code t} a
+     * captured {@code extends} wildcard while the same position in {@code other} is a non-wildcard
+     * type. In that case, annotations from {@code other} must be restored to the backing wildcard's
+     * upper bound, since wildcard-aware checks use that bound rather than annotations directly on
+     * the captured type.
      */
     @Override
     public Type visitCapturedType(Type.CapturedType t, Type other) {
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       Type.WildcardType otherWildcard = GenericsUtils.asWildcard(other);
-      if (otherWildcard == null) {
+      Type.WildcardType updatedWildcard;
+      if (otherWildcard != null) {
+        updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
+      } else if (t.wildcard.kind == BoundKind.EXTENDS) {
+        Type updatedBound = t.wildcard.type.accept(this, other);
+        if (updatedBound == t.wildcard.type) {
+          return updated;
+        }
+        updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
+      } else {
         return updated;
       }
-      Type.WildcardType updatedWildcard =
-          (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
       if (updatedWildcard == t.wildcard) {
         return updated;
       }
