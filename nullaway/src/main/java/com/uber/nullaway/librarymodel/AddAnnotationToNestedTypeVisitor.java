@@ -2,6 +2,7 @@ package com.uber.nullaway.librarymodel;
 
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Type;
@@ -129,6 +130,7 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
     if (pathIndex < typePath.size()) {
       updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, pathIndex);
     } else {
+      Verify.verify(pathIndex == typePath.size(), "path index out of bounds");
       if (t.wildcard.kind == BoundKind.UNBOUND) {
         // Do not turn javac's placeholder bound for an unbounded wildcard into an explicit bound.
         return t;
