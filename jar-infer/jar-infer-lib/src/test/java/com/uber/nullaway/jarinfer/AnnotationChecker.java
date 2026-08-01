@@ -106,9 +106,10 @@ public class AnnotationChecker {
     cr.accept(cn, 0);
 
     for (MethodNode method : cn.methods) {
-      boolean methodAnnotationsValid =
+      boolean methodAnnotationsValid;
+      methodAnnotationsValid =
           method.name.equals(expectNullableMethod)
-              ? checkTestMethodAnnotationByName(method)
+              ? hasOneJavaxNullableAnnotation(method)
               : checkExpectedAnnotations(
                   method.visibleAnnotations,
                   method.invisibleAnnotations,
@@ -153,19 +154,8 @@ public class AnnotationChecker {
     return true;
   }
 
-  /**
-   * If the given method matches the expected test method name 'expectNullable', check if the method
-   * has the 'javax.annotation.Nullable' annotation on it exactly once.
-   *
-   * @param method method to be checked.
-   * @return True if this is the expected test method and 'javax.annotation.Nullable' is present
-   *     exactly once.
-   */
-  private static boolean checkTestMethodAnnotationByName(MethodNode method) {
-    if (method.name.equals(expectNullableMethod)) {
-      return countAnnotations(method.visibleAnnotations, BytecodeAnnotator.javaxNullableDesc) == 1;
-    }
-    return false;
+  private static boolean hasOneJavaxNullableAnnotation(MethodNode method) {
+    return countAnnotations(method.visibleAnnotations, BytecodeAnnotator.javaxNullableDesc) == 1;
   }
 
   /**
