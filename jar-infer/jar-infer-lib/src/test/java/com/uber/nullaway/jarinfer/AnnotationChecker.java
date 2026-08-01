@@ -16,6 +16,7 @@
 package com.uber.nullaway.jarinfer;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import java.io.IOException;
 import java.io.InputStream;
 import java.util.Iterator;
@@ -26,6 +27,7 @@ import java.util.jar.JarFile;
 import java.util.jar.JarInputStream;
 import java.util.zip.ZipEntry;
 import java.util.zip.ZipFile;
+import org.jspecify.annotations.Nullable;
 import org.objectweb.asm.ClassReader;
 import org.objectweb.asm.Type;
 import org.objectweb.asm.tree.AnnotationNode;
@@ -159,35 +161,33 @@ public class AnnotationChecker {
   }
 
   /**
-   * If the given method matches the expected test method name 'expectNonnull', check if all the
-   * parameters of the method has the 'javax.annotation.Nonnull' annotation on it exactly once. All
-   * such methods are also expected to have at least one parameter with this annotation.
+   * Check if all the parameters of the method have the 'javax.annotation.Nonnull' annotation on it
+   * exactly once. All such methods are also expected to have at least one parameter with this
+   * annotation.
    *
-   * @param method method to be checked.
-   * @return True if this is the expected test method and 'javax.annotation.Nonnull' is present
-   *     exactly once on all its parameters.
+   * @param method method to be checked. Must have the name {@link #expectNonnullParamsMethod}
+   * @return True if 'javax.annotation.Nonnull' is present exactly once on all the method's
+   *     parameters.
    */
   private static boolean checkTestMethodParamAnnotationByName(MethodNode method) {
-    if (method.name.equals(expectNonnullParamsMethod)) {
-      int numParameters = Type.getArgumentTypes(method.desc).length;
-      if (numParameters == 0
-          || method.visibleParameterAnnotations == null
-          || method.visibleParameterAnnotations.length < numParameters) {
+    Verify.verify(method.name.equals(expectNonnullParamsMethod));
+    int numParameters = Type.getArgumentTypes(method.desc).length;
+    if (numParameters == 0
+        || method.visibleParameterAnnotations == null
+        || method.visibleParameterAnnotations.length < numParameters) {
+      return false;
+    }
+    for (List<AnnotationNode> annotations : method.visibleParameterAnnotations) {
+      if (countAnnotations(annotations, BytecodeAnnotator.javaxNonnullDesc) != 1) {
         return false;
       }
-      for (List<AnnotationNode> annotations : method.visibleParameterAnnotations) {
-        if (countAnnotations(annotations, BytecodeAnnotator.javaxNonnullDesc) != 1) {
-          return false;
-        }
-      }
-      return true;
     }
-    return false;
+    return true;
   }
 
   private static boolean checkExpectedAnnotations(
-      List<AnnotationNode> visibleAnnotations,
-      List<AnnotationNode> invisibleAnnotations,
+      @Nullable List<AnnotationNode> visibleAnnotations,
+      @Nullable List<AnnotationNode> invisibleAnnotations,
       Map<String, String> expectedToActualAnnotations) {
     for (Map.Entry<String, String> item : expectedToActualAnnotations.entrySet()) {
       if (!checkExpectedAnnotation(
@@ -202,8 +202,8 @@ public class AnnotationChecker {
   // exactly one `actualAnnotation` in total. Otherwise, returns true iff they do not contain
   // `actualAnnotation`.
   private static boolean checkExpectedAnnotation(
-      List<AnnotationNode> visibleAnnotations,
-      List<AnnotationNode> invisibleAnnotations,
+      @Nullable List<AnnotationNode> visibleAnnotations,
+      @Nullable List<AnnotationNode> invisibleAnnotations,
       String expectAnnotation,
       String actualAnnotation) {
     if (containsAnnotation(visibleAnnotations, expectAnnotation)
@@ -227,12 +227,14 @@ public class AnnotationChecker {
   }
 
   // Returns true iff `annotation` is found in the list `annotations`, false otherwise.
-  private static boolean containsAnnotation(List<AnnotationNode> annotations, String annotation) {
+  private static boolean containsAnnotation(
+      @Nullable List<AnnotationNode> annotations, String annotation) {
     return countAnnotations(annotations, annotation) > 0;
   }
 
   // Returns the number of times 'annotation' is present in the list 'annotations'.
-  private static int countAnnotations(List<AnnotationNode> annotations, String annotation) {
+  private static int countAnnotations(
+      @Nullable List<AnnotationNode> annotations, String annotation) {
     if (annotations == null) {
       return 0;
     }
