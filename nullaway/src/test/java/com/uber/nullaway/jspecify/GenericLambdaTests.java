@@ -239,6 +239,30 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void optionalOfNullableRefinesNullableFunctionResult() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.Optional;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              public static <T> Optional<String> convert(
+                  final T value, final Function<T, @Nullable List<String>> extractor) {
+                return Optional.ofNullable(extractor.apply(value))
+                    .map(list -> Integer.toString(list.size()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

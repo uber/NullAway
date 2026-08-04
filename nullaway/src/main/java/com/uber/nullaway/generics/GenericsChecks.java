@@ -134,7 +134,8 @@ public final class GenericsChecks {
    * Handles cases where a poly expression (lambda or method reference) is passed as a parameter,
    * and the invoked function has a library model for the corresponding formal. In such cases, we
    * ensure the appropriate formal parameter type from the library model is used when inferring the
-   * type of the poly expression, and cache the result.
+   * type of the poly expression, and cache the result. If inference has already cached a
+   * context-derived type, we preserve it since inference itself applies library models.
    */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   public void maybeStoreLibraryModeledPolyExpressionType(
@@ -147,6 +148,9 @@ public final class GenericsChecks {
     Preconditions.checkArgument(
         state.getPath().getLeaf() == polyExpressionTree,
         "Expected current path leaf to be the poly expression");
+    if (inferredPolyExpressionTypes.containsKey(polyExpressionTree)) {
+      return;
+    }
     TreePath invocationPath = state.getPath().getParentPath();
     // Skip parentheses around the invocation argument.
     while (invocationPath != null && invocationPath.getLeaf() instanceof ParenthesizedTree) {
@@ -176,10 +180,7 @@ public final class GenericsChecks {
     if (formalParameterType == null || formalParameterType.isRaw()) {
       return;
     }
-    Type polyExpressionType = inferredPolyExpressionTypes.get(polyExpressionTree);
-    if (polyExpressionType == null) {
-      polyExpressionType = ASTHelpers.getType(polyExpressionTree);
-    }
+    Type polyExpressionType = ASTHelpers.getType(polyExpressionTree);
     if (polyExpressionType != null) {
       Type groundTargetType =
           GenericsUtils.groundTargetType(formalParameterType, state, config, handler);
