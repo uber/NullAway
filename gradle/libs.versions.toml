@@ -27,6 +27,7 @@ guava = "31.1-jre"
 guava-latest = "33.6.0-jre"
 javax-validation = "2.0.1.Final"
 jspecify = "1.0.1"
+jackson = "3.1.4"
 commons-io = "2.11.0"
 junit4 = "4.13.2"
 junit-jupiter = "5.14.0"
@@ -41,6 +42,7 @@ jsr305 = "3.0.2"
 lombok = "1.18.38"
 spring-beans = "5.3.7"
 spring-context = "5.3.7"
+spring-webflux = "7.0.8"
 grpc-core = "1.15.1"
 mockito = "5.21.0"
 javax-annotation = "1.3.2"
@@ -79,6 +81,7 @@ guava = { module = "com.google.guava:guava", version.ref = "guava" }
 guava-latest = { module = "com.google.guava:guava", version.ref = "guava-latest" }
 javax-validation = { module = "javax.validation:validation-api", version.ref = "javax-validation" }
 jspecify = { module = "org.jspecify:jspecify", version.ref = "jspecify" }
+jackson-databind = { module = "tools.jackson.core:jackson-databind", version.ref = "jackson" }
 commons-io = { module = "commons-io:commons-io", version.ref = "commons-io" }
 commons-cli = { module = "commons-cli:commons-cli", version.ref = "commons-cli" }
 
@@ -105,6 +108,7 @@ jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring-beans" }
 spring-context = { module = "org.springframework:spring-context", version.ref = "spring-context" }
+spring-webflux = { module = "org.springframework:spring-webflux", version.ref = "spring-webflux" }
 grpc-core = { module = "io.grpc:grpc-core", version.ref = "grpc-core" }
 mockito = { module = "org.mockito:mockito-core", version.ref = "mockito" }
 javax-annotation = { module = "javax.annotation:javax.annotation-api", version.ref = "javax-annotation" }
