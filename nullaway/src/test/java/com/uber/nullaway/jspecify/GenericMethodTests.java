@@ -1392,6 +1392,55 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void capturedTypeWithDirectNullableAnnotationInErrorMessage() {
+    makeHelper()
+        .addSourceLines(
+            "lib/Box.java",
+            """
+            package lib;
+            public class Box<T> {}
+            """)
+        .addSourceLines(
+            "lib/Api.java",
+            """
+            package lib;
+            import com.uber.Foo;
+            public class Api {
+              public static Box<?> wildcard() {
+                return null;
+              }
+              public static <T> Foo<T> convert(Box<T> box) {
+                return null;
+              }
+            }
+            """)
+        .addSourceLines(
+            "com/uber/Foo.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            public class Foo<T> {}
+            """)
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            import lib.Api;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static Foo<?> getReturnType() {
+                var returnType = Api.convert(Api.wildcard());
+                // BUG: Diagnostic contains: incompatible types: Foo<?> cannot be converted to Foo<?>
+                return returnType;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** Self-contained test for https://github.com/uber/NullAway/issues/1157. */
   @Test
   public void atomicReferenceFieldUpdaterSelfContained() {
