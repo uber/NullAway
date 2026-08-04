@@ -1090,6 +1090,36 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1671() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.springframework.http.ResponseEntity;
+            import org.springframework.web.reactive.function.client.WebClient;
+            import reactor.core.publisher.Mono;
+            import tools.jackson.databind.JsonNode;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            public class Test {
+
+              public static Mono<String> testJSpecify() {
+                return WebClient.create()
+                    .post()
+                    .uri("https://example.com")
+                    .retrieve()
+                    .toEntity(JsonNode.class)
+                    .mapNotNull(ResponseEntity::getBody)
+                    .mapNotNull(jsonNode -> jsonNode.get("access_token").asString())
+                    .switchIfEmpty(Mono.error(() -> new IllegalStateException("Unable to get access token")));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

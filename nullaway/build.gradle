@@ -81,6 +81,7 @@ dependencies {
     testImplementation libs.checker.qual
     testImplementation libs.checker.compat.qual
     testImplementation libs.jspecify
+    testImplementation libs.jackson.databind
     testImplementation project(":test-java-lib")
     testImplementation libs.jakarta.inject
     testImplementation libs.javax.inject
@@ -92,6 +93,7 @@ dependencies {
     testImplementation libs.lombok
     testImplementation libs.spring.beans
     testImplementation libs.spring.context
+    testImplementation libs.spring.webflux
     testImplementation libs.grpc.core
     testImplementation project(":test-java-lib-lombok")
     testImplementation libs.mockito
