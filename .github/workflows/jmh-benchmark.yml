@@ -9,45 +9,63 @@ on:
 concurrency: all
 
 jobs:
-  benchmarking:
-    # Only run this job if the label is 'run-benchmarks' and the PR in on the uber/NullAway repository
+  comment-permission-test:
+    # TEMPORARY: remove this job after verifying that pull-requests: write can post a PR comment.
     if: github.event.label.name == 'run-benchmarks' && github.repository == 'uber/NullAway'
-    runs-on: ubuntu-latest 
+    runs-on: ubuntu-latest
+    permissions:
+      pull-requests: write
+    steps:
+    - name: Test PR comment permission
+      uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
+      with:
+        script: |
+          github.rest.issues.createComment({
+            issue_number: context.issue.number,
+            owner: context.repo.owner,
+            repo: context.repo.repo,
+            body: 'Permission test succeeded: `pull-requests: write` can post PR comments.'
+            });
+
+  benchmarking:
+    # TEMPORARY: restore the original label condition after the comment permission test.
+    if: github.event.label.name == 'run-benchmarks-disabled-for-permission-test'
+    runs-on: ubuntu-latest
     permissions:
       contents: read
       pull-requests: write # Required to read PR details and publish the benchmark result.
 
     steps:
 
-    - name: Checkout repository 
+    - name: Checkout repository
       uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
       with:
         persist-credentials: false
 
     - name: Set branch name
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
       run: |
-        chmod +x ./.github/workflows/get_repo_details.sh 
+        chmod +x ./.github/workflows/get_repo_details.sh
         ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.number }}" "${{ github.repository }}"
 
     - id: 'auth'
-      name: Authenticating 
+      name: Authenticating
       uses: google-github-actions/auth@7c6bc770dae815cd3e89ee6cdf493a5fab2cc093 # v3.0.0
       with:
-        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}' 
+        credentials_json: '${{ secrets.GCP_SA_KEY_1 }}'
 
-    - name: Set up Google Cloud SDK 
+    - name: Set up Google Cloud SDK
       uses: google-github-actions/setup-gcloud@aa5489c8933f4cc7a4f7d45035b3b1440c9c10db # v3.0.1
-      
+
     - name: Start VM
       run: gcloud compute instances start nullway-jmh --zone=us-central1-a
-      
-    - name: Run benchmarks 
+
+    - name: Run benchmarks
       run: |
         chmod +x ./.github/workflows/run_gcp_benchmarks.sh
-        ./.github/workflows/run_gcp_benchmarks.sh 
-        
+        ./.github/workflows/run_gcp_benchmarks.sh
+
     - name: Cleanup
       # Delete the branch directory on the Google Cloud instance
       if: always()
@@ -55,9 +73,9 @@ jobs:
         ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
 
     - name: Formatting Benchmark # Create a text file containing the benchmark results
-      run:  |
+      run: |
         (echo 'Main Branch:'; echo '```' ; cat main_text.txt; echo '```'; echo 'With This PR:'; echo '```' ; cat pr_text.txt; echo '```') > benchmark.txt
-   
+
     - name: Comment Benchmark
       uses: actions/github-script@ed597411d8f924073f98dfc5c65a23a2325f34cd # v8.0.0
       if: always()
@@ -76,5 +94,3 @@ jobs:
     - name: Stop VM
       if: always()
       run: gcloud compute instances stop nullway-jmh --zone=us-central1-a
-
-      
