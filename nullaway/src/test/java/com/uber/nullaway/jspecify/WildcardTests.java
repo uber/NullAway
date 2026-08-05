@@ -433,6 +433,51 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void annotationRestoredFromUpperBoundToCapturedWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Nested<T extends @Nullable Object> {
+                Nested<T> self() {
+                  return this;
+                }
+                Nested<? extends @Nullable T> wildcardUpperTypeVariable() {
+                  throw new RuntimeException();
+                }
+              }
+
+              Nested<? extends String> testDirect(Nested<? extends String> receiver) {
+                // BUG: Diagnostic contains: incompatible types
+                return receiver.wildcardUpperTypeVariable();
+              }
+
+              Nested<? extends String> testWithSelf(Nested<? extends String> receiver) {
+                // BUG: Diagnostic contains: incompatible types
+                return receiver.self().wildcardUpperTypeVariable();
+              }
+
+              Nested<? extends String> testWithVar(Nested<? extends String> receiver) {
+                var local = receiver;
+                // BUG: Diagnostic contains: incompatible types
+                return local.wildcardUpperTypeVariable();
+              }
+
+              Nested<? extends @Nullable String> testWithVarSafe(Nested<? extends String> receiver) {
+                var local = receiver;
+                // safe
+                return local.wildcardUpperTypeVariable();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void wildcardCaptureReturnWithTypeVariableUpperBound() {
     makeHelper()
         .addSourceLines(
