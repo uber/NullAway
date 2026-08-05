@@ -1256,7 +1256,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 throw new RuntimeException();
               }
               static Flux<?> convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<?> cannot be converted to Flux<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object)
+                // BUG: Diagnostic contains: incompatible types: Flux<capture of ? (for T in Flow)> cannot be converted to Flux<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object)
                 return asFlux((Flow<?>) source);
               }
             }
@@ -1281,7 +1281,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 throw new RuntimeException();
               }
               static Flux<?>[] convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<?> [] cannot be converted to Flux<?> [] (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object)
+                // BUG: Diagnostic contains: incompatible types: Flux<capture of ? (for T in Flow)> [] cannot be converted to Flux<?> [] (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object)
                 return asFluxArray((Flow<?>) source);
               }
             }
