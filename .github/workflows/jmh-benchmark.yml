@@ -15,7 +15,7 @@ jobs:
     runs-on: ubuntu-latest 
     permissions:
       contents: read
-      issues: write
+      issues: write # Required to publish the benchmark result as an issue comment.
       pull-requests: read
 
     steps:
