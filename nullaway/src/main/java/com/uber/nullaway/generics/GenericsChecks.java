@@ -419,11 +419,11 @@ public final class GenericsChecks {
     String result =
         String.format(
             "incompatible types: %s cannot be converted to %s", prettyRhsType, prettyLhsType);
-    boolean requireCapturedWildcard = !prettyRhsType.equals(prettyLhsType);
-    String wildcardBoundMismatch =
-        firstDifferingWildcardBound(lhsType, rhsType, state, requireCapturedWildcard);
+    boolean allowNonCaptureMismatch = prettyRhsType.equals(prettyLhsType);
+    WildcardBoundMismatch wildcardBoundMismatch =
+        firstWildcardBoundMismatch(lhsType, rhsType, state, allowNonCaptureMismatch);
     if (wildcardBoundMismatch != null) {
-      result += " (" + wildcardBoundMismatch + ")";
+      result += " (" + describeWildcardBoundMismatch(wildcardBoundMismatch) + ")";
     }
     if (!ASTHelpers.isSameType(lhsType, rhsType, state)
         && lhsType.getKind() == TypeKind.DECLARED
@@ -443,22 +443,24 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns a description of the first wildcard bound difference between {@code lhsType} and {@code
-   * rhsType}, or {@code null} if no such difference can be found. Recursively traverses {@code
-   * lhsType} and {@code rhsType} to find such a difference.
+   * Returns the first wildcard bound difference between {@code lhsType} and {@code rhsType}, or
+   * {@code null} if no such difference can be found. Recursively traverses {@code lhsType} and
+   * {@code rhsType} to find such a difference.
    *
    * <p>This is especially useful when two types pretty-print identically, but differ in the
    * effective upper bound of a wildcard nested somewhere inside the type.
    *
-   * @param requireCapturedWildcard if true, only returns a mismatch involving a captured wildcard
+   * @param allowNonCaptureMismatch whether a mismatch may be returned when neither causal wildcard
+   *     is captured. Such details are useful when the full types print identically, but redundant
+   *     when the full types already expose the difference.
    */
-  private @Nullable String firstDifferingWildcardBound(
-      Type lhsType, Type rhsType, VisitorState state, boolean requireCapturedWildcard) {
+  private @Nullable WildcardBoundMismatch firstWildcardBoundMismatch(
+      Type lhsType, Type rhsType, VisitorState state, boolean allowNonCaptureMismatch) {
     // base case: both wildcard types
     Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsType);
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsType);
     if (lhsWildcard != null && rhsWildcard != null) {
-      if (requireCapturedWildcard
+      if (!allowNonCaptureMismatch
           && !(lhsType instanceof Type.CapturedType)
           && !(rhsType instanceof Type.CapturedType)) {
         return null;
@@ -480,32 +482,32 @@ public final class GenericsChecks {
         return null;
       }
       for (int i = 0; i < lhsTypeArguments.size(); i++) {
-        String mismatch =
-            firstDifferingWildcardBound(
-                lhsTypeArguments.get(i), rhsTypeArguments.get(i), state, requireCapturedWildcard);
+        WildcardBoundMismatch mismatch =
+            firstWildcardBoundMismatch(
+                lhsTypeArguments.get(i), rhsTypeArguments.get(i), state, allowNonCaptureMismatch);
         if (mismatch != null) {
           return mismatch;
         }
       }
-      return firstDifferingWildcardBound(
+      return firstWildcardBoundMismatch(
           lhsClassType.getEnclosingType(),
           rhsClassType.getEnclosingType(),
           state,
-          requireCapturedWildcard);
+          allowNonCaptureMismatch);
     }
     if (lhsType instanceof Type.ArrayType lhsArrayType
         && rhsType instanceof Type.ArrayType rhsArrayType) {
-      return firstDifferingWildcardBound(
-          lhsArrayType.elemtype, rhsArrayType.elemtype, state, requireCapturedWildcard);
+      return firstWildcardBoundMismatch(
+          lhsArrayType.elemtype, rhsArrayType.elemtype, state, allowNonCaptureMismatch);
     }
     return null;
   }
 
   /**
-   * Returns a diagnostic fragment describing how two wildcard effective upper bounds differ, or
-   * {@code null} if those bounds pretty-print the same.
+   * Creates a structured mismatch for two wildcards with visibly different effective upper bounds,
+   * or returns {@code null} if those bounds pretty-print the same.
    */
-  private @Nullable String wildcardBoundMismatch(
+  private @Nullable WildcardBoundMismatch wildcardBoundMismatch(
       Type lhsType,
       Type rhsType,
       Type.WildcardType lhsWildcard,
@@ -516,25 +518,35 @@ public final class GenericsChecks {
     String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
     String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
     if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
-      String result =
-          String.format(
-              "target wildcard upper bound is %s; source wildcard upper bound is %s",
-              prettyLhsUpperBound, prettyRhsUpperBound);
-      String lhsCaptureDescription = captureDescription(lhsType, "target");
-      if (lhsCaptureDescription != null) {
-        result += "; " + lhsCaptureDescription;
-      }
-      String rhsCaptureDescription = captureDescription(rhsType, "source");
-      if (rhsCaptureDescription != null) {
-        result += "; " + rhsCaptureDescription;
-      }
-      return result;
+      return new WildcardBoundMismatch(lhsType, rhsType, prettyLhsUpperBound, prettyRhsUpperBound);
     }
     return null;
   }
 
+  /**
+   * Describes a wildcard-bound mismatch, including provenance for every captured wildcard that
+   * directly participates in that mismatch.
+   */
+  private static String describeWildcardBoundMismatch(WildcardBoundMismatch mismatch) {
+    String result =
+        String.format(
+            "target wildcard upper bound is %s; source wildcard upper bound is %s",
+            mismatch.prettyTargetUpperBound(), mismatch.prettySourceUpperBound());
+    String targetCaptureDescription =
+        captureProvenanceDescription(mismatch.targetWildcardType(), "target");
+    if (targetCaptureDescription != null) {
+      result += "; " + targetCaptureDescription;
+    }
+    String sourceCaptureDescription =
+        captureProvenanceDescription(mismatch.sourceWildcardType(), "source");
+    if (sourceCaptureDescription != null) {
+      result += "; " + sourceCaptureDescription;
+    }
+    return result;
+  }
+
   /** Returns a short description of the type parameter underlying a captured type, if available. */
-  private static @Nullable String captureDescription(Type type, String assignmentRole) {
+  private static @Nullable String captureProvenanceDescription(Type type, String assignmentRole) {
     if (!(type instanceof Type.CapturedType capturedType)) {
       return null;
     }
@@ -548,6 +560,19 @@ public final class GenericsChecks {
         "%s wildcard is the type argument for type variable %s of %s",
         assignmentRole, formalTypeVariable.tsym.getSimpleName(), owner.getSimpleName());
   }
+
+  /**
+   * A difference between the effective upper bounds of two corresponding wildcards.
+   *
+   * <p>The wildcard types are retained so the diagnostic can report provenance for the captured
+   * wildcard or wildcards that directly caused the mismatch, without reporting unrelated captures
+   * elsewhere in the enclosing types.
+   */
+  private record WildcardBoundMismatch(
+      Type targetWildcardType,
+      Type sourceWildcardType,
+      String prettyTargetUpperBound,
+      String prettySourceUpperBound) {}
 
   private void reportInvalidReturnTypeError(
       Tree tree, Type methodType, Type returnType, VisitorState state) {
