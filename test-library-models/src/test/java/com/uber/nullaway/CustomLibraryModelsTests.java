@@ -570,6 +570,34 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void nestedWildcardWithCapturedTypeVariableBound() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.NestedAnnots;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              NestedAnnots<? extends String> test(
+                  NestedAnnots<? extends String> receiver) {
+                // should reject since return type of wildcardUpperTypeVariable
+                // is modeled to be NestedAnnots<? extends @Nullable T>, which
+                // here is incompatible with the return type NestedAnnots<? extends String>
+                // BUG: Diagnostic contains: incompatible types
+                return receiver.self().wildcardUpperTypeVariable();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void multipleArgs() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(

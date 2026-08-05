@@ -101,6 +101,21 @@ public class TypeSubstitutionUtils {
   }
 
   /**
+   * Returns a copy of {@code type} with {@code wildcard} as its backing wildcard.
+   *
+   * <p>The copy is necessary because javac capture types can be shared across attributed types.
+   */
+  public static Type.CapturedType replaceCapturedTypeWildcard(
+      Type.CapturedType type, Type.WildcardType wildcard) {
+    Type.CapturedType updated =
+        (Type.CapturedType)
+            TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+                type, TYPE_METADATA_BUILDER.create(type.getAnnotationMirrors()));
+    updated.wildcard = wildcard;
+    return updated;
+  }
+
+  /**
    * Updates a type {@code typeToUpdate} by applying inferred nullability for type variables. The
    * update proceeds in three steps:
    *
@@ -339,9 +354,27 @@ public class TypeSubstitutionUtils {
       return updateDirectNullabilityAnnotationsForType(t, other);
     }
 
+    /**
+     * Restores annotations on both the captured type {@code t} and its backing wildcard.
+     *
+     * <p>The corresponding type {@code other} may be an ordinary wildcard because javac can
+     * capture-convert {@code t} without capture-converting {@code other}. In such cases, the
+     * annotation on the bound of {@code other} should be restored to the bound of the wildcard
+     * corresponding to {@code t}.
+     */
     @Override
     public Type visitCapturedType(Type.CapturedType t, Type other) {
-      return updateDirectNullabilityAnnotationsForType(t, other);
+      Type updated = updateDirectNullabilityAnnotationsForType(t, other);
+      Type.WildcardType otherWildcard = GenericsUtils.asWildcard(other);
+      if (otherWildcard == null) {
+        return updated;
+      }
+      Type.WildcardType updatedWildcard =
+          (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
+      if (updatedWildcard == t.wildcard) {
+        return updated;
+      }
+      return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
     }
 
     @Override

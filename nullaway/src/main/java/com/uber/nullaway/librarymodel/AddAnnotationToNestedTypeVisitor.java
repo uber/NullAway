@@ -2,6 +2,7 @@ package com.uber.nullaway.librarymodel;
 
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
+import com.google.common.base.Verify;
 import com.google.common.collect.ImmutableList;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Type;
@@ -99,11 +100,11 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
     if (entry.kind() != NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND) {
       return t;
     }
-    int boundIndex = entry.index();
-    if (t.type == null) {
+    if (t.kind == BoundKind.UNBOUND) {
       // TODO we need to add logic to _introduce_ a bound if none exists (add follow-up issue)
       return t;
     }
+    int boundIndex = entry.index();
     if (boundIndex == 0 && t.kind == BoundKind.EXTENDS) {
       Type newBound = t.type.accept(this, pathIndex + 1);
       return newBound == t.type ? t : TYPE_METADATA_BUILDER.createWildcardType(t, newBound);
@@ -113,6 +114,34 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
       return newBound == t.type ? t : TYPE_METADATA_BUILDER.createWildcardType(t, newBound);
     }
     return t;
+  }
+
+  /**
+   * Updates a captured type while preserving the backing wildcard used by NullAway's wildcard-bound
+   * reasoning.
+   *
+   * <p>javac represents a captured wildcard as a type variable plus its original wildcard. A direct
+   * annotation on the capture is insufficient because effective-bound computations unwrap the
+   * backing wildcard, so updates must be reflected there.
+   */
+  @Override
+  public Type visitCapturedType(Type.CapturedType t, Integer pathIndex) {
+    Type.WildcardType updatedWildcard;
+    if (pathIndex < typePath.size()) {
+      updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, pathIndex);
+    } else {
+      Verify.verify(pathIndex == typePath.size(), "path index out of bounds");
+      if (t.wildcard.kind == BoundKind.UNBOUND) {
+        // Do not turn javac's placeholder bound for an unbounded wildcard into an explicit bound.
+        return t;
+      }
+      Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(t.wildcard.type, annotationType);
+      updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
+    }
+    if (updatedWildcard == t.wildcard) {
+      return t;
+    }
+    return TypeSubstitutionUtils.replaceCapturedTypeWildcard(t, updatedWildcard);
   }
 
   @Override
