@@ -6,6 +6,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
+import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import org.jspecify.annotations.Nullable;
@@ -94,7 +95,21 @@ final class GenericTypePrettyPrintingVisitor
 
   @Override
   public String visitCapturedType(Type.CapturedType t, @Nullable Void s) {
-    return t.wildcard.accept(this, null);
+    StringBuilder sb = new StringBuilder();
+    appendNullableAnnotationIfPresent(t, sb);
+    sb.append("capture of ");
+    sb.append(t.wildcard.accept(this, null));
+    Type.TypeVar formalTypeVariable = t.wildcard.bound;
+    if (formalTypeVariable != null
+        && formalTypeVariable.tsym.owner instanceof Symbol.ClassSymbol owner
+        && !owner.getSimpleName().isEmpty()) {
+      sb.append(" (for ")
+          .append(formalTypeVariable.tsym.getSimpleName())
+          .append(" in ")
+          .append(owner.getSimpleName())
+          .append(')');
+    }
+    return sb.toString();
   }
 
   @Override

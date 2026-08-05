@@ -425,11 +425,11 @@ public final class GenericsChecks {
     String result =
         String.format(
             "incompatible types: %s cannot be converted to %s", prettyRhsType, prettyLhsType);
-    if (prettyRhsType.equals(prettyLhsType)) {
-      String wildcardBoundMismatch = firstDifferingWildcardBound(lhsType, rhsType, state);
-      if (wildcardBoundMismatch != null) {
-        result += " (" + wildcardBoundMismatch + ")";
-      }
+    boolean requireCapturedWildcard = !prettyRhsType.equals(prettyLhsType);
+    String wildcardBoundMismatch =
+        firstDifferingWildcardBound(lhsType, rhsType, state, requireCapturedWildcard);
+    if (wildcardBoundMismatch != null) {
+      result += " (" + wildcardBoundMismatch + ")";
     }
     if (!ASTHelpers.isSameType(lhsType, rhsType, state)
         && lhsType.getKind() == TypeKind.DECLARED
@@ -455,13 +455,20 @@ public final class GenericsChecks {
    *
    * <p>This is especially useful when two types pretty-print identically, but differ in the
    * effective upper bound of a wildcard nested somewhere inside the type.
+   *
+   * @param requireCapturedWildcard if true, only returns a mismatch involving a captured wildcard
    */
   private @Nullable String firstDifferingWildcardBound(
-      Type lhsType, Type rhsType, VisitorState state) {
+      Type lhsType, Type rhsType, VisitorState state, boolean requireCapturedWildcard) {
     // base case: both wildcard types
     Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsType);
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsType);
     if (lhsWildcard != null && rhsWildcard != null) {
+      if (requireCapturedWildcard
+          && !(lhsType instanceof Type.CapturedType)
+          && !(rhsType instanceof Type.CapturedType)) {
+        return null;
+      }
       return wildcardBoundMismatch(lhsWildcard, rhsWildcard, state);
     }
     if (lhsType instanceof Type.ClassType lhsClassType && rhsType instanceof Type.ClassType) {
@@ -480,17 +487,22 @@ public final class GenericsChecks {
       }
       for (int i = 0; i < lhsTypeArguments.size(); i++) {
         String mismatch =
-            firstDifferingWildcardBound(lhsTypeArguments.get(i), rhsTypeArguments.get(i), state);
+            firstDifferingWildcardBound(
+                lhsTypeArguments.get(i), rhsTypeArguments.get(i), state, requireCapturedWildcard);
         if (mismatch != null) {
           return mismatch;
         }
       }
       return firstDifferingWildcardBound(
-          lhsClassType.getEnclosingType(), rhsClassType.getEnclosingType(), state);
+          lhsClassType.getEnclosingType(),
+          rhsClassType.getEnclosingType(),
+          state,
+          requireCapturedWildcard);
     }
     if (lhsType instanceof Type.ArrayType lhsArrayType
         && rhsType instanceof Type.ArrayType rhsArrayType) {
-      return firstDifferingWildcardBound(lhsArrayType.elemtype, rhsArrayType.elemtype, state);
+      return firstDifferingWildcardBound(
+          lhsArrayType.elemtype, rhsArrayType.elemtype, state, requireCapturedWildcard);
     }
     return null;
   }
