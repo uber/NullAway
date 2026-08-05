@@ -11,6 +11,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
 import javax.lang.model.type.NullType;
+import javax.lang.model.type.TypeKind;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -31,14 +32,36 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     this.handler = handler;
   }
 
+  /**
+   * Checks whether the nested nullability of an RHS type is compatible with an LHS class type.
+   *
+   * <p>The RHS is aligned with the LHS's base type before comparing type arguments. When {@link
+   * Config#handleWildcardGenerics()} is enabled, a direct or captured RHS wildcard is first
+   * replaced with its effective upper bound.
+   *
+   * @param lhsType class type on the left side of the comparison
+   * @param rhsType type on the right side of the comparison
+   * @return {@code true} if the types have compatible nested nullability, or if the comparison is
+   *     intentionally skipped
+   */
   @Override
   public Boolean visitClassType(Type.ClassType lhsType, Type rhsType) {
     if (rhsType instanceof NullType || rhsType.isPrimitive()) {
       return true;
     }
-    if (GenericsUtils.asWildcard(rhsType) != null) {
-      // TODO Handle wildcard types
-      return true;
+    if (!config.handleWildcardGenerics()) {
+      // skip checking of wildcards
+      if (rhsType.getKind().equals(TypeKind.WILDCARD)) {
+        return true;
+      }
+    } else if (GenericsUtils.asWildcard(rhsType) != null) {
+      Type rhsUpperBound =
+          GenericsUtils.effectiveWildcardUpperBound(rhsType, state, config, handler);
+      if (GenericsUtils.asWildcard(rhsUpperBound) != null) {
+        // Bail out if resolving the upper bound did not produce a usable concrete bound.
+        return true;
+      }
+      rhsType = rhsUpperBound;
     }
     if (lhsType.isIntersection()) {
       return handleIntersectionType((Type.IntersectionClassType) lhsType, rhsType);
@@ -98,12 +121,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     Type rhsComponentType = rhsArrayType.getComponentType();
-    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsComponentType);
-    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsComponentType);
-    if (isRHSNullableAnnotated != isLHSNullableAnnotated) {
-      return false;
-    }
-    return lhsComponentType.accept(this, rhsComponentType);
+    return haveIdenticalNullability(lhsComponentType, rhsComponentType);
   }
 
   @Override
@@ -119,35 +137,47 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * matching nested type arguments. Wildcard formals are delegated to {@link #wildcardContains}.
    */
   private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
-    // Do not use GenericsUtils.asWildcard() for the LHS. A captured LHS is a type variable, not a
-    // wildcard formal; unwrapping it can repeatedly expand recursive upper bounds (for example,
-    // F-bounded type parameters) as containment delegates back into subtype checking.  See test
-    // com.uber.nullaway.jspecify.WildcardTests.capturedLhsWithFBoundedTypeParametersDoesNotRecurse
-    Type.WildcardType lhsWildcard =
-        lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
-    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
-    if (!config.handleWildcardGenerics() && (lhsWildcard != null || rhsWildcard != null)) {
-      // Preserve the pre-flag behavior of skipping wildcard-aware checks entirely.
-      return true;
+    if (!config.handleWildcardGenerics()) {
+      if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
+          || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
+        // Preserve the pre-flag behavior of skipping wildcard-aware checks entirely.
+        return true;
+      }
+    } else {
+      // Do not use GenericsUtils.asWildcard() for the LHS. A captured LHS is a type variable, not a
+      // wildcard formal; unwrapping it can repeatedly expand recursive upper bounds (for example,
+      // F-bounded type parameters) as containment delegates back into subtype checking.  See test
+      // com.uber.nullaway.jspecify.WildcardTests.capturedLhsWithFBoundedTypeParametersDoesNotRecurse
+      Type.WildcardType lhsWildcard =
+          lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
+      Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
+      if (lhsWildcard != null) {
+        return wildcardContains(lhsWildcard, rhsTypeArgument);
+      }
+      if (rhsWildcard != null) {
+        // This case should only arise when generic method invocation inference / capture conversion
+        // lets a wildcard actual argument flow into a non-wildcard formal type argument, e.g.,
+        // passing Foo<? extends T> to <U> void m(Foo<U>). We do not yet support wildcard inference.
+        // For non-inference assignment / return / parameter checks, javac rejects these conversions
+        // before NullAway runs.
+        // TODO: Add proper support when inference for wildcards is implemented.
+        return true;
+      }
     }
-    if (lhsWildcard != null) {
-      return wildcardContains(lhsWildcard, rhsTypeArgument);
-    }
-    if (rhsWildcard != null) {
-      // This case should only arise when generic method invocation inference / capture conversion
-      // lets a wildcard actual argument flow into a non-wildcard formal type argument, e.g.,
-      // passing Foo<? extends T> to <U> void m(Foo<U>). We do not yet support wildcard inference.
-      // For non-inference assignment / return / parameter checks, javac rejects these conversions
-      // before NullAway runs.
-      // TODO: Add proper support when inference for wildcards is implemented.
-      return true;
-    }
-    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsTypeArgument);
-    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsTypeArgument);
+    return haveIdenticalNullability(lhsTypeArgument, rhsTypeArgument);
+  }
+
+  /**
+   * Returns whether two types have identical top-level nullability and compatible nested
+   * nullability.
+   */
+  private boolean haveIdenticalNullability(Type lhsType, Type rhsType) {
+    boolean isLHSNullableAnnotated = genericsChecks.isNullableAnnotated(lhsType);
+    boolean isRHSNullableAnnotated = genericsChecks.isNullableAnnotated(rhsType);
     if (isLHSNullableAnnotated != isRHSNullableAnnotated) {
       return false;
     }
-    return lhsTypeArgument.accept(this, rhsTypeArgument);
+    return lhsType.accept(this, rhsType);
   }
 
   /**

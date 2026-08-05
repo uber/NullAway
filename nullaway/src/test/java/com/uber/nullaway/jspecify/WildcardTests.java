@@ -4,6 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
@@ -403,6 +404,31 @@ public class WildcardTests extends NullAwayTestsBase {
                 f.get().hashCode();
               }
             }""")
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCaptureReturnPreservesNestedNullability() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static class Holder<T extends @Nullable Object> {
+                T get() {
+                  throw new RuntimeException();
+                }
+              }
+              static void test(Holder<? extends Box<@Nullable String>> holder) {
+                // BUG: Diagnostic contains: incompatible types
+                Box<String> box = holder.get();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -974,6 +1000,57 @@ public class WildcardTests extends NullAwayTestsBase {
               static Analysis<?, ?, ?> create(Transfer<?, ?> transfer) {
                 return new Analysis<>(transfer);
               }
+            }
+            """)
+        .doTest();
+  }
+
+  /** ensures we avoid a crash related to wildcards when wildcard handling is disabled */
+  @Test
+  public void methodRefParameterSuperWildcardWithHandlingDisabled() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            final class Test {
+                static void reproduce() {
+                    getOrThrow(Test::throwAsUncheckedException);
+                }
+                private static void getOrThrow(Function<? super Exception, RuntimeException> exceptionTransformer) {
+                }
+                private static RuntimeException throwAsUncheckedException(Throwable throwable) {
+                    return new RuntimeException(throwable);
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  /** reduced from a crasher found when checking junit */
+  @Test
+  public void methodRefReturnUnboundedWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package repro;
+            import java.util.concurrent.FutureTask;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            final class Test {
+                private final FutureTask<@Nullable Object> task;
+                Test(Supplier<?> delegate) {
+                    this.task = new FutureTask<>(delegate::get);
+                }
             }
             """)
         .doTest();
