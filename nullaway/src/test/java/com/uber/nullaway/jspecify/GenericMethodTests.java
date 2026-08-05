@@ -1392,8 +1392,9 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** This was reduced from some real code in JUnit */
   @Test
-  public void capturedTypeWithDirectNullableAnnotationInErrorMessage() {
+  public void capturedTypeAtNullUnmarkedBoundary() {
     makeHelper()
         .addSourceLines(
             "Test.java",

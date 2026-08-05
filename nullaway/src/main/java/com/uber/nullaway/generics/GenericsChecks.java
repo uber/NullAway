@@ -456,6 +456,9 @@ public final class GenericsChecks {
    * <p>This is especially useful when two types pretty-print identically, but differ in the
    * effective upper bound of a wildcard nested somewhere inside the type.
    *
+   * @param lhsType the lhs (target) type
+   * @param rhsType the rhs (source) type
+   * @param state the visitor state
    * @param allowNonCaptureMismatch whether a mismatch may be returned when neither causal wildcard
    *     is captured. Such details are useful when the full types print identically, but redundant
    *     when the full types already expose the difference.
