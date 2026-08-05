@@ -469,7 +469,7 @@ public final class GenericsChecks {
           && !(rhsType instanceof Type.CapturedType)) {
         return null;
       }
-      return wildcardBoundMismatch(lhsWildcard, rhsWildcard, state);
+      return wildcardBoundMismatch(lhsType, rhsType, lhsWildcard, rhsWildcard, state);
     }
     if (lhsType instanceof Type.ClassType lhsClassType && rhsType instanceof Type.ClassType) {
       Type rhsTypeAsSuper =
@@ -512,17 +512,47 @@ public final class GenericsChecks {
    * {@code null} if those bounds pretty-print the same.
    */
   private @Nullable String wildcardBoundMismatch(
-      Type.WildcardType lhsWildcard, Type.WildcardType rhsWildcard, VisitorState state) {
+      Type lhsType,
+      Type rhsType,
+      Type.WildcardType lhsWildcard,
+      Type.WildcardType rhsWildcard,
+      VisitorState state) {
     Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
     Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
     String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
     String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
     if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
-      return String.format(
-          "target wildcard upper bound is %s; source wildcard upper bound is %s",
-          prettyLhsUpperBound, prettyRhsUpperBound);
+      String result =
+          String.format(
+              "target wildcard upper bound is %s; source wildcard upper bound is %s",
+              prettyLhsUpperBound, prettyRhsUpperBound);
+      String lhsCaptureDescription = captureDescription(lhsType, "target");
+      if (lhsCaptureDescription != null) {
+        result += "; " + lhsCaptureDescription;
+      }
+      String rhsCaptureDescription = captureDescription(rhsType, "source");
+      if (rhsCaptureDescription != null) {
+        result += "; " + rhsCaptureDescription;
+      }
+      return result;
     }
     return null;
+  }
+
+  /** Returns a short description of the type parameter underlying a captured type, if available. */
+  private static @Nullable String captureDescription(Type type, String assignmentRole) {
+    if (!(type instanceof Type.CapturedType capturedType)) {
+      return null;
+    }
+    Type.TypeVar formalTypeVariable = capturedType.wildcard.bound;
+    if (formalTypeVariable == null
+        || !(formalTypeVariable.tsym.owner instanceof Symbol.ClassSymbol owner)
+        || owner.getSimpleName().isEmpty()) {
+      return null;
+    }
+    return String.format(
+        "%s wildcard is the type argument for type variable %s of %s",
+        assignmentRole, formalTypeVariable.tsym.getSimpleName(), owner.getSimpleName());
   }
 
   private void reportInvalidReturnTypeError(
