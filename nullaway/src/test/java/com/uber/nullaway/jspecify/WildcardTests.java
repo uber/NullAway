@@ -466,6 +466,12 @@ public class WildcardTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types
                 return local.wildcardUpperTypeVariable();
               }
+
+              Nested<? extends @Nullable String> testWithVarSafe(Nested<? extends String> receiver) {
+                var local = receiver;
+                // safe
+                return local.wildcardUpperTypeVariable();
+              }
             }
             """)
         .doTest();
