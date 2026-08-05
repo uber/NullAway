@@ -1396,41 +1396,28 @@ public class GenericMethodTests extends NullAwayTestsBase {
   public void capturedTypeWithDirectNullableAnnotationInErrorMessage() {
     makeHelper()
         .addSourceLines(
-            "lib/Box.java",
+            "Test.java",
             """
-            package lib;
-            public class Box<T> {}
-            """)
-        .addSourceLines(
-            "lib/Api.java",
-            """
-            package lib;
-            import com.uber.Foo;
-            public class Api {
-              public static Box<?> wildcard() {
-                return null;
-              }
-              public static <T> Foo<T> convert(Box<T> box) {
-                return null;
-              }
-            }
-            """)
-        .addSourceLines(
-            "com/uber/Foo.java",
-            """
-            package com.uber;
             import org.jspecify.annotations.NullMarked;
-            @NullMarked
-            public class Foo<T> {}
-            """)
-        .addSourceLines(
-            "com/uber/Test.java",
-            """
-            package com.uber;
-            import lib.Api;
-            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
             @NullMarked
             class Test {
+              static class Foo<T> {}
+
+              @NullUnmarked
+              static class Box<T> {}
+
+              @NullUnmarked
+              static class Api {
+                static Box<?> wildcard() {
+                  return null;
+                }
+
+                static <T> Foo<T> convert(Box<T> box) {
+                  return null;
+                }
+              }
+
               static Foo<?> getReturnType() {
                 var returnType = Api.convert(Api.wildcard());
                 // BUG: Diagnostic contains: incompatible types: Foo<@Nullable capture of ?> cannot be converted to Foo<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Box)
