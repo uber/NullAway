@@ -94,4 +94,29 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void defaultLibraryModelsClassIsArray() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=foo")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package foo;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            public class Test {
+              int classIsArray(Class<?> clazz) {
+                if (clazz.isArray()) {
+                  return clazz.getComponentType().hashCode();
+                } else {
+                  // BUG: Diagnostic contains: dereferenced
+                  return clazz.getComponentType().hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
 }

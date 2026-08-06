@@ -293,8 +293,7 @@ public class LibraryModelsHandler implements Handler {
     boolean isMethodAnnotated =
         !getCodeAnnotationInfo(state.context).isSymbolUnannotated(callee, this.config, mainHandler);
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
-    setConditionalArgumentNullness(
-        thenUpdates, elseUpdates, node.getArguments(), callee, state, apContext);
+    setConditionalArgumentNullness(thenUpdates, elseUpdates, node, callee, state, apContext);
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     ImmutableSet<Integer> nullImpliesNullIndexes =
         optLibraryModels.nullImpliesNullParameters(callee);
@@ -350,10 +349,11 @@ public class LibraryModelsHandler implements Handler {
   private void setConditionalArgumentNullness(
       AccessPathNullnessPropagation.Updates thenUpdates,
       AccessPathNullnessPropagation.Updates elseUpdates,
-      List<Node> arguments,
+      MethodInvocationNode node,
       Symbol.MethodSymbol callee,
       VisitorState state,
       AccessPath.AccessPathContext apContext) {
+    List<Node> arguments = node.getArguments();
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     ImmutableSet<Integer> nullImpliesTrueParameters =
         optLibraryModels.nullImpliesTrueParameters(callee);
@@ -367,6 +367,68 @@ public class LibraryModelsHandler implements Handler {
         accessPathsAtIndexes(nullImpliesFalseParameters, arguments, state, apContext)) {
       thenUpdates.set(accessPath, NONNULL);
     }
+    applyConditionalMethodCallUpdates(thenUpdates, node, callee, state, apContext);
+  }
+
+  /**
+   * Applies conditional updates for method calls on the receiver object when the method invocation
+   * returns {@code true} (e.g. for methods like {@code Class.isArray()}).
+   *
+   * @param thenUpdates updates for the then-branch
+   * @param node the method invocation node
+   * @param callee the method symbol of the callee
+   * @param state the visitor state
+   * @param apContext access path context
+   */
+  private void applyConditionalMethodCallUpdates(
+      AccessPathNullnessPropagation.Updates thenUpdates,
+      MethodInvocationNode node,
+      Symbol.MethodSymbol callee,
+      VisitorState state,
+      AccessPath.AccessPathContext apContext) {
+    ImmutableSet<MethodRef> ensuresNonNullIfTrueMethodCalls =
+        getOptLibraryModels(state.context).ensuresNonNullIfTrueMethodCalls(callee);
+    if (!ensuresNonNullIfTrueMethodCalls.isEmpty()) {
+      Node receiver = node.getTarget().getReceiver();
+      if (receiver != null && callee.owner instanceof Symbol.ClassSymbol classSymbol) {
+        for (MethodRef targetRef : ensuresNonNullIfTrueMethodCalls) {
+          Symbol.MethodSymbol targetMethod = lookupMethodSymbol(classSymbol, targetRef, state);
+          if (targetMethod != null) {
+            AccessPath accessPath =
+                AccessPath.fromBaseAndElement(receiver, targetMethod, apContext);
+            if (accessPath != null) {
+              thenUpdates.set(accessPath, NONNULL);
+            }
+          }
+        }
+      }
+    }
+  }
+
+  /**
+   * Looks up a method symbol matching the given target method reference in the class or its
+   * supertypes.
+   *
+   * @param classSymbol class symbol in which to search for the method
+   * @param targetRef reference to the target method being searched
+   * @param state visitor state
+   * @return matching method symbol, or {@code null} if not found
+   */
+  private static Symbol.@Nullable MethodSymbol lookupMethodSymbol(
+      Symbol.ClassSymbol classSymbol, MethodRef targetRef, VisitorState state) {
+    Name name = state.getName(targetRef.methodName);
+    Types types = state.getTypes();
+    for (Type s : types.closure(classSymbol.type)) {
+      for (Symbol m : s.tsym.members().getSymbolsByName(name)) {
+        if (!(m instanceof Symbol.MethodSymbol msym)) {
+          continue;
+        }
+        if (MethodRef.fromSymbol(msym).equals(targetRef)) {
+          return msym;
+        }
+      }
+    }
+    return null;
   }
 
   private static List<AccessPath> accessPathsAtIndexes(
@@ -974,6 +1036,14 @@ public class LibraryModelsHandler implements Handler {
                 0)
             .build();
 
+    private static final ImmutableSetMultimap<MethodRef, MethodRef>
+        ENSURES_NONNULL_IF_TRUE_METHOD_CALLS =
+            new ImmutableSetMultimap.Builder<MethodRef, MethodRef>()
+                .put(
+                    methodRef("java.lang.Class", "isArray()"),
+                    methodRef("java.lang.Class", "getComponentType()"))
+                .build();
+
     private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
             .put(methodRef("java.lang.Class", "cast(java.lang.Object)"), 0)
@@ -1181,6 +1251,11 @@ public class LibraryModelsHandler implements Handler {
     }
 
     @Override
+    public ImmutableSetMultimap<MethodRef, MethodRef> ensuresNonNullIfTrueMethodCalls() {
+      return ENSURES_NONNULL_IF_TRUE_METHOD_CALLS;
+    }
+
+    @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
       return NULL_IMPLIES_NULL_PARAMETERS;
     }
@@ -1242,6 +1317,8 @@ public class LibraryModelsHandler implements Handler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters;
 
+    private final ImmutableSetMultimap<MethodRef, MethodRef> ensuresNonNullIfTrueMethodCalls;
+
     private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters;
 
     private final ImmutableSet<MethodRef> nullableReturns;
@@ -1280,6 +1357,8 @@ public class LibraryModelsHandler implements Handler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesTrueParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesFalseParametersBuilder =
+          new ImmutableSetMultimap.Builder<>();
+      ImmutableSetMultimap.Builder<MethodRef, MethodRef> ensuresNonNullIfTrueMethodCallsBuilder =
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
@@ -1325,6 +1404,13 @@ public class LibraryModelsHandler implements Handler {
             continue;
           }
           nullImpliesFalseParametersBuilder.put(entry);
+        }
+        for (Map.Entry<MethodRef, MethodRef> entry :
+            libraryModels.ensuresNonNullIfTrueMethodCalls().entries()) {
+          if (shouldSkipModel(entry.getKey())) {
+            continue;
+          }
+          ensuresNonNullIfTrueMethodCallsBuilder.put(entry);
         }
         for (Map.Entry<MethodRef, Integer> entry :
             libraryModels.nullImpliesNullParameters().entries()) {
@@ -1380,6 +1466,7 @@ public class LibraryModelsHandler implements Handler {
       nonNullParameters = nonNullParametersBuilder.build();
       nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
       nullImpliesFalseParameters = nullImpliesFalseParametersBuilder.build();
+      ensuresNonNullIfTrueMethodCalls = ensuresNonNullIfTrueMethodCallsBuilder.build();
       nullImpliesNullParameters = nullImpliesNullParametersBuilder.build();
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
@@ -1426,6 +1513,11 @@ public class LibraryModelsHandler implements Handler {
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
       return nullImpliesFalseParameters;
+    }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, MethodRef> ensuresNonNullIfTrueMethodCalls() {
+      return ensuresNonNullIfTrueMethodCalls;
     }
 
     @Override
@@ -1520,6 +1612,7 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<ImmutableSet<Integer>> nonNullParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesTrueParams;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesFalseParams;
+    private final NameIndexedMap<ImmutableSet<MethodRef>> ensuresNonNullIfTrueMethodCalls;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesNullParams;
     private final NameIndexedMap<Boolean> nullableRet;
     private final NameIndexedMap<Boolean> nonNullRet;
@@ -1530,19 +1623,20 @@ public class LibraryModelsHandler implements Handler {
 
     OptimizedLibraryModels(LibraryModels models, Context context) {
       Names names = Names.instance(context);
-      failIfNullParams = makeOptimizedIntSetLookup(names, models.failIfNullParameters());
+      failIfNullParams = makeOptimizedSetLookup(names, models.failIfNullParameters());
       explicitlyNullableParams =
-          makeOptimizedIntSetLookup(names, models.explicitlyNullableParameters());
-      nonNullParams = makeOptimizedIntSetLookup(names, models.nonNullParameters());
-      nullImpliesTrueParams = makeOptimizedIntSetLookup(names, models.nullImpliesTrueParameters());
-      nullImpliesFalseParams =
-          makeOptimizedIntSetLookup(names, models.nullImpliesFalseParameters());
-      nullImpliesNullParams = makeOptimizedIntSetLookup(names, models.nullImpliesNullParameters());
+          makeOptimizedSetLookup(names, models.explicitlyNullableParameters());
+      nonNullParams = makeOptimizedSetLookup(names, models.nonNullParameters());
+      nullImpliesTrueParams = makeOptimizedSetLookup(names, models.nullImpliesTrueParameters());
+      nullImpliesFalseParams = makeOptimizedSetLookup(names, models.nullImpliesFalseParameters());
+      ensuresNonNullIfTrueMethodCalls =
+          makeOptimizedSetLookup(names, models.ensuresNonNullIfTrueMethodCalls());
+      nullImpliesNullParams = makeOptimizedSetLookup(names, models.nullImpliesNullParameters());
       nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
       nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
-      castToNonNullMethods = makeOptimizedIntSetLookup(names, models.castToNonNullMethods());
+      castToNonNullMethods = makeOptimizedSetLookup(names, models.castToNonNullMethods());
       methodTypeVariablesWithNullableUpperBounds =
-          makeOptimizedIntSetLookup(names, models.methodTypeVariablesWithNullableUpperBounds());
+          makeOptimizedSetLookup(names, models.methodTypeVariablesWithNullableUpperBounds());
       nestedAnnotationsForMethods =
           makeOptimizedNestedAnnotationLookup(names, models.nestedAnnotationsForMethods());
     }
@@ -1575,6 +1669,10 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, nullImpliesFalseParams);
     }
 
+    ImmutableSet<MethodRef> ensuresNonNullIfTrueMethodCalls(Symbol.MethodSymbol symbol) {
+      return lookupImmutableSet(symbol, ensuresNonNullIfTrueMethodCalls);
+    }
+
     ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
       return lookupImmutableSet(symbol, nullImpliesNullParams);
     }
@@ -1594,15 +1692,15 @@ public class LibraryModelsHandler implements Handler {
       return (result == null) ? ImmutableSetMultimap.of() : result;
     }
 
-    private ImmutableSet<Integer> lookupImmutableSet(
-        Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<Integer>> lookup) {
-      ImmutableSet<Integer> result = lookup.get(symbol);
+    private <T> ImmutableSet<T> lookupImmutableSet(
+        Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<T>> lookup) {
+      ImmutableSet<T> result = lookup.get(symbol);
       return (result == null) ? ImmutableSet.of() : result;
     }
 
-    private NameIndexedMap<ImmutableSet<Integer>> makeOptimizedIntSetLookup(
-        Names names, ImmutableSetMultimap<MethodRef, Integer> ref2Ints) {
-      return makeOptimizedLookup(names, ref2Ints.keySet(), ref2Ints::get);
+    private <T> NameIndexedMap<ImmutableSet<T>> makeOptimizedSetLookup(
+        Names names, ImmutableSetMultimap<MethodRef, T> ref2Set) {
+      return makeOptimizedLookup(names, ref2Set.keySet(), ref2Set::get);
     }
 
     private NameIndexedMap<Boolean> makeOptimizedBoolLookup(
