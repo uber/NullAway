@@ -32,6 +32,7 @@ import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
@@ -49,6 +50,7 @@ import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handler.NullnessHint;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -172,6 +174,36 @@ public class AccessPathNullnessPropagation
 
   private final NullnessStoreInitializer nullnessStoreInitializer;
 
+  static class FailingTreePath extends TreePath {
+    public FailingTreePath(CompilationUnitTree tree) {
+      super(tree);
+    }
+
+    @Override
+    public CompilationUnitTree getCompilationUnit() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+
+    @Override
+    public Tree getLeaf() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+
+    @Override
+    public TreePath getParentPath() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+
+    @Override
+    public Iterator<Tree> iterator() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+  }
+
   public AccessPathNullnessPropagation(
       Nullness defaultAssumption,
       VisitorState state,
@@ -180,7 +212,7 @@ public class AccessPathNullnessPropagation
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = analysis::isMethodUnannotated;
-    this.state = state;
+    this.state = state.withPath(new FailingTreePath(state.getPath().getCompilationUnit()));
     this.apContext = apContext;
     this.config = analysis.getConfig();
     this.handler = analysis.getHandler();
@@ -872,8 +904,7 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitReturn(
       ReturnNode returnNode, TransferInput<Nullness, NullnessStore> input) {
-    handler.onDataflowVisitReturn(
-        returnNode.getTree(), state, input.getThenStore(), input.getElseStore());
+    handler.onDataflowVisitReturn(returnNode.getTree(), input.getThenStore(), input.getElseStore());
     return noStoreChanges(NULLABLE, input);
   }
 
@@ -1051,7 +1082,14 @@ public class AccessPathNullnessPropagation
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node, callee, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
+            node,
+            callee,
+            state.withPath(node.getTreePath()),
+            apContext,
+            values(input),
+            thenUpdates,
+            elseUpdates,
+            bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(callee)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);

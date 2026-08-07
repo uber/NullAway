@@ -44,7 +44,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.handlers.AbstractFieldContractHandler;
 import com.uber.nullaway.handlers.MethodAnalysisContext;
 import com.uber.nullaway.handlers.contract.ContractUtils;
-import java.util.HashSet;
+import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -62,10 +62,9 @@ import org.jspecify.annotations.Nullable;
  */
 public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
-  // List of return trees in the method under analysis
-  // This list is built in a way that return trees inside lambdas
-  // or anonymous classes aren't included.
-  private final Set<ReturnTree> returnTreesInMethodUnderAnalysis = new HashSet<>();
+  // Map of return trees in the method under analysis to their paths. This map is built in a way
+  // that return trees inside lambdas or anonymous classes aren't included.
+  private final Map<ReturnTree, TreePath> returnTreePathsInMethodUnderAnalysis = new HashMap<>();
 
   // The MethodTree and MethodAnalysisContext of the EnsureNonNullIf method
   // under current semantic validation
@@ -91,7 +90,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     // clean up state variables, as we are visiting a new annotated method
     methodTreeUnderAnalysis = tree;
     methodAnalysisContextUnderAnalysis = methodAnalysisContext;
-    returnTreesInMethodUnderAnalysis.clear();
+    returnTreePathsInMethodUnderAnalysis.clear();
 
     VisitorState state = methodAnalysisContext.state();
     NullAway analysis = methodAnalysisContext.analysis();
@@ -101,7 +100,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     buildUpReturnToEnclosingMethodMap(state);
 
     // if no returns, then, this method doesn't return boolean, and it's wrong
-    if (returnTreesInMethodUnderAnalysis.isEmpty()) {
+    if (returnTreePathsInMethodUnderAnalysis.isEmpty()) {
       raiseError(
           tree, state, "Method is annotated with @EnsuresNonNullIf but does not return boolean");
       return false;
@@ -116,13 +115,13 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     // Clean up state
     methodTreeUnderAnalysis = null;
     methodAnalysisContextUnderAnalysis = null;
-    returnTreesInMethodUnderAnalysis.clear();
+    returnTreePathsInMethodUnderAnalysis.clear();
 
     return true;
   }
 
   private void buildUpReturnToEnclosingMethodMap(VisitorState methodState) {
-    returnTreesInMethodUnderAnalysis.clear();
+    returnTreePathsInMethodUnderAnalysis.clear();
     new TreePathScanner<@Nullable Void, @Nullable Void>() {
       @Override
       public @Nullable Void visitReturn(ReturnTree node, @Nullable Void unused) {
@@ -134,7 +133,7 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
         // We only add returns that are directly in the method under analysis
         if (enclosingMethod.getLeaf().equals(methodTreeUnderAnalysis)) {
-          returnTreesInMethodUnderAnalysis.add(node);
+          returnTreePathsInMethodUnderAnalysis.put(node, getCurrentPath());
         }
         return super.visitReturn(node, null);
       }
@@ -158,16 +157,19 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree returnTree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
+      ReturnTree returnTree, NullnessStore thenStore, NullnessStore elseStore) {
     // We only explore return statements that is inside
     // the method under validation
-    if (!returnTreesInMethodUnderAnalysis.contains(returnTree)) {
+    TreePath returnTreePath = returnTreePathsInMethodUnderAnalysis.get(returnTree);
+    if (returnTreePath == null) {
       return;
     }
 
     // Get the declared configuration of the EnsureNonNullIf method under analysis
-    Symbol.MethodSymbol methodSymbolUnderAnalysis =
-        NullabilityUtil.castToNonNull(methodAnalysisContextUnderAnalysis).methodSymbol();
+    MethodAnalysisContext methodAnalysisContext =
+        NullabilityUtil.castToNonNull(methodAnalysisContextUnderAnalysis);
+    Symbol.MethodSymbol methodSymbolUnderAnalysis = methodAnalysisContext.methodSymbol();
+    VisitorState state = methodAnalysisContext.state().withPath(returnTreePath);
 
     Set<String> fieldNames = getAnnotationValueArray(methodSymbolUnderAnalysis, annotName, false);
     if (fieldNames == null) {
