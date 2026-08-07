@@ -1084,6 +1084,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * This is primarily a test to ensure we avoid the crash from
+   * https://github.com/uber/NullAway/issues/1680. It may not be a minimal reproducer for the issue.
+   */
   @Test
   public void issue1680NestedLambdaInGenericMethod() {
     makeHelper()
@@ -1095,8 +1099,8 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
             import org.jspecify.annotations.NullMarked;
             """)
-        // This otherwise unused compilation unit is required to reproduce the cache-sensitive
-        // crash. See https://github.com/uber/NullAway/issues/1680.
+        // This otherwise unused compilation unit is required to reproduce the crash. See
+        // https://github.com/uber/NullAway/issues/1680.
         .addSourceLines(
             "repro/Aaa.java",
             """
@@ -1163,6 +1167,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     assertThrows(
                         DomainException.class,
                         () -> factory.create(name, value, TAG, e -> map(e, name, value)));
+                // BUG: Diagnostic contains: passing @Nullable parameter 'exception.getCause()'
                 assertInstanceOf(MapperException.class, exception.getCause());
               }
 
