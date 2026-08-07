@@ -16,6 +16,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Repairs inferred substitutions for method type variables in a call-site type using nested
@@ -36,7 +37,9 @@ final class NestedTypeVarSubstitutionRepairVisitor
   /** symbol of the invoked generic method */
   private final Symbol.MethodSymbol methodSymbol;
 
+  /** visitor state whose path points to {@link #invocationTree} */
   private final VisitorState state;
+
   private final Config config;
   private final boolean calledFromDataflow;
 
@@ -58,6 +61,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method
    * @param methodTypeAtCallSite the method type inferred by javac at the call site
+   * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param config the NullAway configuration
    * @param calledFromDataflow true if the repair is being computed as part of dataflow analysis
@@ -69,6 +73,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      @Nullable TreePath invocationPath,
       VisitorState state,
       Config config,
       boolean calledFromDataflow) {
@@ -77,6 +82,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
             invocationTree,
             origMethodType,
             methodTypeAtCallSite,
+            invocationPath,
             state,
             config,
             calledFromDataflow)
@@ -88,6 +94,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      @Nullable TreePath invocationPath,
       VisitorState state,
       Config config,
       boolean calledFromDataflow) {
@@ -96,7 +103,10 @@ final class NestedTypeVarSubstitutionRepairVisitor
     this.origMethodType = origMethodType;
     this.methodTypeAtCallSite = methodTypeAtCallSite;
     this.methodSymbol = ASTHelpers.getSymbol(invocationTree);
-    this.state = state;
+    this.state =
+        state.withPath(
+            pathWithLeaf(
+                invocationPath != null ? invocationPath : state.getPath(), invocationTree));
     this.config = config;
     this.calledFromDataflow = calledFromDataflow;
   }
@@ -117,7 +127,6 @@ final class NestedTypeVarSubstitutionRepairVisitor
     com.sun.tools.javac.util.List<Type> callSiteParamTypes =
         methodTypeAtCallSite.getParameterTypes();
     List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
-    TreePath pathToInvocation = pathWithLeaf(state.getPath(), invocationTree);
     ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
     boolean changed = false;
     for (int i = 0; i < genericMethodParamTypes.size(); i++) {
@@ -132,7 +141,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
       Type actualArgType =
           genericsChecks.getTreeType(
               actualParam,
-              state.withPath(pathWithLeaf(pathToInvocation, actualParam)),
+              state.withPath(pathWithLeaf(state.getPath(), actualParam)),
               calledFromDataflow);
       if (actualArgType != null) {
         Type repairedType = repairType(genericMethodParamType, actualArgType, callSiteParamType);

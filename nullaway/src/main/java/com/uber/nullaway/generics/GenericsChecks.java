@@ -2564,7 +2564,7 @@ public final class GenericsChecks {
       if (result instanceof InferenceSuccess successResult) {
         methodTypeAtCallSite =
             restoreNestedNullabilityForTypeVarArguments(
-                invocationTree, methodType, methodTypeAtCallSite, state, calledFromDataflow);
+                invocationTree, methodType, methodTypeAtCallSite, path, state, calledFromDataflow);
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -2588,6 +2588,7 @@ public final class GenericsChecks {
    *     parameters whose type is a type variable of the method)
    * @param methodTypeAtCallSite the method type for the generic method as inferred by javac at the
    *     call site
+   * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability
    *     annotations on type variables restored to match those on actual parameters passed at the
@@ -2597,6 +2598,7 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      @Nullable TreePath invocationPath,
       VisitorState state,
       boolean calledFromDataflow) {
     return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
@@ -2604,6 +2606,7 @@ public final class GenericsChecks {
         invocationTree,
         origMethodType,
         methodTypeAtCallSite,
+        invocationPath,
         state,
         config,
         calledFromDataflow);
