@@ -1977,6 +1977,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void overridePreservesSubstitutedNullableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz implements Foo<@Nullable Object> {
+                @Override
+                public <T extends @Nullable Object> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
