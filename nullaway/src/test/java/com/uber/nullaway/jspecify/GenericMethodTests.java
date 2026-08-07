@@ -1392,6 +1392,71 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** This was reduced from some real code in JUnit */
+  @Test
+  public void capturedTypeAtNullUnmarkedBoundary() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            @NullMarked
+            class Test {
+              static class Foo<T> {}
+
+              @NullUnmarked
+              static class Box<T> {}
+
+              @NullUnmarked
+              static class Api {
+                static Box<?> wildcard() {
+                  return null;
+                }
+
+                static <T> Foo<T> convert(Box<T> box) {
+                  return null;
+                }
+              }
+
+              static Foo<?> getReturnType() {
+                var returnType = Api.convert(Api.wildcard());
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable capture of ?> cannot be converted to Foo<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Box)
+                return returnType;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void capturedTypeGetsDirectNullableAnnotationFromTypeVariableUse() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Foo<T extends @Nullable Object> {}
+              static class Holder<T extends @Nullable Object> {
+                Foo<@Nullable T> value;
+
+                Holder(Foo<@Nullable T> value) {
+                  this.value = value;
+                }
+              }
+
+              static Foo<? extends Object> test(Holder<?> holder) {
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable capture of ?> cannot be converted to Foo<? extends Object> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Holder)
+                return holder.value;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** Self-contained test for https://github.com/uber/NullAway/issues/1157. */
   @Test
   public void atomicReferenceFieldUpdaterSelfContained() {
