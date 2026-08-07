@@ -46,6 +46,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.JacocoIgnoreGenerated;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handler.NullnessHint;
@@ -183,24 +184,28 @@ public class AccessPathNullnessPropagation
       super(tree);
     }
 
+    @JacocoIgnoreGenerated
     @Override
     public CompilationUnitTree getCompilationUnit() {
       throw new RuntimeException(
           "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
     }
 
+    @JacocoIgnoreGenerated
     @Override
     public Tree getLeaf() {
       throw new RuntimeException(
           "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
     }
 
+    @JacocoIgnoreGenerated
     @Override
     public TreePath getParentPath() {
       throw new RuntimeException(
           "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
     }
 
+    @JacocoIgnoreGenerated
     @Override
     public Iterator<Tree> iterator() {
       throw new RuntimeException(
