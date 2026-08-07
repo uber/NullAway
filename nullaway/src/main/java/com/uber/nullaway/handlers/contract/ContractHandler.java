@@ -31,15 +31,20 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.dataflow.cfg.NullAwayCFGBuilder;
+import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
+import com.uber.nullaway.handlers.MethodAnalysisContext;
 import java.util.Optional;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.AbstractNodeVisitor;
@@ -116,6 +121,105 @@ public class ContractHandler implements Handler {
       }
     }
     return false;
+  }
+
+  /**
+   * If the referenced method has a {@code @Contract} clause guaranteeing a non-null return value
+   * for the arguments that the functional interface method is going to pass, then the method
+   * reference is a valid implementation of that interface, even though the referenced method is
+   * declared {@code @Nullable}. We record that fact as computed nullness, so that the check in
+   * {@code NullAway#checkOverriding} does not report a spurious {@code WRONG_OVERRIDE_RETURN}
+   * error.
+   *
+   * <p>E.g., a method with the contract {@code "null -> null; !null -> !null"} can be referenced
+   * where a {@code Function<String, String>} is expected in {@code @NullMarked} code, since that
+   * interface never passes null.
+   */
+  @Override
+  public void onMatchMethodReference(
+      MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
+    Symbol.MethodSymbol referencedMethod = methodAnalysisContext.methodSymbol();
+    String[] clauses = ContractUtils.getContractClauses(referencedMethod, config);
+    if (clauses.length == 0) {
+      return;
+    }
+    NullAway analysis = methodAnalysisContext.analysis();
+    VisitorState state = methodAnalysisContext.state();
+    Symbol.MethodSymbol funcInterfaceMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
+    int numParams = referencedMethod.getParameters().size();
+    // We only reason about references whose parameters line up one-to-one with the parameters of
+    // the functional interface method. In particular, this bails out on unbound references, where
+    // the first parameter of the interface method becomes the receiver, and on varargs.
+    if (referencedMethod.isVarArgs()
+        || funcInterfaceMethod.isVarArgs()
+        || funcInterfaceMethod.getParameters().size() != numParams) {
+      return;
+    }
+    for (String clause : clauses) {
+      String[] parts = clause.split("->");
+      if (parts.length != 2 || !parts[1].trim().equals("!null")) {
+        continue;
+      }
+      String[] antecedent = parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
+      if (antecedent.length != numParams) {
+        continue;
+      }
+      boolean guaranteedNonNull = true;
+      for (int i = 0; i < antecedent.length; i++) {
+        String valueConstraint = antecedent[i].trim();
+        if (valueConstraint.equals("_")) {
+          // the clause holds no matter what is passed at this position
+          continue;
+        }
+        if (!valueConstraint.equals("!null")
+            || !funcInterfaceParamIsNonNull(tree, funcInterfaceMethod, i, analysis, state)) {
+          guaranteedNonNull = false;
+          break;
+        }
+      }
+      if (guaranteedNonNull) {
+        analysis.setComputedNullness(tree, Nullness.NONNULL);
+        return;
+      }
+    }
+  }
+
+  /**
+   * Checks whether the functional interface method is guaranteed to pass a non-null value at the
+   * given parameter position. The logic mirrors how {@code NullAway#checkParamOverriding} computes
+   * the nullness of the parameters of the overridden method for a method reference.
+   *
+   * @param tree the method reference
+   * @param funcInterfaceMethod the method of the functional interface being implemented
+   * @param paramIndex index of the parameter
+   * @param analysis a reference to the running NullAway analysis
+   * @param state the visitor state
+   * @return true if the parameter at {@code paramIndex} is known to be non-null
+   */
+  private boolean funcInterfaceParamIsNonNull(
+      MemberReferenceTree tree,
+      Symbol.MethodSymbol funcInterfaceMethod,
+      int paramIndex,
+      NullAway analysis,
+      VisitorState state) {
+    if (Nullness.paramHasNullableAnnotation(funcInterfaceMethod, paramIndex, config)) {
+      return false;
+    }
+    if (config.isJSpecifyMode()) {
+      // The parameter type may be a type variable instantiated with a @Nullable type argument at
+      // this use site, e.g. Function<@Nullable String, String>; ask GenericsChecks about it.
+      GenericsChecks genericsChecks = analysis.getGenericsChecks();
+      Type functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(tree);
+      if (functionalInterfaceType == null) {
+        functionalInterfaceType = ASTHelpers.getType(tree);
+      }
+      return genericsChecks
+          .getGenericMethodParameterNullness(
+              paramIndex, funcInterfaceMethod, functionalInterfaceType, state)
+          .equals(Nullness.NONNULL);
+    }
+    return true;
   }
 
   @Override
