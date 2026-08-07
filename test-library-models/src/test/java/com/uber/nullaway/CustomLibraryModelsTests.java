@@ -620,6 +620,46 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void nestedAnnotationsOnUnboundedWildcardBounds() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.UnboundWildcards;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+
+              UnboundWildcards<? extends Object> testLiteral() {
+                // BUG: Diagnostic contains: incompatible types
+                return UnboundWildcards.literalWildcard();
+              }
+
+              UnboundWildcards<? extends @Nullable Object> testLiteralCompatible() {
+                return UnboundWildcards.literalWildcard();
+              }
+
+              UnboundWildcards<? extends Object> testCaptured(
+                  UnboundWildcards<?> receiver) {
+                // BUG: Diagnostic contains: incompatible types
+                return receiver.self().typeVariable();
+              }
+
+              UnboundWildcards<? extends @Nullable Object> testCapturedCompatible(
+                  UnboundWildcards<?> receiver) {
+                return receiver.self().typeVariable();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void multipleArgs() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
