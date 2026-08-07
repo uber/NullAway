@@ -2341,6 +2341,80 @@ public final class GenericsChecks {
 
     checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams, state);
     checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams, state);
+    checkMethodTypeVariableUpperBoundNullnessForOverriding(
+        tree, overridingMethod, overriddenMethod, state);
+  }
+
+  /**
+   * Checks that corresponding method type variables have the same upper-bound nullability on an
+   * overriding method and the method it overrides.
+   *
+   * <p>Narrowing a {@code @Nullable} upper bound to a non-null upper bound (or the reverse) is
+   * unsound: callers can still instantiate the type variable via the overridden signature. See <a
+   * href="https://github.com/uber/NullAway/issues/1512">issue 1512</a>.
+   *
+   * @param tree tree for the overriding method
+   * @param overridingMethod symbol of the overriding method
+   * @param overriddenMethod symbol of the overridden method
+   * @param state the visitor state
+   */
+  private void checkMethodTypeVariableUpperBoundNullnessForOverriding(
+      MethodTree tree,
+      Symbol.MethodSymbol overridingMethod,
+      Symbol.MethodSymbol overriddenMethod,
+      VisitorState state) {
+    List<Symbol.TypeVariableSymbol> overridingTypeParams = overridingMethod.getTypeParameters();
+    List<Symbol.TypeVariableSymbol> overriddenTypeParams = overriddenMethod.getTypeParameters();
+    // If counts differ, javac would not treat this as a valid override; leave that to the
+    // compiler.
+    if (overridingTypeParams.size() != overriddenTypeParams.size()) {
+      return;
+    }
+    List<? extends Tree> typeParameterTrees = tree.getTypeParameters();
+    for (int i = 0; i < overridingTypeParams.size(); i++) {
+      Symbol.TypeVariableSymbol overridingTv = overridingTypeParams.get(i);
+      Symbol.TypeVariableSymbol overriddenTv = overriddenTypeParams.get(i);
+      boolean overridingNullable =
+          GenericsUtils.upperBoundIsNullable(overridingTv, config, handler, state);
+      boolean overriddenNullable =
+          GenericsUtils.upperBoundIsNullable(overriddenTv, config, handler, state);
+      if (overridingNullable != overriddenNullable) {
+        Tree errorTree = i < typeParameterTrees.size() ? typeParameterTrees.get(i) : tree;
+        reportMismatchedMethodTypeVariableBoundError(
+            errorTree,
+            overridingTv,
+            overridingNullable,
+            overriddenMethod,
+            overriddenNullable,
+            state);
+      }
+    }
+  }
+
+  private void reportMismatchedMethodTypeVariableBoundError(
+      Tree errorTree,
+      Symbol.TypeVariableSymbol overridingTv,
+      boolean overridingNullable,
+      Symbol.MethodSymbol overriddenMethod,
+      boolean overriddenNullable,
+      VisitorState state) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    String overridingBound = overridingNullable ? "@Nullable" : "non-null";
+    String overriddenBound = overriddenNullable ? "@Nullable" : "non-null";
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM_GENERIC,
+            String.format(
+                "Method type variable %s has a %s upper bound, but corresponding type variable of"
+                    + " overridden method %s.%s has a %s upper bound",
+                overridingTv.name,
+                overridingBound,
+                ASTHelpers.enclosingClass(overriddenMethod),
+                overriddenMethod.name,
+                overriddenBound));
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(errorTree), state, null));
   }
 
   /**
