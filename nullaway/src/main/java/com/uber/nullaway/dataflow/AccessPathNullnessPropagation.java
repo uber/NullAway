@@ -174,8 +174,12 @@ public class AccessPathNullnessPropagation
 
   private final NullnessStoreInitializer nullnessStoreInitializer;
 
-  static class FailingTreePath extends TreePath {
-    public FailingTreePath(CompilationUnitTree tree) {
+  /**
+   * A stub {@link TreePath} implementation where every method fails immediately. Used to ensure the
+   * {@link TreePath} stored in {@link #state} is never used.
+   */
+  private static class FailingTreePath extends TreePath {
+    FailingTreePath(CompilationUnitTree tree) {
       super(tree);
     }
 
@@ -212,6 +216,7 @@ public class AccessPathNullnessPropagation
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = analysis::isMethodUnannotated;
+    // Overwrite the TreePath with a FailingTreePath to ensure it never gets used
     this.state = state.withPath(new FailingTreePath(state.getPath().getCompilationUnit()));
     this.apContext = apContext;
     this.config = analysis.getConfig();
