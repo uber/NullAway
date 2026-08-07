@@ -1084,6 +1084,111 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * This is primarily a test to ensure we avoid the crash from
+   * https://github.com/uber/NullAway/issues/1680. It may not be a minimal reproducer for the issue.
+   */
+  @Test
+  public void issue1680NestedLambdaInGenericMethod() {
+    makeHelper()
+        .addSourceLines(
+            "repro/package-info.java",
+            """
+            @NullMarked
+            package repro;
+
+            import org.jspecify.annotations.NullMarked;
+            """)
+        // This otherwise unused compilation unit is required to reproduce the crash. See
+        // https://github.com/uber/NullAway/issues/1680.
+        .addSourceLines(
+            "repro/Aaa.java",
+            """
+            package repro;
+
+            class Aaa {}
+            """)
+        .addSourceLines(
+            "repro/Bbb.java",
+            """
+            package repro;
+
+            import java.util.function.Consumer;
+            import java.util.function.Function;
+
+            class Bbb {
+              record Attr(String name, String value) {}
+
+              record Tag(String code) {}
+
+              interface Box<T> {}
+
+              interface Executable {
+                void execute() throws Throwable;
+              }
+
+              static class MapperException extends Exception {}
+
+              static class Ctx {
+                abstract static class Builder<C extends Ctx, B extends Builder<C, B>> {
+                  abstract B self();
+
+                  B attribute(Attr a) {
+                    return self();
+                  }
+                }
+              }
+
+              static class DomainException extends RuntimeException {
+                static DomainException notValid(
+                    Consumer<Ctx.Builder<?, ? extends Ctx.Builder<?, ?>>> contextCustomizer,
+                    Throwable throwable) {
+                  throw new AssertionError();
+                }
+              }
+
+              static class Factory {
+                <T> Box<T> create(
+                    String name,
+                    String rawValue,
+                    Tag tag,
+                    Function<MapperException, DomainException> exceptionMapper) {
+                  throw new AssertionError();
+                }
+              }
+
+              private static final Tag TAG = new Tag("t");
+              private final Factory factory = new Factory();
+
+              void trigger() {
+                var name = "n";
+                var value = "v";
+                var exception =
+                    assertThrows(
+                        DomainException.class,
+                        () -> factory.create(name, value, TAG, e -> map(e, name, value)));
+                // BUG: Diagnostic contains: passing @Nullable parameter 'exception.getCause()'
+                assertInstanceOf(MapperException.class, exception.getCause());
+              }
+
+              private static <T extends Throwable> T assertThrows(
+                  Class<T> expectedType, Executable executable) {
+                throw new AssertionError();
+              }
+
+              private static <T> T assertInstanceOf(Class<T> expectedType, Object actualValue) {
+                throw new AssertionError();
+              }
+
+              private static DomainException map(MapperException e, String name, String value) {
+                return DomainException.notValid(
+                    contextCustomizer -> contextCustomizer.attribute(new Attr(name, value)), e);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** Reduced from a crash observed when building JUnit on JDK 27; testing that we do not crash */
   @Test
   public void crasherOnJdk27() {
