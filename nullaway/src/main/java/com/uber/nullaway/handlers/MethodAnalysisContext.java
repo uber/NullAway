@@ -25,63 +25,10 @@ package com.uber.nullaway.handlers;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Symbol.MethodSymbol;
 import com.uber.nullaway.NullAway;
-import java.util.Objects;
-import org.jspecify.annotations.Nullable;
 
 /**
  * Context object for checks on methods. Contains the {@link NullAway} instance, the {@link
  * MethodSymbol} for the method being analyzed, and the {@link VisitorState} for the analysis.
  */
-public class MethodAnalysisContext {
-  private final NullAway analysis;
-  private final MethodSymbol methodSymbol;
-  private final VisitorState state;
-
-  public NullAway analysis() {
-    return analysis;
-  }
-
-  public VisitorState state() {
-    return state;
-  }
-
-  public MethodSymbol methodSymbol() {
-    return methodSymbol;
-  }
-
-  @Override
-  public boolean equals(@Nullable Object o) {
-    if (this == o) {
-      return true;
-    }
-    if (o == null || !(o instanceof MethodAnalysisContext that)) {
-      return false;
-    }
-    return analysis.equals(that.analysis)
-        && state.equals(that.state)
-        && methodSymbol.equals(that.methodSymbol);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(analysis, state, methodSymbol);
-  }
-
-  @Override
-  public String toString() {
-    return "MethodAnalysisContext{"
-        + "analysis="
-        + analysis
-        + ", state="
-        + state
-        + ", methodSymbol="
-        + methodSymbol
-        + '}';
-  }
-
-  public MethodAnalysisContext(NullAway analysis, VisitorState state, MethodSymbol methodSymbol) {
-    this.analysis = analysis;
-    this.state = state;
-    this.methodSymbol = methodSymbol;
-  }
-}
+public record MethodAnalysisContext(
+    NullAway analysis, VisitorState state, MethodSymbol methodSymbol) {}

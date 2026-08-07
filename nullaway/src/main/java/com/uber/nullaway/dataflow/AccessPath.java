@@ -659,56 +659,9 @@ public final class AccessPath implements MapKey {
     return NullabilityUtil.isMapMethod(symbol, state, "computeIfAbsent", 2);
   }
 
-  private static final class StringMapKey implements MapKey {
+  private record StringMapKey(String key) implements MapKey {}
 
-    private final String key;
-
-    StringMapKey(String key) {
-      this.key = key;
-    }
-
-    @Override
-    public int hashCode() {
-      return this.key.hashCode();
-    }
-
-    @Override
-    public boolean equals(@Nullable Object obj) {
-      if (obj instanceof StringMapKey stringMapKey) {
-        return this.key.equals(stringMapKey.key);
-      }
-      return false;
-    }
-  }
-
-  private static final class NumericMapKey implements MapKey {
-
-    private final long key;
-
-    NumericMapKey(long key) {
-      this.key = key;
-    }
-
-    @Override
-    public int hashCode() {
-      return Long.hashCode(this.key);
-    }
-
-    /**
-     * We ignore this method for code coverage since there is non-determinism somewhere deep in a
-     * Map implementation such that, depending on how AccessPaths get bucketed in the Map (which
-     * depends on non-deterministic hash codes), sometimes this method is called and sometimes it is
-     * not.
-     */
-    @Override
-    @JacocoIgnoreGenerated
-    public boolean equals(@Nullable Object obj) {
-      if (obj instanceof NumericMapKey numericMapKey) {
-        return this.key == numericMapKey.key;
-      }
-      return false;
-    }
-  }
+  private record NumericMapKey(long key) implements MapKey {}
 
   /**
    * Represents all possible values that could be returned by calling {@code next()} on an {@code

@@ -21,30 +21,16 @@
  */
 package com.uber.nullaway.tools;
 
+import com.uber.nullaway.fixserialization.out.FieldInitializationInfo;
 import java.util.Objects;
 
 /**
- * Helper class to represent a {@link
- * com.uber.nullaway.fixserialization.out.FieldInitializationInfo} contents in a test case's
- * (expected or actual) output.
+ * Helper class to represent a {@link FieldInitializationInfo} contents in a test case's (expected
+ * or actual) output.
  */
-public class FieldInitDisplay implements Display {
-  public final String method;
-  public final String param;
-  public final String location;
-  public final String className;
-  public final String field;
-  public final String path;
-
-  public FieldInitDisplay(
-      String field, String method, String param, String location, String className, String path) {
-    this.field = field;
-    this.method = method;
-    this.param = param;
-    this.location = location;
-    this.className = className;
-    this.path = path;
-  }
+public record FieldInitDisplay(
+    String field, String method, String param, String location, String className, String path)
+    implements Display {
 
   @Override
   public boolean equals(Object o) {
@@ -60,11 +46,6 @@ public class FieldInitDisplay implements Display {
         && Objects.equals(className, that.className)
         && Objects.equals(field, that.field)
         && SerializationTestHelper.pathsAreEqual(path, that.path);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(method, param, location, className, field, path);
   }
 
   @Override

@@ -1489,17 +1489,11 @@ public class LibraryModelsHandler implements Handler {
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
      * name as an optimization. The {@link Name} data structure is used to avoid unnecessary String
-     * conversions when looking up {@link com.sun.tools.javac.code.Symbol.MethodSymbol}s.
+     * conversions when looking up {@link Symbol.MethodSymbol}s.
      *
      * @param <T> the type of the associated state.
      */
-    private static class NameIndexedMap<T> {
-
-      private final Map<Name, Map<MethodRef, T>> state;
-
-      NameIndexedMap(Map<Name, Map<MethodRef, T>> state) {
-        this.state = state;
-      }
+    private record NameIndexedMap<T>(Map<Name, Map<MethodRef, T>> state) {
 
       @Nullable T get(Symbol.MethodSymbol symbol) {
         Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
