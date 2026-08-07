@@ -22,50 +22,28 @@
 package com.uber.nullaway.tools.version1;
 
 import com.google.common.base.Preconditions;
+import com.uber.nullaway.fixserialization.out.ErrorInfo;
 import com.uber.nullaway.tools.Display;
 import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.SerializationTestHelper;
-import java.util.Objects;
 
 /**
  * Helper class to test backward compatibility of different serialization versions and to represent
- * a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in a test case's (expected or
- * actual) output <strong>specifically for serialization version 1.</strong>
+ * a {@link ErrorInfo} contents in a test case's (expected or actual) output <strong>specifically
+ * for serialization version 1.</strong>
  */
-public class ErrorDisplayV1 implements Display {
-  public final String type;
-  public final String message;
-  public final String encMember;
-  public final String encClass;
-  public final String kind;
-  public final String clazz;
-  public final String method;
-  public final String variable;
-  public final String index;
-  public final String path;
-
-  public ErrorDisplayV1(
-      String type,
-      String message,
-      String encClass,
-      String encMember,
-      String kind,
-      String clazz,
-      String method,
-      String variable,
-      String index,
-      String path) {
-    this.type = type;
-    this.message = message;
-    this.encMember = encMember;
-    this.encClass = encClass;
-    this.kind = kind;
-    this.clazz = clazz;
-    this.method = method;
-    this.variable = variable;
-    this.index = index;
-    this.path = path;
-  }
+public record ErrorDisplayV1(
+    String type,
+    String message,
+    String encClass,
+    String encMember,
+    String kind,
+    String clazz,
+    String method,
+    String variable,
+    String index,
+    String path)
+    implements Display {
 
   public ErrorDisplayV1(String type, String message, String encClass, String encMember) {
     this(type, message, encClass, encMember, "null", "null", "null", "null", "null", "null");
@@ -91,12 +69,6 @@ public class ErrorDisplayV1 implements Display {
         && variable.equals(that.variable)
         && index.equals(that.index)
         && SerializationTestHelper.pathsAreEqual(path, that.path);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        type, message, encMember, encClass, kind, clazz, method, variable, index, path);
   }
 
   @Override

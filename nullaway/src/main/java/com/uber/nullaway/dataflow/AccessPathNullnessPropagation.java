@@ -1286,15 +1286,7 @@ public class AccessPathNullnessPropagation
     public Nullness valueOfSubNode(Node node);
   }
 
-  private static final class ResultingStore {
-    final NullnessStore store;
-    final boolean storeChanged;
-
-    ResultingStore(NullnessStore store, boolean storeChanged) {
-      this.store = store;
-      this.storeChanged = storeChanged;
-    }
-  }
+  private record ResultingStore(NullnessStore store, boolean storeChanged) {}
 
   /** Represents a set of updates to be applied to the NullnessStore. */
   public interface Updates {

@@ -35,7 +35,6 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
-import java.util.Objects;
 import java.util.Optional;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
@@ -109,35 +108,8 @@ public class ApacheThriftIsSetHandler implements Handler {
     }
   }
 
-  private static final class FieldAndGetterElements {
-
-    final @Nullable Element fieldElem;
-
-    final @Nullable Element getterElem;
-
-    FieldAndGetterElements(@Nullable Element fieldElem, @Nullable Element getterElem) {
-      this.fieldElem = fieldElem;
-      this.getterElem = getterElem;
-    }
-
-    @Override
-    public boolean equals(@Nullable Object o) {
-      if (this == o) {
-        return true;
-      }
-      if (o == null || getClass() != o.getClass()) {
-        return false;
-      }
-      FieldAndGetterElements that = (FieldAndGetterElements) o;
-      return Objects.equals(fieldElem, that.fieldElem)
-          && Objects.equals(getterElem, that.getterElem);
-    }
-
-    @Override
-    public int hashCode() {
-      return Objects.hash(fieldElem, getterElem);
-    }
-  }
+  private record FieldAndGetterElements(
+      @Nullable Element fieldElem, @Nullable Element getterElem) {}
 
   /**
    * Returns the field (if it exists and is visible) and the getter for a property. If the field is

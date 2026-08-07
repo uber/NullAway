@@ -163,10 +163,7 @@ public class XMLUtil {
   }
 
   /** Helper class for setting default values when the key is not found. */
-  static class DefaultXMLValueProvider<T> {
-    final @Nullable Object value;
-    final Class<T> klass;
-
+  record DefaultXMLValueProvider<T>(@Nullable Object value, Class<T> klass) {
     DefaultXMLValueProvider(@Nullable Object value, Class<T> klass) {
       this.klass = klass;
       if (value == null) {
