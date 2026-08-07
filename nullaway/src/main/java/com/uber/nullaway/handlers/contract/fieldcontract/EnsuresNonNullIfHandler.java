@@ -120,6 +120,11 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     return true;
   }
 
+  /**
+   * Performs a scan of a method to find its {@link ReturnTree}s, excluding returns within nested
+   * lambdas or anonymous classes. Updates {@link #returnTreePathsInMethodUnderAnalysis} to map each
+   * such {@link ReturnTree} to its {@link TreePath}.
+   */
   private void buildUpReturnToEnclosingMethodMap(VisitorState methodState) {
     returnTreePathsInMethodUnderAnalysis.clear();
     new TreePathScanner<@Nullable Void, @Nullable Void>() {
