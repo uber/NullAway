@@ -36,6 +36,7 @@ import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
@@ -1164,9 +1165,14 @@ public class AccessPathNullnessPropagation
     if (node != null && config.isJSpecifyMode()) {
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
+        TreePath pathToInvocation = node.getTreePath();
+        // The path stored in the `state` field may have originated from an entirely different
+        // compilation unit; it's important to pass a `VisitorState` with an updated path here.  See
+        // https://github.com/uber/NullAway/issues/1680
+        VisitorState stateWithUpdatedPath = state.withPath(pathToInvocation);
         Nullness nullness =
             genericsChecks.getGenericReturnNullnessAtInvocation(
-                ASTHelpers.getSymbol(tree), tree, node.getTreePath(), state, true);
+                ASTHelpers.getSymbol(tree), tree, pathToInvocation, stateWithUpdatedPath, true);
         return nullness.equals(NULLABLE);
       }
     }
@@ -1280,15 +1286,7 @@ public class AccessPathNullnessPropagation
     public Nullness valueOfSubNode(Node node);
   }
 
-  private static final class ResultingStore {
-    final NullnessStore store;
-    final boolean storeChanged;
-
-    ResultingStore(NullnessStore store, boolean storeChanged) {
-      this.store = store;
-      this.storeChanged = storeChanged;
-    }
-  }
+  private record ResultingStore(NullnessStore store, boolean storeChanged) {}
 
   /** Represents a set of updates to be applied to the NullnessStore. */
   public interface Updates {

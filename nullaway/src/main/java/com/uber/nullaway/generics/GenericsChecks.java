@@ -84,20 +84,14 @@ public final class GenericsChecks {
    * Indicates successful inference of nullability of type variables at a call. Stores the inferred
    * type variable nullability.
    */
-  private static final class InferenceSuccess implements MethodInferenceResult {
-    final Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
-
-    InferenceSuccess(Map<Element, ConstraintSolver.InferredNullability> typeVarNullability) {
-      this.typeVarNullability = typeVarNullability;
-    }
-  }
+  private record InferenceSuccess(
+      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability)
+      implements MethodInferenceResult {}
 
   /** Indicates failed inference of nullability of type variables at a call */
-  private static final class InferenceFailure implements MethodInferenceResult {
-    @SuppressWarnings("UnusedVariable") // keep this as it may be useful in the future
-    final @Nullable String errorMessage;
-
-    InferenceFailure(@Nullable String errorMessage) {
+  private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
+      implements MethodInferenceResult {
+    private InferenceFailure(@Nullable String errorMessage) {
       this.errorMessage = errorMessage;
     }
   }

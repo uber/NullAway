@@ -306,13 +306,12 @@ public class OptionalEmptinessHandler implements Handler {
    * <p>Instances of this type should be accessed using {@link #instance(Context)}, not instantiated
    * directly.
    */
-  private static final class OptionalContentVariableElement implements VariableElement {
+  private record OptionalContentVariableElement(Name name, TypeMirror asType)
+      implements VariableElement {
     static final Context.Key<OptionalContentVariableElement> contextKey = new Context.Key<>();
 
     private static final ImmutableSet<Modifier> MODIFIERS =
         ImmutableSet.of(Modifier.PUBLIC, Modifier.FINAL);
-    private final Name name;
-    private final TypeMirror asType;
 
     static synchronized VariableElement instance(Context context) {
       OptionalContentVariableElement instance = context.get(contextKey);
@@ -323,11 +322,6 @@ public class OptionalEmptinessHandler implements Handler {
         context.put(contextKey, instance);
       }
       return instance;
-    }
-
-    private OptionalContentVariableElement(Name name, TypeMirror asType) {
-      this.name = name;
-      this.asType = asType;
     }
 
     @Override
@@ -373,11 +367,6 @@ public class OptionalEmptinessHandler implements Handler {
     @Override
     public <R, P> R accept(ElementVisitor<R, P> elementVisitor, P p) {
       return elementVisitor.visitVariable(this, p);
-    }
-
-    @Override
-    public TypeMirror asType() {
-      return asType;
     }
 
     @Override
