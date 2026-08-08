@@ -97,7 +97,7 @@ public class TypeSubstitutionUtilsTests {
         case CAPTURED_TYPE_METADATA_FIELD ->
             checkCapturedTypeMetadataCopy(testTypeContext, tree, state);
         default -> {
-          return NO_MATCH;
+          throw new RuntimeException("Unknown field name: " + fieldName);
         }
       }
       return NO_MATCH;
