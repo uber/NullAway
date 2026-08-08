@@ -355,6 +355,7 @@ public class DefinitelyDerefedParamsDriver {
 
   private boolean shouldCheckMethod(IMethod mtd) {
     return !mtd.isPrivate()
+        && !mtd.isSynthetic()
         && !mtd.isAbstract()
         && !mtd.isNative()
         && !isAllPrimitiveTypes(mtd)

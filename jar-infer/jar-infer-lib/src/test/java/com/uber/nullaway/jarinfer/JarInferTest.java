@@ -579,6 +579,31 @@ public class JarInferTest {
   }
 
   @Test
+  public void syntheticMethodsAreSkipped() throws Exception {
+    compilationTestHelper =
+        CompilationTestHelper.newInstance(DummyChecker.class, getClass())
+            .setArgs(
+                Arrays.asList("-d", temporaryFolder.getRoot().getAbsolutePath(), "--release", "8"));
+    testTemplate(
+        "syntheticMethodsAreSkipped",
+        "syntheticmethods",
+        "Test",
+        ImmutableMap.of(
+            "syntheticmethods.Test:int dereference(syntheticmethods.Test)", Sets.newHashSet(0)),
+        "public class Test {",
+        "  private String value;",
+        "  public static int dereference(Test test) {",
+        "    return test.value.length();",
+        "  }",
+        "  public static class Nested {",
+        "    public static String getValue(Test test) {",
+        "      return test.value;",
+        "    }",
+        "  }",
+        "}");
+  }
+
+  @Test
   public void toyJARAnnotatingClasses() throws Exception {
     testAnnotationInJarTemplate(
         "toyJARAnnotatingClasses",
