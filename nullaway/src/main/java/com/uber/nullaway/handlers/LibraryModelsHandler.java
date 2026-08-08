@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -1669,8 +1668,8 @@ public class LibraryModelsHandler implements Handler {
 
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
     private final Set<String> nullMarkedClassesCache;
-    private final Map<String, Integer> upperBoundsCache;
-    private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
+    private final SetMultimap<String, Integer> upperBoundsCache;
+    private final SetMultimap<String, Integer> methodTypeParamNullableUpperBoundCache;
     private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
 
     ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
@@ -1746,7 +1745,7 @@ public class LibraryModelsHandler implements Handler {
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       ImmutableSetMultimap.Builder<String, Integer> mapBuilder =
           new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Integer> entry : upperBoundsCache.entrySet()) {
+      for (Map.Entry<String, Integer> entry : upperBoundsCache.entries()) {
         mapBuilder.put(entry.getKey(), entry.getValue());
       }
       return mapBuilder.build();

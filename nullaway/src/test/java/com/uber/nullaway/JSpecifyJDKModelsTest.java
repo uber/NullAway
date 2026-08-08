@@ -94,4 +94,25 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void biConsumerNullableUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.function.*;
+            @NullMarked
+            class Test {
+              @Nullable BiConsumer<@Nullable Object, @Nullable Object> b = null;
+            }
+            """)
+        .doTest();
+  }
+
+  private CompilationTestHelper makeHelper() {
+    return makeTestHelperWithArgs(
+        JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
+  }
 }
