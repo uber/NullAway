@@ -94,7 +94,11 @@ final class GenericTypePrettyPrintingVisitor
 
   @Override
   public String visitCapturedType(Type.CapturedType t, @Nullable Void s) {
-    return t.wildcard.accept(this, null);
+    StringBuilder sb = new StringBuilder();
+    appendNullableAnnotationIfPresent(t, sb);
+    sb.append("capture of ");
+    sb.append(t.wildcard.accept(this, null));
+    return sb.toString();
   }
 
   @Override
