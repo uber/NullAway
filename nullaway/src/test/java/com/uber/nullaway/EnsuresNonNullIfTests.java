@@ -1012,4 +1012,33 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
         .doTest();
   }
+
+  @Test
+  public void invalidContractCanBeSuppressed() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Foo {
+              @Nullable Item nullableItem;
+              @SuppressWarnings("NullAway")
+              @EnsuresNonNullIf("nullableItem")
+              boolean hasNullableItem() {
+                return true;
+              }
+            }
+            """)
+        .addSourceLines(
+            "Item.java",
+            """
+            package com.uber;
+            class Item {
+              public void call() { }
+            }
+            """)
+        .doTest();
+  }
 }

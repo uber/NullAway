@@ -683,7 +683,7 @@ class StreamNullabilityPropagator implements Handler {
 
   @Override
   public void onDataflowVisitReturn(
-      ReturnTree tree, VisitorState state, NullnessStore thenStore, NullnessStore elseStore) {
+      ReturnTree tree, NullnessStore thenStore, NullnessStore elseStore) {
     Tree filterTree = returnToEnclosingMethodOrLambda.get(tree);
     if (filterTree != null) {
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
