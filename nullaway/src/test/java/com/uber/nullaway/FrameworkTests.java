@@ -255,6 +255,49 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void defaultLibraryModelsClassIsArray() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            public class Test {
+              int classIsArray(Class<?> clazz) {
+                if (clazz.isArray()) {
+                  return clazz.getComponentType().hashCode();
+                } else {
+                  // BUG: Diagnostic contains: dereferenced
+                  return clazz.getComponentType().hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void interfaceLibraryModelMethodCall() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.CustomInterface;
+            public class Test {
+              int interfaceMethodCall(CustomInterface c) {
+                if (c.hasContent()) {
+                  return c.getContent().hashCode();
+                } else {
+                  // BUG: Diagnostic contains: dereferenced
+                  return c.getContent().hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void checkForNullSupport() {
     defaultCompilationHelper
         // This is just to check the behavior is the same between @Nullable and @CheckForNull
