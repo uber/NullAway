@@ -1123,6 +1123,41 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void annotationRestorationForFBoundedWildcardPreservesInferredNullableTypeArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Value<V extends Value<V>> {}
+              interface Store<S extends Store<S>> {}
+              interface Transfer<V extends Value<V>, S extends Store<S>> {}
+              static class Analysis<
+                  V extends Value<V>,
+                  S extends Store<S>,
+                  T extends Transfer<V, S>,
+                  R extends @Nullable Object> {
+                R value() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <R extends @Nullable Object> Analysis<?, ?, ?, R> make(R value) {
+                throw new UnsupportedOperationException();
+              }
+              void test() {
+                make(new Object()).value().hashCode();
+                // BUG: Diagnostic contains: dereferenced expression 'make(null).value()' is @Nullable
+                make(null).value().hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /** ensures we avoid a crash related to wildcards when wildcard handling is disabled */
   @Test
   public void methodRefParameterSuperWildcardWithHandlingDisabled() {
