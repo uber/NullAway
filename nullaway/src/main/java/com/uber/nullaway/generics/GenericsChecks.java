@@ -2341,6 +2341,177 @@ public final class GenericsChecks {
 
     checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams, state);
     checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams, state);
+    checkMethodTypeVariableUpperBoundNullnessForOverriding(
+        tree, overridingMethod, overriddenMethod, methodWithTypeParams, state);
+  }
+
+  /**
+   * Checks that corresponding method type variables have the same upper-bound nullability on an
+   * overriding method and the method it overrides.
+   *
+   * <p>Narrowing a {@code @Nullable} upper bound to a non-null upper bound (or the reverse) is
+   * unsound: callers can still instantiate the type variable via the overridden signature. See <a
+   * href="https://github.com/uber/NullAway/issues/1512">issue 1512</a>.
+   *
+   * <p>Overridden method type-variable bounds are read from {@code overriddenMethodType}, the
+   * overridden method type after member-type substitution in the overriding class context. That
+   * ensures bounds that reference enclosing-class type variables are compared after those variables
+   * have been instantiated (e.g. {@code <T extends X>} on {@code Foo<X>} becomes {@code <T
+   * extends @Nullable Object>} when overriding in a {@code Foo<@Nullable Object>} subtype).
+   *
+   * <p>Overrides of methods from {@code @NullUnmarked} / unannotated code are skipped: method
+   * type-variable bound nullness is not specified there, and treating unmarked bounds as nullable
+   * would false-positive against typical {@code <T>} overrides in marked code.
+   *
+   * @param tree tree for the overriding method
+   * @param overridingMethod symbol of the overriding method
+   * @param overriddenMethod symbol of the overridden method
+   * @param overriddenMethodType type of the overridden method after member-type substitution in the
+   *     overriding class context
+   * @param state the visitor state
+   */
+  private void checkMethodTypeVariableUpperBoundNullnessForOverriding(
+      MethodTree tree,
+      Symbol.MethodSymbol overridingMethod,
+      Symbol.MethodSymbol overriddenMethod,
+      Type overriddenMethodType,
+      VisitorState state) {
+    if (CodeAnnotationInfo.instance(state.context)
+        .isSymbolUnannotated(overriddenMethod, config, handler)) {
+      return;
+    }
+    List<Symbol.TypeVariableSymbol> overridingTypeParams = overridingMethod.getTypeParameters();
+    com.sun.tools.javac.util.List<Type> overriddenTypeVars =
+        getMethodTypeVariables(overriddenMethodType);
+    // If counts differ, javac would not treat this as a valid override; leave that to the
+    // compiler.
+    if (overridingTypeParams.size() != overriddenTypeVars.size()) {
+      return;
+    }
+    List<? extends Tree> typeParameterTrees = tree.getTypeParameters();
+    for (int i = 0; i < overridingTypeParams.size(); i++) {
+      Symbol.TypeVariableSymbol overridingTv = overridingTypeParams.get(i);
+      Type overriddenTypeVar = overriddenTypeVars.get(i);
+      boolean overridingNullable =
+          GenericsUtils.upperBoundIsNullable(overridingTv, config, handler, state);
+      boolean overriddenNullable =
+          substitutedMethodTypeVarUpperBoundIsNullable(
+              overriddenTypeVar, overriddenMethod, i, state);
+      if (overridingNullable != overriddenNullable) {
+        Tree errorTree = i < typeParameterTrees.size() ? typeParameterTrees.get(i) : tree;
+        reportMismatchedMethodTypeVariableBoundError(
+            errorTree,
+            overridingTv,
+            overridingNullable,
+            overriddenMethod,
+            overriddenNullable,
+            state);
+      }
+    }
+  }
+
+  /**
+   * Returns the method type variables of {@code methodType}, or an empty list if the method has
+   * none.
+   *
+   * <p>Generic methods are represented as {@link Type.ForAll}; non-generic methods have no type
+   * variables to compare for this check.
+   */
+  private static com.sun.tools.javac.util.List<Type> getMethodTypeVariables(Type methodType) {
+    if (methodType instanceof Type.ForAll forAll) {
+      return forAll.tvars;
+    }
+    return com.sun.tools.javac.util.List.nil();
+  }
+
+  /**
+   * Returns whether the upper bound of a method type variable, viewed after member-type
+   * substitution in the overriding class, should be treated as nullable.
+   *
+   * <p>Prefers annotations / nullability of the substituted bound so enclosing-class type variables
+   * are accounted for. Falls back to library models for the original type variable index when
+   * present.
+   *
+   * @param substitutedTypeVar type variable from the overridden method type after substitution
+   * @param overriddenMethod symbol of the overridden method (for library models)
+   * @param typeVarIndex index of the type variable on the overridden method
+   * @param state the visitor state
+   */
+  private boolean substitutedMethodTypeVarUpperBoundIsNullable(
+      Type substitutedTypeVar,
+      Symbol.MethodSymbol overriddenMethod,
+      int typeVarIndex,
+      VisitorState state) {
+    if (handler.onOverrideMethodTypeVariableUpperBound(overriddenMethod, typeVarIndex, state)) {
+      return true;
+    }
+    if (!(substitutedTypeVar instanceof Type.TypeVar typeVar)) {
+      // Unexpected representation; treat conservatively as non-null so we do not emit a
+      // mismatched-bound warning based on incomplete information.
+      return false;
+    }
+    Type upperBound = typeVar.getUpperBound();
+    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return true;
+    }
+    // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
+    // In that case, use the declaration-site nullability of that type variable's upper bound.
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    }
+    // javac member-type substitution can drop type-use annotations on method type-variable
+    // bounds. If the original bound was a concrete type with an explicit @Nullable, honor that
+    // declaration. Do not consult original bounds that are still type variables — those must be
+    // resolved via substitution (or the free type-var path above).
+    List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
+    if (typeVarIndex >= 0 && typeVarIndex < originalTypeParams.size()) {
+      Type originalBound =
+          (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
+      if (originalBound.getKind() != TypeKind.TYPEVAR
+          && Nullness.hasNullableAnnotation(
+              originalBound.getAnnotationMirrors().stream(), config)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Reports an error when an overriding method's type variable has a different upper-bound
+   * nullability than the corresponding type variable of the overridden method.
+   *
+   * @param errorTree tree to attach the diagnostic to (usually the overriding type parameter)
+   * @param overridingTv type variable of the overriding method
+   * @param overridingNullable whether the overriding type variable's upper bound is nullable
+   * @param overriddenMethod symbol of the overridden method
+   * @param overriddenNullable whether the overridden type variable's upper bound is nullable (in
+   *     the overriding class context)
+   * @param state the visitor state
+   */
+  private void reportMismatchedMethodTypeVariableBoundError(
+      Tree errorTree,
+      Symbol.TypeVariableSymbol overridingTv,
+      boolean overridingNullable,
+      Symbol.MethodSymbol overriddenMethod,
+      boolean overriddenNullable,
+      VisitorState state) {
+    ErrorBuilder errorBuilder = analysis.getErrorBuilder();
+    String overridingBound = overridingNullable ? "@Nullable" : "non-null";
+    String overriddenBound = overriddenNullable ? "@Nullable" : "non-null";
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.WRONG_OVERRIDE_PARAM_GENERIC,
+            String.format(
+                "Method type variable %s has a %s upper bound, but corresponding type variable of"
+                    + " overridden method %s.%s has a %s upper bound",
+                overridingTv.name,
+                overridingBound,
+                ASTHelpers.enclosingClass(overriddenMethod),
+                overriddenMethod.name,
+                overriddenBound));
+    state.reportMatch(
+        errorBuilder.createErrorDescription(
+            errorMessage, analysis.buildDescription(errorTree), state, null));
   }
 
   /**
