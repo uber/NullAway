@@ -91,6 +91,18 @@ public class ReturnAnnotation {
     return new String[] {"populated", "value", null};
   }
 
+  public static String[] returnNullableArray() {
+    return null;
+  }
+
+  public static String[] returnNullableElements() {
+    return new String[] {"value", null};
+  }
+
+  public static String[] returnNullableArrayAndElements() {
+    return null;
+  }
+
   @SuppressWarnings({"unchecked", "rawtypes"})
   public static List<Integer>[] nestedAnnotMixed() {
     // inner list

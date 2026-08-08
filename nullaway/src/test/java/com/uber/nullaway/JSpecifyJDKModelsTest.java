@@ -3,6 +3,7 @@ package com.uber.nullaway;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -107,6 +108,27 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             class Test {
               // test that we can make both type arguments @Nullable
               @Nullable BiConsumer<@Nullable Object, @Nullable Object> b = null;
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("We need to re-generate JSpecify JDK models before this will work")
+  @Test
+  public void nullableArrayContents() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.text.*;
+            @NullMarked
+            class Test {
+              MessageFormat getMsgFormat() { throw new RuntimeException(); }
+              void test() {
+                @Nullable Format[] formats = getMsgFormat().getFormatsByArgumentIndex();
+                System.out.println(formats.length);
+              }
             }
             """)
         .doTest();

@@ -314,6 +314,46 @@ public class JDKIntegrationTest {
   }
 
   @Test
+  public void arrayReturnsNullableArrayVsElements() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              void test() {
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableArray()' is @Nullable
+                int nullableArrayLength = ReturnAnnotation.returnNullableArray().length;
+                String @Nullable [] nullableArray = ReturnAnnotation.returnNullableArray();
+                if (nullableArray != null) {
+                  nullableArray[0].length();
+                }
+
+                int nullableElementsLength = ReturnAnnotation.returnNullableElements().length;
+                // BUG: Diagnostic contains: incompatible types
+                String[] nullableElements = ReturnAnnotation.returnNullableElements();
+
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableArrayAndElements()' is @Nullable
+                int nullableArrayAndElementsLength = ReturnAnnotation.returnNullableArrayAndElements().length;
+                // BUG: Diagnostic contains: incompatible types
+                String @Nullable [] nullableArrayAndElements =
+                    ReturnAnnotation.returnNullableArrayAndElements();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableGenericArrayTest() {
     compilationHelper
         .setArgs(
