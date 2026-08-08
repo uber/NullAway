@@ -478,6 +478,49 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void annotationRestoredFromUpperBoundToCapturedUnboundedWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Nested<T extends @Nullable Object> {
+                Nested<T> self() {
+                  return this;
+                }
+                Nested<? extends @Nullable T> wildcardUpperTypeVariable() {
+                  throw new RuntimeException();
+                }
+              }
+
+              Nested<? extends Object> testDirect(Nested<?> receiver) {
+                // BUG: Diagnostic contains: incompatible types
+                return receiver.wildcardUpperTypeVariable();
+              }
+
+              Nested<? extends Object> testWithSelf(Nested<?> receiver) {
+                // BUG: Diagnostic contains: incompatible types
+                return receiver.self().wildcardUpperTypeVariable();
+              }
+
+              Nested<? extends Object> testWithVar(Nested<?> receiver) {
+                var local = receiver;
+                // BUG: Diagnostic contains: incompatible types
+                return local.wildcardUpperTypeVariable();
+              }
+
+              Nested<? extends @Nullable Object> testCompatible(Nested<?> receiver) {
+                return receiver.wildcardUpperTypeVariable();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void wildcardCaptureReturnWithTypeVariableUpperBound() {
     makeHelper()
         .addSourceLines(
@@ -1044,6 +1087,71 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static Analysis<?, ?, ?> create(Transfer<?, ?> transfer) {
                 return new Analysis<>(transfer);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void annotationRestorationForUnboundedWildcardWithFBoundedFormalDoesNotRecurse() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              interface Value<V extends Value<V>> {}
+              interface Store<S extends Store<S>> {}
+              interface Transfer<V extends Value<V>, S extends Store<S>> {}
+              static class Analysis<
+                  V extends Value<V>,
+                  S extends Store<S>,
+                  T extends Transfer<V, S>> {}
+              static class Cache<K, V> {
+                V getUnchecked(K key) {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              final Cache<Object, Analysis<?, ?, ?>> cache = new Cache<>();
+              void test(Object key) {
+                Analysis<?, ?, ?> analysis = cache.getUnchecked(key);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void annotationRestorationForFBoundedWildcardPreservesInferredNullableTypeArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Value<V extends Value<V>> {}
+              interface Store<S extends Store<S>> {}
+              interface Transfer<V extends Value<V>, S extends Store<S>> {}
+              static class Analysis<
+                  V extends Value<V>,
+                  S extends Store<S>,
+                  T extends Transfer<V, S>,
+                  R extends @Nullable Object> {
+                R value() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <R extends @Nullable Object> Analysis<?, ?, ?, R> make(R value) {
+                throw new UnsupportedOperationException();
+              }
+              void test() {
+                make(new Object()).value().hashCode();
+                // BUG: Diagnostic contains: dereferenced expression 'make(null).value()' is @Nullable
+                make(null).value().hashCode();
               }
             }
             """)

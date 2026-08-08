@@ -170,6 +170,8 @@ public class TestLibraryModels implements LibraryModels {
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
         0,
         "com.uber.lib.unannotated.NestedAnnots",
+        0,
+        "com.uber.lib.unannotated.UnboundWildcards",
         0);
   }
 
@@ -181,7 +183,8 @@ public class TestLibraryModels implements LibraryModels {
         "com.uber.lib.unannotated.LambdaConsumer",
         "com.uber.lib.unannotated.LambdaModel",
         "com.uber.lib.unannotated.NestedAnnots",
-        "com.uber.lib.unannotated.NullMarkedVarargsWithModel");
+        "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+        "com.uber.lib.unannotated.UnboundWildcards");
   }
 
   @Override
@@ -262,6 +265,21 @@ public class TestLibraryModels implements LibraryModels {
                     ImmutableList.of(
                         new TypePathEntry(TYPE_ARGUMENT, 0),
                         new TypePathEntry(WILDCARD_BOUND, 0)))))
+        .put(
+            methodRef("com.uber.lib.unannotated.UnboundWildcards", "literalWildcard()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE,
+                    ImmutableList.of(
+                        new TypePathEntry(TYPE_ARGUMENT, 0),
+                        new TypePathEntry(WILDCARD_BOUND, 0)))))
+        .put(
+            methodRef("com.uber.lib.unannotated.UnboundWildcards", "typeVariable()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NestedAnnots",
