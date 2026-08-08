@@ -105,6 +105,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             import java.util.function.*;
             @NullMarked
             class Test {
+              // test that we can make both type arguments @Nullable
               @Nullable BiConsumer<@Nullable Object, @Nullable Object> b = null;
             }
             """)
