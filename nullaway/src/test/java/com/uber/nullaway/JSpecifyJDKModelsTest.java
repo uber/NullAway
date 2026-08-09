@@ -113,7 +113,8 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("We need to re-generate JSpecify JDK models before this will work")
+  @Ignore(
+      "We need to merge https://github.com/uber/NullAway/pull/1689 and re-generate JSpecify JDK models before this will work")
   @Test
   public void nullableArrayContents() {
     makeHelper()
