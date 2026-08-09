@@ -80,7 +80,7 @@ import org.jspecify.annotations.Nullable;
 public final class GenericsChecks {
 
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
-  private interface MethodInferenceResult {}
+  private interface CallInferenceResult {}
 
   /**
    * Indicates successful inference of nullability of type variables at a call. Stores the inferred
@@ -88,11 +88,11 @@ public final class GenericsChecks {
    */
   private record InferenceSuccess(
       Map<Element, ConstraintSolver.InferredNullability> typeVarNullability)
-      implements MethodInferenceResult {}
+      implements CallInferenceResult {}
 
   /** Indicates failed inference of nullability of type variables at a call */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
-      implements MethodInferenceResult {
+      implements CallInferenceResult {
     private InferenceFailure(@Nullable String errorMessage) {
       this.errorMessage = errorMessage;
     }
@@ -103,7 +103,7 @@ public final class GenericsChecks {
    * its type argument nullability. The call must not have any explicit type arguments. If a tree is
    * not present as a key in this map, it means inference has not yet been attempted for that call.
    */
-  private final Map<MethodInvocationTree, MethodInferenceResult>
+  private final Map<MethodInvocationTree, CallInferenceResult>
       inferredTypeVarNullabilityForGenericCalls = new LinkedHashMap<>();
 
   /**
@@ -1182,7 +1182,7 @@ public final class GenericsChecks {
     Verify.verify(isGenericCallNeedingInference(invocationTree));
     Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
-    MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
+    CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
     if (result == null) { // have not yet attempted inference for this call
       result =
           runInferenceForCall(
@@ -1220,7 +1220,7 @@ public final class GenericsChecks {
    * @return the inference result, either success with inferred type variable nullability or failure
    *     with an error message
    */
-  private MethodInferenceResult runInferenceForCall(
+  private CallInferenceResult runInferenceForCall(
       VisitorState state,
       @Nullable TreePath path,
       MethodInvocationTree invocationTree,
@@ -2416,7 +2416,7 @@ public final class GenericsChecks {
     Tree parentTree = parentPath != null ? parentPath.getLeaf() : null;
     if (parentTree instanceof MethodInvocationTree methodInvocationTree
         && isGenericCallNeedingInference(methodInvocationTree)) {
-      MethodInferenceResult inferenceResult =
+      CallInferenceResult inferenceResult =
           inferredTypeVarNullabilityForGenericCalls.get(methodInvocationTree);
       if (inferenceResult instanceof InferenceSuccess successResult) {
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
@@ -2810,7 +2810,7 @@ public final class GenericsChecks {
 
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty() && tree instanceof MethodInvocationTree invocationTree) {
-      MethodInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
+      CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
       if (result == null) {
         // have not yet attempted inference for this call
         InvocationAndContext invocationAndType =
