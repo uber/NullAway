@@ -314,6 +314,93 @@ public class JDKIntegrationTest {
   }
 
   @Test
+  public void arrayReturnsNullableArrayVsElements() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              void test() {
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableArray()' is @Nullable
+                int nullableArrayLength = ReturnAnnotation.returnNullableArray().length;
+                String @Nullable [] nullableArray = ReturnAnnotation.returnNullableArray();
+                if (nullableArray != null) {
+                  nullableArray[0].length();
+                }
+
+                int nullableElementsLength = ReturnAnnotation.returnNullableElements().length;
+                // BUG: Diagnostic contains: incompatible types
+                String[] nullableElements = ReturnAnnotation.returnNullableElements();
+
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableArrayAndElements()' is @Nullable
+                int nullableArrayAndElementsLength = ReturnAnnotation.returnNullableArrayAndElements().length;
+                // BUG: Diagnostic contains: incompatible types
+                String @Nullable [] nullableArrayAndElements =
+                    ReturnAnnotation.returnNullableArrayAndElements();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void multidimensionalArrayReturnsNullableArrays() {
+    compilationHelper
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:JarInferEnabled=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.nullaway.jdkannotations.ReturnAnnotation;
+            class Test {
+              void test() {
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableOuterArray2D()' is @Nullable
+                int nullableOuterArrayLength = ReturnAnnotation.returnNullableOuterArray2D().length;
+                String @Nullable [][] nullableOuterArray =
+                    ReturnAnnotation.returnNullableOuterArray2D();
+                if (nullableOuterArray != null) {
+                  int componentArrayLength = nullableOuterArray[0].length;
+                }
+
+                int nullableComponentArraysLength =
+                    ReturnAnnotation.returnNullableComponentArrays2D().length;
+                // BUG: Diagnostic contains: incompatible types
+                String[][] nullableComponentArrays =
+                    ReturnAnnotation.returnNullableComponentArrays2D();
+                // TODO: This should report a nullable dereference. NullAway currently loses the
+                // nested library-model annotation on a directly indexed method return.
+                int componentArrayLength =
+                    ReturnAnnotation.returnNullableComponentArrays2D()[0].length;
+
+                // BUG: Diagnostic contains: dereferenced expression 'ReturnAnnotation.returnNullableOuterAndComponentArrays2D()' is @Nullable
+                int nullableOuterAndComponentArraysLength = ReturnAnnotation.returnNullableOuterAndComponentArrays2D().length;
+                // BUG: Diagnostic contains: incompatible types
+                String @Nullable [][] nullableOuterAndComponentArrays =
+                    ReturnAnnotation.returnNullableOuterAndComponentArrays2D();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableGenericArrayTest() {
     compilationHelper
         .setArgs(

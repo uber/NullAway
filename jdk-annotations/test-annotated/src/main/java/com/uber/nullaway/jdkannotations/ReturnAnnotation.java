@@ -101,6 +101,30 @@ public class ReturnAnnotation {
     return new @Nullable String[] {"populated", "value", null};
   }
 
+  public static String @Nullable [] returnNullableArray() {
+    return null;
+  }
+
+  public static @Nullable String[] returnNullableElements() {
+    return new @Nullable String[] {"value", null};
+  }
+
+  public static @Nullable String @Nullable [] returnNullableArrayAndElements() {
+    return null;
+  }
+
+  public static String @Nullable [][] returnNullableOuterArray2D() {
+    return null;
+  }
+
+  public static String[] @Nullable [] returnNullableComponentArrays2D() {
+    return new String[1][];
+  }
+
+  public static String @Nullable [] @Nullable [] returnNullableOuterAndComponentArrays2D() {
+    return null;
+  }
+
   @SuppressWarnings({"unchecked", "rawtypes"})
   public static @Nullable List<@Nullable Integer>[] nestedAnnotMixed() {
     // inner list
