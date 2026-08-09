@@ -39,16 +39,17 @@ import java.util.regex.Pattern;
  */
 public class AstubxGenerator {
 
-  /** Used to strip top-level nullness annotations from a type signature */
-  private static final Pattern TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN =
-      buildTopLevelNullnessAnnotationPattern();
+  /** Used to strip annotations at every depth from a type signature used as an astubx key. */
+  private static final Pattern TYPE_SIGNATURE_ANNOTATION_PATTERN =
+      buildTypeSignatureAnnotationPattern();
 
   /**
-   * Matches annotations immediately before the "[]" for array types. Does not properly handle
-   * explicit {@code @NonNull} annotations; see https://github.com/uber/NullAway/issues/1498
+   * Matches {@code @Nullable} on the root array type. javac renders the root as the first {@code
+   * []}, so the pattern must not cross an earlier bracket pair; for example, it matches {@code
+   * String @Nullable [][]} but not {@code String[] @Nullable []}.
    */
   private static final Pattern ARRAY_NULLNESS_ANNOTATION_PATTERN =
-      Pattern.compile("@[\\w.]+(?=\\s*\\[])");
+      Pattern.compile("^[^\\[]*?@(?:org\\.jspecify\\.annotations\\.)?Nullable(?=\\s*\\[])");
 
   /**
    * Matches annotations immediately before the "..." for varargs parameters Does not handle
@@ -252,7 +253,7 @@ public class AstubxGenerator {
           hasTopLevelNullableAnnotation(returnType)
               ? ImmutableSet.of("Nullable")
               : ImmutableSet.of();
-      returnType = stripTopLevelNullnessAnnotations(returnType).replace(" []", "[]");
+      returnType = stripAnnotationsFromTypeSignature(returnType).replace(" []", "[]");
       ImmutableSet.Builder<Integer> nullableTypeParamBuilder = ImmutableSet.builder();
       for (int i = 0; i < method.typeParams().size(); i++) {
         TypeParamInfo typeParam = method.typeParams().get(i);
@@ -276,9 +277,9 @@ public class AstubxGenerator {
         if (hasTopLevelNullableAnnotation(typeSignature)) {
           argAnnotation.put(i, ImmutableSet.of("Nullable"));
         }
-        // Remove top-level annotations before writing the method signature key, while preserving
-        // the varargs ellipsis so the generated key still matches the erased bytecode signature.
-        argumentList[i] = stripTopLevelNullnessAnnotations(typeSignature).replace(" []", "[]");
+        // Remove annotations before writing the method signature key, while preserving the varargs
+        // ellipsis so the generated key still matches the erased bytecode signature.
+        argumentList[i] = stripAnnotationsFromTypeSignature(typeSignature).replace(" []", "[]");
       }
       ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> nestedAnnotations =
           new ImmutableSetMultimap.Builder<>();
@@ -405,11 +406,11 @@ public class AstubxGenerator {
     return VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(type).find();
   }
 
-  private static String stripTopLevelNullnessAnnotations(String typeSignature) {
-    return TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).replaceAll("");
+  private static String stripAnnotationsFromTypeSignature(String typeSignature) {
+    return TYPE_SIGNATURE_ANNOTATION_PATTERN.matcher(typeSignature).replaceAll("");
   }
 
-  private static Pattern buildTopLevelNullnessAnnotationPattern() {
+  private static Pattern buildTypeSignatureAnnotationPattern() {
     String annotationWithSpace = "@[\\w.]+\\s";
     // top-level varargs array annotations (for the array itself) are rendered directly before the
     // ellipsis.

@@ -370,6 +370,66 @@ public class AstubxTest {
   }
 
   @Test
+  public void multidimensionalArrayReturnsNullableArrayVsComponents() {
+    compilationHelper
+        .addSourceLines(
+            "ArrayReturns.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class ArrayReturns {
+              public static String @Nullable [][] arrayNullable() { return null; }
+              public static String[] @Nullable [] componentArrayNullable() { return null; }
+              public static String @Nullable [] @Nullable [] bothArraysNullable() { return null; }
+              public static @Nullable String[][] elementsNullable() { return null; }
+            }
+            """)
+        .doTest();
+    ImmutableMap<String, MethodAnnotationsRecord> expectedMethodRecords =
+        ImmutableMap.of(
+            "ArrayReturns:java.lang.String[][] arrayNullable()",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of("Nullable"),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of()),
+            "ArrayReturns:java.lang.String[][] componentArrayNullable()",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    -1,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))),
+            "ArrayReturns:java.lang.String[][] bothArraysNullable()",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of("Nullable"),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    -1,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))),
+            "ArrayReturns:java.lang.String[][] elementsNullable()",
+            MethodAnnotationsRecord.create(
+                ImmutableSet.of(),
+                ImmutableSet.of(),
+                ImmutableMap.of(),
+                ImmutableSetMultimap.of(
+                    -1,
+                    new NestedAnnotationInfo(
+                        Annotation.NULLABLE,
+                        ImmutableList.of(
+                            new TypePathEntry(Kind.ARRAY_ELEMENT, -1),
+                            new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))));
+    runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("ArrayReturns"));
+  }
+
+  @Test
   public void genericParameter() {
     compilationHelper
         .addSourceLines(

@@ -103,6 +103,18 @@ public class ReturnAnnotation {
     return null;
   }
 
+  public static String[][] returnNullableOuterArray2D() {
+    return null;
+  }
+
+  public static String[][] returnNullableComponentArrays2D() {
+    return new String[1][];
+  }
+
+  public static String[][] returnNullableOuterAndComponentArrays2D() {
+    return null;
+  }
+
   @SuppressWarnings({"unchecked", "rawtypes"})
   public static List<Integer>[] nestedAnnotMixed() {
     // inner list
