@@ -24,7 +24,6 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.collect.HashMultimap;
 import com.google.common.collect.ImmutableList;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.uber.nullaway.jarinfer.JarInferStubxProvider;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
@@ -71,7 +70,7 @@ public class StubxCacheUtil {
 
   private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
 
-  private final Map<String, Integer> upperBoundCache;
+  private final SetMultimap<String, Integer> upperBoundCache;
 
   private final Set<String> nullMarkedClassesCache;
 
@@ -89,7 +88,7 @@ public class StubxCacheUtil {
    */
   StubxCacheUtil(String logCaller, boolean loadJarInferModels) {
     argAnnotCache = new LinkedHashMap<>();
-    upperBoundCache = new HashMap<>();
+    upperBoundCache = HashMultimap.create();
     nullMarkedClassesCache = new HashSet<>();
     methodTypeParamNullableUpperBoundCache = HashMultimap.create();
     nestedAnnotationInfoCache = new HashMap<>();
@@ -99,7 +98,7 @@ public class StubxCacheUtil {
     }
   }
 
-  public Map<String, Integer> getUpperBoundCache() {
+  public SetMultimap<String, Integer> getUpperBoundCache() {
     return upperBoundCache;
   }
 
@@ -107,7 +106,7 @@ public class StubxCacheUtil {
     return nullMarkedClassesCache;
   }
 
-  public Multimap<String, Integer> getMethodTypeParamNullableUpperBoundCache() {
+  public SetMultimap<String, Integer> getMethodTypeParamNullableUpperBoundCache() {
     return methodTypeParamNullableUpperBoundCache;
   }
 
