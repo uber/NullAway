@@ -1,24 +1,20 @@
 // An init script to override a build configuration to use a snapshot version of NullAway
-allprojects {
+gradle.lifecycle.beforeProject {
   repositories {
     mavenCentral()
     mavenLocal()
     gradlePluginPortal()
   }
-}
 
-gradle.projectsLoaded {
-  rootProject.allprojects {
-    configurations.all {
-      resolutionStrategy {
-        eachDependency {
-          if (requested.group == "com.uber.nullaway") {
-            useVersion("+")
-          }
+  configurations.configureEach {
+    resolutionStrategy {
+      eachDependency {
+        if (requested.group == "com.uber.nullaway") {
+          useVersion("+")
         }
-        cacheChangingModulesFor(0, "seconds")
-        cacheDynamicVersionsFor(0, "seconds")
       }
+      cacheChangingModulesFor(0, "seconds")
+      cacheDynamicVersionsFor(0, "seconds")
     }
   }
 }
