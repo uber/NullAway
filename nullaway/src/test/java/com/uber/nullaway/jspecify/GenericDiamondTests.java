@@ -63,9 +63,6 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 }
               }
               void test() {
-                // NOTE: reporting a warning on the next line is a current limitation
-                // of NullAway; there should be no warning. See https://github.com/uber/NullAway/issues/1633.
-                // BUG: Diagnostic contains: passing @Nullable parameter
                 var inferredFromInitializer = new Box<>(null);
                 // BUG: Diagnostic contains: passing @Nullable parameter
                 Box<String> explicitNonNullTarget = new Box<>(null);
@@ -237,6 +234,59 @@ public class GenericDiamondTests extends NullAwayTestsBase {
               }
               static <V> List<@Nullable V> test(Class<V> cls) {
                 return make(new FooImpl<>(cls));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromReturn() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              interface Supplier<T extends @Nullable Object> { public T get(); }
+              public interface LazyValue<T extends @Nullable Object> extends Supplier<T> {}
+              record NullableLazyValue<T extends @Nullable Object>(Supplier<T> supplier) implements LazyValue<T> {
+                public T get() {
+                  return supplier.get();
+                }
+              }
+              static <K> LazyValue<@Nullable K> nullable(Supplier<@Nullable K> supplier) {
+                return new NullableLazyValue<>(supplier);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferFromParams() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Foo<T extends @Nullable Object> {}
+              static class Bar<T extends @Nullable Object> {
+                Bar(Foo<T> foo1, Foo<T> foo2) {
+                }
+              }
+              static void testNegative1(Foo<String> f1, Foo<String> f2) {
+                new Bar<>(f1, f2);
+              }
+              static void testNegative2(Foo<@Nullable String> f1, Foo<@Nullable String> f2) {
+                new Bar<>(f1, f2);
+              }
+              static void testPositive(Foo<String> f1, Foo<@Nullable String> f2) {
+                // BUG: Diagnostic contains: incompatible types
+                new Bar<>(f1, f2);
               }
             }
             """)
