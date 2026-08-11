@@ -6,6 +6,29 @@ import org.junit.Test;
 
 @SuppressWarnings("deprecation")
 public class FrameworkTests extends NullAwayTestsBase {
+
+  /** The {@code java.lang.annotation} imports needed by the annotation stubs in this class. */
+  private static final String ANNOTATION_IMPORTS =
+      """
+      import java.lang.annotation.ElementType;
+      import java.lang.annotation.Retention;
+      import java.lang.annotation.RetentionPolicy;
+      import java.lang.annotation.Target;
+      """;
+
+  /** {@code @Target} for annotations applicable to types and fields. */
+  private static final String TARGET_TYPE_FIELD = "@Target({ElementType.TYPE, ElementType.FIELD})";
+
+  /** {@code @Target} for annotations applicable to fields and parameters. */
+  private static final String TARGET_FIELD_PARAMETER =
+      "@Target({ElementType.FIELD, ElementType.PARAMETER})";
+
+  /** {@code @Target} for annotations applicable to fields only. */
+  private static final String TARGET_FIELD = "@Target(ElementType.FIELD)";
+
+  /** {@code @Retention} shared by all the annotation stubs in this class. */
+  private static final String RETENTION_RUNTIME = "@Retention(RetentionPolicy.RUNTIME)";
+
   @Test
   public void lombokSupportTesting() {
     defaultCompilationHelper.addSourceFile("testdata/lombok/LombokBuilderInit.java").doTest();
@@ -485,55 +508,37 @@ public class FrameworkTests extends NullAwayTestsBase {
    * @return the test helper, for chaining
    */
   private static CompilationTestHelper addSpringMockAnnotationStubs(CompilationTestHelper helper) {
+    String bootPackage = "package org.springframework.boot.test.mock.mockito;";
+    String overridePackage = "package org.springframework.test.context.bean.override.mockito;";
     return helper
         .addSourceLines(
             "MockBean.java",
-            """
-            package org.springframework.boot.test.mock.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.TYPE, ElementType.FIELD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface MockBean {}
-            """)
+            bootPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface MockBean {}")
         .addSourceLines(
             "SpyBean.java",
-            """
-            package org.springframework.boot.test.mock.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.TYPE, ElementType.FIELD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface SpyBean {}
-            """)
+            bootPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface SpyBean {}")
         .addSourceLines(
             "MockitoBean.java",
-            """
-            package org.springframework.test.context.bean.override.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.TYPE, ElementType.FIELD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface MockitoBean {}
-            """)
+            overridePackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface MockitoBean {}")
         .addSourceLines(
             "MockitoSpyBean.java",
-            """
-            package org.springframework.test.context.bean.override.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.TYPE, ElementType.FIELD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface MockitoSpyBean {}
-            """);
+            overridePackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface MockitoSpyBean {}");
   }
 
   @Test
@@ -590,55 +595,36 @@ public class FrameworkTests extends NullAwayTestsBase {
    * @return the test helper, for chaining
    */
   private static CompilationTestHelper addMockitoAnnotationStubs(CompilationTestHelper helper) {
+    String mockitoPackage = "package org.mockito;";
     return helper
         .addSourceLines(
             "Captor.java",
-            """
-            package org.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.FIELD, ElementType.PARAMETER})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface Captor {}
-            """)
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD_PARAMETER,
+            RETENTION_RUNTIME,
+            "public @interface Captor {}")
         .addSourceLines(
             "InjectMocks.java",
-            """
-            package org.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target(ElementType.FIELD)
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface InjectMocks {}
-            """)
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface InjectMocks {}")
         .addSourceLines(
             "Mock.java",
-            """
-            package org.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.FIELD, ElementType.PARAMETER})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface Mock {}
-            """)
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD_PARAMETER,
+            RETENTION_RUNTIME,
+            "public @interface Mock {}")
         .addSourceLines(
             "Spy.java",
-            """
-            package org.mockito;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target(ElementType.FIELD)
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface Spy {}
-            """);
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface Spy {}");
   }
 
   @Test
@@ -711,16 +697,11 @@ public class FrameworkTests extends NullAwayTestsBase {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
         .addSourceLines(
             "InjectWireMock.java",
-            """
-            package org.wiremock.spring;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.FIELD, ElementType.PARAMETER})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface InjectWireMock {}
-            """)
+            "package org.wiremock.spring;",
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD_PARAMETER,
+            RETENTION_RUNTIME,
+            "public @interface InjectWireMock {}")
         .addSourceLines(
             "TestCase.java",
             """
