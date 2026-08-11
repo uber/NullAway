@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -3126,6 +3127,33 @@ public final class GenericsChecks {
    */
   private static String prettyTypeForError(Type type, VisitorState state) {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
+  }
+
+  /**
+   * Returns a pretty-printed signature for {@code method}, with its parameter types substituted for
+   * the type arguments of {@code enclosingType} and printed with their nullability annotations,
+   * e.g. {@code function(@Nullable Object)} rather than the raw, unsubstituted {@code
+   * function(T1)}.
+   *
+   * @param method the method, usually a generic functional interface method
+   * @param enclosingType the enclosing type providing the type arguments for substitution, or
+   *     {@code null} if no such type is available, in which case the raw, unsubstituted signature
+   *     of {@code method} is returned
+   * @param state the visitor state
+   * @return a pretty-printed, substituted signature for {@code method}
+   */
+  public String prettySubstitutedMethodSignature(
+      Symbol.MethodSymbol method, @Nullable Type enclosingType, VisitorState state) {
+    if (enclosingType == null) {
+      return method.toString();
+    }
+    Type methodType =
+        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
+    String paramTypesString =
+        methodType.getParameterTypes().stream()
+            .map(paramType -> prettyTypeForError(paramType, state))
+            .collect(joining(","));
+    return method.getSimpleName() + "(" + paramTypesString + ")";
   }
 
   /**
