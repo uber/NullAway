@@ -1,10 +1,34 @@
 package com.uber.nullaway;
 
+import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
 @SuppressWarnings("deprecation")
 public class FrameworkTests extends NullAwayTestsBase {
+
+  /** The {@code java.lang.annotation} imports needed by the annotation stubs in this class. */
+  private static final String ANNOTATION_IMPORTS =
+      """
+      import java.lang.annotation.ElementType;
+      import java.lang.annotation.Retention;
+      import java.lang.annotation.RetentionPolicy;
+      import java.lang.annotation.Target;
+      """;
+
+  /** {@code @Target} for annotations applicable to types and fields. */
+  private static final String TARGET_TYPE_FIELD = "@Target({ElementType.TYPE, ElementType.FIELD})";
+
+  /** {@code @Target} for annotations applicable to fields and parameters. */
+  private static final String TARGET_FIELD_PARAMETER =
+      "@Target({ElementType.FIELD, ElementType.PARAMETER})";
+
+  /** {@code @Target} for annotations applicable to fields only. */
+  private static final String TARGET_FIELD = "@Target(ElementType.FIELD)";
+
+  /** {@code @Retention} shared by all the annotation stubs in this class. */
+  private static final String RETENTION_RUNTIME = "@Retention(RetentionPolicy.RUNTIME)";
+
   @Test
   public void lombokSupportTesting() {
     defaultCompilationHelper.addSourceFile("testdata/lombok/LombokBuilderInit.java").doTest();
@@ -476,13 +500,50 @@ public class FrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Adds source stubs for the Spring Boot test annotations that mark a field as initialized by the
+   * Spring test context.
+   *
+   * @param helper the test helper to add the stubs to
+   * @return the test helper, for chaining
+   */
+  private static CompilationTestHelper addSpringMockAnnotationStubs(CompilationTestHelper helper) {
+    String bootPackage = "package org.springframework.boot.test.mock.mockito;";
+    String overridePackage = "package org.springframework.test.context.bean.override.mockito;";
+    return helper
+        .addSourceLines(
+            "MockBean.java",
+            bootPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface MockBean {}")
+        .addSourceLines(
+            "SpyBean.java",
+            bootPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface SpyBean {}")
+        .addSourceLines(
+            "MockitoBean.java",
+            overridePackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface MockitoBean {}")
+        .addSourceLines(
+            "MockitoSpyBean.java",
+            overridePackage,
+            ANNOTATION_IMPORTS,
+            TARGET_TYPE_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface MockitoSpyBean {}");
+  }
+
   @Test
   public void springTestAutowiredFieldTest() {
-    defaultCompilationHelper
-        .addSourceFile("testdata/springboot-annotations/MockBean.java")
-        .addSourceFile("testdata/springboot-annotations/SpyBean.java")
-        .addSourceFile("testdata/springboot-annotations/MockitoBean.java")
-        .addSourceFile("testdata/springboot-annotations/MockitoSpyBean.java")
+    addSpringMockAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(
             "Foo.java",
             """
@@ -527,13 +588,48 @@ public class FrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Adds source stubs for the Mockito annotations that mark a field as initialized by Mockito.
+   *
+   * @param helper the test helper to add the stubs to
+   * @return the test helper, for chaining
+   */
+  private static CompilationTestHelper addMockitoAnnotationStubs(CompilationTestHelper helper) {
+    String mockitoPackage = "package org.mockito;";
+    return helper
+        .addSourceLines(
+            "Captor.java",
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD_PARAMETER,
+            RETENTION_RUNTIME,
+            "public @interface Captor {}")
+        .addSourceLines(
+            "InjectMocks.java",
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface InjectMocks {}")
+        .addSourceLines(
+            "Mock.java",
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD_PARAMETER,
+            RETENTION_RUNTIME,
+            "public @interface Mock {}")
+        .addSourceLines(
+            "Spy.java",
+            mockitoPackage,
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD,
+            RETENTION_RUNTIME,
+            "public @interface Spy {}");
+  }
+
   @Test
   public void mockitoAnnotationsOnFieldTest() {
-    defaultCompilationHelper
-        .addSourceFile("testdata/mockito/Captor.java")
-        .addSourceFile("testdata/mockito/InjectMocks.java")
-        .addSourceFile("testdata/mockito/Mock.java")
-        .addSourceFile("testdata/mockito/Spy.java")
+    addMockitoAnnotationStubs(defaultCompilationHelper)
         .addSourceLines(
             "ArticleManager.java",
             // language=java
@@ -599,7 +695,13 @@ public class FrameworkTests extends NullAwayTestsBase {
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
-        .addSourceFile("testdata/springboot-annotations/InjectWireMock.java")
+        .addSourceLines(
+            "InjectWireMock.java",
+            "package org.wiremock.spring;",
+            ANNOTATION_IMPORTS,
+            TARGET_FIELD_PARAMETER,
+            RETENTION_RUNTIME,
+            "public @interface InjectWireMock {}")
         .addSourceLines(
             "TestCase.java",
             """
