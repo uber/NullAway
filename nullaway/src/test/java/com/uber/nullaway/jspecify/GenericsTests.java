@@ -1619,7 +1619,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/836")
   @Test
   public void overrideAnonymousNestedClass() {
     makeHelper()
@@ -1639,6 +1638,41 @@ public class GenericsTests extends NullAwayTestsBase {
                   // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
+                Wrapper<String>.Fn<String> fn2 = (this.new Wrapper<String>()).new Fn<String>() {
+                  public String apply(String s) { return s; }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideAnonymousDeeplyNestedClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              class Wrapper<P extends @Nullable Object> {
+                class Middle<Q extends @Nullable Object> {
+                  abstract class Fn<R extends @Nullable Object> {
+                    abstract R apply(P p);
+                  }
+                }
+              }
+              void anonymousDeeplyNestedClasses() {
+                Wrapper<@Nullable String>.Middle<String>.Fn<String> fn1 =
+                    ((this.new Wrapper<@Nullable String>()).new Middle<String>()).new Fn<String>() {
+                      // BUG: Diagnostic contains: parameter p is @NonNull, but parameter in superclass method
+                      public String apply(String p) { return p; }
+                    };
+                Wrapper<String>.Middle<String>.Fn<String> fn2 =
+                    ((this.new Wrapper<String>()).new Middle<String>()).new Fn<String>() {
+                      public String apply(String p) { return p; }
+                    };
               }
             }
             """)
