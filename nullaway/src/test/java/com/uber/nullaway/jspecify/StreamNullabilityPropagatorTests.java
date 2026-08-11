@@ -58,6 +58,39 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1693() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static List<FilterFieldInput> convert(
+                  List<@Nullable FilterField> filterFields) {
+                return filterFields.stream()
+                    .filter(Objects::nonNull)
+                    .map(filterField -> new FilterFieldInput(filterField.getName()))
+                    .toList();
+              }
+
+              static class FilterField {
+                String getName() {
+                  return "name";
+                }
+              }
+
+              record FilterFieldInput(String name) {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void filterWithStringUtilsHasLength() {
     makeHelper()
         .addSourceLines(
