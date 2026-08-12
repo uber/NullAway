@@ -2489,9 +2489,12 @@ public final class GenericsChecks {
         .isSymbolUnannotated(overriddenMethod, config, handler)) {
       return;
     }
+    // Generic methods are Type.ForAll; non-generic overridden methods have no method type vars.
+    if (!(overriddenMethodType instanceof Type.ForAll forAll)) {
+      return;
+    }
+    com.sun.tools.javac.util.List<Type> overriddenTypeVars = forAll.tvars;
     List<Symbol.TypeVariableSymbol> overridingTypeParams = overridingMethod.getTypeParameters();
-    com.sun.tools.javac.util.List<Type> overriddenTypeVars =
-        getMethodTypeVariables(overriddenMethodType);
     // If counts differ, javac would not treat this as a valid override; leave that to the
     // compiler.
     if (overridingTypeParams.size() != overriddenTypeVars.size()) {
@@ -2500,16 +2503,16 @@ public final class GenericsChecks {
     List<? extends Tree> typeParameterTrees = tree.getTypeParameters();
     for (int i = 0; i < overridingTypeParams.size(); i++) {
       Symbol.TypeVariableSymbol overridingTv = overridingTypeParams.get(i);
-      Type overriddenTypeVar = overriddenTypeVars.get(i);
+      // ForAll.tvars are method type variables after member-type substitution.
+      Type.TypeVar overriddenTypeVar = (Type.TypeVar) overriddenTypeVars.get(i);
       boolean overridingNullable =
           GenericsUtils.upperBoundIsNullable(overridingTv, config, handler, state);
       boolean overriddenNullable =
           substitutedMethodTypeVarUpperBoundIsNullable(
               overriddenTypeVar, overriddenMethod, i, state);
       if (overridingNullable != overriddenNullable) {
-        Tree errorTree = i < typeParameterTrees.size() ? typeParameterTrees.get(i) : tree;
         reportMismatchedMethodTypeVariableBoundError(
-            errorTree,
+            typeParameterTrees.get(i),
             overridingTv,
             overridingNullable,
             overriddenMethod,
@@ -2517,20 +2520,6 @@ public final class GenericsChecks {
             state);
       }
     }
-  }
-
-  /**
-   * Returns the method type variables of {@code methodType}, or an empty list if the method has
-   * none.
-   *
-   * <p>Generic methods are represented as {@link Type.ForAll}; non-generic methods have no type
-   * variables to compare for this check.
-   */
-  private static com.sun.tools.javac.util.List<Type> getMethodTypeVariables(Type methodType) {
-    if (methodType instanceof Type.ForAll forAll) {
-      return forAll.tvars;
-    }
-    return com.sun.tools.javac.util.List.nil();
   }
 
   /**
@@ -2547,19 +2536,14 @@ public final class GenericsChecks {
    * @param state the visitor state
    */
   private boolean substitutedMethodTypeVarUpperBoundIsNullable(
-      Type substitutedTypeVar,
+      Type.TypeVar substitutedTypeVar,
       Symbol.MethodSymbol overriddenMethod,
       int typeVarIndex,
       VisitorState state) {
     if (handler.onOverrideMethodTypeVariableUpperBound(overriddenMethod, typeVarIndex, state)) {
       return true;
     }
-    if (!(substitutedTypeVar instanceof Type.TypeVar typeVar)) {
-      // Unexpected representation; treat conservatively as non-null so we do not emit a
-      // mismatched-bound warning based on incomplete information.
-      return false;
-    }
-    Type upperBound = typeVar.getUpperBound();
+    Type upperBound = substitutedTypeVar.getUpperBound();
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return true;
     }
@@ -2568,10 +2552,15 @@ public final class GenericsChecks {
     if (upperBound.getKind() == TypeKind.TYPEVAR) {
       return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
     }
-    // javac member-type substitution can drop type-use annotations on method type-variable
-    // bounds. If the original bound was a concrete type with an explicit @Nullable, honor that
-    // declaration. Do not consult original bounds that are still type variables — those must be
-    // resolved via substitution (or the free type-var path above).
+    // Member-type substitution (asMemberOf) can strip type-use @Nullable from a concrete method
+    // type-variable bound while leaving the bound type itself (e.g. Object). Example that needs
+    // this fallback:
+    //   interface Foo { <T extends @Nullable Object> void bar(T arg); }
+    //   class Baz implements Foo { public <T extends @Nullable Object> void bar(T arg) {} }
+    // After substitution the bound may look like plain Object with no annotation mirrors; without
+    // consulting the original declaration we would treat the overridden bound as non-null and
+    // false-positive on a matching @Nullable override. Skip original bounds that are still type
+    // variables — those must be resolved via substitution (or the free type-var path above).
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     if (typeVarIndex >= 0 && typeVarIndex < originalTypeParams.size()) {
       Type originalBound =
