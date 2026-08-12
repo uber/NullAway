@@ -839,6 +839,65 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1521() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            public class Test {
+              private char @Nullable [] @Nullable [] foo = null;
+
+              void test() {
+                Objects.requireNonNull(foo)[0] = null;
+              }
+
+              void stillErrorsOnNonNullContents() {
+                String @Nullable [] bar = null;
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                Objects.requireNonNull(bar)[0] = null;
+              }
+
+              static <T extends @Nullable Object> T id(T t) {
+                return t;
+              }
+
+              void requireNonNullThroughIdentity() {
+                Objects.requireNonNull(id(foo))[0] = null;
+              }
+
+              // char @Nullable [][] : the array reference is @Nullable; elements (char[]) are
+              // @NonNull. Writing null into a[0] must still be reported.
+              void nullableArrayOfNonNullInnerArrays() {
+                char @Nullable [][] a = new char @Nullable [][]{};
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                a[0] = null;
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                Objects.requireNonNull(new char @Nullable [][]{})[0] = null;
+              }
+
+              // char [] @Nullable [] : outer elements are @Nullable char[]. Writes of null OK.
+              // (Syntax suggested by reviewer for multi-dim element nullability.)
+              void nullableOuterElementsOf2dArray() {
+                char [] @Nullable [] b = new char [] @Nullable []{};
+                b[0] = null;
+                Objects.requireNonNull(new char [] @Nullable []{})[0] = null;
+              }
+
+              void bothDimensionsNullableWithoutRequireNonNull() {
+                char @Nullable [] @Nullable [] c = new char @Nullable [] @Nullable []{};
+                c[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
