@@ -409,7 +409,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 String s2 = create(Foo::createNullable);
                 // BUG: Diagnostic contains: dereferenced expression 's2' is @Nullable
                 s2.hashCode();
-                // BUG: Diagnostic contains: parameter of functional interface method java.util.function.Function.apply(T) is @Nullable
+                // BUG: Diagnostic contains: parameter of functional interface method java.util.function.Function.apply(@Nullable Foo) is @Nullable
                 String s3 = createWithNullable(Foo::create);
               }
             }
