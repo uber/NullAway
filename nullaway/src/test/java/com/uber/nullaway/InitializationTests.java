@@ -12,64 +12,42 @@ public class InitializationTests extends NullAwayTestsBase {
    * @return the same helper, with the shared utility source added
    */
   private CompilationTestHelper addReadBeforeInitUtil(CompilationTestHelper helper) {
-    return helper.addSourceLines(
-        "Util.java",
+    String utilSource =
         """
-            /*
-             * Copyright (c) 2017 Uber Technologies, Inc.
-             *
-             * Permission is hereby granted, free of charge, to any person obtaining a copy
-             * of this software and associated documentation files (the "Software"), to deal
-             * in the Software without restriction, including without limitation the rights
-             * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-             * copies of the Software, and to permit persons to whom the Software is
-             * furnished to do so, subject to the following conditions:
-             *
-             * The above copyright notice and this permission notice shall be included in
-             * all copies or substantial portions of the Software.
-             *
-             * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-             * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-             * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-             * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-             * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-             * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-             * THE SOFTWARE.
-             */
+        package com.uber.nullaway.testdata;
 
-            package com.uber.nullaway.testdata;
+        import javax.annotation.Nullable;
 
-            import javax.annotation.Nullable;
+        public class Util {
 
-            public class Util {
-
-              public static <T> T castToNonNull(@Nullable T x) {
-                if (x == null) {
-                  throw new RuntimeException();
-                }
-                return x;
-              }
-
-              public static <T> T castToNonNull(@Nullable T x, String msg) {
-                if (x == null) {
-                  throw new RuntimeException(msg);
-                }
-                return x;
-              }
-
-              public static <T> T castToNonNull(String msg, @Nullable T x, int counter) {
-                // counter is needed to distinguish this method from the previous one when T == String
-                if (x == null) {
-                  throw new RuntimeException(msg);
-                }
-                return x;
-              }
-
-              public static <T> T id(T x) {
-                return x;
-              }
+          public static <T> T castToNonNull(@Nullable T x) {
+            if (x == null) {
+              throw new RuntimeException();
             }
-            """);
+            return x;
+          }
+
+          public static <T> T castToNonNull(@Nullable T x, String msg) {
+            if (x == null) {
+              throw new RuntimeException(msg);
+            }
+            return x;
+          }
+
+          public static <T> T castToNonNull(String msg, @Nullable T x, int counter) {
+            // counter is needed to distinguish this method from the previous one when T == String
+            if (x == null) {
+              throw new RuntimeException(msg);
+            }
+            return x;
+          }
+
+          public static <T> T id(T x) {
+            return x;
+          }
+        }
+        """;
+    return helper.addSourceLines("Util.java", utilSource);
   }
 
   @Test
@@ -78,28 +56,6 @@ public class InitializationTests extends NullAwayTestsBase {
         .addSourceLines(
             "CheckFieldInitPositiveCases.java",
             """
-            /*
-             * Copyright (c) 2017 Uber Technologies, Inc.
-             *
-             * Permission is hereby granted, free of charge, to any person obtaining a copy
-             * of this software and associated documentation files (the "Software"), to deal
-             * in the Software without restriction, including without limitation the rights
-             * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-             * copies of the Software, and to permit persons to whom the Software is
-             * furnished to do so, subject to the following conditions:
-             *
-             * The above copyright notice and this permission notice shall be included in
-             * all copies or substantial portions of the Software.
-             *
-             * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-             * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-             * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-             * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-             * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-             * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-             * THE SOFTWARE.
-             */
-
             package com.uber.nullaway.testdata;
 
             import com.uber.nullaway.annotations.Initializer;
@@ -112,7 +68,7 @@ public class InitializationTests extends NullAwayTestsBase {
 
                 Object f;
 
-                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 33) is
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 11) is
                 // initialized
                 T1() {}
               }
@@ -121,8 +77,8 @@ public class InitializationTests extends NullAwayTestsBase {
 
                 Object f, g;
 
-                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields 'f' (line 42),
-                // 'g' (line 42) are
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull fields 'f' (line 20),
+                // 'g' (line 20) are
                 // initialized
                 T2() {}
               }
@@ -151,7 +107,7 @@ public class InitializationTests extends NullAwayTestsBase {
 
                 Object f;
 
-                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 72) is
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 50) is
                 // initialized
                 T5(boolean b) {
                   if (b) {
@@ -169,7 +125,7 @@ public class InitializationTests extends NullAwayTestsBase {
                   this(false);
                 }
 
-                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 85) is
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 63) is
                 // initialized
                 T6(boolean b) {}
               }
@@ -179,7 +135,7 @@ public class InitializationTests extends NullAwayTestsBase {
                 Object f;
                 Object g;
 
-                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 99) is
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 77) is
                 // initialized
                 T7(boolean b) {
                   if (b) {
@@ -188,7 +144,7 @@ public class InitializationTests extends NullAwayTestsBase {
                   g = new Object();
                 }
 
-                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'g' (line 100)
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'g' (line 78)
                 // is
                 // initialized
                 T7() {
@@ -210,7 +166,7 @@ public class InitializationTests extends NullAwayTestsBase {
                 Object f;
 
                 @Initializer
-                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 130)
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'f' (line 108)
                 // is
                 // initialized
                 public void init() {}
@@ -280,28 +236,6 @@ public class InitializationTests extends NullAwayTestsBase {
         .addSourceLines(
             "CheckFieldInitNegativeCases.java",
             """
-            /*
-             * Copyright (c) 2017 Uber Technologies, Inc.
-             *
-             * Permission is hereby granted, free of charge, to any person obtaining a copy
-             * of this software and associated documentation files (the "Software"), to deal
-             * in the Software without restriction, including without limitation the rights
-             * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-             * copies of the Software, and to permit persons to whom the Software is
-             * furnished to do so, subject to the following conditions:
-             *
-             * The above copyright notice and this permission notice shall be included in
-             * all copies or substantial portions of the Software.
-             *
-             * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-             * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-             * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-             * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-             * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-             * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-             * THE SOFTWARE.
-             */
-
             package com.uber.nullaway.testdata;
 
             import com.google.errorprone.annotations.concurrent.LazyInit;
@@ -639,28 +573,6 @@ public class InitializationTests extends NullAwayTestsBase {
         .addSourceLines(
             "ReadBeforeInitPositiveCases.java",
             """
-            /*
-             * Copyright (c) 2017 Uber Technologies, Inc.
-             *
-             * Permission is hereby granted, free of charge, to any person obtaining a copy
-             * of this software and associated documentation files (the "Software"), to deal
-             * in the Software without restriction, including without limitation the rights
-             * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-             * copies of the Software, and to permit persons to whom the Software is
-             * furnished to do so, subject to the following conditions:
-             *
-             * The above copyright notice and this permission notice shall be included in
-             * all copies or substantial portions of the Software.
-             *
-             * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-             * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-             * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-             * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-             * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-             * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-             * THE SOFTWARE.
-             */
-
             package com.uber.nullaway.testdata;
 
             import com.uber.nullaway.annotations.Initializer;
@@ -859,28 +771,6 @@ public class InitializationTests extends NullAwayTestsBase {
         .addSourceLines(
             "ReadBeforeInitNegativeCases.java",
             """
-            /*
-             * Copyright (c) 2017 Uber Technologies, Inc.
-             *
-             * Permission is hereby granted, free of charge, to any person obtaining a copy
-             * of this software and associated documentation files (the "Software"), to deal
-             * in the Software without restriction, including without limitation the rights
-             * to use, copy, modify, merge, publish, distribute, sublicense, and/or sell
-             * copies of the Software, and to permit persons to whom the Software is
-             * furnished to do so, subject to the following conditions:
-             *
-             * The above copyright notice and this permission notice shall be included in
-             * all copies or substantial portions of the Software.
-             *
-             * THE SOFTWARE IS PROVIDED "AS IS", WITHOUT WARRANTY OF ANY KIND, EXPRESS OR
-             * IMPLIED, INCLUDING BUT NOT LIMITED TO THE WARRANTIES OF MERCHANTABILITY,
-             * FITNESS FOR A PARTICULAR PURPOSE AND NONINFRINGEMENT. IN NO EVENT SHALL THE
-             * AUTHORS OR COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER
-             * LIABILITY, WHETHER IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM,
-             * OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN
-             * THE SOFTWARE.
-             */
-
             package com.uber.nullaway.testdata;
 
             import static com.uber.nullaway.testdata.Util.castToNonNull;
