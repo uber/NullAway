@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
@@ -768,7 +769,9 @@ public final class GenericsChecks {
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
-        return typeWithPreservedAnnotations(paramTypedTree);
+        Type typeFromIdentifier = typeWithPreservedAnnotations(paramTypedTree);
+        return withEnclosingTypeFromQualifier(
+            typeFromIdentifier, newClassTree, state, calledFromDataflow);
       }
       return typeOrNullIfRaw(ASTHelpers.getType(tree));
     } else if (tree instanceof NewArrayTree
@@ -1938,6 +1941,41 @@ public final class GenericsChecks {
    */
   private Type typeWithPreservedAnnotations(Tree tree) {
     return tree.accept(new PreservedAnnotationTreeVisitor(config), null);
+  }
+
+  /**
+   * For a {@code NewClassTree} with a qualifying enclosing-instance expression, e.g. {@code
+   * (someExpr).new Inner<T>() { ... }}, replaces {@code type}'s enclosing type (which, coming from
+   * {@code baseType.getEnclosingType()} in {@link PreservedAnnotationTreeVisitor}, is just {@code
+   * Inner}'s statically-declared enclosing type, unrelated to the actual enclosing instance the
+   * qualifier expression evaluates to) with the properly-annotated, substituted type of the
+   * qualifier expression itself. If there is no qualifying expression, or we cannot determine its
+   * type, {@code type} is returned unchanged.
+   *
+   * @param type the type computed for the {@code NewClassTree}'s identifier, to be given the
+   *     correct enclosing type
+   * @param newClassTree the {@code NewClassTree}, possibly qualified by an enclosing-instance
+   *     expression
+   * @param state the visitor state
+   * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
+   * @return {@code type} with its enclosing type corrected, or {@code type} unchanged if there is
+   *     no qualifying expression or its type could not be determined
+   */
+  private @Nullable Type withEnclosingTypeFromQualifier(
+      Type type, NewClassTree newClassTree, VisitorState state, boolean calledFromDataflow) {
+    ExpressionTree enclosingExpr = newClassTree.getEnclosingExpression();
+    if (enclosingExpr == null) {
+      return type;
+    }
+    TreePath pathToEnclosingExpr = new TreePath(state.getPath(), enclosingExpr);
+    Type enclosingExprType =
+        getTreeType(enclosingExpr, state.withPath(pathToEnclosingExpr), calledFromDataflow);
+    if (enclosingExprType == null) {
+      return type;
+    }
+    Type.ClassType classType = (Type.ClassType) type;
+    return TYPE_METADATA_BUILDER.createClassType(
+        classType, enclosingExprType, classType.getTypeArguments());
   }
 
   /**
