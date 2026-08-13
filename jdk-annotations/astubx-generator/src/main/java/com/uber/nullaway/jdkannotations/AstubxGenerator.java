@@ -39,16 +39,17 @@ import java.util.regex.Pattern;
  */
 public class AstubxGenerator {
 
-  /** Used to strip only top-level nullness annotations from a parameter type signature */
-  private static final Pattern TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN =
-      buildTopLevelNullnessAnnotationPattern();
+  /** Used to strip annotations at every depth from a type signature used as an astubx key. */
+  private static final Pattern TYPE_SIGNATURE_ANNOTATION_PATTERN =
+      buildTypeSignatureAnnotationPattern();
 
   /**
-   * Matches annotations immediately before the "[]" for array parameters. Does not properly handle
-   * explicit {@code @NonNull} annotations; see https://github.com/uber/NullAway/issues/1498
+   * Matches {@code @Nullable} on the root array type. javac renders the root as the first {@code
+   * []}, so the pattern must not cross an earlier bracket pair; for example, it matches {@code
+   * String @Nullable [][]} but not {@code String[] @Nullable []}.
    */
   private static final Pattern ARRAY_NULLNESS_ANNOTATION_PATTERN =
-      Pattern.compile("@[\\w.]+(?=\\s*\\[])");
+      Pattern.compile("^[^\\[]*?@(?:org\\.jspecify\\.annotations\\.)?Nullable(?=\\s*\\[])");
 
   /**
    * Matches annotations immediately before the "..." for varargs parameters Does not handle
@@ -248,14 +249,11 @@ public class AstubxGenerator {
       String methodName = method.name();
       // get return type nullness
       String returnType = removeGenericAnnotations(method.returnType());
-      ImmutableSet<String> returnTypeNullness = ImmutableSet.of();
-      // check if return type has Nullable annotation
-      if (returnType.contains("@org.jspecify.annotations.Nullable")) {
-        returnType = returnType.replace("@org.jspecify.annotations.Nullable ", "");
-        returnType = returnType.replaceAll("@Nullable\\s*", "");
-        returnType = returnType.replace(" []", "[]"); // remove whitespace in Array types
-        returnTypeNullness = ImmutableSet.of("Nullable");
-      }
+      ImmutableSet<String> returnTypeNullness =
+          hasTopLevelNullableAnnotation(returnType)
+              ? ImmutableSet.of("Nullable")
+              : ImmutableSet.of();
+      returnType = stripAnnotationsFromTypeSignature(returnType).replace(" []", "[]");
       ImmutableSet.Builder<Integer> nullableTypeParamBuilder = ImmutableSet.builder();
       for (int i = 0; i < method.typeParams().size(); i++) {
         TypeParamInfo typeParam = method.typeParams().get(i);
@@ -279,9 +277,9 @@ public class AstubxGenerator {
         if (hasTopLevelNullableAnnotation(typeSignature)) {
           argAnnotation.put(i, ImmutableSet.of("Nullable"));
         }
-        // Remove top-level annotations before writing the method signature key, while preserving
-        // the varargs ellipsis so the generated key still matches the erased bytecode signature.
-        argumentList[i] = stripTopLevelNullnessAnnotations(typeSignature).replace(" []", "[]");
+        // Remove annotations before writing the method signature key, while preserving the varargs
+        // ellipsis so the generated key still matches the erased bytecode signature.
+        argumentList[i] = stripAnnotationsFromTypeSignature(typeSignature).replace(" []", "[]");
       }
       ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> nestedAnnotations =
           new ImmutableSetMultimap.Builder<>();
@@ -380,25 +378,24 @@ public class AstubxGenerator {
   }
 
   /**
-   * Checks if the given parameter type has a top-level {@code @Nullable} annotation. Assumes there
-   * are no annotations on any generic type arguments in the type. We only handle JSpecify
+   * Checks if the given type has a top-level {@code @Nullable} annotation. Assumes there are no
+   * annotations on any generic type arguments in the type. We only handle JSpecify
    * {@code @Nullable} annotations for now, as those are the only type present in the JSpecify JDK.
    *
-   * @param parameterType the parameter type.
+   * @param type the type
    * @return true if the type has a top-level {@code @Nullable} annotation, false otherwise
    */
-  private static boolean hasTopLevelNullableAnnotation(String parameterType) {
-    if (!(parameterType.contains("@org.jspecify.annotations.Nullable")
-        || parameterType.contains("@Nullable"))) {
+  private static boolean hasTopLevelNullableAnnotation(String type) {
+    if (!(type.contains("@org.jspecify.annotations.Nullable") || type.contains("@Nullable"))) {
       return false;
     }
-    if (!parameterType.contains("...")) {
-      if (parameterType.contains("[")) {
+    if (!type.contains("...")) {
+      if (type.contains("[")) {
         // Arrays need special handling:
-        //   @Nullable String[]     -> nullable elements, not a nullable array parameter
-        //   String @Nullable []    -> nullable array parameter
+        //   @Nullable String[]     -> nullable elements, not a nullable array
+        //   String @Nullable []    -> nullable array
         // Only the latter is a top-level annotation
-        return ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(parameterType).find();
+        return ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(type).find();
       }
       return true;
     }
@@ -406,14 +403,14 @@ public class AstubxGenerator {
     //   @Nullable Object...      -> nullable elements, not a nullable array parameter
     //   Object @Nullable ...     -> nullable array parameter
     // Only the latter is a top-level annotation
-    return VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(parameterType).find();
+    return VARARGS_ARRAY_NULLNESS_ANNOTATION_PATTERN.matcher(type).find();
   }
 
-  private static String stripTopLevelNullnessAnnotations(String typeSignature) {
-    return TOP_LEVEL_NULLNESS_ANNOTATION_PATTERN.matcher(typeSignature).replaceAll("");
+  private static String stripAnnotationsFromTypeSignature(String typeSignature) {
+    return TYPE_SIGNATURE_ANNOTATION_PATTERN.matcher(typeSignature).replaceAll("");
   }
 
-  private static Pattern buildTopLevelNullnessAnnotationPattern() {
+  private static Pattern buildTypeSignatureAnnotationPattern() {
     String annotationWithSpace = "@[\\w.]+\\s";
     // top-level varargs array annotations (for the array itself) are rendered directly before the
     // ellipsis.

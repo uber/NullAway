@@ -1,6 +1,6 @@
 [versions]
 asm = "9.3"
-check-framework = "4.0.0"
+checker-framework = "4.2.2"
 support = "27.1.1"
 wala = "1.7.1"
 commons-cli = "1.4"
@@ -75,7 +75,7 @@ error-prone-core = { module = "com.google.errorprone:error_prone_core", version.
 error-prone-test-helpers = { module = "com.google.errorprone:error_prone_test_helpers", version.ref = "errorProne" }
 
 # Dataflow & Utils
-checker-dataflow = { module = "org.checkerframework:dataflow-nullaway", version.ref = "check-framework" }
+checker-dataflow = { module = "org.checkerframework:dataflow-nullaway", version.ref = "checker-framework" }
 gson = { module = "com.google.code.gson:gson", version.ref = "gson" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
 guava-latest = { module = "com.google.guava:guava", version.ref = "guava-latest" }
@@ -98,7 +98,7 @@ junit4 = { module = "junit:junit", version.ref = "junit4" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
 apiguardian = { module = "org.apiguardian:apiguardian-api", version.ref = "apiguardian" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }
-checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "check-framework" }
+checker-qual = { module = "org.checkerframework:checker-qual", version.ref = "checker-framework" }
 checker-compat-qual = { module = "org.checkerframework:checker-compat-qual", version.ref = "checker-compat-qual" }
 rxjava2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava2" }
 reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }

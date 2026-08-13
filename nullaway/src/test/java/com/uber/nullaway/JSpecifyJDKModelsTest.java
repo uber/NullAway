@@ -3,6 +3,7 @@ package com.uber.nullaway;
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -118,5 +119,49 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  @Test
+  public void biConsumerNullableUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.function.*;
+            @NullMarked
+            class Test {
+              // test that we can make both type arguments @Nullable
+              @Nullable BiConsumer<@Nullable Object, @Nullable Object> b = null;
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore(
+      "We need to merge https://github.com/uber/NullAway/pull/1689 and re-generate JSpecify JDK models before this will work")
+  @Test
+  public void nullableArrayContents() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.text.*;
+            @NullMarked
+            class Test {
+              MessageFormat getMsgFormat() { throw new RuntimeException(); }
+              void test() {
+                @Nullable Format[] formats = getMsgFormat().getFormatsByArgumentIndex();
+                System.out.println(formats.length);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  private CompilationTestHelper makeHelper() {
+    return makeTestHelperWithArgs(
+        JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
   }
 }

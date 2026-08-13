@@ -90,14 +90,8 @@ public class ContractCheckHandler implements Handler {
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(tree);
     Preconditions.checkNotNull(callee);
     // Check to see if this method has an @Contract annotation
-    String contractString = ContractUtils.getContractString(callee, config);
-    if (contractString != null) {
-      // Found a contract, lets parse it.
-      String[] clauses = contractString.split(";");
-      if (clauses.length != 1) {
-        return;
-      }
-
+    String[] clauses = ContractUtils.getContractClauses(callee, config);
+    if (clauses.length == 1) {
       String clause = clauses[0];
       NullAway analysis = methodAnalysisContext.analysis();
       VisitorState state = methodAnalysisContext.state();
@@ -188,7 +182,7 @@ public class ContractCheckHandler implements Handler {
 
           if (contractViolated) {
             String errorMessage =
-                getErrorMessageForViolatedContract(antecedent, callee, contractString, tree);
+                getErrorMessageForViolatedContract(antecedent, callee, clause, tree);
 
             state.reportMatch(
                 analysis
@@ -208,7 +202,7 @@ public class ContractCheckHandler implements Handler {
   }
 
   private static String getErrorMessageForViolatedContract(
-      String[] antecedent, Symbol.MethodSymbol callee, String contractString, MethodTree tree) {
+      String[] antecedent, Symbol.MethodSymbol callee, String clause, MethodTree tree) {
     String errorMessage;
 
     // used for error message
@@ -229,7 +223,7 @@ public class ContractCheckHandler implements Handler {
           "Method "
               + callee.name
               + " has @Contract("
-              + contractString
+              + clause
               + "), but this appears to be violated, as a @Nullable value may be returned when parameter "
               + tree.getParameters().get(nonNullAntecedentPosition).getName()
               + " is non-null.";
@@ -238,7 +232,7 @@ public class ContractCheckHandler implements Handler {
           "Method "
               + callee.name
               + " has @Contract("
-              + contractString
+              + clause
               + "), but this appears to be violated, as a @Nullable value may be returned "
               + "when the contract preconditions are true.";
     }

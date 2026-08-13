@@ -37,7 +37,6 @@ import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
-import com.google.common.collect.Multimap;
 import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
@@ -1581,17 +1580,11 @@ public class LibraryModelsHandler implements Handler {
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
      * name as an optimization. The {@link Name} data structure is used to avoid unnecessary String
-     * conversions when looking up {@link com.sun.tools.javac.code.Symbol.MethodSymbol}s.
+     * conversions when looking up {@link Symbol.MethodSymbol}s.
      *
      * @param <T> the type of the associated state.
      */
-    private static class NameIndexedMap<T> {
-
-      private final Map<Name, Map<MethodRef, T>> state;
-
-      NameIndexedMap(Map<Name, Map<MethodRef, T>> state) {
-        this.state = state;
-      }
+    private record NameIndexedMap<T>(Map<Name, Map<MethodRef, T>> state) {
 
       @Nullable T get(Symbol.MethodSymbol symbol) {
         Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
@@ -1773,8 +1766,8 @@ public class LibraryModelsHandler implements Handler {
 
     private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
     private final Set<String> nullMarkedClassesCache;
-    private final Map<String, Integer> upperBoundsCache;
-    private final Multimap<String, Integer> methodTypeParamNullableUpperBoundCache;
+    private final SetMultimap<String, Integer> upperBoundsCache;
+    private final SetMultimap<String, Integer> methodTypeParamNullableUpperBoundCache;
     private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
 
     ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
@@ -1850,7 +1843,7 @@ public class LibraryModelsHandler implements Handler {
     public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
       ImmutableSetMultimap.Builder<String, Integer> mapBuilder =
           new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Integer> entry : upperBoundsCache.entrySet()) {
+      for (Map.Entry<String, Integer> entry : upperBoundsCache.entries()) {
         mapBuilder.put(entry.getKey(), entry.getValue());
       }
       return mapBuilder.build();

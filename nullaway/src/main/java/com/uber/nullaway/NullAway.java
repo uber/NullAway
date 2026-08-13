@@ -838,6 +838,20 @@ public class NullAway extends BugChecker
     MethodParameterNullness overriddenMethodArgumentNullness =
         MethodParameterNullness.create(overriddenMethod);
 
+    // For a method reference or lambda, try to use a type inferred by GenericsChecks for the
+    // tree, falling back on the type inferred by javac.  Used both to compute parameter
+    // nullability below and to pretty-print the functional interface method's substituted
+    // signature in error messages.  Remains null for a regular (non-generic-interface) override.
+    Type functionalInterfaceType = null;
+    if (memberReferenceTree != null || lambdaExpressionTree != null) {
+      Tree polyExprTree =
+          castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
+      functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExprTree);
+      if (functionalInterfaceType == null) {
+        functionalInterfaceType = ASTHelpers.getType(polyExprTree);
+      }
+    }
+
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
@@ -857,16 +871,6 @@ public class NullAway extends BugChecker
           // Check if the parameter type is a type variable and the corresponding generic type
           // argument is @Nullable
           if (memberReferenceTree != null || lambdaExpressionTree != null) {
-            // For a method reference or lambda, try to use a type inferred by GenericsChecks for
-            // the tree.  Fall back on the type inferred by javac.
-            Tree polyExprTree =
-                castToNonNull(
-                    memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
-            Type functionalInterfaceType =
-                genericsChecks.getInferredPolyExpressionType(polyExprTree);
-            if (functionalInterfaceType == null) {
-              functionalInterfaceType = ASTHelpers.getType(polyExprTree);
-            }
             paramNullness =
                 genericsChecks.getGenericMethodParameterNullness(
                     i, overriddenMethod, functionalInterfaceType, state);
@@ -903,7 +907,8 @@ public class NullAway extends BugChecker
               + "functional interface method "
               + ASTHelpers.enclosingClass(overriddenMethod)
               + "."
-              + overriddenMethod
+              + genericsChecks.prettySubstitutedMethodSignature(
+                  overriddenMethod, functionalInterfaceType, state)
               + " is @Nullable";
       return errorBuilder.createErrorDescription(
           new ErrorMessage(MessageTypes.WRONG_OVERRIDE_PARAM, message),
@@ -956,7 +961,8 @@ public class NullAway extends BugChecker
                 + "method "
                 + ASTHelpers.enclosingClass(overriddenMethod)
                 + "."
-                + overriddenMethod
+                + genericsChecks.prettySubstitutedMethodSignature(
+                    overriddenMethod, functionalInterfaceType, state)
                 + " is @Nullable";
         Tree errorTree;
         if (memberReferenceTree != null) {
@@ -1270,11 +1276,17 @@ public class NullAway extends BugChecker
             || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
       String message;
       if (memberReferenceTree != null) {
+        Type functionalInterfaceType =
+            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
+        if (functionalInterfaceType == null) {
+          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
+        }
         message =
             "referenced method returns @Nullable, but functional interface method "
                 + ASTHelpers.enclosingClass(overriddenMethod)
                 + "."
-                + overriddenMethod
+                + genericsChecks.prettySubstitutedMethodSignature(
+                    overriddenMethod, functionalInterfaceType, state)
                 + " returns @NonNull";
       } else {
         message =

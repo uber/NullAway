@@ -76,6 +76,39 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void checkContractZeroArgumentMethod() {
+    // Regression test for a crash (IndexOutOfBoundsException) when a zero-argument method has a
+    // @Contract with an empty antecedent, e.g. "-> !null".  See
+    // https://github.com/uber/NullAway/issues/424
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            public class Test {
+              @Contract("-> !null")
+              Object okay() {
+                return new Object();
+              }
+              @Contract("-> !null")
+              @Nullable
+              Object violates() {
+                // BUG: Diagnostic contains: Method violates has @Contract(-> !null), but this appears to be violated, as a @Nullable value may be returned when the contract preconditions are true.
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void noContractCheckErrorsWithoutFlag() {
     makeTestHelperWithArgs(
             Arrays.asList(
@@ -249,6 +282,124 @@ public class ContractsTests extends NullAwayTestsBase {
               String test4(java.util.Map<String,Object> m) {
                 NullnessChecker.assertNonNull(m.get("foo"));
                 return m.get("foo").toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Tests for the false positive reported in https://github.com/uber/NullAway/issues/1502 */
+  @Test
+  public void contractImpliesNonNullForMethodReference() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "NullnessChecker.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            public class NullnessChecker {
+              @Contract("null -> null; !null -> !null")
+              static @Nullable String strictContract(@Nullable String s) { return s; }
+              @Contract("_ -> !null")
+              static @Nullable String unconditionalContract(@Nullable String s) { return "x"; }
+              @Contract("!null, _ -> !null")
+              static @Nullable String twoArgContract(@Nullable String s, @Nullable String t) { return s; }
+              @Contract("null -> null")
+              static @Nullable String uselessContract(@Nullable String s) { return s; }
+              static @Nullable String noContract(@Nullable String s) { return s; }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              interface StringFn { String apply(String s); }
+              interface StringFn2 { String apply(String s, String t); }
+              interface NullableParamFn { String apply(@Nullable String s); }
+              String[] map(String[] in, StringFn f) { return in; }
+              String[] map2(String[] in, StringFn2 f) { return in; }
+              String[] mapNullableParam(String[] in, NullableParamFn f) { return in; }
+              String[] testStrictContract(String[] w) {
+                return map(w, NullnessChecker::strictContract);
+              }
+              String[] testUnconditionalContract(String[] w) {
+                return map(w, NullnessChecker::unconditionalContract);
+              }
+              String[] testTwoArgContract(String[] w) {
+                return map2(w, NullnessChecker::twoArgContract);
+              }
+              String[] testUselessContract(String[] w) {
+                // the contract says nothing about non-null arguments
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map(w, NullnessChecker::uselessContract);
+              }
+              String[] testNoContract(String[] w) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map(w, NullnessChecker::noContract);
+              }
+              String[] testNullableParamOfInterface(String[] w) {
+                // the interface may pass null, so the contract does not apply
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return mapNullableParam(w, NullnessChecker::strictContract);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Like {@link #contractImpliesNonNullForMethodReference()}, but in JSpecify mode */
+  @Test
+  public void contractImpliesNonNullForMethodReferenceJSpecify() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Fn<P extends @Nullable Object, R extends @Nullable Object> { R apply(P p); }
+              @Contract("null -> null; !null -> !null")
+              static @Nullable String strictContract(@Nullable String s) { return s; }
+              @Contract("null -> null")
+              static @Nullable String uselessContract(@Nullable String s) { return s; }
+              String[] map(String[] in, Function<String, String> f) { return in; }
+              String[] mapNullableJdk(String[] in, Function<@Nullable String, String> f) { return in; }
+              String[] mapOwn(String[] in, Fn<String, String> f) { return in; }
+              String[] mapOwnNullable(String[] in, Fn<@Nullable String, String> f) { return in; }
+              String[] testStrictContract(String[] w) {
+                return map(w, Test::strictContract);
+              }
+              String[] testOwnInterface(String[] w) {
+                return mapOwn(w, Test::strictContract);
+              }
+              String[] testUselessContract(String[] w) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map(w, Test::uselessContract);
+              }
+              String[] testNullableTypeArgumentJdk(String[] w) {
+                // the interface may pass null, so the contract does not apply
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return mapNullableJdk(w, Test::strictContract);
+              }
+              String[] testNullableTypeArgumentOwn(String[] w) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return mapOwnNullable(w, Test::strictContract);
               }
             }
             """)

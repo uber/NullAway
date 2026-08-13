@@ -32,10 +32,12 @@ import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.tree.VariableTree;
+import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.TypeTag;
@@ -44,10 +46,12 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.annotations.JacocoIgnoreGenerated;
 import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.handlers.Handler.NullnessHint;
 import java.util.HashMap;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
@@ -171,6 +175,44 @@ public class AccessPathNullnessPropagation
 
   private final NullnessStoreInitializer nullnessStoreInitializer;
 
+  /**
+   * A stub {@link TreePath} implementation where every method fails immediately. Used to ensure the
+   * {@link TreePath} stored in {@link #state} is never used.
+   */
+  private static class FailingTreePath extends TreePath {
+    FailingTreePath(CompilationUnitTree tree) {
+      super(tree);
+    }
+
+    @JacocoIgnoreGenerated
+    @Override
+    public CompilationUnitTree getCompilationUnit() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+
+    @JacocoIgnoreGenerated
+    @Override
+    public Tree getLeaf() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+
+    @JacocoIgnoreGenerated
+    @Override
+    public TreePath getParentPath() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+
+    @JacocoIgnoreGenerated
+    @Override
+    public Iterator<Tree> iterator() {
+      throw new RuntimeException(
+          "Do not rely on this TreePath!  It came from the global VisitorState object in AccessPathNullnessPropagation.");
+    }
+  }
+
   public AccessPathNullnessPropagation(
       Nullness defaultAssumption,
       VisitorState state,
@@ -179,7 +221,8 @@ public class AccessPathNullnessPropagation
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = analysis::isMethodUnannotated;
-    this.state = state;
+    // Overwrite the TreePath with a FailingTreePath to ensure it never gets used
+    this.state = state.withPath(new FailingTreePath(state.getPath().getCompilationUnit()));
     this.apContext = apContext;
     this.config = analysis.getConfig();
     this.handler = analysis.getHandler();
@@ -871,8 +914,7 @@ public class AccessPathNullnessPropagation
   @Override
   public TransferResult<Nullness, NullnessStore> visitReturn(
       ReturnNode returnNode, TransferInput<Nullness, NullnessStore> input) {
-    handler.onDataflowVisitReturn(
-        returnNode.getTree(), state, input.getThenStore(), input.getElseStore());
+    handler.onDataflowVisitReturn(returnNode.getTree(), input.getThenStore(), input.getElseStore());
     return noStoreChanges(NULLABLE, input);
   }
 
@@ -1050,7 +1092,14 @@ public class AccessPathNullnessPropagation
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
-            node, callee, state, apContext, values(input), thenUpdates, elseUpdates, bothUpdates);
+            node,
+            callee,
+            state.withPath(node.getTreePath()),
+            apContext,
+            values(input),
+            thenUpdates,
+            elseUpdates,
+            bothUpdates);
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(callee)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
@@ -1164,9 +1213,14 @@ public class AccessPathNullnessPropagation
     if (node != null && config.isJSpecifyMode()) {
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
+        TreePath pathToInvocation = node.getTreePath();
+        // The path stored in the `state` field may have originated from an entirely different
+        // compilation unit; it's important to pass a `VisitorState` with an updated path here.  See
+        // https://github.com/uber/NullAway/issues/1680
+        VisitorState stateWithUpdatedPath = state.withPath(pathToInvocation);
         Nullness nullness =
             genericsChecks.getGenericReturnNullnessAtInvocation(
-                ASTHelpers.getSymbol(tree), tree, node.getTreePath(), state, true);
+                ASTHelpers.getSymbol(tree), tree, pathToInvocation, stateWithUpdatedPath, true);
         return nullness.equals(NULLABLE);
       }
     }
@@ -1280,15 +1334,7 @@ public class AccessPathNullnessPropagation
     public Nullness valueOfSubNode(Node node);
   }
 
-  private static final class ResultingStore {
-    final NullnessStore store;
-    final boolean storeChanged;
-
-    ResultingStore(NullnessStore store, boolean storeChanged) {
-      this.store = store;
-      this.storeChanged = storeChanged;
-    }
-  }
+  private record ResultingStore(NullnessStore store, boolean storeChanged) {}
 
   /** Represents a set of updates to be applied to the NullnessStore. */
   public interface Updates {

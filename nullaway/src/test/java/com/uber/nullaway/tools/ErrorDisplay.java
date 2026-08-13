@@ -21,52 +21,26 @@
  */
 package com.uber.nullaway.tools;
 
-import java.util.Objects;
+import com.uber.nullaway.fixserialization.out.ErrorInfo;
 
 /**
- * Helper class to represent a {@link com.uber.nullaway.fixserialization.out.ErrorInfo} contents in
- * a test case's (expected or actual) output.
+ * Helper class to represent a {@link ErrorInfo} contents in a test case's (expected or actual)
+ * output.
  */
-public class ErrorDisplay implements Display {
-  public final String type;
-  public final String message;
-  public final String encMember;
-  public final String encClass;
-  public final int offset;
-  public final String path;
-  public final String kind;
-  public final String clazz;
-  public final String method;
-  public final String variable;
-  public final String index;
-  public final String nonElementPath;
-
-  public ErrorDisplay(
-      String type,
-      String message,
-      String encClass,
-      String encMember,
-      int offset,
-      String path,
-      String kind,
-      String clazz,
-      String method,
-      String variable,
-      String index,
-      String nonElementPath) {
-    this.type = type;
-    this.message = message;
-    this.encMember = encMember;
-    this.encClass = encClass;
-    this.offset = offset;
-    this.path = path;
-    this.kind = kind;
-    this.clazz = clazz;
-    this.method = method;
-    this.variable = variable;
-    this.index = index;
-    this.nonElementPath = nonElementPath;
-  }
+public record ErrorDisplay(
+    String type,
+    String message,
+    String encClass,
+    String encMember,
+    int offset,
+    String path,
+    String kind,
+    String clazz,
+    String method,
+    String variable,
+    String index,
+    String nonElementPath)
+    implements Display {
 
   public ErrorDisplay(
       String type, String message, String encClass, String encMember, int offset, String path) {
@@ -97,23 +71,6 @@ public class ErrorDisplay implements Display {
         && variable.equals(that.variable)
         && index.equals(that.index)
         && SerializationTestHelper.pathsAreEqual(nonElementPath, that.nonElementPath);
-  }
-
-  @Override
-  public int hashCode() {
-    return Objects.hash(
-        type,
-        message,
-        encMember,
-        encClass,
-        offset,
-        path,
-        kind,
-        clazz,
-        method,
-        variable,
-        index,
-        nonElementPath);
   }
 
   @Override

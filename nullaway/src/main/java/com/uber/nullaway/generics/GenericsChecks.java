@@ -3,6 +3,8 @@ package com.uber.nullaway.generics;
 import static com.google.common.base.Verify.verify;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
+import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
@@ -84,20 +86,14 @@ public final class GenericsChecks {
    * Indicates successful inference of nullability of type variables at a call. Stores the inferred
    * type variable nullability.
    */
-  private static final class InferenceSuccess implements MethodInferenceResult {
-    final Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
-
-    InferenceSuccess(Map<Element, ConstraintSolver.InferredNullability> typeVarNullability) {
-      this.typeVarNullability = typeVarNullability;
-    }
-  }
+  private record InferenceSuccess(
+      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability)
+      implements MethodInferenceResult {}
 
   /** Indicates failed inference of nullability of type variables at a call */
-  private static final class InferenceFailure implements MethodInferenceResult {
-    @SuppressWarnings("UnusedVariable") // keep this as it may be useful in the future
-    final @Nullable String errorMessage;
-
-    InferenceFailure(@Nullable String errorMessage) {
+  private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
+      implements MethodInferenceResult {
+    private InferenceFailure(@Nullable String errorMessage) {
       this.errorMessage = errorMessage;
     }
   }
@@ -425,11 +421,11 @@ public final class GenericsChecks {
     String result =
         String.format(
             "incompatible types: %s cannot be converted to %s", prettyRhsType, prettyLhsType);
-    if (prettyRhsType.equals(prettyLhsType)) {
-      String wildcardBoundMismatch = firstDifferingWildcardBound(lhsType, rhsType, state);
-      if (wildcardBoundMismatch != null) {
-        result += " (" + wildcardBoundMismatch + ")";
-      }
+    boolean allowNonCaptureMismatch = prettyRhsType.equals(prettyLhsType);
+    WildcardBoundMismatch wildcardBoundMismatch =
+        firstWildcardBoundMismatch(lhsType, rhsType, state, allowNonCaptureMismatch);
+    if (wildcardBoundMismatch != null) {
+      result += " (" + describeWildcardBoundMismatch(wildcardBoundMismatch) + ")";
     }
     if (!ASTHelpers.isSameType(lhsType, rhsType, state)
         && lhsType.getKind() == TypeKind.DECLARED
@@ -449,20 +445,32 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns a description of the first wildcard bound difference between {@code lhsType} and {@code
-   * rhsType}, or {@code null} if no such difference can be found. Recursively traverses {@code
-   * lhsType} and {@code rhsType} to find such a difference.
+   * Returns the first wildcard bound difference between {@code lhsType} and {@code rhsType}, or
+   * {@code null} if no such difference can be found. Recursively traverses {@code lhsType} and
+   * {@code rhsType} to find such a difference.
    *
    * <p>This is especially useful when two types pretty-print identically, but differ in the
    * effective upper bound of a wildcard nested somewhere inside the type.
+   *
+   * @param lhsType the lhs (target) type
+   * @param rhsType the rhs (source) type
+   * @param state the visitor state
+   * @param allowNonCaptureMismatch whether a mismatch may be returned when neither causal wildcard
+   *     is captured. Such details are useful when the full types print identically, but redundant
+   *     when the full types already expose the difference.
    */
-  private @Nullable String firstDifferingWildcardBound(
-      Type lhsType, Type rhsType, VisitorState state) {
+  private @Nullable WildcardBoundMismatch firstWildcardBoundMismatch(
+      Type lhsType, Type rhsType, VisitorState state, boolean allowNonCaptureMismatch) {
     // base case: both wildcard types
     Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsType);
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsType);
     if (lhsWildcard != null && rhsWildcard != null) {
-      return wildcardBoundMismatch(lhsWildcard, rhsWildcard, state);
+      if (!allowNonCaptureMismatch
+          && !(lhsType instanceof Type.CapturedType)
+          && !(rhsType instanceof Type.CapturedType)) {
+        return null;
+      }
+      return wildcardBoundMismatch(lhsType, rhsType, lhsWildcard, rhsWildcard, state);
     }
     if (lhsType instanceof Type.ClassType lhsClassType && rhsType instanceof Type.ClassType) {
       Type rhsTypeAsSuper =
@@ -479,39 +487,97 @@ public final class GenericsChecks {
         return null;
       }
       for (int i = 0; i < lhsTypeArguments.size(); i++) {
-        String mismatch =
-            firstDifferingWildcardBound(lhsTypeArguments.get(i), rhsTypeArguments.get(i), state);
+        WildcardBoundMismatch mismatch =
+            firstWildcardBoundMismatch(
+                lhsTypeArguments.get(i), rhsTypeArguments.get(i), state, allowNonCaptureMismatch);
         if (mismatch != null) {
           return mismatch;
         }
       }
-      return firstDifferingWildcardBound(
-          lhsClassType.getEnclosingType(), rhsClassType.getEnclosingType(), state);
+      return firstWildcardBoundMismatch(
+          lhsClassType.getEnclosingType(),
+          rhsClassType.getEnclosingType(),
+          state,
+          allowNonCaptureMismatch);
     }
     if (lhsType instanceof Type.ArrayType lhsArrayType
         && rhsType instanceof Type.ArrayType rhsArrayType) {
-      return firstDifferingWildcardBound(lhsArrayType.elemtype, rhsArrayType.elemtype, state);
+      return firstWildcardBoundMismatch(
+          lhsArrayType.elemtype, rhsArrayType.elemtype, state, allowNonCaptureMismatch);
     }
     return null;
   }
 
   /**
-   * Returns a diagnostic fragment describing how two wildcard effective upper bounds differ, or
-   * {@code null} if those bounds pretty-print the same.
+   * Creates a structured mismatch for two wildcards with visibly different effective upper bounds,
+   * or returns {@code null} if those bounds pretty-print the same.
    */
-  private @Nullable String wildcardBoundMismatch(
-      Type.WildcardType lhsWildcard, Type.WildcardType rhsWildcard, VisitorState state) {
+  private @Nullable WildcardBoundMismatch wildcardBoundMismatch(
+      Type lhsType,
+      Type rhsType,
+      Type.WildcardType lhsWildcard,
+      Type.WildcardType rhsWildcard,
+      VisitorState state) {
     Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
     Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
     String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
     String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
     if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
-      return String.format(
-          "target wildcard upper bound is %s; source wildcard upper bound is %s",
-          prettyLhsUpperBound, prettyRhsUpperBound);
+      return new WildcardBoundMismatch(lhsType, rhsType, prettyLhsUpperBound, prettyRhsUpperBound);
     }
     return null;
   }
+
+  /**
+   * Describes a wildcard-bound mismatch, including provenance for every captured wildcard that
+   * directly participates in that mismatch.
+   */
+  private static String describeWildcardBoundMismatch(WildcardBoundMismatch mismatch) {
+    String result =
+        String.format(
+            "target wildcard upper bound is %s; source wildcard upper bound is %s",
+            mismatch.prettyTargetUpperBound(), mismatch.prettySourceUpperBound());
+    String targetCaptureDescription =
+        captureProvenanceDescription(mismatch.targetWildcardType(), "target");
+    if (targetCaptureDescription != null) {
+      result += "; " + targetCaptureDescription;
+    }
+    String sourceCaptureDescription =
+        captureProvenanceDescription(mismatch.sourceWildcardType(), "source");
+    if (sourceCaptureDescription != null) {
+      result += "; " + sourceCaptureDescription;
+    }
+    return result;
+  }
+
+  /** Returns a short description of the type parameter underlying a captured type, if available. */
+  private static @Nullable String captureProvenanceDescription(Type type, String assignmentRole) {
+    if (!(type instanceof Type.CapturedType capturedType)) {
+      return null;
+    }
+    Type.TypeVar formalTypeVariable = capturedType.wildcard.bound;
+    if (formalTypeVariable == null
+        || !(formalTypeVariable.tsym.owner instanceof Symbol.ClassSymbol owner)
+        || owner.getSimpleName().isEmpty()) {
+      return null;
+    }
+    return String.format(
+        "%s wildcard is the type argument for type variable %s of %s",
+        assignmentRole, formalTypeVariable.tsym.getSimpleName(), owner.getSimpleName());
+  }
+
+  /**
+   * A difference between the effective upper bounds of two corresponding wildcards.
+   *
+   * <p>The wildcard types are retained so the diagnostic can report provenance for the captured
+   * wildcard or wildcards that directly caused the mismatch, without reporting unrelated captures
+   * elsewhere in the enclosing types.
+   */
+  private record WildcardBoundMismatch(
+      Type targetWildcardType,
+      Type sourceWildcardType,
+      String prettyTargetUpperBound,
+      String prettySourceUpperBound) {}
 
   private void reportInvalidReturnTypeError(
       Tree tree, Type methodType, Type returnType, VisitorState state) {
@@ -703,7 +769,9 @@ public final class GenericsChecks {
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
-        return typeWithPreservedAnnotations(paramTypedTree);
+        Type typeFromIdentifier = typeWithPreservedAnnotations(paramTypedTree);
+        return withEnclosingTypeFromQualifier(
+            typeFromIdentifier, newClassTree, state, calledFromDataflow);
       }
       return typeOrNullIfRaw(ASTHelpers.getType(tree));
     } else if (tree instanceof NewArrayTree
@@ -1876,6 +1944,41 @@ public final class GenericsChecks {
   }
 
   /**
+   * For a {@code NewClassTree} with a qualifying enclosing-instance expression, e.g. {@code
+   * (someExpr).new Inner<T>() { ... }}, replaces {@code type}'s enclosing type (which, coming from
+   * {@code baseType.getEnclosingType()} in {@link PreservedAnnotationTreeVisitor}, is just {@code
+   * Inner}'s statically-declared enclosing type, unrelated to the actual enclosing instance the
+   * qualifier expression evaluates to) with the properly-annotated, substituted type of the
+   * qualifier expression itself. If there is no qualifying expression, or we cannot determine its
+   * type, {@code type} is returned unchanged.
+   *
+   * @param type the type computed for the {@code NewClassTree}'s identifier, to be given the
+   *     correct enclosing type
+   * @param newClassTree the {@code NewClassTree}, possibly qualified by an enclosing-instance
+   *     expression
+   * @param state the visitor state
+   * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
+   * @return {@code type} with its enclosing type corrected, or {@code type} unchanged if there is
+   *     no qualifying expression or its type could not be determined
+   */
+  private @Nullable Type withEnclosingTypeFromQualifier(
+      Type type, NewClassTree newClassTree, VisitorState state, boolean calledFromDataflow) {
+    ExpressionTree enclosingExpr = newClassTree.getEnclosingExpression();
+    if (enclosingExpr == null) {
+      return type;
+    }
+    TreePath pathToEnclosingExpr = new TreePath(state.getPath(), enclosingExpr);
+    Type enclosingExprType =
+        getTreeType(enclosingExpr, state.withPath(pathToEnclosingExpr), calledFromDataflow);
+    if (enclosingExprType == null) {
+      return type;
+    }
+    Type.ClassType classType = (Type.ClassType) type;
+    return TYPE_METADATA_BUILDER.createClassType(
+        classType, enclosingExprType, classType.getTypeArguments());
+  }
+
+  /**
    * For a conditional expression <em>c</em>, check whether the type parameter nullability for each
    * sub-expression of <em>c</em> matches the type parameter nullability of <em>c</em> itself.
    *
@@ -2570,7 +2673,7 @@ public final class GenericsChecks {
       if (result instanceof InferenceSuccess successResult) {
         methodTypeAtCallSite =
             restoreNestedNullabilityForTypeVarArguments(
-                invocationTree, methodType, methodTypeAtCallSite, state, calledFromDataflow);
+                invocationTree, methodType, methodTypeAtCallSite, path, state, calledFromDataflow);
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -2594,6 +2697,7 @@ public final class GenericsChecks {
    *     parameters whose type is a type variable of the method)
    * @param methodTypeAtCallSite the method type for the generic method as inferred by javac at the
    *     call site
+   * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability
    *     annotations on type variables restored to match those on actual parameters passed at the
@@ -2603,6 +2707,7 @@ public final class GenericsChecks {
       MethodInvocationTree invocationTree,
       Type.MethodType origMethodType,
       Type.MethodType methodTypeAtCallSite,
+      @Nullable TreePath invocationPath,
       VisitorState state,
       boolean calledFromDataflow) {
     return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
@@ -2610,6 +2715,7 @@ public final class GenericsChecks {
         invocationTree,
         origMethodType,
         methodTypeAtCallSite,
+        invocationPath,
         state,
         config,
         calledFromDataflow);
@@ -3059,6 +3165,33 @@ public final class GenericsChecks {
    */
   private static String prettyTypeForError(Type type, VisitorState state) {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
+  }
+
+  /**
+   * Returns a pretty-printed signature for {@code method}, with its parameter types substituted for
+   * the type arguments of {@code enclosingType} and printed with their nullability annotations,
+   * e.g. {@code function(@Nullable Object)} rather than the raw, unsubstituted {@code
+   * function(T1)}.
+   *
+   * @param method the method, usually a generic functional interface method
+   * @param enclosingType the enclosing type providing the type arguments for substitution, or
+   *     {@code null} if no such type is available, in which case the raw, unsubstituted signature
+   *     of {@code method} is returned
+   * @param state the visitor state
+   * @return a pretty-printed, substituted signature for {@code method}
+   */
+  public String prettySubstitutedMethodSignature(
+      Symbol.MethodSymbol method, @Nullable Type enclosingType, VisitorState state) {
+    if (enclosingType == null) {
+      return method.toString();
+    }
+    Type methodType =
+        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, method, config);
+    String paramTypesString =
+        methodType.getParameterTypes().stream()
+            .map(paramType -> prettyTypeForError(paramType, state))
+            .collect(joining(","));
+    return method.getSimpleName() + "(" + paramTypesString + ")";
   }
 
   /**
