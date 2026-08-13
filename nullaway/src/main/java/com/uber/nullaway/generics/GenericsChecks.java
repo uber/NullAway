@@ -1962,13 +1962,7 @@ public final class GenericsChecks {
    *     no qualifying expression or its type could not be determined
    */
   private @Nullable Type withEnclosingTypeFromQualifier(
-      @Nullable Type type,
-      NewClassTree newClassTree,
-      VisitorState state,
-      boolean calledFromDataflow) {
-    if (type == null) {
-      return null;
-    }
+      Type type, NewClassTree newClassTree, VisitorState state, boolean calledFromDataflow) {
     ExpressionTree enclosingExpr = newClassTree.getEnclosingExpression();
     if (enclosingExpr == null) {
       return type;
