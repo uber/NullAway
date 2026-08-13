@@ -43,15 +43,13 @@ public class ContractNullnessStoreInitializer extends NullnessStoreInitializer {
     MethodTree methodTree = ((UnderlyingAST.CFGMethod) underlyingAST).getMethod();
     ClassTree classTree = ((UnderlyingAST.CFGMethod) underlyingAST).getClassTree();
     Symbol.MethodSymbol callee = ASTHelpers.getSymbol(methodTree);
-    String contractString = ContractUtils.getContractString(callee, config);
+    String[] clauses = ContractUtils.getContractClauses(callee, config);
 
-    if (contractString == null) {
-      throw new IllegalStateException("expected non-null contractString");
+    if (clauses.length == 0) {
+      throw new IllegalStateException("expected a contract clause for method " + callee);
     }
 
-    String[] clauses = contractString.split(";");
-    String[] parts = clauses[0].split("->");
-    String[] antecedent = parts[0].split(",");
+    String[] antecedent = ContractUtils.parseAntecedent(clauses[0]);
 
     NullnessStore envStore = getEnvNullnessStoreForClass(classTree, context);
     NullnessStore.Builder result = envStore.toBuilder();

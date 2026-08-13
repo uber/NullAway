@@ -87,9 +87,7 @@ public class ContractUtils {
       Symbol callee,
       int numOfArguments) {
 
-    String[] parts = clause.split("->");
-
-    String[] antecedent = parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
+    String[] antecedent = parseAntecedent(clause);
 
     if (antecedent.length != numOfArguments && shouldReportInvalidContract(tree)) {
       String message =
@@ -114,6 +112,21 @@ public class ContractUtils {
                   null));
     }
     return antecedent;
+  }
+
+  /**
+   * Parses the antecedent portion of a contract clause into its component value constraints,
+   * without validating the count against a particular method's parameters (contrast with {@link
+   * #getAntecedent}, which performs that validation and reports an error on a given {@code Tree} if
+   * it fails).
+   *
+   * @param clause the contract clause
+   * @return the value constraints in the clause's antecedent, or an empty array if the antecedent
+   *     is empty (e.g. for a contract on a method with no arguments)
+   */
+  static String[] parseAntecedent(String clause) {
+    String[] parts = clause.split("->");
+    return parts[0].trim().isEmpty() ? new String[0] : parts[0].split(",");
   }
 
   /**
