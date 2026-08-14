@@ -753,7 +753,7 @@ public final class GenericsChecks {
       return typeOrNullIfRaw(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (isDiamondAndNotAnonymousClass(newClassTree)) {
+      if (TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() != null) {
         // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
         // Tracked in https://github.com/uber/NullAway/issues/1475
         return null;
@@ -909,11 +909,7 @@ public final class GenericsChecks {
    * instantiated type arguments at the type level, but no explicit non-diamond source type args.
    */
   private static boolean isDiamondAndNotAnonymousClass(NewClassTree newClassTree) {
-    if (newClassTree.getClassBody() != null) {
-      // we still need to properly handle anonymous classes
-      return false;
-    }
-    return TreeInfo.isDiamond((JCTree) newClassTree);
+    return TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() == null;
   }
 
   /**
