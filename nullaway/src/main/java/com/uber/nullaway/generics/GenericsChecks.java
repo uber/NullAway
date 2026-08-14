@@ -2978,6 +2978,7 @@ public final class GenericsChecks {
             targetTypeAndAssignmentKind.assignedToLocal());
       }
     }
+    // an unhandled case; for now, give up and return no assignment context
     return new CallAndContext(call, null, false);
   }
 
