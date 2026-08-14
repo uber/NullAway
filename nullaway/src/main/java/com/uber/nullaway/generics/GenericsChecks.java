@@ -762,13 +762,11 @@ public final class GenericsChecks {
         TreePath currentPath = state.getPath();
         CallAndContext directContext =
             getDirectCallContextForInference(currentPath, state, calledFromDataflow);
-        Type constructorAssignmentContext =
-            sanitizeAssignmentContextForDiamondConstructor(directContext.typeFromAssignmentContext);
         return inferCallType(
             state,
             newClassTree,
             currentPath,
-            constructorAssignmentContext,
+            directContext.typeFromAssignmentContext,
             directContext.assignedToLocal,
             calledFromDataflow);
       }
@@ -1338,16 +1336,6 @@ public final class GenericsChecks {
         callTree instanceof MethodInvocationTree || callTree instanceof NewClassTree,
         "Expected a MethodInvocationTree or a NewClassTree");
     return (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
-  }
-
-  /**
-   * A bare method type variable does not provide useful structure for inferring nullability of a
-   * diamond constructor's class type arguments. In such cases we let constructor inference rely on
-   * constructor arguments and any more structured surrounding context instead.
-   */
-  private @Nullable Type sanitizeAssignmentContextForDiamondConstructor(
-      @Nullable Type contextType) {
-    return contextType instanceof Type.TypeVar ? null : contextType;
   }
 
   /**
