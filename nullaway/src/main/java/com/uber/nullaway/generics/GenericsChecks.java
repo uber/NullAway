@@ -753,12 +753,12 @@ public final class GenericsChecks {
       return typeOrNullIfRaw(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() != null) {
+      if (isDiamondAndNotAnonymousClass(newClassTree)) {
         // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
         // Tracked in https://github.com/uber/NullAway/issues/1475
         return null;
       }
-      if (hasInferredClassTypeArguments(newClassTree)) {
+      if (isDiamondAndNotAnonymousClass(newClassTree)) {
         TreePath currentPath = state.getPath();
         @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
         boolean currentPathLeafIsTree =
@@ -908,7 +908,7 @@ public final class GenericsChecks {
    * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
    * instantiated type arguments at the type level, but no explicit non-diamond source type args.
    */
-  private static boolean hasInferredClassTypeArguments(NewClassTree newClassTree) {
+  private static boolean isDiamondAndNotAnonymousClass(NewClassTree newClassTree) {
     if (newClassTree.getClassBody() != null) {
       // we still need to properly handle anonymous classes
       return false;
@@ -1831,7 +1831,7 @@ public final class GenericsChecks {
           && methodInvocation.getTypeArguments().isEmpty();
     }
     return argument instanceof NewClassTree newClassTree
-        && hasInferredClassTypeArguments(newClassTree);
+        && isDiamondAndNotAnonymousClass(newClassTree);
   }
 
   /**
