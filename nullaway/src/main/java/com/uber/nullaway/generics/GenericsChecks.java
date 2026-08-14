@@ -2562,14 +2562,11 @@ public final class GenericsChecks {
     // false-positive on a matching @Nullable override. Skip original bounds that are still type
     // variables — those must be resolved via substitution (or the free type-var path above).
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
-    if (typeVarIndex >= 0 && typeVarIndex < originalTypeParams.size()) {
-      Type originalBound =
-          (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-      if (originalBound.getKind() != TypeKind.TYPEVAR
-          && Nullness.hasNullableAnnotation(
-              originalBound.getAnnotationMirrors().stream(), config)) {
-        return true;
-      }
+    Type originalBound =
+        (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
+    if (originalBound.getKind() != TypeKind.TYPEVAR
+        && Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+      return true;
     }
     return false;
   }
