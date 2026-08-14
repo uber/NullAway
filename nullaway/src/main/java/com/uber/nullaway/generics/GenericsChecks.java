@@ -760,23 +760,17 @@ public final class GenericsChecks {
       }
       if (isDiamondAndNotAnonymousClass(newClassTree)) {
         TreePath currentPath = state.getPath();
-        @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
-        boolean currentPathLeafIsTree =
-            currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree;
-        if (currentPathLeafIsTree) {
-          DirectCallContext directContext =
-              getDirectCallContextForInference(currentPath, state, calledFromDataflow);
-          Type constructorAssignmentContext =
-              sanitizeAssignmentContextForDiamondConstructor(
-                  directContext.typeFromAssignmentContext);
-          return inferCallType(
-              state,
-              newClassTree,
-              currentPath,
-              constructorAssignmentContext,
-              directContext.assignedToLocal,
-              calledFromDataflow);
-        }
+        CallAndContext directContext =
+            getDirectCallContextForInference(currentPath, state, calledFromDataflow);
+        Type constructorAssignmentContext =
+            sanitizeAssignmentContextForDiamondConstructor(directContext.typeFromAssignmentContext);
+        return inferCallType(
+            state,
+            newClassTree,
+            currentPath,
+            constructorAssignmentContext,
+            directContext.assignedToLocal,
+            calledFromDataflow);
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
@@ -2874,9 +2868,6 @@ public final class GenericsChecks {
   private record CallAndContext(
       ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {}
 
-  private record DirectCallContext(
-      @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {}
-
   /**
    * Given a {@link TreePath} to an invocation of a generic method, collect information about the
    * appropriate invocation on which to perform type inference, and the relevant information from
@@ -2910,16 +2901,13 @@ public final class GenericsChecks {
       return getCallAndContextForInference(
           parentPath, state.withPath(parentPath), calledFromDataflow);
     }
-    DirectCallContext directContext =
-        getDirectCallContextForInference(path, state, calledFromDataflow);
-    return new CallAndContext(
-        call, directContext.typeFromAssignmentContext, directContext.assignedToLocal);
+    return getDirectCallContextForInference(path, state, calledFromDataflow);
   }
 
   /**
    * Returns the context immediately surrounding a call, without traversing nested generic calls.
    */
-  private DirectCallContext getDirectCallContextForInference(
+  private CallAndContext getDirectCallContextForInference(
       TreePath path, VisitorState state, boolean calledFromDataflow) {
     ExpressionTree call = (ExpressionTree) path.getLeaf();
     TreePath parentPath = path.getParentPath();
@@ -2931,7 +2919,8 @@ public final class GenericsChecks {
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
       TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
           getTargetTypeForAssignmentContext(parent, state.withPath(parentPath), calledFromDataflow);
-      return new DirectCallContext(
+      return new CallAndContext(
+          call,
           targetTypeAndAssignmentKind.typeFromAssignmentContext(),
           targetTypeAndAssignmentKind.assignedToLocal());
     } else if (parent instanceof ReturnTree) {
@@ -2943,7 +2932,7 @@ public final class GenericsChecks {
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
         if (methodSymbol != null) {
-          return new DirectCallContext(methodSymbol.getReturnType(), false);
+          return new CallAndContext(call, methodSymbol.getReturnType(), false);
         }
       }
     } else if (parent instanceof ExpressionTree exprParent) {
@@ -2983,7 +2972,7 @@ public final class GenericsChecks {
             }
           }
         }
-        return new DirectCallContext(formalParamType, false);
+        return new CallAndContext(call, formalParamType, false);
       } else if (exprParent instanceof ConditionalExpressionTree) {
         TreePath conditionalPath = getOutermostConditionalExpressionPath(parentPath);
         TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
@@ -2991,12 +2980,13 @@ public final class GenericsChecks {
                 (ConditionalExpressionTree) conditionalPath.getLeaf(),
                 state.withPath(conditionalPath),
                 calledFromDataflow);
-        return new DirectCallContext(
+        return new CallAndContext(
+            call,
             targetTypeAndAssignmentKind.typeFromAssignmentContext(),
             targetTypeAndAssignmentKind.assignedToLocal());
       }
     }
-    return new DirectCallContext(null, false);
+    return new CallAndContext(call, null, false);
   }
 
   /**
