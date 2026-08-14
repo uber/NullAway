@@ -37,10 +37,48 @@ public class CoreTests extends NullAwayTestsBase {
     defaultCompilationHelper.addSourceFile("testdata/NullAwayPositiveCases.java").doTest();
   }
 
-  @SuppressWarnings("deprecation")
   @Test
   public void nullabilityAnonymousClass() {
-    defaultCompilationHelper.addSourceFile("testdata/NullAwayAnonymousClass.java").doTest();
+    defaultCompilationHelper
+        .addSourceLines(
+            "NullAwayAnonymousClass.java",
+            """
+            package com.uber.nullaway.testdata;
+
+            import javax.annotation.Nullable;
+
+            public class NullAwayAnonymousClass {
+
+              static class Inner {
+
+                void takeParams(Object o1, Object o2) {}
+              }
+
+              static void anonymousClass(final Inner x) {
+
+                Runnable r =
+                    new Runnable() {
+
+                      // BUG: Diagnostic contains: @NonNull field 'NullAwayAnonymousClass$1.f' not initialized
+                      private Object f;
+
+                      @Override
+                      public void run() {
+                        Object y = new Object();
+                        // BUG: Diagnostic contains: passing @Nullable parameter 'create()' where @NonNull is
+                        // required
+                        x.takeParams(y, create());
+                      }
+
+                      @Nullable
+                      private Object create() {
+                        return new Object();
+                      }
+                    };
+              }
+            }
+            """)
+        .doTest();
   }
 
   @SuppressWarnings("deprecation")
