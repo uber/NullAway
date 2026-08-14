@@ -2886,6 +2886,9 @@ public final class GenericsChecks {
     if (call instanceof MethodInvocationTree
         && parent instanceof MethodInvocationTree parentInvocation
         && isCallNeedingInference(parentInvocation)) {
+      // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
+      // we want to find the outermost call that requires inference, since that is the one whose
+      // assignment context is relevant
       return getCallAndContextForInference(
           parentPath, state.withPath(parentPath), calledFromDataflow);
     }
@@ -2927,6 +2930,7 @@ public final class GenericsChecks {
       // could be a parameter to another method call, or part of a conditional expression, etc.
       // in any case, just return the type of the parent expression
       if (exprParent instanceof MethodInvocationTree parentInvocation) {
+        // the call is either a regular parameter to the parent call, or the receiver expression
         Type formalParamType =
             getFormalParameterTypeForArgument(
                 parentInvocation,
