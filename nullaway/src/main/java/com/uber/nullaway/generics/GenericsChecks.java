@@ -756,7 +756,7 @@ public final class GenericsChecks {
       if (TreeInfo.isDiamond((JCTree) newClassTree)) {
         if (newClassTree.getClassBody() != null) {
           // Keep existing behavior for diamond anonymous classes, which are not yet fully
-          // supported. Tracked in https://github.com/uber/NullAway/issues/1475
+          // supported.  Tracked in https://github.com/uber/NullAway/issues/1475
           return null;
         }
         // For constructor calls using diamond operator, infer from assignment context.
@@ -930,16 +930,6 @@ public final class GenericsChecks {
     }
     Type newClassType = ASTHelpers.getType(newClassTree);
     return newClassType != null && !newClassType.getTypeArguments().isEmpty();
-  }
-
-  private static boolean isCallNeedingInference(ExpressionTree expressionTree) {
-    if (expressionTree instanceof MethodInvocationTree methodInvocation) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
-      return methodSymbol != null
-          && methodSymbol.type instanceof Type.ForAll
-          && methodInvocation.getTypeArguments().isEmpty();
-    }
-    return false;
   }
 
   /**
@@ -1192,7 +1182,7 @@ public final class GenericsChecks {
     Verify.verify(isCallNeedingInference(callTree));
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
     CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
-    if (result == null) {
+    if (result == null) { // have not yet attempted inference for this call
       result =
           runInferenceForCall(
               state,
@@ -1202,8 +1192,8 @@ public final class GenericsChecks {
               assignedToLocal,
               calledFromDataflow);
     }
-    if (result instanceof InferenceSuccess success) {
-      typeVarNullability = success.typeVarNullability;
+    if (result instanceof InferenceSuccess) {
+      typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
     }
     Type typeAtCallSite = castToNonNull(ASTHelpers.getType(callTree));
     if (callTree instanceof MethodInvocationTree) {
@@ -1242,6 +1232,7 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       boolean calledFromDataflow) {
     ConstraintSolver solver = makeSolver(state, analysis);
+    // allCalls tracks the top-level call and any nested calls that also require inference
     Set<Tree> allCalls = new LinkedHashSet<>();
     allCalls.add(callTree);
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
@@ -1256,11 +1247,16 @@ public final class GenericsChecks {
           allCalls,
           calledFromDataflow);
       typeVarNullability = new HashMap<>(solver.solve());
+      // The solver only computes a solution for variables that appear in constraints. For
+      // unconstrained variables, treat them as NONNULL, consistent with solver behavior for
+      // unconstrained variables that do appear in the constraint graph.
       for (Symbol.TypeVariableSymbol typeVar : getCallTypeParameters(callTree)) {
         typeVarNullability.putIfAbsent(typeVar, ConstraintSolver.InferredNullability.NONNULL);
       }
 
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
+      // don't cache result if we were called from dataflow, since the result may rely on dataflow
+      // facts that do not reflect the fixed point
       if (!calledFromDataflow) {
         for (Tree inferredCall : allCalls) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
@@ -1319,6 +1315,7 @@ public final class GenericsChecks {
         e.getTypeVariable());
   }
 
+  /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
   private com.sun.tools.javac.util.List<Symbol.TypeVariableSymbol> getCallTypeParameters(
       ExpressionTree callTree) {
     if (callTree instanceof MethodInvocationTree invocationTree) {
@@ -1332,6 +1329,11 @@ public final class GenericsChecks {
   /**
    * Gets the declaration-site executable type for inference, substituting type arguments from a
    * method invocation's receiver and applying any handler-provided models.
+   *
+   * <p>Receiver substitution is necessary when an enclosing class type variable appears in the
+   * method signature. For example, for a method returning {@code T} on a receiver {@code
+   * Foo<@Nullable Object>}, the invocation return type is {@code @Nullable Object}, not the
+   * declaration-site type variable {@code T}.
    */
   private Type.MethodType getInferenceExecutableType(
       ExpressionTree callTree,
@@ -1356,6 +1358,7 @@ public final class GenericsChecks {
         callTree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
   }
 
+  /** Returns the method or constructor symbol for {@code callTree}. */
   private Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
     return (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
   }
@@ -1391,6 +1394,7 @@ public final class GenericsChecks {
     Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
     Type.MethodType methodType =
         getInferenceExecutableType(callTree, path, state, calledFromDataflow);
+    // first, handle the call result flow
     if (typeFromAssignmentContext != null) {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
@@ -1398,6 +1402,7 @@ public final class GenericsChecks {
               : methodSymbol.owner.type;
       solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
     }
+    // then, handle parameters
     TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
     new InvocationArguments(callTree, methodType)
         .forEach(
@@ -1818,6 +1823,20 @@ public final class GenericsChecks {
       }
       return TypeSubstitutionUtils.removeNullableAnnotation(argumentType, config);
     }
+  }
+
+  private static boolean isCallNeedingInference(ExpressionTree argument) {
+    // For now, we only support calls to generic methods.
+    // TODO also support calls to generic constructors that use the diamond operator
+    // https://github.com/uber/NullAway/issues/1470
+    if (argument instanceof MethodInvocationTree methodInvocation) {
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
+      // true for generic method calls with no explicit type arguments
+      return methodSymbol != null
+          && methodSymbol.type instanceof Type.ForAll
+          && methodInvocation.getTypeArguments().isEmpty();
+    }
+    return false;
   }
 
   /**
@@ -2354,6 +2373,8 @@ public final class GenericsChecks {
               }
               if (actualParameterType != null) {
                 if (isCallNeedingInference(currentActualParam)) {
+                  // infer the type of the method call based on the assignment context
+                  // and the formal parameter type
                   actualParameterType =
                       inferCallType(
                           state.withPath(pathToParam),
@@ -2867,8 +2888,8 @@ public final class GenericsChecks {
   }
 
   /**
-   * An invocation of a generic method, and the corresponding information about its assignment
-   * context, for the purposes of inference.
+   * A generic call, and the corresponding information about its assignment context, for the
+   * purposes of inference.
    */
   private record CallAndContext(
       ExpressionTree call, @Nullable Type typeFromAssignmentContext, boolean assignedToLocal) {}
@@ -2908,8 +2929,10 @@ public final class GenericsChecks {
           targetTypeAndAssignmentKind.typeFromAssignmentContext(),
           targetTypeAndAssignmentKind.assignedToLocal());
     } else if (parent instanceof ReturnTree) {
+      // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
+      // TODO handle lambdas; https://github.com/uber/NullAway/issues/1288
       if (enclosingMethodOrLambda != null
           && enclosingMethodOrLambda.getLeaf() instanceof MethodTree enclosingMethod) {
         Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(enclosingMethod);
@@ -2918,11 +2941,18 @@ public final class GenericsChecks {
         }
       }
     } else if (parent instanceof ExpressionTree exprParent) {
+      // could be a parameter to another method call, or part of a conditional expression, etc.
+      // in any case, just return the type of the parent expression
       if (exprParent instanceof MethodInvocationTree parentInvocation) {
         if (isCallNeedingInference(parentInvocation)) {
+          // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
+          // we want to find the outermost call that requires inference, since that is the one whose
+          // assignment context is relevant
           return getCallAndContextForInference(
               parentPath, state.withPath(parentPath), calledFromDataflow);
         }
+        // the generic call is either a regular parameter to the parent call, or the receiver
+        // expression
         Type formalParamType =
             getFormalParameterTypeForArgument(
                 parentInvocation,
@@ -2930,12 +2960,16 @@ public final class GenericsChecks {
                     .asMethodType(),
                 call);
         if (formalParamType == null) {
+          // this can happen if the call is the receiver expression of the parent call, e.g.,
+          // id(x).foo() (note that foo() need not be generic)
           ExpressionTree methodSelect =
               ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
           if (methodSelect instanceof MemberSelectTree mst) {
             @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
             boolean callIsReceiver = ASTHelpers.stripParentheses(mst.getExpression()) == call;
             if (callIsReceiver) {
+              // the call is the receiver expression, so we want the enclosing type of the parent
+              // invocation
               formalParamType =
                   getEnclosingTypeForCallExpression(
                       ASTHelpers.getSymbol(parentInvocation),
@@ -2966,6 +3000,7 @@ public final class GenericsChecks {
             targetTypeAndAssignmentKind.assignedToLocal());
       }
     }
+    // an unhandled case; for now, give up and return no assignment context
     return new CallAndContext(call, null, false);
   }
 
