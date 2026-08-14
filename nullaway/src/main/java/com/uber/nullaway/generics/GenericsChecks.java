@@ -1360,6 +1360,9 @@ public final class GenericsChecks {
 
   /** Returns the method or constructor symbol for {@code callTree}. */
   private Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
+    Verify.verify(
+        callTree instanceof MethodInvocationTree || callTree instanceof NewClassTree,
+        "Expected a MethodInvocationTree or a NewClassTree");
     return (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
   }
 
