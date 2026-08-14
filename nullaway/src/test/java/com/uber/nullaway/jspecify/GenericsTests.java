@@ -3064,10 +3064,18 @@ public class GenericsTests extends NullAwayTestsBase {
                 default MaybeNull<@NonNull T> asNonNull() {
                   return (MaybeNull<@NonNull T>) this;
                 }
+                default MaybeNull<@Nullable T> asNullable() {
+                  return (MaybeNull<@Nullable T>) this;
+                }
               }
               static void accept(MaybeNull<String> nonNullThing) {}
-              static void test(MaybeNull<@Nullable String> nullable) {
+              static void test(MaybeNull<@Nullable String> nullable, MaybeNull<String> nonNull) {
                 accept(nullable.asNonNull());
+                // BUG: Diagnostic contains: incompatible types: MaybeNull<@Nullable String> cannot be converted to MaybeNull<String>
+                accept(nonNull.asNullable());
+                MaybeNull<@Nullable String> m1 = nonNull.asNullable();
+                // BUG: Diagnostic contains: incompatible types: MaybeNull<@Nullable String> cannot be converted to MaybeNull<String>
+                MaybeNull<String> m2 = nonNull.asNullable();
               }
             }
             """)
