@@ -76,6 +76,39 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void checkContractZeroArgumentMethod() {
+    // Regression test for a crash (IndexOutOfBoundsException) when a zero-argument method has a
+    // @Contract with an empty antecedent, e.g. "-> !null".  See
+    // https://github.com/uber/NullAway/issues/424
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            public class Test {
+              @Contract("-> !null")
+              Object okay() {
+                return new Object();
+              }
+              @Contract("-> !null")
+              @Nullable
+              Object violates() {
+                // BUG: Diagnostic contains: Method violates has @Contract(-> !null), but this appears to be violated, as a @Nullable value may be returned when the contract preconditions are true.
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void noContractCheckErrorsWithoutFlag() {
     makeTestHelperWithArgs(
             Arrays.asList(

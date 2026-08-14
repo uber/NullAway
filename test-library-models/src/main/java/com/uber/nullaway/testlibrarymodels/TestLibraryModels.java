@@ -97,12 +97,20 @@ public class TestLibraryModels implements LibraryModels {
   }
 
   @Override
+  public ImmutableSetMultimap<MethodRef, MethodRef> ensuresNonNullIfTrueMethodCalls() {
+    return ImmutableSetMultimap.of(
+        methodRef("com.uber.lib.unannotated.CustomInterface", "hasContent()"),
+        methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()"));
+  }
+
+  @Override
   public ImmutableSet<MethodRef> nullableReturns() {
     return ImmutableSet.of(
         methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
-        methodRef("com.uber.lib.unannotated.Box", "orElse(T)"));
+        methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
+        methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()"));
   }
 
   @Override
