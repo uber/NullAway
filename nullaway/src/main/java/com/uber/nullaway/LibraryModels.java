@@ -88,6 +88,17 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters();
 
   /**
+   * Get (method, target method) pairs where returning <code>true</code> implies the target method
+   * on the receiver is non-null.
+   *
+   * @return map from querying methods to target receiver methods that are non-null when returning
+   *     true.
+   */
+  default ImmutableSetMultimap<MethodRef, MethodRef> ensuresNonNullIfTrueMethodCalls() {
+    return ImmutableSetMultimap.of();
+  }
+
+  /**
    * Get (method, parameter) pairs that cause the method to return <code>null</code> when passed
    * <code>null</code> on that parameter.
    *

@@ -628,11 +628,62 @@ public class GenericsTests extends NullAwayTestsBase {
                 return o.toString();
               }
               static void testPositive() {
-                // BUG: Diagnostic contains: parameter o of referenced method is @NonNull
+                // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional interface method com.uber.Test.A.function(@Nullable Object) is @Nullable
                 A<@Nullable Object> p = Test::foo;
               }
               static void testNegative() {
                 A<Object> p = Test::foo;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void testForExplicitlyTypedLambdaInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface A<T1 extends @Nullable Object> {
+                String function(T1 o);
+              }
+              static void testPositive() {
+                // BUG: Diagnostic contains: parameter o is @NonNull, but parameter in functional interface method com.uber.Test.A.function(@Nullable Object) is @Nullable
+                A<@Nullable Object> p = (Object o) -> o.toString();
+              }
+              static void testNegative() {
+                A<Object> p = (Object o) -> o.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void testForMethodReferenceWithMultipleParametersInAnAssignment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface B<T1 extends @Nullable Object, T2 extends @Nullable Object> {
+                String function(T1 a, T2 b);
+              }
+              static String bar(Object a, String b) {
+                return a.toString() + b;
+              }
+              static void testPositive() {
+                // BUG: Diagnostic contains: parameter a of referenced method is @NonNull, but parameter in functional interface method com.uber.Test.B.function(@Nullable Object,String) is @Nullable
+                B<@Nullable Object, String> p = Test::bar;
+              }
+              static void testNegative() {
+                B<Object, String> p = Test::bar;
               }
             }
             """)
@@ -1568,7 +1619,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/836")
   @Test
   public void overrideAnonymousNestedClass() {
     makeHelper()
@@ -1588,6 +1638,41 @@ public class GenericsTests extends NullAwayTestsBase {
                   // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
+                Wrapper<String>.Fn<String> fn2 = (this.new Wrapper<String>()).new Fn<String>() {
+                  public String apply(String s) { return s; }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideAnonymousDeeplyNestedClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              class Wrapper<P extends @Nullable Object> {
+                class Middle<Q extends @Nullable Object> {
+                  abstract class Fn<R extends @Nullable Object> {
+                    abstract R apply(P p);
+                  }
+                }
+              }
+              void anonymousDeeplyNestedClasses() {
+                Wrapper<@Nullable String>.Middle<String>.Fn<String> fn1 =
+                    ((this.new Wrapper<@Nullable String>()).new Middle<String>()).new Fn<String>() {
+                      // BUG: Diagnostic contains: parameter p is @NonNull, but parameter in superclass method
+                      public String apply(String p) { return p; }
+                    };
+                Wrapper<String>.Middle<String>.Fn<String> fn2 =
+                    ((this.new Wrapper<String>()).new Middle<String>()).new Fn<String>() {
+                      public String apply(String p) { return p; }
+                    };
               }
             }
             """)
@@ -2101,7 +2186,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 return null;
               }
               static Function<String,String> testPositiveReturn() {
-                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.Function.apply(String) returns @NonNull
                 return Test::foo2;
               }
             }

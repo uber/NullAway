@@ -944,7 +944,7 @@ public class WildcardTests extends NullAwayTestsBase {
                         // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
                         s.hashCode();
                     });
-                    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional interface method Test.Consumer.accept(T) is @Nullable
+                    // BUG: Diagnostic contains: parameter o of referenced method is @NonNull, but parameter in functional interface method Test.Consumer.accept(@Nullable String) is @Nullable
                     list.stream().map(Test::mapToNull).forEach(Test::callHashCode);
                 }
                 static void testNegative(List<String> list) {
