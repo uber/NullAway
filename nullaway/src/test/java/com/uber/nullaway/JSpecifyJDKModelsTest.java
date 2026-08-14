@@ -195,6 +195,12 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
             import java.util.Objects;
             @NullMarked
             class Test {
+                static void unsafeGetValues(Map<String, String> values, List<String> keys) {
+                    keys.stream().map(values::get).forEach(value -> {
+                        // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                        value.hashCode();
+                    });
+                }
                 static List<String> getValues(Map<String, String> values, List<String> keys) {
                     return keys.stream()
                         .map(values::get)
