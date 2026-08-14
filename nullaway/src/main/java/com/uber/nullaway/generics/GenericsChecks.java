@@ -2265,31 +2265,8 @@ public final class GenericsChecks {
     if (!config.isJSpecifyMode()) {
       return;
     }
-    Type invokedMethodType = methodSymbol.type;
-    Type enclosingType = null;
-    if (enclosingType == null) {
-      enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, null, state, false);
-    }
-    if (enclosingType != null) {
-      invokedMethodType =
-          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
-    }
-
-    // substitute type arguments for generic methods with explicit type arguments
-    if (tree instanceof MethodInvocationTree && invokedMethodType instanceof Type.ForAll) {
-      invokedMethodType =
-          substituteTypeArgsInGenericMethodType(
-              tree, (Type.ForAll) invokedMethodType, null, state, false);
-    }
-
     Type.MethodType finalMethodType =
-        handler.onOverrideMethodType(
-            methodSymbol,
-            invokedMethodType.asMethodType(),
-            state,
-            tree instanceof MethodInvocationTree methodInvocationTree
-                ? methodInvocationTree
-                : null);
+        getInvokedMethodTypeAtCall(methodSymbol, tree, null, state, false);
     new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
