@@ -913,12 +913,7 @@ public final class GenericsChecks {
       // we still need to properly handle anonymous classes
       return false;
     }
-    if (!TreeInfo.isDiamond((JCTree) newClassTree)) {
-      // explicit class type arguments in source
-      return false;
-    }
-    Type newClassType = ASTHelpers.getType(newClassTree);
-    return newClassType != null && !newClassType.getTypeArguments().isEmpty();
+    return TreeInfo.isDiamond((JCTree) newClassTree);
   }
 
   /**
