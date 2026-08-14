@@ -2900,24 +2900,21 @@ public final class GenericsChecks {
    */
   private CallAndContext getCallAndContextForInference(
       TreePath path, VisitorState state, boolean calledFromDataflow) {
-    CallAndContext directContext =
-        getDirectCallContextForInference(path, state, calledFromDataflow);
     TreePath parentPath = path.getParentPath();
     Tree parent = parentPath.getLeaf();
     while (parent instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
       parent = parentPath.getLeaf();
     }
-    if (parent instanceof ExpressionTree exprParent) {
-      if ((exprParent instanceof MethodInvocationTree || exprParent instanceof NewClassTree)
-          && isCallNeedingInference(exprParent)) {
-        // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
-        // outermost call requiring inference because its assignment context is the relevant one.
-        return getCallAndContextForInference(
-            parentPath, state.withPath(parentPath), calledFromDataflow);
-      }
+    if (parent instanceof ExpressionTree parentCall
+        && (parentCall instanceof MethodInvocationTree || parentCall instanceof NewClassTree)
+        && isCallNeedingInference(parentCall)) {
+      // This is a nested generic call, such as id(id(x)) or id(new Box<>(x)). Find the
+      // outermost call requiring inference because its assignment context is the relevant one.
+      return getCallAndContextForInference(
+          parentPath, state.withPath(parentPath), calledFromDataflow);
     }
-    return directContext;
+    return getDirectCallContextForInference(path, state, calledFromDataflow);
   }
 
   /**
@@ -2939,9 +2936,8 @@ public final class GenericsChecks {
           call,
           targetTypeAndAssignmentKind.typeFromAssignmentContext(),
           targetTypeAndAssignmentKind.assignedToLocal());
-    }
-    if (parent instanceof ReturnTree) {
-      // Find the enclosing method and return its return type.
+    } else if (parent instanceof ReturnTree) {
+      // find the enclosing method and return its return type
       TreePath enclosingMethodOrLambda =
           NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(parentPath);
       // TODO handle lambdas; https://github.com/uber/NullAway/issues/1288
@@ -2952,86 +2948,87 @@ public final class GenericsChecks {
           return new CallAndContext(call, methodSymbol.getReturnType(), false);
         }
       }
-      return new CallAndContext(call, null, false);
-    }
-    if (parent instanceof MethodInvocationTree parentInvocation) {
-      Type.MethodType parentMethodType =
-          getInvokedMethodTypeAtCall(
-              ASTHelpers.getSymbol(parentInvocation),
-              parentInvocation,
-              parentPath,
-              state.withPath(parentPath),
-              calledFromDataflow);
-      Type formalParamType =
-          getFormalParameterTypeForArgument(parentInvocation, parentMethodType, call);
-      if (formalParamType == null) {
-        // This can happen if the call is the receiver expression of the parent call, e.g.,
-        // id(x).foo() (note that foo() need not be generic).
-        ExpressionTree methodSelect =
-            ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
-        if (methodSelect instanceof MemberSelectTree mst) {
-          @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
-          boolean callIsReceiver = ASTHelpers.stripParentheses(mst.getExpression()) == call;
-          if (callIsReceiver) {
-            // The call is the receiver expression, so use the enclosing type of the parent call.
-            formalParamType =
-                getEnclosingTypeForCallExpression(
-                    ASTHelpers.getSymbol(parentInvocation),
-                    parentInvocation,
-                    parentPath,
-                    state.withPath(parentPath),
-                    calledFromDataflow);
-          } else {
-            throw new RuntimeException(
-                "did not find invocation "
-                    + state.getSourceForNode(call)
-                    + " as receiver expression of "
-                    + state.getSourceForNode(parentInvocation));
+    } else if (parent instanceof ExpressionTree exprParent) {
+      // could be a parameter to another method call, or part of a conditional expression, etc.
+      // in any case, just return the type of the parent expression
+      if (exprParent instanceof MethodInvocationTree parentInvocation) {
+        // the call is either a regular parameter to the parent call, or the receiver expression
+        Type.MethodType parentMethodType =
+            getInvokedMethodTypeAtCall(
+                ASTHelpers.getSymbol(parentInvocation),
+                parentInvocation,
+                parentPath,
+                state.withPath(parentPath),
+                calledFromDataflow);
+        Type formalParamType =
+            getFormalParameterTypeForArgument(parentInvocation, parentMethodType, call);
+        if (formalParamType == null) {
+          // this can happen if the call is the receiver expression of the parent call, e.g.,
+          // id(x).foo() (note that foo() need not be generic)
+          ExpressionTree methodSelect =
+              ASTHelpers.stripParentheses(parentInvocation.getMethodSelect());
+          if (methodSelect instanceof MemberSelectTree mst) {
+            @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
+            boolean callIsReceiver = ASTHelpers.stripParentheses(mst.getExpression()) == call;
+            if (callIsReceiver) {
+              // the call is the receiver expression, so we want the enclosing type of the parent
+              // invocation
+              formalParamType =
+                  getEnclosingTypeForCallExpression(
+                      ASTHelpers.getSymbol(parentInvocation),
+                      parentInvocation,
+                      parentPath,
+                      state.withPath(parentPath),
+                      calledFromDataflow);
+            } else {
+              throw new RuntimeException(
+                  "did not find invocation "
+                      + state.getSourceForNode(call)
+                      + " as receiver expression of "
+                      + state.getSourceForNode(parentInvocation));
+            }
           }
         }
-      }
-      return new CallAndContext(call, formalParamType, false);
-    }
-    if (parent instanceof ConditionalExpressionTree) {
-      TreePath conditionalPath = getOutermostConditionalExpressionPath(parentPath);
-      TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
-          getTargetTypeForConditionalExpression(
-              (ConditionalExpressionTree) conditionalPath.getLeaf(),
-              state.withPath(conditionalPath),
-              calledFromDataflow);
-      return new CallAndContext(
-          call,
-          targetTypeAndAssignmentKind.typeFromAssignmentContext(),
-          targetTypeAndAssignmentKind.assignedToLocal());
-    }
-    if (parent instanceof NewClassTree parentConstructorCall) {
-      Type parentClassType;
-      if (isCallNeedingInference(parentConstructorCall)) {
-        CallAndContext parentContext =
-            getCallAndContextForInference(parentPath, state, calledFromDataflow);
-        parentClassType =
-            inferCallType(
-                state,
-                parentConstructorCall,
-                parentPath,
-                parentContext.typeFromAssignmentContext,
-                parentContext.assignedToLocal,
+        return new CallAndContext(call, formalParamType, false);
+      } else if (exprParent instanceof ConditionalExpressionTree) {
+        TreePath conditionalPath = getOutermostConditionalExpressionPath(parentPath);
+        TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
+            getTargetTypeForConditionalExpression(
+                (ConditionalExpressionTree) conditionalPath.getLeaf(),
+                state.withPath(conditionalPath),
                 calledFromDataflow);
-      } else {
-        parentClassType = getTreeType(parentConstructorCall, state.withPath(parentPath));
-      }
-      if (parentClassType != null) {
-        Symbol.MethodSymbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
-        Type parentCtorType =
-            TypeSubstitutionUtils.memberType(
-                state.getTypes(), parentClassType, parentCtorSymbol, config);
         return new CallAndContext(
             call,
-            getFormalParameterTypeForArgument(
-                parentConstructorCall, parentCtorType.asMethodType(), call),
-            false);
+            targetTypeAndAssignmentKind.typeFromAssignmentContext(),
+            targetTypeAndAssignmentKind.assignedToLocal());
+      } else if (exprParent instanceof NewClassTree parentConstructorCall) {
+        Type parentClassType;
+        if (isCallNeedingInference(parentConstructorCall)) {
+          CallAndContext parentContext =
+              getCallAndContextForInference(parentPath, state, calledFromDataflow);
+          parentClassType =
+              inferCallType(
+                  state,
+                  parentConstructorCall,
+                  parentPath,
+                  parentContext.typeFromAssignmentContext,
+                  parentContext.assignedToLocal,
+                  calledFromDataflow);
+        } else {
+          parentClassType = getTreeType(parentConstructorCall, state.withPath(parentPath));
+        }
+        if (parentClassType != null) {
+          Symbol.MethodSymbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
+          Type parentCtorType =
+              TypeSubstitutionUtils.memberType(
+                  state.getTypes(), parentClassType, parentCtorSymbol, config);
+          return new CallAndContext(
+              call,
+              getFormalParameterTypeForArgument(
+                  parentConstructorCall, parentCtorType.asMethodType(), call),
+              false);
+        }
       }
-      return new CallAndContext(call, null, false);
     }
     // an unhandled case; for now, give up and return no assignment context
     return new CallAndContext(call, null, false);
