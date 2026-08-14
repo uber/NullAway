@@ -160,6 +160,51 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void streamMapNullableTest() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            import java.util.*;
+            @NullMarked
+            class Test {
+                static @Nullable String mapToNull(String s) {
+                    return null;
+                }
+                static void test(List<String> list) {
+                    list.stream().map(Test::mapToNull).forEach(s -> {
+                        // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                        s.hashCode();
+                    });
+                }
+            }""")
+        .doTest();
+  }
+
+  @Test
+  public void streamMapNullableMapGetMethodReferenceTest() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.Objects;
+            @NullMarked
+            class Test {
+                static List<String> getValues(Map<String, String> values, List<String> keys) {
+                    return keys.stream()
+                        .map(values::get)
+                        .filter(Objects::nonNull)
+                        .toList();
+                }
+            }""")
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
