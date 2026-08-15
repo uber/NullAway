@@ -846,9 +846,9 @@ public final class GenericsChecks {
             // annotations. Compute the resolved call-site method type, including substitutions
             // inferred for the method itself and for generic calls in its receiver. For example,
             // in `foo(x, y).bar().baz()`, where `foo` is generic, inference for `foo` determines
-            // the
-            // receiver type of `bar()`, which can in turn affect the receiver type of `baz()`. The
-            // resolved return type is used below to restore annotations on javac's invocation type.
+            // the receiver type of `bar()`, which can in turn affect the receiver type of `baz()`.
+            // The resolved return type is used below to restore annotations on javac's invocation
+            // type.
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
             Type.MethodType methodType =
                 getInvokedMethodTypeAtCall(
