@@ -1314,6 +1314,9 @@ public final class GenericsChecks {
    * method signature. For example, for a method returning {@code T} on a receiver {@code
    * Foo<@Nullable Object>}, the invocation return type is {@code @Nullable Object}, not the
    * declaration-site type variable {@code T}.
+   *
+   * <p>Unlike {@link #getInvokedMethodTypeAtCall}, this method preserves method type variables so
+   * inference constraints can be generated for them.
    */
   private Type.MethodType getInferenceExecutableType(
       ExpressionTree callTree,
@@ -3012,8 +3015,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the invoked method type at a call site after receiver and inferred type-argument
-   * substitutions and handler-provided models have been applied.
+   * Returns the resolved method type at a call site after receiver and inferred type-argument
+   * substitutions and handler-provided models have been applied. Unlike {@link
+   * #getInferenceExecutableType}, this method substitutes the method type variables.
    */
   private Type.MethodType getInvokedMethodTypeAtCall(
       Symbol.MethodSymbol methodSymbol,
