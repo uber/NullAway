@@ -842,14 +842,13 @@ public final class GenericsChecks {
         result = ASTHelpers.getType(tree);
         if (result != null) {
           if (tree instanceof MethodInvocationTree invocationTree) {
-            // for a call to an instance method, we may need to run inference on a nested call
-            // inside the receiver in order to figure out the proper nullability of the receiver's
-            // type arguments.  E.g., for a call `foo(x,y).bar().baz()`, where `foo` is a generic
-            // method, we need to run inference on the call to `foo` to determine the receiver type
-            // of the `bar()` call, which could in turn impact the receiver type of the `baz()`
-            // call.  We invoke getEnclosingTypeForCallExpression, which will run
-            // inference if needed, and then recompute the type as a member of the returned
-            // enclosing type
+            // The type javac reports for a method invocation may omit nested nullability
+            // annotations. Compute the resolved call-site method type, including substitutions
+            // inferred for the method itself and for generic calls in its receiver. For example,
+            // in `foo(x, y).bar().baz()`, where `foo` is generic, inference for `foo` determines
+            // the
+            // receiver type of `bar()`, which can in turn affect the receiver type of `baz()`. The
+            // resolved return type is used below to restore annotations on javac's invocation type.
             Symbol.MethodSymbol symbol = castToNonNull(ASTHelpers.getSymbol(invocationTree));
             Type.MethodType methodType =
                 getInvokedMethodTypeAtCall(
