@@ -121,7 +121,8 @@ public final class GenericsChecks {
   /**
    * Tracks generic method invocations currently undergoing nested-nullability repair so re-entrant
    * requests for the same invocation can use the already inferred call-site method type rather than
-   * recursing back through the same repair logic.
+   * recursing back through the same repair logic. See {@link
+   * #substituteTypeArgsInGenericMethodType(Tree, Type.ForAll, TreePath, VisitorState, boolean)}
    */
   private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
 
