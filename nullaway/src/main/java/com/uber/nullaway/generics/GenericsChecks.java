@@ -2995,7 +2995,8 @@ public final class GenericsChecks {
                   parentContext.assignedToLocal,
                   calledFromDataflow);
         } else {
-          parentClassType = getTreeType(parentConstructorCall, state.withPath(parentPath));
+          parentClassType =
+              getTreeType(parentConstructorCall, state.withPath(parentPath), calledFromDataflow);
         }
         if (parentClassType != null) {
           Symbol.MethodSymbol parentCtorSymbol = ASTHelpers.getSymbol(parentConstructorCall);
