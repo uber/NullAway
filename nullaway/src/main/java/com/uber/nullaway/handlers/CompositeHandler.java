@@ -106,6 +106,22 @@ class CompositeHandler implements Handler {
   }
 
   @Override
+  public NullnessHint onOverrideMethodReferenceReturnNullability(
+      Symbol.MethodSymbol referencedMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state) {
+    NullnessHint result = NullnessHint.UNKNOWN;
+    for (Handler h : handlers) {
+      result =
+          result.merge(
+              h.onOverrideMethodReferenceReturnNullability(
+                  referencedMethod, functionalInterfaceMethodType, isUnbound, state));
+    }
+    return result;
+  }
+
+  @Override
   public void onMatchMethodInvocation(
       MethodInvocationTree tree, MethodAnalysisContext methodAnalysisContext) {
     for (Handler h : handlers) {

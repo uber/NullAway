@@ -122,6 +122,25 @@ public interface Handler {
   }
 
   /**
+   * Returns an override for the return nullness of a referenced method based on the functional
+   * interface method that it implements.
+   *
+   * @param referencedMethod symbol of the referenced method
+   * @param functionalInterfaceMethodType grounded and substituted functional interface method type
+   * @param isUnbound whether this is an unbound instance method reference, whose first functional
+   *     interface parameter is the receiver
+   * @param state the current visitor state
+   * @return a hint for the referenced method's return nullness
+   */
+  default NullnessHint onOverrideMethodReferenceReturnNullability(
+      Symbol.MethodSymbol referencedMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state) {
+    return NullnessHint.UNKNOWN;
+  }
+
+  /**
    * Called when NullAway first matches a return statement.
    *
    * @param analysis A reference to the running NullAway analysis.
@@ -557,10 +576,7 @@ public interface Handler {
     return false;
   }
 
-  /**
-   * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
-   * their knowledge of the method return nullability to the rest of NullAway.
-   */
+  /** A three-value hint for handlers to communicate method return nullness to NullAway. */
   public enum NullnessHint {
     /**
      * No new information about return nullability, defer to the core algorithm and other handlers.
