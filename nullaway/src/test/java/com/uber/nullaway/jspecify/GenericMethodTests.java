@@ -1838,6 +1838,252 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Regression test for <a href="https://github.com/uber/NullAway/issues/1512">issue 1512</a>:
+   * overriding a method must not narrow a {@code @Nullable} method type-variable upper bound to a
+   * non-null bound (and must not widen a non-null bound to {@code @Nullable}).
+   */
+  @Test
+  public void overrideNarrowsNullableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <T extends @Nullable Object> void bar(T arg);
+              }
+              static class Baz implements Foo {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T> void bar(T arg) {
+                  arg.hashCode();
+                }
+              }
+              static void use(Foo f) {
+                f.<@Nullable String>bar(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideWidensNonNullMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <T> void bar(T arg);
+              }
+              static class Baz implements Foo {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends @Nullable Object> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesNullableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <T extends @Nullable Object> void bar(T arg);
+              }
+              static class Baz implements Foo {
+                @Override
+                public <T extends @Nullable Object> void bar(T arg) {
+                  // legal override; arg may be null when T is instantiated as @Nullable
+                  if (arg != null) {
+                    arg.hashCode();
+                  }
+                }
+              }
+              static void use(Foo f) {
+                f.<@Nullable String>bar(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesNonNullMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <T> void bar(T arg);
+              }
+              static class Baz implements Foo {
+                @Override
+                public <T> void bar(T arg) {
+                  arg.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideNarrowsNullableMethodTypeVariableBoundOnReturn() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <T extends @Nullable Object> T bar();
+              }
+              static class Baz implements Foo {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T> T bar() {
+                  throw new RuntimeException();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesSubstitutedNullableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz implements Foo<@Nullable Object> {
+                @Override
+                public <T extends @Nullable Object> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesSubstitutedNonNullMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              // Instantiating X as non-null String means the method type-var bound is non-null;
+              // overriding with <T extends String> must not be treated as a mismatch.
+              static class Baz implements Foo<String> {
+                @Override
+                public <T extends String> void bar(T arg) {
+                  arg.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideNarrowsSubstitutedNullableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz implements Foo<@Nullable Object> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T> void bar(T arg) {
+                  arg.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideOfNullUnmarkedMethodTypeVariableBoundSkipped() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              interface Foo {
+                <T extends @Nullable Object> void bar(T arg);
+              }
+              // Overriding an unmarked generic method must not warn: unmarked type-variable
+              // bounds are not part of the nullness contract.
+              static class Baz implements Foo {
+                @Override
+                public <T> void bar(T arg) {
+                  if (arg != null) {
+                    arg.hashCode();
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
