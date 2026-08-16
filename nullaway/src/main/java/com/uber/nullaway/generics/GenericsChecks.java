@@ -1833,6 +1833,41 @@ public final class GenericsChecks {
   }
 
   /**
+   * Gets a handler-provided return nullness hint for a method reference based on the functional
+   * interface parameters that will be passed to the referenced method.
+   *
+   * @param memberReferenceTree the method reference
+   * @param targetType the functional interface target type
+   * @param state the current visitor state
+   * @return the handler-provided return nullness hint
+   */
+  public Handler.NullnessHint getMethodReferenceReturnNullnessHint(
+      MemberReferenceTree memberReferenceTree, Type targetType, VisitorState state) {
+    if (targetType.isRaw()) {
+      return Handler.NullnessHint.UNKNOWN;
+    }
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+    if (referencedMethod == null
+        || referencedMethod.isConstructor()
+        || referencedMethod.isVarArgs()) {
+      return Handler.NullnessHint.UNKNOWN;
+    }
+    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    Symbol.MethodSymbol functionalInterfaceMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
+    if (functionalInterfaceMethod.isVarArgs()) {
+      return Handler.NullnessHint.UNKNOWN;
+    }
+    Type.MethodType functionalInterfaceMethodType =
+        TypeSubstitutionUtils.memberType(
+                state.getTypes(), groundTargetType, functionalInterfaceMethod, config)
+            .asMethodType();
+    boolean isUnbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+    return handler.onOverrideMethodReferenceReturnNullability(
+        referencedMethod, functionalInterfaceMethodType, isUnbound, state);
+  }
+
+  /**
    * Gets the method type for a member reference handling generics, in JSpecify mode
    *
    * @param memberReferenceTree the member reference tree
@@ -2090,21 +2125,27 @@ public final class GenericsChecks {
     };
   }
 
-  private Type updateTypeWithNullness(
-      VisitorState state, Type argumentType, Nullness refinedNullness) {
-    if (NullabilityUtil.nullnessToBool(refinedNullness)) {
+  /**
+   * Returns {@code type} with its top-level nullness updated to {@code nullness}.
+   *
+   * @param state the current visitor state
+   * @param type the type to update
+   * @param nullness the desired top-level nullness
+   * @return the updated type
+   */
+  Type updateTypeWithNullness(VisitorState state, Type type, Nullness nullness) {
+    if (NullabilityUtil.nullnessToBool(nullness)) {
       // refine to @Nullable
-      if (isNullableAnnotated(argumentType)) {
-        return argumentType;
+      if (isNullableAnnotated(type)) {
+        return type;
       }
-      return TypeSubstitutionUtils.typeWithAnnot(
-          argumentType, getSyntheticNullableAnnotType(state));
+      return TypeSubstitutionUtils.typeWithAnnot(type, getSyntheticNullableAnnotType(state));
     } else {
       // refine to @NonNull, by removing the top-level @Nullable annotation if present.
-      if (!isNullableAnnotated(argumentType)) {
-        return argumentType;
+      if (!isNullableAnnotated(type)) {
+        return type;
       }
-      return TypeSubstitutionUtils.removeNullableAnnotation(argumentType, config);
+      return TypeSubstitutionUtils.removeNullableAnnotation(type, config);
     }
   }
 

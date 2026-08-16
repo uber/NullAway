@@ -216,6 +216,35 @@ public class LibraryModelsHandler implements Handler {
   }
 
   @Override
+  public NullnessHint onOverrideMethodReferenceReturnNullability(
+      Symbol.MethodSymbol referencedMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state) {
+    ImmutableSet<Integer> determiningParameters =
+        getOptLibraryModels(state.context)
+            .nullImpliesNullParameters(referencedMethod, state.getTypes());
+    if (determiningParameters.isEmpty()) {
+      return NullnessHint.UNKNOWN;
+    }
+    com.sun.tools.javac.util.List<Type> functionalParameterTypes =
+        functionalInterfaceMethodType.getParameterTypes();
+    int parameterOffset = isUnbound ? 1 : 0;
+    for (int index : determiningParameters) {
+      int functionalParameterIndex = parameterOffset + index;
+      if (index < 0 || functionalParameterIndex >= functionalParameterTypes.size()) {
+        return NullnessHint.UNKNOWN;
+      }
+      Type functionalParameterType = functionalParameterTypes.get(functionalParameterIndex);
+      if (Nullness.hasNullableAnnotation(
+          functionalParameterType.getAnnotationMirrors().stream(), config)) {
+        return NullnessHint.HINT_NULLABLE;
+      }
+    }
+    return NullnessHint.FORCE_NONNULL;
+  }
+
+  @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis,
       ExpressionTree expr,
