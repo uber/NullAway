@@ -1679,6 +1679,35 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** See https://github.com/uber/NullAway/issues/1274 */
+  @Test
+  public void innerClassInheritingEnclosingTypeArgs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              class A<X extends @Nullable Object> {
+                class B<Y extends @Nullable Object> {}
+              }
+              class C<X extends @Nullable Object> extends A<X> {
+                class D<Y extends @Nullable Object> extends A<X>.B<Y> {}
+              }
+              void test() {
+                C<@Nullable String> c1 = new C<>();
+                A<@Nullable String>.B<@Nullable String> ok1 = c1.new D<@Nullable String>();
+                // BUG: Diagnostic contains: incompatible types: Test.C<@Nullable String>.D<@Nullable String> cannot be converted to Test.A<String>.B<@Nullable String>
+                A<String>.B<@Nullable String> bad = c1.new D<@Nullable String>();
+                C<String> c2 = new C<>();
+                A<String>.B<@Nullable String> ok2 = c2.new D<@Nullable String>();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void otherTypeUseNullableAnnotation() {
     makeHelper()
@@ -3064,10 +3093,18 @@ public class GenericsTests extends NullAwayTestsBase {
                 default MaybeNull<@NonNull T> asNonNull() {
                   return (MaybeNull<@NonNull T>) this;
                 }
+                default MaybeNull<@Nullable T> asNullable() {
+                  return (MaybeNull<@Nullable T>) this;
+                }
               }
               static void accept(MaybeNull<String> nonNullThing) {}
-              static void test(MaybeNull<@Nullable String> nullable) {
+              static void test(MaybeNull<@Nullable String> nullable, MaybeNull<String> nonNull) {
                 accept(nullable.asNonNull());
+                // BUG: Diagnostic contains: incompatible types: MaybeNull<@Nullable String> cannot be converted to MaybeNull<String>
+                accept(nonNull.asNullable());
+                MaybeNull<@Nullable String> m1 = nonNull.asNullable();
+                // BUG: Diagnostic contains: incompatible types: MaybeNull<@Nullable String> cannot be converted to MaybeNull<String>
+                MaybeNull<String> m2 = nonNull.asNullable();
               }
             }
             """)
