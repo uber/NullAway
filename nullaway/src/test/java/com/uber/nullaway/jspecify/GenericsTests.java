@@ -326,8 +326,6 @@ public class GenericsTests extends NullAwayTestsBase {
                     new Callback<>() {
                       @Override
                       public void onResult(@Nullable Integer value) {
-                        // TODO: we should infer Callback<@Nullable Integer> for the anonymous class and not report an error
-                        // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>
                         removeCallback(this);
                       }
                     });
@@ -336,8 +334,8 @@ public class GenericsTests extends NullAwayTestsBase {
                 addCallback(
                     new Callback<>() {
                       @Override
+                      // BUG: Diagnostic contains: parameter value is @NonNull, but parameter in superclass method
                       public void onResult(Integer value) {
-                        // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>
                         removeCallback(this);
                       }
                     });
@@ -1839,7 +1837,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /** Diamond anonymous classes are not supported yet; tests are for future reference */
   @Test
   public void overrideDiamondAnonymousClass() {
     makeHelper()
@@ -1857,21 +1854,17 @@ public class GenericsTests extends NullAwayTestsBase {
               }
               static void anonymousClasses() {
                 Fn<@Nullable String, String> fn1 = new Fn<>() {
-                  // TODO: should report a bug here
+                  // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
                 FnClass<@Nullable String, String> fn2 = new FnClass<>() {
-                  // TODO: should report a bug here
+                  // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
                 Fn<String, @Nullable String> fn3 = new Fn<>() {
-                  // TODO: this is a false positive
-                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method
                   public @Nullable String apply(String s) { return null; }
                 };
                 FnClass<String, @Nullable String> fn4 = new FnClass<>() {
-                  // TODO: this is a false positive
-                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method
                   public @Nullable String apply(String s) { return null; }
                 };
               }
