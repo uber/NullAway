@@ -754,18 +754,22 @@ public final class GenericsChecks {
     }
     if (tree instanceof NewClassTree newClassTree) {
       if (TreeInfo.isDiamond((JCTree) newClassTree)) {
-        if (newClassTree.getClassBody() != null) {
-          // Keep existing behavior for diamond anonymous classes, which are not yet fully
-          // supported.  Tracked in https://github.com/uber/NullAway/issues/1475
-          return null;
-        }
-        // For constructor calls using diamond operator, infer from assignment context.
+        // For constructor calls using diamond operator, infer from assignment context.  This covers
+        // anonymous classes using the diamond operator as well; in that case the inferred type is
+        // the instantiated supertype that the anonymous class extends / implements, matching the
+        // behavior for anonymous classes with explicit type arguments (see getTypeForSymbol).
         // TODO handle diamond constructor calls passed to generic methods
         // https://github.com/uber/NullAway/issues/1470
         Type fromAssignmentContext =
             getDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
         if (fromAssignmentContext != null) {
           return fromAssignmentContext;
+        }
+        if (newClassTree.getClassBody() != null) {
+          // We could not recover the instantiated supertype from the surrounding context.  Falling
+          // through would return javac's type for the anonymous class itself, which carries neither
+          // type arguments nor type-use annotations, so keep the previous conservative behavior.
+          return null;
         }
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
@@ -893,9 +897,54 @@ public final class GenericsChecks {
    */
   private @Nullable Type getDiamondTypeFromParentContext(
       NewClassTree tree, VisitorState state, TreePath parentPath, boolean calledFromDataflow) {
-    return getTargetTypeFromParentContext(
-            tree, new TreePath(parentPath, tree), state, calledFromDataflow)
-        .typeFromAssignmentContext();
+    Type targetType =
+        getTargetTypeFromParentContext(
+                tree, new TreePath(parentPath, tree), state, calledFromDataflow)
+            .typeFromAssignmentContext();
+    if (targetType == null) {
+      return null;
+    }
+    if (tree.getClassBody() != null
+        && getMatchingInstantiatedType(targetType, tree, state) == null) {
+      // For an anonymous class, the target type is only directly usable if it names the same class
+      // as the supertype the anonymous class extends / implements.  For, e.g.,
+      // `List<@Nullable String> l = new ArrayList<>() {};`, the target type is
+      // `List<@Nullable String>` while the anonymous class extends `ArrayList<String>`; recovering
+      // the latter's type arguments from the former is a full inference problem.
+      // TODO infer the supertype's type arguments when the target type is a strict supertype of the
+      // type being anonymously extended
+      return null;
+    }
+    return targetType;
+  }
+
+  /**
+   * For a {@code NewClassTree} declaring an anonymous class, returns the type naming the same class
+   * as {@code targetType} among the type of the tree itself and the direct supertypes of the
+   * anonymous class, or {@code null} if there is no such type.
+   *
+   * <p>An anonymous class has exactly one interesting direct supertype: the class it extends, or
+   * the single interface it implements (in which case {@code java.lang.Object} is also a direct
+   * supertype). We use this to check whether a target type recovered from the surrounding context
+   * describes the same class as the one being anonymously extended. We also check the type of the
+   * tree itself, since javac's representation of a {@code NewClassTree} for an anonymous class is
+   * not guaranteed to be the anonymous class type in all cases.
+   */
+  private static @Nullable Type getMatchingInstantiatedType(
+      Type targetType, NewClassTree newClassTree, VisitorState state) {
+    Type newClassType = ASTHelpers.getType(newClassTree);
+    if (newClassType == null) {
+      return null;
+    }
+    if (newClassType.tsym.equals(targetType.tsym)) {
+      return newClassType;
+    }
+    for (Type directSupertype : state.getTypes().directSupertypes(newClassType)) {
+      if (directSupertype.tsym.equals(targetType.tsym)) {
+        return directSupertype;
+      }
+    }
+    return null;
   }
 
   /**
@@ -920,17 +969,29 @@ public final class GenericsChecks {
    * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
    * instantiated type arguments at the type level, but no explicit non-diamond source type args.
    */
-  private static boolean hasInferredClassTypeArguments(NewClassTree newClassTree) {
-    if (newClassTree.getClassBody() != null) {
-      // we still need to properly handle anonymous classes
-      return false;
-    }
+  private static boolean hasInferredClassTypeArguments(
+      NewClassTree newClassTree, VisitorState state) {
     if (!TreeInfo.isDiamond((JCTree) newClassTree)) {
       // explicit class type arguments in source
       return false;
     }
     Type newClassType = ASTHelpers.getType(newClassTree);
-    return newClassType != null && !newClassType.getTypeArguments().isEmpty();
+    if (newClassType == null) {
+      return false;
+    }
+    if (!newClassType.getTypeArguments().isEmpty()) {
+      return true;
+    }
+    if (newClassTree.getClassBody() != null) {
+      // javac's type for the tree is the anonymous class itself, which never has type arguments of
+      // its own; the inferred type arguments live on the supertype it extends / implements
+      for (Type directSupertype : state.getTypes().directSupertypes(newClassType)) {
+        if (!directSupertype.getTypeArguments().isEmpty()) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   /**
@@ -2279,7 +2340,7 @@ public final class GenericsChecks {
     Type invokedMethodType = methodSymbol.type;
     Type enclosingType = null;
     if (tree instanceof NewClassTree newClassTree) {
-      if (hasInferredClassTypeArguments(newClassTree)) {
+      if (hasInferredClassTypeArguments(newClassTree, state)) {
         TreePath currentPath = state.getPath();
         if (currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree) {
           TreePath parentPath = currentPath.getParentPath();
@@ -2642,6 +2703,12 @@ public final class GenericsChecks {
   public Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state) {
     Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
+    if (enclosingType == null && enclosingSymbol.isAnonymous()) {
+      // For unsupported anonymous diamond cases, we may be unable to recover a nullability-aware
+      // instantiated supertype from the tree. In that case, avoid assuming @NonNull and reporting
+      // a spurious override error.
+      return Nullness.NULLABLE;
+    }
     return getGenericMethodReturnTypeNullness(method, enclosingType, state);
   }
 
