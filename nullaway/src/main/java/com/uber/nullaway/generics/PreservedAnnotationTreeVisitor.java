@@ -39,7 +39,32 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, @Nul
   @Override
   public Type visitNewArray(NewArrayTree tree, @Nullable Void p) {
     Type elemType = tree.getType().accept(this, null);
-    return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
+    Type javacArrayType = castToNonNull(ASTHelpers.getType(tree));
+    // tree.getType() yields the element type of the innermost dimension only; e.g., for
+    // `new @Nullable Integer[3][4]` it is `@Nullable Integer`.  So we add one array level for each
+    // dimension of the type javac computed for the whole creation expression that is not already
+    // present in elemType.
+    Type result = elemType;
+    for (int i = arrayDimensionCount(elemType); i < arrayDimensionCount(javacArrayType); i++) {
+      result = new Type.ArrayType(result, javacArrayType.tsym);
+    }
+    return result;
+  }
+
+  /**
+   * Computes the number of array dimensions of a type, e.g., 2 for {@code String[][]}.
+   *
+   * @param type the type to inspect
+   * @return the number of array dimensions of {@code type}, or 0 if it is not an array type
+   */
+  private static int arrayDimensionCount(Type type) {
+    int count = 0;
+    Type current = type;
+    while (current instanceof Type.ArrayType arrayType) {
+      count++;
+      current = arrayType.getComponentType();
+    }
+    return count;
   }
 
   @Override
