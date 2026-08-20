@@ -1178,7 +1178,7 @@ public final class GenericsChecks {
     Type typeAtCallSite = castToNonNull(ASTHelpers.getType(callTree));
     if (callTree instanceof MethodInvocationTree) {
       Type methodReturnType =
-          getInferenceExecutableType(callTree, path, state, calledFromDataflow).getReturnType();
+          getExecutableTypeForInference(callTree, path, state, calledFromDataflow).getReturnType();
       return TypeSubstitutionUtils.updateTypeWithInferredNullability(
           typeAtCallSite, methodReturnType, typeVarNullability, state, config);
     }
@@ -1243,7 +1243,7 @@ public final class GenericsChecks {
         }
         // Store inferred types for lambda or method reference arguments
         Type.MethodType callMethodType =
-            getInferenceExecutableType(callTree, path, state, calledFromDataflow);
+            getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
         new InvocationArguments(callTree, callMethodType)
             .forEach(
                 (argument, argPos, formalParamType, unused) -> {
@@ -1307,18 +1307,19 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the declaration-site executable type for inference, substituting type arguments from a
-   * method invocation's receiver and applying any handler-provided models.
+   * Returns the executable type used to generate inference constraints for {@code callTree}, after
+   * applying handler-provided models.
    *
-   * <p>Receiver substitution is necessary when an enclosing class type variable appears in the
-   * method signature. For example, for a method returning {@code T} on a receiver {@code
-   * Foo<@Nullable Object>}, the invocation return type is {@code @Nullable Object}, not the
-   * declaration-site type variable {@code T}.
+   * <p>Type variables whose values are fixed by a method invocation's receiver are substituted. For
+   * example, for a method returning class type variable {@code T} (for class {@code Foo<T>}) on a
+   * receiver of type {@code Foo<@Nullable Object>}, the return type is {@code @Nullable Object}.
    *
-   * <p>Unlike {@link #getInvokedMethodTypeAtCall}, this method preserves method type variables so
-   * inference constraints can be generated for them.
+   * <p>Type variables being inferred for this call remain unsubstituted so constraints can be
+   * generated for them. These are method type variables for a generic method invocation and class
+   * type variables for a diamond constructor. Unlike {@link #getInvokedMethodTypeAtCall}, this
+   * method does not resolve those variables using an already-computed inference result.
    */
-  private Type.MethodType getInferenceExecutableType(
+  private Type.MethodType getExecutableTypeForInference(
       ExpressionTree callTree,
       @Nullable TreePath path,
       VisitorState state,
@@ -1379,7 +1380,7 @@ public final class GenericsChecks {
       throws UnsatisfiableConstraintsException {
     Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
     Type.MethodType methodType =
-        getInferenceExecutableType(callTree, path, state, calledFromDataflow);
+        getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     // first, handle the call result flow
     if (typeFromAssignmentContext != null) {
       Type callResultType =
@@ -3018,7 +3019,8 @@ public final class GenericsChecks {
   /**
    * Returns the resolved method type at a call site after receiver and inferred type-argument
    * substitutions and handler-provided models have been applied. Unlike {@link
-   * #getInferenceExecutableType}, this method substitutes the method type variables.
+   * #getExecutableTypeForInference}, this method substitutes the method type variables with
+   * inferred type arguments.
    */
   private Type.MethodType getInvokedMethodTypeAtCall(
       Symbol.MethodSymbol methodSymbol,
