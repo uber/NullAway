@@ -753,20 +753,22 @@ public final class GenericsChecks {
       return typeOrNullIfRaw(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (TreeInfo.isDiamond((JCTree) newClassTree)) {
-        if (newClassTree.getClassBody() != null) {
-          // Keep existing behavior for diamond anonymous classes, which are not yet fully
-          // supported.  Tracked in https://github.com/uber/NullAway/issues/1475
-          return null;
-        }
-        // For constructor calls using diamond operator, infer from assignment context.
-        // TODO handle diamond constructor calls passed to generic methods
-        // https://github.com/uber/NullAway/issues/1470
-        Type fromAssignmentContext =
-            getDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
-        if (fromAssignmentContext != null) {
-          return fromAssignmentContext;
-        }
+      if (TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() != null) {
+        // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
+        // Tracked in https://github.com/uber/NullAway/issues/1475
+        return null;
+      }
+      if (isDiamondAndNotAnonymousClass(newClassTree)) {
+        TreePath currentPath = state.getPath();
+        CallAndContext directContext =
+            getDirectCallContextForInference(currentPath, state, calledFromDataflow);
+        return inferCallType(
+            state,
+            newClassTree,
+            currentPath,
+            directContext.typeFromAssignmentContext,
+            directContext.assignedToLocal,
+            calledFromDataflow);
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
@@ -877,27 +879,6 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the type of a constructor call using a diamond operator from its assignment context, if
-   * available.
-   */
-  private @Nullable Type getDiamondTypeFromContext(
-      NewClassTree tree, VisitorState state, boolean calledFromDataflow) {
-    return getDiamondTypeFromParentContext(
-        tree, state, castToNonNull(state.getPath().getParentPath()), calledFromDataflow);
-  }
-
-  /**
-   * Computes the assignment-context type for an inferred constructor call, given a path to its
-   * parent context.
-   */
-  private @Nullable Type getDiamondTypeFromParentContext(
-      NewClassTree tree, VisitorState state, TreePath parentPath, boolean calledFromDataflow) {
-    return getTargetTypeFromParentContext(
-            tree, new TreePath(parentPath, tree), state, calledFromDataflow)
-        .typeFromAssignmentContext();
-  }
-
-  /**
    * Returns the inferred/declared formal parameter type corresponding to actual parameter {@code
    * argumentTree}.
    */
@@ -919,17 +900,8 @@ public final class GenericsChecks {
    * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
    * instantiated type arguments at the type level, but no explicit non-diamond source type args.
    */
-  private static boolean hasInferredClassTypeArguments(NewClassTree newClassTree) {
-    if (newClassTree.getClassBody() != null) {
-      // we still need to properly handle anonymous classes
-      return false;
-    }
-    if (!TreeInfo.isDiamond((JCTree) newClassTree)) {
-      // explicit class type arguments in source
-      return false;
-    }
-    Type newClassType = ASTHelpers.getType(newClassTree);
-    return newClassType != null && !newClassType.getTypeArguments().isEmpty();
+  private static boolean isDiamondAndNotAnonymousClass(NewClassTree newClassTree) {
+    return TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() == null;
   }
 
   /**
@@ -1829,9 +1801,6 @@ public final class GenericsChecks {
   }
 
   private static boolean isCallNeedingInference(ExpressionTree argument) {
-    // For now, we only support calls to generic methods.
-    // TODO also support calls to generic constructors that use the diamond operator
-    // https://github.com/uber/NullAway/issues/1470
     if (argument instanceof MethodInvocationTree methodInvocation) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
       // true for generic method calls with no explicit type arguments
@@ -1839,7 +1808,8 @@ public final class GenericsChecks {
           && methodSymbol.type instanceof Type.ForAll
           && methodInvocation.getTypeArguments().isEmpty();
     }
-    return false;
+    return argument instanceof NewClassTree newClassTree
+        && isDiamondAndNotAnonymousClass(newClassTree);
   }
 
   /**
@@ -2289,17 +2259,6 @@ public final class GenericsChecks {
     }
     Type invokedMethodType = methodSymbol.type;
     Type enclosingType = null;
-    if (tree instanceof NewClassTree newClassTree) {
-      if (hasInferredClassTypeArguments(newClassTree)) {
-        TreePath currentPath = state.getPath();
-        if (currentPath != null && ASTHelpers.stripParentheses(currentPath.getLeaf()) == tree) {
-          TreePath parentPath = currentPath.getParentPath();
-          if (parentPath != null) {
-            enclosingType = getDiamondTypeFromParentContext(newClassTree, state, parentPath, false);
-          }
-        }
-      }
-    }
     if (enclosingType == null) {
       enclosingType = getEnclosingTypeForCallExpression(methodSymbol, tree, null, state, false);
     }
@@ -2924,6 +2883,30 @@ public final class GenericsChecks {
       parentPath = parentPath.getParentPath();
       parent = parentPath.getLeaf();
     }
+    if (call instanceof MethodInvocationTree
+        && parent instanceof MethodInvocationTree parentInvocation
+        && isCallNeedingInference(parentInvocation)) {
+      // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
+      // we want to find the outermost call that requires inference, since that is the one whose
+      // assignment context is relevant
+      return getCallAndContextForInference(
+          parentPath, state.withPath(parentPath), calledFromDataflow);
+    }
+    return getDirectCallContextForInference(path, state, calledFromDataflow);
+  }
+
+  /**
+   * Returns the context immediately surrounding a call, without traversing nested generic calls.
+   */
+  private CallAndContext getDirectCallContextForInference(
+      TreePath path, VisitorState state, boolean calledFromDataflow) {
+    ExpressionTree call = (ExpressionTree) path.getLeaf();
+    TreePath parentPath = path.getParentPath();
+    Tree parent = parentPath.getLeaf();
+    while (parent instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+      parent = parentPath.getLeaf();
+    }
     if (parent instanceof AssignmentTree || parent instanceof VariableTree) {
       TargetTypeAndAssignmentKind targetTypeAndAssignmentKind =
           getTargetTypeForAssignmentContext(parent, state.withPath(parentPath), calledFromDataflow);
@@ -2947,15 +2930,7 @@ public final class GenericsChecks {
       // could be a parameter to another method call, or part of a conditional expression, etc.
       // in any case, just return the type of the parent expression
       if (exprParent instanceof MethodInvocationTree parentInvocation) {
-        if (isCallNeedingInference(parentInvocation)) {
-          // this is the case of a nested generic call, e.g., id(id(x)) where id is generic
-          // we want to find the outermost call that requires inference, since that is the one whose
-          // assignment context is relevant
-          return getCallAndContextForInference(
-              parentPath, state.withPath(parentPath), calledFromDataflow);
-        }
-        // the generic call is either a regular parameter to the parent call, or the receiver
-        // expression
+        // the call is either a regular parameter to the parent call, or the receiver expression
         Type formalParamType =
             getFormalParameterTypeForArgument(
                 parentInvocation,
