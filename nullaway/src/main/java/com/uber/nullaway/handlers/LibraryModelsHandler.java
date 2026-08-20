@@ -498,10 +498,10 @@ public class LibraryModelsHandler implements Handler {
   }
 
   /**
-   * Updates method types based on top-level parameter and nested annotation library models. For
-   * now, this method is only used in JSpecify mode, primarily for its handling of nested
-   * annotations. Outside of JSpecify mode, other handler methods are available for reasoning about
-   * top-level annotations only.
+   * Updates method types based on top-level parameter and return annotations and nested annotation
+   * library models. For now, this method is only used in JSpecify mode, primarily for its handling
+   * of nested annotations. Outside of JSpecify mode, other handler methods are available for
+   * reasoning about top-level annotations only.
    */
   @Override
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
@@ -516,9 +516,17 @@ public class LibraryModelsHandler implements Handler {
         config.isJSpecifyMode()
             ? optimizedLibraryModels.explicitlyNullableParameters(methodSymbol)
             : ImmutableSet.of();
+    boolean isMethodUnannotated =
+        getCodeAnnotationInfo(state.context)
+            .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
+    boolean modeledNullableReturn =
+        optimizedLibraryModels.hasNullableReturn(
+            methodSymbol, state.getTypes(), isMethodUnannotated);
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
         optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
-    if (explicitlyNullableParameters.isEmpty() && nestedAnnotations.isEmpty()) {
+    if (explicitlyNullableParameters.isEmpty()
+        && !modeledNullableReturn
+        && nestedAnnotations.isEmpty()) {
       return methodType;
     }
     // update argument types, tracking if anything changed
@@ -546,10 +554,13 @@ public class LibraryModelsHandler implements Handler {
     // update return type
     Type returnType = methodType.restype;
     ImmutableSet<NestedAnnotationInfo> returnAnnotations = nestedAnnotations.get(-1);
-    Type updatedReturnType =
-        returnAnnotations.isEmpty()
-            ? returnType
-            : applyNestedAnnotations(returnType, returnAnnotations, state);
+    Type updatedReturnType = returnType;
+    if (modeledNullableReturn) {
+      updatedReturnType = applyTopLevelNullableAnnotation(updatedReturnType, state);
+    }
+    if (!returnAnnotations.isEmpty()) {
+      updatedReturnType = applyNestedAnnotations(updatedReturnType, returnAnnotations, state);
+    }
     if (updatedReturnType != returnType) {
       changed = true;
     }
