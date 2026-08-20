@@ -907,9 +907,9 @@ public final class GenericsChecks {
     if (currentPath == null) {
       return null;
     }
-    CallAndContext directContext =
-        getDirectCallContextForInference(currentPath, state, calledFromDataflow);
-    Type targetType = directContext.typeFromAssignmentContext;
+    Type targetType =
+        getTargetTypeFromParentContext(tree, currentPath, state, calledFromDataflow)
+            .typeFromAssignmentContext();
     if (targetType == null) {
       return null;
     }
