@@ -1,6 +1,94 @@
 Changelog
 =========
 
+Version 0.14.0
+--------------
+
+This release has significant improvements to JSpecify support, including
+improved support for wildcards and integration of the standard library
+nullability annotations from https://github.com/jspecify/jdk.  Much of this
+new support is gated behind a new `JSpecifyExperimental` flag, which is off by
+default.  We disable the flag by default since this new support leads to many
+new errors in existing projects, and because we need more real-world testing
+before enabling it by default.  We encourage projects to enable the
+`JSpecifyExperimental` flag (alongside JSpecify mode) and to report any issues
+that arise.  We expect to turn `JSpecifyExperimental` on by default in a future
+release.
+
+Aside from the above, you may observe some newly reported warnings in JSpecify
+mode, due to other checking improvements.
+
+This release also removes the `LegacyAnnotationLocations` flag.  Type-use 
+annotations must now be placed correctly on qualified and array types, even
+outside JSpecify mode, see details here:
+
+https://github.com/uber/NullAway/wiki/JSpecify-Support#type-use-annotation-placement
+
+Beyond the above, we had useful changes from a variety of new contributors;
+thanks so much!
+
+* Remove LegacyAnnotationLocations flag by @msridhar in https://github.com/uber/NullAway/pull/1640
+* Handle signature-polymorphic calls in InvocationArguments by @msridhar in https://github.com/uber/NullAway/pull/1644
+* Fix handling of reference to method with `@Nullable` parameter from library model by @msridhar in https://github.com/uber/NullAway/pull/1642
+* Enable JSpecify JDK models (under a flag) by @msridhar in https://github.com/uber/NullAway/pull/1641
+* Enable JSpecify JDK models for regression tests by @msridhar in https://github.com/uber/NullAway/pull/1646
+* Fix bug with lambdas assigned to locals with a wildcard in their type by @msridhar in https://github.com/uber/NullAway/pull/1647
+* Add JSpecifyExperimental configuration flag by @msridhar in https://github.com/uber/NullAway/pull/1648
+* Improve wildcard mismatch diagnostics for identical-looking types by @msridhar in https://github.com/uber/NullAway/pull/1627
+* Enable inference failure warnings in experimental mode, and fix related bug in library models by @msridhar in https://github.com/uber/NullAway/pull/1649
+* Fix inference bug with generic instance methods by @msridhar in https://github.com/uber/NullAway/pull/1654
+* Fixes related to captured types and inference by @msridhar in https://github.com/uber/NullAway/pull/1655
+* Augment NullAway error / fix serialization for Annotator auto fix mode by @nimakarimipour in https://github.com/uber/NullAway/pull/1322
+* More consistent checks for captured types by @msridhar in https://github.com/uber/NullAway/pull/1662
+* Update to JSpecify 1.0.1 by @msridhar in https://github.com/uber/NullAway/pull/1665
+* Add test for issue 1671 by @msridhar in https://github.com/uber/NullAway/pull/1673
+* Test case and fix for issue 1672 by @msridhar in https://github.com/uber/NullAway/pull/1674
+* Fix subtype checking for nested captured types by @msridhar in https://github.com/uber/NullAway/pull/1663
+* Handle interaction of captured types and library models by @msridhar in https://github.com/uber/NullAway/pull/1666
+* Follow-on fix for restoring annotation on captured type wildcards by @msridhar in https://github.com/uber/NullAway/pull/1667
+* Fix subtle issue with invalid TreePaths by @msridhar in https://github.com/uber/NullAway/pull/1681
+* Honor @Contract when a @Nullable method is used as a method reference by @Eljees in https://github.com/uber/NullAway/pull/1679
+* Defensively thread path into NestedTypeVarSubstitutionRepairVisitor by @msridhar in https://github.com/uber/NullAway/pull/1683
+* More TreePath hardening by @msridhar in https://github.com/uber/NullAway/pull/1684
+* Harden TypeSubstitutionUtils type copies by @msridhar in https://github.com/uber/NullAway/pull/1669
+* Handle unbound wildcards and interactions with captured types better by @msridhar in https://github.com/uber/NullAway/pull/1668
+* Improve error messages involving capture variables by @msridhar in https://github.com/uber/NullAway/pull/1675
+* Update JarInfer to skip synthetic methods by @msridhar in https://github.com/uber/NullAway/pull/1686
+* Fix bug with storing library model type variable upper bounds by @msridhar in https://github.com/uber/NullAway/pull/1687
+* Fixes for processing return array types and multi-dimensional array types in AstubxGenerator by @msridhar in https://github.com/uber/NullAway/pull/1689
+* Pretty-print substituted types in bad-override error messages by @dbwiddis in https://github.com/uber/NullAway/pull/1697
+* Add test for issue 1693 by @msridhar in https://github.com/uber/NullAway/pull/1698
+* JSpecify: support annotated type arguments from an enclosing class by @dbwiddis in https://github.com/uber/NullAway/pull/1699
+* Fix crash in @Contract dataflow init for zero-argument methods by @dbwiddis in https://github.com/uber/NullAway/pull/1701
+* Support method-based conditional library model postconditions by @Shankar-v27 in https://github.com/uber/NullAway/pull/1677
+* Update JSpecify JDK astubx by @msridhar in https://github.com/uber/NullAway/pull/1702
+* JSpecify: preserve array element nullability through requireNonNull by @kamilkrzywanski in https://github.com/uber/NullAway/pull/1645
+* Add positive test cases for annotations on generic method return types by @dbwiddis in https://github.com/uber/NullAway/pull/1704
+* Add regression test for inner classes inheriting enclosing type arguments by @dbwiddis in https://github.com/uber/NullAway/pull/1703
+* Fix JSpecify false negative when override narrows method type variable bound by @arimu1 in https://github.com/uber/NullAway/pull/1682
+* Fix bug with library-modeled return types, method references, and streams by @msridhar in https://github.com/uber/NullAway/pull/1706
+* Rename MethodInferenceResult to CallInferenceResult by @msridhar in https://github.com/uber/NullAway/pull/1692
+* Generalize generic-call inference internals to call expressions by @msridhar in https://github.com/uber/NullAway/pull/1707
+* Basic nullability inference for diamond constructor type arguments by @msridhar in https://github.com/uber/NullAway/pull/1708
+* Handle nested generic diamond call inference by @msridhar in https://github.com/uber/NullAway/pull/1544
+* Rename getExecutableTypeForInference and improve Javadoc by @msridhar in https://github.com/uber/NullAway/pull/1709
+* Maintenance
+  * Add policy on AI-generated PRs by @msridhar in https://github.com/uber/NullAway/pull/1635
+  * Enable CodeRabbit reviews for all base branches by @msridhar in https://github.com/uber/NullAway/pull/1650
+  * Fix Javadoc errors and allow future Javadoc errors to fail the build by @msridhar in https://github.com/uber/NullAway/pull/1652
+  * Test on JDK 28 early access by @msridhar in https://github.com/uber/NullAway/pull/1653
+  * Update to latest Shadow plugin by @msridhar in https://github.com/uber/NullAway/pull/1658
+  * Remove duplicate NestedAnnotationInfo source from NullAway module by @msridhar in https://github.com/uber/NullAway/pull/1659
+  * Fix Javadoc warnings by @msridhar in https://github.com/uber/NullAway/pull/1660
+  * Fixes to JarInfer test harness and test inputs by @msridhar in https://github.com/uber/NullAway/pull/1670
+  * Address zizmor findings by @msridhar in https://github.com/uber/NullAway/pull/1676
+  * Update to Checker Dataflow 4.2.2 by @msridhar in https://github.com/uber/NullAway/pull/1678
+  * Convert various classes to records by @msridhar in https://github.com/uber/NullAway/pull/1685
+  * Update script to use snapshot builds in integration tests by @msridhar in https://github.com/uber/NullAway/pull/1691
+  * Replace deprecated addSourceFile calls with addSourceLines in FrameworkTests by @dbwiddis in https://github.com/uber/NullAway/pull/1695
+  * Migrate InitializationTests to addSourceLines by @abdeltaehass in https://github.com/uber/NullAway/pull/1694
+  * Migrate anonymous class test to addSourceLines by @terminalchai in https://github.com/uber/NullAway/pull/1696
+
 Version 0.13.8
 --------------
 
