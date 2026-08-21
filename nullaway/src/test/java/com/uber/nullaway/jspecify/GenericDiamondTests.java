@@ -241,6 +241,150 @@ public class GenericDiamondTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void anonymousClassAssignToLocal() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static abstract class Foo<T extends @Nullable Object> {
+                Foo(T value) {
+                }
+                abstract T get();
+              }
+              void testNegative() {
+                // should be legal; T is inferred as @Nullable String
+                Foo<@Nullable String> f = new Foo<>(null) {
+                  @Override
+                  public @Nullable String get() {
+                    return null;
+                  }
+                };
+              }
+              void testPositive() {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Foo<String> f = new Foo<>(null) {
+                  @Override
+                  public String get() {
+                    return "";
+                  }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anonymousClassInterfaceTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              interface Fn<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P p);
+              }
+              void testNegative() {
+                Fn<String, @Nullable String> f = new Fn<>() {
+                  @Override
+                  public @Nullable String apply(String p) {
+                    return null;
+                  }
+                };
+              }
+              void testPositive() {
+                Fn<String, String> f = new Fn<>() {
+                  @Override
+                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method
+                  public @Nullable String apply(String p) {
+                    return null;
+                  }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anonymousClassReturnAndParamContexts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              static class Foo<T extends @Nullable Object> {
+                static Foo<@Nullable Void> make() {
+                  throw new RuntimeException();
+                }
+                static Foo<@Nullable String> makeNullableStr() {
+                  throw new RuntimeException();
+                }
+              }
+              static class Bar<T extends @Nullable Object> {
+                Bar(Foo<T> foo) {
+                }
+              }
+              static void takeNullableVoid(Bar<@Nullable Void> b) {}
+              static void takeStr(Bar<String> b) {}
+              Bar<@Nullable Void> returnNegative() {
+                return new Bar<>(Foo.make()) {};
+              }
+              Bar<String> returnPositive() {
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                return new Bar<>(Foo.makeNullableStr()) {};
+              }
+              void paramNegative() {
+                takeNullableVoid(new Bar<>(Foo.make()) {});
+              }
+              void paramPositive() {
+                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                takeStr(new Bar<>(Foo.makeNullableStr()) {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anonymousClassStrictSupertypeTargetNotYetSupported() {
+    // The target type names a strict supertype of the class being anonymously extended, so we
+    // cannot recover the type arguments of the supertype without real inference. We should
+    // silently fall back to no checking rather than reporting a spurious error.
+    // See https://github.com/uber/NullAway/issues/1475
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              interface Fn<R extends @Nullable Object> {
+                R get();
+              }
+              static abstract class AbstractFn<R extends @Nullable Object> implements Fn<R> {
+              }
+              void test() {
+                Fn<@Nullable String> f = new AbstractFn<>() {
+                  @Override
+                  public @Nullable String get() {
+                    return null;
+                  }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inferFromReturn() {
     makeHelper()
         .addSourceLines(
@@ -375,6 +519,38 @@ public class GenericDiamondTests extends NullAwayTestsBase {
               static <U extends @Nullable Object> void consume(U u) {}
               static void testNoStackOverflow() {
                 consume(new Box<>(nullableString()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anonymousDiamondPassedToGenericMethodDoesNotStackOverflow() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              interface Foo<T extends @Nullable Object> {
+                T get();
+              }
+              static abstract class AbstractFoo<T extends @Nullable Object> implements Foo<T> {}
+              static <U extends @Nullable Object> Foo<U> id(Foo<U> foo) {
+                throw new RuntimeException();
+              }
+              static void takeNullableStringFoo(Foo<@Nullable String> foo) {}
+              static void test() {
+                takeNullableStringFoo(
+                    id(
+                        new AbstractFoo<>() {
+                          @Override
+                          public @Nullable String get() {
+                            return null;
+                          }
+                        }));
               }
             }
             """)
