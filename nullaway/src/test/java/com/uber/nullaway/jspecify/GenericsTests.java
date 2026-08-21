@@ -2150,6 +2150,47 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void capturedArrayTypeNullabilityMismatch() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.IntFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T[] get(IntFunction<? extends @Nullable T[]> factory) {
+                // BUG: Diagnostic contains: incompatible types
+                return factory.apply(0);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void capturedArrayTypeNullabilityMatch() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.IntFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T[] get(IntFunction<? extends T[]> factory) {
+                return factory.apply(0);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void overrideWithRawType() {
     makeHelper()
         .addSourceLines(
