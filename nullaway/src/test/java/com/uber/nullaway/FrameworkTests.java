@@ -1276,6 +1276,91 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void apacheObjectUtilsFirstNonNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import org.apache.commons.lang3.ObjectUtils;
+            import org.jetbrains.annotations.Nullable;
+            public class Foo {
+              public void allValuesMayBeNull(@Nullable String a, @Nullable String b) {
+                // BUG: Diagnostic contains: dereferenced expression 'ObjectUtils.firstNonNull(a, b)' is @Nullable
+                ObjectUtils.firstNonNull(a, b).length();
+              }
+              public void lastValueNonNull(@Nullable String a) {
+                ObjectUtils.firstNonNull(a, "default").length();
+              }
+              public void firstValueNonNull(@Nullable String a) {
+                ObjectUtils.firstNonNull("default", a).length();
+              }
+              public void nonNullOnlyViaDataflow(@Nullable String a, @Nullable String b) {
+                if (a != null) {
+                  ObjectUtils.firstNonNull(a, b).length();
+                }
+              }
+              public void noValues() {
+                // BUG: Diagnostic contains: dereferenced expression 'ObjectUtils.firstNonNull()' is @Nullable
+                ObjectUtils.firstNonNull().toString();
+              }
+              public void resultCheckedBeforeUse(@Nullable String a, @Nullable String b) {
+                String result = ObjectUtils.firstNonNull(a, b);
+                if (result != null) {
+                  result.length();
+                }
+              }
+              @Nullable
+              public String resultNotDereferenced(@Nullable String a, @Nullable String b) {
+                return ObjectUtils.firstNonNull(a, b);
+              }
+              public void unboxingNullableResult(@Nullable Integer a, @Nullable Integer b) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'ObjectUtils.firstNonNull(a, b)'
+                int n = ObjectUtils.firstNonNull(a, b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void apacheObjectUtilsFirstNonNullVarargsForms() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import org.apache.commons.lang3.ObjectUtils;
+            import org.jetbrains.annotations.Nullable;
+            public class Foo {
+              // An existing array is passed in the varargs position, so the values it holds are not
+              // visible and the result must be treated as nullable.
+              public void arrayPassedInVarargsPosition(String[] values) {
+                // BUG: Diagnostic contains: dereferenced expression 'ObjectUtils.firstNonNull(values)' is @Nullable
+                ObjectUtils.firstNonNull(values).length();
+              }
+              // An array created at the call site does have visible values.
+              public void explicitArrayCreationAllNullable(@Nullable String a, @Nullable String b) {
+                // BUG: Diagnostic contains: dereferenced expression 'ObjectUtils.firstNonNull(new String[] {a, b})' is @Nullable
+                ObjectUtils.firstNonNull(new String[] {a, b}).length();
+              }
+              public void explicitArrayCreationSomeNonNull(@Nullable String a) {
+                ObjectUtils.firstNonNull(new String[] {"default", a}).length();
+              }
+              // The values themselves are of array type, so T is String[].
+              public void valuesOfArrayTypeAllNullable(String @Nullable [] p, String @Nullable [] q) {
+                // BUG: Diagnostic contains: dereferenced expression 'ObjectUtils.firstNonNull(p, q)' is @Nullable
+                int n = ObjectUtils.firstNonNull(p, q).length;
+              }
+              public void valuesOfArrayTypeSomeNonNull(String @Nullable [] p) {
+                int n = ObjectUtils.firstNonNull(p, new String[0]).length;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void apacheValidateArrayNoNullElementsWithMessage() {
     defaultCompilationHelper
         .addSourceLines(

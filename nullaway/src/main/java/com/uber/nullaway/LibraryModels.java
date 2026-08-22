@@ -114,6 +114,34 @@ public interface LibraryModels {
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters();
 
   /**
+   * Get library methods whose return value is {@code null} only when <em>every</em> argument passed
+   * at the call site is {@code null}, and non-{@code null} otherwise.
+   *
+   * <p>Unlike {@link #nullImpliesNullParameters()}, which ties the nullness of the return value to
+   * specific argument positions, this model applies to all arguments of the call. That makes it
+   * suitable for varargs methods, whose arity differs from one call site to the next and so cannot
+   * be described by fixed parameter indices. The motivating example is {@code
+   * org.apache.commons.lang3.ObjectUtils.firstNonNull}.
+   *
+   * <p>"Every argument is {@code null}" here means that no argument is known to be non-{@code
+   * null}; an argument of unknown nullness counts as possibly {@code null}. A call passing no
+   * arguments at all therefore has a {@code null} return.
+   *
+   * <p>Note that such methods are often used in the manner of SQL's {@code COALESCE}, relying on an
+   * invariant that this analysis cannot see. In a call like {@code firstNonNull(primary, fallback)}
+   * where a constructor guarantees that exactly one of the two is non-{@code null}, that guarantee
+   * is a relational fact holding <em>between</em> two access paths. NullAway tracks nullness for
+   * each access path independently, so it has no way to represent such a fact, and it reports the
+   * result as possibly {@code null}. Code relying on an invariant of this kind needs {@code
+   * Objects.requireNonNull} or a suppression where the result is dereferenced.
+   *
+   * @return set of library methods returning {@code null} only if all their arguments are null
+   */
+  default ImmutableSet<MethodRef> allParamsNullImpliesNullReturn() {
+    return ImmutableSet.of();
+  }
+
+  /**
    * Get the set of library methods that may return null.
    *
    * @return set of library methods that may return null
