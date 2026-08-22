@@ -37,7 +37,6 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
-import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
@@ -303,22 +302,6 @@ public final class GenericsChecks {
       if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
           || handler.onOverrideClassTypeVariableUpperBound(type.tsym.toString(), i)) {
         result[i] = true;
-      }
-    }
-    // For handling types declared in bytecode rather than source code.
-    // Due to a bug in javac versions before JDK 22 (https://bugs.openjdk.org/browse/JDK-8225377),
-    // the above code does not work for types declared in bytecode.  We need to read the raw type
-    // attributes instead.
-    com.sun.tools.javac.util.List<Attribute.TypeCompound> rawTypeAttributes =
-        tsym.getRawTypeAttributes();
-    if (rawTypeAttributes != null) {
-      for (Attribute.TypeCompound typeCompound : rawTypeAttributes) {
-        if (typeCompound.position.type.equals(TargetType.CLASS_TYPE_PARAMETER_BOUND)
-            && Nullness.isNullableAnnotation(
-                typeCompound.type.tsym.getQualifiedName().toString(), config)) {
-          int index = typeCompound.position.parameter_index;
-          result[index] = true;
-        }
       }
     }
     return result;
