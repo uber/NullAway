@@ -761,12 +761,7 @@ public final class GenericsChecks {
       return typeOrNullIfRaw(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() != null) {
-        // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
-        // Tracked in https://github.com/uber/NullAway/issues/1475
-        return null;
-      }
-      if (isDiamondAndNotAnonymousClass(newClassTree)) {
+      if (isDiamondConstructorCall(newClassTree)) {
         TreePath currentPath = state.getPath();
         CallAndContext directContext =
             getDirectCallContextForInference(currentPath, state, calledFromDataflow);
@@ -904,12 +899,23 @@ public final class GenericsChecks {
     return formalParamTypeRef.get();
   }
 
+  /** Returns true for constructor calls using the diamond operator. */
+  private static boolean isDiamondConstructorCall(NewClassTree newClassTree) {
+    return TreeInfo.isDiamond((JCTree) newClassTree);
+  }
+
   /**
-   * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
-   * instantiated type arguments at the type level, but no explicit non-diamond source type args.
+   * Returns the instantiated type named by a constructor call, excluding any synthetic anonymous
+   * class type introduced by javac.
+   *
+   * <p>For an anonymous diamond call, the symbol of the synthetic constructor is owned by the
+   * anonymous class, which has no type parameters. The identifier instead has the type being
+   * constructed, preserving the generic declaration whose type variables require inference.
    */
-  private static boolean isDiamondAndNotAnonymousClass(NewClassTree newClassTree) {
-    return TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() == null;
+  private static Type getConstructedTypeAtCallSite(NewClassTree newClassTree) {
+    return castToNonNull(
+        ASTHelpers.getType(
+            newClassTree.getClassBody() == null ? newClassTree : newClassTree.getIdentifier()));
   }
 
   /**
@@ -1183,10 +1189,10 @@ public final class GenericsChecks {
           typeAtCallSite, methodReturnType, typeVarNullability, state, config);
     }
     Verify.verify(callTree instanceof NewClassTree);
-    Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
-    Type constructedTypeWithTypeVars = ctorSymbol.owner.type;
+    Type constructedTypeAtCallSite = getConstructedTypeAtCallSite((NewClassTree) callTree);
+    Type constructedTypeWithTypeVars = constructedTypeAtCallSite.tsym.type;
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
-        typeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
+        constructedTypeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
   }
 
   /**
@@ -1302,8 +1308,7 @@ public final class GenericsChecks {
       return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
     }
     Verify.verify(callTree instanceof NewClassTree);
-    Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
-    return ctorSymbol.owner.getTypeParameters();
+    return getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.getTypeParameters();
   }
 
   /**
@@ -1378,7 +1383,6 @@ public final class GenericsChecks {
       Set<Tree> allCalls,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
-    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
     Type.MethodType methodType =
         getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     // first, handle the call result flow
@@ -1386,7 +1390,7 @@ public final class GenericsChecks {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
               ? methodType.getReturnType()
-              : methodSymbol.owner.type;
+              : getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.type;
       solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
     }
     // then, handle parameters
@@ -1812,6 +1816,12 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Returns whether a call requires generic nullability inference.
+   *
+   * <p>This includes generic method invocations without explicit type arguments and constructor
+   * calls using the diamond operator, including anonymous-class constructor calls.
+   */
   private static boolean isCallNeedingInference(ExpressionTree argument) {
     if (argument instanceof MethodInvocationTree methodInvocation) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
@@ -1820,8 +1830,7 @@ public final class GenericsChecks {
           && methodSymbol.type instanceof Type.ForAll
           && methodInvocation.getTypeArguments().isEmpty();
     }
-    return argument instanceof NewClassTree newClassTree
-        && isDiamondAndNotAnonymousClass(newClassTree);
+    return argument instanceof NewClassTree newClassTree && isDiamondConstructorCall(newClassTree);
   }
 
   /**
