@@ -973,12 +973,17 @@ public final class GenericsChecks {
     return formalParamTypeRef.get();
   }
 
+  /** Returns true for constructor calls using the diamond operator. */
+  private static boolean isDiamondConstructorCall(NewClassTree newClassTree) {
+    return TreeInfo.isDiamond((JCTree) newClassTree);
+  }
+
   /**
    * Returns true for constructor calls using the diamond operator that do not declare an anonymous
    * class body.
    */
   private static boolean isDiamondAndNotAnonymousClass(NewClassTree newClassTree) {
-    return TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() == null;
+    return isDiamondConstructorCall(newClassTree) && newClassTree.getClassBody() == null;
   }
 
   /**
@@ -1221,7 +1226,7 @@ public final class GenericsChecks {
    * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @return the type of the call after inference
    */
-  private Type inferCallType(
+  private @Nullable Type inferCallType(
       VisitorState state,
       ExpressionTree callTree,
       @Nullable TreePath path,
@@ -1252,6 +1257,10 @@ public final class GenericsChecks {
           typeAtCallSite, methodReturnType, typeVarNullability, state, config);
     }
     Verify.verify(callTree instanceof NewClassTree);
+    NewClassTree newClassTree = (NewClassTree) callTree;
+    if (newClassTree.getClassBody() != null) {
+      return getAnonymousDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
+    }
     Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
     Type constructedTypeWithTypeVars = ctorSymbol.owner.type;
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
@@ -1881,6 +1890,12 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Returns whether a call requires generic nullability inference.
+   *
+   * <p>This includes generic method invocations without explicit type arguments and constructor
+   * calls using the diamond operator, including anonymous-class constructor calls.
+   */
   private static boolean isCallNeedingInference(ExpressionTree argument) {
     if (argument instanceof MethodInvocationTree methodInvocation) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
@@ -1889,8 +1904,7 @@ public final class GenericsChecks {
           && methodSymbol.type instanceof Type.ForAll
           && methodInvocation.getTypeArguments().isEmpty();
     }
-    return argument instanceof NewClassTree newClassTree
-        && isDiamondAndNotAnonymousClass(newClassTree);
+    return argument instanceof NewClassTree newClassTree && isDiamondConstructorCall(newClassTree);
   }
 
   /**
