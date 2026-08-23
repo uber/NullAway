@@ -371,9 +371,18 @@ public class GenericDiamondTests extends NullAwayTestsBase {
               }
               static abstract class AbstractFn<R extends @Nullable Object> implements Fn<R> {
               }
-              void test() {
+              void testNegative() {
                 Fn<@Nullable String> f = new AbstractFn<>() {
                   @Override
+                  public @Nullable String get() {
+                    return null;
+                  }
+                };
+              }
+              void testPositive() {
+                Fn<String> f = new AbstractFn<>() {
+                  @Override
+                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method Test.Fn.get() returns @NonNull
                   public @Nullable String get() {
                     return null;
                   }
