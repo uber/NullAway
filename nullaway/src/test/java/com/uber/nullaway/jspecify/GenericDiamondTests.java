@@ -538,19 +538,15 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 T get();
               }
               static abstract class AbstractFoo<T extends @Nullable Object> implements Foo<T> {}
-              static <U extends @Nullable Object> Foo<U> id(Foo<U> foo) {
-                throw new RuntimeException();
-              }
-              static void takeNullableStringFoo(Foo<@Nullable String> foo) {}
+              static <U extends @Nullable Object> void consume(Foo<U> foo) {}
               static void test() {
-                takeNullableStringFoo(
-                    id(
-                        new AbstractFoo<>() {
-                          @Override
-                          public @Nullable String get() {
-                            return null;
-                          }
-                        }));
+                consume(
+                    new AbstractFoo<>() {
+                      @Override
+                      public @Nullable String get() {
+                        return null;
+                      }
+                    });
               }
             }
             """)
