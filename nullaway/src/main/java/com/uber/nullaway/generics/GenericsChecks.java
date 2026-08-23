@@ -767,7 +767,7 @@ public final class GenericsChecks {
           CallAndContext directContext =
               getDirectCallContextForInference(currentPath, state, calledFromDataflow);
           Type inferredType =
-              inferCallType(
+              getCallTypeAfterInference(
                   state,
                   newClassTree,
                   currentPath,
@@ -1164,7 +1164,7 @@ public final class GenericsChecks {
       VisitorState state,
       boolean calledFromDataflow) {
     if (isCallNeedingInference(rhsTree)) {
-      return inferCallType(
+      return getCallTypeAfterInference(
           state.withPath(pathToRhs),
           rhsTree,
           pathToRhs,
@@ -1214,6 +1214,22 @@ public final class GenericsChecks {
    * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @return the type of the call after inference
    */
+  private @Nullable Type getCallTypeAfterInference(
+      VisitorState state,
+      ExpressionTree callTree,
+      @Nullable TreePath path,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal,
+      boolean calledFromDataflow) {
+    Type inferredType =
+        inferCallType(
+            state, callTree, path, typeFromAssignmentContext, assignedToLocal, calledFromDataflow);
+    if (callTree instanceof NewClassTree newClassTree && newClassTree.getClassBody() != null) {
+      return getAnonymousDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
+    }
+    return inferredType;
+  }
+
   private @Nullable Type inferCallType(
       VisitorState state,
       ExpressionTree callTree,
@@ -1245,10 +1261,6 @@ public final class GenericsChecks {
           typeAtCallSite, methodReturnType, typeVarNullability, state, config);
     }
     Verify.verify(callTree instanceof NewClassTree);
-    NewClassTree newClassTree = (NewClassTree) callTree;
-    if (newClassTree.getClassBody() != null) {
-      return getAnonymousDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
-    }
     Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
     Type constructedTypeWithTypeVars = ctorSymbol.owner.type;
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
@@ -1920,7 +1932,7 @@ public final class GenericsChecks {
     if (returnExpressionType != null) {
       if (isCallNeedingInference(retExpr)) {
         returnExpressionType =
-            inferCallType(
+            getCallTypeAfterInference(
                 state.withPath(pathToRetExpr),
                 retExpr,
                 pathToRetExpr,
@@ -2398,7 +2410,7 @@ public final class GenericsChecks {
                   // infer the type of the method call based on the assignment context
                   // and the formal parameter type
                   actualParameterType =
-                      inferCallType(
+                      getCallTypeAfterInference(
                           state.withPath(pathToParam),
                           currentActualParam,
                           pathToParam,
@@ -3065,7 +3077,7 @@ public final class GenericsChecks {
           CallAndContext parentContext =
               getCallAndContextForInference(parentPath, state, calledFromDataflow);
           parentClassType =
-              inferCallType(
+              getCallTypeAfterInference(
                   state,
                   parentConstructorCall,
                   parentPath,
@@ -3228,7 +3240,7 @@ public final class GenericsChecks {
         TreePath receiverPath = pathWithLeaf(curPath, receiver);
         if (isCallNeedingInference(receiver)) {
           enclosingType =
-              inferCallType(
+              getCallTypeAfterInference(
                   state.withPath(receiverPath),
                   receiver,
                   receiverPath,
