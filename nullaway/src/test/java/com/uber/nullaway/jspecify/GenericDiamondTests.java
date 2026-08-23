@@ -543,6 +543,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 consume(
                     new AbstractFoo<>() {
                       @Override
+                      // BUG: Diagnostic contains: method returns @Nullable, but superclass method
                       public @Nullable String get() {
                         return null;
                       }
