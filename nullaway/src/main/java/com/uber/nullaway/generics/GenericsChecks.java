@@ -765,17 +765,13 @@ public final class GenericsChecks {
         TreePath currentPath = state.getPath();
         CallAndContext directContext =
             getDirectCallContextForInference(currentPath, state, calledFromDataflow);
-        Type inferredType =
-            inferCallType(
-                state,
-                newClassTree,
-                currentPath,
-                directContext.typeFromAssignmentContext,
-                directContext.assignedToLocal,
-                calledFromDataflow);
-        if (inferredType != null) {
-          return inferredType;
-        }
+        return inferCallType(
+            state,
+            newClassTree,
+            currentPath,
+            directContext.typeFromAssignmentContext,
+            directContext.assignedToLocal,
+            calledFromDataflow);
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
@@ -2614,12 +2610,6 @@ public final class GenericsChecks {
   public Nullness getGenericMethodReturnTypeNullness(
       Symbol.MethodSymbol method, Symbol enclosingSymbol, VisitorState state) {
     Type enclosingType = getTypeForSymbol(enclosingSymbol, state);
-    if (enclosingType == null && enclosingSymbol.isAnonymous()) {
-      // For unsupported anonymous diamond cases, we may be unable to recover a nullability-aware
-      // instantiated supertype from the tree. In that case, avoid assuming @NonNull and reporting
-      // a spurious override error.
-      return Nullness.NULLABLE;
-    }
     return getGenericMethodReturnTypeNullness(method, enclosingType, state);
   }
 
