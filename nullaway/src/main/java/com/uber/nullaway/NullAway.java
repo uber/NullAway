@@ -1228,10 +1228,10 @@ public class NullAway extends BugChecker
             tree.getParameters().stream().map(ASTHelpers::getSymbol).collect(Collectors.toList()),
             funcInterfaceMethod,
             tree,
-            null,
-            null,
+            /* memberReferenceTree= */ null,
+            /* modeledOverriddenMethodType= */ null,
             state,
-            null);
+            /* overridingMethod= */ null);
     if (!description.equals(Description.NO_MATCH)) {
       state.reportMatch(description);
     }
