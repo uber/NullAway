@@ -448,7 +448,23 @@ public class TypeSubstitutionUtils {
       Type.WildcardType otherWildcard = GenericsUtils.asWildcard(other);
       Type.WildcardType updatedWildcard;
       if (otherWildcard != null) {
-        updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
+        if (t.wildcard.kind == BoundKind.EXTENDS && otherWildcard.kind == BoundKind.UNBOUND) {
+          // Substitution can turn the capture's backing wildcard into an explicit extends
+          // wildcard while the corresponding declared wildcard remains unbounded. Its `type`
+          // field is just an Object placeholder; annotations must be restored from the implicit
+          // upper bound of its formal type variable instead.
+          Type.TypeVar formalTypeVariable = otherWildcard.bound;
+          if (formalTypeVariable == null) {
+            return updated;
+          }
+          Type updatedBound = t.wildcard.type.accept(this, formalTypeVariable.getUpperBound());
+          if (updatedBound == t.wildcard.type) {
+            return updated;
+          }
+          updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
+        } else {
+          updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
+        }
       } else if (t.wildcard.kind == BoundKind.EXTENDS) {
         Type updatedBound = t.wildcard.type.accept(this, other);
         if (updatedBound == t.wildcard.type) {
