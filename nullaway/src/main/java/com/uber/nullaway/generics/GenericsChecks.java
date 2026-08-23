@@ -2436,10 +2436,11 @@ public final class GenericsChecks {
       Symbol.MethodSymbol overridingMethod,
       Symbol.MethodSymbol overriddenMethod,
       VisitorState state) {
+    Type typeForSymbol = getTypeForSymbol(overridingMethod.owner, state);
     Type substitutedMethodType =
         TypeSubstitutionUtils.memberType(
             state.getTypes(),
-            getTypeForSymbol(overridingMethod.owner, state),
+            typeForSymbol != null ? typeForSymbol : overridingMethod.owner.type,
             overriddenMethod,
             analysis.getConfig());
     Type.MethodType methodType = substitutedMethodType.asMethodType();
