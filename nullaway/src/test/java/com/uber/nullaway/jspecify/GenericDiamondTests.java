@@ -539,11 +539,23 @@ public class GenericDiamondTests extends NullAwayTestsBase {
               }
               static abstract class AbstractFoo<T extends @Nullable Object> implements Foo<T> {}
               static <U extends @Nullable Object> void consume(Foo<U> foo) {}
-              static void test() {
+              static void testPositive() {
                 consume(
                     new AbstractFoo<>() {
                       @Override
+                      // This is an expected warning, since we do not use the body of an anonymous
+                      // class when inferring its diamond type arguments
                       // BUG: Diagnostic contains: method returns @Nullable, but superclass method
+                      public @Nullable String get() {
+                        return null;
+                      }
+                    });
+              }
+              static void testNegative() {
+                consume(
+                    new AbstractFoo<@Nullable String>() {
+                      @Override
+                      // No warning here since we gave an explicit type argument
                       public @Nullable String get() {
                         return null;
                       }
