@@ -4,7 +4,6 @@ import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
 public class FrameworkTests extends NullAwayTestsBase {
 
   /** The {@code java.lang.annotation} imports needed by the annotation stubs in this class. */
@@ -31,39 +30,1406 @@ public class FrameworkTests extends NullAwayTestsBase {
 
   @Test
   public void lombokSupportTesting() {
-    defaultCompilationHelper.addSourceFile("testdata/lombok/LombokBuilderInit.java").doTest();
+    defaultCompilationHelper
+        .addSourceLines(
+            "LombokBuilderInit.java",
+            """
+            package com.uber.nullaway.testdata.lombok;
+
+            import javax.annotation.Nullable;
+            import lombok.Builder;
+
+            @Builder
+            public class LombokBuilderInit {
+              private String field;
+              @Builder.Default private String fieldWithDefault = "Default";
+              @Nullable private String nullableField;
+            }
+            """)
+        .doTest();
   }
 
   @Test
   public void coreNullabilityNativeModels() {
     defaultCompilationHelper
-        .addSourceFile("testdata/NullAwayNativeModels.java")
-        .addSourceFile("testdata/androidstubs/WebView.java")
-        .addSourceFile("testdata/androidstubs/TextUtils.java")
+        .addSourceLines(
+            "NullAwayNativeModels.java",
+            """
+            package com.uber.nullaway.testdata;
+
+            import android.webkit.WebView;
+            import com.google.common.collect.ImmutableList;
+            import com.google.common.collect.ImmutableMap;
+            import com.google.common.collect.ImmutableSet;
+            import com.google.common.collect.ImmutableSortedSet;
+            import com.google.common.collect.Iterables;
+            import java.io.File;
+            import java.lang.ref.WeakReference;
+            import java.net.URLClassLoader;
+            import java.util.ArrayDeque;
+            import java.util.Collection;
+            import java.util.Deque;
+            import java.util.HashMap;
+            import java.util.LinkedHashMap;
+            import java.util.Map;
+            import java.util.Optional;
+            import java.util.concurrent.atomic.AtomicReference;
+            import javax.annotation.Nullable;
+            import javax.lang.model.element.Element;
+            import javax.lang.model.util.Elements;
+
+            public class NullAwayNativeModels {
+
+              public static void referenceStuff() {
+                AtomicReference<Object> ref = new AtomicReference<>(null);
+                Object x = ref.get();
+                // BUG: Diagnostic contains: dereferenced expression
+                x.toString();
+                // BUG: Diagnostic contains: dereferenced expression
+                ref.get().toString();
+                WeakReference<Object> w = new WeakReference<Object>(x);
+                // BUG: Diagnostic contains: dereferenced expression
+                w.get().hashCode();
+                Exception e = new RuntimeException();
+                // BUG: Diagnostic contains: dereferenced expression
+                e.getMessage().hashCode();
+                // BUG: Diagnostic contains: dereferenced expression
+                e.getLocalizedMessage().hashCode();
+                // BUG: Diagnostic contains: dereferenced expression
+                e.getCause().toString();
+              }
+
+              // we will add bug annotations when we have full support for maps
+              public static void mapStuff(Map<Object, Object> m) {
+                // BUG: Diagnostic contains: dereferenced expression
+                m.get(new Object()).toString();
+                Object value = m.get(new Object());
+                // BUG: Diagnostic contains: dereferenced expression
+                value.toString();
+                HashMap<Object, Object> h = new HashMap<>();
+                Object value2 = h.get(new Object());
+                // BUG: Diagnostic contains: dereferenced expression
+                value2.toString();
+              }
+
+              static void mapGetNullCheck() {
+                Object x = new Object();
+                Map<Object, Object> m = new HashMap<>();
+                if (m.get(x) != null) {
+                  m.get(x).toString();
+                }
+                HashMap<Object, Object> m2 = (HashMap) m;
+                if (m2.get(x) != null) {
+                  m2.get(x).hashCode();
+                }
+              }
+
+              static void mapContainsKeyCheck() {
+                Object x = new Object();
+                Map<Object, Object> m = new HashMap<>();
+                if (m.containsKey(x)) {
+                  m.get(x).toString();
+                }
+                if (m.containsKey(x)) {
+                  Object y = m.get(x);
+                  y.toString();
+                }
+                HashMap<Object, Object> m2 = (HashMap) m;
+                if (m2.containsKey(x)) {
+                  m2.get(x).hashCode();
+                }
+                if (m2.containsKey(x)) {
+                  Object y = m2.get(x);
+                  y.hashCode();
+                }
+                Object z = new Object();
+                if (m2.containsKey(z)) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  m2.get(x).hashCode();
+                }
+                if (m2.containsKey(z)) {
+                  Object y = m2.get(x);
+                  // BUG: Diagnostic contains: dereferenced expression
+                  y.hashCode();
+                }
+                // test negation
+                if (!m2.containsKey(x)) {
+                  return;
+                }
+                Object y = m2.get(x);
+                y.hashCode();
+              }
+
+              static class Wrapper {
+
+                Object wrapped = new Object();
+
+                public Object getWrapped() {
+                  return wrapped;
+                }
+              }
+
+              static final String KEY = "key";
+
+              static void harderMapContainsKeyCheck() {
+                Map m = new HashMap();
+                Wrapper w = new Wrapper();
+                if (m.containsKey(w.getWrapped())) {
+                  m.get(w.getWrapped()).toString();
+                }
+                if (m.containsKey(w.getWrapped())) {
+                  Object o = m.get(w.getWrapped());
+                  o.toString();
+                }
+                if (m.get(w.getWrapped()) != null) {
+                  m.get(w.getWrapped()).toString();
+                }
+                if (m.get(w.getWrapped()) != null) {
+                  Object o = m.get(w.getWrapped());
+                  o.toString();
+                }
+                if (m.containsKey(KEY)) {
+                  m.get(KEY).toString();
+                }
+                if (m.containsKey(KEY)) {
+                  Object o = m.get(KEY);
+                  o.toString();
+                }
+              }
+
+              static void testLinkedHashMap() {
+                LinkedHashMap m = new LinkedHashMap();
+                Object o = new Object();
+                if (m.containsKey(o)) {
+                  m.get(o).toString();
+                }
+              }
+
+              static void mapContainsKeyPut() {
+                Object x = new Object();
+                Map<Object, Object> m = new HashMap<>();
+                if (!m.containsKey(x)) {
+                  m.put(x, new Object());
+                }
+                m.get(x).toString();
+                HashMap<Object, Object> m2 = new HashMap<>();
+                if (!m2.containsKey(x)) {
+                  m2.put(x, x);
+                }
+                m2.get(x).toString();
+                Object y = new Object(), z = new Object();
+                if (!m2.containsKey(z)) {
+                  m2.put(y, new Object());
+                }
+                // BUG: Diagnostic contains: dereferenced expression
+                m2.get(z).toString();
+                LinkedHashMap m3 = new LinkedHashMap();
+                if (!m3.containsKey(y)) {
+                  m3.put(y, new Object());
+                }
+                m3.get(y).hashCode();
+              }
+
+              static void immutableMapStuff() {
+                ImmutableMap m = ImmutableMap.of();
+                Object res = m.get(new Object());
+                // BUG: Diagnostic contains: dereferenced expression
+                res.toString();
+                Object x = new Object();
+                if (m.containsKey(x)) {
+                  m.get(x).toString();
+                }
+              }
+
+              static void mapCheckWithPrimitiveUnboxing(int key) {
+                Map<Integer, Object> m = new HashMap<>();
+                if (m.containsKey(key)) {
+                  m.get(key).hashCode();
+                }
+              }
+
+              static void mapCheckWithPrimitiveUnboxingLong(long key) {
+                Map<Integer, Object> m = new HashMap<>();
+                if (m.containsKey(key)) {
+                  m.get(key).hashCode();
+                }
+              }
+
+              static void mapCheckWithStringConstantKey() {
+                Map<String, Object> m = new HashMap<>();
+                if (m.containsKey("key")) {
+                  m.get("key").hashCode();
+                }
+              }
+
+              static void mapCheckWithIntConstantKey() {
+                Map<String, Object> m = new HashMap<>();
+                if (m.containsKey(42)) {
+                  m.get(42).hashCode();
+                }
+              }
+
+              static void mapCheckWithWideningNode() {
+                Map<Long, String> m = new HashMap<>();
+                m.put(Long.valueOf(42), "");
+              }
+
+              static void failIfNull(
+                  @Nullable Object o1,
+                  @Nullable Object o2,
+                  @Nullable Object o3,
+                  @Nullable Object o4,
+                  @Nullable Object o5) {
+                org.junit.Assert.assertNotNull(o1);
+                o1.toString();
+                org.junit.Assert.assertNotNull("Null!", o2);
+                o2.toString();
+                org.junit.jupiter.api.Assertions.assertNotNull(o3);
+                o3.toString();
+                org.junit.jupiter.api.Assertions.assertNotNull(o4, "Null!");
+                o4.toString();
+                org.junit.jupiter.api.Assertions.assertNotNull(o5, () -> "Null!");
+                o5.toString();
+              }
+
+              static void nonNullParameters() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                NullAwayNativeModels.class.getResource(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                NullAwayNativeModels.class.isAssignableFrom(null);
+                String s = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+                File f = new File(s);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                URLClassLoader.newInstance(null, NullAwayNativeModels.class.getClassLoader());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                Optional<Object> op = Optional.of(null);
+              }
+
+              static void elementStuff(Element e, Elements elems) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                e.getAnnotation(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                elems.getPackageElement(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                elems.getTypeElement(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                elems.getDocComment(null);
+              }
+
+              static void arrayDequeStuff() {
+                ArrayDeque<Object> d = new ArrayDeque<>();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.add(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.addFirst(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.addLast(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.offerFirst(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.offerLast(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.offer(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.push(null);
+                Object[] o = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'o' where @NonNull is required
+                d.toArray(o);
+                // this should be fine
+                d.toArray();
+              }
+
+              static void dequeStuff() {
+                Deque<Object> d = new ArrayDeque<>();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.add(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.addFirst(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.addLast(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.offerFirst(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.offerLast(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.offer(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                d.push(null);
+                Object[] o = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'o' where @NonNull is required
+                d.toArray(o);
+              }
+
+              static void guavaStuff() {
+                Collection<String> c = null;
+                Object o = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'c' where @NonNull is required
+                ImmutableList.builder().addAll(c).build();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'o' where @NonNull is required
+                ImmutableList.builder().add(o).build();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'c' where @NonNull is required
+                ImmutableSet.builder().addAll(c).build();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'o' where @NonNull is required
+                ImmutableSet.builder().add(o).build();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'c' where @NonNull is required
+                ImmutableSortedSet.builder().addAll(c).build();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'o' where @NonNull is required
+                ImmutableSortedSet.builder().add(o).build();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'c' where @NonNull is required
+                Iterables.getFirst(c, "hi");
+              }
+
+              static void androidStuff() {
+                android.webkit.WebView webView = new WebView();
+                // BUG: Diagnostic contains: dereferenced expression
+                webView.getUrl().toString();
+                String s = null;
+                if (!android.text.TextUtils.isEmpty(s)) {
+                  // no warning due to isEmpty check
+                  s.hashCode();
+                }
+              }
+
+              static void apacheCommonsStuff() {
+                String s = null;
+                if (!org.apache.commons.lang.StringUtils.isEmpty(s)) {
+                  // no warning due to isEmpty check
+                  s.hashCode();
+                }
+                String t = null;
+                if (!org.apache.commons.lang3.StringUtils.isEmpty(t)) {
+                  // no warning due to isEmpty check
+                  t.hashCode();
+                }
+              }
+            }
+            """)
+        .addSourceLines(
+            "WebView.java",
+            """
+            package android.webkit;
+
+            public class WebView {
+
+              public String getUrl() {
+                return null;
+              }
+            }
+            """)
+        .addSourceLines(
+            "TextUtils.java",
+            """
+            package android.text;
+
+            public class TextUtils {
+
+              public static boolean isEmpty(CharSequence c) {
+                return false;
+              }
+            }
+            """)
         .doTest();
   }
 
   @Test
   public void rxSupportPositiveCases() {
-    defaultCompilationHelper.addSourceFile("testdata/NullAwayRxSupportPositiveCases.java").doTest();
+    defaultCompilationHelper
+        .addSourceLines(
+            "NullAwayRxSupportPositiveCases.java",
+            """
+            package com.uber.nullaway.testdata;
+
+            import io.reactivex.Observable;
+            import io.reactivex.functions.Function;
+            import io.reactivex.functions.Predicate;
+            import javax.annotation.Nullable;
+
+            public class NullAwayRxSupportPositiveCases {
+
+              static class NullableContainer<T> {
+                @Nullable private T ref;
+
+                public NullableContainer() {
+                  ref = null;
+                }
+
+                @Nullable
+                public T get() {
+                  return ref;
+                }
+
+                public void set(T o) {
+                  ref = o;
+                }
+              }
+
+              private static boolean perhaps() {
+                return Math.random() > 0.5;
+              }
+
+              private Observable<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranch(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            if (container.get() != null) {
+                              return true;
+                            } else {
+                              return perhaps();
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) throws Exception {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranchAnyOrder(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            if (container.get() == null) {
+                              return perhaps();
+                            } else {
+                              return true;
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c1) throws Exception {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return c1.get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterWithOrExpressionThenMapNullableContainer(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            return container.get() != null || perhaps();
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> container) throws Exception {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return container.get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterWithLambdaNullExpressionBody(Observable<String> observable) {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return
+                // type
+                return observable.map(o -> perhaps() ? o : null).map(o -> o.length());
+              }
+
+              private Observable<Integer> filterThenMapNullableContainerLambdas(
+                  Observable<NullableContainer<String>> observable) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return observable.filter(c -> c.get() != null || perhaps()).map(c -> c.get().length());
+              }
+
+              private Observable<Integer> filterThenMapMethodRefs1(
+                  Observable<NullableContainer<String>> observable) {
+                // this is to make sure the analysis doesn't get confused by two instances of the same method
+                // ref
+                Object o =
+                    observable
+                        .filter(c -> c.get() != null && perhaps())
+                        .map(NullableContainer::get)
+                        .map(String::length);
+                return observable
+                    .filter(c -> c.get() != null || perhaps())
+                    // BUG: Diagnostic contains: referenced method returns @Nullable
+                    .map(NullableContainer::get)
+                    .map(String::length);
+              }
+            }
+            """)
+        .doTest();
   }
 
   @Test
   public void rxSupportNegativeCases() {
-    defaultCompilationHelper.addSourceFile("testdata/NullAwayRxSupportNegativeCases.java").doTest();
+    defaultCompilationHelper
+        .addSourceLines(
+            "NullAwayRxSupportNegativeCases.java",
+            """
+            package com.uber.nullaway.testdata;
+
+            import com.google.common.collect.ImmutableList;
+            import io.reactivex.Maybe;
+            import io.reactivex.Observable;
+            import io.reactivex.ObservableSource;
+            import io.reactivex.Single;
+            import io.reactivex.functions.BiPredicate;
+            import io.reactivex.functions.Function;
+            import io.reactivex.functions.Predicate;
+            import javax.annotation.Nullable;
+
+            public class NullAwayRxSupportNegativeCases {
+
+              static class NullableContainer<T> {
+                @Nullable private T ref;
+
+                public NullableContainer() {
+                  ref = null;
+                }
+
+                @Nullable
+                public T get() {
+                  return ref;
+                }
+
+                public void set(T o) {
+                  ref = o;
+                }
+              }
+
+              private static boolean perhaps() {
+                return Math.random() > 0.5;
+              }
+
+              private Observable<Integer> filterThenMap(Observable<String> observable) {
+                return observable
+                    .filter(
+                        new Predicate<String>() {
+                          @Override
+                          public boolean test(String s) throws Exception {
+                            return s != null;
+                          }
+                        })
+                    .map(
+                        new Function<String, Integer>() {
+                          @Override
+                          public Integer apply(String s) throws Exception {
+                            return s.length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterWithIfThenMapNullableContainer(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            if (container.get() != null) {
+                              return true;
+                            } else {
+                              return false;
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) throws Exception {
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterWithNEExpressionThenMapNullableContainer(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            return container.get() != null;
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> container) throws Exception {
+                            return container.get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterWithAndExpressionThenMapNullableContainer(
+                  Observable<NullableContainer<NullableContainer<String>>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<NullableContainer<String>>>() {
+                          @Override
+                          public boolean test(NullableContainer<NullableContainer<String>> container)
+                              throws Exception {
+                            return container.get() != null && container.get().get() != null;
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<NullableContainer<String>>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<NullableContainer<String>> container)
+                              throws Exception {
+                            return container.get().get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterThenMapNullableContainerMergesReturns(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            if (perhaps() && container.get() != null) {
+                              return true;
+                            } else {
+                              return (container.get() != null);
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) throws Exception {
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterThenMapNullableContainerWPassthroughMethods(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            return container.get() != null;
+                          }
+                        })
+                    .distinctUntilChanged()
+                    .distinct()
+                    .flatMap(
+                        new Function<NullableContainer<String>, ObservableSource<Integer>>() {
+                          @Override
+                          public ObservableSource<Integer> apply(NullableContainer<String> container)
+                              throws Exception {
+                            return io.reactivex.Observable.fromIterable(
+                                ImmutableList.of(container.get().length(), container.get().length()));
+                          }
+                        });
+              }
+
+              private Observable<NullableContainer<String>> filterThenDistinctUntilChanged(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            return container.get() != null;
+                          }
+                        })
+                    .distinctUntilChanged(
+                        new BiPredicate<NullableContainer<String>, NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> nc1, NullableContainer<String> nc2) {
+                            return nc1.get().length() == nc2.get().length()
+                                && nc1.get().contains(nc2.get())
+                                && nc2.get().contains(nc1.get());
+                          }
+                        });
+              }
+
+              private static class NoOpFilterClass<T> implements Predicate<T> {
+                public NoOpFilterClass() {}
+
+                public boolean test(T o) throws Exception {
+                  return true;
+                }
+              }
+
+              private Observable<Integer> filterThenMapDoesntBreakWithNonAnnonClass(
+                  Observable<String> observable) {
+                return observable
+                    .filter(new NoOpFilterClass<String>())
+                    .map(
+                        new Function<String, Integer>() {
+                          @Override
+                          public Integer apply(String s) throws Exception {
+                            // No new nullability facts, this test is only to ensure our handler doesn't
+                            // break the checker when using Observables with non-annonymous functions.
+                            return s.length();
+                          }
+                        });
+              }
+
+              private Maybe<Integer> testMaybe(Maybe<NullableContainer<String>> maybe) {
+                return maybe
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            return container.get() != null;
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) throws Exception {
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private Maybe<Integer> testSingle(Single<NullableContainer<String>> single) {
+                return single
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) throws Exception {
+                            return container.get() != null;
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) throws Exception {
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private Observable<Integer> filterThenMapLambdas(Observable<String> observable) {
+                return observable.filter(s -> s != null).map(s -> s.length());
+              }
+
+              private Observable<Integer> filterThenMapNullableContainerLambdas(
+                  Observable<NullableContainer<String>> observable) {
+                return observable.filter(c -> c.get() != null).map(c -> c.get().length());
+              }
+
+              private Observable<Integer> filterThenMapNullableContainerLambdas2(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        c -> {
+                          if (c.get() == null) {
+                            return false;
+                          } else {
+                            return true;
+                          }
+                        })
+                    .map(c -> c.get().length());
+              }
+
+              private Observable<Integer> filterThenMapNullableContainerLambdas3(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(c -> c.get() != null)
+                    .map(
+                        c -> {
+                          String s = c.get();
+                          return s.length();
+                        });
+              }
+
+              private Observable<Integer> filterThenMapLambdas4(Observable<String> observable) {
+                return observable.filter(s -> s != null && perhaps()).map(s -> s.length());
+              }
+
+              private Observable<Integer> filterThenDoOnNextThenMapLambdas(Observable<String> observable) {
+                return observable
+                    .filter(s -> s != null && perhaps())
+                    .doOnNext(
+                        s -> {
+                          if (s.length() == 0) {
+                            throw new Error();
+                          } else {
+                            return;
+                          }
+                        })
+                    .map(s -> s.length());
+              }
+
+              private Observable<Integer> filterThenDoOnNextThenMapLambdas2(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(c -> c.get() != null && perhaps())
+                    .doOnNext(
+                        c -> {
+                          String s = c.get();
+                          if (s.length() == 0) {
+                            throw new Error();
+                          } else {
+                            return;
+                          }
+                        })
+                    .map(
+                        c -> {
+                          String s = c.get();
+                          return s.length();
+                        });
+              }
+
+              private static <T> boolean predtest(Predicate<T> f, T val) {
+                try {
+                  return f.test(val);
+                } catch (Exception e) {
+                  return false;
+                }
+              }
+
+              private static <T, R> R funcapply(Function<T, R> f, T val) throws Exception {
+                return f.apply(val);
+              }
+
+              private Observable<Integer> filterThenMapLambdas5(Observable<String> observable) {
+                return observable
+                    .filter(s -> predtest(r -> r != null, s))
+                    .map(s -> funcapply(r -> r.length(), s));
+              }
+
+              private Observable<Integer> filterThenMapMethodRefs1(
+                  Observable<NullableContainer<String>> observable) {
+                return observable
+                    .filter(c -> c.get() != null && perhaps())
+                    .map(NullableContainer::get)
+                    .map(String::length);
+              }
+            }
+            """)
+        .doTest();
   }
 
   @Test
   public void streamSupportNegativeCases() {
     defaultCompilationHelper
-        .addSourceFile("testdata/NullAwayStreamSupportNegativeCases.java")
+        .addSourceLines(
+            "NullAwayStreamSupportNegativeCases.java",
+            """
+            package com.uber.nullaway.testdata;
+
+            import com.google.common.base.Preconditions;
+            import com.google.common.collect.ImmutableList;
+            import com.uber.nullaway.testdata.unannotated.CustomStream;
+            import java.util.function.Function;
+            import java.util.function.Predicate;
+            import java.util.stream.DoubleStream;
+            import java.util.stream.IntStream;
+            import java.util.stream.LongStream;
+            import java.util.stream.Stream;
+            import javax.annotation.Nullable;
+
+            public class NullAwayStreamSupportNegativeCases {
+
+              static class NullableContainer<T> {
+                @Nullable private T ref;
+
+                public NullableContainer() {
+                  ref = null;
+                }
+
+                @Nullable
+                public T get() {
+                  return ref;
+                }
+
+                public void set(T o) {
+                  ref = o;
+                }
+              }
+
+              private static boolean perhaps() {
+                return Math.random() > 0.5;
+              }
+
+              private Stream<Integer> filterThenMap(Stream<String> stream) {
+                return stream
+                    .filter(
+                        new Predicate<String>() {
+                          @Override
+                          public boolean test(String s) {
+                            return s != null;
+                          }
+                        })
+                    .map(
+                        new Function<String, Integer>() {
+                          @Override
+                          public Integer apply(String s) {
+                            return s.length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterWithIfThenMapNullableContainer(
+                  Stream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) {
+                            if (container.get() != null) {
+                              return true;
+                            } else {
+                              return false;
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) {
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterWithNEExpressionThenMapNullableContainer(
+                  Stream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) {
+                            return container.get() != null;
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> container) {
+                            return container.get().length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterWithAndExpressionThenMapNullableContainer(
+                  Stream<NullableContainer<NullableContainer<String>>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<NullableContainer<String>>>() {
+                          @Override
+                          public boolean test(NullableContainer<NullableContainer<String>> container) {
+                            return container.get() != null && container.get().get() != null;
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<NullableContainer<String>>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<NullableContainer<String>> container) {
+                            return container.get().get().length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterThenMapNullableContainerMergesReturns(
+                  Stream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) {
+                            if (perhaps() && container.get() != null) {
+                              return true;
+                            } else {
+                              return (container.get() != null);
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) {
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterThenMapNullableContainerWPassthroughMethods(
+                  Stream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) {
+                            return container.get() != null;
+                          }
+                        })
+                    .distinct()
+                    .flatMap(
+                        new Function<NullableContainer<String>, Stream<Integer>>() {
+                          @Override
+                          public Stream<Integer> apply(NullableContainer<String> container) {
+                            return ImmutableList.of(container.get().length(), container.get().length())
+                                .stream();
+                          }
+                        });
+              }
+
+              private Stream<String> filterThenMapStreamOfMapsWithGet(
+                  Stream<java.util.Map<String, Integer>> stream) {
+                return stream.filter(m -> m.get("hello") != null).map(n -> n.get("hello").toString());
+              }
+
+              private static class NoOpFilterClass<T> implements Predicate<T> {
+                public NoOpFilterClass() {}
+
+                public boolean test(T o) {
+                  return true;
+                }
+              }
+
+              private Stream<Integer> filterThenMapDoesntBreakWithNonAnnonClass(Stream<String> observable) {
+                return observable
+                    .filter(new NoOpFilterClass<String>())
+                    .map(
+                        new Function<String, Integer>() {
+                          @Override
+                          public Integer apply(String s) {
+                            // No new nullability facts, this test is only to ensure our handler doesn't
+                            // break the checker when using Streams with non-annonymous functions.
+                            return s.length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterThenMapLambdas(Stream<String> observable) {
+                return observable.filter(s -> s != null).map(s -> s.length());
+              }
+
+              private Stream<Integer> filterThenMapNullableContainerLambdas(
+                  Stream<NullableContainer<String>> observable) {
+                return observable.filter(c -> c.get() != null).map(c -> c.get().length());
+              }
+
+              private Stream<Integer> filterThenMapNullableContainerLambdas2(
+                  Stream<NullableContainer<String>> observable) {
+                return observable
+                    .filter(
+                        c -> {
+                          if (c.get() == null) {
+                            return false;
+                          } else {
+                            return true;
+                          }
+                        })
+                    .map(c -> c.get().length());
+              }
+
+              private Stream<Integer> filterThenMapNullableContainerLambdas3(
+                  Stream<NullableContainer<String>> observable) {
+                return observable
+                    .filter(c -> c.get() != null)
+                    .map(
+                        c -> {
+                          String s = c.get();
+                          return s.length();
+                        });
+              }
+
+              private Stream<Integer> filterThenMapLambdas4(Stream<String> observable) {
+                return observable.filter(s -> s != null && perhaps()).map(s -> s.length());
+              }
+
+              private static <T> boolean predtest(Predicate<T> f, T val) {
+                try {
+                  return f.test(val);
+                } catch (Exception e) {
+                  return false;
+                }
+              }
+
+              private static <T, R> R funcapply(Function<T, R> f, T val) {
+                return f.apply(val);
+              }
+
+              private Stream<Integer> filterThenMapLambdas5(Stream<String> observable) {
+                return observable
+                    .filter(s -> predtest(r -> r != null, s))
+                    .map(s -> funcapply(r -> r.length(), s));
+              }
+
+              private Stream<Integer> filterThenMapMethodRefs1(Stream<NullableContainer<String>> observable) {
+                return observable
+                    .filter(c -> c.get() != null && perhaps())
+                    .map(NullableContainer::get)
+                    .map(String::length);
+              }
+
+              private IntStream filterThenMapToInt(Stream<NullableContainer<String>> stream) {
+                return stream.filter(c -> c.get() != null).mapToInt(c -> c.get().length());
+              }
+
+              private LongStream filterThenMapToLong(Stream<NullableContainer<String>> stream) {
+                return stream.filter(c -> c.get() != null).mapToLong(c -> c.get().length());
+              }
+
+              private DoubleStream filterThenMapToDouble(Stream<NullableContainer<String>> stream) {
+                return stream.filter(c -> c.get() != null).mapToDouble(c -> c.get().length());
+              }
+
+              private void filterThenForEach(Stream<NullableContainer<String>> stream) {
+                stream.filter(s -> s.get() != null).forEach(s -> System.out.println(s.get().length()));
+              }
+
+              private void filterThenForEachOrdered(Stream<NullableContainer<String>> stream) {
+                stream.filter(s -> s.get() != null).forEachOrdered(s -> System.out.println(s.get().length()));
+              }
+
+              // CustomStream is modeled in TestLibraryModels
+              private CustomStream<Integer> filterThenMapLambdasCustomStream(CustomStream<String> stream) {
+                return stream.filter(s -> s != null).map(s -> s.length());
+              }
+
+              private CustomStream<Integer> filterThenMapNullableContainerLambdasCustomStream(
+                        CustomStream<NullableContainer<String>> stream) {
+                    return stream
+                            .filter(c -> c.get() != null)
+                            .map(c -> c.get().length());
+                }
+
+              private CustomStream<Integer> filterThenMapMethodRefsCustomStream(
+                  CustomStream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(c -> c.get() != null && perhaps())
+                    .map(NullableContainer::get)
+                    .map(String::length);
+              }
+
+              private static class CheckFinalBeforeStream<T> {
+                @Nullable private final T ref;
+
+                public CheckFinalBeforeStream(@Nullable T ref) {
+                  this.ref = ref;
+                }
+
+                private Stream<T> test1(Stream<T> stream) {
+                  Preconditions.checkNotNull(ref);
+                  final T asLocal = ref;
+                  return stream.filter(s -> asLocal.equals(s));
+                }
+
+                private Stream<T> test2(Stream<T> stream) {
+                  Preconditions.checkNotNull(ref);
+                  // Safe because ref is final!
+                  return stream.filter(s -> ref.equals(s));
+                }
+
+                private Stream<T> test3(Stream<T> stream) {
+                  if (ref != null) {
+                    // Safe because ref is final!
+                    return stream.filter(s -> ref.equals(s));
+                  } else {
+                    return stream.filter(s -> "CONST".equals(s.toString()));
+                  }
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
   @Test
   public void streamSupportPositiveCases() {
     defaultCompilationHelper
-        .addSourceFile("testdata/NullAwayStreamSupportPositiveCases.java")
+        .addSourceLines(
+            "NullAwayStreamSupportPositiveCases.java",
+            """
+            package com.uber.nullaway.testdata;
+
+            import com.google.common.base.Preconditions;
+            import com.uber.nullaway.testdata.unannotated.CustomStreamWithoutModel;
+            import java.util.function.Function;
+            import java.util.function.Predicate;
+            import java.util.stream.DoubleStream;
+            import java.util.stream.IntStream;
+            import java.util.stream.LongStream;
+            import java.util.stream.Stream;
+            import javax.annotation.Nullable;
+
+            public class NullAwayStreamSupportPositiveCases {
+
+              static class NullableContainer<T> {
+                @Nullable private T ref;
+
+                public NullableContainer() {
+                  ref = null;
+                }
+
+                @Nullable
+                public T get() {
+                  return ref;
+                }
+
+                public void set(T o) {
+                  ref = o;
+                }
+              }
+
+              private Stream<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranch(
+                  Stream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) {
+                            if (container.get() != null) {
+                              return true;
+                            } else {
+                              return perhaps();
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c) {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return c.get().length();
+                          }
+                        });
+              }
+
+              private static boolean perhaps() {
+                return Math.random() > 0.5;
+              }
+
+              private Stream<Integer> filterWithIfThenMapNullableContainerNullableOnSomeBranchAnyOrder(
+                  Stream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) {
+                            if (container.get() == null) {
+                              return perhaps();
+                            } else {
+                              return true;
+                            }
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> c1) {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return c1.get().length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterWithOrExpressionThenMapNullableContainer(
+                  Stream<NullableContainer<String>> stream) {
+                return stream
+                    .filter(
+                        new Predicate<NullableContainer<String>>() {
+                          @Override
+                          public boolean test(NullableContainer<String> container) {
+                            return container.get() != null || perhaps();
+                          }
+                        })
+                    .map(
+                        new Function<NullableContainer<String>, Integer>() {
+                          @Override
+                          public Integer apply(NullableContainer<String> container) {
+                            // BUG: Diagnostic contains: dereferenced expression
+                            return container.get().length();
+                          }
+                        });
+              }
+
+              private Stream<Integer> filterThenMapNullableContainerLambdas(
+                  Stream<NullableContainer<String>> stream) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return stream.filter(c -> c.get() != null || perhaps()).map(c -> c.get().length());
+              }
+
+              private IntStream mapToInt(Stream<NullableContainer<String>> stream) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return stream.mapToInt(c -> c.get().length());
+              }
+
+              private LongStream mapToLong(Stream<NullableContainer<String>> stream) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return stream.mapToLong(c -> c.get().length());
+              }
+
+              private DoubleStream mapToDouble(Stream<NullableContainer<String>> stream) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return stream.mapToDouble(c -> c.get().length());
+              }
+
+              private void forEach(Stream<NullableContainer<String>> stream) {
+                // BUG: Diagnostic contains: dereferenced expression
+                stream.forEach(s -> System.out.println(s.get().length()));
+              }
+
+              private void forEachOrdered(Stream<NullableContainer<String>> stream) {
+                // BUG: Diagnostic contains: dereferenced expression
+                stream.forEachOrdered(s -> System.out.println(s.get().length()));
+              }
+
+              // CustomStreamWithoutModel is NOT modeled in TestLibraryModels
+              private CustomStreamWithoutModel<Integer> filterThenMapLambdasCustomStream(CustomStreamWithoutModel<String> stream) {
+                // Safe because generic is String, not @Nullable String
+                return stream.filter(s -> s != null).map(s -> s.length());
+              }
+
+              private CustomStreamWithoutModel<Integer> filterThenMapNullableContainerLambdasCustomStream(
+                      CustomStreamWithoutModel<NullableContainer<String>> stream) {
+                return stream
+                        .filter(c -> c.get() != null)
+                        // BUG: Diagnostic contains: dereferenced expression
+                        .map(c -> c.get().length());
+              }
+
+              private CustomStreamWithoutModel<Integer> filterThenMapMethodRefsCustomStream(
+                      CustomStreamWithoutModel<NullableContainer<String>> stream) {
+                return stream
+                        .filter(c -> c.get() != null && perhaps())
+                        .map(NullableContainer::get) // CSWoM<NullableContainer<String>> -> CSWoM<@Nullable String>
+                        .map(String::length); // Should be an error with proper generics support!
+              }
+
+              private static class CheckNonfinalBeforeStream<T> {
+                @Nullable private T ref;
+
+                public CheckNonfinalBeforeStream(@Nullable T ref) {
+                  this.ref = ref;
+                }
+
+                private Stream<T> test1(Stream<T> stream) {
+                  Preconditions.checkNotNull(ref);
+                  final T asLocal = ref;
+                  return stream.filter(s -> asLocal.equals(s));
+                }
+
+                private Stream<T> test2(Stream<T> stream) {
+                  Preconditions.checkNotNull(ref);
+                  // no error since we propagate nullability facts to stream callbacks, which
+                  // in sane code are invoked soon after the stream is created
+                  return stream.filter(s -> ref.equals(s));
+                }
+              }
+            }
+            """)
         .doTest();
   }
 
