@@ -1617,6 +1617,41 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overrideExplicitlyTypedAnonymousClassWithNestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                List<T> get();
+                void accept(List<T> values);
+              }
+              static void test() {
+                Foo<@Nullable String> foo = new Foo<@Nullable String>() {
+                  @Override
+                  public List<@Nullable String> get() { throw new AssertionError(); }
+                  @Override
+                  public void accept(List<@Nullable String> values) {}
+                };
+                Foo<@Nullable String> badFoo = new Foo<@Nullable String>() {
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public List<String> get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public void accept(List<String> values) {}
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void overrideAnonymousNestedClass() {
     makeHelper()
         .addSourceLines(
