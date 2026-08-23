@@ -354,11 +354,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void anonymousClassStrictSupertypeTargetNotYetSupported() {
-    // The target type names a strict supertype of the class being anonymously extended, so we
-    // cannot recover the type arguments of the supertype without real inference. We should
-    // silently fall back to no checking rather than reporting a spurious error.
-    // See https://github.com/uber/NullAway/issues/1475
+  public void anonymousClassStrictSupertypeTarget() {
     makeHelper()
         .addSourceLines(
             "Test.java",
