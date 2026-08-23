@@ -763,26 +763,18 @@ public final class GenericsChecks {
     if (tree instanceof NewClassTree newClassTree) {
       if (isDiamondConstructorCall(newClassTree)) {
         TreePath currentPath = state.getPath();
-        if (currentPath != null) {
-          CallAndContext directContext =
-              getDirectCallContextForInference(currentPath, state, calledFromDataflow);
-          Type inferredType =
-              inferCallType(
-                  state,
-                  newClassTree,
-                  currentPath,
-                  directContext.typeFromAssignmentContext,
-                  directContext.assignedToLocal,
-                  calledFromDataflow);
-          if (inferredType != null) {
-            return inferredType;
-          }
-        }
-        if (newClassTree.getClassBody() != null) {
-          // Falling through would return javac's type for the anonymous class itself, which carries
-          // neither type arguments nor type-use annotations, so keep the previous conservative
-          // behavior.
-          return null;
+        CallAndContext directContext =
+            getDirectCallContextForInference(currentPath, state, calledFromDataflow);
+        Type inferredType =
+            inferCallType(
+                state,
+                newClassTree,
+                currentPath,
+                directContext.typeFromAssignmentContext,
+                directContext.assignedToLocal,
+                calledFromDataflow);
+        if (inferredType != null) {
+          return inferredType;
         }
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
@@ -1170,7 +1162,7 @@ public final class GenericsChecks {
    * @param calledFromDataflow true if this inference is being done as part of dataflow analysis
    * @return the type of the call after inference
    */
-  private @Nullable Type inferCallType(
+  private Type inferCallType(
       VisitorState state,
       ExpressionTree callTree,
       @Nullable TreePath path,
