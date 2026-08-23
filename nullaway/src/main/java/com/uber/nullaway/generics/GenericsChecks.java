@@ -761,33 +761,29 @@ public final class GenericsChecks {
       return typeOrNullIfRaw(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() != null) {
-        // For constructor calls using the diamond operator, infer from assignment context. This
-        // covers anonymous classes using the diamond operator as well; in that case the inferred
-        // type is the instantiated supertype that the anonymous class extends / implements,
-        // matching the behavior for anonymous classes with explicit type arguments (see
-        // getTypeForSymbol).
-        Type fromAssignmentContext =
-            getAnonymousDiamondTypeFromContext(newClassTree, state, calledFromDataflow);
-        if (fromAssignmentContext != null) {
-          return fromAssignmentContext;
-        }
-        // We could not recover the instantiated supertype from the surrounding context. Falling
-        // through would return javac's type for the anonymous class itself, which carries neither
-        // type arguments nor type-use annotations, so keep the previous conservative behavior.
-        return null;
-      }
-      if (isDiamondAndNotAnonymousClass(newClassTree)) {
+      if (isDiamondConstructorCall(newClassTree)) {
         TreePath currentPath = state.getPath();
-        CallAndContext directContext =
-            getDirectCallContextForInference(currentPath, state, calledFromDataflow);
-        return inferCallType(
-            state,
-            newClassTree,
-            currentPath,
-            directContext.typeFromAssignmentContext,
-            directContext.assignedToLocal,
-            calledFromDataflow);
+        if (currentPath != null) {
+          CallAndContext directContext =
+              getDirectCallContextForInference(currentPath, state, calledFromDataflow);
+          Type inferredType =
+              inferCallType(
+                  state,
+                  newClassTree,
+                  currentPath,
+                  directContext.typeFromAssignmentContext,
+                  directContext.assignedToLocal,
+                  calledFromDataflow);
+          if (inferredType != null) {
+            return inferredType;
+          }
+        }
+        if (newClassTree.getClassBody() != null) {
+          // Falling through would return javac's type for the anonymous class itself, which carries
+          // neither type arguments nor type-use annotations, so keep the previous conservative
+          // behavior.
+          return null;
+        }
       }
       if (newClassTree.getIdentifier() instanceof ParameterizedTypeTree paramTypedTree
           && !paramTypedTree.getTypeArguments().isEmpty()) {
@@ -976,14 +972,6 @@ public final class GenericsChecks {
   /** Returns true for constructor calls using the diamond operator. */
   private static boolean isDiamondConstructorCall(NewClassTree newClassTree) {
     return TreeInfo.isDiamond((JCTree) newClassTree);
-  }
-
-  /**
-   * Returns true for constructor calls using the diamond operator that do not declare an anonymous
-   * class body.
-   */
-  private static boolean isDiamondAndNotAnonymousClass(NewClassTree newClassTree) {
-    return isDiamondConstructorCall(newClassTree) && newClassTree.getClassBody() == null;
   }
 
   /**
