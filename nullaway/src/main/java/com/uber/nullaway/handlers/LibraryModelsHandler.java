@@ -1890,8 +1890,6 @@ public class LibraryModelsHandler implements Handler {
           for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
             Integer index = entry.getKey();
             if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
-              // remove spaces after commas
-              methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
               mapBuilder.put(methodRef(className, methodNameAndSignature), index);
             }
           }
@@ -1921,8 +1919,6 @@ public class LibraryModelsHandler implements Handler {
                           + methodEntry.getKey()
                           + " arg "
                           + argEntry.getKey());
-                  // remove spaces after commas
-                  methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
                   mapBuilder.put(methodRef(className, methodNameAndSignature), index);
                 }
               }
@@ -1937,7 +1933,9 @@ public class LibraryModelsHandler implements Handler {
       int openParenIndex = methodInfo.indexOf('(');
       Verify.verify(openParenIndex != -1, "Malformed method info: %s", methodInfo);
       int methodNameIndex = methodInfo.lastIndexOf(' ', openParenIndex) + 1;
-      return methodInfo.substring(methodNameIndex);
+      // MethodRef signatures omit spaces after commas, but spaces in wildcard bounds (for example,
+      // "? super T") are significant and must be preserved.
+      return methodInfo.substring(methodNameIndex).replaceAll(",\\s", ",");
     }
 
     @Override
@@ -1968,7 +1966,6 @@ public class LibraryModelsHandler implements Handler {
               Set<String> annotations = argEntry.getValue();
               if (annotations.contains("javax.annotation.Nullable")
                   || annotations.contains("org.jspecify.annotations.Nullable")) {
-                methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
                 builder.add(methodRef(className, methodNameAndSignature));
               }
             }

@@ -211,6 +211,82 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void mapComputeOverrideUsesJSpecifyModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            abstract class Test implements Map<String, String> {
+              static void callSite(
+                  Map<String, String> map,
+                  BiFunction<String, @Nullable String, @Nullable String> remappingFunction) {
+                map.compute("key", remappingFunction);
+              }
+              @Override
+              public @Nullable String compute(
+                  String key,
+                  BiFunction<
+                          ? super String,
+                          ? super @Nullable String,
+                          ? extends @Nullable String>
+                      remappingFunction) {
+                return null;
+              }
+            }
+            @NullMarked
+            abstract class InvalidTest implements Map<String, String> {
+              @Override
+              public @Nullable String compute(
+                  String key,
+                  BiFunction<? super String, ? super String, ? extends String>
+                      // BUG: Diagnostic contains: Parameter has type BiFunction<? super String, ? super String, ? extends String>, but overridden method has parameter type BiFunction<? super String, ? super @Nullable String, ? extends @Nullable String>
+                      remappingFunction) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void modeledMethodTypeVariableBoundUsedForOverride() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.io.IOException;
+            import java.net.ServerSocket;
+            import java.net.SocketOption;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class ValidOverride extends ServerSocket {
+              ValidOverride() throws IOException {}
+              @Override
+              public <T extends @Nullable Object> ServerSocket setOption(
+                  SocketOption<T> name, T value) throws IOException {
+                return this;
+              }
+            }
+            @NullMarked
+            class InvalidOverride extends ServerSocket {
+              InvalidOverride() throws IOException {}
+              @Override
+              // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+              public <T> ServerSocket setOption(SocketOption<T> name, T value) throws IOException {
+                return this;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));

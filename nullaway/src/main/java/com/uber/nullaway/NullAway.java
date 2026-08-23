@@ -699,13 +699,18 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol closestOverriddenMethod =
           NullabilityUtil.getClosestOverriddenMethod(methodSymbol, state.getTypes());
       if (closestOverriddenMethod != null) {
+        Type modeledOverriddenMethodType = null;
         if (config.isJSpecifyMode()) {
+          modeledOverriddenMethodType =
+              genericsChecks.getModeledOverriddenMethodType(
+                  methodSymbol, closestOverriddenMethod, state);
           // Check that any generic type parameters in the return type and parameter types are
           // identical (invariant) across the overriding and overridden methods
           genericsChecks.checkTypeParameterNullnessForMethodOverriding(
-              tree, methodSymbol, closestOverriddenMethod, state);
+              tree, methodSymbol, closestOverriddenMethod, modeledOverriddenMethodType, state);
         }
-        return checkOverriding(closestOverriddenMethod, methodSymbol, null, state);
+        return checkOverriding(
+            closestOverriddenMethod, methodSymbol, modeledOverriddenMethodType, null, state);
       }
     }
     return Description.NO_MATCH;
@@ -805,6 +810,8 @@ public class NullAway extends BugChecker
    *     LambdaExpressionTree}; otherwise {@code null}
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
+   * @param modeledOverriddenMethodType overridden method type after substitution and application of
+   *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param state visitor state
    * @param overridingMethod if available, the symbol for the overriding method
    * @return discovered error, or {@link Description#NO_MATCH} if no error
@@ -814,6 +821,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overriddenMethod,
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
+      @Nullable Type modeledOverriddenMethodType,
       VisitorState state,
       Symbol.@Nullable MethodSymbol overridingMethod) {
     com.sun.tools.javac.util.List<VarSymbol> superParamSymbols = overriddenMethod.getParameters();
@@ -866,7 +874,15 @@ public class NullAway extends BugChecker
       boolean overriddenMethodIsVarArgs = overriddenMethod.isVarArgs();
       for (int i = 0; i < superParamSymbols.size(); i++) {
         Nullness paramNullness;
-        if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
+        Type modeledParameterType =
+            modeledOverriddenMethodType == null
+                ? null
+                : modeledOverriddenMethodType.getParameterTypes().get(i);
+        if (modeledParameterType != null
+            && Nullness.hasNullableAnnotation(
+                modeledParameterType.getAnnotationMirrors().stream(), config)) {
+          paramNullness = Nullness.NULLABLE;
+        } else if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
           // For a varargs position, we need to check if the array itself is @Nullable
           paramNullness =
               Nullness.varargsArrayIsNullable(superParamSymbols.get(i), config)
@@ -1213,6 +1229,7 @@ public class NullAway extends BugChecker
             funcInterfaceMethod,
             tree,
             null,
+            null,
             state,
             null);
     if (!description.equals(Description.NO_MATCH)) {
@@ -1252,7 +1269,7 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchMethodReference(tree, new MethodAnalysisContext(this, state, referencedMethod));
-    return checkOverriding(funcInterfaceSymbol, referencedMethod, tree, state);
+    return checkOverriding(funcInterfaceSymbol, referencedMethod, null, tree, state);
   }
 
   /**
@@ -1261,6 +1278,8 @@ public class NullAway extends BugChecker
    *
    * @param overriddenMethod method being overridden
    * @param overridingMethod overriding method
+   * @param modeledOverriddenMethodType overridden method type after substitution and application of
+   *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
    *     referenced method
@@ -1270,13 +1289,18 @@ public class NullAway extends BugChecker
   private Description checkOverriding(
       Symbol.MethodSymbol overriddenMethod,
       Symbol.MethodSymbol overridingMethod,
+      @Nullable Type modeledOverriddenMethodType,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
     if (overriddenMethodReturnsNonNull(
-            overriddenMethod, overridingMethod.owner, memberReferenceTree, state)
+            overriddenMethod,
+            overridingMethod.owner,
+            modeledOverriddenMethodType,
+            memberReferenceTree,
+            state)
         && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
@@ -1321,6 +1345,7 @@ public class NullAway extends BugChecker
         overriddenMethod,
         null,
         memberReferenceTree,
+        modeledOverriddenMethodType,
         state,
         overridingMethod);
   }
@@ -1328,8 +1353,16 @@ public class NullAway extends BugChecker
   private boolean overriddenMethodReturnsNonNull(
       Symbol.MethodSymbol overriddenMethod,
       Symbol enclosingSymbol,
+      @Nullable Type modeledOverriddenMethodType,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
+    if (modeledOverriddenMethodType != null) {
+      Type modeledReturnType = modeledOverriddenMethodType.getReturnType();
+      if (Nullness.hasNullableAnnotation(
+          modeledReturnType.getAnnotationMirrors().stream(), config)) {
+        return false;
+      }
+    }
     Nullness methodReturnNullness =
         getMethodReturnNullness(overriddenMethod, state, Nullness.NULLABLE);
     if (!methodReturnNullness.equals(Nullness.NONNULL)) {
