@@ -498,6 +498,72 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void invocationHandlerLambdaUsesJSpecifyModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.lang.reflect.InvocationHandler;
+            import java.lang.reflect.Method;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void test() {
+                InvocationHandler topLevelMismatch =
+                    // BUG: Diagnostic contains: parameter args is @NonNull
+                    (Object proxy, Method method, Object[] args) -> null;
+                InvocationHandler handler =
+                    // BUG: Diagnostic contains: mismatched type parameter nullability
+                    (Object proxy, Method method, Object @Nullable [] args) -> null;
+                InvocationHandler safe =
+                    (Object proxy, Method method, @Nullable Object @Nullable [] args) -> null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void invocationHandlerMethodReferenceUsesJSpecifyModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.lang.reflect.InvocationHandler;
+            import java.lang.reflect.Method;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void test() {
+                // BUG: Diagnostic contains: parameter args of referenced method is @NonNull
+                InvocationHandler topLevelMismatch = Test::handleTopLevelMismatch;
+                // BUG: Diagnostic contains: mismatched type parameter nullability
+                InvocationHandler handler = Test::handle;
+                InvocationHandler safe = Test::handleSafe;
+              }
+
+              static @Nullable Object handleTopLevelMismatch(
+                  Object proxy, Method method, Object[] args) {
+                return null;
+              }
+
+              static @Nullable Object handle(
+                  Object proxy, Method method, Object @Nullable [] args) {
+                return null;
+              }
+
+              static @Nullable Object handleSafe(
+                  Object proxy, Method method, @Nullable Object @Nullable [] args) {
+                return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void modeledMethodTypeVariableBoundUsedForOverride() {
     makeHelper()
         .addSourceLines(
