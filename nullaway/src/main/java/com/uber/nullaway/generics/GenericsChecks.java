@@ -1745,6 +1745,8 @@ public final class GenericsChecks {
    * @param memberReferenceTree the member reference tree
    * @param overridingMethod the method symbol for the method referenced by {@code
    *     memberReferenceTree}
+   * @param unboundReceiverType receiver type from the functional-interface method for an unbound
+   *     reference, or {@code null} for other references or when unavailable
    * @param state the visitor state
    * @return the method type for the member reference, with generics handled, or null if not in
    *     JSpecify mode
@@ -1752,6 +1754,7 @@ public final class GenericsChecks {
   public Type.@Nullable MethodType getMemberReferenceMethodType(
       MemberReferenceTree memberReferenceTree,
       Symbol.MethodSymbol overridingMethod,
+      @Nullable Type unboundReceiverType,
       VisitorState state) {
     if (!config.isJSpecifyMode()) {
       return null;
@@ -1762,6 +1765,15 @@ public final class GenericsChecks {
       // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
       // appears in the signature of m.
       Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      if (qualifierType != null
+          && qualifierType.isRaw()
+          && ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()
+          && unboundReceiverType != null) {
+        // javac infers the parameterization of a raw qualifier in an unbound reference from the
+        // functional interface's receiver parameter. Use that receiver as the member site so class
+        // type arguments are substituted into the referenced method signature.
+        qualifierType = unboundReceiverType;
+      }
       if (qualifierType != null && !qualifierType.isRaw()) {
         result =
             TypeSubstitutionUtils.memberType(

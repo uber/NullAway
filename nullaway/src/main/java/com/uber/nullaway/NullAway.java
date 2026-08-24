@@ -834,14 +834,46 @@ public class NullAway extends BugChecker
         (overridingMethod != null
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
+
+    // For a method reference or lambda, try to use a type inferred by GenericsChecks for the
+    // tree, falling back on the type inferred by javac. Used both to compute parameter nullability
+    // below and to pretty-print the functional interface method's substituted signature in error
+    // messages. Remains null for a regular (non-generic-interface) override.
+    ExpressionTree functionalInterfaceImplementation = null;
+    Type functionalInterfaceType = null;
+    Type.MethodType functionalInterfaceMethodType = null;
+    if (memberReferenceTree != null || lambdaExpressionTree != null) {
+      functionalInterfaceImplementation =
+          castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
+      functionalInterfaceType =
+          genericsChecks.getInferredPolyExpressionType(functionalInterfaceImplementation);
+      if (functionalInterfaceType == null) {
+        functionalInterfaceType = ASTHelpers.getType(functionalInterfaceImplementation);
+      }
+      if (config.isJSpecifyMode()) {
+        functionalInterfaceMethodType =
+            modeledOverriddenMethodType != null
+                ? modeledOverriddenMethodType.asMethodType()
+                : genericsChecks.getFunctionalInterfaceMethodType(
+                    functionalInterfaceImplementation, state);
+      }
+    }
+
     Type.MethodType jspecifyMemberReferenceMethodType = null;
     // Keep handler-provided nullness for the referenced method separate from nullness for the
     // functional interface method. Library models may change the referenced method's signature.
     MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
       Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
+      Type unboundReceiverType =
+          unboundMemberRef
+                  && functionalInterfaceMethodType != null
+                  && !functionalInterfaceMethodType.getParameterTypes().isEmpty()
+              ? functionalInterfaceMethodType.getParameterTypes().get(0)
+              : null;
       jspecifyMemberReferenceMethodType =
-          genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
+          genericsChecks.getMemberReferenceMethodType(
+              memberReferenceTree, referencedMethod, unboundReceiverType, state);
       referencedMethodParameterNullnessOverrides =
           handler.onOverrideMethodInvocationParametersNullability(
               state.context,
@@ -852,22 +884,6 @@ public class NullAway extends BugChecker
 
     MethodParameterNullness overriddenMethodArgumentNullness =
         MethodParameterNullness.create(overriddenMethod);
-
-    // For a method reference or lambda, try to use a type inferred by GenericsChecks for the
-    // tree, falling back on the type inferred by javac.  Used both to compute parameter
-    // nullability below and to pretty-print the functional interface method's substituted
-    // signature in error messages.  Remains null for a regular (non-generic-interface) override.
-    ExpressionTree functionalInterfaceImplementation = null;
-    Type functionalInterfaceType = null;
-    if (memberReferenceTree != null || lambdaExpressionTree != null) {
-      functionalInterfaceImplementation =
-          castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
-      functionalInterfaceType =
-          genericsChecks.getInferredPolyExpressionType(functionalInterfaceImplementation);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(functionalInterfaceImplementation);
-      }
-    }
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
@@ -1011,16 +1027,9 @@ public class NullAway extends BugChecker
             paramSymbol);
       }
     }
-    if (config.isJSpecifyMode() && functionalInterfaceImplementation != null) {
-      Type.MethodType functionalInterfaceMethodType =
-          modeledOverriddenMethodType != null
-              ? modeledOverriddenMethodType.asMethodType()
-              : genericsChecks.getFunctionalInterfaceMethodType(
-                  functionalInterfaceImplementation, state);
-      if (functionalInterfaceMethodType != null) {
-        genericsChecks.checkTypeParameterNullnessForFunctionalInterfaceImplementation(
-            functionalInterfaceImplementation, functionalInterfaceMethodType, state);
-      }
+    if (functionalInterfaceImplementation != null && functionalInterfaceMethodType != null) {
+      genericsChecks.checkTypeParameterNullnessForFunctionalInterfaceImplementation(
+          functionalInterfaceImplementation, functionalInterfaceMethodType, state);
     }
     return Description.NO_MATCH;
   }

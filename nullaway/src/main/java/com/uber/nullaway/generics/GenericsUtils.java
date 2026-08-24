@@ -269,6 +269,17 @@ public class GenericsUtils {
         state.getPath().getLeaf());
     Types types = state.getTypes();
 
+    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
+    boolean unboundMemberReference =
+        ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+    if (unboundMemberReference) {
+      Verify.verify(
+          !fiParamTypes.isEmpty(),
+          "Expected receiver parameter for unbound method ref %s",
+          memberReferenceTree);
+    }
+    Type unboundReceiverType = unboundMemberReference ? fiParamTypes.get(0) : null;
+
     // first, figure out the proper method type to use for the member reference
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     if (referencedMethod == null || referencedMethod.isConstructor()) {
@@ -277,7 +288,8 @@ public class GenericsUtils {
       return;
     }
     Type.MethodType referencedMethodType =
-        genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
+        genericsChecks.getMemberReferenceMethodType(
+            memberReferenceTree, referencedMethod, unboundReceiverType, state);
     if (referencedMethodType == null) {
       return;
     }
@@ -300,16 +312,15 @@ public class GenericsUtils {
 
     //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
     //  aligned appropriately in the case of unbound method references
-    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
     com.sun.tools.javac.util.List<Type> referencedParamTypes =
         referencedMethodType.getParameterTypes();
     int fiStartIndex = 0;
-    if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
-      Verify.verify(
-          !fiParamTypes.isEmpty(),
-          "Expected receiver parameter for unbound method ref %s",
-          memberReferenceTree);
-      if (qualifierType != null) {
+    if (unboundMemberReference) {
+      Type syntacticQualifierType =
+          ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      if (qualifierType != null
+          && syntacticQualifierType != null
+          && !syntacticQualifierType.isRaw()) {
         relationHandler.handle(
             fiParamTypes.get(0), qualifierType, MethodRefTypeRelationKind.PARAMETER);
       }
