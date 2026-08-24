@@ -1847,7 +1847,6 @@ public class NullAway extends BugChecker
   @Override
   public Description matchCompilationUnit(
       CompilationUnitTree tree, VisitorState stateForNewCompilationUnit) {
-
     getNullnessAnalysis(stateForNewCompilationUnit)
         .updateForNewCompilationUnit(stateForNewCompilationUnit);
     return Description.NO_MATCH;
