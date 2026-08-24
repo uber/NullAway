@@ -59,6 +59,7 @@ import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.CompoundAssignmentTree;
 import com.sun.source.tree.ConditionalExpressionTree;
 import com.sun.source.tree.EnhancedForLoopTree;
@@ -188,7 +189,8 @@ public class NullAway extends BugChecker
         BugChecker.TypeCastTreeMatcher,
         BugChecker.ParameterizedTypeTreeMatcher,
         BugChecker.AnnotatedTypeTreeMatcher,
-        BugChecker.SynchronizedTreeMatcher {
+        BugChecker.SynchronizedTreeMatcher,
+        BugChecker.CompilationUnitTreeMatcher {
 
   static final String INITIALIZATION_CHECK_NAME = "NullAway.Init";
   static final String OPTIONAL_CHECK_NAME = "NullAway.Optional";
@@ -1840,6 +1842,15 @@ public class NullAway extends BugChecker
         || (nullMarkingForTopLevelClass == NullMarking.FULLY_MARKED
             && hasDirectAnnotationWithSimpleName(
                 classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME));
+  }
+
+  @Override
+  public Description matchCompilationUnit(
+      CompilationUnitTree tree, VisitorState stateForNewCompilationUnit) {
+
+    getNullnessAnalysis(stateForNewCompilationUnit)
+        .updateForNewCompilationUnit(stateForNewCompilationUnit);
+    return Description.NO_MATCH;
   }
 
   @Override
