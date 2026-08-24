@@ -16,7 +16,8 @@ import org.jspecify.annotations.Nullable;
  *     references, outside JSpecify mode, or when unavailable
  * @param functionalInterfaceMethod the symbol of the target functional interface's abstract method
  * @param functionalInterfaceMethodType the functional interface method's type as a member of the
- *     ground target type in JSpecify mode, or its declared type otherwise
+ *     ground target type with library models applied in JSpecify mode, or its declared type
+ *     otherwise
  * @param isUnbound whether the first functional interface parameter supplies the instance receiver,
  *     as in {@code String::length}
  * @param returnNullnessHint the return-nullness refinement from handlers or the core {@code
