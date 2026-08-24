@@ -986,6 +986,39 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboundMethodReferenceUsesReceiverTypeArguments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                @Nullable T get() {
+                  return null;
+                }
+                List<T> getAll() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+
+              Function<Box<@Nullable String>, @Nullable String> lambda = box -> box.get();
+              Function<Box<@Nullable String>, @Nullable String> getter = Box::get;
+              Function<Box<@Nullable String>, List<@Nullable String>> getAll = Box::getAll;
+              Function<Box<@Nullable String>, @Nullable String> explicitGetter =
+                  // BUG: Diagnostic contains: parameter type of referenced method is Box<String>
+                  Box<String>::get;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void rawFunctionalInterfaceImplementationSkipsNestedNullnessChecks() {
     makeHelper()
         .addSourceLines(
