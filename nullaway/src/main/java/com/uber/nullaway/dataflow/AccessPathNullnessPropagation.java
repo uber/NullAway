@@ -163,7 +163,7 @@ public class AccessPathNullnessPropagation
 
   private final Predicate<MethodInvocationNode> methodReturnsNonNull;
 
-  private final VisitorState state;
+  private VisitorState state;
 
   private final AccessPath.AccessPathContext apContext;
 
@@ -174,6 +174,20 @@ public class AccessPathNullnessPropagation
   private final GenericsChecks genericsChecks;
 
   private final NullnessStoreInitializer nullnessStoreInitializer;
+
+  /**
+   * Updates the stored {@link VisitorState} to account for the fact that we are checking a new
+   * compilation unit. Required since {@link VisitorState} objects internally contain a {@link
+   * com.google.errorprone.DescriptionListener} tied to a compilation unit that cannot be updated
+   * via public APIs.
+   *
+   * @param stateForNewCompilationUnit the new visitor state
+   */
+  public void updateForNewCompilationUnit(VisitorState stateForNewCompilationUnit) {
+    this.state =
+        stateForNewCompilationUnit.withPath(
+            new FailingTreePath(stateForNewCompilationUnit.getPath().getCompilationUnit()));
+  }
 
   /**
    * A stub {@link TreePath} implementation where every method fails immediately. Used to ensure the

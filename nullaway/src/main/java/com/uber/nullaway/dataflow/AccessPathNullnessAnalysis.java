@@ -459,4 +459,19 @@ public final class AccessPathNullnessAnalysis {
         leaf.getClass().getName());
     return dataFlow.isRunning(path, context, nullnessPropagation);
   }
+
+  /**
+   * Updates any stored {@link VisitorState} objects to account for the fact that we are checking a
+   * new compilation unit. Required since {@link VisitorState} objects internally contain a {@link
+   * com.google.errorprone.DescriptionListener} tied to a compilation unit that cannot be updated
+   * via public APIs.
+   *
+   * @param state the new visitor state
+   */
+  public void updateForNewCompilationUnit(VisitorState state) {
+    nullnessPropagation.updateForNewCompilationUnit(state);
+    if (contractNullnessPropagation != null) {
+      contractNullnessPropagation.updateForNewCompilationUnit(state);
+    }
+  }
 }
