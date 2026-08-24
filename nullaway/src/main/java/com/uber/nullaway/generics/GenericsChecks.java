@@ -1043,8 +1043,7 @@ public final class GenericsChecks {
               Symbol paramSymbol = ASTHelpers.getSymbol(param);
               if (paramSymbol != null && paramSymbol.equals(symbol)) {
                 Type.MethodType fiMethodType =
-                    getModeledFunctionalInterfaceMethodType(
-                        inferredLambdaType, lambdaTree, state);
+                    getModeledFunctionalInterfaceMethodType(inferredLambdaType, lambdaTree, state);
                 return fiMethodType.getParameterTypes().get(i);
               }
             }
@@ -1761,8 +1760,7 @@ public final class GenericsChecks {
       return;
     }
     Type.MethodType functionalInterfaceMethodType =
-        getModeledFunctionalInterfaceMethodType(
-            groundTargetType, memberReferenceTree, state);
+        getModeledFunctionalInterfaceMethodType(groundTargetType, memberReferenceTree, state);
     GenericsUtils.processMethodRefTypeRelations(
         this,
         functionalInterfaceMethodType,
