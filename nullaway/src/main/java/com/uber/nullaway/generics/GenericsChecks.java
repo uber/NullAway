@@ -2401,26 +2401,58 @@ public final class GenericsChecks {
    * @param tree A method tree to check
    * @param overridingMethod A symbol of the overriding method
    * @param overriddenMethod A symbol of the overridden method
+   * @param overriddenMethodType type of the overridden method after member-type substitution and
+   *     application of library models
    * @param state the visitor state
    */
   public void checkTypeParameterNullnessForMethodOverriding(
       MethodTree tree,
       Symbol.MethodSymbol overridingMethod,
       Symbol.MethodSymbol overriddenMethod,
+      Type overriddenMethodType,
       VisitorState state) {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
-    // Obtain type parameters for the overridden method within the context of the overriding
-    // method's class
-    Type methodWithTypeParams =
-        TypeSubstitutionUtils.memberType(
-            state.getTypes(), overridingMethod.owner.type, overriddenMethod, analysis.getConfig());
-
-    checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams, state);
-    checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams, state);
+    checkTypeParameterNullnessForOverridingMethodReturnType(tree, overriddenMethodType, state);
+    checkTypeParameterNullnessForOverridingMethodParameterType(tree, overriddenMethodType, state);
     checkMethodTypeVariableUpperBoundNullnessForOverriding(
-        tree, overridingMethod, overriddenMethod, methodWithTypeParams, state);
+        tree, overridingMethod, overriddenMethod, overriddenMethodType, state);
+  }
+
+  /**
+   * Returns the overridden method type in the overriding class context with library models applied.
+   *
+   * <p>The {@link Type.ForAll} wrapper must be retained for subsequent checks of method type
+   * variable bounds, while handlers operate on its underlying {@link Type.MethodType}.
+   *
+   * @param overridingMethod symbol of the overriding method
+   * @param overriddenMethod symbol of the overridden method
+   * @param state visitor state
+   * @return the substituted, modeled overridden method type
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  public Type getModeledOverriddenMethodType(
+      Symbol.MethodSymbol overridingMethod,
+      Symbol.MethodSymbol overriddenMethod,
+      VisitorState state) {
+    Type typeForSymbol = getTypeForSymbol(overridingMethod.owner, state);
+    Type substitutedMethodType =
+        TypeSubstitutionUtils.memberType(
+            state.getTypes(),
+            typeForSymbol != null ? typeForSymbol : overridingMethod.owner.type,
+            overriddenMethod,
+            analysis.getConfig());
+    Type.MethodType methodType = substitutedMethodType.asMethodType();
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(overriddenMethod, methodType, state, null);
+    if (modeledMethodType == methodType) {
+      return substitutedMethodType;
+    }
+    if (substitutedMethodType instanceof Type.ForAll forAll) {
+      return new Type.ForAll(forAll.tvars, modeledMethodType);
+    }
+    return modeledMethodType;
   }
 
   /**
