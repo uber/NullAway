@@ -163,7 +163,13 @@ public class AccessPathNullnessPropagation
 
   private final Predicate<MethodInvocationNode> methodReturnsNonNull;
 
-  private final VisitorState state;
+  private VisitorState state;
+
+  /**
+   * Compilation unit of {@link #state}, tracked separately because {@link
+   * FailingTreePath#getCompilationUnit()} throws instead of returning it.
+   */
+  private CompilationUnitTree stateCompilationUnit;
 
   private final AccessPath.AccessPathContext apContext;
 
@@ -221,13 +227,36 @@ public class AccessPathNullnessPropagation
       NullnessStoreInitializer nullnessStoreInitializer) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = analysis::isMethodUnannotated;
+    CompilationUnitTree compilationUnit = state.getPath().getCompilationUnit();
+    this.stateCompilationUnit = compilationUnit;
     // Overwrite the TreePath with a FailingTreePath to ensure it never gets used
-    this.state = state.withPath(new FailingTreePath(state.getPath().getCompilationUnit()));
+    this.state = state.withPath(new FailingTreePath(compilationUnit));
     this.apContext = apContext;
     this.config = analysis.getConfig();
     this.handler = analysis.getHandler();
     this.genericsChecks = analysis.getGenericsChecks();
     this.nullnessStoreInitializer = nullnessStoreInitializer;
+  }
+
+  /**
+   * Updates the {@link VisitorState} used by this transfer function to one for the compilation unit
+   * currently being processed.
+   *
+   * <p>The {@link com.google.errorprone.DescriptionListener} carried by a {@link VisitorState}
+   * belongs to the compilation unit that the state was created for, and it decides which file a
+   * diagnostic is attributed to. A state for the wrong compilation unit therefore misplaces every
+   * error reported while dataflow is running, whatever tree the error is reported on.
+   *
+   * @param state visitor state for the compilation unit currently being processed
+   */
+  @SuppressWarnings("ReferenceEquality") // compilation units are compared by identity
+  void updateVisitorState(VisitorState state) {
+    CompilationUnitTree compilationUnit = state.getPath().getCompilationUnit();
+    if (compilationUnit != stateCompilationUnit) {
+      this.stateCompilationUnit = compilationUnit;
+      // Overwrite the TreePath with a FailingTreePath to ensure it never gets used
+      this.state = state.withPath(new FailingTreePath(compilationUnit));
+    }
   }
 
   private static SubNodeValues values(TransferInput<Nullness, NullnessStore> input) {

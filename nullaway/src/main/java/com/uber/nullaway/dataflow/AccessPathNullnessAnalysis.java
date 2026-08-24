@@ -94,6 +94,9 @@ public final class AccessPathNullnessAnalysis {
   /**
    * Get the per-Javac instance of the analysis.
    *
+   * <p>Every call points the analysis at the compilation unit of {@code state}, so the state must
+   * carry a {@link TreePath} for the compilation unit being processed.
+   *
    * @param state visitor state for the compilation
    * @param analysis instance of NullAway analysis
    * @return instance of the analysis
@@ -104,8 +107,27 @@ public final class AccessPathNullnessAnalysis {
     if (instance == null) {
       instance = new AccessPathNullnessAnalysis(state, analysis);
       context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
+    } else {
+      instance.updateVisitorState(state);
     }
     return instance;
+  }
+
+  /**
+   * Points the transfer functions at the compilation unit currently being processed.
+   *
+   * <p>A single instance is shared by every compilation unit of a javac task, so the state its
+   * transfer functions hold belongs to whichever compilation unit created the instance until this
+   * call replaces it. {@link AccessPathNullnessPropagation#updateVisitorState(VisitorState)} states
+   * what a state for the wrong compilation unit costs.
+   *
+   * @param state visitor state for the compilation unit currently being processed
+   */
+  private void updateVisitorState(VisitorState state) {
+    nullnessPropagation.updateVisitorState(state);
+    if (contractNullnessPropagation != null) {
+      contractNullnessPropagation.updateVisitorState(state);
+    }
   }
 
   /**
