@@ -21,7 +21,6 @@ import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import javax.lang.model.element.Element;
@@ -236,9 +235,9 @@ public class GenericsUtils {
   }
 
   /**
-   * Handler for method reference type relations, used by {{@link
-   * #processMethodRefTypeRelations(GenericsChecks, Type, MemberReferenceTree, VisitorState,
-   * MethodRefTypeRelationHandler)}}
+   * Handler for method reference type relations, used by {@link
+   * #processMethodRefTypeRelations(GenericsChecks, Type.MethodType, MemberReferenceTree,
+   * VisitorState, MethodRefTypeRelationHandler)}.
    */
   @FunctionalInterface
   interface MethodRefTypeRelationHandler {
@@ -246,12 +245,12 @@ public class GenericsUtils {
   }
 
   /**
-   * Utility method to process relationships between return types and corresponding parameter types
-   * for a method reference and the functional interface method it is being assigned to. Handles
-   * unbound method references and varargs.
+   * Processes relationships between return types and corresponding parameter types for a method
+   * reference and the functional interface method it is being assigned to. Handles unbound method
+   * references and varargs.
    *
    * @param genericsChecks generics checks object
-   * @param targetType type to which method reference is being assigned
+   * @param fiMethodTypeAsMember substituted functional-interface method type
    * @param memberReferenceTree the method reference tree
    * @param state visitor state whose current path ends at {@code memberReferenceTree}
    * @param relationHandler handler to invoke for each type relation
@@ -259,7 +258,7 @@ public class GenericsUtils {
   @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
   static void processMethodRefTypeRelations(
       GenericsChecks genericsChecks,
-      Type targetType,
+      Type.MethodType fiMethodTypeAsMember,
       MemberReferenceTree memberReferenceTree,
       VisitorState state,
       MethodRefTypeRelationHandler relationHandler) {
@@ -268,9 +267,6 @@ public class GenericsUtils {
         "Expected current path to end at member reference %s, but found %s",
         memberReferenceTree,
         state.getPath().getLeaf());
-    if (targetType.isRaw()) {
-      return;
-    }
     Types types = state.getTypes();
 
     // first, figure out the proper method type to use for the member reference
@@ -293,13 +289,6 @@ public class GenericsUtils {
               qualifierExpression,
               state.withPath(new TreePath(state.getPath(), qualifierExpression)));
     }
-
-    // now, get the type of the corresponding functional interface method, as a member of targetType
-    Symbol.MethodSymbol fiMethod =
-        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
-    Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(types, targetType, fiMethod, genericsChecks.getConfig())
-            .asMethodType();
 
     // method reference return type <: functional interface return type
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
