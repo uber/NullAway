@@ -1306,11 +1306,7 @@ public class NullAway extends BugChecker
             ? genericsChecks.getModeledFunctionalInterfaceMethodType(tree, state)
             : null;
     return checkOverriding(
-        funcInterfaceSymbol,
-        referencedMethod,
-        modeledFunctionalInterfaceMethodType,
-        tree,
-        state);
+        funcInterfaceSymbol, referencedMethod, modeledFunctionalInterfaceMethodType, tree, state);
   }
 
   /**
