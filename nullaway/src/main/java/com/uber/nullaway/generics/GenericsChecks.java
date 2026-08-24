@@ -40,7 +40,6 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
 import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
-import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
 import com.sun.tools.javac.util.Name;
@@ -138,6 +137,39 @@ public final class GenericsChecks {
         "Expected lambda or method reference tree but got: %s",
         tree.getKind());
     return inferredPolyExpressionTypes.get(tree);
+  }
+
+  /**
+   * Returns the functional-interface method type for a poly expression after target-type
+   * substitution.
+   *
+   * @param polyExpressionTree lambda or method-reference tree
+   * @param state visitor state
+   * @return the method type, or {@code null} if the expression's target type is unavailable or raw
+   */
+  public Type.@Nullable MethodType getFunctionalInterfaceMethodType(
+      ExpressionTree polyExpressionTree, VisitorState state) {
+    Type functionalInterfaceType = getInferredPolyExpressionType(polyExpressionTree);
+    if (functionalInterfaceType == null) {
+      functionalInterfaceType = ASTHelpers.getType(polyExpressionTree);
+    }
+    if (functionalInterfaceType == null || functionalInterfaceType.isRaw()) {
+      return null;
+    }
+    return getFunctionalInterfaceMethodType(functionalInterfaceType, polyExpressionTree, state);
+  }
+
+  /** Returns a functional-interface method type as a member of {@code functionalInterfaceType}. */
+  private Type.MethodType getFunctionalInterfaceMethodType(
+      Type functionalInterfaceType,
+      ExpressionTree functionalInterfaceImplementation,
+      VisitorState state) {
+    Symbol.MethodSymbol functionalInterfaceMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(
+            functionalInterfaceImplementation, state.getTypes());
+    return TypeSubstitutionUtils.memberType(
+            state.getTypes(), functionalInterfaceType, functionalInterfaceMethod, config)
+        .asMethodType();
   }
 
   /**
@@ -676,6 +708,54 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(memberReferenceTree), state, null));
   }
 
+  /**
+   * Checks nested nullability for a lambda or method reference against its substituted
+   * functional-interface method type.
+   *
+   * <p>Lambda return expressions are checked separately as they are visited; this method checks
+   * explicitly typed lambda parameters. For method references, it checks both parameter and return
+   * type relations.
+   *
+   * @param functionalInterfaceImplementation lambda or method reference being checked
+   * @param functionalInterfaceMethodType substituted functional-interface method type
+   * @param state visitor state
+   */
+  public void checkTypeParameterNullnessForFunctionalInterfaceImplementation(
+      Tree functionalInterfaceImplementation,
+      Type.MethodType functionalInterfaceMethodType,
+      VisitorState state) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    if (functionalInterfaceImplementation instanceof LambdaExpressionTree lambdaExpressionTree) {
+      checkTypeParameterNullnessForOverridingParameters(
+          lambdaExpressionTree.getParameters(), functionalInterfaceMethodType, true, state);
+      return;
+    }
+    Verify.verify(
+        functionalInterfaceImplementation instanceof MemberReferenceTree,
+        "Expected lambda or method reference, got %s",
+        functionalInterfaceImplementation.getKind());
+    MemberReferenceTree memberReferenceTree =
+        (MemberReferenceTree) functionalInterfaceImplementation;
+    GenericsUtils.processMethodRefTypeRelations(
+        this,
+        functionalInterfaceMethodType,
+        memberReferenceTree,
+        state,
+        (subtype, supertype, relationKind) -> {
+          if (!subtypeParameterNullability(supertype, subtype, state)) {
+            if (relationKind == MethodRefTypeRelationKind.RETURN) {
+              reportInvalidMethodReferenceReturnTypeError(
+                  memberReferenceTree, supertype, subtype, state);
+            } else {
+              reportInvalidMethodReferenceParameterTypeError(
+                  memberReferenceTree, subtype, supertype, state);
+            }
+          }
+        });
+  }
+
   private void reportInvalidOverridingMethodReturnTypeError(
       Tree methodTree,
       Type overriddenMethodReturnType,
@@ -953,15 +1033,8 @@ public final class GenericsChecks {
               VariableTree param = params.get(i);
               Symbol paramSymbol = ASTHelpers.getSymbol(param);
               if (paramSymbol != null && paramSymbol.equals(symbol)) {
-                // get the type of the functional interface method as a member of the inferred type
-                // of the lambda
-                Types types = state.getTypes();
-                var fiMethodType =
-                    TypeSubstitutionUtils.memberType(
-                        types,
-                        inferredLambdaType,
-                        NullabilityUtil.getFunctionalInterfaceMethod(lambdaTree, types),
-                        config);
+                Type.MethodType fiMethodType =
+                    getFunctionalInterfaceMethodType(inferredLambdaType, lambdaTree, state);
                 return fiMethodType.getParameterTypes().get(i);
               }
             }
@@ -1674,9 +1747,14 @@ public final class GenericsChecks {
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
     Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
+    if (groundTargetType.isRaw()) {
+      return;
+    }
+    Type.MethodType functionalInterfaceMethodType =
+        getFunctionalInterfaceMethodType(groundTargetType, memberReferenceTree, state);
     GenericsUtils.processMethodRefTypeRelations(
         this,
-        groundTargetType,
+        functionalInterfaceMethodType,
         memberReferenceTree,
         state,
         (subtype, supertype, unused) -> {
@@ -1708,6 +1786,22 @@ public final class GenericsChecks {
       return null;
     }
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    return resolveMemberReference(
+        memberReferenceTree,
+        referencedMethod,
+        getFunctionalInterfaceMethodType(groundTargetType, memberReferenceTree, state),
+        state);
+  }
+
+  /** Resolves a method reference using the substituted functional-interface method type. */
+  public @Nullable ResolvedMethodReference resolveMemberReference(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol referencedMethod,
+      Type.MethodType fiMethodTypeAsMember,
+      VisitorState state) {
+    if (!config.isJSpecifyMode() || referencedMethod.isConstructor()) {
+      return null;
+    }
     Type qualifierType = null;
     if (!referencedMethod.isStatic()) {
       ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
@@ -1723,11 +1817,6 @@ public final class GenericsChecks {
           qualifierType = referencedMethod.owner.type;
         }
         if (qualifierType instanceof Type.ClassType qualifierClassType) {
-          Symbol.MethodSymbol fiMethod =
-              NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
-          Type.MethodType fiMethodTypeAsMember =
-              TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
-                  .asMethodType();
           com.sun.tools.javac.util.List<Type> fiParamTypes =
               fiMethodTypeAsMember.getParameterTypes();
           Verify.verify(
@@ -2022,21 +2111,19 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks that the nullability of type parameters for a returned expression matches that of the
-   * type parameters of the enclosing method's return type.
+   * Checks that nested nullability in a returned expression is compatible with a supplied formal
+   * return type.
    *
-   * @param retExpr the returned expression
-   * @param methodSymbol symbol for enclosing method
-   * @param state the visitor state
+   * @param retExpr returned expression
+   * @param formalReturnType effective formal return type, including substitutions
+   * @param state visitor state
    */
   public void checkTypeParameterNullnessForFunctionReturnType(
-      ExpressionTree retExpr, Symbol.MethodSymbol methodSymbol, VisitorState state) {
+      ExpressionTree retExpr, Type formalReturnType, VisitorState state) {
     Config config = analysis.getConfig();
     if (!config.isJSpecifyMode()) {
       return;
     }
-
-    Type formalReturnType = methodSymbol.getReturnType();
     if (formalReturnType.isRaw()) {
       // bail out of any checking involving raw types for now
       return;
@@ -2504,31 +2591,13 @@ public final class GenericsChecks {
                   NullabilityUtil.stripParensAndUpdateTreePath(
                       currentActualParam, state.withPath(pathToParam));
               ExpressionTree actualParameterWithoutParentheses = actualParameterAndState.expr();
-              if (actualParameterWithoutParentheses
-                  instanceof MemberReferenceTree memberReferenceTree) {
-                Type groundFormalParameter =
-                    GenericsUtils.groundTargetType(formalParameter, state, config, handler);
-                // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types. So, do explicit type checks based on the return and
-                // parameter types of the referenced method
-                GenericsUtils.processMethodRefTypeRelations(
-                    this,
-                    groundFormalParameter,
-                    memberReferenceTree,
-                    actualParameterAndState.state(),
-                    (subtype, supertype, relationKind) -> {
-                      if (!subtypeParameterNullability(supertype, subtype, state)) {
-                        if (relationKind == MethodRefTypeRelationKind.RETURN) {
-                          reportInvalidMethodReferenceReturnTypeError(
-                              memberReferenceTree, supertype, subtype, state);
-                        } else {
-                          reportInvalidMethodReferenceParameterTypeError(
-                              memberReferenceTree, subtype, supertype, state);
-                        }
-                      }
-                    });
+              if (actualParameterWithoutParentheses instanceof MemberReferenceTree) {
+                // The member-reference matcher performs the explicit nested parameter and return
+                // checks. Store its target type here so that matcher sees the final call-site type.
                 maybeStorePolyExpressionTypeFromTarget(
-                    actualParameterWithoutParentheses, formalParameter, state);
+                    actualParameterWithoutParentheses,
+                    formalParameter,
+                    actualParameterAndState.state());
                 return;
               }
 
@@ -3507,17 +3576,31 @@ public final class GenericsChecks {
    */
   private void checkTypeParameterNullnessForOverridingMethodParameterType(
       MethodTree tree, Type overriddenMethodType, VisitorState state) {
-    List<? extends VariableTree> methodParameters = tree.getParameters();
+    checkTypeParameterNullnessForOverridingParameters(
+        tree.getParameters(), overriddenMethodType, false, state);
+  }
+
+  /** Checks nested nullability compatibility for overriding parameter declarations. */
+  private void checkTypeParameterNullnessForOverridingParameters(
+      List<? extends VariableTree> overridingParameters,
+      Type overriddenMethodType,
+      boolean skipImplicitLambdaParameters,
+      VisitorState state) {
     List<Type> overriddenMethodParameterTypes = overriddenMethodType.getParameterTypes();
-    for (int i = 0; i < methodParameters.size(); i++) {
-      Type overridingMethodParameterType = getTreeType(methodParameters.get(i), state);
+    for (int i = 0; i < overridingParameters.size(); i++) {
+      VariableTree overridingParameter = overridingParameters.get(i);
+      if (skipImplicitLambdaParameters
+          && NullabilityUtil.lambdaParamIsImplicitlyTyped(overridingParameter)) {
+        continue;
+      }
+      Type overridingMethodParameterType = getTreeType(overridingParameter, state);
       Type overriddenMethodParameterType = overriddenMethodParameterTypes.get(i);
       if (overridingMethodParameterType != null) {
         // allow contravariant subtyping
         if (!subtypeParameterNullability(
             overridingMethodParameterType, overriddenMethodParameterType, state)) {
           reportInvalidOverridingMethodParamTypeError(
-              methodParameters.get(i),
+              overridingParameter,
               overriddenMethodParameterType,
               overridingMethodParameterType,
               state);

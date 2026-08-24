@@ -929,6 +929,87 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void functionalInterfaceImplementationChecksNestedNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Consumer<T extends @Nullable Object> {
+                void accept(T value);
+              }
+              interface Provider<T extends @Nullable Object> {
+                T get();
+              }
+
+              static void consumeNonNullElements(Object @Nullable [] values) {}
+              static void consumeNullableElements(@Nullable Object @Nullable [] values) {}
+              static Object @Nullable [] provideNonNullElements() {
+                return new Object[0];
+              }
+              static @Nullable Object @Nullable [] provideNullableElements() {
+                return null;
+              }
+
+              void test() {
+                Consumer<@Nullable Object @Nullable []> badLambdaParameter =
+                    // BUG: Diagnostic contains: mismatched type parameter nullability
+                    (Object @Nullable [] values) -> {};
+                Consumer<@Nullable Object @Nullable []> safeLambdaParameter =
+                    (@Nullable Object @Nullable [] values) -> {};
+
+                Consumer<@Nullable Object @Nullable []> badMethodReferenceParameter =
+                    // BUG: Diagnostic contains: mismatched type parameter nullability
+                    Test::consumeNonNullElements;
+                Consumer<@Nullable Object @Nullable []> safeMethodReferenceParameter =
+                    Test::consumeNullableElements;
+
+                Provider<Object @Nullable []> badLambdaReturn =
+                    // BUG: Diagnostic contains: incompatible types
+                    () -> provideNullableElements();
+                Provider<Object @Nullable []> safeLambdaReturn =
+                    () -> provideNonNullElements();
+
+                Provider<Object @Nullable []> badMethodReferenceReturn =
+                    // BUG: Diagnostic contains: mismatched type parameter nullability
+                    Test::provideNullableElements;
+                Provider<Object @Nullable []> safeMethodReferenceReturn =
+                    Test::provideNonNullElements;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void rawFunctionalInterfaceImplementationSkipsNestedNullnessChecks() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              interface Consumer<T extends @Nullable Object> {
+                void accept(Box<T> value);
+              }
+              static void consumeNullable(Box<@Nullable Object> value) {}
+
+              @SuppressWarnings("rawtypes")
+              Consumer rawConsumer = Test::consumeNullable;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testForDiamondInAnAssignment() {
     makeHelper()
         .addSourceLines(
