@@ -840,6 +840,7 @@ public class NullAway extends BugChecker
     // signature in error messages.  Remains null for a regular (non-generic-interface) override.
     ExpressionTree functionalInterfaceImplementation = null;
     Type functionalInterfaceType = null;
+    Type.MethodType functionalInterfaceMethodType = null;
     if (memberReferenceTree != null || lambdaExpressionTree != null) {
       functionalInterfaceImplementation =
           castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
@@ -847,6 +848,13 @@ public class NullAway extends BugChecker
           genericsChecks.getInferredPolyExpressionType(functionalInterfaceImplementation);
       if (functionalInterfaceType == null) {
         functionalInterfaceType = ASTHelpers.getType(functionalInterfaceImplementation);
+      }
+      if (config.isJSpecifyMode()) {
+        functionalInterfaceMethodType =
+            modeledOverriddenMethodType != null
+                ? modeledOverriddenMethodType.asMethodType()
+                : genericsChecks.getFunctionalInterfaceMethodType(
+                    functionalInterfaceImplementation, state);
       }
     }
 
@@ -856,10 +864,10 @@ public class NullAway extends BugChecker
     MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
       Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
-      if (functionalInterfaceType != null) {
+      if (functionalInterfaceMethodType != null) {
         GenericsChecks.ResolvedMethodReference resolvedMethodReference =
             genericsChecks.resolveMemberReference(
-                memberReferenceTree, referencedMethod, functionalInterfaceType, state);
+                memberReferenceTree, referencedMethod, functionalInterfaceMethodType, state);
         if (resolvedMethodReference != null) {
           jspecifyMemberReferenceMethodType = resolvedMethodReference.methodType();
         }
@@ -1024,16 +1032,9 @@ public class NullAway extends BugChecker
             paramSymbol);
       }
     }
-    if (config.isJSpecifyMode() && functionalInterfaceImplementation != null) {
-      Type.MethodType functionalInterfaceMethodType =
-          modeledOverriddenMethodType != null
-              ? modeledOverriddenMethodType.asMethodType()
-              : genericsChecks.getFunctionalInterfaceMethodType(
-                  functionalInterfaceImplementation, state);
-      if (functionalInterfaceMethodType != null) {
-        genericsChecks.checkTypeParameterNullnessForFunctionalInterfaceImplementation(
-            functionalInterfaceImplementation, functionalInterfaceMethodType, state);
-      }
+    if (functionalInterfaceImplementation != null && functionalInterfaceMethodType != null) {
+      genericsChecks.checkTypeParameterNullnessForFunctionalInterfaceImplementation(
+          functionalInterfaceImplementation, functionalInterfaceMethodType, state);
     }
     return Description.NO_MATCH;
   }
