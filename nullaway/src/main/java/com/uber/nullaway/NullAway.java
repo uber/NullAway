@@ -1453,7 +1453,19 @@ public class NullAway extends BugChecker
     // unannotated method's return type are unspecified, so they are not compared, just as the
     // arguments of a call to an unannotated method are not checked
     if (!codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler)) {
-      genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
+      Type formalReturnType = returnType;
+      if (config.isJSpecifyMode() && lambdaTree != null) {
+        Type.MethodType functionalInterfaceMethodType =
+            genericsChecks.getFunctionalInterfaceMethodType(lambdaTree, state);
+        formalReturnType =
+            functionalInterfaceMethodType == null
+                ? null
+                : functionalInterfaceMethodType.getReturnType();
+      }
+      if (formalReturnType != null) {
+        genericsChecks.checkTypeParameterNullnessForFunctionReturnType(
+            retExpr, formalReturnType, state);
+      }
     }
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
@@ -1589,6 +1601,13 @@ public class NullAway extends BugChecker
             genericsChecks.resolveMemberReference(
                 memberReferenceTree, overridingMethod, functionalInterfaceType, state);
       }
+    }
+    if (config.isJSpecifyMode()
+        && memberReferenceTree != null
+        && resolvedReference != null
+        && !codeAnnotationInfo.isSymbolUnannotated(overriddenMethod, config, handler)) {
+      genericsChecks.checkTypeParameterNullnessForMethodReference(
+          memberReferenceTree, resolvedReference, state);
     }
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
