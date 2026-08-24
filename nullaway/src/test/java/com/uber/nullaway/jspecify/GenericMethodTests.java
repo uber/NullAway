@@ -2185,6 +2185,53 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Same as {@link #inferenceFailureFromDataflowReportedInFileWithCall()}, for the transfer
+   * function of the contract-checking analysis, which is a second instance carrying its own {@link
+   * com.google.errorprone.VisitorState} and needs the same update.
+   */
+  @Ignore("to be fixed in a follow up")
+  @Test
+  public void inferenceFailureFromContractDataflowReportedInFileWithCall() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines("Unrelated.java", PADDED_FIRST_COMPILATION_UNIT)
+        .addSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              interface Visitor<R extends @Nullable Object> {
+                R visit(Node n);
+              }
+              interface Node {
+                <R extends @Nullable Object> R accept(Visitor<R> v);
+              }
+              static class NullableVoidVisitor implements Visitor<@Nullable Void> {
+                @Override
+                public Void visit(Node n) {
+                  // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
+                  return n.accept(this);
+                }
+              }
+              // the contract makes NullAway run its contract-checking dataflow over this method
+              @Contract("_, _ -> !null")
+              static Void pick(Node n, NullableVoidVisitor v) {
+                // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
+                return n.accept(v);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
