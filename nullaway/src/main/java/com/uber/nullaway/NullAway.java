@@ -1844,6 +1844,14 @@ public class NullAway extends BugChecker
                 classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME));
   }
 
+  /**
+   * Performs any state updates required before checking a new compilation unit. Does not report any
+   * warnings directly.
+   *
+   * @param tree the {@link CompilationUnitTree}
+   * @param stateForNewCompilationUnit the {@link VisitorState} for the new compilation unit
+   * @return {@link Description#NO_MATCH}
+   */
   @Override
   public Description matchCompilationUnit(
       CompilationUnitTree tree, VisitorState stateForNewCompilationUnit) {
