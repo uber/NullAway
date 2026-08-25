@@ -1254,6 +1254,48 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void genericMethodCallQualifierForMethodReference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Consumer;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Flow {
+                Flow handle(Consumer<Object> consumer);
+              }
+
+              static <T> Consumer<T> id(Consumer<T> consumer) {
+                return consumer;
+              }
+
+              static <T> @Nullable Consumer<T> nullableId(Consumer<T> consumer) {
+                return null;
+              }
+
+              static Flow methodReferenceArgument(Flow flow, Consumer<Object> consumer) {
+                return flow.handle(id(consumer)::accept);
+              }
+
+              static Flow parenthesizedMethodReferenceArgument(
+                  Flow flow, Consumer<Object> consumer) {
+                return flow.handle((id(consumer)::accept));
+              }
+
+              static Flow nullableQualifier(Flow flow, Consumer<Object> consumer) {
+                // BUG: Diagnostic contains: dereferenced expression 'nullableId(consumer)' is @Nullable
+                return flow.handle(nullableId(consumer)::accept);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

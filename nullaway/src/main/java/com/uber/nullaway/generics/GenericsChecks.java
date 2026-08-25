@@ -2291,8 +2291,11 @@ public final class GenericsChecks {
                 return;
               }
 
-              ExpressionTree actualParameterWithoutParentheses =
-                  ASTHelpers.stripParentheses(currentActualParam);
+              TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
+              NullabilityUtil.ExprTreeAndState actualParameterAndState =
+                  NullabilityUtil.stripParensAndUpdateTreePath(
+                      currentActualParam, state.withPath(pathToParam));
+              ExpressionTree actualParameterWithoutParentheses = actualParameterAndState.expr();
               if (actualParameterWithoutParentheses
                   instanceof MemberReferenceTree memberReferenceTree) {
                 Type groundFormalParameter =
@@ -2304,7 +2307,7 @@ public final class GenericsChecks {
                     this,
                     groundFormalParameter,
                     memberReferenceTree,
-                    state,
+                    actualParameterAndState.state(),
                     (subtype, supertype, relationKind) -> {
                       if (!subtypeParameterNullability(supertype, subtype, state)) {
                         if (relationKind == MethodRefTypeRelationKind.RETURN) {
@@ -2321,7 +2324,6 @@ public final class GenericsChecks {
                 return;
               }
 
-              TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
               Type actualParameterType;
               if (actualParameterWithoutParentheses instanceof LambdaExpressionTree) {
                 maybeStorePolyExpressionTypeFromTarget(
