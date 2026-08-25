@@ -550,6 +550,40 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1715() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface I1<X> {}
+              interface I2<X, Y extends I1<X>> {
+                Y get();
+              }
+              I1<Object> crash(I2<Object, ?> i2) {
+                var i2var = i2;
+                return i2var.get();
+              }
+
+              interface NullableI1<X extends @Nullable Object> {}
+              interface NullableI2<
+                  X extends @Nullable Object, Y extends NullableI1<@Nullable X>> {
+                Y get();
+              }
+              NullableI1<Object> incompatible(NullableI2<Object, ?> i2) {
+                var i2var = i2;
+                // BUG: Diagnostic contains: incompatible types
+                return i2var.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void wildcardCaptureLocals() {
     makeHelper()
         .addSourceLines(

@@ -761,12 +761,7 @@ public final class GenericsChecks {
       return typeOrNullIfRaw(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
-      if (TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() != null) {
-        // Keep existing behavior for diamond anonymous classes, which are not yet fully supported.
-        // Tracked in https://github.com/uber/NullAway/issues/1475
-        return null;
-      }
-      if (isDiamondAndNotAnonymousClass(newClassTree)) {
+      if (isDiamondConstructorCall(newClassTree)) {
         TreePath currentPath = state.getPath();
         CallAndContext directContext =
             getDirectCallContextForInference(currentPath, state, calledFromDataflow);
@@ -904,12 +899,23 @@ public final class GenericsChecks {
     return formalParamTypeRef.get();
   }
 
+  /** Returns true for constructor calls using the diamond operator. */
+  private static boolean isDiamondConstructorCall(NewClassTree newClassTree) {
+    return TreeInfo.isDiamond((JCTree) newClassTree);
+  }
+
   /**
-   * Returns true when javac inferred class type arguments for a constructor call, i.e. there are
-   * instantiated type arguments at the type level, but no explicit non-diamond source type args.
+   * Returns the instantiated type named by a constructor call, excluding any synthetic anonymous
+   * class type introduced by javac.
+   *
+   * <p>For an anonymous diamond call, the symbol of the synthetic constructor is owned by the
+   * anonymous class, which has no type parameters. The identifier instead has the type being
+   * constructed, preserving the generic declaration whose type variables require inference.
    */
-  private static boolean isDiamondAndNotAnonymousClass(NewClassTree newClassTree) {
-    return TreeInfo.isDiamond((JCTree) newClassTree) && newClassTree.getClassBody() == null;
+  private static Type getConstructedTypeAtCallSite(NewClassTree newClassTree) {
+    return castToNonNull(
+        ASTHelpers.getType(
+            newClassTree.getClassBody() == null ? newClassTree : newClassTree.getIdentifier()));
   }
 
   /**
@@ -1183,10 +1189,10 @@ public final class GenericsChecks {
           typeAtCallSite, methodReturnType, typeVarNullability, state, config);
     }
     Verify.verify(callTree instanceof NewClassTree);
-    Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
-    Type constructedTypeWithTypeVars = ctorSymbol.owner.type;
+    Type constructedTypeAtCallSite = getConstructedTypeAtCallSite((NewClassTree) callTree);
+    Type constructedTypeWithTypeVars = constructedTypeAtCallSite.tsym.type;
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
-        typeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
+        constructedTypeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
   }
 
   /**
@@ -1302,8 +1308,7 @@ public final class GenericsChecks {
       return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
     }
     Verify.verify(callTree instanceof NewClassTree);
-    Symbol.MethodSymbol ctorSymbol = getMethodSymbolForCall(callTree);
-    return ctorSymbol.owner.getTypeParameters();
+    return getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.getTypeParameters();
   }
 
   /**
@@ -1378,7 +1383,6 @@ public final class GenericsChecks {
       Set<Tree> allCalls,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
-    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
     Type.MethodType methodType =
         getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     // first, handle the call result flow
@@ -1386,7 +1390,7 @@ public final class GenericsChecks {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
               ? methodType.getReturnType()
-              : methodSymbol.owner.type;
+              : getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.type;
       solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
     }
     // then, handle parameters
@@ -1812,6 +1816,12 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Returns whether a call requires generic nullability inference.
+   *
+   * <p>This includes generic method invocations without explicit type arguments and constructor
+   * calls using the diamond operator, including anonymous-class constructor calls.
+   */
   private static boolean isCallNeedingInference(ExpressionTree argument) {
     if (argument instanceof MethodInvocationTree methodInvocation) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
@@ -1820,8 +1830,7 @@ public final class GenericsChecks {
           && methodSymbol.type instanceof Type.ForAll
           && methodInvocation.getTypeArguments().isEmpty();
     }
-    return argument instanceof NewClassTree newClassTree
-        && isDiamondAndNotAnonymousClass(newClassTree);
+    return argument instanceof NewClassTree newClassTree && isDiamondConstructorCall(newClassTree);
   }
 
   /**
@@ -2392,26 +2401,58 @@ public final class GenericsChecks {
    * @param tree A method tree to check
    * @param overridingMethod A symbol of the overriding method
    * @param overriddenMethod A symbol of the overridden method
+   * @param overriddenMethodType type of the overridden method after member-type substitution and
+   *     application of library models
    * @param state the visitor state
    */
   public void checkTypeParameterNullnessForMethodOverriding(
       MethodTree tree,
       Symbol.MethodSymbol overridingMethod,
       Symbol.MethodSymbol overriddenMethod,
+      Type overriddenMethodType,
       VisitorState state) {
     if (!analysis.getConfig().isJSpecifyMode()) {
       return;
     }
-    // Obtain type parameters for the overridden method within the context of the overriding
-    // method's class
-    Type methodWithTypeParams =
-        TypeSubstitutionUtils.memberType(
-            state.getTypes(), overridingMethod.owner.type, overriddenMethod, analysis.getConfig());
-
-    checkTypeParameterNullnessForOverridingMethodReturnType(tree, methodWithTypeParams, state);
-    checkTypeParameterNullnessForOverridingMethodParameterType(tree, methodWithTypeParams, state);
+    checkTypeParameterNullnessForOverridingMethodReturnType(tree, overriddenMethodType, state);
+    checkTypeParameterNullnessForOverridingMethodParameterType(tree, overriddenMethodType, state);
     checkMethodTypeVariableUpperBoundNullnessForOverriding(
-        tree, overridingMethod, overriddenMethod, methodWithTypeParams, state);
+        tree, overridingMethod, overriddenMethod, overriddenMethodType, state);
+  }
+
+  /**
+   * Returns the overridden method type in the overriding class context with library models applied.
+   *
+   * <p>The {@link Type.ForAll} wrapper must be retained for subsequent checks of method type
+   * variable bounds, while handlers operate on its underlying {@link Type.MethodType}.
+   *
+   * @param overridingMethod symbol of the overriding method
+   * @param overriddenMethod symbol of the overridden method
+   * @param state visitor state
+   * @return the substituted, modeled overridden method type
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  public Type getModeledOverriddenMethodType(
+      Symbol.MethodSymbol overridingMethod,
+      Symbol.MethodSymbol overriddenMethod,
+      VisitorState state) {
+    Type typeForSymbol = getTypeForSymbol(overridingMethod.owner, state);
+    Type substitutedMethodType =
+        TypeSubstitutionUtils.memberType(
+            state.getTypes(),
+            typeForSymbol != null ? typeForSymbol : overridingMethod.owner.type,
+            overriddenMethod,
+            analysis.getConfig());
+    Type.MethodType methodType = substitutedMethodType.asMethodType();
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(overriddenMethod, methodType, state, null);
+    if (modeledMethodType == methodType) {
+      return substitutedMethodType;
+    }
+    if (substitutedMethodType instanceof Type.ForAll forAll) {
+      return new Type.ForAll(forAll.tvars, modeledMethodType);
+    }
+    return modeledMethodType;
   }
 
   /**

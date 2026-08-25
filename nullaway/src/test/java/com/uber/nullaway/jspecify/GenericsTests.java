@@ -326,8 +326,6 @@ public class GenericsTests extends NullAwayTestsBase {
                     new Callback<>() {
                       @Override
                       public void onResult(@Nullable Integer value) {
-                        // TODO: we should infer Callback<@Nullable Integer> for the anonymous class and not report an error
-                        // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>
                         removeCallback(this);
                       }
                     });
@@ -336,8 +334,8 @@ public class GenericsTests extends NullAwayTestsBase {
                 addCallback(
                     new Callback<>() {
                       @Override
+                      // BUG: Diagnostic contains: parameter value is @NonNull, but parameter in superclass method
                       public void onResult(Integer value) {
-                        // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>
                         removeCallback(this);
                       }
                     });
@@ -1619,6 +1617,41 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overrideExplicitlyTypedAnonymousClassWithNestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                List<T> get();
+                void accept(List<T> values);
+              }
+              static void test() {
+                Foo<@Nullable String> foo = new Foo<@Nullable String>() {
+                  @Override
+                  public List<@Nullable String> get() { throw new AssertionError(); }
+                  @Override
+                  public void accept(List<@Nullable String> values) {}
+                };
+                Foo<@Nullable String> badFoo = new Foo<@Nullable String>() {
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public List<String> get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public void accept(List<String> values) {}
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void overrideAnonymousNestedClass() {
     makeHelper()
         .addSourceLines(
@@ -1838,7 +1871,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /** Diamond anonymous classes are not supported yet; tests are for future reference */
   @Test
   public void overrideDiamondAnonymousClass() {
     makeHelper()
@@ -1856,21 +1888,17 @@ public class GenericsTests extends NullAwayTestsBase {
               }
               static void anonymousClasses() {
                 Fn<@Nullable String, String> fn1 = new Fn<>() {
-                  // TODO: should report a bug here
+                  // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
                 FnClass<@Nullable String, String> fn2 = new FnClass<>() {
-                  // TODO: should report a bug here
+                  // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
                 Fn<String, @Nullable String> fn3 = new Fn<>() {
-                  // TODO: this is a false positive
-                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method
                   public @Nullable String apply(String s) { return null; }
                 };
                 FnClass<String, @Nullable String> fn4 = new FnClass<>() {
-                  // TODO: this is a false positive
-                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method
                   public @Nullable String apply(String s) { return null; }
                 };
               }
