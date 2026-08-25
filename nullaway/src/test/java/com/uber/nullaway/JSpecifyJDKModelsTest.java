@@ -138,6 +138,47 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nullableMethodReferenceReturnForVoidFunctionalInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Collection;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static @Nullable String nullable(String value) {
+                return null;
+              }
+
+              void test(
+                  Map<String, String> source,
+                  Map<String, String> destination,
+                  Collection<String> collection) {
+                source.forEach(destination::put);
+                collection.forEach(Test::nullable);
+                source.forEach((key, value) -> destination.put(key, value));
+              }
+
+              interface NullableConsumer {
+                void accept(@Nullable String value);
+              }
+
+              static void consumeNonNull(String value) {}
+
+              void testParameterChecking() {
+                // BUG: Diagnostic contains: parameter value of referenced method is @NonNull, but parameter in functional interface method
+                NullableConsumer consumer = Test::consumeNonNull;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore(
       "We need to merge https://github.com/uber/NullAway/pull/1689 and re-generate JSpecify JDK models before this will work")
   @Test
