@@ -51,6 +51,7 @@ configurations {
 
 dependencies {
     errorProneJdk17 "com.google.errorprone:error_prone_check_api:${errorProneJdk17Version}"
+    errorProneJdk17 "com.google.errorprone:error_prone_core:${errorProneJdk17Version}"
     errorProneJdk17("com.google.errorprone:error_prone_test_helpers:${errorProneJdk17Version}") {
         exclude group: "junit", module: "junit"
     }
