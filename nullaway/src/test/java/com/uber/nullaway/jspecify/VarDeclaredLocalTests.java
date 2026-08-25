@@ -255,10 +255,56 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
               void test(List<Foo<@Nullable String>> l) {
                 for (var foo : l) {
                   var x = foo.get();
-                  // TODO we should be reporting a warning here consistently
-                  // See https://github.com/uber/NullAway/issues/1581
-                  // commented out since we only report a warning on JDK 27+
-                  // x.hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                  x.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void enhancedForLoopMapEntryPreservesValueTypeNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.LinkedHashMap;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static <K, V> void put(
+                  LinkedHashMap<K, @Nullable V> map, K key, @Nullable V value) {
+                map.put(key, value);
+              }
+              static <K, V> void setValue(
+                  LinkedHashMap<K, @Nullable V> map, @Nullable V value) {
+                for (var entry : map.entrySet()) {
+                  entry.setValue(value);
+                }
+              }
+              static <K, V> void setNestedValue(
+                  LinkedHashMap<K, CompletableFuture<@Nullable V>> map) {
+                for (var entry : map.entrySet()) {
+                  entry.getValue().obtrudeValue(null);
+                }
+              }
+              static <K, V> void rejectNullableValue(
+                  LinkedHashMap<K, V> map, @Nullable V value) {
+                for (var entry : map.entrySet()) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'value' where @NonNull is required
+                  entry.setValue(value);
+                }
+              }
+              static <K, V> void rejectNestedNullableValue(
+                  LinkedHashMap<K, CompletableFuture<V>> map) {
+                for (var entry : map.entrySet()) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                  entry.getValue().obtrudeValue(null);
                 }
               }
             }
