@@ -1135,7 +1135,11 @@ public final class GenericsChecks {
       // not the EnhancedForLoopTree; keep going
       currentPath = currentPath.getParentPath();
     }
-    return null;
+    // unreachable; we should have always been asking about a variable inside an enhanced for loop
+    throw new IllegalStateException(
+        String.format(
+            "%s is unexpectedly outside an enhanced for loop",
+            state.getSourceForNode(state.getPath().getLeaf())));
   }
 
   private @Nullable Type getInferredTypeForVarLocalDeclaration(
