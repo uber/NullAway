@@ -223,15 +223,21 @@ public class GenericsUtils {
    * @param genericsChecks generics checks object
    * @param targetType type to which method reference is being assigned
    * @param memberReferenceTree the method reference tree
-   * @param state visitor state
+   * @param state visitor state whose current path ends at {@code memberReferenceTree}
    * @param relationHandler handler to invoke for each type relation
    */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality check
   static void processMethodRefTypeRelations(
       GenericsChecks genericsChecks,
       Type targetType,
       MemberReferenceTree memberReferenceTree,
       VisitorState state,
       MethodRefTypeRelationHandler relationHandler) {
+    Verify.verify(
+        state.getPath().getLeaf() == memberReferenceTree,
+        "Expected current path to end at member reference %s, but found %s",
+        memberReferenceTree,
+        state.getPath().getLeaf());
     if (targetType.isRaw()) {
       return;
     }
