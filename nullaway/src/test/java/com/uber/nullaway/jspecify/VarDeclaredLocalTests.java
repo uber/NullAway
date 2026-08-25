@@ -265,6 +265,39 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedEnhancedForLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              void test(
+                  List<@Nullable String> nullableList,
+                  List<String> nonNullList,
+                  List<? extends @Nullable String> nullableWildcardList) {
+                for (String value : nullableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+                for (String value : nonNullList) {
+                  value.hashCode();
+                }
+                for (String value : nullableWildcardList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void enhancedForLoopMapEntryPreservesValueTypeNullness() {
     makeHelper()
         .addSourceLines(

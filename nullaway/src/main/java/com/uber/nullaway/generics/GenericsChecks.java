@@ -1109,28 +1109,8 @@ public final class GenericsChecks {
           && symbol.equals(ASTHelpers.getSymbol(enhancedForLoop.getVariable()))) {
         ExpressionTree expression = enhancedForLoop.getExpression();
         TreePath expressionPath = new TreePath(currentPath, expression);
-        Type expressionType =
-            getTreeType(expression, state.withPath(expressionPath), calledFromDataflow);
-        if (expressionType instanceof Type.ArrayType arrayType) {
-          return arrayType.getComponentType();
-        }
-        if (expressionType == null || expressionType.isRaw()) {
-          return null;
-        }
-        // We have an enhanced for over an Iterable.  So, we want the effective upper bound of the
-        // type argument (JLS 14.14.2)
-        Type iterableType =
-            TypeSubstitutionUtils.asSuper(
-                state.getTypes(),
-                expressionType,
-                (Symbol.ClassSymbol) state.getSymtab().iterableType.tsym,
-                config);
-        if (iterableType == null || iterableType.isRaw()) {
-          return null;
-        }
-        com.sun.tools.javac.util.List<Type> typeArguments = iterableType.getTypeArguments();
-        return GenericsUtils.effectiveWildcardUpperBound(
-            typeArguments.head, state, config, handler);
+        return getEnhancedForLoopElementType(
+            expression, state.withPath(expressionPath), calledFromDataflow);
       }
       // not the EnhancedForLoopTree; keep going
       currentPath = currentPath.getParentPath();
@@ -1140,6 +1120,47 @@ public final class GenericsChecks {
         String.format(
             "%s is unexpectedly outside an enhanced for loop",
             state.getSourceForNode(state.getPath().getLeaf())));
+  }
+
+  /**
+   * Gets the nullness of the element read from an enhanced-for expression during dataflow.
+   *
+   * @param expression expression iterated over by the enhanced-for loop
+   * @param state visitor state whose path points to {@code expression}
+   * @return the element nullness, or {@link Nullness#NONNULL} if the element type cannot be
+   *     resolved
+   */
+  public Nullness getEnhancedForLoopElementNullness(ExpressionTree expression, VisitorState state) {
+    Type elementType =
+        getEnhancedForLoopElementType(expression, state, /* calledFromDataflow= */ true);
+    return elementType == null ? Nullness.NONNULL : getReturnTypeNullness(elementType, state);
+  }
+
+  /**
+   * Gets the element type of an enhanced-for expression, preserving nested nullability annotations.
+   */
+  private @Nullable Type getEnhancedForLoopElementType(
+      ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
+    Type expressionType = getTreeType(expression, state, calledFromDataflow);
+    if (expressionType instanceof Type.ArrayType arrayType) {
+      return arrayType.getComponentType();
+    }
+    if (expressionType == null || expressionType.isRaw()) {
+      return null;
+    }
+    // We have an enhanced for over an Iterable.  So, we want the effective upper bound of the
+    // type argument (JLS 14.14.2)
+    Type iterableType =
+        TypeSubstitutionUtils.asSuper(
+            state.getTypes(),
+            expressionType,
+            (Symbol.ClassSymbol) state.getSymtab().iterableType.tsym,
+            config);
+    if (iterableType == null || iterableType.isRaw()) {
+      return null;
+    }
+    com.sun.tools.javac.util.List<Type> typeArguments = iterableType.getTypeArguments();
+    return GenericsUtils.effectiveWildcardUpperBound(typeArguments.head, state, config, handler);
   }
 
   private @Nullable Type getInferredTypeForVarLocalDeclaration(

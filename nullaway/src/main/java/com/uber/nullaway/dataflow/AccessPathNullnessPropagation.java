@@ -25,6 +25,7 @@ import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDeclaration;
 
 import com.google.common.base.Preconditions;
+import com.google.common.base.Verify;
 import com.google.common.base.VerifyException;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -33,6 +34,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CompilationUnitTree;
+import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
@@ -1202,6 +1204,11 @@ public class AccessPathNullnessPropagation
       // we have a model saying return value is nullable.
       // still, rely on dataflow fact if there is one available
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
+    } else if (node != null && enhancedForLoopElementIsNullable(node)) {
+      // The CFG represents a read from an Iterable in an enhanced-for loop as a synthetic call to
+      // Iterator.next(). Compute its nullness from the original iterable expression, whose type
+      // preserves annotations that may be missing from the synthetic iterator type.
+      nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     } else if (node == null
         || methodReturnsNonNull.test(node)
         || (!Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)
@@ -1213,6 +1220,31 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     }
     return nullness;
+  }
+
+  /** Returns whether {@code node} reads a nullable element for an enhanced-for loop. */
+  private boolean enhancedForLoopElementIsNullable(MethodInvocationNode node) {
+    if (!config.isJSpecifyMode()) {
+      return false;
+    }
+    ExpressionTree iterableExpression = node.getIterableExpression();
+    if (iterableExpression == null) {
+      return false;
+    }
+    TreePath loopPath = node.getTreePath();
+    while (!(loopPath.getLeaf() instanceof EnhancedForLoopTree enhancedForLoop)
+        || !enhancedForLoop.getExpression().equals(iterableExpression)) {
+      loopPath =
+          Verify.verifyNotNull(
+              loopPath.getParentPath(),
+              "No enhanced-for loop found for iterable expression %s",
+              iterableExpression);
+    }
+    TreePath expressionPath = new TreePath(loopPath, iterableExpression);
+    Nullness elementNullness =
+        genericsChecks.getEnhancedForLoopElementNullness(
+            iterableExpression, state.withPath(expressionPath));
+    return elementNullness.equals(NULLABLE);
   }
 
   /**
