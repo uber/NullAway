@@ -47,7 +47,7 @@ public class ClassDeclarationNullnessAnnotUtils {
     for (int i = 1; i < path.size(); i++) {
       Type.ClassType currentClassType = (Type.ClassType) currentType;
       Type.ClassType currentFormalType = (Type.ClassType) currentClassType.tsym.type;
-      if (currentFormalType.allparams().size() != currentClassType.allparams().size()) {
+      if (currentClassType.isRaw()) {
         return null;
       }
       currentType =

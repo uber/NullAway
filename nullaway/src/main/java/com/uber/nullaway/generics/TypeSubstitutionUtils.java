@@ -69,6 +69,8 @@ public class TypeSubstitutionUtils {
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
+    // This is the authoritative member type for the actual receiver, but javac may drop
+    // annotations from extends / implements clauses while traversing to an inherited member.
     Type memberType = types.memberType(t, sym);
     Type annotationSource = origType;
     if (t instanceof DeclaredType declaredType
@@ -76,6 +78,9 @@ public class TypeSubstitutionUtils {
         && !t.tsym.equals(owner)) {
       Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
       if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
+        // Looking up the member directly on the reconstructed owner avoids the inheritance
+        // traversal that loses annotations. Use this second result only as an annotation template,
+        // while retaining memberType's authoritative type structure and compiler metadata.
         annotationSource =
             restoreExplicitNullabilityAnnotations(
                 origType, types.memberType(annotatedOwnerClassType, sym), config);

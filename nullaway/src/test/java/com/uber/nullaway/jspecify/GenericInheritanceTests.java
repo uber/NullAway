@@ -361,6 +361,28 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void rawTypeInInheritancePath() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static class Parent<T> {}
+              static class Intermediate<T> extends Parent<T> {}
+              static class Child extends Intermediate {}
+
+              static void test() {
+                // The annotated-supertype reconstruction should bail out at raw Intermediate.
+                Parent<String> parent = new Child();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
