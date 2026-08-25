@@ -73,6 +73,7 @@ dependencies {
 
     testImplementation project(":annotations")
     testImplementation libs.junit4
+    testImplementation libs.error.prone.core
     testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
     }

@@ -106,6 +106,9 @@ public final class GenericsChecks {
   private final Map<Tree, CallInferenceResult> inferredTypeVarNullabilityForGenericCalls =
       new LinkedHashMap<>();
 
+  /** Calls for which a generic inference failure diagnostic has already been reported. */
+  private final Set<Tree> callsWithReportedInferenceFailures = new LinkedHashSet<>();
+
   /**
    * Maps poly expressions for which we have computed a context-derived type to that type, if
    * inference succeeded.
@@ -1274,7 +1277,8 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e);
-      if (config.warnOnGenericInferenceFailure()) {
+      if (config.warnOnGenericInferenceFailure()
+          && callsWithReportedInferenceFailures.add(callTree)) {
         ErrorBuilder errorBuilder = analysis.getErrorBuilder();
         ErrorMessage errorMessage =
             new ErrorMessage(
@@ -3485,6 +3489,7 @@ public final class GenericsChecks {
    */
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
+    callsWithReportedInferenceFailures.clear();
     inferredPolyExpressionTypes.clear();
     inferredVarLocalTypes.clear();
     varLocalDeclarations.clear();
