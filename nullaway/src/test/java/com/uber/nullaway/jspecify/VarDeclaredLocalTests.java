@@ -312,6 +312,34 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void enhancedForLoopOverArrayPreservesElementTypeNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T get();
+              }
+              void test(Foo<@Nullable String>[] nullableArray, Foo<String>[] nonNullArray) {
+                for (var foo : nullableArray) {
+                  // BUG: Diagnostic contains: dereferenced expression 'foo.get()' is @Nullable
+                  foo.get().hashCode();
+                }
+                for (var foo : nonNullArray) {
+                  foo.get().hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
