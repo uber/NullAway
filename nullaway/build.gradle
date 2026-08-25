@@ -176,6 +176,10 @@ def epOldestTest = tasks.register("testErrorProneOldest", Test) {
     classpath = configurations.errorProneOldest + testTask.classpath
 
     testClassesDirs = testTask.testClassesDirs
+    filter {
+        // Error Prone 2.36.0 loses a nullness annotation on an intersection cast in this test.
+        excludeTestsMatching "com.uber.nullaway.jspecify.GenericsTests.intersectionTypeInvalidAssign"
+    }
 
     jvmArgs += [
         "--add-exports=jdk.compiler/com.sun.tools.javac.api=ALL-UNNAMED",
