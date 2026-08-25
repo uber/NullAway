@@ -69,24 +69,28 @@ public class TypeSubstitutionUtils {
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
-    // This is the authoritative member type for the actual receiver, but javac may drop
-    // annotations from extends / implements clauses while traversing to an inherited member.
     Type memberType = types.memberType(t, sym);
     Type annotationSource = origType;
     if (t instanceof DeclaredType declaredType
         && sym.owner instanceof Symbol.ClassSymbol owner
         && !t.tsym.equals(owner)) {
+      // annotatedOwner is the type of the class containing sym (a supertype of t), capturing any
+      // annotations in extends / inherits clauses on the inheritance path from subtype t
       Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
       if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
-        // Looking up the member directly on the reconstructed owner avoids the inheritance
-        // traversal that loses annotations. Use this second result only as an annotation template,
-        // while retaining memberType's authoritative type structure and compiler metadata.
+        Type asMemberOfAnnotatedOwner = types.memberType(annotatedOwnerClassType, sym);
+        // this call restores any explicit nullability annotations from the member itself, e.g.,
+        // if its return type is declared as @NonNull T
         annotationSource =
-            restoreExplicitNullabilityAnnotations(
-                origType, types.memberType(annotatedOwnerClassType, sym), config);
+            restoreExplicitNullabilityAnnotations(origType, asMemberOfAnnotatedOwner, config);
       }
     }
-    return restoreExplicitNullabilityAnnotations(annotationSource, memberType, config);
+    // Here, annotationSource is the type of the member in the superclass with all proper
+    // annotations.  But, it might still have generic type variables, which have been properly
+    // instantiated in memberType.  So, as a final step, restore the annotations from
+    // annotationSource onto memberType.
+    Type result = restoreExplicitNullabilityAnnotations(annotationSource, memberType, config);
+    return result;
   }
 
   /**
