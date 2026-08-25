@@ -59,7 +59,6 @@ import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsExcep
 import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
@@ -193,7 +192,7 @@ public final class GenericsChecks {
           GenericsUtils.groundTargetType(formalParameterType, state, config, handler);
       Type modeledPolyExpressionType =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              groundTargetType, polyExpressionType, config, Collections.emptyMap());
+              groundTargetType, polyExpressionType, config);
       inferredPolyExpressionTypes.put(polyExpressionTree, modeledPolyExpressionType);
     }
   }
@@ -856,7 +855,7 @@ public final class GenericsChecks {
             Type returnType = methodType.getReturnType();
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    returnType, result, config, Collections.emptyMap());
+                    returnType, result, config);
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
@@ -864,7 +863,7 @@ public final class GenericsChecks {
               Type fieldType = memberSelectSymbol.type;
               result =
                   TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                      fieldType, result, config, Collections.emptyMap());
+                      fieldType, result, config);
             }
           }
         }
@@ -3519,7 +3518,7 @@ public final class GenericsChecks {
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
     Type polyExpressionTypeWithTargetAnnotations =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            groundTargetType, polyExpressionType, config, Collections.emptyMap());
+            groundTargetType, polyExpressionType, config);
     inferredPolyExpressionTypes.put(polyExpressionTree, polyExpressionTypeWithTargetAnnotations);
   }
 

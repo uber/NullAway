@@ -1,6 +1,6 @@
 package com.uber.nullaway.generics;
 
-import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotsOnTypeVarsFromSubtypes;
+import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotatedSupertype;
 import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
-import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
@@ -31,7 +30,7 @@ public class TypeSubstitutionUtils {
 
   /**
    * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
-   * variables from the subtype to the resulting supertype.
+   * arguments from the subtype's inheritance path to the resulting supertype.
    *
    * @param types the {@link Types} instance
    * @param subtype the subtype
@@ -46,16 +45,17 @@ public class TypeSubstitutionUtils {
     if (asSuper == null) {
       return null;
     }
-    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
+    if (subtype.tsym.equals(superTypeSymbol)) {
+      return asSuper;
+    }
+    Type annotatedSupertype =
         subtype instanceof DeclaredType declaredType
-            ? getAnnotsOnTypeVarsFromSubtypes(declaredType, superTypeSymbol, types, config)
-            : Map.of();
-    // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
-    // same type variables as asSuper; we use it to find the positions corresponding to type
-    // variables in asSuper to substitute nullability annotations based on
-    // annotsOnTypeVarsFromSubtypes.
-    return restoreExplicitNullabilityAnnotations(
-        superTypeSymbol.asType(), asSuper, config, annotsOnTypeVarsFromSubtypes);
+            ? getAnnotatedSupertype(declaredType, superTypeSymbol, types, config)
+            : null;
+    if (annotatedSupertype == null) {
+      return asSuper;
+    }
+    return restoreExplicitNullabilityAnnotations(annotatedSupertype, asSuper, config);
   }
 
   /**
@@ -70,13 +70,18 @@ public class TypeSubstitutionUtils {
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
-    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        t instanceof DeclaredType declaredType
-            ? getAnnotsOnTypeVarsFromSubtypes(
-                declaredType, (Symbol.MethodSymbol) sym, types, config)
-            : Map.of();
-    return restoreExplicitNullabilityAnnotations(
-        origType, memberType, config, annotsOnTypeVarsFromSubtypes);
+    Type annotationSource = origType;
+    if (t instanceof DeclaredType declaredType
+        && sym.owner instanceof Symbol.ClassSymbol owner
+        && !t.tsym.equals(owner)) {
+      Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
+      if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
+        annotationSource =
+            restoreExplicitNullabilityAnnotations(
+                origType, types.memberType(annotatedOwnerClassType, sym), config);
+      }
+    }
+    return restoreExplicitNullabilityAnnotations(annotationSource, memberType, config);
   }
 
   /**
@@ -86,20 +91,11 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
-   * @param extraTypeVariableAnnotations Additional annotations to consider for type variables. If
-   *     there is no explicit nullability annotation on a type variable {@code X} in {@code
-   *     origType}, but {@code X} is present as a key in this map, the corresponding annotation will
-   *     be used when substituting in {@code newType}. If {@code X} has an explicit nullability
-   *     annotation in {@code origType}, that takes precedence over this map.
    * @return the new type with explicit nullability annotations restored
    */
   public static Type restoreExplicitNullabilityAnnotations(
-      Type origType,
-      Type newType,
-      Config config,
-      Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
-    return new RestoreNullnessAnnotationsVisitor(config, extraTypeVariableAnnotations)
-        .visit(newType, origType);
+      Type origType, Type newType, Config config) {
+    return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
   }
 
   /**
@@ -191,12 +187,11 @@ public class TypeSubstitutionUtils {
         substituteInferredNullabilityForTypeVariables(origType, typeVarNullability, state, config);
     // step 2
     Type origExplicitAnnotationsRestored =
-        restoreExplicitNullabilityAnnotations(
-            origType, inferredNullabilitySubstituted, config, Collections.emptyMap());
+        restoreExplicitNullabilityAnnotations(origType, inferredNullabilitySubstituted, config);
     // step 3
     // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
     return restoreExplicitNullabilityAnnotations(
-        origExplicitAnnotationsRestored, typeToUpdate, config, Collections.emptyMap());
+        origExplicitAnnotationsRestored, typeToUpdate, config);
   }
 
   /**
@@ -316,19 +311,8 @@ public class TypeSubstitutionUtils {
     private final IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeUnboundedWildcardBounds =
         new IdentityHashMap<>();
 
-    /**
-     * Additional annotations to consider for type variables. If there is no explicit nullability
-     * annotation on a type variable {@code X}, but {@code X} is present as a key in this map, the
-     * corresponding annotation will be used when substituting in the visited type. If {@code X} has
-     * an explicit nullability annotation, that takes precedence over this map.
-     */
-    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations;
-
-    RestoreNullnessAnnotationsVisitor(
-        Config config,
-        Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
+    RestoreNullnessAnnotationsVisitor(Config config) {
       this.config = config;
-      this.extraTypeVariableAnnotations = extraTypeVariableAnnotations;
     }
 
     @Override
@@ -503,8 +487,7 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type {@code other}. If {@code other} is a type variable, we also check {@code
-     * extraTypeVariableAnnotations} for any additional annotations to consider.
+     * on a type {@code other}.
      *
      * @param t the type to update
      * @param other the type to update from
@@ -521,12 +504,6 @@ public class TypeSubstitutionUtils {
             || Nullness.isNonNullAnnotation(qualifiedName, config)) {
           return typeWithAnnot(t, annot);
         }
-      }
-      // then see if there are any extra annotations to consider
-      Attribute.TypeCompound typeArgAnnot =
-          (Attribute.TypeCompound) extraTypeVariableAnnotations.get(other.tsym);
-      if (typeArgAnnot != null) {
-        return typeWithAnnot(t, typeArgAnnot);
       }
       return t;
     }
@@ -620,6 +597,6 @@ public class TypeSubstitutionUtils {
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
     Type substResult = types.subst(t, from, to);
-    return restoreExplicitNullabilityAnnotations(t, substResult, config, Collections.emptyMap());
+    return restoreExplicitNullabilityAnnotations(t, substResult, config);
   }
 }

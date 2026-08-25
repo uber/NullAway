@@ -271,6 +271,96 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedNullableTypeArgInImplements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface MyFuture<T extends @Nullable Object> {}
+              static class ListFuture<V extends @Nullable Object>
+                  implements MyFuture<List<@Nullable V>> {}
+
+              static <V extends @Nullable Object> MyFuture<List<@Nullable V>> valid() {
+                return new ListFuture<V>();
+              }
+
+              static <V extends @Nullable Object> MyFuture<List<V>> invalid() {
+                // BUG: Diagnostic contains: incompatible types: ListFuture<V> cannot be converted to MyFuture<List<V>> (ListFuture<V> is a subtype of MyFuture<List<@Nullable V>>)
+                return new ListFuture<V>();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nestedNullableTypeArgInInheritedMemberType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {
+                T get();
+                void set(T value);
+              }
+              interface IntermediateBox<W extends @Nullable Object>
+                  extends Box<List<@Nullable W>> {}
+              interface ListBox<V extends @Nullable Object> extends IntermediateBox<V> {}
+
+              static void test(
+                  ListBox<String> box,
+                  List<@Nullable String> nullableList,
+                  List<String> nonNullList) {
+                List<@Nullable String> valid = box.get();
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                List<String> invalid = box.get();
+                box.set(nullableList);
+                // BUG: Diagnostic contains: incompatible types: List<String> cannot be converted to List<@Nullable String>
+                box.set(nonNullList);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nestedNullableTypeArgWithGenericEnclosingClass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<O extends @Nullable Object> {
+              abstract class Parent<T extends @Nullable Object> {
+                abstract T get();
+              }
+              abstract class Child<V extends @Nullable Object>
+                  extends Parent<List<@Nullable O>> {}
+
+              void test(Child<String> child) {
+                List<@Nullable O> valid = child.get();
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable O> cannot be converted to List<O>
+                List<O> invalid = child.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
