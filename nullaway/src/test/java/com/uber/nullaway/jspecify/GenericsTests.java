@@ -5,6 +5,7 @@ import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -2437,6 +2438,9 @@ public class GenericsTests extends NullAwayTestsBase {
 
   @Test
   public void intersectionTypeInvalidAssign() {
+    // javac does not preserve type use annotations in the intersection type within the cast before
+    // JDK 25.  Corner case; not going to fix for now.
+    Assume.assumeTrue(Runtime.version().feature() >= 25);
     makeHelper()
         .addSourceLines(
             "Test.java",
