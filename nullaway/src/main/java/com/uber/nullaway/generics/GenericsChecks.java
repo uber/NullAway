@@ -1100,12 +1100,15 @@ public final class GenericsChecks {
    */
   private @Nullable Type getEnhancedForLoopElementType(
       Symbol symbol, VisitorState state, boolean calledFromDataflow) {
-    TreePath loopPath = state.getPath();
-    while (loopPath != null) {
-      if (loopPath.getLeaf() instanceof EnhancedForLoopTree enhancedForLoop
+    TreePath currentPath = state.getPath();
+    // currentPath points to some use of the loop variable inside the loop.  So, we need to traverse
+    // up the path to parents until we find the EnhancedForLoopTree.  This only happens once per
+    // variable so shouldn't be too costly.
+    while (currentPath != null) {
+      if (currentPath.getLeaf() instanceof EnhancedForLoopTree enhancedForLoop
           && symbol.equals(ASTHelpers.getSymbol(enhancedForLoop.getVariable()))) {
         ExpressionTree expression = enhancedForLoop.getExpression();
-        TreePath expressionPath = new TreePath(loopPath, expression);
+        TreePath expressionPath = new TreePath(currentPath, expression);
         Type expressionType =
             getTreeType(expression, state.withPath(expressionPath), calledFromDataflow);
         if (expressionType instanceof Type.ArrayType arrayType) {
@@ -1114,6 +1117,8 @@ public final class GenericsChecks {
         if (expressionType == null || expressionType.isRaw()) {
           return null;
         }
+        // We have an enhanced for over an Iterable.  So, we want the effective upper bound of the
+        // type argument (JLS 14.14.2)
         Type iterableType =
             TypeSubstitutionUtils.asSuper(
                 state.getTypes(),
@@ -1124,11 +1129,11 @@ public final class GenericsChecks {
           return null;
         }
         com.sun.tools.javac.util.List<Type> typeArguments = iterableType.getTypeArguments();
-        return typeArguments.isEmpty()
-            ? null
-            : GenericsUtils.effectiveWildcardUpperBound(typeArguments.head, state, config, handler);
+        return GenericsUtils.effectiveWildcardUpperBound(
+            typeArguments.head, state, config, handler);
       }
-      loopPath = loopPath.getParentPath();
+      // not the EnhancedForLoopTree; keep going
+      currentPath = currentPath.getParentPath();
     }
     return null;
   }
