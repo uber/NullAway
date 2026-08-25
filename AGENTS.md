@@ -12,7 +12,7 @@ test class or method within that module, you can use the `--tests` flag. For exa
 Do _not_ try to run multiple Gradle build commands in parallel; it is not supported and often leads to a failure.
 
 Generally, whenever you run a test suite, it's best to also check that `./gradlew :nullaway:buildWithNullAway`
-also passes; that runs NullAway checking on itself.  You don't need to run ths after every targeted test run.
+also passes; that runs NullAway checking on itself.  You don't need to run this after every targeted test run.
 
 # Changelog
 
