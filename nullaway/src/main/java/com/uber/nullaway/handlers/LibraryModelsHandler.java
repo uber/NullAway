@@ -75,6 +75,7 @@ import java.util.Map;
 import java.util.ServiceLoader;
 import java.util.Set;
 import java.util.function.Function;
+import org.checkerframework.nullaway.dataflow.cfg.node.ArrayCreationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
@@ -245,6 +246,10 @@ public class LibraryModelsHandler implements Handler {
     if (!optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
       return true;
     }
+    if (optLibraryModels.hasAllParamsNullImpliesNullReturn(
+        methodSymbol, state.getTypes(), isMethodUnannotated)) {
+      return true;
+    }
     return false;
   }
 
@@ -309,6 +314,34 @@ public class LibraryModelsHandler implements Handler {
         }
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
+    }
+    if (optLibraryModels.hasAllParamsNullImpliesNullReturn(
+        callee, state.getTypes(), !isMethodAnnotated)) {
+      // The return is null only if every value passed is null, so a single value known to be
+      // non-null makes the return non-null.  Note that for a varargs call the CFG has already
+      // desugared the individual values into an array creation, so we must look inside that node
+      // rather than at the argument itself, which is a freshly-created (hence non-null) array.  If
+      // instead an existing array is passed in the varargs position, we cannot see the values it
+      // holds, and we conservatively treat the return as nullable.
+      int varArgsIndex = callee.isVarArgs() ? callee.getParameters().size() - 1 : -1;
+      List<Node> arguments = node.getArguments();
+      for (int i = 0; i < arguments.size(); i++) {
+        Node argument = arguments.get(i);
+        if (i == varArgsIndex) {
+          if (argument instanceof ArrayCreationNode arrayCreationNode) {
+            for (Node element : arrayCreationNode.getInitializers()) {
+              if (inputs.valueOfSubNode(element).equals(NONNULL)) {
+                return NullnessHint.FORCE_NONNULL;
+              }
+            }
+          }
+          continue;
+        }
+        if (inputs.valueOfSubNode(argument).equals(NONNULL)) {
+          return NullnessHint.FORCE_NONNULL;
+        }
+      }
+      return NullnessHint.HINT_NULLABLE;
     }
     Types types = state.getTypes();
     if (optLibraryModels.hasNonNullReturn(callee, types, !isMethodAnnotated)) {
@@ -1084,6 +1117,11 @@ public class LibraryModelsHandler implements Handler {
             .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
             .build();
 
+    private static final ImmutableSet<MethodRef> ALL_PARAMS_NULL_IMPLIES_NULL_RETURN =
+        new ImmutableSet.Builder<MethodRef>()
+            .add(methodRef("org.apache.commons.lang3.ObjectUtils", "<T>firstNonNull(T...)"))
+            .build();
+
     private static final ImmutableSet<MethodRef> ALWAYS_NULLABLE_RETURNS =
         new ImmutableSet.Builder<MethodRef>()
             .add(methodRef("com.sun.source.tree.CompilationUnitTree", "getPackageName()"))
@@ -1285,6 +1323,11 @@ public class LibraryModelsHandler implements Handler {
     }
 
     @Override
+    public ImmutableSet<MethodRef> allParamsNullImpliesNullReturn() {
+      return ALL_PARAMS_NULL_IMPLIES_NULL_RETURN;
+    }
+
+    @Override
     public ImmutableSet<MethodRef> nullableReturns() {
       return nullableReturnsForConfig;
     }
@@ -1345,6 +1388,8 @@ public class LibraryModelsHandler implements Handler {
 
     private final ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters;
 
+    private final ImmutableSet<MethodRef> allParamsNullImpliesNullReturn;
+
     private final ImmutableSet<MethodRef> nullableReturns;
 
     private final ImmutableSet<MethodRef> nonNullReturns;
@@ -1386,6 +1431,8 @@ public class LibraryModelsHandler implements Handler {
           new ImmutableSetMultimap.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> nullImpliesNullParametersBuilder =
           new ImmutableSetMultimap.Builder<>();
+      ImmutableSet.Builder<MethodRef> allParamsNullImpliesNullReturnBuilder =
+          new ImmutableSet.Builder<>();
       ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = new ImmutableSet.Builder<>();
       ImmutableSet.Builder<MethodRef> nonNullReturnsBuilder = new ImmutableSet.Builder<>();
       ImmutableSetMultimap.Builder<MethodRef, Integer> castToNonNullMethodsBuilder =
@@ -1443,6 +1490,12 @@ public class LibraryModelsHandler implements Handler {
           }
           nullImpliesNullParametersBuilder.put(entry);
         }
+        for (MethodRef name : libraryModels.allParamsNullImpliesNullReturn()) {
+          if (shouldSkipModel(name)) {
+            continue;
+          }
+          allParamsNullImpliesNullReturnBuilder.add(name);
+        }
         for (MethodRef name : libraryModels.nullableReturns()) {
           if (shouldSkipModel(name)) {
             continue;
@@ -1492,6 +1545,7 @@ public class LibraryModelsHandler implements Handler {
       nullImpliesFalseParameters = nullImpliesFalseParametersBuilder.build();
       ensuresNonNullIfTrueMethodCalls = ensuresNonNullIfTrueMethodCallsBuilder.build();
       nullImpliesNullParameters = nullImpliesNullParametersBuilder.build();
+      allParamsNullImpliesNullReturn = allParamsNullImpliesNullReturnBuilder.build();
       nullableReturns = nullableReturnsBuilder.build();
       nonNullReturns = nonNullReturnsBuilder.build();
       castToNonNullMethods = castToNonNullMethodsBuilder.build();
@@ -1547,6 +1601,11 @@ public class LibraryModelsHandler implements Handler {
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
       return nullImpliesNullParameters;
+    }
+
+    @Override
+    public ImmutableSet<MethodRef> allParamsNullImpliesNullReturn() {
+      return allParamsNullImpliesNullReturn;
     }
 
     @Override
@@ -1632,6 +1691,7 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesFalseParams;
     private final NameIndexedMap<ImmutableSet<MethodRef>> ensuresNonNullIfTrueMethodCalls;
     private final NameIndexedMap<ImmutableSet<Integer>> nullImpliesNullParams;
+    private final NameIndexedMap<Boolean> allParamsNullImpliesNullRet;
     private final NameIndexedMap<Boolean> nullableRet;
     private final NameIndexedMap<Boolean> nonNullRet;
     private final NameIndexedMap<ImmutableSet<Integer>> castToNonNullMethods;
@@ -1650,6 +1710,8 @@ public class LibraryModelsHandler implements Handler {
       ensuresNonNullIfTrueMethodCalls =
           makeOptimizedSetLookup(names, models.ensuresNonNullIfTrueMethodCalls());
       nullImpliesNullParams = makeOptimizedSetLookup(names, models.nullImpliesNullParameters());
+      allParamsNullImpliesNullRet =
+          makeOptimizedBoolLookup(names, models.allParamsNullImpliesNullReturn());
       nullableRet = makeOptimizedBoolLookup(names, models.nullableReturns());
       nonNullRet = makeOptimizedBoolLookup(names, models.nonNullReturns());
       castToNonNullMethods = makeOptimizedSetLookup(names, models.castToNonNullMethods());
@@ -1693,6 +1755,12 @@ public class LibraryModelsHandler implements Handler {
 
     ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
       return lookupImmutableSet(symbol, nullImpliesNullParams);
+    }
+
+    boolean hasAllParamsNullImpliesNullReturn(
+        Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
+      return lookupHandlingOverrides(symbol, types, allParamsNullImpliesNullRet, checkSuper)
+          != null;
     }
 
     ImmutableSet<Integer> castToNonNullMethod(Symbol.MethodSymbol symbol) {

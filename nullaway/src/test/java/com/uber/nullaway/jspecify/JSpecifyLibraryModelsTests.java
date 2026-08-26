@@ -158,6 +158,32 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void objectUtilsFirstNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.apache.commons.lang3.ObjectUtils;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              void testNegative(@Nullable String a) {
+                ObjectUtils.firstNonNull(a, "default").length();
+              }
+              void testPositive(@Nullable String a, @Nullable String b) {
+                // BUG: Diagnostic contains: dereferenced expression 'ObjectUtils.firstNonNull(a, b)' is @Nullable
+                ObjectUtils.firstNonNull(a, b).length();
+              }
+              void arrayPassedInVarargsPosition(String[] values) {
+                // BUG: Diagnostic contains: dereferenced expression 'ObjectUtils.firstNonNull(values)' is @Nullable
+                ObjectUtils.firstNonNull(values).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
