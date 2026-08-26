@@ -1356,6 +1356,9 @@ public class NullAway extends BugChecker
       @Nullable Type modeledOverriddenMethodType,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
+    if (overriddenMethod.getReturnType().getKind() == TypeKind.VOID) {
+      return false;
+    }
     if (modeledOverriddenMethodType != null) {
       Type modeledReturnType = modeledOverriddenMethodType.getReturnType();
       if (Nullness.hasNullableAnnotation(
