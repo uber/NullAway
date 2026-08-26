@@ -1206,9 +1206,8 @@ public class AccessPathNullnessPropagation
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
     } else if (node != null && enhancedForLoopElementIsNullable(node)) {
       // The CFG represents a read from an Iterable in an enhanced-for loop as a synthetic call to
-      // Iterator.next(). Compute its nullness from the original iterable expression, whose type
-      // preserves annotations that may be missing from the synthetic iterator type.
-      nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
+      // Iterator.next(); treat it as nullable
+      nullness = NULLABLE;
     } else if (node == null
         || methodReturnsNonNull.test(node)
         || (!Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)
