@@ -16,6 +16,7 @@ import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.ConditionalExpressionTree;
+import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.IdentifierTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -1068,13 +1069,77 @@ public final class GenericsChecks {
     }
     ExpressionTree initializer = variableDecl.getInitializer();
     if (initializer == null) {
-      // this can happen for enhanced for loops
-      // TODO handle this properly; see https://github.com/uber/NullAway/issues/1581
+      Type enhancedForElementType =
+          getEnhancedForLoopElementType(symbol, state, calledFromDataflow);
+      if (enhancedForElementType != null) {
+        if (!calledFromDataflow) {
+          inferredVarLocalTypes.put(symbol, enhancedForElementType);
+        }
+        return enhancedForElementType;
+      }
       return typeOrNullIfRaw(symbol.type);
     }
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
     return getInferredTypeForVarLocalDeclaration(
         variableDecl, initializer, pathToInitializer, state, calledFromDataflow);
+  }
+
+  /**
+   * Gets the inferred element type for a {@code var}-declared enhanced-for loop variable.
+   *
+   * <p>javac may drop nested type-use annotations from the loop variable's symbol, so this method
+   * reconstructs the element type from the annotated type of the loop expression. For an iterable,
+   * the element type is the effective upper bound of its {@code Iterable} type argument, as
+   * specified by JLS 14.14.2.
+   *
+   * @param symbol symbol for the enhanced-for loop variable
+   * @param state visitor state whose path is within the loop
+   * @param calledFromDataflow whether this method was called as part of dataflow analysis
+   * @return the inferred element type, or {@code null} if no matching loop or usable expression
+   *     type can be found
+   */
+  private @Nullable Type getEnhancedForLoopElementType(
+      Symbol symbol, VisitorState state, boolean calledFromDataflow) {
+    TreePath currentPath = state.getPath();
+    // currentPath points to some use of the loop variable inside the loop.  So, we need to traverse
+    // up the path to parents until we find the EnhancedForLoopTree.  This only happens once per
+    // variable so shouldn't be too costly.
+    while (currentPath != null) {
+      if (currentPath.getLeaf() instanceof EnhancedForLoopTree enhancedForLoop
+          && symbol.equals(ASTHelpers.getSymbol(enhancedForLoop.getVariable()))) {
+        ExpressionTree expression = enhancedForLoop.getExpression();
+        TreePath expressionPath = new TreePath(currentPath, expression);
+        Type expressionType =
+            getTreeType(expression, state.withPath(expressionPath), calledFromDataflow);
+        if (expressionType instanceof Type.ArrayType arrayType) {
+          return arrayType.getComponentType();
+        }
+        if (expressionType == null || expressionType.isRaw()) {
+          return null;
+        }
+        // We have an enhanced for over an Iterable.  So, we want the effective upper bound of the
+        // type argument (JLS 14.14.2)
+        Type iterableType =
+            TypeSubstitutionUtils.asSuper(
+                state.getTypes(),
+                expressionType,
+                (Symbol.ClassSymbol) state.getSymtab().iterableType.tsym,
+                config);
+        if (iterableType == null || iterableType.isRaw()) {
+          return null;
+        }
+        com.sun.tools.javac.util.List<Type> typeArguments = iterableType.getTypeArguments();
+        return GenericsUtils.effectiveWildcardUpperBound(
+            typeArguments.head, state, config, handler);
+      }
+      // not the EnhancedForLoopTree; keep going
+      currentPath = currentPath.getParentPath();
+    }
+    // unreachable; we should have always been asking about a variable inside an enhanced for loop
+    throw new IllegalStateException(
+        String.format(
+            "%s is unexpectedly outside an enhanced for loop",
+            state.getSourceForNode(state.getPath().getLeaf())));
   }
 
   private @Nullable Type getInferredTypeForVarLocalDeclaration(
