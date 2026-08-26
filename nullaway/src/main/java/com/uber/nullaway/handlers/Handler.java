@@ -478,6 +478,21 @@ public interface Handler {
   }
 
   /**
+   * Updates whether a method should be treated as {@code @NullMarked}.
+   *
+   * <p>This hook supports method-level exceptions to null-markedness inherited from an enclosing
+   * class, including exceptions represented by library models.
+   *
+   * @param methodSymbol symbol for the method
+   * @param currentNullMarkedness null-markedness computed by the core and upstream handlers
+   * @return the possibly updated null-markedness
+   */
+  default boolean onOverrideMethodNullMarkedness(
+      Symbol.MethodSymbol methodSymbol, boolean currentNullMarkedness) {
+    return currentNullMarkedness;
+  }
+
+  /**
    * Method to override the type of a method.
    *
    * @param methodSymbol symbol of the method
