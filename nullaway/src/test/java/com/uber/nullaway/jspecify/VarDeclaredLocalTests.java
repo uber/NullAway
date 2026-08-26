@@ -292,6 +292,28 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                   value.hashCode();
                 }
               }
+              <T extends @Nullable Object> void testNullableTypeVariableUpperBound(
+                  List<T> nullableTypeVariableList,
+                  List<? extends T> nullableWildcardTypeVariableList) {
+                for (T value : nullableTypeVariableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+                for (T value : nullableWildcardTypeVariableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+              <T> void testNonNullTypeVariableUpperBound(
+                  List<T> nonNullTypeVariableList,
+                  List<? extends T> nonNullWildcardTypeVariableList) {
+                for (T value : nonNullTypeVariableList) {
+                  value.hashCode();
+                }
+                for (T value : nonNullWildcardTypeVariableList) {
+                  value.hashCode();
+                }
+              }
             }
             """)
         .doTest();

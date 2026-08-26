@@ -1133,7 +1133,9 @@ public final class GenericsChecks {
   public Nullness getEnhancedForLoopElementNullness(ExpressionTree expression, VisitorState state) {
     Type elementType =
         getEnhancedForLoopElementType(expression, state, /* calledFromDataflow= */ true);
-    return elementType == null ? Nullness.NONNULL : getReturnTypeNullness(elementType, state);
+    return elementType == null
+        ? Nullness.NONNULL
+        : getReturnTypeNullness(elementType, state, /* followTypeVarUpperBound= */ true);
   }
 
   /**
