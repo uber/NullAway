@@ -1652,12 +1652,12 @@ public class LibraryModelsHandler implements Handler {
           makeOptimizedNestedAnnotationLookup(names, models.nestedAnnotationsForMethods());
     }
 
-    boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
-      return lookupHandlingOverrides(symbol, types, nonNullRet, checkSuper) != null;
+    boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
+      return lookupHandlingOverrides(symbol, types, nonNullRet, allowInherited) != null;
     }
 
-    boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
-      return lookupHandlingOverrides(symbol, types, nullableRet, checkSuper) != null;
+    boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
+      return lookupHandlingOverrides(symbol, types, nullableRet, allowInherited) != null;
     }
 
     ImmutableSet<Integer> failIfNullParameters(Symbol.MethodSymbol symbol) {
@@ -1687,7 +1687,7 @@ public class LibraryModelsHandler implements Handler {
     ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol, Types types) {
       Symbol.MethodSymbol modelSymbol =
           lookupHandlingOverrides(
-              symbol, types, nullImpliesNullParams, /* checkSuperTypes= */ true);
+              symbol, types, nullImpliesNullParams, /* allowInheritedModelLookup= */ true);
       return modelSymbol == null
           ? ImmutableSet.of()
           : lookupImmutableSet(modelSymbol, nullImpliesNullParams);
@@ -1748,13 +1748,20 @@ public class LibraryModelsHandler implements Handler {
      * overridden method in the lookup.
      *
      * <p>The method-name index avoids traversing supertypes when no model with the relevant name
-     * exists. An exact model always takes precedence over an inherited model.
+     * exists. A model on the method itself always takes precedence over an inherited model.
+     *
+     * @param symbol symbol to look up
+     * @param types for type operations
+     * @param optLookup map to check
+     * @param allowInheritedModelLookup true if we should look for a model in overridden methods
+     * @return the symbol for the method present in {@code optLookup}, possibly a method overriden
+     *     by {@code symbol}, or {@code null} if no such method exists
      */
     private static Symbol.@Nullable MethodSymbol lookupHandlingOverrides(
         Symbol.MethodSymbol symbol,
         Types types,
         NameIndexedMap<?> optLookup,
-        boolean checkSuperTypes) {
+        boolean allowInheritedModelLookup) {
       if (optLookup.nameNotPresent(symbol)) {
         // no model matching the method name, so we don't need to check for overridden methods
         return null;
@@ -1762,15 +1769,13 @@ public class LibraryModelsHandler implements Handler {
       if (optLookup.get(symbol) != null) {
         return symbol;
       }
-      if (checkSuperTypes == false) {
-        // Consider only a model on the exact class and method, used when checking annotated code
-        return null;
-      }
-      // Allow a single model to cover overriding implementations / subtypes when the caller treats
-      // this kind of model as an inherited contract.
-      for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
-        if (optLookup.get(superSymbol) != null) {
-          return superSymbol;
+      // No exact model exists. If the model can be inherited, look for a model on an
+      // overridden method.
+      if (allowInheritedModelLookup) {
+        for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
+          if (optLookup.get(superSymbol) != null) {
+            return superSymbol;
+          }
         }
       }
       return null;
