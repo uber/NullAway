@@ -265,6 +265,61 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedEnhancedForLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              void test(
+                  List<@Nullable String> nullableList,
+                  List<String> nonNullList,
+                  List<? extends @Nullable String> nullableWildcardList) {
+                for (String value : nullableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+                for (String value : nonNullList) {
+                  value.hashCode();
+                }
+                for (String value : nullableWildcardList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+              <T extends @Nullable Object> void testNullableTypeVariableUpperBound(
+                  List<T> nullableTypeVariableList,
+                  List<? extends T> nullableWildcardTypeVariableList) {
+                for (T value : nullableTypeVariableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+                for (T value : nullableWildcardTypeVariableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+              <T> void testNonNullTypeVariableUpperBound(
+                  List<T> nonNullTypeVariableList,
+                  List<? extends T> nonNullWildcardTypeVariableList) {
+                for (T value : nonNullTypeVariableList) {
+                  value.hashCode();
+                }
+                for (T value : nonNullWildcardTypeVariableList) {
+                  value.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void enhancedForLoopMapEntryPreservesValueTypeNullness() {
     makeHelper()
         .addSourceLines(
