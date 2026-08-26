@@ -133,6 +133,35 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void contractOnVarargsMethodIsNotReportedAsMalformed() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jetbrains.annotations.Contract;
+            public class Test {
+              @Contract("_, !null -> !null")
+              static Object varargs(Object first, Object... rest) {
+                return new Object();
+              }
+              static void calls() {
+                varargs(new Object());
+                varargs(new Object(), new Object());
+                varargs(new Object(), new Object(), new Object());
+                varargs(new Object(), new Object[0]);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void noContractCheckErrorsWithoutFlag() {
     makeTestHelperWithArgs(
             Arrays.asList(
