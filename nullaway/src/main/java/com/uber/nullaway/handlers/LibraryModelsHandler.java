@@ -242,7 +242,7 @@ public class LibraryModelsHandler implements Handler {
     if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), isMethodUnannotated)) {
       return true;
     }
-    if (!optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
+    if (!optLibraryModels.nullImpliesNullParameters(methodSymbol, state.getTypes()).isEmpty()) {
       return true;
     }
     return false;
@@ -294,8 +294,9 @@ public class LibraryModelsHandler implements Handler {
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node, callee, state, apContext);
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    Types types = state.getTypes();
     ImmutableSet<Integer> nullImpliesNullIndexes =
-        optLibraryModels.nullImpliesNullParameters(callee);
+        optLibraryModels.nullImpliesNullParameters(callee, types);
     if (!nullImpliesNullIndexes.isEmpty()) {
       // If the method is marked as having argument dependent nullability and any of the
       // corresponding arguments is null, then the return is nullable. If the method is
@@ -310,7 +311,6 @@ public class LibraryModelsHandler implements Handler {
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
     }
-    Types types = state.getTypes();
     if (optLibraryModels.hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (optLibraryModels.hasNullableReturn(callee, types, !isMethodAnnotated)) {
@@ -1074,13 +1074,6 @@ public class LibraryModelsHandler implements Handler {
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
             .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
-            // We add ImmutableMap.getOrDefault explicitly, since when
-            // AcknowledgeRestrictiveAnnotations is enabled, the explicit annotations in the code
-            // override the inherited library model
-            .put(
-                methodRef(
-                    "com.google.common.collect.ImmutableMap", "getOrDefault(java.lang.Object,V)"),
-                1)
             .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
             .build();
 
@@ -1691,8 +1684,13 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, ensuresNonNullIfTrueMethodCalls);
     }
 
-    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
-      return lookupImmutableSet(symbol, nullImpliesNullParams);
+    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol, Types types) {
+      Symbol.MethodSymbol modelSymbol =
+          lookupHandlingOverrides(
+              symbol, types, nullImpliesNullParams, /* checkSuperTypes= */ true);
+      return modelSymbol == null
+          ? ImmutableSet.of()
+          : lookupImmutableSet(modelSymbol, nullImpliesNullParams);
     }
 
     ImmutableSet<Integer> castToNonNullMethod(Symbol.MethodSymbol symbol) {
@@ -1746,13 +1744,16 @@ public class LibraryModelsHandler implements Handler {
     }
 
     /**
-     * checks if symbol is present in the NameIndexedMap or if it overrides some method in the
-     * NameIndexedMap
+     * Checks if {@code symbol} is present in {@code optLookup}, optionally falling back to an
+     * overridden method in the lookup.
+     *
+     * <p>The method-name index avoids traversing supertypes when no model with the relevant name
+     * exists. An exact model always takes precedence over an inherited model.
      */
     private static Symbol.@Nullable MethodSymbol lookupHandlingOverrides(
         Symbol.MethodSymbol symbol,
         Types types,
-        NameIndexedMap<Boolean> optLookup,
+        NameIndexedMap<?> optLookup,
         boolean checkSuperTypes) {
       if (optLookup.nameNotPresent(symbol)) {
         // no model matching the method name, so we don't need to check for overridden methods
@@ -1765,8 +1766,8 @@ public class LibraryModelsHandler implements Handler {
         // Consider only a model on the exact class and method, used when checking annotated code
         return null;
       }
-      // For unannotated code, we allow a single model to cover all overriding implementations /
-      // subtypes
+      // Allow a single model to cover overriding implementations / subtypes when the caller treats
+      // this kind of model as an inherited contract.
       for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
         if (optLookup.get(superSymbol) != null) {
           return superSymbol;
