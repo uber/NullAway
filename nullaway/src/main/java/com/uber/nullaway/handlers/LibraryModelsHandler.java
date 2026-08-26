@@ -491,6 +491,14 @@ public class LibraryModelsHandler implements Handler {
   }
 
   @Override
+  public boolean onOverrideMethodNullMarkedness(
+      Symbol.MethodSymbol methodSymbol, boolean currentNullMarkedness) {
+    String classDotMethod =
+        methodSymbol.enclClass().getQualifiedName() + "." + methodSymbol.getSimpleName();
+    return config.isSkippedLibraryModel(classDotMethod) ? false : currentNullMarkedness;
+  }
+
+  @Override
   public boolean isSingleArgNullImpliesFalseMethod(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
     return methodSymbol.getParameters().size() == 1

@@ -354,6 +354,16 @@ class CompositeHandler implements Handler {
   }
 
   @Override
+  public boolean onOverrideMethodNullMarkedness(
+      Symbol.MethodSymbol methodSymbol, boolean currentNullMarkedness) {
+    boolean result = currentNullMarkedness;
+    for (Handler h : handlers) {
+      result = h.onOverrideMethodNullMarkedness(methodSymbol, result);
+    }
+    return result;
+  }
+
+  @Override
   public Type.MethodType onOverrideMethodType(
       Symbol.MethodSymbol methodSymbol,
       Type.MethodType methodType,

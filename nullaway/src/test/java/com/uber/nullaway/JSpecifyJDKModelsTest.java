@@ -97,6 +97,46 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void ignoredMethodDoesNotInheritNullMarkedLibraryModel() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.lang.reflect.Field;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              Object getStaticField(Class<?> cls) throws ReflectiveOperationException {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return cls.getField("someNonNullStaticField").get(null);
+              }
+            }
+            """)
+        .doTest();
+
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:IgnoreLibraryModelsFor=java.lang.reflect.Field.get")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.lang.reflect.Field;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              Object getStaticField(Class<?> cls) throws ReflectiveOperationException {
+                return cls.getField("someNonNullStaticField").get(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void defaultLibraryModelsClassIsArray() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
