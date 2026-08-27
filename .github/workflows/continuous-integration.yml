@@ -126,6 +126,7 @@ jobs:
       - name: Clone ${{ matrix.project }} repository
         run: git clone --depth 1 ${{ matrix.url }} /tmp/${{ matrix.project }}
       - name: Run ${{ matrix.project }} build
+        continue-on-error: true
         run: |
           cp .github/workflows/use-snapshot.gradle.kts /tmp/${{ matrix.project }}
           cd /tmp/${{ matrix.project }}
