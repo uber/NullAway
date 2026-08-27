@@ -1384,6 +1384,29 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void issue1760() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            """
+            package org.example;
+
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Main {
+              abstract static class Settings<S extends Settings<? extends S>> {}
+
+              static List<? extends Settings<?>> pass(List<? extends Settings<?>> in) {
+                return in;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
