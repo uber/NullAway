@@ -253,6 +253,9 @@ public class ContractHandler implements Handler {
               storedVisitorState,
               callee,
               originalNode.getArguments().size());
+      if (antecedent == null) {
+        continue;
+      }
       // Find a single value constraint that is not already known. If more than one argument with
       // unknown nullness affects the method's result, then ignore this clause.
       Node arg = null;
@@ -321,6 +324,9 @@ public class ContractHandler implements Handler {
 
       String[] antecedent =
           getAntecedent(clause, tree, analysis, state, callee, node.getArguments().size());
+      if (antecedent == null) {
+        continue;
+      }
       String consequent = getConsequent(clause, tree, analysis, state, callee);
 
       // Find a single value constraint that is not already known. If more than one argument with

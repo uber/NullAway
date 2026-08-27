@@ -109,6 +109,59 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void checkContractMismatchedArity() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jetbrains.annotations.Contract;
+            public class Test {
+              @Contract("!null -> !null")
+              // BUG: Diagnostic contains: Invalid @Contract annotation
+              public Object[] toArray() {
+                return new Object[0];
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void contractOnVarargsMethodIsNotReportedAsMalformed() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckContracts=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jetbrains.annotations.Contract;
+            public class Test {
+              @Contract("_, !null -> !null")
+              static Object varargs(Object first, Object... rest) {
+                return new Object();
+              }
+              static void calls() {
+                varargs(new Object());
+                varargs(new Object(), new Object());
+                varargs(new Object(), new Object(), new Object());
+                varargs(new Object(), new Object[0]);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void noContractCheckErrorsWithoutFlag() {
     makeTestHelperWithArgs(
             Arrays.asList(
@@ -479,6 +532,12 @@ public class ContractsTests extends NullAwayTestsBase {
               @Contract("!null -> -> !null")
               // BUG: Diagnostic contains: Invalid @Contract annotation
               static @Nullable Object dontcare(@Nullable Object o) { return o; }
+              @Contract("!null -> !null")
+              // BUG: Diagnostic contains: Invalid @Contract annotation
+              static @Nullable Object tooManyConstraints() { return null; }
+              @Contract("true -> fail")
+              // BUG: Diagnostic contains: Invalid @Contract annotation
+              static void malformedFailContract() {}
               // don't report errors about invalid contract annotations at calls to these methods
               static Object test1() {
                 // BUG: Diagnostic contains: returning @Nullable expression
@@ -491,6 +550,13 @@ public class ContractsTests extends NullAwayTestsBase {
               static Object test3() {
                 // BUG: Diagnostic contains: returning @Nullable expression
                 return baz(null);
+              }
+              static Object test4() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return tooManyConstraints();
+              }
+              static void test5() {
+                malformedFailContract();
               }
             }
             """)
