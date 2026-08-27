@@ -336,6 +336,56 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void collectionToArrayOverrideUsesJSpecifyModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.AbstractList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static @Nullable Object[] modeledCall(List<String> list) {
+                return list.toArray();
+              }
+              static Object[] invalidCall(List<String> list) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable Object [] cannot be converted to Object []
+                return list.toArray();
+              }
+              static class DelegatingList extends AbstractList<String> {
+                private final List<String> delegate;
+                DelegatingList(List<String> delegate) {
+                  this.delegate = delegate;
+                }
+                @Override public String get(int index) {
+                  return delegate.get(index);
+                }
+                @Override public int size() {
+                  return delegate.size();
+                }
+                @Override public @Nullable Object[] toArray() {
+                  return delegate.toArray();
+                }
+              }
+              static class NonNullElementsList extends AbstractList<String> {
+                @Override public String get(int index) {
+                  throw new IndexOutOfBoundsException();
+                }
+                @Override public int size() {
+                  return 0;
+                }
+                @Override public Object[] toArray() {
+                  return new Object[0];
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void modeledMethodTypeVariableBoundUsedForOverride() {
     makeHelper()
         .addSourceLines(
