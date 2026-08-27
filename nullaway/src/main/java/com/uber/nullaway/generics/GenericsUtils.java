@@ -67,8 +67,9 @@ public class GenericsUtils {
    * javac has not stored one on the wildcard itself.
    *
    * <p>Before JDK 23, javac does not associate wildcard type arguments read from classfiles with
-   * their corresponding formal type variables. The caller can provide that association when it is
-   * available from the enclosing parameterized type.
+   * their corresponding formal type variables. The {@code correspondingTypeVariable} parameter
+   * allows the caller to provide that information, when available (see <a
+   * href="https://github.com/uber/NullAway/issues/1732">#1732</a>).
    */
   static Type wildcardUpperBound(
       WildcardType wildcardType,

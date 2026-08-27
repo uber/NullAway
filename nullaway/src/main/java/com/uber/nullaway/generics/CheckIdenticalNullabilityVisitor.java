@@ -148,9 +148,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    *
    * @param lhsTypeArgument the formal type argument on the left
    * @param rhsTypeArgument the actual type argument on the right whose containment is checked
-   * @param correspondingTypeVariable the formal type variable for this type-argument position,
-   *     passed to wildcard containment checks so they can compute effective wildcard bounds when
-   *     javac has not stored the corresponding formal type variable on the wildcard itself
+   * @param correspondingTypeVariable the formal type variable for this type-argument position, used
+   *     in wildcard containment checks so they can compute effective wildcard bounds when javac has
+   *     not stored the corresponding formal type variable on the wildcard itself (see <a
+   *     href="https://github.com/uber/NullAway/issues/1732">#1732</a>)
    * @return whether {@code rhsTypeArgument} is contained by {@code lhsTypeArgument}
    */
   private boolean typeArgumentContainedBy(
@@ -208,9 +209,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    *
    * @param lhsWildcard the formal wildcard type argument on the left
    * @param rhsTypeArgument the actual type argument on the right whose containment is checked
-   * @param correspondingTypeVariable the formal type variable for the wildcard's type-argument
-   *     position, used to compute effective upper bounds when javac has not stored the
-   *     corresponding formal type variable on the wildcard itself
+   * @param correspondingTypeVariable the formal type variable for this type-argument position, used
+   *     to compute effective wildcard bounds when javac has not stored the corresponding formal
+   *     type variable on the wildcard itself (see <a
+   *     href="https://github.com/uber/NullAway/issues/1732">#1732</a>)
    * @return whether {@code lhsWildcard} contains {@code rhsTypeArgument}
    */
   private boolean wildcardContains(
@@ -247,6 +249,15 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * Returns whether a formal {@code ? extends S} contains the actual type argument on the right.
    * For concrete actuals {@code T}, wildcard actuals {@code ? extends T}, and non-extends wildcard
    * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}.
+   *
+   * @param lhsBound the effective upper bound {@code S} of the formal wildcard on the left
+   * @param rhsTypeArgument the actual type argument on the right whose containment is checked
+   * @param correspondingTypeVariable the formal type variable for this type-argument position, used
+   *     to compute the effective upper bound of a wildcard actual when javac has not stored the
+   *     corresponding formal type variable on the wildcard itself (see <a
+   *     href="https://github.com/uber/NullAway/issues/1732">#1732</a>)
+   * @return whether a formal wildcard whose effective upper bound is {@code lhsBound} contains
+   *     {@code rhsTypeArgument}
    */
   private boolean extendsBoundContains(
       Type lhsBound, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
