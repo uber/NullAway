@@ -145,6 +145,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * <a href="https://jspecify.dev/docs/spec/#subtyping">JSpecify's nullability-aware subtype
    * relation</a>. Non-wildcard pairs require matching nullability annotations and recursively
    * matching nested type arguments. Wildcard formals are delegated to {@link #wildcardContains}.
+   *
+   * @param lhsTypeArgument the formal type argument on the left
+   * @param rhsTypeArgument the actual type argument on the right whose containment is checked
+   * @param correspondingTypeVariable the formal type variable for this type-argument position,
+   *     passed to wildcard containment checks so they can compute effective wildcard bounds when
+   *     javac has not stored the corresponding formal type variable on the wildcard itself
+   * @return whether {@code rhsTypeArgument} is contained by {@code lhsTypeArgument}
    */
   private boolean typeArgumentContainedBy(
       Type lhsTypeArgument, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
@@ -198,6 +205,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * formal {@code ? super S} contains concrete actuals {@code T} and wildcard actuals {@code ?
    * super T} when {@code S <: T}; and a formal {@code ?} is treated as {@code ? extends B}, where
    * {@code B} is the corresponding type variable's upper bound.
+   *
+   * @param lhsWildcard the formal wildcard type argument on the left
+   * @param rhsTypeArgument the actual type argument on the right whose containment is checked
+   * @param correspondingTypeVariable the formal type variable for the wildcard's type-argument
+   *     position, used to compute effective upper bounds when javac has not stored the
+   *     corresponding formal type variable on the wildcard itself
+   * @return whether {@code lhsWildcard} contains {@code rhsTypeArgument}
    */
   private boolean wildcardContains(
       Type.WildcardType lhsWildcard, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
