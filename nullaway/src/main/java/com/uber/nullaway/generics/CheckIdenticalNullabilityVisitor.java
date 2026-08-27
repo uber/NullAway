@@ -89,16 +89,19 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
+    List<Type> correspondingTypeVariables = lhsType.tsym.type.getTypeArguments();
     // This is impossible, considering the fact that standard Java subtyping succeeds before
     // running NullAway
-    if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
+    if (lhsTypeArguments.size() != rhsTypeArguments.size()
+        || lhsTypeArguments.size() != correspondingTypeVariables.size()) {
       throw new RuntimeException(
           "Number of types arguments in " + rhsTypeAsSuper + " does not match " + lhsType);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      if (!typeArgumentContainedBy(lhsTypeArgument, rhsTypeArgument)) {
+      Type.TypeVar correspondingTypeVariable = (Type.TypeVar) correspondingTypeVariables.get(i);
+      if (!typeArgumentContainedBy(lhsTypeArgument, rhsTypeArgument, correspondingTypeVariable)) {
         return false;
       }
     }
@@ -143,7 +146,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * relation</a>. Non-wildcard pairs require matching nullability annotations and recursively
    * matching nested type arguments. Wildcard formals are delegated to {@link #wildcardContains}.
    */
-  private boolean typeArgumentContainedBy(Type lhsTypeArgument, Type rhsTypeArgument) {
+  private boolean typeArgumentContainedBy(
+      Type lhsTypeArgument, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
     if (!config.handleWildcardGenerics()) {
       if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
           || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
@@ -159,7 +163,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
           lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
       Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
       if (lhsWildcard != null) {
-        return wildcardContains(lhsWildcard, rhsTypeArgument);
+        return wildcardContains(lhsWildcard, rhsTypeArgument, correspondingTypeVariable);
       }
       if (rhsWildcard != null) {
         // This case should only arise when generic method invocation inference / capture conversion
@@ -195,7 +199,8 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * super T} when {@code S <: T}; and a formal {@code ?} is treated as {@code ? extends B}, where
    * {@code B} is the corresponding type variable's upper bound.
    */
-  private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
+  private boolean wildcardContains(
+      Type.WildcardType lhsWildcard, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
     Set<Type> activeRhsArguments = activeWildcardComparisons.get(lhsWildcard);
     if (activeRhsArguments == null) {
       activeRhsArguments = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -210,8 +215,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return switch (lhsWildcard.kind) {
         case UNBOUND, EXTENDS ->
             extendsBoundContains(
-                GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler),
-                rhsTypeArgument);
+                GenericsUtils.wildcardUpperBound(
+                    lhsWildcard, correspondingTypeVariable, state, config, handler),
+                rhsTypeArgument,
+                correspondingTypeVariable);
         case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
       };
     } finally {
@@ -227,10 +234,13 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * For concrete actuals {@code T}, wildcard actuals {@code ? extends T}, and non-extends wildcard
    * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}.
    */
-  private boolean extendsBoundContains(Type lhsBound, Type rhsTypeArgument) {
+  private boolean extendsBoundContains(
+      Type lhsBound, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
     if (rhsWildcard != null) {
-      Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
+      Type rhsUpperBound =
+          GenericsUtils.wildcardUpperBound(
+              rhsWildcard, correspondingTypeVariable, state, config, handler);
       return typeArgumentSubtype(lhsBound, rhsUpperBound);
     }
     return typeArgumentSubtype(lhsBound, rhsTypeArgument);

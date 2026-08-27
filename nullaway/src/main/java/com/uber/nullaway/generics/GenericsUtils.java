@@ -59,6 +59,23 @@ public class GenericsUtils {
    */
   static Type wildcardUpperBound(
       WildcardType wildcardType, VisitorState state, Config config, Handler handler) {
+    return wildcardUpperBound(wildcardType, wildcardType.bound, state, config, handler);
+  }
+
+  /**
+   * Returns the effective upper bound of a wildcard, using {@code correspondingTypeVariable} when
+   * javac has not stored one on the wildcard itself.
+   *
+   * <p>Before JDK 23, javac does not associate wildcard type arguments read from classfiles with
+   * their corresponding formal type variables. The caller can provide that association when it is
+   * available from the enclosing parameterized type.
+   */
+  static Type wildcardUpperBound(
+      WildcardType wildcardType,
+      Type.@Nullable TypeVar correspondingTypeVariable,
+      VisitorState state,
+      Config config,
+      Handler handler) {
     Type upperBound;
     if (wildcardType.kind == BoundKind.EXTENDS) {
       upperBound = wildcardType.getExtendsBound();
@@ -68,7 +85,8 @@ public class GenericsUtils {
       // passed (confusingly stored in the `bound` field).  E.g., if we have class Foo<T extends
       // @Nullable Object>, and then see Foo<? super String>, we use @Nullable Object as the upper
       // bound.  If not present, default to Object.
-      Type.TypeVar formalTypeVar = wildcardType.bound;
+      Type.TypeVar formalTypeVar =
+          wildcardType.bound != null ? wildcardType.bound : correspondingTypeVariable;
       upperBound =
           formalTypeVar == null
               ? Symtab.instance(state.context).objectType

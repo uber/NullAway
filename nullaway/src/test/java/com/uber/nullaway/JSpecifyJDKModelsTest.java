@@ -63,6 +63,57 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1732UnboundedWildcardInBytecode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Collection;
+            import java.util.Collections;
+            import java.util.List;
+            import java.util.Set;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static boolean bulkOperations(
+                  List<String> list,
+                  Collection<@Nullable String> nullableCollection,
+                  Set<@Nullable String> nullableSet) {
+                return list.containsAll(nullableCollection)
+                    || list.removeAll(nullableSet)
+                    || list.retainAll(nullableCollection);
+              }
+
+              static boolean disjoint(
+                  Collection<@Nullable String> first,
+                  Collection<@Nullable String> second) {
+                return Collections.disjoint(first, second);
+              }
+
+              static boolean ownUnbounded(Collection<?> collection) {
+                return collection.isEmpty();
+              }
+
+              static boolean callOwnUnbounded(Collection<@Nullable String> collection) {
+                return ownUnbounded(collection);
+              }
+
+              static boolean ownExtendsObject(Collection<? extends Object> collection) {
+                return collection.isEmpty();
+              }
+
+              static boolean callOwnExtendsObject(Collection<@Nullable String> collection) {
+                // BUG: Diagnostic contains: incompatible types
+                return ownExtendsObject(collection);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void listContainingNullsWithoutModel() {
     makeTestHelperWithArgs(
             // We specifically exclude the JSpecifyJDKModels flag here (so we can't use
