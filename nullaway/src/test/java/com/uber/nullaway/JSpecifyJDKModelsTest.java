@@ -336,6 +336,67 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void mapGetOrDefaultModelInheritedByOverrides() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Hashtable;
+            import java.util.LinkedHashMap;
+            import java.util.Map;
+            import java.util.TreeMap;
+            import java.util.concurrent.ConcurrentHashMap;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static String viaInterface(Map<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaTreeMap(TreeMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaHashMap(HashMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaLinkedHashMap(LinkedHashMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaHashtable(Hashtable<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaConcurrentHashMap(ConcurrentHashMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static void nullableDefaults(
+                  Map<Long, String> map,
+                  TreeMap<Long, String> treeMap,
+                  HashMap<Long, String> hashMap,
+                  LinkedHashMap<Long, String> linkedHashMap,
+                  Hashtable<Long, String> hashtable,
+                  ConcurrentHashMap<Long, String> concurrentHashMap,
+                  long k,
+                  @Nullable String defaultValue) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault(k, defaultValue)' is @Nullable
+                map.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'treeMap.getOrDefault(k, defaultValue)' is @Nullable
+                treeMap.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'hashMap.getOrDefault(k, defaultValue)' is @Nullable
+                hashMap.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'linkedHashMap.getOrDefault(k, defaultValue)' is @Nullable
+                linkedHashMap.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'hashtable.getOrDefault(k, defaultValue)' is @Nullable
+                hashtable.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'concurrentHashMap.getOrDefault(k, defaultValue)' is @Nullable
+                concurrentHashMap.getOrDefault(k, defaultValue).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void collectionToArrayOverrideUsesJSpecifyModel() {
     makeHelper()
         .addSourceLines(
