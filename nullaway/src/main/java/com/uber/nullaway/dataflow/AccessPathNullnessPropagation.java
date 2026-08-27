@@ -177,6 +177,8 @@ public class AccessPathNullnessPropagation
 
   private final NullnessStoreInitializer nullnessStoreInitializer;
 
+  private final boolean trackUnreachableStores;
+
   /**
    * Updates the stored {@link VisitorState} to account for the fact that we are checking a new
    * compilation unit. Required since {@link VisitorState} objects internally contain a {@link
@@ -234,7 +236,8 @@ public class AccessPathNullnessPropagation
       VisitorState state,
       AccessPath.AccessPathContext apContext,
       NullAway analysis,
-      NullnessStoreInitializer nullnessStoreInitializer) {
+      NullnessStoreInitializer nullnessStoreInitializer,
+      boolean trackUnreachableStores) {
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = analysis::isMethodUnannotated;
     // Overwrite the TreePath with a FailingTreePath to ensure it never gets used
@@ -244,6 +247,7 @@ public class AccessPathNullnessPropagation
     this.handler = analysis.getHandler();
     this.genericsChecks = analysis.getGenericsChecks();
     this.nullnessStoreInitializer = nullnessStoreInitializer;
+    this.trackUnreachableStores = trackUnreachableStores;
   }
 
   private static SubNodeValues values(TransferInput<Nullness, NullnessStore> input) {
@@ -1354,10 +1358,16 @@ public class AccessPathNullnessPropagation
   }
 
   @CheckReturnValue
-  private static ResultingStore updateStore(NullnessStore oldStore, ReadableUpdates... updates) {
+  private ResultingStore updateStore(NullnessStore oldStore, ReadableUpdates... updates) {
+    if (trackUnreachableStores && oldStore.isUnreachable()) {
+      return new ResultingStore(oldStore, NO_STORE_CHANGE);
+    }
     NullnessStore.Builder builder = oldStore.toBuilder();
     for (ReadableUpdates update : updates) {
       for (Map.Entry<AccessPath, Nullness> entry : update.values.entrySet()) {
+        if (trackUnreachableStores && entry.getValue() == BOTTOM) {
+          return new ResultingStore(NullnessStore.unreachable(), true);
+        }
         AccessPath key = entry.getKey();
         builder.setInformation(key, entry.getValue());
       }

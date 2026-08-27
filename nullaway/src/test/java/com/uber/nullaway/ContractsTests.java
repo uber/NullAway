@@ -1227,6 +1227,81 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void checkContractUnreachableAfterControlFlowMerge() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:CheckContracts=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jetbrains.annotations.Contract;
+            @NullMarked
+            class Test {
+              @Contract("!null, !null -> !null")
+              static @Nullable Double conditionalOr(
+                  @Nullable Double a, @Nullable Double b) {
+                if (a == null || b == null) {
+                  return null;
+                }
+                return a + b;
+              }
+
+              @Contract("!null, !null -> !null")
+              static @Nullable Double conditionalAnd(
+                  @Nullable Double a, @Nullable Double b) {
+                if (a != null && b != null) {
+                  return a + b;
+                }
+                return null;
+              }
+
+              @Contract("!null, !null -> !null")
+              static @Nullable Double ternary(@Nullable Double a, @Nullable Double b) {
+                return (a == null || b == null) ? null : a + b;
+              }
+
+              @Contract("!null, !null -> !null")
+              static @Nullable Double twoIfs(@Nullable Double a, @Nullable Double b) {
+                if (a == null) {
+                  return null;
+                }
+                if (b == null) {
+                  return null;
+                }
+                return a + b;
+              }
+
+              @Contract("!null, _ -> !null")
+              static @Nullable Double sameVariable(
+                  @Nullable Double a, @Nullable Double unused) {
+                if (a == null || a == null) {
+                  return null;
+                }
+                return a + 1;
+              }
+
+              @Contract("!null, !null -> !null")
+              static @Nullable Double reachableMerge(
+                  @Nullable Double a, @Nullable Double b) {
+                if (a == null || b != null) {
+                  // BUG: Diagnostic contains: Method reachableMerge has @Contract
+                  return null;
+                }
+                return 0.0;
+              }
+
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void checkDontCrashOnVoidReturn() {
     makeTestHelperWithArgs(
             withJSpecifyModeArgs(
