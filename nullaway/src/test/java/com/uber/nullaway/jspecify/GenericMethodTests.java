@@ -962,6 +962,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
             """
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
+            import org.jspecify.annotations.NonNull;
             @NullMarked
             class Test {
               static <T extends @Nullable Object> @Nullable T id(T value) {
@@ -981,6 +982,13 @@ public class GenericMethodTests extends NullAwayTestsBase {
               static String nullableArgument(@Nullable String value) {
                 // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
                 return id(value);
+              }
+              static <T extends @Nullable Object> T nonNullParamId(@NonNull T value) {
+                return value;
+              }
+              static void testNonNullParamWarn(@Nullable String value) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value' where @NonNull is required
+                nonNullParamId(value);
               }
             }
             """)
