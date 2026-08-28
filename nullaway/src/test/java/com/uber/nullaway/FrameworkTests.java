@@ -1826,23 +1826,27 @@ public class FrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Adds a source stub for the Spring {@code @Value} annotation.
+   *
+   * @param helper the test helper to add the stub to
+   * @return the test helper, for chaining
+   */
+  private static CompilationTestHelper addSpringValueAnnotationStub(CompilationTestHelper helper) {
+    return helper.addSourceLines(
+        "Value.java",
+        "package org.springframework.beans.factory.annotation;",
+        ANNOTATION_IMPORTS,
+        "@Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})",
+        RETENTION_RUNTIME,
+        "public @interface Value {",
+        "  String value();",
+        "}");
+  }
+
   @Test
   public void springValueFieldTest() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Value.java",
-            """
-            package org.springframework.beans.factory.annotation;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface Value {
-              String value();
-            }
-            """)
+    addSpringValueAnnotationStub(defaultCompilationHelper)
         .addSourceLines(
             "NegativeCases.java",
             """
@@ -3204,21 +3208,7 @@ public class FrameworkTests extends NullAwayTestsBase {
 
   @Test
   public void springValueSpelWithNullInConditional() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Value.java",
-            """
-            package org.springframework.beans.factory.annotation;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface Value {
-              String value();
-            }
-            """)
+    addSpringValueAnnotationStub(defaultCompilationHelper)
         .addSourceLines(
             "Test.java",
             """
@@ -3236,21 +3226,7 @@ public class FrameworkTests extends NullAwayTestsBase {
 
   @Test
   public void springValueSpelNullAsReturnValue() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Value.java",
-            """
-            package org.springframework.beans.factory.annotation;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface Value {
-              String value();
-            }
-            """)
+    addSpringValueAnnotationStub(defaultCompilationHelper)
         .addSourceLines(
             "Test.java",
             """
@@ -3272,21 +3248,7 @@ public class FrameworkTests extends NullAwayTestsBase {
 
   @Test
   public void springValueSpelNullComparisonLeftSide() {
-    defaultCompilationHelper
-        .addSourceLines(
-            "Value.java",
-            """
-            package org.springframework.beans.factory.annotation;
-            import java.lang.annotation.ElementType;
-            import java.lang.annotation.Retention;
-            import java.lang.annotation.RetentionPolicy;
-            import java.lang.annotation.Target;
-            @Target({ElementType.FIELD, ElementType.PARAMETER, ElementType.METHOD})
-            @Retention(RetentionPolicy.RUNTIME)
-            public @interface Value {
-              String value();
-            }
-            """)
+    addSpringValueAnnotationStub(defaultCompilationHelper)
         .addSourceLines(
             "Test.java",
             """
@@ -3299,6 +3261,25 @@ public class FrameworkTests extends NullAwayTestsBase {
               // Boundary: null on the LEFT side of == comparison (symmetric case).
               @Value("#{null == someBean ? 'default' : someBean.value}")
               String nullOnLeftEq;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void springValueSpelNullComparedToNull() {
+    addSpringValueAnnotationStub(defaultCompilationHelper)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.springframework.beans.factory.annotation.Value;
+            class Test {
+              // Boundary: null on both sides of the comparison; the whole comparison is stripped.
+              @Value("#{null == null ? 'a' : 'b'}")
+              String nullEqNull;
+              @Value("#{null != null ? 'a' : 'b'}")
+              String nullNeqNull;
             }
             """)
         .doTest();
