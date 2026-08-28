@@ -1985,23 +1985,44 @@ public final class GenericsChecks {
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
-   * @param state the visitor state
+   * @param visitor visitor carrying state for the recursive comparison
    */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality check
   private boolean identicalTypeParameterNullability(
-      Type lhsType, Type rhsType, VisitorState state) {
-    return lhsType.accept(
-        new CheckIdenticalNullabilityVisitor(state, this, config, handler), rhsType);
+      Type lhsType, Type rhsType, CheckIdenticalNullabilityVisitor visitor) {
+    if (lhsType == rhsType) {
+      return true;
+    }
+    return lhsType.accept(visitor, rhsType);
   }
 
   /**
-   * Like {@link #identicalTypeParameterNullability(Type, Type, VisitorState)}, but allows for
-   * covariant array subtyping at the top level.
+   * Like {@link #identicalTypeParameterNullability(Type, Type, CheckIdenticalNullabilityVisitor)},
+   * but allows for covariant array subtyping at the top level.
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
    * @param state the visitor state
    */
   boolean subtypeParameterNullability(Type lhsType, Type rhsType, VisitorState state) {
+    return subtypeParameterNullability(
+        lhsType,
+        rhsType,
+        state,
+        new CheckIdenticalNullabilityVisitor(state, this, config, handler));
+  }
+
+  /**
+   * Continues a subtype nullability comparison with an existing visitor so recursive wildcard
+   * comparisons share cycle-detection state.
+   *
+   * @param lhsType type for the lhs of the assignment
+   * @param rhsType type for the rhs of the assignment
+   * @param state the visitor state
+   * @param visitor visitor carrying state for the recursive comparison
+   */
+  boolean subtypeParameterNullability(
+      Type lhsType, Type rhsType, VisitorState state, CheckIdenticalNullabilityVisitor visitor) {
     if (lhsType.isRaw()) {
       return true;
     }
@@ -2019,9 +2040,9 @@ public final class GenericsChecks {
       if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
         return false;
       }
-      return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, state);
+      return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, visitor);
     } else {
-      return identicalTypeParameterNullability(lhsType, rhsType, state);
+      return identicalTypeParameterNullability(lhsType, rhsType, visitor);
     }
   }
 

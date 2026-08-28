@@ -331,10 +331,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     /* top-level nullability rules */
     if (isKnownNonNull(t)) {
-      constrainAsNonNull(s, t);
+      constrainAsNonNull(s);
     }
     if (isKnownNullable(s)) {
-      constrainAsNullable(t, s);
+      constrainAsNullable(t);
     }
   }
 
@@ -359,37 +359,36 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Constrain a type to be @Nullable due to its being a supertype of some known @Nullable type
+   * Constrains an inference variable to be {@code @Nullable}.
+   *
+   * <p>If {@code t} is a type-variable use with an explicit nullness annotation, the annotation
+   * fixes the nullness of that use without constraining the underlying inference variable. Any
+   * incompatibility involving that fixed annotation is handled by the normal type compatibility
+   * checks.
    *
    * @param t the type to constrain
-   * @param knownNullableType the known nullable type
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
    */
-  private void constrainAsNullable(Type t, Type knownNullableType)
-      throws UnsatisfiableConstraintsException {
+  private void constrainAsNullable(Type t) throws UnsatisfiableConstraintsException {
     if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NULLABLE);
-    } else if (isKnownNonNull(t)) {
-      TypeVariable typeVar =
-          knownNullableType instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) t;
-      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 
   /**
-   * Constrain a type to be @NonNull due to its being a subtype of some known @NonNull type
+   * Constrains an inference variable to be {@code @NonNull}.
+   *
+   * <p>If {@code t} is a type-variable use with an explicit nullness annotation, the annotation
+   * fixes the nullness of that use without constraining the underlying inference variable. Any
+   * incompatibility involving that fixed annotation is handled by the normal type compatibility
+   * checks.
    *
    * @param t the type to constrain
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
    */
-  private void constrainAsNonNull(Type t, Type knownNonNullType)
-      throws UnsatisfiableConstraintsException {
+  private void constrainAsNonNull(Type t) throws UnsatisfiableConstraintsException {
     if (treatAsTypeVariableForInference(t)) {
       updateNullness(t.asElement(), NullnessState.NONNULL);
-    } else if (isKnownNullable(t)) {
-      TypeVariable typeVar =
-          t instanceof TypeVariable typeVariable ? typeVariable : (TypeVariable) knownNonNullType;
-      throw new UnsatisfiableConstraintsException(typeVar.asElement());
     }
   }
 

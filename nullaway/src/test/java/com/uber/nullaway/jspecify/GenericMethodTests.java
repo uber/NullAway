@@ -945,9 +945,87 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 }
                 String field = "hello";
                 void testField() {
-                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                     field = f("hello");
                 }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Regression test for https://github.com/uber/NullAway/issues/1730. */
+  @Test
+  public void nullableTypeVariableReturnDoesNotCauseInferenceFailure() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jspecify.annotations.NonNull;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> @Nullable T id(T value) {
+                return value;
+              }
+              static String nonNullTarget() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return id("");
+              }
+              static @Nullable String nullableTarget() {
+                return id("");
+              }
+              static String witness() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return Test.<String>id("");
+              }
+              static String nullableArgument(@Nullable String value) {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return id(value);
+              }
+              static <T extends @Nullable Object> T nonNullParamId(@NonNull T value) {
+                return value;
+              }
+              static void testNonNullParamWarn(@Nullable String value) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value' where @NonNull is required
+                nonNullParamId(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Regression test for the {@code @Contract} case from issue 1730. */
+  @Test
+  public void nullableTypeVariableReturnWithContractDoesNotCauseInferenceFailure() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @Contract("_, !null -> !null")
+              static <T extends @Nullable Object> @Nullable T first(
+                  @Nullable T first, @Nullable T second) {
+                return first != null ? first : second;
+              }
+              @Contract("_, !null -> !null")
+              static @Nullable String firstString(
+                  @Nullable String first, @Nullable String second) {
+                return first != null ? first : second;
+              }
+              static String useGeneric(@Nullable String value) {
+                return first(value, "");
+              }
+              static String useConcrete(@Nullable String value) {
+                return firstString(value, "");
+              }
+              static String useWitness(@Nullable String value) {
+                return Test.<String>first(value, "");
+              }
             }
             """)
         .doTest();
@@ -1831,7 +1909,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
               static class Box<T extends @Nullable Object> {}
               static <T extends @Nullable Object> void accept(Box<@Nullable T> box) {}
               void test(Box<CompletableFuture<Object>> box) {
-                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                // BUG: Diagnostic contains: incompatible types: Box<CompletableFuture<Object>> cannot be converted to Box<@Nullable CompletableFuture<Object>>
                 accept(box);
               }
             }""")

@@ -9,7 +9,10 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.handlers.Handler;
+import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
 
@@ -23,6 +26,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final GenericsChecks genericsChecks;
   private final Config config;
   private final Handler handler;
+
+  /** Wildcard argument pairs currently being checked for containment. */
+  private final IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons =
+      new IdentityHashMap<>();
 
   CheckIdenticalNullabilityVisitor(
       VisitorState state, GenericsChecks genericsChecks, Config config, Handler handler) {
@@ -189,13 +196,30 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    * {@code B} is the corresponding type variable's upper bound.
    */
   private boolean wildcardContains(Type.WildcardType lhsWildcard, Type rhsTypeArgument) {
-    return switch (lhsWildcard.kind) {
-      case UNBOUND, EXTENDS ->
-          extendsBoundContains(
-              GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler),
-              rhsTypeArgument);
-      case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
-    };
+    Set<Type> activeRhsArguments = activeWildcardComparisons.get(lhsWildcard);
+    if (activeRhsArguments == null) {
+      activeRhsArguments = Collections.newSetFromMap(new IdentityHashMap<>());
+      activeWildcardComparisons.put(lhsWildcard, activeRhsArguments);
+    } else if (activeRhsArguments.contains(rhsTypeArgument)) {
+      // Recursive bounds can lead back to the exact same containment question. Re-entering that
+      // pair cannot reveal a mismatch that was not already handled on the first visit.
+      return true;
+    }
+    activeRhsArguments.add(rhsTypeArgument);
+    try {
+      return switch (lhsWildcard.kind) {
+        case UNBOUND, EXTENDS ->
+            extendsBoundContains(
+                GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler),
+                rhsTypeArgument);
+        case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
+      };
+    } finally {
+      activeRhsArguments.remove(rhsTypeArgument);
+      if (activeRhsArguments.isEmpty()) {
+        activeWildcardComparisons.remove(lhsWildcard);
+      }
+    }
   }
 
   /**
@@ -248,6 +272,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
       return false;
     }
-    return genericsChecks.subtypeParameterNullability(lhsType, rhsType, state);
+    return genericsChecks.subtypeParameterNullability(lhsType, rhsType, state, this);
   }
 }
