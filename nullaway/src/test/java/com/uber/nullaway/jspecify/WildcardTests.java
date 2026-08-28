@@ -5,6 +5,7 @@ import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Ignore;
 import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
@@ -1401,6 +1402,564 @@ public class WildcardTests extends NullAwayTestsBase {
 
               static List<? extends Settings<?>> pass(List<? extends Settings<?>> in) {
                 return in;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NullableWildcardReturnIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NBox<R extends @Nullable Object> {
+                @Nullable R get();
+              }
+              static <T extends @Nullable Object> T get(NBox<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NullableWildcardArgumentIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NBox<R extends @Nullable Object> {
+                @Nullable R get();
+              }
+              static <T extends @Nullable Object> void sink(T value) {}
+              static <T extends @Nullable Object> void pass(NBox<? extends T> box) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Test.<T>sink(box.get());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NullableWildcardFieldAssignmentIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              interface NBox<R extends @Nullable Object> {
+                @Nullable R get();
+              }
+              private T current;
+              // Use Box<T> here so initialization does not exercise the #1727 false positive.
+              Test(Box<T> initial) {
+                current = initial.get();
+              }
+              void update(NBox<? extends T> box) {
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                current = box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NullableDirectTypeVariableReturnIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NBox<R extends @Nullable Object> {
+                @Nullable R get();
+              }
+              static <T extends @Nullable Object> T get(NBox<T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727ModeledNullableWildcardReturnIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T get(Map<String, ? extends T> map) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return map.get("key");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727ModeledNullableWildcardArgumentIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> void sink(T value) {}
+              static <T extends @Nullable Object> void pass(Map<String, ? extends T> map) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Test.<T>sink(map.get("key"));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727ModeledNullableDirectTypeVariableReturnIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T get(Map<String, T> map) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return map.get("key");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727WildcardResultDereferenceIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> void dereference(Box<? extends T> box) {
+                // BUG: Diagnostic contains: dereferenced expression 'box.get()' is @Nullable
+                box.get().hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727UnionNullWildcardReturnIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> T get(Box<? extends @Nullable T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NonNullTargetReturnIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> @NonNull T get(Box<? extends T> box) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727WildcardLocalDereferenceIsRejected() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> void dereference(Box<? extends T> box) {
+                T value = box.get();
+                // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                value.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NullAssignmentInvalidatesWildcardLocal() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> void sink(T value) {}
+              static <T extends @Nullable Object> void pass(Box<? extends T> box) {
+                T value = box.get();
+                value = null;
+                // Keep this regression guard after #1727 is fixed: assigning null must invalidate
+                // any compatibility established by the wildcard result.
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                Test.<T>sink(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727DirectTypeVariableReturnIsAccepted() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> T get(Box<T> box) {
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NonNullBoundWildcardReturnIsAccepted() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T> T get(Box<? extends T> box) {
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727ConcreteWildcardReturnIsAccepted() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static String get(Box<? extends String> box) {
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1727NestedWildcardReturnIsAccepted() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> Box<T> get(Box<? extends Box<T>> box) {
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727WildcardReturnFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> T unwrap(Box<? extends T> box) {
+                return box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727WildcardLocalArgumentFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> void sink(T value) {}
+              static <T extends @Nullable Object> void pass(Box<? extends T> box) {
+                T value = box.get();
+                Test.<T>sink(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727WildcardDirectArgumentFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> void sink(T value) {}
+              static <T extends @Nullable Object> void pass(Box<? extends T> box) {
+                Test.<T>sink(box.get());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727WildcardFieldAssignmentFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              private final Box<? extends T> box;
+              private T current;
+              // On master, both assignments and the cascading initialization error are reported.
+              // After #1727 is fixed, none of those diagnostics should remain.
+              Test(Box<? extends T> box) {
+                this.box = box;
+                current = box.get();
+              }
+              void advance() {
+                current = box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727IteratorFieldAssignmentFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Iterator;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              private final Iterator<? extends T> iterator;
+              private T current;
+              // On master, both assignments and the cascading initialization error are reported.
+              // After #1727 is fixed, none of those diagnostics should remain.
+              Test(Iterator<? extends T> iterator) {
+                this.iterator = iterator;
+                current = iterator.next();
+              }
+              void advance() {
+                current = iterator.next();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727AggregateFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Fn2<A extends @Nullable Object, S, R extends @Nullable Object> {
+                R apply(A accumulator, S element);
+              }
+              static <S, A extends @Nullable Object> A aggregate(
+                  Iterable<S> source, A seed, Fn2<A, S, ? extends A> function) {
+                A result = seed;
+                for (S element : source) {
+                  result = function.apply(result, element);
+                }
+                return result;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727LambdaReturnFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> Box<T> wrap(Box<? extends T> box) {
+                return () -> box.get();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
+  public void issue1727ArrayStoreFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+              static <T extends @Nullable Object> void store(
+                  T[] values, Box<? extends T> box) {
+                values[0] = box.get();
               }
             }
             """)
