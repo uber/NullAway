@@ -953,7 +953,14 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /** Regression test for https://github.com/uber/NullAway/issues/1730. */
+  /**
+   * Pins the diagnostics NullAway reports for a call involving an explicitly annotated
+   * type-variable use (https://github.com/uber/NullAway/issues/1730). A line that expects no
+   * diagnostic is checked in full here. For a line carrying a {@code // BUG: Diagnostic contains:}
+   * comment, {@link
+   * GenericInferenceErrorReportingTests#annotatedTypeVariableUseIsNotAnInferenceFailure()} is what
+   * guards the absence of the redundant inference failure.
+   */
   @Test
   public void nullableTypeVariableReturnDoesNotCauseInferenceFailure() {
     makeHelper()

@@ -359,12 +359,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Constrains an inference variable to be {@code @Nullable}.
+   * Records that {@code t} must be {@code @Nullable}.
    *
-   * <p>If {@code t} is a type-variable use with an explicit nullness annotation, the annotation
-   * fixes the nullness of that use without constraining the underlying inference variable. Any
-   * incompatibility involving that fixed annotation is handled by the normal type compatibility
-   * checks.
+   * <p>Only an inference variable takes a constraint, meaning a type-variable use with no explicit
+   * nullness annotation. Every other type already has a fixed nullness, including a class type and
+   * an explicitly annotated type-variable use. For those cases, this method does not introduce any
+   * constraint, and the normal type compatibility checks report any incompatibility.
    *
    * @param t the type to constrain
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
@@ -376,12 +376,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
-   * Constrains an inference variable to be {@code @NonNull}.
+   * Records that {@code t} must be {@code @NonNull}.
    *
-   * <p>If {@code t} is a type-variable use with an explicit nullness annotation, the annotation
-   * fixes the nullness of that use without constraining the underlying inference variable. Any
-   * incompatibility involving that fixed annotation is handled by the normal type compatibility
-   * checks.
+   * <p>Only an inference variable takes a constraint, meaning a type-variable use with no explicit
+   * nullness annotation. Every other type already has a fixed nullness, including a class type and
+   * an explicitly annotated type-variable use. For those cases, this method does not introduce any
+   * constraint, and the normal type compatibility checks report any incompatibility.
    *
    * @param t the type to constrain
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
