@@ -1344,7 +1344,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     return Optional.ofNullable(value);
                 }
                 public static <U extends @Nullable Object> Optional<U> optionalResultPositive1(@Nullable U value) {
-                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
                     return Optional.of(value);
                 }
                 // identical to above, testing the other error message

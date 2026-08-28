@@ -79,7 +79,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
               }
               void f() {
                 call(() -> { return ""; });
-                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
                 call(() -> { return null; });
               }
             }
@@ -198,8 +198,8 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 .filter(diagnostic -> diagnostic.contains("inference failure: type variable T"))
                 .toList())
         .containsExactly(
-            "File2.java:7: [NullAway] inference failure: type variable T constrained to be both"
-                + " @NonNull and @Nullable");
+            "File2.java:7: [NullAway] inference failure: type variable T is constrained to be @Nullable, "
+                + "but its upper bound requires it to be @NonNull");
   }
 
   /**

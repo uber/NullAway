@@ -1387,6 +1387,11 @@ public final class GenericsChecks {
   }
 
   private String inferenceFailureMessage(UnsatisfiableConstraintsException e) {
+    if (e.isCausedByNonNullUpperBound()) {
+      return String.format(
+          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+          e.getTypeVariable());
+    }
     return String.format(
         "inference failure: type variable %s constrained to be both @NonNull and @Nullable",
         e.getTypeVariable());

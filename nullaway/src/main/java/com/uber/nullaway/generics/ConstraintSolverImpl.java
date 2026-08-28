@@ -348,10 +348,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (st.nullness == n) {
       return false;
     }
-    if (st.nullness != NullnessState.UNKNOWN) {
-      throw new UnsatisfiableConstraintsException(typeVarElement);
-    }
     if (n == NullnessState.NULLABLE && !st.nullableAllowed) {
+      throw new UnsatisfiableConstraintsException(typeVarElement, true);
+    }
+    if (st.nullness != NullnessState.UNKNOWN) {
       throw new UnsatisfiableConstraintsException(typeVarElement);
     }
     st.nullness = n;
