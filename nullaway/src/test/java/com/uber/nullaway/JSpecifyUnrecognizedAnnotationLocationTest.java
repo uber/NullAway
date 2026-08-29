@@ -6,11 +6,11 @@ import static com.google.common.truth.Truth.assertWithMessage;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BaseErrorProneJavaCompiler;
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.DiagnosticTestHelper;
 import com.google.errorprone.FileManagers;
 import com.google.errorprone.FileObjects;
 import com.google.errorprone.scanner.ScannerSupplier;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.io.StringWriter;
 import java.util.Locale;
 import javax.tools.Diagnostic;
@@ -31,17 +31,19 @@ public class JSpecifyUnrecognizedAnnotationLocationTest {
   private static final String NO_LOCAL_ROOT_TYPE =
       "-XepOpt:JSpecifyUnrecognizedAnnotationLocation:CheckLocalVariableRootType=false";
 
-  private CompilationTestHelper compilationHelper;
-  private CompilationTestHelper compilationHelperDefaultLevel;
+  private ReversingCompilationTestHelper compilationHelper;
+  private ReversingCompilationTestHelper compilationHelperDefaultLevel;
   private BugCheckerRefactoringTestHelper refactoringHelper;
 
   @Before
   public void setUp() {
     compilationHelper =
-        CompilationTestHelper.newInstance(JSpecifyUnrecognizedAnnotationLocation.class, getClass())
+        ReversingCompilationTestHelper.newInstance(
+                JSpecifyUnrecognizedAnnotationLocation.class, getClass())
             .setArgs(WARN);
     compilationHelperDefaultLevel =
-        CompilationTestHelper.newInstance(JSpecifyUnrecognizedAnnotationLocation.class, getClass());
+        ReversingCompilationTestHelper.newInstance(
+            JSpecifyUnrecognizedAnnotationLocation.class, getClass());
     refactoringHelper =
         BugCheckerRefactoringTestHelper.newInstance(
                 JSpecifyUnrecognizedAnnotationLocation.class, getClass())
@@ -80,7 +82,8 @@ public class JSpecifyUnrecognizedAnnotationLocationTest {
     // NO_LOCAL_ROOT_TYPE silences the root type only.  The rest of a local declaration is
     // classified as usual: a primitive is still reported for being a primitive, and a type
     // argument stays recognized.
-    CompilationTestHelper.newInstance(JSpecifyUnrecognizedAnnotationLocation.class, getClass())
+    ReversingCompilationTestHelper.newInstance(
+            JSpecifyUnrecognizedAnnotationLocation.class, getClass())
         .setArgs(WARN, NO_LOCAL_ROOT_TYPE)
         .addSourceLines(
             "test/Locals.java",
@@ -1965,9 +1968,10 @@ public class JSpecifyUnrecognizedAnnotationLocationTest {
    * in the order javac reported the diagnostics. Fails the test when {@code lines} does not
    * compile.
    *
-   * <p>{@link CompilationTestHelper} matches each {@code // BUG:} pattern against the diagnostics
-   * on its line with a {@code hasItem} matcher, so a construct reported twice looks exactly like
-   * one reported once. To test that a construct is reported exactly once, count the diagnostics.
+   * <p>{@link com.google.errorprone.CompilationTestHelper} matches each {@code // BUG:} pattern
+   * against the diagnostics on its line with a {@code hasItem} matcher, so a construct reported
+   * twice looks exactly like one reported once. To test that a construct is reported exactly once,
+   * count the diagnostics.
    */
   private static ImmutableList<String> diagnostics(String path, String... lines) {
     DiagnosticTestHelper diagnosticHelper = new DiagnosticTestHelper();
@@ -2007,7 +2011,7 @@ public class JSpecifyUnrecognizedAnnotationLocationTest {
    * source}.
    */
   private void bothChecksOn(String source) {
-    CompilationTestHelper.newInstance(
+    ReversingCompilationTestHelper.newInstance(
             ScannerSupplier.fromBugCheckerClasses(
                 NullAway.class, JSpecifyUnrecognizedAnnotationLocation.class),
             getClass())

@@ -1,6 +1,6 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -9,16 +9,16 @@ import org.junit.runners.JUnit4;
 @RunWith(JUnit4.class)
 public class RequireExplicitNullMarkingTest {
 
-  private CompilationTestHelper compilationHelper;
-  private CompilationTestHelper compilationHelperSuggestionLevel;
+  private ReversingCompilationTestHelper compilationHelper;
+  private ReversingCompilationTestHelper compilationHelperSuggestionLevel;
 
   @Before
   public void setUp() {
     compilationHelper =
-        CompilationTestHelper.newInstance(RequireExplicitNullMarking.class, getClass())
+        ReversingCompilationTestHelper.newInstance(RequireExplicitNullMarking.class, getClass())
             .setArgs("-Xep:RequireExplicitNullMarking:WARN");
     compilationHelperSuggestionLevel =
-        CompilationTestHelper.newInstance(RequireExplicitNullMarking.class, getClass());
+        ReversingCompilationTestHelper.newInstance(RequireExplicitNullMarking.class, getClass());
   }
 
   @Test

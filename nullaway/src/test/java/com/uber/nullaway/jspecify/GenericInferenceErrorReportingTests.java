@@ -3,7 +3,6 @@ package com.uber.nullaway.jspecify;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneJavaCompiler;
 import com.google.errorprone.FileManagers;
 import com.google.errorprone.FileObjects;
@@ -11,6 +10,7 @@ import com.google.errorprone.scanner.ScannerSupplier;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -404,7 +404,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
     return fileName + ":" + diagnostic.getLineNumber() + ": " + message;
   }
 
-  private CompilationTestHelper makeHelper() {
+  private ReversingCompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));

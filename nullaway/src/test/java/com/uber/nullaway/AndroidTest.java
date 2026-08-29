@@ -1,6 +1,6 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -130,7 +130,7 @@ public class AndroidTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private CompilationTestHelper compilationHelper;
+  private ReversingCompilationTestHelper compilationHelper;
 
   @SuppressWarnings("CheckReturnValue")
   @Before

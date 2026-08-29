@@ -4,9 +4,9 @@ import static com.uber.nullaway.ErrorProneCLIFlagsConfig.ANNOTATED_PACKAGES_ONLY
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneFlags;
 import com.uber.nullaway.generics.JSpecifyJavacConfig.JavacConfigValidityResult;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.List;
 import java.util.Map;
 import org.junit.Assume;
@@ -19,7 +19,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
 
   @Test
   public void noFlagsFails() {
-    CompilationTestHelper compilationTestHelper =
+    ReversingCompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(List.of())
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
@@ -45,7 +45,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
 
   @Test
   public void onlyNullMarkedFalseFails() {
-    CompilationTestHelper compilationTestHelper =
+    ReversingCompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=false"))
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
@@ -54,7 +54,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
 
   @Test
   public void bothAnnotatedPackagesAndOnlyNullMarkedFails() {
-    CompilationTestHelper compilationTestHelper =
+    ReversingCompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(
                 List.of(
                     "-XepOpt:NullAway:OnlyNullMarked",
@@ -67,7 +67,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
   @Test
   public void missingTypeAnnotationSymbolFlagForJSpecifyModeOnOlderJDK() {
     Assume.assumeTrue(Runtime.version().feature() < 22);
-    CompilationTestHelper compilationTestHelper =
+    ReversingCompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(
                 List.of("-XepOpt:NullAway:OnlyNullMarked", "-XepOpt:NullAway:JSpecifyMode=true"))
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
@@ -100,7 +100,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
 
   @Test
   public void jspecifyJDKOutsideJSpecifyMode() {
-    CompilationTestHelper compilationTestHelper =
+    ReversingCompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(
                 List.of(
                     "-XepOpt:NullAway:OnlyNullMarked", "-XepOpt:NullAway:JSpecifyJDKModels=true"))

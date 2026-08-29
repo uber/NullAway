@@ -1,6 +1,6 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -864,7 +864,7 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper helper() {
+  private ReversingCompilationTestHelper helper() {
     return makeTestHelperWithArgs(
             Arrays.asList(
                 "-d",

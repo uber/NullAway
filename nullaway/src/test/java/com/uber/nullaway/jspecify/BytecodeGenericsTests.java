@@ -4,7 +4,6 @@ import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 
 import com.google.errorprone.BugPattern;
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
@@ -15,6 +14,7 @@ import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.List;
 import org.junit.Test;
 
@@ -84,8 +84,8 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   /**
    * Returns a test helper that runs the wildcard-bound-mutating type inspection before NullAway.
    */
-  private CompilationTestHelper makeTypeInspectionHelper() {
-    return CompilationTestHelper.newInstance(
+  private ReversingCompilationTestHelper makeTypeInspectionHelper() {
+    return ReversingCompilationTestHelper.newInstance(
             ScannerSupplier.fromBugCheckerClasses(TypeInspectionChecker.class, NullAway.class),
             getClass())
         .setArgs(
@@ -363,7 +363,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper makeHelper() {
+  private ReversingCompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")));

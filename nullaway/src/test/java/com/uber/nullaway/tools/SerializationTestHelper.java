@@ -26,7 +26,6 @@ import static org.junit.Assert.fail;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import java.io.BufferedReader;
 import java.io.IOException;
@@ -43,7 +42,7 @@ public class SerializationTestHelper<T extends Display> {
 
   private final Path outputDir;
   private ImmutableList<T> expectedOutputs;
-  private CompilationTestHelper compilationTestHelper;
+  private ReversingCompilationTestHelper compilationTestHelper;
   private DisplayFactory<T> factory;
   private String fileName;
   private String header;
@@ -70,8 +69,8 @@ public class SerializationTestHelper<T extends Display> {
   }
 
   /**
-   * Creates the {@link CompilationTestHelper} that compiles the test sources with {@code args} on
-   * the javac command line.
+   * Creates the {@link ReversingCompilationTestHelper} that compiles the test sources with {@code
+   * args} on the javac command line.
    *
    * <p>Call this before {@link #addSourceLines}, which adds to the helper created here. A second
    * call starts over with a fresh helper and loses the sources added so far.

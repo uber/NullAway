@@ -1,6 +1,6 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -2231,7 +2231,8 @@ public class FrameworkTests extends NullAwayTestsBase {
    * @param helper the test helper to add the stub to
    * @return the test helper, for chaining
    */
-  private static CompilationTestHelper addSpringValueAnnotationStub(CompilationTestHelper helper) {
+  private static ReversingCompilationTestHelper addSpringValueAnnotationStub(
+      ReversingCompilationTestHelper helper) {
     return helper.addSourceLines(
         "Value.java",
         "package org.springframework.beans.factory.annotation;",
@@ -2330,7 +2331,8 @@ public class FrameworkTests extends NullAwayTestsBase {
    * @param helper the test helper to add the stubs to
    * @return the test helper, for chaining
    */
-  private static CompilationTestHelper addSpringMockAnnotationStubs(CompilationTestHelper helper) {
+  private static ReversingCompilationTestHelper addSpringMockAnnotationStubs(
+      ReversingCompilationTestHelper helper) {
     String bootPackage = "package org.springframework.boot.test.mock.mockito;";
     String overridePackage = "package org.springframework.test.context.bean.override.mockito;";
     return helper
@@ -2417,7 +2419,8 @@ public class FrameworkTests extends NullAwayTestsBase {
    * @param helper the test helper to add the stubs to
    * @return the test helper, for chaining
    */
-  private static CompilationTestHelper addMockitoAnnotationStubs(CompilationTestHelper helper) {
+  private static ReversingCompilationTestHelper addMockitoAnnotationStubs(
+      ReversingCompilationTestHelper helper) {
     String mockitoPackage = "package org.mockito;";
     return helper
         .addSourceLines(
