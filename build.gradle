@@ -138,6 +138,13 @@ subprojects { project ->
 
     tasks.withType(Test).configureEach {
         maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+        // CI passes JVM flags that belong to the test JVM rather than to Gradle: the locale, which
+        // Gradle itself does not run in (https://github.com/gradle/gradle/issues/17361), and the
+        // identity-hash mode.  See .github/workflows/matrix.mjs.
+        def extraJvmArgs = providers.gradleProperty("testExtraJvmArgs").getOrElse("").trim()
+        if (!extraJvmArgs.isEmpty()) {
+            jvmArgs(extraJvmArgs.split(" +").toList())
+        }
     }
 
     repositories {
