@@ -359,6 +359,9 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                   Map<String, String> map,
                   BiFunction<String, @Nullable String, @Nullable String> remappingFunction) {
                 map.compute("key", remappingFunction);
+                String value = map.compute("key", remappingFunction);
+                // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                value.length();
               }
               @Override
               public @Nullable String compute(
