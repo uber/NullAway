@@ -2166,6 +2166,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overridePreservesChainedMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <X extends @Nullable Object, T extends X> void bar(T arg);
+              }
+              static class Baz implements Foo {
+                @Override
+                public <X extends @Nullable Object, T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void overrideNarrowsFreeTypeVariableMethodTypeVariableBound() {
     makeHelper()
         .addSourceLines(
