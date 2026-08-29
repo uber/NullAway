@@ -250,7 +250,7 @@ public class GenericsUtils {
    * references and varargs.
    *
    * @param genericsChecks generics checks object
-   * @param fiMethodTypeAsMember substituted functional-interface method type
+   * @param fiMethodTypeAsMember substituted and modeled functional-interface method type
    * @param memberReferenceTree the method reference tree
    * @param state visitor state whose current path ends at {@code memberReferenceTree}
    * @param relationHandler handler to invoke for each type relation

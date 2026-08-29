@@ -811,7 +811,7 @@ public class NullAway extends BugChecker
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
-   *     library models, for a regular override in JSpecify mode; otherwise {@code null}
+   *     library models in JSpecify mode; otherwise {@code null}
    * @param state visitor state
    * @param overridingMethod if available, the symbol for the overriding method
    * @return discovered error, or {@link Description#NO_MATCH} if no error
@@ -854,7 +854,7 @@ public class NullAway extends BugChecker
         functionalInterfaceMethodType =
             modeledOverriddenMethodType != null
                 ? modeledOverriddenMethodType.asMethodType()
-                : genericsChecks.getFunctionalInterfaceMethodType(
+                : genericsChecks.getModeledFunctionalInterfaceMethodType(
                     functionalInterfaceImplementation, state);
       }
     }
@@ -1177,10 +1177,10 @@ public class NullAway extends BugChecker
       VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
     if (config.isJSpecifyMode() && lambdaTree != null) {
-      Type.MethodType functionalInterfaceMethodType =
-          genericsChecks.getFunctionalInterfaceMethodType(lambdaTree, state);
-      if (functionalInterfaceMethodType != null) {
-        returnType = functionalInterfaceMethodType.getReturnType();
+      Type.MethodType modeledFunctionalInterfaceMethodType =
+          genericsChecks.getModeledFunctionalInterfaceMethodType(lambdaTree, state);
+      if (modeledFunctionalInterfaceMethodType != null) {
+        returnType = modeledFunctionalInterfaceMethodType.getReturnType();
       }
     }
     if (returnType.isPrimitive()) {
@@ -1244,8 +1244,11 @@ public class NullAway extends BugChecker
     // we update the environment mapping before running any handlers, as some handlers
     // (like Rx nullability) run dataflow analysis
     updateEnvironmentMapping(state.getPath(), state);
+    Type.MethodType modeledFunctionalInterfaceMethodType = null;
     if (config.isJSpecifyMode()) {
       genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+      modeledFunctionalInterfaceMethodType =
+          genericsChecks.getModeledFunctionalInterfaceMethodType(tree, state);
     }
     handler.onMatchLambdaExpression(
         tree, new MethodAnalysisContext(this, state, funcInterfaceMethod));
@@ -1258,7 +1261,7 @@ public class NullAway extends BugChecker
             funcInterfaceMethod,
             tree,
             /* memberReferenceTree= */ null,
-            /* modeledOverriddenMethodType= */ null,
+            modeledFunctionalInterfaceMethodType,
             state,
             /* overridingMethod= */ null);
     if (!description.equals(Description.NO_MATCH)) {
@@ -1298,7 +1301,12 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchMethodReference(tree, new MethodAnalysisContext(this, state, referencedMethod));
-    return checkOverriding(funcInterfaceSymbol, referencedMethod, null, tree, state);
+    Type.MethodType modeledFunctionalInterfaceMethodType =
+        config.isJSpecifyMode()
+            ? genericsChecks.getModeledFunctionalInterfaceMethodType(tree, state)
+            : null;
+    return checkOverriding(
+        funcInterfaceSymbol, referencedMethod, modeledFunctionalInterfaceMethodType, tree, state);
   }
 
   /**
@@ -1308,7 +1316,7 @@ public class NullAway extends BugChecker
    * @param overriddenMethod method being overridden
    * @param overridingMethod overriding method
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
-   *     library models, for a regular override in JSpecify mode; otherwise {@code null}
+   *     library models in JSpecify mode; otherwise {@code null}
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
    *     referenced method
