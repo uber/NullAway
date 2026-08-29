@@ -226,11 +226,11 @@ public class LibraryModelsHandler implements Handler {
       return exprMayBeNull;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-    // When looking up library models of annotated code, we match the exact method signature only;
-    // overriding methods in subclasses must be explicitly given their own library model.
-    // When dealing with unannotated code, we default to generality: a model applies to a method
-    // and any of its overriding implementations.
-    // see https://github.com/uber/NullAway/issues/445 for why this is needed.
+    // A model of a method's return nullness matches the exact signature when the method is
+    // annotated: the overriding method carries its own annotations, and an inherited model must
+    // not override them (issue #445). Unannotated code has no annotations to defer to, so there a
+    // model covers every overriding implementation. A nullImpliesNull model is a conditional
+    // contract, and applies to an overriding implementation in annotated code too.
     boolean isMethodUnannotated =
         getCodeAnnotationInfo(state.context)
             .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
