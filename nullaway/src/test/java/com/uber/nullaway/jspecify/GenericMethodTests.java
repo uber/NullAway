@@ -2139,6 +2139,31 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overrideWidensSubstitutedExplicitNonNullMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<Y extends @Nullable Object> implements Foo<@NonNull Y> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends Y> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void overridePreservesFreeTypeVariableMethodTypeVariableBound() {
     makeHelper()
         .addSourceLines(
