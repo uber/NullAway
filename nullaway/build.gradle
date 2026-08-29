@@ -229,6 +229,15 @@ tasks.named('check').configure {
     dependsOn(epOldestTest)
 }
 
+// Compiles each multi-file test a second time with its compilation units reversed and requires the
+// same diagnostics; see com.uber.nullaway.tools.SourceOrder.  Scoped to the default test task, so
+// a build pays for one extra compilation per multi-file test rather than one per test task.
+// -PpermuteSources=false turns it off, for instance while debugging a test, since a breakpoint in
+// NullAway is hit once per compilation.
+tasks.named('test').configure {
+    systemProperty 'nullaway.permute.sources', providers.gradleProperty('permuteSources').getOrElse('true')
+}
+
 [
     'test',
     'testJdk21',
