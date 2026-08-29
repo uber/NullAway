@@ -2667,6 +2667,9 @@ public final class GenericsChecks {
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return true;
     }
+    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
     // Member-type substitution (asMemberOf) can strip type-use @Nullable from a concrete method
     // type-variable bound while leaving the bound type itself (e.g. Object). Example that needs
     // this fallback:
@@ -2680,6 +2683,9 @@ public final class GenericsChecks {
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
     if (Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
       return true;
+    }
+    if (Nullness.hasNonNullAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+      return false;
     }
     // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
     // In that case, use the declaration-site nullability of that type variable's upper bound.

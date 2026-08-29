@@ -2166,6 +2166,80 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overridePreservesExplicitNonNullFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends @NonNull X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                public <T extends @NonNull X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideWidensExplicitNonNullFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends @NonNull X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideNarrowsNullableFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends @NonNull X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void overridePreservesChainedMethodTypeVariableBound() {
     makeHelper()
         .addSourceLines(
