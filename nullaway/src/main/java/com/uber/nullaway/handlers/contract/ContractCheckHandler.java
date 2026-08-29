@@ -98,6 +98,9 @@ public class ContractCheckHandler implements Handler {
       String[] antecedent =
           getAntecedent(clause, tree, analysis, state, callee, tree.getParameters().size());
       String consequent = getConsequent(clause, tree, analysis, state, callee);
+      if (antecedent == null) {
+        return;
+      }
 
       boolean checkMethodBody = config.checkContracts();
 
@@ -170,9 +173,9 @@ public class ContractCheckHandler implements Handler {
             Nullness nullness =
                 nullnessAnalysis.getNullnessForContractDataflow(expressionPath, state.context);
             if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
-              if (nullnessAnalysis.hasBottomAccessPathForContractDataflow(
+              if (nullnessAnalysis.isUnreachableForContractDataflow(
                   expressionPath, state.context)) {
-                // if any access path is mapped to bottom, this branch is unreachable
+                // The contract antecedent makes this branch unreachable.
                 continue;
               }
               contractViolated = true;

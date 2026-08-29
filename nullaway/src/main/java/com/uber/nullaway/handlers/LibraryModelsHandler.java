@@ -226,11 +226,11 @@ public class LibraryModelsHandler implements Handler {
       return exprMayBeNull;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-    // When looking up library models of annotated code, we match the exact method signature only;
-    // overriding methods in subclasses must be explicitly given their own library model.
-    // When dealing with unannotated code, we default to generality: a model applies to a method
-    // and any of its overriding implementations.
-    // see https://github.com/uber/NullAway/issues/445 for why this is needed.
+    // A model of a method's return nullness matches the exact signature when the method is
+    // annotated: the overriding method carries its own annotations, and an inherited model must
+    // not override them (issue #445). Unannotated code has no annotations to defer to, so there a
+    // model covers every overriding implementation. A nullImpliesNull model is a conditional
+    // contract, and applies to an overriding implementation in annotated code too.
     boolean isMethodUnannotated =
         getCodeAnnotationInfo(state.context)
             .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
@@ -242,7 +242,7 @@ public class LibraryModelsHandler implements Handler {
     if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), isMethodUnannotated)) {
       return true;
     }
-    if (!optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
+    if (!optLibraryModels.nullImpliesNullParameters(methodSymbol, state.getTypes()).isEmpty()) {
       return true;
     }
     return false;
@@ -294,8 +294,9 @@ public class LibraryModelsHandler implements Handler {
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node, callee, state, apContext);
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    Types types = state.getTypes();
     ImmutableSet<Integer> nullImpliesNullIndexes =
-        optLibraryModels.nullImpliesNullParameters(callee);
+        optLibraryModels.nullImpliesNullParameters(callee, types);
     if (!nullImpliesNullIndexes.isEmpty()) {
       // If the method is marked as having argument dependent nullability and any of the
       // corresponding arguments is null, then the return is nullable. If the method is
@@ -310,7 +311,6 @@ public class LibraryModelsHandler implements Handler {
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
     }
-    Types types = state.getTypes();
     if (optLibraryModels.hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (optLibraryModels.hasNullableReturn(callee, types, !isMethodAnnotated)) {
@@ -1074,13 +1074,6 @@ public class LibraryModelsHandler implements Handler {
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
             .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
-            // We add ImmutableMap.getOrDefault explicitly, since when
-            // AcknowledgeRestrictiveAnnotations is enabled, the explicit annotations in the code
-            // override the inherited library model
-            .put(
-                methodRef(
-                    "com.google.common.collect.ImmutableMap", "getOrDefault(java.lang.Object,V)"),
-                1)
             .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
             .build();
 
@@ -1659,12 +1652,12 @@ public class LibraryModelsHandler implements Handler {
           makeOptimizedNestedAnnotationLookup(names, models.nestedAnnotationsForMethods());
     }
 
-    boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
-      return lookupHandlingOverrides(symbol, types, nonNullRet, checkSuper) != null;
+    boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
+      return lookupHandlingOverrides(symbol, types, nonNullRet, allowInherited) != null;
     }
 
-    boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
-      return lookupHandlingOverrides(symbol, types, nullableRet, checkSuper) != null;
+    boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
+      return lookupHandlingOverrides(symbol, types, nullableRet, allowInherited) != null;
     }
 
     ImmutableSet<Integer> failIfNullParameters(Symbol.MethodSymbol symbol) {
@@ -1691,8 +1684,13 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, ensuresNonNullIfTrueMethodCalls);
     }
 
-    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
-      return lookupImmutableSet(symbol, nullImpliesNullParams);
+    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol, Types types) {
+      Symbol.MethodSymbol modelSymbol =
+          lookupHandlingOverrides(
+              symbol, types, nullImpliesNullParams, /* allowInheritedModelLookup= */ true);
+      return modelSymbol == null
+          ? ImmutableSet.of()
+          : lookupImmutableSet(modelSymbol, nullImpliesNullParams);
     }
 
     ImmutableSet<Integer> castToNonNullMethod(Symbol.MethodSymbol symbol) {
@@ -1746,14 +1744,24 @@ public class LibraryModelsHandler implements Handler {
     }
 
     /**
-     * checks if symbol is present in the NameIndexedMap or if it overrides some method in the
-     * NameIndexedMap
+     * Checks if {@code symbol} is present in {@code optLookup}, optionally falling back to an
+     * overridden method in the lookup.
+     *
+     * <p>The method-name index avoids traversing supertypes when no model with the relevant name
+     * exists. A model on the method itself always takes precedence over an inherited model.
+     *
+     * @param symbol symbol to look up
+     * @param types for type operations
+     * @param optLookup map to check
+     * @param allowInheritedModelLookup true if we should look for a model in overridden methods
+     * @return the symbol for the method present in {@code optLookup}, possibly a method overriden
+     *     by {@code symbol}, or {@code null} if no such method exists
      */
     private static Symbol.@Nullable MethodSymbol lookupHandlingOverrides(
         Symbol.MethodSymbol symbol,
         Types types,
-        NameIndexedMap<Boolean> optLookup,
-        boolean checkSuperTypes) {
+        NameIndexedMap<?> optLookup,
+        boolean allowInheritedModelLookup) {
       if (optLookup.nameNotPresent(symbol)) {
         // no model matching the method name, so we don't need to check for overridden methods
         return null;
@@ -1761,15 +1769,13 @@ public class LibraryModelsHandler implements Handler {
       if (optLookup.get(symbol) != null) {
         return symbol;
       }
-      if (checkSuperTypes == false) {
-        // Consider only a model on the exact class and method, used when checking annotated code
-        return null;
-      }
-      // For unannotated code, we allow a single model to cover all overriding implementations /
-      // subtypes
-      for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
-        if (optLookup.get(superSymbol) != null) {
-          return superSymbol;
+      // No exact model exists. If the model can be inherited, look for a model on an
+      // overridden method.
+      if (allowInheritedModelLookup) {
+        for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
+          if (optLookup.get(superSymbol) != null) {
+            return superSymbol;
+          }
         }
       }
       return null;

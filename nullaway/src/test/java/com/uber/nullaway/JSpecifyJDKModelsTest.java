@@ -63,6 +63,57 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1732UnboundedWildcardInBytecode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Collection;
+            import java.util.Collections;
+            import java.util.List;
+            import java.util.Set;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static boolean bulkOperations(
+                  List<String> list,
+                  Collection<@Nullable String> nullableCollection,
+                  Set<@Nullable String> nullableSet) {
+                return list.containsAll(nullableCollection)
+                    || list.removeAll(nullableSet)
+                    || list.retainAll(nullableCollection);
+              }
+
+              static boolean disjoint(
+                  Collection<@Nullable String> first,
+                  Collection<@Nullable String> second) {
+                return Collections.disjoint(first, second);
+              }
+
+              static boolean ownUnbounded(Collection<?> collection) {
+                return collection.isEmpty();
+              }
+
+              static boolean callOwnUnbounded(Collection<@Nullable String> collection) {
+                return ownUnbounded(collection);
+              }
+
+              static boolean ownExtendsObject(Collection<? extends Object> collection) {
+                return collection.isEmpty();
+              }
+
+              static boolean callOwnExtendsObject(Collection<@Nullable String> collection) {
+                // BUG: Diagnostic contains: incompatible types
+                return ownExtendsObject(collection);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void listContainingNullsWithoutModel() {
     makeTestHelperWithArgs(
             // We specifically exclude the JSpecifyJDKModels flag here (so we can't use
@@ -329,6 +380,117 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                       // BUG: Diagnostic contains: Parameter has type BiFunction<? super String, ? super String, ? extends String>, but overridden method has parameter type BiFunction<? super String, ? super @Nullable String, ? extends @Nullable String>
                       remappingFunction) {
                 return null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapGetOrDefaultModelInheritedByOverrides() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Hashtable;
+            import java.util.LinkedHashMap;
+            import java.util.Map;
+            import java.util.TreeMap;
+            import java.util.concurrent.ConcurrentHashMap;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static String viaInterface(Map<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaTreeMap(TreeMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaHashMap(HashMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaLinkedHashMap(LinkedHashMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaHashtable(Hashtable<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static String viaConcurrentHashMap(ConcurrentHashMap<Long, String> m, long k) {
+                return m.getOrDefault(k, "");
+              }
+              static void nullableDefaults(
+                  Map<Long, String> map,
+                  TreeMap<Long, String> treeMap,
+                  HashMap<Long, String> hashMap,
+                  LinkedHashMap<Long, String> linkedHashMap,
+                  Hashtable<Long, String> hashtable,
+                  ConcurrentHashMap<Long, String> concurrentHashMap,
+                  long k,
+                  @Nullable String defaultValue) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault(k, defaultValue)' is @Nullable
+                map.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'treeMap.getOrDefault(k, defaultValue)' is @Nullable
+                treeMap.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'hashMap.getOrDefault(k, defaultValue)' is @Nullable
+                hashMap.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'linkedHashMap.getOrDefault(k, defaultValue)' is @Nullable
+                linkedHashMap.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'hashtable.getOrDefault(k, defaultValue)' is @Nullable
+                hashtable.getOrDefault(k, defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'concurrentHashMap.getOrDefault(k, defaultValue)' is @Nullable
+                concurrentHashMap.getOrDefault(k, defaultValue).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void collectionToArrayOverrideUsesJSpecifyModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.AbstractList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static @Nullable Object[] modeledCall(List<String> list) {
+                return list.toArray();
+              }
+              static Object[] invalidCall(List<String> list) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable Object [] cannot be converted to Object []
+                return list.toArray();
+              }
+              static class DelegatingList extends AbstractList<String> {
+                private final List<String> delegate;
+                DelegatingList(List<String> delegate) {
+                  this.delegate = delegate;
+                }
+                @Override public String get(int index) {
+                  return delegate.get(index);
+                }
+                @Override public int size() {
+                  return delegate.size();
+                }
+                @Override public @Nullable Object[] toArray() {
+                  return delegate.toArray();
+                }
+              }
+              static class NonNullElementsList extends AbstractList<String> {
+                @Override public String get(int index) {
+                  throw new IndexOutOfBoundsException();
+                }
+                @Override public int size() {
+                  return 0;
+                }
+                @Override public Object[] toArray() {
+                  return new Object[0];
+                }
               }
             }
             """)

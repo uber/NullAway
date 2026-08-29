@@ -45,6 +45,9 @@ public class NullnessStore implements Store<NullnessStore> {
 
   private static final NullnessStore EMPTY = new NullnessStore(ImmutableMap.of());
 
+  /** Canonical representation of a store for an unreachable control-flow path. */
+  private static final NullnessStore UNREACHABLE = new NullnessStore(ImmutableMap.of());
+
   private final ImmutableMap<AccessPath, Nullness> contents;
 
   private NullnessStore(Map<AccessPath, Nullness> contents) {
@@ -58,6 +61,25 @@ public class NullnessStore implements Store<NullnessStore> {
    */
   public static NullnessStore empty() {
     return EMPTY;
+  }
+
+  /**
+   * Produce the canonical store for an unreachable control-flow path.
+   *
+   * @return the unreachable store
+   */
+  static NullnessStore unreachable() {
+    return UNREACHABLE;
+  }
+
+  /**
+   * Check whether this store represents an unreachable control-flow path.
+   *
+   * @return {@code true} if this is the canonical unreachable store
+   */
+  @SuppressWarnings("ReferenceEquality")
+  boolean isUnreachable() {
+    return this == UNREACHABLE;
   }
 
   /**
@@ -160,6 +182,9 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   public Builder toBuilder() {
+    if (isUnreachable()) {
+      throw new IllegalStateException("cannot create a builder from the unreachable store");
+    }
     return new Builder(this);
   }
 
@@ -174,9 +199,15 @@ public class NullnessStore implements Store<NullnessStore> {
     if (this == other) {
       return this;
     }
+    if (this == UNREACHABLE) {
+      return other;
+    }
     ImmutableMap<AccessPath, Nullness> thisContents = this.contents;
     int thisContentsSize = thisContents.size();
     if (thisContentsSize == 0) {
+      return this;
+    }
+    if (other == UNREACHABLE) {
       return this;
     }
     ImmutableMap<AccessPath, Nullness> otherContents = other.contents;
@@ -210,6 +241,7 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   @Override
+  @SuppressWarnings("ReferenceEquality")
   public boolean equals(@Nullable Object o) {
     if (this == o) {
       return true;
@@ -217,17 +249,20 @@ public class NullnessStore implements Store<NullnessStore> {
     if (!(o instanceof NullnessStore other)) {
       return false;
     }
+    if (this == UNREACHABLE || other == UNREACHABLE) {
+      return false;
+    }
     return contents.equals(other.contents);
   }
 
   @Override
   public int hashCode() {
-    return contents.hashCode();
+    return isUnreachable() ? 31 : contents.hashCode();
   }
 
   @Override
   public String toString() {
-    return contents.toString();
+    return isUnreachable() ? "UNREACHABLE" : contents.toString();
   }
 
   @Override
@@ -257,6 +292,9 @@ public class NullnessStore implements Store<NullnessStore> {
    */
   public NullnessStore uprootAccessPaths(
       Map<LocalVariableNode, LocalVariableNode> localVarTranslations) {
+    if (isUnreachable()) {
+      return this;
+    }
     NullnessStore.Builder nullnessBuilder = NullnessStore.empty().toBuilder();
     for (AccessPath ap : contents.keySet()) {
       Element element = ap.getRoot();
@@ -282,6 +320,9 @@ public class NullnessStore implements Store<NullnessStore> {
    * @return NullnessStore containing only AccessPaths that pass the predicate
    */
   public NullnessStore filterAccessPaths(Predicate<AccessPath> pred) {
+    if (isUnreachable()) {
+      return this;
+    }
     return new NullnessStore(
         contents.entrySet().stream()
             .filter(e -> pred.test(e.getKey()))

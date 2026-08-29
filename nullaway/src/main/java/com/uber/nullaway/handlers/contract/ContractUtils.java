@@ -77,9 +77,10 @@ public class ContractUtils {
    * @param state The current visitor state.
    * @param callee Symbol for callee.
    * @param numOfArguments Number of arguments in the method associated with the contract.
-   * @return antecedents in the contract.
+   * @return antecedents in the contract, or {@code null} if their count does not match {@code
+   *     numOfArguments}
    */
-  static String[] getAntecedent(
+  static String @Nullable [] getAntecedent(
       String clause,
       Tree tree,
       NullAway analysis,
@@ -110,6 +111,9 @@ public class ContractUtils {
                   analysis.buildDescription(tree),
                   state,
                   null));
+    }
+    if (antecedent.length != numOfArguments) {
+      return null;
     }
     return antecedent;
   }
