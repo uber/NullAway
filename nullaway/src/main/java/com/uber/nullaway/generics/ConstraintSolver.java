@@ -22,12 +22,25 @@ public interface ConstraintSolver {
     /** Type variable on which the contradiction was detected */
     private final Element typeVariable;
 
+    /** Whether a {@code @Nullable} constraint conflicts with the type variable's upper bound. */
+    private final boolean causedByNonNullUpperBound;
+
     public UnsatisfiableConstraintsException(Element typeVariable) {
+      this(typeVariable, false);
+    }
+
+    public UnsatisfiableConstraintsException(
+        Element typeVariable, boolean causedByNonNullUpperBound) {
       this.typeVariable = typeVariable;
+      this.causedByNonNullUpperBound = causedByNonNullUpperBound;
     }
 
     public Element getTypeVariable() {
       return typeVariable;
+    }
+
+    public boolean isCausedByNonNullUpperBound() {
+      return causedByNonNullUpperBound;
     }
   }
 

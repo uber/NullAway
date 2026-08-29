@@ -222,7 +222,7 @@ public class GenericLambdaTests extends NullAwayTestsBase {
             final class Test {
                 static void reproduce() {
                     var future = future();
-                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
                     run(() -> future.join());
                 }
                 private static CompletableFuture<?> future() {
