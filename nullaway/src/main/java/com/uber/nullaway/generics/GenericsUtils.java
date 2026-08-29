@@ -144,7 +144,13 @@ public class GenericsUtils {
       }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    return Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return true;
+    }
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    }
+    return false;
   }
 
   private static boolean fromUnannotatedMethodOrClass(

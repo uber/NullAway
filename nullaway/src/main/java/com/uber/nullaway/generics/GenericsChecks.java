@@ -2667,11 +2667,6 @@ public final class GenericsChecks {
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return true;
     }
-    // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
-    // In that case, use the declaration-site nullability of that type variable's upper bound.
-    if (upperBound.getKind() == TypeKind.TYPEVAR) {
-      return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
-    }
     // Member-type substitution (asMemberOf) can strip type-use @Nullable from a concrete method
     // type-variable bound while leaving the bound type itself (e.g. Object). Example that needs
     // this fallback:
@@ -2679,14 +2674,17 @@ public final class GenericsChecks {
     //   class Baz implements Foo { public <T extends @Nullable Object> void bar(T arg) {} }
     // After substitution the bound may look like plain Object with no annotation mirrors; without
     // consulting the original declaration we would treat the overridden bound as non-null and
-    // false-positive on a matching @Nullable override. Skip original bounds that are still type
-    // variables — those must be resolved via substitution (or the free type-var path above).
+    // false-positive on a matching @Nullable override.
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     Type originalBound =
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-    if (originalBound.getKind() != TypeKind.TYPEVAR
-        && Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+    if (Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
       return true;
+    }
+    // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
+    // In that case, use the declaration-site nullability of that type variable's upper bound.
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
     }
     return false;
   }
