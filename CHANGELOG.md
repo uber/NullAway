@@ -1,6 +1,43 @@
 Changelog
 =========
 
+Version 0.14.1
+--------------
+
+Several bug fixes in this release, particularly for `JSpecifyExperimental`.
+Thanks to all who tested out this mode, reported bugs, and contributed!  Please
+continue to test and send feedback.  See the 0.14.0 release notes below for
+more information on `JSpecifyExperimental`.
+
+* Fix restoring nullness annotations from an unbounded wildcard to a captured type (#1717)
+* JSpecify: support anonymous diamond classes by @subhramit (#1710)
+* Fix attribute errors reported during dataflow (#1736)
+* Apply library models to an overridden method type when checking overrides (#1722)
+* Deduplicate generic inference failure warnings (#1741)
+* Preserve nested nullness annotations through inheritance (#1742)
+* Fix crash for generic qualifiers in method references (#1744)
+* Cache immutable stubx library models (#1745)
+* Allow nullable method references for void functions (#1747)
+* Preserve nested nullness in enhanced-for variable types (#1748)
+* Track nullable elements in enhanced-for dataflow (#1749)
+* Honor ignored methods in null-marked library models (#1753)
+* Avoid crashes on malformed `@Contract` arity (fixes #1726) (#1756)
+* Inherit null-implies-null models across overrides (#1758)
+* Fix inference for annotated type variable uses (#1759)
+* Preserve contract unreachability across store joins (#1761)
+* Prevent recursion on self-referential wildcard bounds (#1763)
+* Work around pre-JDK-25 limitations in reading upper bounds from wildcard arguments in bytecode (#1764)
+* Improve diagnostics for non-null type variable bounds (#1770)
+* Fix override checks for method type variables bounded by a class type variable by @pivovarit (#1775)
+* Maintenance
+  - Migrate FrameworkTests to `addSourceLines` by @abdeltaehass (#1712)
+  - Attribute errors reported during dataflow to the right file by @vlsi (#1734)
+  - Disable CodeRabbit summaries (#1755)
+  - Add tests for overrides of `Collection.toArray` (#1757)
+  - Assert the full set of diagnostics for annotated type-variable uses by @vlsi (#1768)
+  - Document that a `nullImpliesNull` model applies to overriding methods by @vlsi (#1771)
+  - Add tests for the JSpecify nullness operator by @vlsi (#1767)
+
 Version 0.14.0
 --------------
 
