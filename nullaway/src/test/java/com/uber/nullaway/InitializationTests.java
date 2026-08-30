@@ -2,7 +2,7 @@ package com.uber.nullaway;
 
 import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
 
-import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.tools.DualModeCompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
 
@@ -13,7 +13,8 @@ public class InitializationTests extends NullAwayTestsBase {
    * @param helper compilation helper to configure
    * @return the same helper, with the shared utility source added
    */
-  private CompilationTestHelper addReadBeforeInitUtil(CompilationTestHelper helper) {
+  private DualModeCompilationTestHelper addReadBeforeInitUtil(
+      DualModeCompilationTestHelper helper) {
     return helper.addSourceLines("Util.java", UTIL_SOURCE);
   }
 
