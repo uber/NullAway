@@ -3,7 +3,6 @@ package com.uber.nullaway.jspecify;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.common.truth.Truth.assertWithMessage;
 
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneJavaCompiler;
 import com.google.errorprone.FileManagers;
 import com.google.errorprone.FileObjects;
@@ -11,6 +10,7 @@ import com.google.errorprone.scanner.ScannerSupplier;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.tools.DualModeCompilationTestHelper;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
@@ -209,7 +209,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
    * compatibility diagnostic alone; see https://github.com/uber/NullAway/issues/1730.
    *
    * <p>This has to assert the whole set of diagnostics, so it cannot live in {@link
-   * GenericMethodTests}: {@code CompilationTestHelper} accepts a line whose {@code // BUG:
+   * GenericMethodTests}: {@code DualModeCompilationTestHelper} accepts a line whose {@code // BUG:
    * Diagnostic contains:} comment matches one diagnostic even when the line carries another. The
    * source below therefore carries every shape from that issue whose line still expects a
    * diagnostic. Both annotation checks in {@code
@@ -217,8 +217,8 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
    * {@code @Nullable} on a use and an explicit {@code @NonNull} on a parameter. The call with an
    * explicit type witness reaches neither, because a witness skips inference; it is here as one of
    * the issue's shapes, and it guards against such a call acquiring an inference failure of its
-   * own. A shape whose line expects nothing needs no help, since {@code CompilationTestHelper}
-   * rejects any diagnostic there.
+   * own. A shape whose line expects nothing needs no help, since {@code
+   * DualModeCompilationTestHelper} rejects any diagnostic there.
    */
   @Test
   public void annotatedTypeVariableUseIsNotAnInferenceFailure() {
@@ -363,7 +363,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
     return fileName + ":" + diagnostic.getLineNumber() + ": " + message;
   }
 
-  private CompilationTestHelper makeHelper() {
+  private DualModeCompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));

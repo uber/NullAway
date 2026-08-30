@@ -1,19 +1,16 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.tools.DualModeCompilationTestHelper;
 import java.util.List;
 import org.junit.Ignore;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
-@RunWith(JUnit4.class)
 public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
 
   @Test
   public void modelsDisabledDoesNotLoadAstubxModel() {
-    CompilationTestHelper compilationTestHelper =
+    DualModeCompilationTestHelper compilationTestHelper =
         makeTestHelperWithArgs(List.of("-XepOpt:NullAway:AnnotatedPackages=foo"))
             .addSourceLines(
                 "Test.java",
@@ -530,7 +527,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper makeHelper() {
+  private DualModeCompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
   }

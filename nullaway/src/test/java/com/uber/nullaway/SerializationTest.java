@@ -38,6 +38,7 @@ import com.uber.nullaway.tools.DisplayFactory;
 import com.uber.nullaway.tools.ErrorDisplay;
 import com.uber.nullaway.tools.FieldInitDisplay;
 import com.uber.nullaway.tools.SerializationTestHelper;
+import com.uber.nullaway.tools.SkipBytecodeTestMode;
 import com.uber.nullaway.tools.version1.ErrorDisplayV1;
 import java.io.IOException;
 import java.io.UncheckedIOException;
@@ -48,14 +49,13 @@ import java.util.Arrays;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.mockito.stubbing.Answer;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
-@RunWith(JUnit4.class)
+@SkipBytecodeTestMode(
+    "the tests assert on the fix-serialization output files, which one compilation writes once")
 public class SerializationTest extends NullAwayTestsBase {
   private String configPath;
   private Path root;
