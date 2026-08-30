@@ -444,6 +444,37 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
 
   @Ignore("https://github.com/uber/NullAway/issues/1727")
   @Test
+  public void issue1727EnhancedForLoopFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            import java.util.Collection;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Repro<E extends @Nullable Object> {
+              boolean add(E element) {
+                return false;
+              }
+
+              boolean addAll(Collection<? extends E> elements) {
+                boolean changed = false;
+                for (E element : elements) {
+                  if (add(element)) {
+                    changed = true;
+                  }
+                }
+                return changed;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1727")
+  @Test
   public void issue1727WildcardDirectArgumentFalsePositive() {
     makeHelper()
         .addSourceLines(
