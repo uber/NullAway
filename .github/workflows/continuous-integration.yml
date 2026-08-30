@@ -45,12 +45,20 @@ jobs:
         run: ./gradlew javaToolchains
       - name: Build and test
         run: ./gradlew build
+        env:
+          # The Linux build produces the execution data consumed by the Codecov aggregation step.
+          # Keep ordinary macOS and Windows test runs free of JaCoCo instrumentation overhead.
+          ORG_GRADLE_PROJECT_enableJacoco: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
       - name: Run shellcheck
         run: ./gradlew shellcheck
         if: runner.os == 'Linux'
       - name: Aggregate jacoco coverage
         id: jacoco_report
         run: ./gradlew codeCoverageReport
+        env:
+          # Use the same test-task configuration as the preceding Linux build so its JaCoCo
+          # execution data remains up-to-date and is included in the aggregate XML report.
+          ORG_GRADLE_PROJECT_enableJacoco: 'true'
         continue-on-error: true
         if: runner.os == 'Linux' && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
