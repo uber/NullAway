@@ -3,10 +3,8 @@ package com.uber.nullaway.jspecify;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import com.uber.nullaway.tools.DualModeCompilationTestHelper;
-import com.uber.nullaway.tools.TestMode;
 import java.util.Arrays;
 import java.util.Collections;
-import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -1845,11 +1843,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void issue1453() {
-    // The JDK decides this, not the Error Prone version: JDK 21 passes with the same Error Prone
-    // that JDK 17 fails with.
-    Assume.assumeTrue(
-        "the bytecode run fails on JDK 17; see https://github.com/uber/NullAway/issues/1791",
-        testMode == TestMode.SOURCE || Runtime.version().feature() > 17);
     makeHelper()
         .addSourceLines(
             "NullUtil.java",

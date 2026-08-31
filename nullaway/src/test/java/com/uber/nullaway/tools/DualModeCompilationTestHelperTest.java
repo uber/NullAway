@@ -275,7 +275,8 @@ public class DualModeCompilationTestHelperTest {
         values.add(options.get(++i));
       }
     }
-    assertEquals("javac takes the last classpath option, so exactly one may be passed", 1, values.size());
+    assertEquals(
+        "javac takes the last classpath option, so exactly one may be passed", 1, values.size());
     return values.get(0);
   }
 
