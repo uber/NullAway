@@ -22,9 +22,14 @@
 
 package com.uber.nullaway.tools;
 
+import static org.junit.Assert.assertEquals;
 import static org.junit.Assert.assertThrows;
 
 import com.uber.nullaway.NullAway;
+import java.io.File;
+import java.nio.file.Path;
+import java.nio.file.Paths;
+import java.util.ArrayList;
 import java.util.List;
 import org.junit.AssumptionViolatedException;
 import org.junit.Test;
@@ -244,6 +249,67 @@ public class DualModeCompilationTestHelperTest {
                   public void unmarkedError(@Nullable Object o) { o.toString(); }
                 }
                 """));
+  }
+
+  /** The spellings javac accepts for the classpath option, each with the value {@code custom}. */
+  private static final List<List<String>> CLASSPATH_SPELLINGS =
+      List.of(
+          List.of("-classpath", "custom"),
+          List.of("-cp", "custom"),
+          List.of("--class-path", "custom"),
+          List.of("--class-path=custom"));
+
+  /**
+   * Returns the value of the single classpath option in a javac command line.
+   *
+   * @param options the javac arguments
+   * @return the classpath
+   */
+  private static String onlyClasspath(List<String> options) {
+    List<String> values = new ArrayList<>();
+    for (int i = 0; i < options.size(); i++) {
+      String option = options.get(i);
+      if (option.startsWith("--class-path=")) {
+        values.add(option.substring("--class-path=".length()));
+      } else if (List.of("-classpath", "-cp", "--class-path").contains(option)) {
+        values.add(options.get(++i));
+      }
+    }
+    assertEquals("javac takes the last classpath option, so exactly one may be passed", 1, values.size());
+    return values.get(0);
+  }
+
+  @Test
+  public void aDeclaredClasspathReachesBothCompilations() {
+    Path classes = Paths.get("classes");
+    for (List<String> spelling : CLASSPATH_SPELLINGS) {
+      List<String> args = new ArrayList<>(List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber"));
+      args.addAll(spelling);
+      DualModeCompilationTestHelper helper =
+          DualModeCompilationTestHelper.newInstance(NullAway.class, getClass(), TestMode.BYTECODE)
+              .setArgs(args);
+      assertEquals(
+          "sources becoming class files are compiled against what the test declared: " + spelling,
+          "custom",
+          onlyClasspath(helper.javacOptions(classes)));
+      assertEquals(
+          "analyzed sources see the class files ahead of what the test declared: " + spelling,
+          classes + File.pathSeparator + "custom",
+          onlyClasspath(helper.argsWithClasspath(classes)));
+    }
+  }
+
+  @Test
+  public void withoutADeclaredClasspathBothCompilationsUseTheRuntimeClasspath() {
+    Path classes = Paths.get("classes");
+    DualModeCompilationTestHelper helper =
+        DualModeCompilationTestHelper.newInstance(NullAway.class, getClass(), TestMode.BYTECODE)
+            .setArgs(List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber"));
+    String runtimeClasspath = System.getProperty("java.class.path");
+    assertEquals(runtimeClasspath, onlyClasspath(helper.javacOptions(classes)));
+    assertEquals(
+        classes + File.pathSeparator + runtimeClasspath,
+        onlyClasspath(helper.argsWithClasspath(classes)));
   }
 
   @Test

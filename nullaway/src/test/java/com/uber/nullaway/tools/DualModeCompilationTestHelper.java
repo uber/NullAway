@@ -80,6 +80,11 @@ public final class DualModeCompilationTestHelper {
   private static final List<String> BUG_MARKERS =
       List.of("// BUG: Diagnostic contains:", "// BUG: Diagnostic matches:");
 
+  private static final List<String> CLASSPATH_OPTIONS =
+      List.of("-classpath", "-cp", "--class-path");
+
+  private static final String CLASS_PATH_PREFIX = "--class-path=";
+
   private final Class<? extends BugChecker> checker;
   private final Class<?> resourceClass;
   private final TestMode testMode;
@@ -395,12 +400,13 @@ public final class DualModeCompilationTestHelper {
 
   /**
    * Returns the javac arguments for the sources that become class files. Error Prone arguments are
-   * dropped, since no check runs on those sources.
+   * dropped, since no check runs on those sources, and the classpath is stated once so that these
+   * sources see what the test declared rather than what javac happened to read last.
    *
    * @param classes the directory the class files are written to
    * @return the javac arguments
    */
-  private List<String> javacOptions(Path classes) {
+  List<String> javacOptions(Path classes) {
     List<String> options =
         new ArrayList<>(
             List.of(
@@ -410,7 +416,7 @@ public final class DualModeCompilationTestHelper {
                 "-d",
                 classes.toString(),
                 "-classpath",
-                runtimeClasspath()));
+                declaredClasspath()));
     List<String> declared = javacArgs();
     options.addAll(declared);
     if (declared.stream().noneMatch(arg -> arg.startsWith("-proc") || arg.equals("-processor"))) {
@@ -422,12 +428,13 @@ public final class DualModeCompilationTestHelper {
   /** Returns the arguments the test declared, without the Error Prone and output-directory ones. */
   private List<String> javacArgs() {
     List<String> result = new ArrayList<>();
-    for (int i = 0; i < args.size(); i++) {
-      String arg = args.get(i);
+    List<String> withoutClasspath = argsWithoutClasspath();
+    for (int i = 0; i < withoutClasspath.size(); i++) {
+      String arg = withoutClasspath.get(i);
       if (arg.startsWith("-Xep")) {
         continue;
       }
-      if (arg.equals("-d") || arg.equals("-classpath") || arg.equals("-cp")) {
+      if (arg.equals("-d")) {
         i++;
         continue;
       }
@@ -442,10 +449,51 @@ public final class DualModeCompilationTestHelper {
    * @param classes the directory holding the class files
    * @return the javac arguments
    */
-  private List<String> argsWithClasspath(Path classes) {
-    List<String> result = new ArrayList<>(args);
+  List<String> argsWithClasspath(Path classes) {
+    List<String> result = argsWithoutClasspath();
     result.add("-classpath");
-    result.add(classes + File.pathSeparator + runtimeClasspath());
+    result.add(classes + File.pathSeparator + declaredClasspath());
+    return result;
+  }
+
+  /**
+   * Returns the classpath the test declared, or the runtime classpath when it declared none.
+   *
+   * <p>javac takes the last classpath option it is given, so this does too. A test that names a
+   * classpath means it for both compilations of bytecode mode: the sources that become class files
+   * are compiled against it, and the analyzed sources see it behind the class files.
+   *
+   * @return the classpath
+   */
+  private String declaredClasspath() {
+    String classpath = runtimeClasspath();
+    for (int i = 0; i < args.size(); i++) {
+      String arg = args.get(i);
+      if (arg.startsWith(CLASS_PATH_PREFIX)) {
+        classpath = arg.substring(CLASS_PATH_PREFIX.length());
+      } else if (CLASSPATH_OPTIONS.contains(arg) && i + 1 < args.size()) {
+        classpath = args.get(++i);
+      }
+    }
+    return classpath;
+  }
+
+  /**
+   * Returns the arguments the test declared, with every spelling of the classpath option removed.
+   */
+  private List<String> argsWithoutClasspath() {
+    List<String> result = new ArrayList<>();
+    for (int i = 0; i < args.size(); i++) {
+      String arg = args.get(i);
+      if (arg.startsWith(CLASS_PATH_PREFIX)) {
+        continue;
+      }
+      if (CLASSPATH_OPTIONS.contains(arg)) {
+        i++;
+        continue;
+      }
+      result.add(arg);
+    }
     return result;
   }
 

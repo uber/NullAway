@@ -1777,9 +1777,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void issue1453() {
-    // The JDK pins the observable condition rather than the cause.
+    // The JDK decides this, not the Error Prone version: JDK 21 passes with the same Error Prone
+    // that JDK 17 fails with.
     Assume.assumeTrue(
-        "the bytecode run fails on JDK 17, and no task pairs JDK 17 with the current Error Prone",
+        "the bytecode run fails on JDK 17; see https://github.com/uber/NullAway/issues/1791",
         testMode == TestMode.SOURCE || Runtime.version().feature() > 17);
     makeHelper()
         .addSourceLines(
