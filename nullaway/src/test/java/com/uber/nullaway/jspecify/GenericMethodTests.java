@@ -1777,11 +1777,10 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
   public void issue1453() {
-    // The JDK decides this, not the Error Prone version: JDK 21 passes with the same Error Prone
-    // that JDK 17 fails with.
     Assume.assumeTrue(
-        "the bytecode run fails on JDK 17; see https://github.com/uber/NullAway/issues/1791",
-        testMode == TestMode.SOURCE || Runtime.version().feature() > 17);
+        "the bytecode run needs a JDK that carries -XDaddTypeAnnotationsToSymbol;"
+            + " see https://github.com/uber/NullAway/issues/1791",
+        testMode == TestMode.SOURCE || jdkCarriesTypeAnnotationsFromBytecode());
     makeHelper()
         .addSourceLines(
             "NullUtil.java",
@@ -2349,6 +2348,25 @@ public class GenericMethodTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  /**
+   * Says whether this JDK reads type annotations from a class file onto the symbol, which JSpecify
+   * mode needs and which {@code -XDaddTypeAnnotationsToSymbol} turns on. JDK 22 does it
+   * unconditionally, and the flag was backported to 17.0.19 and 21.0.8; an older JDK ignores the
+   * flag, and NullAway then reports an inference failure against a class file that it does not
+   * report against the same code as source. See the JSpecify support matrix at
+   * https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions
+   *
+   * @return true when the running JDK carries the annotations
+   */
+  private static boolean jdkCarriesTypeAnnotationsFromBytecode() {
+    Runtime.Version version = Runtime.version();
+    return switch (version.feature()) {
+      case 17 -> version.compareToIgnoreOptional(Runtime.Version.parse("17.0.19")) >= 0;
+      case 21 -> version.compareToIgnoreOptional(Runtime.Version.parse("21.0.8")) >= 0;
+      default -> version.feature() >= 22;
+    };
   }
 
   private DualModeCompilationTestHelper makeHelper() {
