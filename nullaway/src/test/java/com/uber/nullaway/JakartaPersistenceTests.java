@@ -1,12 +1,13 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.tools.DualModeCompilationTestHelper;
 import org.junit.Test;
 
 @SuppressWarnings("deprecation")
 public class JakartaPersistenceTests extends NullAwayTestsBase {
 
-  private CompilationTestHelper addJpaAnnotationStubs(CompilationTestHelper helper) {
+  private DualModeCompilationTestHelper addJpaAnnotationStubs(
+      DualModeCompilationTestHelper helper) {
     return helper
         .addSourceLines(
             "jakarta/persistence/Access.java",

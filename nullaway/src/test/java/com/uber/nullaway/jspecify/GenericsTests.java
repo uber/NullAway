@@ -1,8 +1,8 @@
 package com.uber.nullaway.jspecify;
 
-import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.tools.DualModeCompilationTestHelper;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Assume;
@@ -3226,13 +3226,13 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper makeHelper() {
+  private DualModeCompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 
-  private CompilationTestHelper makeHelperWithoutJSpecifyMode() {
+  private DualModeCompilationTestHelper makeHelperWithoutJSpecifyMode() {
     return makeTestHelperWithArgs(List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber"));
   }
 }
