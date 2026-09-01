@@ -18,7 +18,9 @@ import java.util.List;
 public final class JSpecifyJavacConfig {
 
   public static final String JSPECIFY_MODE_FLAG = "-XepOpt:NullAway:JSpecifyMode=true";
-  public static final String ADD_TYPE_ANNOTATIONS_FLAG = "-XDaddTypeAnnotationsToSymbol=true";
+  public static final String ADD_TYPE_ANNOTATIONS_FLAG_NAME = "addTypeAnnotationsToSymbol";
+  public static final String ADD_TYPE_ANNOTATIONS_FLAG =
+      "-XD" + ADD_TYPE_ANNOTATIONS_FLAG_NAME + "=true";
   public static final String HANDLE_WILDCARD_GENERICS_FLAG =
       "-XepOpt:NullAway:HandleWildcardGenerics=true";
   public static final String JSPECIFY_EXPERIMENTAL = "-XepOpt:NullAway:JSpecifyExperimental=true";
@@ -51,14 +53,31 @@ public final class JSpecifyJavacConfig {
     Runtime.Version version = Runtime.version();
     if (version.feature() < 22) {
       Options opts = Options.instance(state.context);
-      String key = "addTypeAnnotationsToSymbol";
-      if (!opts.isSet(key)) {
+      if (!opts.isSet(ADD_TYPE_ANNOTATIONS_FLAG_NAME)) {
         return false;
       }
-      return Boolean.parseBoolean(opts.get(key));
+      // valid config if the flag is set to true, _and_ we are running on a JDK version that
+      // supports the flag
+      return Boolean.parseBoolean(opts.get(ADD_TYPE_ANNOTATIONS_FLAG_NAME))
+          && javacSupportsAddTypeAnnotationsToSymbol();
     } else {
       // JDK 22+ always has type annotations on symbols
       return true;
+    }
+  }
+
+  /**
+   * Detects whether the {@code -XDaddTypeAnnotationsToSymbol} flag is supported on JDK 17 or 21, by
+   * using reflection to detect the presence of a corresponding field on {@code ClassReader}. This
+   * is fragile, but, the relevant field name in JDKs 17 / 21 is unlikely to change.
+   */
+  static boolean javacSupportsAddTypeAnnotationsToSymbol() {
+    try {
+      Class<?> classReader = Class.forName("com.sun.tools.javac.jvm.ClassReader");
+      var ignored = classReader.getDeclaredField("addTypeAnnotationsToSymbol");
+      return true;
+    } catch (ClassNotFoundException | NoSuchFieldException e) {
+      return false;
     }
   }
 }
