@@ -44,7 +44,8 @@ public final class JSpecifyJavacConfig {
 
   /**
    * Checks that in JSpecify mode, either (1) we are running on JDK 22 or above, or (2) the user has
-   * passed {@code -XDaddTypeAnnotationsToSymbol=true} to javac
+   * passed {@code -XDaddTypeAnnotationsToSymbol=true} to javac _and_ the running javac version
+   * supports that flag
    *
    * @param state the visitor state
    * @return true if the javac configuration is valid for JSpecify mode, false otherwise
