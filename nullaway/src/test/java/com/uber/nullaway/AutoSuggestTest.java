@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
+
 import com.google.errorprone.BugCheckerRefactoringTestHelper;
 import com.sun.source.tree.Tree;
 import java.io.IOException;
@@ -49,6 +51,8 @@ public class AutoSuggestTest {
   @Test
   public void correctCastToNonNull() throws IOException {
     makeTestHelper()
+        .addInputLines("Util.java", UTIL_SOURCE)
+        .expectUnchanged()
         .addInputLines(
             "Test.java",
             """
@@ -68,6 +72,8 @@ public class AutoSuggestTest {
   @Test
   public void suggestCastToNonNull() throws IOException {
     makeTestHelper()
+        .addInputLines("Util.java", UTIL_SOURCE)
+        .expectUnchanged()
         .addInputLines(
             "Test.java",
             """
@@ -103,6 +109,8 @@ public class AutoSuggestTest {
   @Test
   public void suppressInsteadOfCastToNonNull() throws IOException {
     makeTestHelper()
+        .addInputLines("Util.java", UTIL_SOURCE)
+        .expectUnchanged()
         .addInputLines(
             "Test.java",
             """
@@ -154,6 +162,8 @@ public class AutoSuggestTest {
   @Test
   public void removeUnnecessaryCastToNonNull() throws IOException {
     makeTestHelper()
+        .addInputLines("Util.java", UTIL_SOURCE)
+        .expectUnchanged()
         .addInputLines(
             "Test.java",
             """
@@ -184,6 +194,8 @@ public class AutoSuggestTest {
   @Test
   public void removeUnnecessaryCastToNonNullMultiLine() throws IOException {
     makeTestHelper()
+        .addInputLines("Util.java", UTIL_SOURCE)
+        .expectUnchanged()
         .addInputLines(
             "Test.java",
             """
@@ -266,6 +278,8 @@ public class AutoSuggestTest {
   @Test
   public void suggestCastToNonNullPreserveComments() throws IOException {
     makeTestHelper()
+        .addInputLines("Util.java", UTIL_SOURCE)
+        .expectUnchanged()
         .addInputLines(
             "Test.java",
             """
@@ -392,6 +406,8 @@ public class AutoSuggestTest {
   @Test
   public void castToNonNullForUnboxing() throws IOException {
     makeTestHelper()
+        .addInputLines("Util.java", UTIL_SOURCE)
+        .expectUnchanged()
         .addInputLines(
             "Test.java",
             """

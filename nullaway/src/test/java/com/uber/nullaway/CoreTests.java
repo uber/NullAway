@@ -22,6 +22,8 @@
 
 package com.uber.nullaway;
 
+import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
+
 import java.util.Arrays;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,43 +32,6 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
 public class CoreTests extends NullAwayTestsBase {
-
-  /** Source for {@code com.uber.nullaway.testdata.Util}, shared by the castToNonNull tests. */
-  private static final String UTIL_SOURCE =
-      """
-      package com.uber.nullaway.testdata;
-
-      import javax.annotation.Nullable;
-
-      public class Util {
-
-        public static <T> T castToNonNull(@Nullable T x) {
-          if (x == null) {
-            throw new RuntimeException();
-          }
-          return x;
-        }
-
-        public static <T> T castToNonNull(@Nullable T x, String msg) {
-          if (x == null) {
-            throw new RuntimeException(msg);
-          }
-          return x;
-        }
-
-        public static <T> T castToNonNull(String msg, @Nullable T x, int counter) {
-          // counter is needed to distinguish this method from the previous one when T == String
-          if (x == null) {
-            throw new RuntimeException(msg);
-          }
-          return x;
-        }
-
-        public static <T> T id(T x) {
-          return x;
-        }
-      }
-      """;
 
   @Test
   public void coreNullabilityPositiveCases() {
