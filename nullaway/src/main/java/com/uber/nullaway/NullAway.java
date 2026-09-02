@@ -1963,11 +1963,27 @@ public class NullAway extends BugChecker
     return Description.NO_MATCH;
   }
 
-  private String invalidJSpecifyJavacConfigErrorMessage(
+  /**
+   * Returns an error message describing why the javac configuration is invalid for JSpecify mode.
+   */
+  static String invalidJSpecifyJavacConfigErrorMessage(
       JSpecifyJavacConfig.JavacConfigValidityResult validity) {
-    return "Running NullAway in JSpecify mode requires either JDK 22+"
-        + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
-        + " see https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.";
+    String requirement =
+        "Running NullAway in JSpecify mode requires either JDK 22+"
+            + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
+            + " see https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.";
+    return switch (validity) {
+      case FLAG_NOT_SET_TO_TRUE ->
+          requirement + " The flag -XDaddTypeAnnotationsToSymbol=true was not passed.";
+      case FLAG_NOT_SUPPORTED_BY_JAVAC ->
+          requirement
+              + " The flag -XDaddTypeAnnotationsToSymbol=true was passed, but it is not supported"
+              + " by the running JDK (version "
+              + Runtime.version()
+              + "). Typically, JDK 17.0.19+ or 21.0.8+ is required for flag support.";
+      case VALID ->
+          throw new IllegalArgumentException("Cannot create an error message for a valid config");
+    };
   }
 
   // UNBOXING CHECKS
