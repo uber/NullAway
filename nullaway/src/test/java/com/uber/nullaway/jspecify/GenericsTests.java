@@ -1908,6 +1908,84 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Fails when a diamond anonymous class loses the {@code @Nullable} on its supertype's type
+   * argument. See https://github.com/uber/NullAway/issues/1746
+   */
+  @Test
+  public void overrideDiamondAnonymousClassWithNestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                List<T> get();
+                void accept(List<T> values);
+              }
+              static void test() {
+                Foo<@Nullable String> foo = new Foo<>() {
+                  @Override
+                  public List<@Nullable String> get() { throw new AssertionError(); }
+                  @Override
+                  public void accept(List<@Nullable String> values) {}
+                };
+                Foo<@Nullable String> badFoo = new Foo<>() {
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public List<String> get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public void accept(List<String> values) {}
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Fails when an anonymous class loses the {@code @Nullable} on its supertype's type argument and
+   * the override wraps the type variable in an array. See
+   * https://github.com/uber/NullAway/issues/1746
+   */
+  @Test
+  public void overrideAnonymousClassWithArrayOfTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T[] get();
+                void accept(T[] values);
+              }
+              static void test() {
+                Foo<@Nullable String> explicit = new Foo<@Nullable String>() {
+                  @Override
+                  public @Nullable String[] get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: Parameter has type String [], but overridden method has parameter type @Nullable String []
+                  public void accept(String[] values) {}
+                };
+                Foo<@Nullable String> diamond = new Foo<>() {
+                  @Override
+                  public @Nullable String[] get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: Parameter has type String [], but overridden method has parameter type @Nullable String []
+                  public void accept(String[] values) {}
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void nullableGenericTypeVariableReturnType() {
     makeHelper()

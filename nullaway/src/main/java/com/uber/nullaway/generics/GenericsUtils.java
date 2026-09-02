@@ -59,6 +59,24 @@ public class GenericsUtils {
    */
   static Type wildcardUpperBound(
       WildcardType wildcardType, VisitorState state, Config config, Handler handler) {
+    return wildcardUpperBound(wildcardType, wildcardType.bound, state, config, handler);
+  }
+
+  /**
+   * Returns the effective upper bound of a wildcard, using {@code correspondingTypeVariable} when
+   * javac has not stored one on the wildcard itself.
+   *
+   * <p>Before JDK 23, javac does not associate wildcard type arguments read from classfiles with
+   * their corresponding formal type variables. The {@code correspondingTypeVariable} parameter
+   * allows the caller to provide that information, when available (see <a
+   * href="https://github.com/uber/NullAway/issues/1732">#1732</a>).
+   */
+  static Type wildcardUpperBound(
+      WildcardType wildcardType,
+      Type.@Nullable TypeVar correspondingTypeVariable,
+      VisitorState state,
+      Config config,
+      Handler handler) {
     Type upperBound;
     if (wildcardType.kind == BoundKind.EXTENDS) {
       upperBound = wildcardType.getExtendsBound();
@@ -68,7 +86,8 @@ public class GenericsUtils {
       // passed (confusingly stored in the `bound` field).  E.g., if we have class Foo<T extends
       // @Nullable Object>, and then see Foo<? super String>, we use @Nullable Object as the upper
       // bound.  If not present, default to Object.
-      Type.TypeVar formalTypeVar = wildcardType.bound;
+      Type.TypeVar formalTypeVar =
+          wildcardType.bound != null ? wildcardType.bound : correspondingTypeVariable;
       upperBound =
           formalTypeVar == null
               ? Symtab.instance(state.context).objectType
@@ -97,7 +116,9 @@ public class GenericsUtils {
    *
    * <p>A bound is nullable when the enclosing method or class comes from unannotated code, when a
    * library model overrides the bound nullability for the type variable, or when the declared upper
-   * bound has an explicit {@code @Nullable} annotation.
+   * bound has an explicit {@code @Nullable} annotation. An explicit {@code @NonNull} annotation on
+   * a type-variable bound takes precedence over nullability inherited from that type variable's
+   * upper bound.
    */
   static boolean upperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
@@ -125,7 +146,16 @@ public class GenericsUtils {
       }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    return Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return true;
+    }
+    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    }
+    return false;
   }
 
   private static boolean fromUnannotatedMethodOrClass(

@@ -81,13 +81,19 @@ public final class AccessPathNullnessAnalysis {
             state,
             apContext,
             analysis,
-            new CoreNullnessStoreInitializer(analysis.getGenericsChecks()));
+            new CoreNullnessStoreInitializer(analysis.getGenericsChecks()),
+            /* trackUnreachableStores= */ false);
     this.dataFlow = new DataFlow(config.assertsEnabled(), handler);
 
     if (config.checkContracts()) {
       this.contractNullnessPropagation =
           new AccessPathNullnessPropagation(
-              Nullness.NONNULL, state, apContext, analysis, new ContractNullnessStoreInitializer());
+              Nullness.NONNULL,
+              state,
+              apContext,
+              analysis,
+              new ContractNullnessStoreInitializer(),
+              /* trackUnreachableStores= */ true);
     }
   }
 
@@ -145,20 +151,16 @@ public final class AccessPathNullnessAnalysis {
   }
 
   /**
-   * Check if any access path in the store before an expression maps to {@link Nullness#BOTTOM} in
-   * contract dataflow.
+   * Check whether the store before an expression is unreachable in contract dataflow.
    *
    * @param exprPath tree path of expression
    * @param context Javac context
-   * @return true if any access path has {@link Nullness#BOTTOM} before the expression
+   * @return true if the store before the expression is unreachable
    */
-  public boolean hasBottomAccessPathForContractDataflow(TreePath exprPath, Context context) {
+  public boolean isUnreachableForContractDataflow(TreePath exprPath, Context context) {
     NullnessStore store =
         dataFlow.resultBeforeExpr(exprPath, context, castToNonNull(contractNullnessPropagation));
-    if (store == null) {
-      return false;
-    }
-    return !store.getAccessPathsWithValue(Nullness.BOTTOM).isEmpty();
+    return store != null && store.isUnreachable();
   }
 
   /**
