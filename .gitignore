@@ -105,3 +105,6 @@ tmp/
 
 # TeXlipse plugin
 .texlipse
+
+# npm dependencies of the CI matrix generator
+.github/workflows/node_modules

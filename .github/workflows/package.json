@@ -1,0 +1,9 @@
+{
+  "name": "nullaway-ci-matrix",
+  "private": true,
+  "description": "Generates the randomized job matrix for continuous-integration.yml",
+  "license": "Apache-2.0",
+  "dependencies": {
+    "@vlsi/github-actions-random-matrix": "^2.4.0"
+  }
+}
