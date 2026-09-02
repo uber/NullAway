@@ -57,7 +57,8 @@ public final class JSpecifyJavacConfig {
    * supports that flag
    *
    * @param state the visitor state
-   * @return true if the javac configuration is valid for JSpecify mode, false otherwise
+   * @return a {@link JavacConfigValidityResult} indicating whether the config is valid or why it is
+   *     invalid
    */
   public static JavacConfigValidityResult isValidJavacConfigForJSpecifyMode(VisitorState state) {
     Runtime.Version version = Runtime.version();
