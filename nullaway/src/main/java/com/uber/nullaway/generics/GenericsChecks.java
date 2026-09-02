@@ -1690,6 +1690,29 @@ public final class GenericsChecks {
       MemberReferenceTree memberReferenceTree,
       Symbol.MethodSymbol overridingMethod,
       VisitorState state) {
+    return getMemberReferenceMethodType(
+        memberReferenceTree, overridingMethod, /* qualifierExpressionType= */ null, state);
+  }
+
+  /**
+   * Gets the method type for a member reference.
+   *
+   * @param memberReferenceTree the member reference tree
+   * @param overridingMethod the method symbol for the referenced method
+   * @param qualifierExpressionType an adjusted type for the qualifier expression of the member
+   *     reference ({@code Foo} in a reference {@code Foo::bar}). For an unbound reference to a
+   *     generic instance method, javac compute the type of the qualifier expression as the generic
+   *     declaration type. Callers can provide a type instantiated from the functional interface
+   *     receiver, containing the appropriate type arguments.
+   * @param state the visitor state
+   * @return the method type for the member reference, with generics handled, or null if not in
+   *     JSpecify mode
+   */
+  Type.@Nullable MethodType getMemberReferenceMethodType(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol overridingMethod,
+      @Nullable Type qualifierExpressionType,
+      VisitorState state) {
     if (!config.isJSpecifyMode()) {
       return null;
     }
@@ -1698,7 +1721,10 @@ public final class GenericsChecks {
       // This handles any generic type parameters of the qualifier of the member reference, e.g. for
       // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
       // appears in the signature of m.
-      Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      Type qualifierType =
+          qualifierExpressionType != null
+              ? qualifierExpressionType
+              : ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
       if (qualifierType != null && !qualifierType.isRaw()) {
         result =
             TypeSubstitutionUtils.memberType(
