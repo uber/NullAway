@@ -18,7 +18,6 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -309,7 +308,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /* ---------- build final solution map ---------- */
-    Map<Element, InferredNullability> result = new HashMap<>();
+    Map<Element, InferredNullability> result = new LinkedHashMap<>();
     vars.forEach(
         (tv, st) -> {
           // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily
