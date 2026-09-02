@@ -79,6 +79,26 @@ jobs:
         run: ./gradlew publishToMavenLocal
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
+  suppression-remover-regression-tests:
+    name: "Suppression remover regression tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: Set up Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7.0.0
+        with:
+          python-version: '3.13'
+          cache: 'pip'
+          cache-dependency-path: scripts/nullaway-suppression-remover/pyproject.toml
+      - name: Install suppression remover test dependencies
+        working-directory: scripts/nullaway-suppression-remover
+        run: python -m pip install --editable '.[test]'
+      - name: Run suppression remover regression tests
+        working-directory: scripts/nullaway-suppression-remover
+        run: python -m pytest
   test-with-error-prone-snapshot:
     name: "Test with Error Prone snapshot"
     runs-on: ubuntu-latest
