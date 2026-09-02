@@ -42,6 +42,15 @@ public final class JSpecifyJavacConfig {
     return Collections.unmodifiableList(result);
   }
 
+  public enum JavacConfigValidityResult {
+    /** valid configuration */
+    VALID,
+    /** {@code -XDaddTypeAnnotationsToSymbol=true} is missing */
+    FLAG_NOT_SET_TO_TRUE,
+    /** JDK 17 or 21 and {@code -XDaddTypeAnnotationsToSymbol} is not supported */
+    FLAG_NOT_SUPPORTED_BY_JAVAC
+  }
+
   /**
    * Checks that in JSpecify mode, either (1) we are running on JDK 22 or above, or (2) the user has
    * passed {@code -XDaddTypeAnnotationsToSymbol=true} to javac _and_ the running javac version
@@ -50,20 +59,22 @@ public final class JSpecifyJavacConfig {
    * @param state the visitor state
    * @return true if the javac configuration is valid for JSpecify mode, false otherwise
    */
-  public static boolean isValidJavacConfigForJSpecifyMode(VisitorState state) {
+  public static JavacConfigValidityResult isValidJavacConfigForJSpecifyMode(VisitorState state) {
     Runtime.Version version = Runtime.version();
     if (version.feature() < 22) {
       Options opts = Options.instance(state.context);
-      if (!opts.isSet(ADD_TYPE_ANNOTATIONS_FLAG_NAME)) {
-        return false;
+      // The flag must be set to true
+      if (!opts.isSet(ADD_TYPE_ANNOTATIONS_FLAG_NAME)
+          || !Boolean.parseBoolean(opts.get(ADD_TYPE_ANNOTATIONS_FLAG_NAME))) {
+        return JavacConfigValidityResult.FLAG_NOT_SET_TO_TRUE;
       }
-      // valid config if the flag is set to true, _and_ we are running on a JDK version that
-      // supports the flag
-      return Boolean.parseBoolean(opts.get(ADD_TYPE_ANNOTATIONS_FLAG_NAME))
-          && javacSupportsAddTypeAnnotationsToSymbol();
+      // we must also be running on a JDK version that supports the flag
+      return javacSupportsAddTypeAnnotationsToSymbol()
+          ? JavacConfigValidityResult.VALID
+          : JavacConfigValidityResult.FLAG_NOT_SUPPORTED_BY_JAVAC;
     } else {
       // JDK 22+ always has type annotations on symbols
-      return true;
+      return JavacConfigValidityResult.VALID;
     }
   }
 

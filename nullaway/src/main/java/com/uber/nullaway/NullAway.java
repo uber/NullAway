@@ -1905,13 +1905,12 @@ public class NullAway extends BugChecker
     }
     if (!checkedJDKVersionForJSpecifyMode) {
       checkedJDKVersionForJSpecifyMode = true;
-      if (config.isJSpecifyMode()
-          && !JSpecifyJavacConfig.isValidJavacConfigForJSpecifyMode(state)) {
-        String msg =
-            "Running NullAway in JSpecify mode requires either JDK 22+"
-                + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
-                + " see https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.";
-        throw new IllegalStateException(msg);
+      if (config.isJSpecifyMode()) {
+        JSpecifyJavacConfig.JavacConfigValidityResult validity =
+            JSpecifyJavacConfig.isValidJavacConfigForJSpecifyMode(state);
+        if (validity != JSpecifyJavacConfig.JavacConfigValidityResult.VALID) {
+          throw new IllegalStateException(invalidJSpecifyJavacConfigErrorMessage(validity));
+        }
       }
     }
     // Check if the class is excluded according to the filter
@@ -1962,6 +1961,13 @@ public class NullAway extends BugChecker
       checkFieldInitialization(tree, state);
     }
     return Description.NO_MATCH;
+  }
+
+  private String invalidJSpecifyJavacConfigErrorMessage(
+      JSpecifyJavacConfig.JavacConfigValidityResult validity) {
+    return "Running NullAway in JSpecify mode requires either JDK 22+"
+        + " or passing the flag -XDaddTypeAnnotationsToSymbol=true to an older JDK that supports it;"
+        + " see https://github.com/uber/NullAway/wiki/JSpecify-Support#supported-jdk-versions for details.";
   }
 
   // UNBOXING CHECKS
