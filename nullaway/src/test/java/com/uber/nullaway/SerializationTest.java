@@ -41,11 +41,13 @@ import com.uber.nullaway.tools.SerializationTestHelper;
 import com.uber.nullaway.tools.version1.ErrorDisplayV1;
 import java.io.IOException;
 import java.io.UncheckedIOException;
+import java.nio.charset.Charset;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Before;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -2746,6 +2748,43 @@ public class SerializationTest extends NullAwayTestsBase {
         "<nonnull_target>",
         "<target_kind>FIELD</target_kind>",
         "<target_class>com.uber.Foo</target_class>");
+  }
+
+  /**
+   * Serializer writes {@code string.getBytes(charset)} with {@code string.length()} as the byte
+   * count. That drops the trailing newline whenever a record contains a multi-byte character, so
+   * the next record is appended onto the same line.
+   */
+  @Test
+  public void tsvRowsWithMultibyteCharactersKeepTheirTrailingNewline() throws IOException {
+    Assume.assumeTrue("Café".getBytes(Charset.defaultCharset()).length > "Café".length());
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:SerializeFixMetadata=true",
+                "-XepOpt:NullAway:SerializeFixMetadataVersion=3",
+                "-XepOpt:NullAway:FixSerializationConfigPath=" + configPath))
+        .addSourceLines(
+            "com/uber/Cafe.java",
+            """
+            package com.uber;
+            public class Cafe {
+               Object café() {
+                   // BUG: Diagnostic contains: returning @Nullable
+                   return null;
+               }
+               Object other() {
+                   // BUG: Diagnostic contains: returning @Nullable
+                   return null;
+               }
+            }
+            """)
+        .doTest();
+    List<String> lines =
+        Files.readAllLines(root.resolve(ERROR_FILE_NAME), Charset.defaultCharset());
+    assertEquals(3, lines.size(), "header plus two error rows; a dropped newline merges the rows");
   }
 
   private void assertXmlContains(Path outputDir, String... fragments) {

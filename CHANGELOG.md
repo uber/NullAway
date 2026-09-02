@@ -29,6 +29,7 @@ more information on `JSpecifyExperimental`.
 * Work around pre-JDK-25 limitations in reading upper bounds from wildcard arguments in bytecode (#1764)
 * Improve diagnostics for non-null type variable bounds (#1770)
 * Fix override checks for method type variables bounded by a class type variable by @pivovarit (#1775)
+* Write the full encoded byte array when serializing TSV/XML rows by @AzazelSensei (#1788)
 * Maintenance
   - Migrate FrameworkTests to `addSourceLines` by @abdeltaehass (#1712)
   - Attribute errors reported during dataflow to the right file by @vlsi (#1734)
