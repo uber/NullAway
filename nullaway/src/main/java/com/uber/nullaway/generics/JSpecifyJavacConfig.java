@@ -69,7 +69,7 @@ public final class JSpecifyJavacConfig {
         return JavacConfigValidityResult.FLAG_NOT_SET_TO_TRUE;
       }
       // we must also be running on a JDK version that supports the flag
-      return javacSupportsAddTypeAnnotationsToSymbol()
+      return JAVAC_SUPPORTS_TYPE_ANNOTATIONS_ON_SYMBOLS
           ? JavacConfigValidityResult.VALID
           : JavacConfigValidityResult.FLAG_NOT_SUPPORTED_BY_JAVAC;
     } else {
@@ -78,17 +78,24 @@ public final class JSpecifyJavacConfig {
     }
   }
 
+  private static final boolean JAVAC_SUPPORTS_TYPE_ANNOTATIONS_ON_SYMBOLS =
+      Runtime.version().feature() > 21 || javacOnJDK17Or21SupportsAddTypeAnnotationsToSymbol();
+
   /**
    * Detects whether the {@code -XDaddTypeAnnotationsToSymbol} flag is supported on JDK 17 or 21, by
    * using reflection to detect the presence of a corresponding field on {@code ClassReader}. This
    * is fragile, but, the relevant field name in JDKs 17 / 21 is unlikely to change.
    */
-  static boolean javacSupportsAddTypeAnnotationsToSymbol() {
+  static boolean javacOnJDK17Or21SupportsAddTypeAnnotationsToSymbol() {
     try {
-      Class<?> classReader = Class.forName("com.sun.tools.javac.jvm.ClassReader");
+      Class<?> classReader =
+          Class.forName(
+              "com.sun.tools.javac.jvm.ClassReader",
+              false,
+              JSpecifyJavacConfig.class.getClassLoader());
       var ignored = classReader.getDeclaredField("addTypeAnnotationsToSymbol");
       return true;
-    } catch (ClassNotFoundException | NoSuchFieldException e) {
+    } catch (ReflectiveOperationException | LinkageError | SecurityException e) {
       return false;
     }
   }
