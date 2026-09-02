@@ -1407,6 +1407,41 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Repro.java",
+            """
+            import java.util.Collection;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Repro<E extends @Nullable Object> {
+
+              boolean add(E element) {
+                return false;
+              }
+
+              boolean addAll(Collection<? extends E> elements) {
+                boolean changed = false;
+                for (E element : elements) {
+                  if (add(element)) {
+                    changed = true;
+                  }
+                }
+                return changed;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
