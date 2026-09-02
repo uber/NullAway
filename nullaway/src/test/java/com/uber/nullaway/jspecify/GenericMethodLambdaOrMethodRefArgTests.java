@@ -964,6 +964,74 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1795MapEntryKeyMethodReference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.Map.Entry;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void test() {
+                Map<String, @Nullable String> map = new HashMap<>();
+                map.put("foo", "bar");
+                map.entrySet().stream()
+                    .map(entry -> entry.getKey())
+                    .forEach(System.out::println);
+                map.entrySet().stream()
+                    .map(Entry::getKey)
+                    .forEach(System.out::println);
+                map.entrySet().stream()
+                    .map(Map.Entry::getKey)
+                    .forEach(System.out::println);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundGenericMethodReferenceQualifierTypeArguments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                T get() {
+                  throw new UnsupportedOperationException();
+                }
+                Wrapper<T> getWrapped() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class Wrapper<T extends @Nullable Object> {}
+              static void acceptNonNull(Function<Box<String>, String> function) {}
+              static void acceptNullable(
+                  Function<Box<@Nullable String>, @Nullable String> function) {}
+              static void acceptNullableReceiverWithMismatchedNestedReturn(
+                  Function<Box<@Nullable String>, Wrapper<String>> function) {}
+              static void test() {
+                acceptNonNull(Box::get);
+                acceptNullable(Box::get);
+                // BUG: Diagnostic contains: referenced method returns Wrapper<@Nullable String>
+                acceptNullableReceiverWithMismatchedNestedReturn(Box::getWrapped);
+                // BUG: Diagnostic contains: mismatched type parameter nullability
+                acceptNullable(Box<String>::get);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1528() {
     makeHelper()
         .addSourceLines(
