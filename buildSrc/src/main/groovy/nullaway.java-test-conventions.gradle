@@ -39,6 +39,18 @@ jacoco {
     toolVersion = "0.8.16-SNAPSHOT"
 }
 
+// Instrument test processes only when coverage is explicitly requested.  JaCoCo adds measurable
+// overhead to compilation-heavy tests, so ordinary local and CI test runs should not pay that cost.
+def enableJacoco = providers.gradleProperty("enableJacoco")
+        .map { it.toBoolean() }
+        .orElse(false)
+
+tasks.withType(Test).configureEach {
+    extensions.configure(JacocoTaskExtension) { jacocoExtension ->
+        jacocoExtension.enabled = enableJacoco.get()
+    }
+}
+
 // Do not generate reports for individual projects
 tasks.named("jacocoTestReport") {
     enabled = false

@@ -1133,13 +1133,26 @@ public final class GenericsChecks {
   public Nullness getEnhancedForLoopElementNullness(ExpressionTree expression, VisitorState state) {
     Type elementType =
         getEnhancedForLoopElementType(expression, state, /* calledFromDataflow= */ true);
+    if (!config.handleWildcardGenerics()
+        && elementType != null
+        && GenericsUtils.asWildcard(elementType) != null) {
+      // if we're not handling wildcards, always treat as non-null
+      return Nullness.NONNULL;
+    }
     return elementType == null
         ? Nullness.NONNULL
-        : getReturnTypeNullness(elementType, state, /* followTypeVarUpperBound= */ true);
+        : getTypeNullnessForRead(
+            elementType, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
   }
 
   /**
    * Gets the element type of an enhanced-for expression, preserving nested nullability annotations.
+   *
+   * @param expression the expression being iterated over
+   * @param state the visitor state
+   * @param calledFromDataflow whether this function was called from dataflow analysis
+   * @return the element type for the loop variable of the enhanced-for, or {@code null} if it can't
+   *     be found
    */
   private @Nullable Type getEnhancedForLoopElementType(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
@@ -1162,7 +1175,9 @@ public final class GenericsChecks {
       return null;
     }
     com.sun.tools.javac.util.List<Type> typeArguments = iterableType.getTypeArguments();
-    return GenericsUtils.effectiveWildcardUpperBound(typeArguments.head, state, config, handler);
+    return config.handleWildcardGenerics()
+        ? GenericsUtils.effectiveWildcardUpperBound(typeArguments.head, state, config, handler)
+        : typeArguments.head;
   }
 
   private @Nullable Type getInferredTypeForVarLocalDeclaration(
@@ -2667,10 +2682,8 @@ public final class GenericsChecks {
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return true;
     }
-    // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
-    // In that case, use the declaration-site nullability of that type variable's upper bound.
-    if (upperBound.getKind() == TypeKind.TYPEVAR) {
-      return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return false;
     }
     // Member-type substitution (asMemberOf) can strip type-use @Nullable from a concrete method
     // type-variable bound while leaving the bound type itself (e.g. Object). Example that needs
@@ -2679,14 +2692,20 @@ public final class GenericsChecks {
     //   class Baz implements Foo { public <T extends @Nullable Object> void bar(T arg) {} }
     // After substitution the bound may look like plain Object with no annotation mirrors; without
     // consulting the original declaration we would treat the overridden bound as non-null and
-    // false-positive on a matching @Nullable override. Skip original bounds that are still type
-    // variables — those must be resolved via substitution (or the free type-var path above).
+    // false-positive on a matching @Nullable override.
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     Type originalBound =
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-    if (originalBound.getKind() != TypeKind.TYPEVAR
-        && Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+    if (Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
       return true;
+    }
+    if (Nullness.hasNonNullAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
+    // In that case, use the declaration-site nullability of that type variable's upper bound.
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
     }
     return false;
   }
@@ -2818,7 +2837,7 @@ public final class GenericsChecks {
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
         overriddenMethodType.getClass());
-    return getReturnTypeNullness(overriddenMethodType.getReturnType(), state);
+    return getTypeNullnessForRead(overriddenMethodType.getReturnType(), state);
   }
 
   /**
@@ -3498,28 +3517,45 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the nullness of a return type. For wildcard and javac captured wildcard types, use the
-   * effective upper bound: a read from {@code Foo<? extends @Nullable Object>} or {@code Foo<?
-   * super String>} can produce any value permitted by the capture's upper bound.
+   * Returns the nullness of a value read from {@code type}. For wildcard and javac captured
+   * wildcard types, uses the effective upper bound: a read from {@code Foo<? extends @Nullable
+   * Object>} or {@code Foo<? super String>} can produce any value permitted by the capture's upper
+   * bound.
+   *
+   * @param type type from which a value is read
+   * @param state visitor state
+   * @return nullness of a value read from {@code type}
    */
-  private Nullness getReturnTypeNullness(Type type, VisitorState state) {
-    return getReturnTypeNullness(type, state, false);
+  private Nullness getTypeNullnessForRead(Type type, VisitorState state) {
+    return getTypeNullnessForRead(type, state, /* followUnsubstitutedTypeVarUpperBound= */ false);
   }
 
-  private Nullness getReturnTypeNullness(
-      Type type, VisitorState state, boolean followTypeVarUpperBound) {
+  /**
+   * Returns the nullness of a value read from {@code type}, optionally following the upper bound of
+   * an unsubstituted type variable.
+   *
+   * @param type type from which a value is read
+   * @param state visitor state
+   * @param followUnsubstitutedTypeVarUpperBound whether to use the upper bound when {@code type} is
+   *     an unsubstituted type variable
+   * @return nullness of a value read from {@code type}
+   */
+  private Nullness getTypeNullnessForRead(
+      Type type, VisitorState state, boolean followUnsubstitutedTypeVarUpperBound) {
     if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
     if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
       Type effectiveUpperBound =
           GenericsUtils.effectiveWildcardUpperBound(type, state, config, handler);
-      return getReturnTypeNullness(effectiveUpperBound, state, true);
+      return getTypeNullnessForRead(
+          effectiveUpperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
     }
-    if (followTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
+    if (followUnsubstitutedTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
       Type upperBound = typeVar.getUpperBound();
       if (upperBound != null) {
-        return getReturnTypeNullness(upperBound, state, true);
+        return getTypeNullnessForRead(
+            upperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
       }
     }
     return Nullness.NONNULL;
