@@ -188,11 +188,23 @@ shellcheck {
 //  Google Java Format pre-commit hook installation
 //
 
+// The hook goes into `.git/hooks`, which exists only where `.git` is a directory.  A linked worktree
+// has a `.git` file naming that worktree's git directory instead, and a source archive has no
+// `.git` at all; a `Copy` task pointed at either one fails validation.  A worktree loses no hook by
+// being skipped, since git runs the hooks of the shared repository that the main checkout installs
+// into.
+def dotGitDir = file('.git')
+def gitHooksDir = dotGitDir.isDirectory() ? new File(dotGitDir, 'hooks') : null
+
 tasks.register('installGitHooks', Copy) {
     from(file('config/hooks/pre-commit-stub')) {
         rename 'pre-commit-stub', 'pre-commit'
     }
-    into file('.git/hooks')
+    if (gitHooksDir == null) {
+        enabled = false
+    } else {
+        into gitHooksDir
+    }
     filePermissions {
         unix(0777)
     }
