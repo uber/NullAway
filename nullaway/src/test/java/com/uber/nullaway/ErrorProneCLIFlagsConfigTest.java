@@ -67,7 +67,8 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
   public void missingTypeAnnotationSymbolFlagForJSpecifyModeOnOlderJDK() {
     Assume.assumeTrue(Runtime.version().feature() < 22);
     CompilationTestHelper compilationTestHelper =
-        makeTestHelperWithArgs(
+        CompilationTestHelper.newInstance(NullAway.class, getClass())
+            .setArgs(
                 List.of("-XepOpt:NullAway:OnlyNullMarked", "-XepOpt:NullAway:JSpecifyMode=true"))
             .addSourceLines("Stub.java", "package com.uber; class Stub {}");
     AssertionError e = assertThrows(AssertionError.class, () -> compilationTestHelper.doTest());
