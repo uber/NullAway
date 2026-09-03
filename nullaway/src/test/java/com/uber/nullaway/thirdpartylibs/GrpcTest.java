@@ -88,7 +88,7 @@ public class GrpcTest {
   }
 
   @Test
-  public void ioGrpcMetadataAsMapPossitiveTest() {
+  public void ioGrpcMetadataAsMapPositiveTest() {
     ioGrpcCompilationTestHelper
         .addSourceLines(
             "Keys.java",
