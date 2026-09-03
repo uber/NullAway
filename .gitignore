@@ -105,3 +105,11 @@ tmp/
 
 # TeXlipse plugin
 .texlipse
+
+
+### NullAway suppression remover ###
+
+/scripts/nullaway-suppression-remover/.pytest_cache/
+/scripts/nullaway-suppression-remover/.venv/
+/scripts/nullaway-suppression-remover/**/__pycache__/
+/scripts/nullaway-suppression-remover/src/*.egg-info/

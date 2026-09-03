@@ -1,0 +1,25 @@
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "nullaway-suppression-remover"
+version = "0.1.0"
+description = "Remove unnecessary @SuppressWarnings annotations by iteratively building and restoring."
+requires-python = ">=3.10"
+dependencies = [
+    "tree-sitter>=0.23,<1",
+    "tree-sitter-java>=0.23,<1",
+]
+
+[project.scripts]
+suppression-remover = "suppression_remover.cli:main"
+
+[project.optional-dependencies]
+test = ["pytest>=7"]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
