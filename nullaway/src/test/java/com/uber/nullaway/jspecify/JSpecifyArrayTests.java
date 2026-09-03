@@ -257,6 +257,50 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1800() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test<E> {
+              void nullableElements(@Nullable Test[] array) {
+                array[0] = null;
+                Objects.requireNonNull(array)[0] = null;
+              }
+              void nonNullElements(Test[] array) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                array[0] = null;
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                Objects.requireNonNull(array)[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableAssignmentParameterArrayWithNonGenericElementType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test {
+              void foo(@Nullable Test[] array) {
+                array[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void arraySubtyping() {
     makeHelper()
         .addSourceLines(
