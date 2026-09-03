@@ -18,8 +18,8 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
 import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Element;
@@ -61,16 +61,23 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     final boolean nullableAllowed;
 
     NullnessState nullness = NullnessState.UNKNOWN;
-    final Set<Element> supertypes = new HashSet<>();
-    final Set<Element> subtypes = new HashSet<>();
+
+    /** Important to use a LinkedHashSet here for determinism in error messages. */
+    final Set<Element> supertypes = new LinkedHashSet<>();
+
+    /** Important to use a LinkedHashSet here for determinism in error messages. */
+    final Set<Element> subtypes = new LinkedHashSet<>();
 
     VarState(boolean nullableAllowed) {
       this.nullableAllowed = nullableAllowed;
     }
   }
 
-  /* All variables seen so far. */
-  private final Map<Element, VarState> vars = new HashMap<>();
+  /**
+   * All variables seen so far. Important to use a LinkedHashMap here for determinism in error
+   * messages.
+   */
+  private final Map<Element, VarState> vars = new LinkedHashMap<>();
 
   /* ───────────────────── public API ───────────────────── */
 
@@ -301,7 +308,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /* ---------- build final solution map ---------- */
-    Map<Element, InferredNullability> result = new HashMap<>();
+    Map<Element, InferredNullability> result = new LinkedHashMap<>();
     vars.forEach(
         (tv, st) -> {
           // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily

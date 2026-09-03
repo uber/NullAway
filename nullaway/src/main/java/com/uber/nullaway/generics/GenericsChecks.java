@@ -1337,7 +1337,7 @@ public final class GenericsChecks {
           callTree,
           allCalls,
           calledFromDataflow);
-      typeVarNullability = new HashMap<>(solver.solve());
+      typeVarNullability = new LinkedHashMap<>(solver.solve());
       // The solver only computes a solution for variables that appear in constraints. For
       // unconstrained variables, treat them as NONNULL, consistent with solver behavior for
       // unconstrained variables that do appear in the constraint graph.
