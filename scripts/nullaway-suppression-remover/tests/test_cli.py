@@ -95,6 +95,29 @@ class TestParseArgs(TestCase):
 
 
 class TestMain(TestCase):
+    def test_rejects_module_outside_project_root(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            parent = Path(tmpdir).resolve()
+            root = parent / "project"
+            outside = parent / "outside"
+            root.mkdir()
+            outside.mkdir()
+
+            for module in ("../outside", str(outside)):
+                with self.subTest(module=module):
+                    with (
+                        patch(
+                            "suppression_remover.cli.core.find_project_root",
+                            return_value=root,
+                        ),
+                        patch("suppression_remover.cli.core.run") as mock_run,
+                    ):
+                        with self.assertRaisesRegex(
+                            SystemExit, "outside the project root"
+                        ):
+                            main([module, "NullAway"])
+                        mock_run.assert_not_called()
+
     def test_project_root_requires_custom_build_command(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             root = Path(tmpdir).resolve()

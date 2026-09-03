@@ -477,6 +477,7 @@ def run_build(
         capture_output=True,
         text=True,
         cwd=str(project_root),
+        check=False,
     )
     return result.stdout + result.stderr, result.returncode == 0
 
@@ -491,7 +492,7 @@ def parse_checker_errors(build_output: str, checker: str) -> list[tuple[str, int
         some/path/File.java:42: warning: [NullAway] ...
     """
     pattern = re.compile(
-        r"^(\S+\.java):(\d+):\s+(?:error|warning):\s+\["
+        r"^[ \t>]*(.+?\.java):(\d+):\s+(?:error|warning):\s+\["
         + re.escape(checker)
         + r"\]",
         re.MULTILINE,

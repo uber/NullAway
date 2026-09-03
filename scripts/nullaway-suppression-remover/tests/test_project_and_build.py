@@ -213,6 +213,7 @@ class TestRunBuild(TestCase):
             self.assertIn(":mymodule:compileJava", cmd)
             self.assertIn(":mymodule:compileTestJava", cmd)
             self.assertIn("--continue", cmd)
+            self.assertIs(mock_run.call_args.kwargs["check"], False)
 
     def test_custom_build_cmd(self):
         with tempfile.TemporaryDirectory() as tmpdir:

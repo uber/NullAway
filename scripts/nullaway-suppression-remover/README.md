@@ -13,7 +13,7 @@ not been tested).
 
 ## Prerequisites
 
-- Python 3.9 or newer
+- Python 3.10 or newer
 - A working build for the project being processed
 - For the default build behavior, a Gradle project with either `gradlew` at its
   root or `gradle` on `PATH`

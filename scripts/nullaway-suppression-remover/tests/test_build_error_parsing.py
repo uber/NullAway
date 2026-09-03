@@ -41,6 +41,23 @@ class TestParseCheckerErrors(TestCase):
         errors = parse_checker_errors(output, "NullAway")
         self.assertEqual(errors, [("src/main/java/com/example/Foo.java", 10)])
 
+    def test_indented_diagnostic(self):
+        output = self._output(
+            "  > src/main/java/com/example/Foo.java:10: error: [NullAway] message"
+        )
+        errors = parse_checker_errors(output, "NullAway")
+        self.assertEqual(errors, [("src/main/java/com/example/Foo.java", 10)])
+
+    def test_path_containing_spaces(self):
+        output = self._output(
+            "module with spaces/src/main/java/Foo.java:12: error: [NullAway] message"
+        )
+        errors = parse_checker_errors(output, "NullAway")
+        self.assertEqual(
+            errors,
+            [("module with spaces/src/main/java/Foo.java", 12)],
+        )
+
     def test_multiple_files(self):
         output = self._output(
             "com/Foo.java:1: error: [NullAway] msg",

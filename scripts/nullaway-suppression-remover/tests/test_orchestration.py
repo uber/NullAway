@@ -168,6 +168,14 @@ class TestOrchestrationMixed(TestCase):
             ann_lines = [l for l in result.splitlines() if "@SuppressWarnings" in l]
             self.assertEqual(len(ann_lines), 1)
             self.assertIn("NullAway", ann_lines[0])
+            self.assertIn(
+                '    @SuppressWarnings("NullAway")\n    public void foo() {}\n',
+                result,
+            )
+            self.assertNotIn(
+                '    @SuppressWarnings("NullAway")\n    public void bar() {}\n',
+                result,
+            )
             self.assertIn("public void bar()", result)
 
 

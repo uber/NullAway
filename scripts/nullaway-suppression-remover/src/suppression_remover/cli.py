@@ -121,6 +121,8 @@ def main(input_args=None):
     module_dir = (project_root / args.module).resolve()
     if not module_dir.is_dir():
         sys.exit(f"Module directory does not exist: {module_dir}")
+    if module_dir != project_root and project_root not in module_dir.parents:
+        sys.exit(f"Module directory is outside the project root: {module_dir}")
 
     build_cmd = None
     if args.build_cmd:

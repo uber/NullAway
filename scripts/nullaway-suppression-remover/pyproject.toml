@@ -6,7 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "nullaway-suppression-remover"
 version = "0.1.0"
 description = "Remove unnecessary @SuppressWarnings annotations by iteratively building and restoring."
-requires-python = ">=3.9"
+requires-python = ">=3.10"
 dependencies = [
     "tree-sitter>=0.23,<1",
     "tree-sitter-java>=0.23,<1",
