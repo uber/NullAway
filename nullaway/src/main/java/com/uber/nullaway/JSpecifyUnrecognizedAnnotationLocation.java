@@ -152,8 +152,14 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
     private final String phrase;
 
     /**
-     * Whether the location covers the type usages nested inside it, so that a nullness annotation
+     * Whether the location covers the type usages written inside it, so that a nullness annotation
      * anywhere within the location is unrecognized too.
+     *
+     * <p>A location that does not cover them reaches its own root type and stops, which leaves the
+     * type argument in {@code (List<@Nullable String>) o} recognized. Compare {@code
+     * (List<@Nullable ?>) o}, reported as a wildcard because a cast stops short of it, with {@code
+     * o instanceof List<@Nullable ?>}, reported as the {@code instanceof} operand because JSpecify
+     * recognizes no type usage there at all.
      */
     private final boolean coversNestedTypes;
 
@@ -366,51 +372,60 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
 
   /**
    * Returns the location of a nullness annotation written directly on the type usage {@code tree},
-   * together with the tree a fix is built against.
+   * together with the tree a fix is built against. Call it only where {@code tree} carries such an
+   * annotation.
    *
-   * <p>Returns {@code null} where the annotation is not reported here: either the location is
-   * recognized, or a second {@link TreePath} reaches the same annotation and reports it.
+   * <p>Neither answer can be read off {@code tree}, so the method walks {@link
+   * VisitorState#getPath} outwards to the declaration or expression the type usage belongs to. The
+   * walk settles two questions: whether the annotation stands on that construct's root type or
+   * below it, and, where the type usage and the construct around it are both unrecognized, which
+   * of the two names the annotation's position better and so gives the fix its target.
+   *
+   * <p>Returns {@code null} in two cases. The location is recognized, as the type argument in
+   * {@code (List<@Nullable String>) o} is. Or javac has put one subtree under two parents, which
+   * Error Prone scans once per parent, so the same annotation arrives here through two {@link
+   * TreePath}s and the walk from the other parent reports it. An anonymous class body's supertype
+   * tree is the tree the enclosing {@code new} expression names, and a compact constructor's
+   * parameters are javac's copies of the record components, sharing their annotation trees.
    */
   private static @Nullable TypeUsage classifyTypeUsage(AnnotatedTypeTree tree, VisitorState state) {
     Tree underlyingType = tree.getUnderlyingType();
-    // A primitive or a wildcard is unrecognized on its own, but neither classification is returned
-    // until the walk out to the enclosing construct has finished.  A construct on the way out may
-    // suppress the classification altogether, because an annotation reachable through two
-    // TreePaths is classified on one of them.  The two differ in whether an unrecognized enclosing
-    // location replaces them.  A primitive names the most specific location there is, so nothing
-    // outside it improves on the phrase.  A wildcard's fix moves the annotation to a bound, and a
-    // location that covers what is nested inside it leaves the annotation just as meaningless
-    // there.
+    // A primitive and a wildcard are unrecognized wherever they are written, but the walk still
+    // runs before either is returned.  The walk recognizes a subtree javac reached through two
+    // parents, and that case returns null so the other walk reports the annotation.
     UnrecognizedLocation onTypeItself =
         underlyingType instanceof PrimitiveTypeTree
             ? UnrecognizedLocation.PRIMITIVE_TYPE
             : underlyingType instanceof WildcardTree ? UnrecognizedLocation.WILDCARD : null;
-    // Walk out to the declaration or expression the type usage belongs to.  Along the way, nested
-    // records whether a recognized nesting step (a type argument, an array component, or a bound)
-    // was crossed, and qualifierAnchor records the name whose qualifier the annotation landed on.
+    // Walk out to the declaration or expression the type usage belongs to.  Crossing a type
+    // argument, an array component, or a bound puts the annotation below the root type of whatever
+    // construct is reached next, on a type usage JSpecify recognizes in its own right, and
+    // belowRootType records that.  qualifierAnchor records the qualified name the annotation stands
+    // in front of, which is where a fix moves it.
     Tree qualifierAnchor = null;
-    boolean nested = false;
+    boolean belowRootType = false;
     Tree child = tree;
     for (TreePath path = state.getPath().getParentPath();
         path != null;
         path = path.getParentPath()) {
       Tree parent = path.getLeaf();
       if (parent instanceof ParameterizedTypeTree parameterizedType) {
-        nested |= parameterizedType.getTypeArguments().contains(child);
+        belowRootType |= parameterizedType.getTypeArguments().contains(child);
       } else if (parent instanceof ArrayTypeTree
           || parent instanceof WildcardTree
           || parent instanceof TypeParameterTree) {
-        nested = true;
+        belowRootType = true;
       } else if (parent instanceof AnnotatedTypeTree) {
         // The enclosing annotated type reports its own annotations.  Where it wraps the qualified
         // name that the fix writes into, it carries the annotations already on that name, so the
-        // anchor moves out to it and destinationIsOccupied can see them.
+        // anchor moves out to it and destinationIsOccupied() can see them.
         if (Objects.equals(child, qualifierAnchor)) {
           qualifierAnchor = parent;
         }
       } else if (parent instanceof UnionTypeTree || parent instanceof IntersectionTypeTree) {
-        // An alternative of a union type and a member of an intersection type are in the same
-        // location as the type that contains them, so crossing one is not a nesting step.
+        // Crossing into a union or an intersection stays on a root type: each alternative of
+        // `catch (@Nullable A | B e)` is a root type of the exception parameter, and each member of
+        // `(@Nullable A & B) o` is a root type of the cast.  Both are reported as that construct.
       } else if (parent instanceof ClassTree classTree
           && classTree.getSimpleName().isEmpty()
           && isSupertype(classTree, child)) {
@@ -419,7 +434,7 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
         return null;
       } else if (parent instanceof MemberSelectTree memberSelect
           && Objects.equals(memberSelect.getExpression(), child)) {
-        if (!nested) {
+        if (!belowRootType) {
           // The outermost qualified name is the anchor, so `@Nullable P.Inner.Innermost` moves the
           // annotation to `Innermost` rather than to `Inner`, which qualifies it in turn.  Within a
           // type argument the annotation lands on that argument rather than on a qualifier, as in
@@ -433,10 +448,16 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
         // this path is a second view of an annotation the component itself reports.
         return null;
       } else {
-        UnrecognizedLocation enclosing = anchorLocation(parent, child);
+        // The construct takes the annotation, unless the annotation stands below its root type
+        // and the construct stops there.  A primitive is the exception that always keeps its own
+        // phrase: `(@Nullable int) x` reads as a primitive rather than as a cast, and no fix moves
+        // the annotation either way.  The construct replaces a wildcard, because the wildcard's own
+        // fix moves the annotation to a bound: `(List<@Nullable ?>) o` reports the wildcard and
+        // gets that fix, while `o instanceof List<@Nullable ?>` reports the operand and removes it.
+        UnrecognizedLocation enclosing = enclosingLocation(parent, child);
         if (onTypeItself != UnrecognizedLocation.PRIMITIVE_TYPE
             && enclosing != null
-            && (enclosing.coversNestedTypes || !nested)) {
+            && (enclosing.coversNestedTypes || !belowRootType)) {
           return new TypeUsage(enclosing, underlyingType);
         }
         break;
@@ -444,43 +465,47 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
       child = parent;
     }
     if (qualifierAnchor != null) {
+      // The outer type is reported only where no construct took the annotation first.  So
+      // `(@Nullable Outer.Inner) o` is reported as a cast, and the field
+      // `List<@Nullable Outer.Inner> f`, whose construct takes nothing, as an outer type.
       return new TypeUsage(UnrecognizedLocation.OUTER_TYPE, qualifierAnchor);
     }
     return onTypeItself == null ? null : new TypeUsage(onTypeItself, underlyingType);
   }
 
   /**
-   * Returns the location of the root type {@code child} names. Returns {@code null} where that
-   * location is recognized, and where {@code anchor} is a kind the check does not classify.
+   * Returns the location of the root type {@code child} names within {@code construct}. Returns
+   * {@code null} where that location is recognized, and where {@code construct} is a kind the check
+   * does not classify.
    *
-   * @param anchor the declaration or expression that holds the type usage
-   * @param child the child of {@code anchor} the type usage was reached through
+   * @param construct the declaration or expression that holds the type usage
+   * @param child the child of {@code construct} the type usage was reached through
    */
-  private static @Nullable UnrecognizedLocation anchorLocation(Tree anchor, Tree child) {
-    if (anchor instanceof VariableTree variable) {
+  private static @Nullable UnrecognizedLocation enclosingLocation(Tree construct, Tree child) {
+    if (construct instanceof VariableTree variable) {
       return variableLocation(variable);
     }
-    if (anchor instanceof MethodTree method) {
+    if (construct instanceof MethodTree method) {
       if (Objects.equals(child, method.getReturnType())) {
         return isAnnotationInterfaceMember(method) ? UnrecognizedLocation.ANNOTATION_MEMBER : null;
       }
       return method.getThrows().contains(child) ? UnrecognizedLocation.THROWN_TYPE : null;
     }
-    if (anchor instanceof ClassTree classTree) {
+    if (construct instanceof ClassTree classTree) {
       return isSupertype(classTree, child) ? UnrecognizedLocation.SUPERTYPE : null;
     }
-    if (anchor instanceof TypeCastTree) {
+    if (construct instanceof TypeCastTree) {
       return UnrecognizedLocation.CAST;
     }
-    if (anchor instanceof InstanceOfTree) {
+    if (construct instanceof InstanceOfTree) {
       return UnrecognizedLocation.INSTANCEOF;
     }
-    if (anchor instanceof NewClassTree newClass) {
+    if (construct instanceof NewClassTree newClass) {
       return Objects.equals(child, newClass.getIdentifier())
           ? UnrecognizedLocation.OBJECT_CREATION
           : null;
     }
-    if (anchor instanceof MemberReferenceTree reference) {
+    if (construct instanceof MemberReferenceTree reference) {
       // A method reference's qualifier expression is its root type, as in `@Nullable String::new`.
       // The location does not cover what is nested inside it, so `ArrayList<@Nullable String>::new`
       // stays recognized.
@@ -488,7 +513,7 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
           ? UnrecognizedLocation.METHOD_REFERENCE
           : null;
     }
-    // A component type of an array creation expression is recognized, and every other anchor is
+    // A component type of an array creation expression is recognized, and every other construct is
     // left to a future revision of this check.
     return null;
   }

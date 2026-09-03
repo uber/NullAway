@@ -760,37 +760,37 @@ public class JSpecifyUnrecognizedAnnotationLocationTest {
   }
 
   @Test
-  public void outerTypeIsReportedUnderEveryAnchorThatDoesNotCoverNestedTypes() {
+  public void outerTypeIsReportedUnderEveryConstructThatDoesNotCoverNestedTypes() {
     compilationHelper
         .addSourceLines(
-            "test/Anchors.java",
+            "test/Constructs.java",
             """
             package test;
             import java.util.ArrayList;
             import java.util.List;
             import org.jspecify.annotations.Nullable;
-            class Anchors {
+            class Constructs {
               class Inner {}
               // BUG: Diagnostic contains: on the outer type qualifying an inner type
-              List<@Nullable Anchors.Inner> field;
+              List<@Nullable Constructs.Inner> field;
               // BUG: Diagnostic contains: on the outer type qualifying an inner type
-              static class Sub extends ArrayList<@Nullable Anchors.Inner> {}
+              static class Sub extends ArrayList<@Nullable Constructs.Inner> {}
               void method(Object o) {
                 // BUG: Diagnostic contains: on the outer type qualifying an inner type
-                List<@Nullable Anchors.Inner> local = null;
+                List<@Nullable Constructs.Inner> local = null;
                 // BUG: Diagnostic contains: on the outer type qualifying an inner type
-                Object cast = (List<@Nullable Anchors.Inner>) o;
+                Object cast = (List<@Nullable Constructs.Inner>) o;
                 // BUG: Diagnostic contains: on the outer type qualifying an inner type
-                Object created = new ArrayList<@Nullable Anchors.Inner>();
+                Object created = new ArrayList<@Nullable Constructs.Inner>();
                 // A location that covers nested types takes the annotation instead, so the fix
                 // removes it rather than moving it somewhere still unrecognized.
                 // BUG: Diagnostic contains: on the type after an instanceof operator
-                if (o instanceof @Nullable Anchors.Inner) {}
+                if (o instanceof @Nullable Constructs.Inner) {}
                 // BUG: Diagnostic contains: on a type in a pattern
-                if (o instanceof @Nullable Anchors.Inner i) {}
-                // The cast's own root type is not nested, so the cast wins there.
+                if (o instanceof @Nullable Constructs.Inner i) {}
+                // The annotation is on the cast's own root type, so the cast wins there.
                 // BUG: Diagnostic contains: on the root type of a cast
-                Object rootCast = (@Nullable Anchors.Inner) o;
+                Object rootCast = (@Nullable Constructs.Inner) o;
               }
             }
             """)
