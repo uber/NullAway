@@ -19,11 +19,10 @@ import org.junit.Test;
  * <p>The green tests pin what NullAway already gets right. A fix for what it gets wrong can break
  * several of them without failing anything else, which is why they are here.
  *
- * <p>The ignored tests describe defects collected in issues #1727 and #1799. A value obtained
- * through {@code ? extends T}, or an enhanced-for loop variable of type {@code T}, is rejected at a
- * sink that requires {@code T}. Separately, a dereference of a value typed by a type variable with
- * a nullable upper bound goes unreported. A fix turns those tests green and leaves the rest of this
- * class alone.
+ * <p>The ignored tests describe the two defects collected in issue #1727. A value obtained through
+ * {@code ? extends T} is rejected at a sink that requires {@code T}, and a dereference of a value
+ * typed by a type variable with a nullable upper bound goes unreported. The second defect involves
+ * no wildcard. A fix turns those tests green and leaves the rest of this class alone.
  *
  * @see <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify: nullness operator</a>
  */
