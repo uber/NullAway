@@ -718,8 +718,9 @@ public final class GenericsChecks {
    *
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
-   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
-   *     other unhandled cases.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw non-array
+   *     types and other unhandled cases. Arrays with raw component types are returned since their
+   *     structure and component annotations are still useful.
    */
   public @Nullable Type getTreeType(Tree tree, VisitorState state) {
     return getTreeType(tree, state, false);
@@ -736,8 +737,9 @@ public final class GenericsChecks {
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
    * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
-   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
-   *     other unhandled cases.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw non-array
+   *     types and other unhandled cases. Arrays with raw component types are returned since their
+   *     structure and component annotations are still useful.
    */
   /* package-private */ @Nullable Type getTreeType(
       Tree tree, VisitorState state, boolean calledFromDataflow) {
@@ -875,10 +877,12 @@ public final class GenericsChecks {
 
   /**
    * @param type a type to check
-   * @return the given type, or null if the type is a raw type
+   * @return the given type, or {@code null} if it is a raw non-array type. Javac reports an array
+   *     type as raw when its component type is raw, but the array structure and component
+   *     annotations are still usable for checking.
    */
   private static @Nullable Type typeOrNullIfRaw(@Nullable Type type) {
-    if (type != null && type.isRaw()) {
+    if (type != null && type.isRaw() && !(type instanceof Type.ArrayType)) {
       return null;
     }
     return type;
