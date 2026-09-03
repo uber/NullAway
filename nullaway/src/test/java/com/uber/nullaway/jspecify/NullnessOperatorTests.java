@@ -19,10 +19,11 @@ import org.junit.Test;
  * <p>The green tests pin what NullAway already gets right. A fix for what it gets wrong can break
  * several of them without failing anything else, which is why they are here.
  *
- * <p>The ignored tests describe the two defects collected in issue #1727. A value obtained through
- * {@code ? extends T} is rejected at a sink that requires {@code T}, and a dereference of a value
- * typed by a type variable with a nullable upper bound goes unreported. The second defect involves
- * no wildcard. A fix turns those tests green and leaves the rest of this class alone.
+ * <p>The ignored tests describe defects collected in issues #1727 and #1799. A value obtained
+ * through {@code ? extends T}, or an enhanced-for loop variable of type {@code T}, is rejected at a
+ * sink that requires {@code T}. Separately, a dereference of a value typed by a type variable with
+ * a nullable upper bound goes unreported. A fix turns those tests green and leaves the rest of this
+ * class alone.
  *
  * @see <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify: nullness operator</a>
  */
@@ -467,6 +468,34 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
                   }
                 }
                 return changed;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Ignore("https://github.com/uber/NullAway/issues/1799")
+  @Test
+  public void issue1799EnhancedForLoopFunctionArgumentFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.LinkedHashMap;
+            import java.util.Map;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <E extends @Nullable Object, K, V extends @Nullable Object> Map<K, V> toMap(
+                  Iterable<E> elems, Function<E, K> toKey, Function<E, V> toValue) {
+                Map<K, V> map = new LinkedHashMap<>();
+                for (E e : elems) {
+                  map.put(toKey.apply(e), toValue.apply(e));
+                }
+                return map;
               }
             }
             """)
