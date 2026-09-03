@@ -39,6 +39,7 @@ public class StreamNullabilityPropagatorFactory {
             // Names of all the methods of java.util.stream.Stream that behave like .filter(...)
             // (must take exactly 1 argument)
             .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
+            .withFilterMethodFromSignature("takeWhile(java.util.function.Predicate<? super T>)")
             // Names and relevant arguments of all the methods of java.util.stream.Stream that
             // behave
             // like .map(...) for the purposes of this checker (the listed arguments are those that
@@ -114,6 +115,7 @@ public class StreamNullabilityPropagatorFactory {
             // Names of all the methods of io.reactivex.Observable that behave like .filter(...)
             // (must take exactly 1 argument)
             .withFilterMethodFromSignature("filter(io.reactivex.functions.Predicate<? super T>)")
+            .withFilterMethodFromSignature("takeWhile(io.reactivex.functions.Predicate<? super T>)")
             // Names and relevant arguments of all the methods of io.reactivex.Observable that
             // behave
             // like .map(...) for the purposes of this checker (the listed arguments are those that
@@ -175,6 +177,7 @@ public class StreamNullabilityPropagatorFactory {
         StreamModelBuilder.start()
             .addStreamTypeFromName("reactor.core.publisher.Flux")
             .withFilterMethodFromSignature("filter(java.util.function.Predicate<? super T>)")
+            .withFilterMethodFromSignature("takeWhile(java.util.function.Predicate<? super T>)")
             .withMapMethodFromSignature(
                 "<V>map(java.util.function.Function<? super T,? extends V>)",
                 "apply",
