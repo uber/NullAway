@@ -116,7 +116,9 @@ public class GenericsUtils {
    *
    * <p>A bound is nullable when the enclosing method or class comes from unannotated code, when a
    * library model overrides the bound nullability for the type variable, or when the declared upper
-   * bound has an explicit {@code @Nullable} annotation.
+   * bound has an explicit {@code @Nullable} annotation. An explicit {@code @NonNull} annotation on
+   * a type-variable bound takes precedence over nullability inherited from that type variable's
+   * upper bound.
    */
   static boolean upperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
@@ -144,7 +146,16 @@ public class GenericsUtils {
       }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    return Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return true;
+    }
+    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    }
+    return false;
   }
 
   private static boolean fromUnannotatedMethodOrClass(

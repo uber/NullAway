@@ -1,5 +1,7 @@
 package com.uber.nullaway;
 
+import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
+
 import com.google.errorprone.CompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Test;
@@ -12,42 +14,7 @@ public class InitializationTests extends NullAwayTestsBase {
    * @return the same helper, with the shared utility source added
    */
   private CompilationTestHelper addReadBeforeInitUtil(CompilationTestHelper helper) {
-    String utilSource =
-        """
-        package com.uber.nullaway.testdata;
-
-        import javax.annotation.Nullable;
-
-        public class Util {
-
-          public static <T> T castToNonNull(@Nullable T x) {
-            if (x == null) {
-              throw new RuntimeException();
-            }
-            return x;
-          }
-
-          public static <T> T castToNonNull(@Nullable T x, String msg) {
-            if (x == null) {
-              throw new RuntimeException(msg);
-            }
-            return x;
-          }
-
-          public static <T> T castToNonNull(String msg, @Nullable T x, int counter) {
-            // counter is needed to distinguish this method from the previous one when T == String
-            if (x == null) {
-              throw new RuntimeException(msg);
-            }
-            return x;
-          }
-
-          public static <T> T id(T x) {
-            return x;
-          }
-        }
-        """;
-    return helper.addSourceLines("Util.java", utilSource);
+    return helper.addSourceLines("Util.java", UTIL_SOURCE);
   }
 
   @Test

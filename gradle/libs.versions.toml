@@ -38,6 +38,8 @@ rxjava2 = "2.1.2"
 reactor = "3.8.6"
 commons-lang3 = "3.8.1"
 commons-lang = "2.6"
+commons-collections = "3.2.2"
+commons-collections4 = "4.4"
 jsr305 = "3.0.2"
 lombok = "1.18.38"
 spring-beans = "5.3.7"
@@ -104,6 +106,8 @@ rxjava2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava2" }
 reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 commons-lang = { module = "commons-lang:commons-lang", version.ref = "commons-lang" }
+commons-collections = { module = "commons-collections:commons-collections", version.ref = "commons-collections" }
+commons-collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "commons-collections4" }
 jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring-beans" }

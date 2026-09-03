@@ -90,6 +90,8 @@ dependencies {
     testImplementation libs.reactor.core
     testImplementation libs.commons.lang
     testImplementation libs.commons.lang3
+    testImplementation libs.commons.collections
+    testImplementation libs.commons.collections4
     testImplementation project(":test-library-models")
     testImplementation libs.lombok
     testImplementation libs.spring.beans
@@ -102,10 +104,6 @@ dependencies {
     testImplementation libs.assertj
     testImplementation libs.amazon.utils
     testImplementation libs.jakarta.annotations
-    // This is for a test exposing a CFG construction failure in the Checker Framework.  We can probably remove it once
-    // the issue is fixed upstream and we update. See https://github.com/typetools/checker-framework/issues/6396.
-    testImplementation 'org.apache.spark:spark-sql_2.12:3.3.2'
-
     errorProneOldest "com.google.errorprone:error_prone_check_api:${oldestErrorProneVersion}"
     errorProneOldest "com.google.errorprone:error_prone_core:${oldestErrorProneVersion}"
     errorProneOldest("com.google.errorprone:error_prone_test_helpers:${oldestErrorProneVersion}") {
