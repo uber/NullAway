@@ -23,7 +23,7 @@
 package com.uber.nullaway.thirdpartylibs;
 
 import com.google.errorprone.CompilationTestHelper;
-import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullAwayTestsBase;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -45,20 +45,17 @@ public class GrpcTest {
   @Before
   public void setup() {
     ioGrpcCompilationTestHelper =
-        CompilationTestHelper.newInstance(NullAway.class, getClass())
-            .setArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                    // IMPORTANT:
-                    // These tests use the fact that io.grpc.Metadata.get(...) is annotated
-                    // @Nullable. Without the flag above (or a corresponding library model),
-                    // the gRPC libraries themseves would need to be part of  AnnotatedPackages
-                    // for the true positives in the tests below to manifest. Using the
-                    // default optimistic-nullness assumptions for third-party code, results
-                    // in assuming that all calls to Metadata.get(...) return non-null.
-                    "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"));
+        NullAwayTestsBase.makeTestHelperWithArgs(
+            getClass(),
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                // The errors these tests expect depend on the @Nullable that
+                // io.grpc.Metadata.get(...) declares, and NullAway acknowledges an annotation
+                // in unannotated code only under AcknowledgeRestrictiveAnnotations. Without it,
+                // NullAway optimistically reads every Metadata.get(...) call as non-null.
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"));
   }
 
   @Test

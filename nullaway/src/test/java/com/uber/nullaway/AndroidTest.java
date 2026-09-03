@@ -20,12 +20,13 @@ public class AndroidTest {
   @SuppressWarnings("CheckReturnValue")
   @Before
   public void setup() {
-    compilationHelper = CompilationTestHelper.newInstance(NullAway.class, getClass());
-    compilationHelper.setArgs(
-        Arrays.asList(
-            "-d",
-            temporaryFolder.getRoot().getAbsolutePath(),
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex"));
+    compilationHelper =
+        NullAwayTestsBase.makeTestHelperWithArgs(
+            getClass(),
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex"));
   }
 
   // Core Fragment tests
@@ -174,7 +175,7 @@ public class AndroidTest {
         .doTest();
   }
 
-  /** Initialises the default android classes that are commonly used. */
+  /** Adds the Android stub sources that all the tests in this class share. */
   @SuppressWarnings("CheckReturnValue")
   private void initialiseAndroidCoreClasses() {
     compilationHelper

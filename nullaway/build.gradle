@@ -245,7 +245,8 @@ tasks.named('check').configure {
 
 // Create a task to build NullAway with NullAway checking enabled
 tasks.register('buildWithNullAway', JavaCompile) {
-    // Configure compilation to run with Error Prone and NullAway
+    // Configure compilation to run with Error Prone, NullAway, and the JSpecify
+    // annotation-location check
     source = sourceSets.main.java
     classpath = sourceSets.main.compileClasspath
     destinationDirectory.set(layout.buildDirectory.dir('ignoredClasses'))
@@ -259,6 +260,7 @@ tasks.register('buildWithNullAway', JavaCompile) {
     options.errorprone {
         disableAllChecks = true
         error("NullAway")
+        error("JSpecifyUnrecognizedAnnotationLocation")
         option("NullAway:AnnotatedPackages", "com.uber,org.checkerframework.nullaway,com.google.common")
         option("NullAway:CastToNonNullMethod", "com.uber.nullaway.NullabilityUtil.castToNonNull")
         option("NullAway:CheckOptionalEmptiness")

@@ -850,6 +850,8 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             import org.jspecify.annotations.Nullable;
 
             @NullMarked
+            // The annotation on the created array is what this test is about
+            @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
             public class Test {
               private char @Nullable [] @Nullable [] foo = null;
 
