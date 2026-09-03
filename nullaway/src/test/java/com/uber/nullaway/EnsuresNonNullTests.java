@@ -141,7 +141,7 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
                 a.call();
               }
               @RequiresNonNull("b")
-              // BUG: Diagnostic contains: precondition inheritance is violated, method in child class cannot have a stricter precondition than its closest overridden method, adding @requiresNonNull for fields [a] makes this method precondition stricter
+              // BUG: Diagnostic contains: precondition inheritance is violated, method in child class cannot have a stricter precondition than its closest overridden method, adding @requiresNonNull for fields [b] makes this method precondition stricter
               public void test4() {
                 // BUG: Diagnostic contains: dereferenced expression 'a' is @Nullable
                 a.call();
@@ -475,6 +475,46 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
                 negativeEnsureNonnull();
                 // BUG: Diagnostic contains: Expected static field field1 to be non-null at call site
                 combinedNegative();
+              }
+            }
+            """)
+        .addSourceLines(
+            "Item.java", "package com.uber;", "class Item {", "  public void call() { }", "}")
+        .doTest();
+  }
+
+  @Test
+  public void requiresNonNullOverridingErrorMessageListsExtraFields() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SuperClass.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.RequiresNonNull;
+            class SuperClass {
+              @Nullable Item a;
+              @RequiresNonNull("a")
+              public void doWork() {
+                a.call();
+              }
+            }
+            """)
+        .addSourceLines(
+            "ChildClass.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.RequiresNonNull;
+            class ChildClass extends SuperClass {
+              @Nullable Item b;
+              @Nullable Item c;
+              @RequiresNonNull({"a", "b", "c"})
+              // BUG: Diagnostic contains: adding @requiresNonNull for fields [b, c] makes this method precondition stricter
+              public void doWork() {
+                a.call();
+                b.call();
+                c.call();
               }
             }
             """)

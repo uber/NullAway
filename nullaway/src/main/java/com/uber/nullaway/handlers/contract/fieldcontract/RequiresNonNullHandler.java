@@ -106,7 +106,7 @@ public class RequiresNonNullHandler extends AbstractFieldContractHandler {
     StringBuilder errorMessage = new StringBuilder();
     errorMessage.append(
         "precondition inheritance is violated, method in child class cannot have a stricter precondition than its closest overridden method, adding @requiresNonNull for fields [");
-    Iterator<String> iterator = overriddenFieldNames.iterator();
+    Iterator<String> iterator = overridingFieldNames.iterator();
     while (iterator.hasNext()) {
       errorMessage.append(iterator.next());
       if (iterator.hasNext()) {
