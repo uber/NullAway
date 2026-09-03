@@ -1,6 +1,11 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
+
 Version 0.14.1
 --------------
 
