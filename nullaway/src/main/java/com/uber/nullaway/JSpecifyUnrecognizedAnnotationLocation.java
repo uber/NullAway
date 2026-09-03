@@ -75,6 +75,13 @@ import org.jspecify.annotations.Nullable;
  * source; see <a href="https://jspecify.dev/docs/spec/#recognized-type-use">Recognized locations
  * for type-use annotations</a>.
  *
+ * <p>The diagnostics use JSpecify's own terms. The <em>root type</em> is the whole type a construct
+ * names: {@code String[]} in {@code String[] names}, {@code List<String>} in {@code (List<String>)
+ * o}. The type components inside it, such as a type argument, a wildcard bound or an array
+ * component type, are type usages in their own right, so {@code (@Nullable String) o} is reported
+ * where {@code (List<@Nullable String>) o} is not. A few locations are unrecognized throughout, the
+ * operand of an {@code instanceof} among them, and there a type argument is reported too.
+ *
  * <p>The check reports an annotation only where it can name the unrecognized location, so a
  * construct it cannot name yields a missed diagnostic rather than a wrong one. Most of the
  * locations it names are ones the specification lists; two come from its rule that everything not
@@ -133,6 +140,11 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
     INSTANCEOF("on the type after an instanceof operator", true),
     CAST("on the root type of a cast"),
     OBJECT_CREATION("on the root type of an object creation expression"),
+    /**
+     * The array an array creation expression creates, as in {@code new String @Nullable [5]}. An
+     * annotation written before the element type annotates that element type instead, so {@code
+     * new @Nullable String[5]} is recognized.
+     */
     ARRAY_CREATION("on the array type of an array creation expression"),
     METHOD_REFERENCE("on the root type of a method reference"),
     /**
@@ -146,6 +158,11 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
     CONSTRUCTOR_RESULT("on the result type of a constructor"),
     TYPE_PARAMETER("directly on a type parameter declaration"),
     WILDCARD("directly on a wildcard"),
+    /**
+     * The enclosing class an inner class is named through, which takes an annotation written before
+     * the whole name: {@code @Nullable Outer.Inner} annotates {@code Outer} where the author meant
+     * {@code Outer.@Nullable Inner}.
+     */
     OUTER_TYPE("on the outer type qualifying an inner type"),
     ANNOTATION_MEMBER("on the return type of an annotation interface member", true);
 
@@ -155,11 +172,9 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
      * Whether the location covers the type usages written inside it, so that a nullness annotation
      * anywhere within the location is unrecognized too.
      *
-     * <p>A location that does not cover them reaches its own root type and stops, which leaves the
-     * type argument in {@code (List<@Nullable String>) o} recognized. Compare {@code
-     * (List<@Nullable ?>) o}, reported as a wildcard because a cast stops short of it, with {@code
-     * o instanceof List<@Nullable ?>}, reported as the {@code instanceof} operand because JSpecify
-     * recognizes no type usage there at all.
+     * <p>Most locations reach their own root type and stop, so {@code (List<@Nullable ?>) o} is
+     * reported as a wildcard rather than as a cast. The locations marked here are the exception:
+     * {@code o instanceof List<@Nullable ?>} is reported as the {@code instanceof} operand.
      */
     private final boolean coversNestedTypes;
 
@@ -178,7 +193,7 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
    * against.
    *
    * @param anchor the type usage the annotation lands on, or the qualified name as a whole where
-   *     the annotation lands on one of its qualifiers
+   *     the annotation lands on one of its qualifiers, as it does in {@code @Nullable Outer.Inner}
    */
   private record TypeUsage(UnrecognizedLocation location, Tree anchor) {}
 
@@ -378,8 +393,8 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
    * <p>Neither answer can be read off {@code tree}, so the method walks {@link
    * VisitorState#getPath} outwards to the declaration or expression the type usage belongs to. The
    * walk settles two questions: whether the annotation stands on that construct's root type or
-   * below it, and, where the type usage and the construct around it are both unrecognized, which
-   * of the two names the annotation's position better and so gives the fix its target.
+   * below it, and, where the type usage and the construct around it are both unrecognized, which of
+   * the two names the annotation's position better and so gives the fix its target.
    *
    * <p>Returns {@code null} in two cases. The location is recognized, as the type argument in
    * {@code (List<@Nullable String>) o} is. Or javac has put one subtree under two parents, which
@@ -430,7 +445,8 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
           && classTree.getSimpleName().isEmpty()
           && isSupertype(classTree, child)) {
         // An anonymous class body's supertype tree is the tree the enclosing `new` expression
-        // names, so this path is a second view of an annotation the NewClassTree path reports.
+        // names, so this is the second of the two TreePaths that reach the annotation.  The walk
+        // from the NewClassTree reports it as an object creation.
         return null;
       } else if (parent instanceof MemberSelectTree memberSelect
           && Objects.equals(memberSelect.getExpression(), child)) {
@@ -444,8 +460,9 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
       } else if (parent instanceof VariableTree
           && path.getParentPath() != null
           && isCompactConstructorParameter(path.getParentPath().getLeaf(), parent)) {
-        // The compact constructor's parameters are javac's copies of the record components, so
-        // this path is a second view of an annotation the component itself reports.
+        // A compact constructor's parameters are javac's copies of the record components and
+        // share their annotation trees, so this is the second of the two TreePaths that reach the
+        // annotation.  The walk from the component reports it.
         return null;
       } else {
         // The construct takes the annotation, unless the annotation stands below its root type
@@ -523,10 +540,10 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
    * components into its compact constructor.
    *
    * <p>The copies keep the components' source positions and share their annotation trees, so each
-   * is a second view of a declaration already reported. The parameter list they sit in tells them
-   * apart from an ordinary declaration, not their own symbol kind: a lambda parameter written in
-   * the constructor's body is an {@link ElementKind#PARAMETER} owned by that same constructor, and
-   * its annotations are the author's own.
+   * reaches an annotation the component itself already reports. The parameter list they sit in
+   * tells them apart from an ordinary declaration, not their own symbol kind: a lambda parameter
+   * written in the constructor's body is an {@link ElementKind#PARAMETER} owned by that same
+   * constructor, and its annotations are the author's own.
    *
    * @param parent the tree {@code variable} is declared under
    */
@@ -680,7 +697,7 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
    * that only removes it when no such location can be named unambiguously.
    *
    * @param annotationCount how many nullness annotations share {@code anchor}; a move is ambiguous
-   *     once there is more than one
+   *     once there is more than one, as in {@code List<@Nullable @NonNull ?>}, and both are removed
    */
   private static SuggestedFix buildFix(
       AnnotationTree annotation,
@@ -786,12 +803,14 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
    * <p>A move writes on the last name of a qualified type name, or on the type name itself where
    * there is no qualifier. Every nullness annotation on a qualifier is relocated to that one
    * position, so the one written closest to it is the one that arrives and every other is deleted.
-   * Only an annotation that the move would pass is therefore an obstacle, and {@code moving} is
-   * where the walk stops.
+   * Only an annotation that the move would pass therefore occupies the destination, and {@code
+   * moving} is where the walk stops. The fix for {@code @Nullable Outer.@Nullable Inner} removes
+   * the annotation in front and leaves {@code Outer.@Nullable Inner}.
    *
    * <p>{@code moving} is outside {@code typeTree} altogether where it was written in a
    * declaration's modifiers, or on the wildcard or type parameter that {@code typeTree} bounds. The
-   * walk then reaches no stopping point, and every annotation in the chain is an obstacle.
+   * walk then reaches no stopping point, and every annotation in the chain occupies the
+   * destination.
    */
   private static boolean destinationIsOccupied(Tree typeTree, AnnotationTree moving) {
     Tree type = typeTree;
@@ -801,7 +820,7 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
           return false;
         }
         // An AnnotatedTypeTree wrapping an array annotates the array rather than the name written
-        // inside it, as in `Outer.Inner @NonNull []`, so it is not an obstacle.
+        // inside it, as in `Outer.Inner @NonNull []`, so it does not occupy the destination.
         if (!(annotatedType.getUnderlyingType() instanceof ArrayTypeTree)
             && !nullnessAnnotationsIn(annotatedType.getAnnotations()).isEmpty()) {
           return true;
