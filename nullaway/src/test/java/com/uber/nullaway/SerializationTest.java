@@ -2753,7 +2753,8 @@ public class SerializationTest extends NullAwayTestsBase {
   /**
    * The serializer used to write {@code string.getBytes(charset)} with {@code string.length()} as
    * the byte count. That dropped the trailing newline whenever a record contained a multi-byte
-   * character, so the next record was appended onto the same line.
+   * character, so the next record was appended onto the same line. This test ensures we don't
+   * regress on that behavior.
    */
   @Test
   public void tsvRowsWithMultibyteCharactersKeepTheirTrailingNewline() throws IOException {
