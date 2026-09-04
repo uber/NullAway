@@ -1384,7 +1384,7 @@ public final class GenericsChecks {
       }
 
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceResult> polyNullResults =
-          resolvePolyNullInferenceContexts(polyNullContexts, typeVarNullability, state);
+          resolvePolyNullInferenceContexts(polyNullContexts, typeVarNullability);
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability, polyNullResults);
       // don't cache result if we were called from dataflow, since the result may rely on dataflow
       // facts that do not reflect the fixed point
@@ -3380,7 +3380,7 @@ public final class GenericsChecks {
   /**
    * Applies a polymorphic-nullness model after receiver and method type arguments have been
    * substituted into the invoked method type. The linked nullness is inferred from all modeled
-   * input occurrences.
+   * inputs and any available result target.
    */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   private Type.MethodType applyPolyNullModel(
@@ -3455,23 +3455,18 @@ public final class GenericsChecks {
     return updatedReturnType;
   }
 
-  /** One modeled input occurrence and the synthetic inference variable that represents it. */
-  private record PolyNullInput(
-      PolyNullLocation location, Type.TypeVar inferenceVariable, Type modeledLocationType) {}
-
-  /**
-   * The method type and occurrence variables used to generate PolyNull constraints for one call.
-   */
+  /** The modeled input overlay and shared PolyNull variable for one call. */
   private record PolyNullInferenceContext(
-      Type.MethodType inferenceMethodType, ImmutableList<PolyNullInput> inputs) {}
+      Type.MethodType inferenceMethodType,
+      ImmutableList<PolyNullLocation> inputs,
+      Type.TypeVar inferenceVariable) {}
 
   /**
    * Infers the nullness shared by all PolyNull occurrences using the generic constraint solver.
    *
-   * <p>Each modeled input occurrence receives a separate synthetic type variable while constraints
-   * are generated. This lets a lambda with several return expressions infer one joined nullness for
-   * its occurrence. After solving, every occurrence must have the same solution, implementing the
-   * linked-overload semantics of PolyNull.
+   * <p>All modeled locations share one synthetic type variable. Ordinary assignment-compatibility
+   * constraints therefore select the most specific qualifier that makes every argument and the
+   * invocation result compatible with the instantiated method signature.
    */
   private @Nullable Nullness inferPolyNullness(
       Symbol.MethodSymbol methodSymbol,
@@ -3493,8 +3488,6 @@ public final class GenericsChecks {
     ConstraintSolver solver = makeSolver(state, analysis);
     Set<Tree> nestedCalls = new LinkedHashSet<>();
     try {
-      seedPolyNullFromExplicitMethodTypeArguments(
-          methodSymbol, invocationTree, inferenceContext.inputs(), solver);
       addPolyNullResultConstraintsFromDirectAssignmentContext(
           invocationTree,
           substitutedMethodType,
@@ -3514,8 +3507,7 @@ public final class GenericsChecks {
           new IdentityHashMap<>(),
           calledFromDataflow);
       Map<Element, ConstraintSolver.InferredNullability> solution = solver.solve();
-      Nullness resolved =
-          resolvePolyNullInferenceContext(invocationTree, inferenceContext, solution, state);
+      Nullness resolved = resolvePolyNullInferenceContext(inferenceContext, solution);
       if (resolved != null && !calledFromDataflow) {
         polyNullResolutions.put(invocationTree, resolved);
       }
@@ -3530,52 +3522,39 @@ public final class GenericsChecks {
   private IdentityHashMap<MethodInvocationTree, PolyNullInferenceResult>
       resolvePolyNullInferenceContexts(
           IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> contexts,
-          Map<Element, ConstraintSolver.InferredNullability> solution,
-          VisitorState state) {
+          Map<Element, ConstraintSolver.InferredNullability> solution) {
     IdentityHashMap<MethodInvocationTree, PolyNullInferenceResult> results =
         new IdentityHashMap<>();
     for (Map.Entry<MethodInvocationTree, PolyNullInferenceContext> entry : contexts.entrySet()) {
       results.put(
           entry.getKey(),
-          new PolyNullInferenceResult(
-              resolvePolyNullInferenceContext(entry.getKey(), entry.getValue(), solution, state)));
+          new PolyNullInferenceResult(resolvePolyNullInferenceContext(entry.getValue(), solution)));
     }
     return results;
   }
 
-  /** Resolves one PolyNull context and reports an error if its occurrences disagree. */
-  private @Nullable Nullness resolvePolyNullInferenceContext(
-      MethodInvocationTree invocationTree,
+  /** Resolves the shared PolyNull variable for one invocation. */
+  private static Nullness resolvePolyNullInferenceContext(
       PolyNullInferenceContext inferenceContext,
-      Map<Element, ConstraintSolver.InferredNullability> solution,
-      VisitorState state) {
-    Nullness resolved = null;
-    for (PolyNullInput input : inferenceContext.inputs()) {
-      ConstraintSolver.InferredNullability inferred =
-          solution.getOrDefault(
-              input.inferenceVariable().asElement(), ConstraintSolver.InferredNullability.NONNULL);
-      Nullness current =
-          inferred == ConstraintSolver.InferredNullability.NULLABLE
-              ? Nullness.NULLABLE
-              : Nullness.NONNULL;
-      if (resolved != null && resolved != current) {
-        reportPolyNullInferenceFailure(invocationTree, state);
-        return null;
-      }
-      resolved = current;
-    }
-    return resolved;
+      Map<Element, ConstraintSolver.InferredNullability> solution) {
+    ConstraintSolver.InferredNullability inferred =
+        solution.getOrDefault(
+            inferenceContext.inferenceVariable().asElement(),
+            ConstraintSolver.InferredNullability.NONNULL);
+    return inferred == ConstraintSolver.InferredNullability.NULLABLE
+        ? Nullness.NULLABLE
+        : Nullness.NONNULL;
   }
 
-  /** Creates independent inference variables at all modeled PolyNull input locations. */
+  /** Creates a method-type overlay with one shared variable at every modeled PolyNull input. */
   private PolyNullInferenceContext createPolyNullInferenceContext(
       Symbol.MethodSymbol methodSymbol,
       Type.MethodType methodType,
       ImmutableSet<PolyNullLocation> locations,
       VisitorState state) {
-    Map<Integer, java.util.List<PolyNullInput>> inputsByParameter = new LinkedHashMap<>();
-    ImmutableList.Builder<PolyNullInput> allInputs = ImmutableList.builder();
-    int occurrence = 0;
+    Map<Integer, java.util.List<PolyNullLocation>> inputsByParameter = new LinkedHashMap<>();
+    ImmutableList.Builder<PolyNullLocation> allInputs = ImmutableList.builder();
+    Type.TypeVar inferenceVariable = createPolyNullInferenceVariable(methodSymbol, 0, state);
     for (PolyNullLocation location : locations) {
       int parameterIndex = location.parameterIndex();
       if (parameterIndex < 0 || parameterIndex >= methodType.argtypes.size()) {
@@ -3586,11 +3565,8 @@ public final class GenericsChecks {
       if (locationType == null) {
         continue;
       }
-      Type.TypeVar inferenceVariable =
-          createPolyNullInferenceVariable(methodSymbol, occurrence++, state);
-      PolyNullInput input = new PolyNullInput(location, inferenceVariable, locationType);
-      inputsByParameter.computeIfAbsent(parameterIndex, unused -> new ArrayList<>()).add(input);
-      allInputs.add(input);
+      inputsByParameter.computeIfAbsent(parameterIndex, unused -> new ArrayList<>()).add(location);
+      allInputs.add(location);
     }
     ListBuffer<Type> updatedParameterTypes = new ListBuffer<>();
     int parameterIndex = 0;
@@ -3598,18 +3574,18 @@ public final class GenericsChecks {
         remaining.nonEmpty();
         remaining = remaining.tail, parameterIndex++) {
       Type updated = remaining.head;
-      for (PolyNullInput input :
+      for (PolyNullLocation location :
           inputsByParameter.getOrDefault(parameterIndex, java.util.List.of())) {
         updated =
-            NestedTypePathUpdater.replaceType(
-                updated, input.location().typePath(), input.inferenceVariable());
+            NestedTypePathUpdater.replaceType(updated, location.typePath(), inferenceVariable);
       }
       updatedParameterTypes.append(updated);
     }
     return new PolyNullInferenceContext(
         new Type.MethodType(
             updatedParameterTypes.toList(), methodType.restype, methodType.thrown, methodType.tsym),
-        allInputs.build());
+        allInputs.build(),
+        inferenceVariable);
   }
 
   /**
@@ -3660,7 +3636,7 @@ public final class GenericsChecks {
     }
   }
 
-  /** Adds call-result subtype constraints for every independently inferred PolyNull occurrence. */
+  /** Adds a call-result subtype constraint using the invocation's shared PolyNull variable. */
   private static void addPolyNullResultConstraints(
       ConstraintSolver solver,
       Type returnType,
@@ -3671,62 +3647,29 @@ public final class GenericsChecks {
     if (locations.stream().noneMatch(location -> location.parameterIndex() == -1)) {
       return;
     }
-    for (PolyNullInput input : inferenceContext.inputs()) {
-      Type inferenceReturnType = returnType;
-      for (PolyNullLocation location : locations) {
-        if (location.parameterIndex() == -1) {
-          inferenceReturnType =
-              NestedTypePathUpdater.replaceType(
-                  inferenceReturnType, location.typePath(), input.inferenceVariable());
-        }
+    Type inferenceReturnType = returnType;
+    for (PolyNullLocation location : locations) {
+      if (location.parameterIndex() == -1) {
+        inferenceReturnType =
+            NestedTypePathUpdater.replaceType(
+                inferenceReturnType, location.typePath(), inferenceContext.inferenceVariable());
       }
-      solver.addSubtypeConstraint(inferenceReturnType, targetType, assignedToLocal);
     }
+    solver.addSubtypeConstraint(inferenceReturnType, targetType, assignedToLocal);
   }
 
-  /** Creates a nullable-bounded synthetic type variable for one PolyNull input occurrence. */
+  /** Creates the nullable-bounded synthetic type variable for one PolyNull invocation. */
   private static Type.TypeVar createPolyNullInferenceVariable(
-      Symbol.MethodSymbol methodSymbol, int occurrence, VisitorState state) {
+      Symbol.MethodSymbol methodSymbol, int group, VisitorState state) {
     Symbol.TypeVariableSymbol symbol =
         new Symbol.TypeVariableSymbol(
-            0, state.getName("$PolyNull$" + occurrence), Type.noType, methodSymbol);
+            0, state.getName("$PolyNull$" + group), Type.noType, methodSymbol);
     Type nullableObject =
         TypeSubstitutionUtils.typeWithAnnot(
             state.getSymtab().objectType, getSyntheticNullableAnnotType(state));
     Type.TypeVar variable = new Type.TypeVar(symbol, nullableObject, state.getSymtab().botType);
     symbol.type = variable;
     return variable;
-  }
-
-  /**
-   * Seeds occurrence variables when a modeled location denotes an explicitly instantiated method
-   * type variable.
-   */
-  private void seedPolyNullFromExplicitMethodTypeArguments(
-      Symbol.MethodSymbol methodSymbol,
-      MethodInvocationTree invocationTree,
-      ImmutableList<PolyNullInput> inputs,
-      ConstraintSolver solver) {
-    if (invocationTree.getTypeArguments().isEmpty()) {
-      return;
-    }
-    Type.MethodType declaredMethodType = methodSymbol.type.asMethodType();
-    ImmutableSet<Symbol.TypeVariableSymbol> methodTypeVariables =
-        ImmutableSet.copyOf(methodSymbol.getTypeParameters());
-    for (PolyNullInput input : inputs) {
-      int parameterIndex = input.location().parameterIndex();
-      if (parameterIndex >= declaredMethodType.argtypes.size()) {
-        continue;
-      }
-      Type declaredLocationType =
-          typeAtPath(
-              declaredMethodType.argtypes.get(parameterIndex), input.location().typePath(), 0);
-      if (declaredLocationType instanceof Type.TypeVar typeVariable
-          && methodTypeVariables.contains(typeVariable.tsym)) {
-        solver.addNullabilityEqualityConstraint(
-            input.modeledLocationType(), input.inferenceVariable());
-      }
-    }
   }
 
   /** Generates ordinary call constraints using a method type containing PolyNull variables. */
@@ -3755,7 +3698,7 @@ public final class GenericsChecks {
             });
   }
 
-  /** Reports a contradiction between independently inferred PolyNull input occurrences. */
+  /** Reports unsatisfiable constraints on a PolyNull invocation. */
   private void reportPolyNullInferenceFailure(
       MethodInvocationTree invocationTree, VisitorState state) {
     if (!callsWithReportedInferenceFailures.add(invocationTree)) {
