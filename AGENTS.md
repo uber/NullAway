@@ -32,6 +32,12 @@ Whenever you add a non-trivial method, add Javadoc, even if it's a private metho
 You do _not_ need to run `./gradlew spotlessJavaCheck` to check formatting.  We have a pre-commit hook that
 automatically formats code before it is committed.
 
+
+## Commit messages
+
+Always end commit messages, including drafts, with `Assisted-by: <tool> (<model-id>)`, never `Co-Authored-By:`.
+Keep existing trailers and add yours when amending someone else's commit.
+
 # Pull requests
 
 Pull requests are squash-merged: the description becomes the body of the single commit that lands on the target branch,
