@@ -64,7 +64,7 @@ import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo.Annotation;
-import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
+import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -602,9 +602,8 @@ public class LibraryModelsHandler implements Handler {
    * represented as {@link NestedAnnotationInfo} library models.
    */
   private static Type applyTopLevelNullableAnnotation(Type type, VisitorState state) {
-    return new AddAnnotationToNestedTypeVisitor(
-            ImmutableList.of(), GenericsChecks.getSyntheticNullableAnnotType(state))
-        .apply(type);
+    return NestedTypePathUpdater.addAnnotation(
+        type, ImmutableList.of(), GenericsChecks.getSyntheticNullableAnnotType(state));
   }
 
   /**
@@ -623,9 +622,7 @@ public class LibraryModelsHandler implements Handler {
           info.annotation() == Annotation.NULLABLE
               ? GenericsChecks.getSyntheticNullableAnnotType(state)
               : GenericsChecks.getSyntheticNonNullAnnotType(state);
-      AddAnnotationToNestedTypeVisitor addAnnotationToNestedTypeVisitor =
-          new AddAnnotationToNestedTypeVisitor(info.typePath(), annotType);
-      updated = addAnnotationToNestedTypeVisitor.apply(updated);
+      updated = NestedTypePathUpdater.addAnnotation(updated, info.typePath(), annotType);
     }
     return updated;
   }

@@ -64,7 +64,7 @@ import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsExcep
 import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.handlers.Handler;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry;
-import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
+import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -3426,7 +3426,8 @@ public final class GenericsChecks {
       for (PolyNullInput input :
           inputsByParameter.getOrDefault(parameterIndex, java.util.List.of())) {
         updated =
-            replaceTypeAtPath(updated, input.location().typePath(), 0, input.inferenceVariable());
+            NestedTypePathUpdater.replaceType(
+                updated, input.location().typePath(), input.inferenceVariable());
       }
       updatedParameterTypes.append(updated);
     }
@@ -3550,56 +3551,6 @@ public final class GenericsChecks {
     };
   }
 
-  /** Replaces the nested type at {@code typePath} with {@code replacement}. */
-  private static Type replaceTypeAtPath(
-      Type type, ImmutableList<TypePathEntry> typePath, int pathIndex, Type replacement) {
-    if (pathIndex == typePath.size()) {
-      return replacement;
-    }
-    TypePathEntry entry = typePath.get(pathIndex);
-    return switch (entry.kind()) {
-      case TYPE_ARGUMENT -> {
-        if (!(type instanceof Type.ClassType classType)
-            || entry.index() < 0
-            || entry.index() >= classType.getTypeArguments().size()) {
-          yield type;
-        }
-        ListBuffer<Type> updatedArguments = new ListBuffer<>();
-        int argumentIndex = 0;
-        for (Type argument : classType.getTypeArguments()) {
-          updatedArguments.add(
-              argumentIndex++ == entry.index()
-                  ? replaceTypeAtPath(argument, typePath, pathIndex + 1, replacement)
-                  : argument);
-        }
-        yield TYPE_METADATA_BUILDER.createClassType(
-            classType, classType.getEnclosingType(), updatedArguments.toList());
-      }
-      case WILDCARD_BOUND -> {
-        if (!(type instanceof Type.WildcardType wildcardType)) {
-          yield type;
-        }
-        Type bound = wildcardBound(wildcardType, entry.index());
-        if (bound == null) {
-          yield type;
-        }
-        Type updatedBound = replaceTypeAtPath(bound, typePath, pathIndex + 1, replacement);
-        if (wildcardType.kind == BoundKind.UNBOUND) {
-          yield TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(
-              wildcardType, updatedBound);
-        }
-        yield TYPE_METADATA_BUILDER.createWildcardType(wildcardType, updatedBound);
-      }
-      case ARRAY_ELEMENT ->
-          type instanceof Type.ArrayType arrayType
-              ? TYPE_METADATA_BUILDER.createArrayType(
-                  arrayType,
-                  replaceTypeAtPath(
-                      arrayType.getComponentType(), typePath, pathIndex + 1, replacement))
-              : type;
-    };
-  }
-
   /** Returns the requested bound of a wildcard, or {@code null} if that bound is unavailable. */
   private static @Nullable Type wildcardBound(Type type, int boundIndex) {
     if (!(type instanceof Type.WildcardType wildcardType)) {
@@ -3625,7 +3576,7 @@ public final class GenericsChecks {
         nullness == Nullness.NULLABLE
             ? getSyntheticNullableAnnotType(state)
             : getSyntheticNonNullAnnotType(state);
-    return new AddAnnotationToNestedTypeVisitor(typePath, annotationType).apply(type);
+    return NestedTypePathUpdater.addAnnotation(type, typePath, annotationType);
   }
 
   /**
