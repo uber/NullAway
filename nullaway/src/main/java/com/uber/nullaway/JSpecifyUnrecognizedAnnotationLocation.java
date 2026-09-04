@@ -491,12 +491,11 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
   }
 
   /**
-   * Returns the location of the root type {@code child} names within {@code construct}. Returns
-   * {@code null} where that location is recognized, and where {@code construct} is a kind the check
-   * does not classify.
+   * Returns the unrecognized location of the root type tree {@code child}, whose parent is {@code
+   * construct}. Returns {@code null} where that location is recognized, and where {@code construct}
+   * is a kind the check does not classify.
    *
    * @param construct the declaration or expression that holds the type usage
-   * @param child the child of {@code construct} the type usage was reached through
    */
   private static @Nullable UnrecognizedLocation enclosingLocation(Tree construct, Tree child) {
     if (construct instanceof VariableTree variable) {
