@@ -473,6 +473,34 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Ignore("https://github.com/uber/NullAway/issues/1799")
+  @Test
+  public void issue1799EnhancedForLoopFunctionArgumentFalsePositive() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.LinkedHashMap;
+            import java.util.Map;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <E extends @Nullable Object, K, V extends @Nullable Object> Map<K, V> toMap(
+                  Iterable<E> elems, Function<E, K> toKey, Function<E, V> toValue) {
+                Map<K, V> map = new LinkedHashMap<>();
+                for (E e : elems) {
+                  map.put(toKey.apply(e), toValue.apply(e));
+                }
+                return map;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Ignore("https://github.com/uber/NullAway/issues/1727")
   @Test
   public void issue1727WildcardDirectArgumentFalsePositive() {
