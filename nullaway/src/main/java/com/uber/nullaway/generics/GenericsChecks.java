@@ -1432,7 +1432,7 @@ public final class GenericsChecks {
       }
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
-      String inferenceFailureMessage = inferenceFailureMessage(e);
+      String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
       if (config.warnOnGenericInferenceFailure()
           && callsWithReportedInferenceFailures.add(callTree)) {
         ErrorBuilder errorBuilder = analysis.getErrorBuilder();
@@ -1455,15 +1455,26 @@ public final class GenericsChecks {
     }
   }
 
-  private String inferenceFailureMessage(UnsatisfiableConstraintsException e) {
+  /** Formats an inference failure without exposing synthetic PolyNull variable names to users. */
+  private String inferenceFailureMessage(
+      UnsatisfiableConstraintsException e,
+      IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts) {
+    Element typeVariable = e.getTypeVariable();
+    String typeVariableDescription =
+        polyNullContexts.values().stream()
+                .anyMatch(
+                    context ->
+                        Objects.equals(context.inferenceVariable().asElement(), typeVariable))
+            ? "type variable for @PolyNull locations"
+            : "type variable " + typeVariable;
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
-          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
-          e.getTypeVariable());
+          "inference failure: %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+          typeVariableDescription);
     }
     return String.format(
-        "inference failure: type variable %s constrained to be both @NonNull and @Nullable",
-        e.getTypeVariable());
+        "inference failure: %s constrained to be both @NonNull and @Nullable",
+        typeVariableDescription);
   }
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
