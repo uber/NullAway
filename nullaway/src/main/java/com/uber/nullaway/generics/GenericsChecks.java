@@ -86,6 +86,10 @@ import org.jspecify.annotations.Nullable;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
+  /** Diagnostic for incompatible constraints on modeled PolyNull locations. */
+  private static final String POLY_NULL_INFERENCE_FAILURE_MESSAGE =
+      "inference failure: polymorphic nullness constrained to both @NonNull and @Nullable";
+
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
 
@@ -1460,21 +1464,19 @@ public final class GenericsChecks {
       UnsatisfiableConstraintsException e,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts) {
     Element typeVariable = e.getTypeVariable();
-    String typeVariableDescription =
-        polyNullContexts.values().stream()
-                .anyMatch(
-                    context ->
-                        Objects.equals(context.inferenceVariable().asElement(), typeVariable))
-            ? "type variable for @PolyNull locations"
-            : "type variable " + typeVariable;
+    if (polyNullContexts.values().stream()
+        .anyMatch(
+            context -> Objects.equals(context.inferenceVariable().asElement(), typeVariable))) {
+      return POLY_NULL_INFERENCE_FAILURE_MESSAGE;
+    }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
-          "inference failure: %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
-          typeVariableDescription);
+          "inference failure: type variable %s is constrained to be @Nullable, but its upper bound requires it to be @NonNull",
+          typeVariable);
     }
     return String.format(
-        "inference failure: %s constrained to be both @NonNull and @Nullable",
-        typeVariableDescription);
+        "inference failure: type variable %s constrained to be both @NonNull and @Nullable",
+        typeVariable);
   }
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
@@ -3718,7 +3720,7 @@ public final class GenericsChecks {
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
-            "inference failure: polymorphic nullness constrained to both @NonNull and @Nullable");
+            POLY_NULL_INFERENCE_FAILURE_MESSAGE);
     state.reportMatch(
         analysis
             .getErrorBuilder()
