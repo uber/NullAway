@@ -58,15 +58,6 @@ public interface ConstraintSolver {
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException;
 
-  /**
-   * Constrains {@code first} and {@code second} to have identical nullability.
-   *
-   * <p>This is stronger than Java subtyping and is used when an explicitly written type argument
-   * fixes the value of a qualifier-inference variable.
-   */
-  void addNullabilityEqualityConstraint(Type first, Type second)
-      throws UnsatisfiableConstraintsException;
-
   enum InferredNullability {
     NONNULL,
     NULLABLE
