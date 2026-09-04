@@ -73,6 +73,35 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void optionalOrElseGetUsesFieldAssignmentTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              private String field = "initial";
+
+              void test(
+                  Optional<String> optional,
+                  Supplier<String> nonNullSupplier,
+                  Supplier<@Nullable String> nullableSupplier) {
+                field = optional.orElseGet(nonNullSupplier);
+
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                field = optional.orElseGet(nullableSupplier);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapComputeIfAbsentWithExplicitFunctionTypeArgument() {
     makeHelper()
         .addSourceLines(
@@ -199,6 +228,31 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
                 // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("foo", unused -> null)' is @Nullable
                 map.computeIfAbsent("foo", unused -> null).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapComputeIfAbsentUsesFieldAssignmentTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              private String field = "initial";
+
+              void test(Map<String, @Nullable String> map) {
+                field = map.computeIfAbsent("nonNull", unused -> "value");
+
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                field = map.computeIfAbsent("nullable", unused -> null);
               }
             }
             """)
@@ -351,6 +405,31 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
                 // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
                 PolyNullMethods.genericFirst(nullable, nonNull);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodUsesFieldAssignmentTargetForPolyNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              private Object field = new Object();
+
+              void test(Object nonNull, @Nullable Object nullable) {
+                field = PolyNullMethods.genericObject(nonNull, nonNull);
+
+                // BUG: Diagnostic contains: type variable $PolyNull
+                field = PolyNullMethods.genericObject(nullable, nullable);
               }
             }
             """)

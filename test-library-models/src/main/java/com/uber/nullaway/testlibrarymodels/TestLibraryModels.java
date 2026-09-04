@@ -288,6 +288,8 @@ public class TestLibraryModels implements LibraryModels {
         .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"), 1)
         .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"), 0)
         .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"), 1)
+        .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericObject(T,U)"), 0)
+        .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericObject(T,U)"), 1)
         .put(
             methodRef(
                 "com.uber.lib.unannotated.PolyNullMethods",
@@ -336,6 +338,15 @@ public class TestLibraryModels implements LibraryModels {
             new PolyNullLocation(1, ImmutableList.of()))
         .put(
             methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"),
+            new PolyNullLocation(-1, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericObject(T,U)"),
+            new PolyNullLocation(0, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericObject(T,U)"),
+            new PolyNullLocation(1, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericObject(T,U)"),
             new PolyNullLocation(-1, ImmutableList.of()))
         .put(
             methodRef(
