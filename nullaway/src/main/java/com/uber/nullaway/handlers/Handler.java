@@ -38,6 +38,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.LibraryModels;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -507,6 +508,18 @@ public interface Handler {
       VisitorState state,
       @Nullable MethodInvocationTree invocationTree) {
     return methodType;
+  }
+
+  /**
+   * Returns modeled polymorphic-nullness locations for {@code methodSymbol}.
+   *
+   * <p>The generic type-checking machinery uses these locations when resolving an invocation. A
+   * handler should only provide model metadata here; substitution and call-site reasoning belong in
+   * {@code GenericsChecks}.
+   */
+  default ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return ImmutableSet.of();
   }
 
   enum FieldSkipResult {

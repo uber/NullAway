@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -374,6 +375,16 @@ class CompositeHandler implements Handler {
       currentType = h.onOverrideMethodType(methodSymbol, currentType, state, invocationTree);
     }
     return currentType;
+  }
+
+  @Override
+  public ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    ImmutableSet.Builder<PolyNullLocation> result = ImmutableSet.builder();
+    for (Handler h : handlers) {
+      result.addAll(h.onGetPolyNullLocations(methodSymbol, state));
+    }
+    return result.build();
   }
 
   @Override

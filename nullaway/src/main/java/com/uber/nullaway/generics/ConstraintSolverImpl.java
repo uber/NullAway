@@ -87,6 +87,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
   }
 
+  @Override
+  public void addNullabilityEqualityConstraint(Type first, Type second)
+      throws UnsatisfiableConstraintsException {
+    AddSubtypeConstraintsVisitor visitor = new AddSubtypeConstraintsVisitor(false);
+    first.accept(visitor, second);
+    second.accept(visitor, first);
+  }
+
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
     private boolean localVariableType;
 
