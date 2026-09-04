@@ -428,7 +428,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               void test(Object nonNull, @Nullable Object nullable) {
                 field = PolyNullMethods.genericObject(nonNull, nonNull);
 
-                // BUG: Diagnostic contains: type variable for @PolyNull locations
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
                 field = PolyNullMethods.genericObject(nullable, nullable);
               }
             }
