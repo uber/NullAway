@@ -140,6 +140,23 @@ public interface LibraryModels {
   }
 
   /**
+   * Get the locations in library method signatures that have linked, polymorphic nullness.
+   *
+   * <p>At a call, NullAway introduces nullability inference variables at the modeled input
+   * locations and generates constraints from invocation arguments, including lambdas and method
+   * references. All input occurrences must infer the same nullness, which is then substituted at
+   * every modeled location. Explicit method type arguments seed the corresponding inference
+   * variables after substitution. A parameter index of {@code -1} denotes the return type. This
+   * model is used only in JSpecify mode, and the modeled method's enclosing class is expected to be
+   * modeled as {@code @NullMarked}.
+   *
+   * @return map from methods to signature locations with polymorphic nullness
+   */
+  default ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
+    return ImmutableSetMultimap.of();
+  }
+
+  /**
    * Get the (className, type argument index) pairs for library classes where the generic type
    * variable has a {@code @Nullable} upper bound. Only used in JSpecify mode.
    *
@@ -336,6 +353,23 @@ public interface LibraryModels {
           + fullMethodSig
           + '\''
           + '}';
+    }
+  }
+
+  /**
+   * A location within a method signature whose nullness is linked to other locations for the same
+   * method.
+   *
+   * @param parameterIndex zero-based parameter index, or {@code -1} for the return type
+   * @param typePath path within the parameter or return type; an empty path denotes its top level
+   */
+  public record PolyNullLocation(
+      int parameterIndex, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath) {
+
+    public PolyNullLocation {
+      if (parameterIndex < -1) {
+        throw new IllegalArgumentException("parameter index must be -1 or greater");
+      }
     }
   }
 

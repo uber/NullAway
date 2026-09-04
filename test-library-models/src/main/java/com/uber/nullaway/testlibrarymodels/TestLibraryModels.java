@@ -27,6 +27,7 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.uber.nullaway.LibraryModels;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.handlers.stream.StreamModelBuilder;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
@@ -59,6 +60,8 @@ public class TestLibraryModels implements LibraryModels {
           createMethodTypeVariablesWithNullableUpperBounds();
   private static final ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
       NESTED_ANNOTATIONS_FOR_METHODS = createNestedAnnotationsForMethods();
+  private static final ImmutableSetMultimap<MethodRef, PolyNullLocation> POLY_NULL_LOCATIONS =
+      createPolyNullLocations();
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
@@ -263,6 +266,7 @@ public class TestLibraryModels implements LibraryModels {
         "com.uber.lib.unannotated.LambdaModel",
         "com.uber.lib.unannotated.NestedAnnots",
         "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+        "com.uber.lib.unannotated.PolyNullMethods",
         "com.uber.lib.unannotated.UnboundWildcards");
   }
 
@@ -274,17 +278,45 @@ public class TestLibraryModels implements LibraryModels {
   /** Creates the immutable method type-variable models used by this test provider. */
   private static ImmutableSetMultimap<MethodRef, Integer>
       createMethodTypeVariablesWithNullableUpperBounds() {
-    return ImmutableSetMultimap.of(
-        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"),
-        0,
-        methodRef("com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
-        0);
+    return new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+        .put(methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
+            0)
+        .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"), 0)
+        .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"), 1)
+        .build();
   }
 
   @Override
   public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
       nestedAnnotationsForMethods() {
     return NESTED_ANNOTATIONS_FOR_METHODS;
+  }
+
+  @Override
+  public ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
+    return POLY_NULL_LOCATIONS;
+  }
+
+  /** Creates polymorphic-nullness models used to test custom library-model providers. */
+  private static ImmutableSetMultimap<MethodRef, PolyNullLocation> createPolyNullLocations() {
+    MethodRef method =
+        methodRef(
+            "com.uber.lib.unannotated.PolyNullMethods",
+            "first(java.util.List<java.lang.Object>,java.util.List<java.lang.Object>)");
+    return new ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation>()
+        .put(method, new PolyNullLocation(0, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(method, new PolyNullLocation(1, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(method, new PolyNullLocation(-1, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"),
+            new PolyNullLocation(0, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"),
+            new PolyNullLocation(1, ImmutableList.of()))
+        .build();
   }
 
   /** Creates the immutable nested-annotation models used by this test provider. */
