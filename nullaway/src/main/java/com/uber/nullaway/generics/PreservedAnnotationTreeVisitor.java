@@ -36,10 +36,46 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, @Nul
     this.config = config;
   }
 
+  /**
+   * Computes the type of an array creation expression, preserving nullability annotations on the
+   * element type.
+   *
+   * <p>{@link NewArrayTree#getType()} yields the element type of the innermost dimension only,
+   * e.g., {@code @Nullable Integer} for {@code new @Nullable Integer[3][4]}. So the rank of the
+   * created array is taken from the type javac computed for the whole expression, and the element
+   * type is wrapped in one array level for each dimension it does not already have. Taking the rank
+   * from javac's type rather than from {@link NewArrayTree#getDimensions()} also handles the
+   * array-initializer form {@code new @Nullable Integer[]{null}}, which has no explicit dimension
+   * expressions but still creates a one-dimensional array.
+   *
+   * @param tree the array creation expression
+   * @return the type of {@code tree}, with nullability annotations preserved on the element type
+   */
   @Override
   public Type visitNewArray(NewArrayTree tree, @Nullable Void p) {
     Type elemType = tree.getType().accept(this, null);
-    return new Type.ArrayType(elemType, castToNonNull(ASTHelpers.getType(tree)).tsym);
+    Type javacArrayType = castToNonNull(ASTHelpers.getType(tree));
+    Type result = elemType;
+    for (int i = arrayDimensionCount(elemType); i < arrayDimensionCount(javacArrayType); i++) {
+      result = new Type.ArrayType(result, javacArrayType.tsym);
+    }
+    return result;
+  }
+
+  /**
+   * Computes the number of array dimensions of a type, e.g., 2 for {@code String[][]}.
+   *
+   * @param type the type to inspect
+   * @return the number of array dimensions of {@code type}, or 0 if it is not an array type
+   */
+  private static int arrayDimensionCount(Type type) {
+    int count = 0;
+    Type current = type;
+    while (current instanceof Type.ArrayType arrayType) {
+      count++;
+      current = arrayType.getComponentType();
+    }
+    return count;
   }
 
   @Override
