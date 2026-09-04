@@ -325,9 +325,14 @@ public class JSpecifyUnrecognizedAnnotationLocationTest {
             """
             package test;
             import java.util.ArrayList;
+            import java.util.Collection;
             import java.util.List;
             import org.jspecify.annotations.Nullable;
             class Locals {
+              void typeArgument(Collection<String> o) {
+                // BUG: Diagnostic contains: on the type after an instanceof operator
+                if (o instanceof List<@Nullable String>) {}
+              }
               void method(Object o) {
                 // BUG: Diagnostic contains: on the root type of a local variable
                 @Nullable List<String> local = null;

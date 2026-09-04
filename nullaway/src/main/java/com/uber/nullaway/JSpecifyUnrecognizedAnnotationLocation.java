@@ -172,9 +172,9 @@ public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
      * Whether the location covers the type usages written inside it, so that a nullness annotation
      * anywhere within the location is unrecognized too.
      *
-     * <p>Most locations reach their own root type and stop, so {@code (List<@Nullable ?>) o} is
-     * reported as a wildcard rather than as a cast. The locations marked here are the exception:
-     * {@code o instanceof List<@Nullable ?>} is reported as the {@code instanceof} operand.
+     * <p>Most locations reach their own root type and stop, so the type argument in {@code
+     * (List<@Nullable String>) o} is recognized. The locations marked here are the exception:
+     * {@code o instanceof List<@Nullable String>} is reported as the {@code instanceof} operand.
      */
     private final boolean coversNestedTypes;
 
