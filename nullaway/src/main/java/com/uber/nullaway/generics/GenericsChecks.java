@@ -8,6 +8,8 @@ import static java.util.stream.Collectors.joining;
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
@@ -43,6 +45,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.tree.TreeInfo;
+import com.sun.tools.javac.util.ListBuffer;
 import com.sun.tools.javac.util.Name;
 import com.sun.tools.javac.util.Names;
 import com.uber.nullaway.CodeAnnotationInfo;
@@ -50,6 +53,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.InvocationArguments;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -59,8 +63,11 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.handlers.Handler;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry;
+import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -120,6 +127,10 @@ public final class GenericsChecks {
 
   /** Maps each {@code var}-declared local to its declaration tree */
   private final Map<Symbol, VariableTree> varLocalDeclarations = new LinkedHashMap<>();
+
+  /** Successfully inferred polymorphic nullness values cached by invocation identity. */
+  private final IdentityHashMap<MethodInvocationTree, Nullness> polyNullResolutions =
+      new IdentityHashMap<>();
 
   /**
    * Tracks generic method invocations currently undergoing nested-nullability repair so re-entrant
@@ -2881,6 +2892,11 @@ public final class GenericsChecks {
       TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
+    if (hasPolyNullModel(invokedMethodSymbol, state)) {
+      Type.MethodType invokedMethodType =
+          getInvokedMethodTypeAtCall(invokedMethodSymbol, tree, path, state, calledFromDataflow);
+      return getTypeNullnessForRead(invokedMethodType.getReturnType(), state);
+    }
     // If the return type is not a type variable, just return NONNULL (explicit @Nullable should
     // have been handled by the caller)
     if (!invokedMethodSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
@@ -3219,11 +3235,397 @@ public final class GenericsChecks {
       invokedMethodType =
           substituteTypeArgsInGenericMethodType(tree, forAllType, path, state, calledFromDataflow);
     }
-    return handler.onOverrideMethodType(
-        methodSymbol,
-        invokedMethodType.asMethodType(),
-        state,
-        tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(
+            methodSymbol,
+            invokedMethodType.asMethodType(),
+            state,
+            tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
+    return tree instanceof MethodInvocationTree invocationTree
+        ? applyPolyNullModel(
+            methodSymbol, invocationTree, modeledMethodType, path, state, calledFromDataflow)
+        : modeledMethodType;
+  }
+
+  /** Returns whether {@code methodSymbol} has a polymorphic-nullness library model. */
+  public boolean hasPolyNullModel(Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return !handler.onGetPolyNullLocations(methodSymbol, state).isEmpty();
+  }
+
+  /**
+   * Applies a polymorphic-nullness model after receiver and method type arguments have been
+   * substituted into the invoked method type. The linked nullness is inferred from all modeled
+   * input occurrences.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  private Type.MethodType applyPolyNullModel(
+      Symbol.MethodSymbol methodSymbol,
+      MethodInvocationTree invocationTree,
+      Type.MethodType substitutedMethodType,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    ImmutableSet<PolyNullLocation> locations = handler.onGetPolyNullLocations(methodSymbol, state);
+    if (locations.isEmpty()) {
+      return substitutedMethodType;
+    }
+    Nullness polyNullness =
+        inferPolyNullness(
+            methodSymbol,
+            invocationTree,
+            substitutedMethodType,
+            locations,
+            path,
+            state,
+            calledFromDataflow);
+    if (polyNullness == null) {
+      return substitutedMethodType;
+    }
+    boolean changed = false;
+    ListBuffer<Type> updatedParameterTypes = new ListBuffer<>();
+    int parameterIndex = 0;
+    for (com.sun.tools.javac.util.List<Type> remaining = substitutedMethodType.argtypes;
+        remaining.nonEmpty();
+        remaining = remaining.tail, parameterIndex++) {
+      Type parameterType = remaining.head;
+      Type updatedParameterType = parameterType;
+      for (PolyNullLocation location : locations) {
+        if (location.parameterIndex() == parameterIndex) {
+          updatedParameterType =
+              applyPolyNullAnnotation(
+                  updatedParameterType, location.typePath(), polyNullness, state);
+        }
+      }
+      updatedParameterTypes.append(updatedParameterType);
+      changed |= updatedParameterType != parameterType;
+    }
+    Type returnType = substitutedMethodType.restype;
+    Type updatedReturnType = returnType;
+    for (PolyNullLocation location : locations) {
+      if (location.parameterIndex() == -1) {
+        updatedReturnType =
+            applyPolyNullAnnotation(updatedReturnType, location.typePath(), polyNullness, state);
+      }
+    }
+    changed |= updatedReturnType != returnType;
+    return changed
+        ? new Type.MethodType(
+            updatedParameterTypes.toList(),
+            updatedReturnType,
+            substitutedMethodType.thrown,
+            substitutedMethodType.tsym)
+        : substitutedMethodType;
+  }
+
+  /** One modeled input occurrence and the synthetic inference variable that represents it. */
+  private record PolyNullInput(
+      PolyNullLocation location, Type.TypeVar inferenceVariable, Type substitutedLocationType) {}
+
+  /**
+   * The method type and occurrence variables used to generate PolyNull constraints for one call.
+   */
+  private record PolyNullInferenceContext(
+      Type.MethodType inferenceMethodType, ImmutableList<PolyNullInput> inputs) {}
+
+  /**
+   * Infers the nullness shared by all PolyNull occurrences using the generic constraint solver.
+   *
+   * <p>Each modeled input occurrence receives a separate synthetic type variable while constraints
+   * are generated. This lets a lambda with several return expressions infer one joined nullness for
+   * its occurrence. After solving, every occurrence must have the same solution, implementing the
+   * linked-overload semantics of PolyNull.
+   */
+  private @Nullable Nullness inferPolyNullness(
+      Symbol.MethodSymbol methodSymbol,
+      MethodInvocationTree invocationTree,
+      Type.MethodType substitutedMethodType,
+      ImmutableSet<PolyNullLocation> locations,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    Nullness cached = polyNullResolutions.get(invocationTree);
+    if (cached != null) {
+      return cached;
+    }
+    PolyNullInferenceContext inferenceContext =
+        createPolyNullInferenceContext(methodSymbol, substitutedMethodType, locations, state);
+    if (inferenceContext.inputs().isEmpty()) {
+      return null;
+    }
+    ConstraintSolver solver = makeSolver(state, analysis);
+    Set<Tree> nestedCalls = new LinkedHashSet<>();
+    try {
+      seedPolyNullFromExplicitMethodTypeArguments(
+          methodSymbol, invocationTree, inferenceContext.inputs(), solver);
+      generateConstraintsForCallWithMethodType(
+          state,
+          path,
+          solver,
+          invocationTree,
+          inferenceContext.inferenceMethodType(),
+          nestedCalls,
+          calledFromDataflow);
+      Map<Element, ConstraintSolver.InferredNullability> solution = solver.solve();
+      Nullness resolved = null;
+      for (PolyNullInput input : inferenceContext.inputs()) {
+        ConstraintSolver.InferredNullability inferred =
+            solution.getOrDefault(
+                input.inferenceVariable().asElement(),
+                ConstraintSolver.InferredNullability.NONNULL);
+        Nullness current =
+            inferred == ConstraintSolver.InferredNullability.NULLABLE
+                ? Nullness.NULLABLE
+                : Nullness.NONNULL;
+        if (resolved != null && resolved != current) {
+          reportPolyNullInferenceFailure(invocationTree, state);
+          return null;
+        }
+        resolved = current;
+      }
+      if (resolved != null && !calledFromDataflow) {
+        polyNullResolutions.put(invocationTree, resolved);
+      }
+      return resolved;
+    } catch (UnsatisfiableConstraintsException e) {
+      reportPolyNullInferenceFailure(invocationTree, state);
+      return null;
+    }
+  }
+
+  /** Creates independent inference variables at all modeled PolyNull input locations. */
+  private PolyNullInferenceContext createPolyNullInferenceContext(
+      Symbol.MethodSymbol methodSymbol,
+      Type.MethodType substitutedMethodType,
+      ImmutableSet<PolyNullLocation> locations,
+      VisitorState state) {
+    Map<Integer, java.util.List<PolyNullInput>> inputsByParameter = new LinkedHashMap<>();
+    ImmutableList.Builder<PolyNullInput> allInputs = ImmutableList.builder();
+    int occurrence = 0;
+    for (PolyNullLocation location : locations) {
+      int parameterIndex = location.parameterIndex();
+      if (parameterIndex < 0 || parameterIndex >= substitutedMethodType.argtypes.size()) {
+        continue;
+      }
+      Type parameterType = substitutedMethodType.argtypes.get(parameterIndex);
+      Type locationType = typeAtPath(parameterType, location.typePath(), 0);
+      if (locationType == null) {
+        continue;
+      }
+      Type.TypeVar inferenceVariable =
+          createPolyNullInferenceVariable(methodSymbol, occurrence++, state);
+      PolyNullInput input = new PolyNullInput(location, inferenceVariable, locationType);
+      inputsByParameter.computeIfAbsent(parameterIndex, unused -> new ArrayList<>()).add(input);
+      allInputs.add(input);
+    }
+    ListBuffer<Type> updatedParameterTypes = new ListBuffer<>();
+    int parameterIndex = 0;
+    for (com.sun.tools.javac.util.List<Type> remaining = substitutedMethodType.argtypes;
+        remaining.nonEmpty();
+        remaining = remaining.tail, parameterIndex++) {
+      Type updated = remaining.head;
+      for (PolyNullInput input :
+          inputsByParameter.getOrDefault(parameterIndex, java.util.List.of())) {
+        updated =
+            replaceTypeAtPath(updated, input.location().typePath(), 0, input.inferenceVariable());
+      }
+      updatedParameterTypes.append(updated);
+    }
+    return new PolyNullInferenceContext(
+        new Type.MethodType(
+            updatedParameterTypes.toList(),
+            substitutedMethodType.restype,
+            substitutedMethodType.thrown,
+            substitutedMethodType.tsym),
+        allInputs.build());
+  }
+
+  /** Creates a nullable-bounded synthetic type variable for one PolyNull input occurrence. */
+  private static Type.TypeVar createPolyNullInferenceVariable(
+      Symbol.MethodSymbol methodSymbol, int occurrence, VisitorState state) {
+    Symbol.TypeVariableSymbol symbol =
+        new Symbol.TypeVariableSymbol(
+            0, state.getName("$PolyNull$" + occurrence), Type.noType, methodSymbol);
+    Type nullableObject =
+        TypeSubstitutionUtils.typeWithAnnot(
+            state.getSymtab().objectType, getSyntheticNullableAnnotType(state));
+    Type.TypeVar variable = new Type.TypeVar(symbol, nullableObject, state.getSymtab().botType);
+    symbol.type = variable;
+    return variable;
+  }
+
+  /**
+   * Seeds occurrence variables when a modeled location denotes an explicitly instantiated method
+   * type variable.
+   */
+  private void seedPolyNullFromExplicitMethodTypeArguments(
+      Symbol.MethodSymbol methodSymbol,
+      MethodInvocationTree invocationTree,
+      ImmutableList<PolyNullInput> inputs,
+      ConstraintSolver solver) {
+    if (invocationTree.getTypeArguments().isEmpty()) {
+      return;
+    }
+    Type.MethodType declaredMethodType = methodSymbol.type.asMethodType();
+    ImmutableSet<Symbol.TypeVariableSymbol> methodTypeVariables =
+        ImmutableSet.copyOf(methodSymbol.getTypeParameters());
+    for (PolyNullInput input : inputs) {
+      int parameterIndex = input.location().parameterIndex();
+      if (parameterIndex >= declaredMethodType.argtypes.size()) {
+        continue;
+      }
+      Type declaredLocationType =
+          typeAtPath(
+              declaredMethodType.argtypes.get(parameterIndex), input.location().typePath(), 0);
+      if (declaredLocationType instanceof Type.TypeVar typeVariable
+          && methodTypeVariables.contains(typeVariable.tsym)) {
+        solver.addNullabilityEqualityConstraint(
+            input.substitutedLocationType(), input.inferenceVariable());
+      }
+    }
+  }
+
+  /** Generates ordinary call constraints using a method type containing PolyNull variables. */
+  private void generateConstraintsForCallWithMethodType(
+      VisitorState state,
+      @Nullable TreePath path,
+      ConstraintSolver solver,
+      MethodInvocationTree invocationTree,
+      Type.MethodType methodType,
+      Set<Tree> allCalls,
+      boolean calledFromDataflow) {
+    TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), invocationTree);
+    new InvocationArguments(invocationTree, methodType)
+        .forEach(
+            (argument, argPos, formalParamType, unused) -> {
+              TreePath pathToArgument = new TreePath(pathToCall, argument);
+              generateConstraintsForPseudoAssignment(
+                  state.withPath(pathToArgument),
+                  solver,
+                  allCalls,
+                  argument,
+                  formalParamType,
+                  calledFromDataflow);
+            });
+  }
+
+  /** Reports a contradiction between independently inferred PolyNull input occurrences. */
+  private void reportPolyNullInferenceFailure(
+      MethodInvocationTree invocationTree, VisitorState state) {
+    if (!callsWithReportedInferenceFailures.add(invocationTree)) {
+      return;
+    }
+    ErrorMessage errorMessage =
+        new ErrorMessage(
+            ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
+            "inference failure: polymorphic nullness constrained to both @NonNull and @Nullable");
+    state.reportMatch(
+        analysis
+            .getErrorBuilder()
+            .createErrorDescription(
+                errorMessage, analysis.buildDescription(invocationTree), state, null));
+  }
+
+  /** Returns the nested type at {@code typePath}, or {@code null} if the path is inapplicable. */
+  private static @Nullable Type typeAtPath(
+      Type type, ImmutableList<TypePathEntry> typePath, int pathIndex) {
+    if (pathIndex == typePath.size()) {
+      return type;
+    }
+    TypePathEntry entry = typePath.get(pathIndex);
+    return switch (entry.kind()) {
+      case TYPE_ARGUMENT ->
+          type instanceof Type.ClassType classType
+                  && entry.index() >= 0
+                  && entry.index() < classType.getTypeArguments().size()
+              ? typeAtPath(classType.getTypeArguments().get(entry.index()), typePath, pathIndex + 1)
+              : null;
+      case WILDCARD_BOUND -> {
+        Type bound = wildcardBound(type, entry.index());
+        yield bound == null ? null : typeAtPath(bound, typePath, pathIndex + 1);
+      }
+      case ARRAY_ELEMENT ->
+          type instanceof Type.ArrayType arrayType
+              ? typeAtPath(arrayType.getComponentType(), typePath, pathIndex + 1)
+              : null;
+    };
+  }
+
+  /** Replaces the nested type at {@code typePath} with {@code replacement}. */
+  private static Type replaceTypeAtPath(
+      Type type, ImmutableList<TypePathEntry> typePath, int pathIndex, Type replacement) {
+    if (pathIndex == typePath.size()) {
+      return replacement;
+    }
+    TypePathEntry entry = typePath.get(pathIndex);
+    return switch (entry.kind()) {
+      case TYPE_ARGUMENT -> {
+        if (!(type instanceof Type.ClassType classType)
+            || entry.index() < 0
+            || entry.index() >= classType.getTypeArguments().size()) {
+          yield type;
+        }
+        ListBuffer<Type> updatedArguments = new ListBuffer<>();
+        int argumentIndex = 0;
+        for (Type argument : classType.getTypeArguments()) {
+          updatedArguments.add(
+              argumentIndex++ == entry.index()
+                  ? replaceTypeAtPath(argument, typePath, pathIndex + 1, replacement)
+                  : argument);
+        }
+        yield TYPE_METADATA_BUILDER.createClassType(
+            classType, classType.getEnclosingType(), updatedArguments.toList());
+      }
+      case WILDCARD_BOUND -> {
+        if (!(type instanceof Type.WildcardType wildcardType)) {
+          yield type;
+        }
+        Type bound = wildcardBound(wildcardType, entry.index());
+        if (bound == null) {
+          yield type;
+        }
+        Type updatedBound = replaceTypeAtPath(bound, typePath, pathIndex + 1, replacement);
+        if (wildcardType.kind == BoundKind.UNBOUND) {
+          yield TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(
+              wildcardType, updatedBound);
+        }
+        yield TYPE_METADATA_BUILDER.createWildcardType(wildcardType, updatedBound);
+      }
+      case ARRAY_ELEMENT ->
+          type instanceof Type.ArrayType arrayType
+              ? TYPE_METADATA_BUILDER.createArrayType(
+                  arrayType,
+                  replaceTypeAtPath(
+                      arrayType.getComponentType(), typePath, pathIndex + 1, replacement))
+              : type;
+    };
+  }
+
+  /** Returns the requested bound of a wildcard, or {@code null} if that bound is unavailable. */
+  private static @Nullable Type wildcardBound(Type type, int boundIndex) {
+    if (!(type instanceof Type.WildcardType wildcardType)) {
+      return null;
+    }
+    if (boundIndex == 0) {
+      if (wildcardType.kind == BoundKind.EXTENDS) {
+        return wildcardType.type;
+      }
+      if (wildcardType.kind == BoundKind.UNBOUND && wildcardType.bound != null) {
+        return wildcardType.bound.getUpperBound();
+      }
+    } else if (boundIndex == 1 && wildcardType.kind == BoundKind.SUPER) {
+      return wildcardType.type;
+    }
+    return null;
+  }
+
+  /** Applies one resolved polymorphic-nullness annotation to a method type component. */
+  private static Type applyPolyNullAnnotation(
+      Type type, ImmutableList<TypePathEntry> typePath, Nullness nullness, VisitorState state) {
+    Type annotationType =
+        nullness == Nullness.NULLABLE
+            ? getSyntheticNullableAnnotType(state)
+            : getSyntheticNonNullAnnotType(state);
+    return new AddAnnotationToNestedTypeVisitor(typePath, annotationType).apply(type);
   }
 
   /**

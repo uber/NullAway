@@ -2965,7 +2965,9 @@ public class NullAway extends BugChecker
     if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
       return true;
     }
-    if (config.isJSpecifyMode() && exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
+    if (config.isJSpecifyMode()
+        && (exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)
+            || genericsChecks.hasPolyNullModel(exprSymbol, state))) {
       // It is important to pass a correct TreePath to getGenericReturnNullnessAtInvocation.  So, we
       // do a search under path to find invocationTree.  This shouldn't be too costly in the common
       // case, and it's important for correctness.
