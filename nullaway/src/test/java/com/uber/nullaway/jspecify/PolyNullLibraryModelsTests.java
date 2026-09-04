@@ -7,10 +7,10 @@ import java.util.List;
 import org.junit.Test;
 
 /**
- * Specification tests for {@code @PolyNull}-like library models with explicit type arguments.
+ * Specification tests for {@code @PolyNull}-like library models.
  *
  * <p>These tests cover named functional-interface values, lambda and method-reference inference,
- * explicit method type arguments, and propagation through {@code var} locals.
+ * inferred and explicit method type arguments, and propagation through {@code var} locals.
  *
  * @see <a href="https://github.com/uber/NullAway/issues/1616">NullAway issue #1616</a>
  */
@@ -315,6 +315,82 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
                 // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
                 PolyNullMethods.<@Nullable String, String>twoTypeVariables(nonNull, nonNull);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodInfersTypeArgumentsAndPolyNullTogether() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(String nonNull, @Nullable String nullable) {
+                PolyNullMethods.genericFirst(nonNull, nonNull).hashCode();
+
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nullable, nullable)' is @Nullable
+                PolyNullMethods.genericFirst(nullable, nullable).hashCode();
+
+                var nonNullResult = PolyNullMethods.genericFirst(nonNull, nonNull);
+                nonNullResult.hashCode();
+
+                var nullableResult = PolyNullMethods.genericFirst(nullable, nullable);
+                // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
+                nullableResult.hashCode();
+
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                PolyNullMethods.genericFirst(nonNull, nullable);
+
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                PolyNullMethods.genericFirst(nullable, nonNull);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodInfersPolyNullFromLambdasAndMethodReferences() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static String nonNullValue() {
+                return "value";
+              }
+
+              static @Nullable String nullableValue() {
+                return null;
+              }
+
+              void test() {
+                PolyNullMethods.genericFromSuppliers(() -> "first", () -> "second").hashCode();
+
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFromSuppliers(() -> null, () -> null)' is @Nullable
+                PolyNullMethods.genericFromSuppliers(() -> null, () -> null).hashCode();
+
+                PolyNullMethods.genericFromSuppliers(
+                    Test::nonNullValue, Test::nonNullValue).hashCode();
+
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFromSuppliers(Test::nullableValue, Test::nullableValue)' is @Nullable
+                PolyNullMethods.genericFromSuppliers(Test::nullableValue, Test::nullableValue).hashCode();
+
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                PolyNullMethods.genericFromSuppliers(() -> "first", () -> null);
               }
             }
             """)

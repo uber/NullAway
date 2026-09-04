@@ -286,6 +286,18 @@ public class TestLibraryModels implements LibraryModels {
             0)
         .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"), 0)
         .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"), 1)
+        .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"), 0)
+        .put(methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"), 1)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T,U>genericFromSuppliers(java.util.function.Supplier<? extends T>,java.util.function.Supplier<? extends U>)"),
+            0)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T,U>genericFromSuppliers(java.util.function.Supplier<? extends T>,java.util.function.Supplier<? extends U>)"),
+            1)
         .build();
   }
 
@@ -316,6 +328,36 @@ public class TestLibraryModels implements LibraryModels {
         .put(
             methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>twoTypeVariables(T,U)"),
             new PolyNullLocation(1, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"),
+            new PolyNullLocation(0, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"),
+            new PolyNullLocation(1, ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "<T,U>genericFirst(T,U)"),
+            new PolyNullLocation(-1, ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T,U>genericFromSuppliers(java.util.function.Supplier<? extends T>,java.util.function.Supplier<? extends U>)"),
+            new PolyNullLocation(
+                0,
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 0))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T,U>genericFromSuppliers(java.util.function.Supplier<? extends T>,java.util.function.Supplier<? extends U>)"),
+            new PolyNullLocation(
+                1,
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 0))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T,U>genericFromSuppliers(java.util.function.Supplier<? extends T>,java.util.function.Supplier<? extends U>)"),
+            new PolyNullLocation(-1, ImmutableList.of()))
         .build();
   }
 
