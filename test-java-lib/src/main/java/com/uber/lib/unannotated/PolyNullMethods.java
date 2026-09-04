@@ -1,6 +1,7 @@
 package com.uber.lib.unannotated;
 
 import java.util.List;
+import java.util.function.Supplier;
 
 /* @NullMarked */
 public final class PolyNullMethods {
@@ -14,4 +15,15 @@ public final class PolyNullMethods {
 
   /** Accepts two independently typed arguments. */
   public static <T, U> void twoTypeVariables(T first, U second) {}
+
+  /** Returns the first of two independently typed arguments. */
+  public static <T, U> T genericFirst(T first, U second) {
+    return first;
+  }
+
+  /** Returns a value from the first of two independently typed suppliers. */
+  public static <T, U> T genericFromSuppliers(
+      Supplier<? extends T> first, Supplier<? extends U> second) {
+    return first.get();
+  }
 }
