@@ -1296,6 +1296,217 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void unboundMethodRefReceiverTypeArgsFromTargetType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.BiConsumer;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                T get() {
+                  throw new RuntimeException();
+                }
+                void put(T t) {}
+                List<T> list() {
+                  throw new RuntimeException();
+                }
+              }
+
+              static void takeGetter(Function<Box<@Nullable String>, @Nullable String> f) {}
+
+              static void takeNestedMatch(
+                  Function<Box<@Nullable String>, List<@Nullable String>> f) {}
+
+              static void takeNestedMismatch(Function<Box<@Nullable String>, List<String>> f) {}
+
+              static void test() {
+                takeGetter(Box::get);
+                takeNestedMatch(Box::list);
+                // BUG: Diagnostic contains: referenced method returns
+                takeNestedMismatch(Box::list);
+              }
+
+              static BiConsumer<Box<@Nullable String>, @Nullable String> nullableReceiverTypeArg() {
+                return Box::put;
+              }
+
+              static BiConsumer<Box<String>, @Nullable String> nonNullReceiverTypeArg() {
+                // BUG: Diagnostic contains: parameter t of referenced method is @NonNull
+                return Box::put;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundMethodRefArgToGenericMethod() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.Objects;
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static CompletableFuture<@Nullable Exception> chainSynchronous(
+                  List<CompletableFuture<@Nullable Exception>> futures) {
+                return CompletableFuture.allOf(futures.toArray(CompletableFuture[]::new))
+                    .thenApply(unused -> futures.stream()
+                        .map(CompletableFuture::join)
+                        .filter(Objects::nonNull)
+                        .reduce((e1, e2) -> {
+                          e1.addSuppressed(e2);
+                          return e1;
+                        }).orElse(null));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyParameterizedUnboundMethodRefQualifier() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiConsumer;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                T get() {
+                  throw new RuntimeException();
+                }
+                void put(T t) {}
+              }
+
+              static class Outer<T extends @Nullable Object> {
+                class Inner {
+                  T get() {
+                    throw new RuntimeException();
+                  }
+                }
+              }
+
+              static void takeNullableGetter(Function<Box<@Nullable String>, @Nullable String> f) {}
+
+              static void takeNonNullGetter(Function<Box<String>, String> f) {}
+
+              static void takeInnerGetter(Function<Outer<String>.Inner, String> f) {}
+
+              static void test() {
+                takeNullableGetter(Box<@Nullable String>::get);
+                // BUG: Diagnostic contains: parameter type of referenced method is Box<@Nullable String>
+                takeNonNullGetter(Box<@Nullable String>::get);
+                // BUG: Diagnostic contains: parameter type of referenced method is Outer<@Nullable String>.Inner
+                takeInnerGetter(Outer<@Nullable String>.Inner::get);
+              }
+
+              static BiConsumer<Box<@Nullable String>, @Nullable String> writtenNonNullQualifier() {
+                // BUG: Diagnostic contains: parameter t of referenced method is @NonNull
+                return Box<String>::put;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void annotatedUnboundMethodRefQualifier() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              @Target(ElementType.TYPE_USE)
+              @interface A {}
+
+              static class Box<T extends @Nullable Object> {
+                List<T> list() {
+                  throw new RuntimeException();
+                }
+              }
+
+              static void takeNullable(Function<Box<@Nullable String>, List<@Nullable String>> f) {}
+
+              static void takeNonNull(Function<Box<String>, List<String>> f) {}
+
+              static void test() {
+                takeNullable(@A Box::list);
+                takeNullable(@A com.uber.Test.Box::list);
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                takeNonNull(@A Box<@Nullable String>::list);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundMethodRefInheritedReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                List<T> list() {
+                  throw new RuntimeException();
+                }
+              }
+
+              static class Sub extends Box<@Nullable String> {}
+
+              static void takeMatch(Function<Sub, List<@Nullable String>> f) {}
+
+              static void takeMismatch(Function<Sub, List<String>> f) {}
+
+              static void test() {
+                takeMatch(Box::list);
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                takeMismatch(Box::list);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

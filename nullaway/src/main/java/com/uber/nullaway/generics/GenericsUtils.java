@@ -280,18 +280,30 @@ public class GenericsUtils {
       //  https://github.com/uber/NullAway/issues/1468
       return;
     }
-    Type.MethodType referencedMethodType =
-        genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
-    if (referencedMethodType == null) {
-      return;
+    Type unboundReceiverType = null;
+    if (!referencedMethod.isStatic()
+        && GenericsChecks.isUnboundMemberReference(memberReferenceTree)) {
+      // where an unbound member reference writes no type arguments on its qualifier, javac infers
+      // them, so the qualifier expression's own type says nothing about their nullability; recover
+      // them from targetType instead.  Returns null for a qualifier that does write them, and the
+      // fallback below then reads the written type.
+      unboundReceiverType =
+          genericsChecks.getUnboundMemberReferenceReceiverType(
+              memberReferenceTree, referencedMethod, targetType, state);
     }
-    Type qualifierType = null;
-    if (!referencedMethod.isStatic()) {
+    Type qualifierType = unboundReceiverType;
+    if (qualifierType == null && !referencedMethod.isStatic()) {
       ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
       qualifierType =
           genericsChecks.getTreeType(
               qualifierExpression,
               state.withPath(new TreePath(state.getPath(), qualifierExpression)));
+    }
+    Type.MethodType referencedMethodType =
+        genericsChecks.getMemberReferenceMethodType(
+            memberReferenceTree, referencedMethod, state, unboundReceiverType);
+    if (referencedMethodType == null) {
+      return;
     }
 
     // now, get the type of the corresponding functional interface method, as a member of targetType
@@ -315,7 +327,7 @@ public class GenericsUtils {
     com.sun.tools.javac.util.List<Type> referencedParamTypes =
         referencedMethodType.getParameterTypes();
     int fiStartIndex = 0;
-    if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
+    if (GenericsChecks.isUnboundMemberReference(memberReferenceTree)) {
       Verify.verify(
           !fiParamTypes.isEmpty(),
           "Expected receiver parameter for unbound method ref %s",

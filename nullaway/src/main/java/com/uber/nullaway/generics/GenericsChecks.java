@@ -1690,6 +1690,26 @@ public final class GenericsChecks {
       MemberReferenceTree memberReferenceTree,
       Symbol.MethodSymbol overridingMethod,
       VisitorState state) {
+    return getMemberReferenceMethodType(memberReferenceTree, overridingMethod, state, null);
+  }
+
+  /**
+   * Gets the method type for a member reference handling generics, in JSpecify mode
+   *
+   * @param memberReferenceTree the member reference tree
+   * @param overridingMethod the method symbol for the method referenced by {@code
+   *     memberReferenceTree}
+   * @param state the visitor state
+   * @param unboundReceiverType for an unbound member reference, the receiver type computed by the
+   *     caller from the target functional interface type; {@code null} to compute it here
+   * @return the method type for the member reference, with generics handled, or null if not in
+   *     JSpecify mode
+   */
+  public Type.@Nullable MethodType getMemberReferenceMethodType(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol overridingMethod,
+      VisitorState state,
+      @Nullable Type unboundReceiverType) {
     if (!config.isJSpecifyMode()) {
       return null;
     }
@@ -1698,7 +1718,17 @@ public final class GenericsChecks {
       // This handles any generic type parameters of the qualifier of the member reference, e.g. for
       // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
       // appears in the signature of m.
-      Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      Type qualifierType = null;
+      if (isUnboundMemberReference(memberReferenceTree)) {
+        qualifierType =
+            unboundReceiverType != null
+                ? unboundReceiverType
+                : getUnboundMemberReferenceReceiverType(
+                    memberReferenceTree, overridingMethod, null, state);
+      }
+      if (qualifierType == null) {
+        qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      }
       if (qualifierType != null && !qualifierType.isRaw()) {
         result =
             TypeSubstitutionUtils.memberType(
@@ -1726,6 +1756,100 @@ public final class GenericsChecks {
     }
     // finally, run any handlers
     return handler.onOverrideMethodType(overridingMethod, result, state, null);
+  }
+
+  /**
+   * Checks whether a member reference is an unbound instance-method reference like {@code
+   * Foo::instanceMethod}, whose qualifier denotes a type rather than a value.
+   *
+   * @param memberReferenceTree the member reference tree
+   * @return true if the member reference is unbound
+   */
+  static boolean isUnboundMemberReference(MemberReferenceTree memberReferenceTree) {
+    return ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+  }
+
+  /**
+   * Computes the receiver type of an unbound member reference whose qualifier is a bare type name,
+   * like {@code Foo::instanceMethod}.
+   *
+   * <p>Such a qualifier writes no type arguments, so javac infers them from the first parameter of
+   * the functional interface method and the type of the qualifier expression is the generic
+   * declaration {@code Foo<T>}, which carries no nullability information. This method recovers the
+   * instantiation by viewing that first parameter type as the class declaring the referenced
+   * method. A qualifier that writes its own type arguments, like {@code Foo<@Nullable String>},
+   * gets no such treatment: the written arguments are authoritative, and callers fall back on the
+   * type of the qualifier expression.
+   *
+   * @param memberReferenceTree the member reference tree
+   * @param referencedMethod the method symbol for the referenced method
+   * @param groundTargetType the target functional interface type, already grounded; {@code null} to
+   *     derive it from {@code memberReferenceTree}
+   * @param state the visitor state
+   * @return the receiver type, or {@code null} if it cannot be computed
+   */
+  @Nullable Type getUnboundMemberReferenceReceiverType(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol referencedMethod,
+      @Nullable Type groundTargetType,
+      VisitorState state) {
+    if (!qualifierIsBareTypeName(memberReferenceTree.getQualifierExpression())) {
+      return null;
+    }
+    if (!(referencedMethod.owner instanceof Symbol.ClassSymbol ownerClass)) {
+      return null;
+    }
+    Type targetType = groundTargetType;
+    if (targetType == null) {
+      targetType = getInferredPolyExpressionType(memberReferenceTree);
+      if (targetType == null) {
+        targetType = ASTHelpers.getType(memberReferenceTree);
+      }
+      if (targetType == null) {
+        return null;
+      }
+      targetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    }
+    if (targetType.isRaw()) {
+      return null;
+    }
+    Types types = state.getTypes();
+    Symbol.MethodSymbol fiMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
+    com.sun.tools.javac.util.List<Type> fiParamTypes =
+        TypeSubstitutionUtils.memberType(types, targetType, fiMethod, config)
+            .asMethodType()
+            .getParameterTypes();
+    if (fiParamTypes.isEmpty()) {
+      return null;
+    }
+    return TypeSubstitutionUtils.asSuper(types, fiParamTypes.get(0), ownerClass, config);
+  }
+
+  /**
+   * Checks whether the qualifier of a member reference is a bare type name, such as {@code Foo},
+   * {@code p.Outer.Foo}, or either of those under a type-use annotation.
+   *
+   * <p>The walk rejects on the first node that is neither an {@link AnnotatedTypeTree}, a {@link
+   * MemberSelectTree}, nor an {@link IdentifierTree}. That covers a qualifier writing its own type
+   * arguments ({@code Foo<@Nullable String>}, {@code Outer<@Nullable String>.Inner}) and an array
+   * type ({@code String[]}), including the case where an annotation sits above the type arguments,
+   * as in {@code @A Foo<String>}.
+   *
+   * @param qualifierExpression the qualifier expression of a member reference
+   * @return true if the qualifier is a bare type name
+   */
+  private static boolean qualifierIsBareTypeName(ExpressionTree qualifierExpression) {
+    Tree current = qualifierExpression;
+    while (true) {
+      if (current instanceof AnnotatedTypeTree annotatedType) {
+        current = annotatedType.getUnderlyingType();
+      } else if (current instanceof MemberSelectTree memberSelect) {
+        current = memberSelect.getExpression();
+      } else {
+        return current instanceof IdentifierTree;
+      }
+    }
   }
 
   /**
