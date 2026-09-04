@@ -1552,6 +1552,20 @@ public final class GenericsChecks {
       throws UnsatisfiableConstraintsException {
     Type.MethodType methodType =
         getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
+    PolyNullInferenceContext polyNullContext = null;
+    ImmutableSet<PolyNullLocation> polyNullLocations = ImmutableSet.of();
+    if (callTree instanceof MethodInvocationTree invocationTree) {
+      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
+      polyNullLocations = handler.onGetPolyNullLocations(methodSymbol, state);
+      if (!polyNullLocations.isEmpty()) {
+        ImmutableSet<PolyNullLocation> locations = polyNullLocations;
+        polyNullContext =
+            polyNullContexts.computeIfAbsent(
+                invocationTree,
+                unused ->
+                    createPolyNullInferenceContext(methodSymbol, methodType, locations, state));
+      }
+    }
     // first, handle the call result flow
     if (typeFromAssignmentContext != null) {
       Type callResultType =
@@ -1559,6 +1573,15 @@ public final class GenericsChecks {
               ? methodType.getReturnType()
               : getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.type;
       solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
+      if (polyNullContext != null) {
+        addPolyNullResultConstraints(
+            solver,
+            methodType.getReturnType(),
+            polyNullLocations,
+            polyNullContext,
+            typeFromAssignmentContext,
+            assignedToLocal);
+      }
     }
     // then, handle parameters
     TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
@@ -1575,28 +1598,18 @@ public final class GenericsChecks {
                   polyNullContexts,
                   calledFromDataflow);
             });
-    if (callTree instanceof MethodInvocationTree invocationTree) {
-      Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(invocationTree);
-      ImmutableSet<PolyNullLocation> locations =
-          handler.onGetPolyNullLocations(methodSymbol, state);
-      if (!locations.isEmpty()) {
-        PolyNullInferenceContext polyNullContext =
-            polyNullContexts.computeIfAbsent(
-                invocationTree,
-                unused ->
-                    createPolyNullInferenceContext(methodSymbol, methodType, locations, state));
-        if (!polyNullContext.inputs().isEmpty()) {
-          generateConstraintsForCallWithMethodType(
-              state,
-              path,
-              solver,
-              invocationTree,
-              polyNullContext.inferenceMethodType(),
-              allCalls,
-              polyNullContexts,
-              calledFromDataflow);
-        }
-      }
+    if (callTree instanceof MethodInvocationTree invocationTree
+        && polyNullContext != null
+        && !polyNullContext.inputs().isEmpty()) {
+      generateConstraintsForCallWithMethodType(
+          state,
+          path,
+          solver,
+          invocationTree,
+          polyNullContext.inferenceMethodType(),
+          allCalls,
+          polyNullContexts,
+          calledFromDataflow);
     }
   }
 
@@ -3482,6 +3495,15 @@ public final class GenericsChecks {
     try {
       seedPolyNullFromExplicitMethodTypeArguments(
           methodSymbol, invocationTree, inferenceContext.inputs(), solver);
+      addPolyNullResultConstraintsFromDirectAssignmentContext(
+          invocationTree,
+          substitutedMethodType,
+          locations,
+          inferenceContext,
+          path,
+          solver,
+          state,
+          calledFromDataflow);
       generateConstraintsForCallWithMethodType(
           state,
           path,
@@ -3588,6 +3610,78 @@ public final class GenericsChecks {
         new Type.MethodType(
             updatedParameterTypes.toList(), methodType.restype, methodType.thrown, methodType.tsym),
         allInputs.build());
+  }
+
+  /**
+   * Constrains a standalone PolyNull call's modeled result using a directly enclosing assignment,
+   * variable initialization, method return, or conditional-expression target.
+   */
+  private void addPolyNullResultConstraintsFromDirectAssignmentContext(
+      MethodInvocationTree invocationTree,
+      Type.MethodType methodType,
+      ImmutableSet<PolyNullLocation> locations,
+      PolyNullInferenceContext inferenceContext,
+      @Nullable TreePath path,
+      ConstraintSolver solver,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    if (path == null) {
+      return;
+    }
+    TreePath invocationPath = pathWithLeaf(path, invocationTree);
+    TreePath parentPath = invocationPath.getParentPath();
+    if (parentPath == null) {
+      return;
+    }
+    Tree parent = parentPath.getLeaf();
+    while (parent instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+      if (parentPath == null) {
+        return;
+      }
+      parent = parentPath.getLeaf();
+    }
+    if (!(parent instanceof AssignmentTree
+        || parent instanceof VariableTree
+        || parent instanceof ReturnTree
+        || parent instanceof ConditionalExpressionTree)) {
+      return;
+    }
+    CallAndContext callAndContext =
+        getDirectCallContextForInference(invocationPath, state, calledFromDataflow);
+    if (callAndContext.typeFromAssignmentContext() != null) {
+      addPolyNullResultConstraints(
+          solver,
+          methodType.getReturnType(),
+          locations,
+          inferenceContext,
+          callAndContext.typeFromAssignmentContext(),
+          callAndContext.assignedToLocal());
+    }
+  }
+
+  /** Adds call-result subtype constraints for every independently inferred PolyNull occurrence. */
+  private static void addPolyNullResultConstraints(
+      ConstraintSolver solver,
+      Type returnType,
+      ImmutableSet<PolyNullLocation> locations,
+      PolyNullInferenceContext inferenceContext,
+      Type targetType,
+      boolean assignedToLocal) {
+    if (locations.stream().noneMatch(location -> location.parameterIndex() == -1)) {
+      return;
+    }
+    for (PolyNullInput input : inferenceContext.inputs()) {
+      Type inferenceReturnType = returnType;
+      for (PolyNullLocation location : locations) {
+        if (location.parameterIndex() == -1) {
+          inferenceReturnType =
+              NestedTypePathUpdater.replaceType(
+                  inferenceReturnType, location.typePath(), input.inferenceVariable());
+        }
+      }
+      solver.addSubtypeConstraint(inferenceReturnType, targetType, assignedToLocal);
+    }
   }
 
   /** Creates a nullable-bounded synthetic type variable for one PolyNull input occurrence. */

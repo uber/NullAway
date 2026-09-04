@@ -21,6 +21,11 @@ public final class PolyNullMethods {
     return first;
   }
 
+  /** Returns the first argument as an object. */
+  public static <T, U> Object genericObject(T first, U second) {
+    return first;
+  }
+
   /** Returns a value from the first of two independently typed suppliers. */
   public static <T, U> T genericFromSuppliers(
       Supplier<? extends T> first, Supplier<? extends U> second) {
