@@ -226,7 +226,7 @@ public class GenericsTests extends NullAwayTestsBase {
                   abstract R apply(P p);
                 }
               }
-              static void param(@Nullable Wrapper<String>.Fn<String> p) {}
+              static void param(Wrapper<String>.@Nullable Fn<String> p) {}
               static void positiveParam() {
                 Wrapper<@Nullable String>.Fn<String> x = null;
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>
@@ -237,7 +237,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String> cannot be converted to Test.Wrapper<String>.Fn<String>
                 Wrapper<String>.Fn<String> p2 = p1;
               }
-              static @Nullable Wrapper<String>.Fn<String> positiveReturn() {
+              static Wrapper<String>.@Nullable Fn<String> positiveReturn() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>
                 return p1;
@@ -250,7 +250,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 Wrapper<@Nullable String>.Fn<String> p2 = p1;
               }
-              static @Nullable Wrapper<@Nullable String>.Fn<String> negativeReturn() {
+              static Wrapper<@Nullable String>.@Nullable Fn<String> negativeReturn() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 return p1;
               }

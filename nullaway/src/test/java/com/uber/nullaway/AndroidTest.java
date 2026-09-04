@@ -20,19 +20,20 @@ public class AndroidTest {
   @SuppressWarnings("CheckReturnValue")
   @Before
   public void setup() {
-    compilationHelper = CompilationTestHelper.newInstance(NullAway.class, getClass());
-    compilationHelper.setArgs(
-        Arrays.asList(
-            "-d",
-            temporaryFolder.getRoot().getAbsolutePath(),
-            "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex"));
+    compilationHelper =
+        NullAwayTestsBase.makeTestHelperWithArgs(
+            getClass(),
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber,com.ubercab,io.reactivex"));
   }
 
   // Core Fragment tests
 
   @Test
   public void coreFragmentSuccess() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/core/Fragment.java")
         .addSourceFile("testdata/android-success/CoreFragment.java")
@@ -41,7 +42,7 @@ public class AndroidTest {
 
   @Test
   public void coreFragmentMissingOnAttachError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/core/Fragment.java")
         .addSourceFile("testdata/android-error/CoreFragmentWithoutOnAttach.java")
@@ -50,7 +51,7 @@ public class AndroidTest {
 
   @Test
   public void coreFragmentMissingOnCreateError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/core/Fragment.java")
         .addSourceFile("testdata/android-error/CoreFragmentWithoutOnCreate.java")
@@ -59,7 +60,7 @@ public class AndroidTest {
 
   @Test
   public void coreFragmentMissingOnCreateViewError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/core/Fragment.java")
         .addSourceFile("testdata/android-error/CoreFragmentWithoutOnCreateView.java")
@@ -69,7 +70,7 @@ public class AndroidTest {
   // AndroidX Library Fragment
   @Test
   public void androidxFragmentSuccess() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/androidx/Fragment.java")
         .addSourceFile("testdata/android-success/AndroidxFragment.java")
@@ -78,7 +79,7 @@ public class AndroidTest {
 
   @Test
   public void androidxFragmentMissingOnAttachError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/androidx/Fragment.java")
         .addSourceFile("testdata/android-error/AndroidxFragmentWithoutOnAttach.java")
@@ -87,7 +88,7 @@ public class AndroidTest {
 
   @Test
   public void androidxFragmentMissingOnCreateError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/androidx/Fragment.java")
         .addSourceFile("testdata/android-error/AndroidxFragmentWithoutOnCreate.java")
@@ -96,7 +97,7 @@ public class AndroidTest {
 
   @Test
   public void androidxFragmentMissingOnCreateViewError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/androidx/Fragment.java")
         .addSourceFile("testdata/android-error/AndroidxFragmentWithoutOnCreateView.java")
@@ -107,7 +108,7 @@ public class AndroidTest {
 
   @Test
   public void supportLibFragmentSuccess() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/supportlib/Fragment.java")
         .addSourceFile("testdata/android-success/SupportLibraryFragment.java")
@@ -116,7 +117,7 @@ public class AndroidTest {
 
   @Test
   public void supportLibFragmentMissingOnAttachError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/supportlib/Fragment.java")
         .addSourceFile("testdata/android-error/SupportLibraryFragmentWithoutOnAttach.java")
@@ -125,7 +126,7 @@ public class AndroidTest {
 
   @Test
   public void supportLibFragmentMissingOnCreateError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/supportlib/Fragment.java")
         .addSourceFile("testdata/android-error/SupportLibraryFragmentWithoutOnCreate.java")
@@ -134,7 +135,7 @@ public class AndroidTest {
 
   @Test
   public void supportLibFragmentMissingOnCreateViewError() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/supportlib/Fragment.java")
         .addSourceFile("testdata/android-error/SupportLibraryFragmentWithoutOnCreateView.java")
@@ -145,7 +146,7 @@ public class AndroidTest {
 
   @Test
   public void coreActivitySuccess() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/core/Activity.java")
         .addSourceFile("testdata/android-success/CoreActivity.java")
@@ -156,7 +157,7 @@ public class AndroidTest {
 
   @Test
   public void supportLibActivitySuccess() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/supportlib/ActivityCompat.java")
         .addSourceFile("testdata/android-success/SupportLibActivityCompat.java")
@@ -167,16 +168,16 @@ public class AndroidTest {
 
   @Test
   public void androidxActivitySuccess() {
-    initialiseAndroidCoreClasses();
+    initializeAndroidCoreClasses();
     compilationHelper
         .addSourceFile("testdata/androidstubs/androidx/ActivityCompat.java")
         .addSourceFile("testdata/android-success/AndroidxActivityCompat.java")
         .doTest();
   }
 
-  /** Initialises the default android classes that are commonly used. */
+  /** Adds the Android stub sources that all the tests in this class share. */
   @SuppressWarnings("CheckReturnValue")
-  private void initialiseAndroidCoreClasses() {
+  private void initializeAndroidCoreClasses() {
     compilationHelper
         .addSourceFile("testdata/androidstubs/core/Context.java")
         .addSourceFile("testdata/androidstubs/core/Bundle.java")
