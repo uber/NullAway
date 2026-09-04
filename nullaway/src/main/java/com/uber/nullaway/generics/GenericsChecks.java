@@ -1597,24 +1597,12 @@ public final class GenericsChecks {
       }
     }
     // then, handle parameters
-    TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
-    new InvocationArguments(callTree, methodType)
-        .forEach(
-            (argument, argPos, formalParamType, unused) -> {
-              TreePath pathToArgument = new TreePath(pathToCall, argument);
-              generateConstraintsForPseudoAssignment(
-                  state.withPath(pathToArgument),
-                  solver,
-                  allCalls,
-                  argument,
-                  formalParamType,
-                  polyNullContexts,
-                  calledFromDataflow);
-            });
+    generateArgumentConstraintsForCall(
+        state, path, solver, callTree, methodType, allCalls, polyNullContexts, calledFromDataflow);
     if (callTree instanceof MethodInvocationTree invocationTree
         && polyNullContext != null
         && !polyNullContext.inputs().isEmpty()) {
-      generateConstraintsForCallWithMethodType(
+      generateArgumentConstraintsForCall(
           state,
           path,
           solver,
@@ -3510,7 +3498,7 @@ public final class GenericsChecks {
           solver,
           state,
           calledFromDataflow);
-      generateConstraintsForCallWithMethodType(
+      generateArgumentConstraintsForCall(
           state,
           path,
           solver,
@@ -3560,6 +3548,7 @@ public final class GenericsChecks {
   }
 
   /** Creates a method-type overlay with one shared variable at every modeled PolyNull input. */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   private PolyNullInferenceContext createPolyNullInferenceContext(
       Symbol.MethodSymbol methodSymbol,
       Type.MethodType methodType,
@@ -3573,13 +3562,7 @@ public final class GenericsChecks {
       if (parameterIndex < 0 || parameterIndex >= methodType.argtypes.size()) {
         continue;
       }
-      Type parameterType = methodType.argtypes.get(parameterIndex);
-      Type locationType = typeAtPath(parameterType, location.typePath(), 0);
-      if (locationType == null) {
-        continue;
-      }
       inputsByParameter.computeIfAbsent(parameterIndex, unused -> new ArrayList<>()).add(location);
-      allInputs.add(location);
     }
     ListBuffer<Type> updatedParameterTypes = new ListBuffer<>();
     int parameterIndex = 0;
@@ -3589,8 +3572,12 @@ public final class GenericsChecks {
       Type updated = remaining.head;
       for (PolyNullLocation location :
           inputsByParameter.getOrDefault(parameterIndex, java.util.List.of())) {
-        updated =
+        Type replaced =
             NestedTypePathUpdater.replaceType(updated, location.typePath(), inferenceVariable);
+        if (replaced != updated) {
+          updated = replaced;
+          allInputs.add(location);
+        }
       }
       updatedParameterTypes.append(updated);
     }
@@ -3685,18 +3672,18 @@ public final class GenericsChecks {
     return variable;
   }
 
-  /** Generates ordinary call constraints using a method type containing PolyNull variables. */
-  private void generateConstraintsForCallWithMethodType(
+  /** Generates argument constraints for a call against the supplied method type. */
+  private void generateArgumentConstraintsForCall(
       VisitorState state,
       @Nullable TreePath path,
       ConstraintSolver solver,
-      MethodInvocationTree invocationTree,
+      ExpressionTree callTree,
       Type.MethodType methodType,
       Set<Tree> allCalls,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
       boolean calledFromDataflow) {
-    TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), invocationTree);
-    new InvocationArguments(invocationTree, methodType)
+    TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
+    new InvocationArguments(callTree, methodType)
         .forEach(
             (argument, argPos, formalParamType, unused) -> {
               TreePath pathToArgument = new TreePath(pathToCall, argument);
@@ -3726,49 +3713,6 @@ public final class GenericsChecks {
             .getErrorBuilder()
             .createErrorDescription(
                 errorMessage, analysis.buildDescription(invocationTree), state, null));
-  }
-
-  /** Returns the nested type at {@code typePath}, or {@code null} if the path is inapplicable. */
-  private static @Nullable Type typeAtPath(
-      Type type, ImmutableList<TypePathEntry> typePath, int pathIndex) {
-    if (pathIndex == typePath.size()) {
-      return type;
-    }
-    TypePathEntry entry = typePath.get(pathIndex);
-    return switch (entry.kind()) {
-      case TYPE_ARGUMENT ->
-          type instanceof Type.ClassType classType
-                  && entry.index() >= 0
-                  && entry.index() < classType.getTypeArguments().size()
-              ? typeAtPath(classType.getTypeArguments().get(entry.index()), typePath, pathIndex + 1)
-              : null;
-      case WILDCARD_BOUND -> {
-        Type bound = wildcardBound(type, entry.index());
-        yield bound == null ? null : typeAtPath(bound, typePath, pathIndex + 1);
-      }
-      case ARRAY_ELEMENT ->
-          type instanceof Type.ArrayType arrayType
-              ? typeAtPath(arrayType.getComponentType(), typePath, pathIndex + 1)
-              : null;
-    };
-  }
-
-  /** Returns the requested bound of a wildcard, or {@code null} if that bound is unavailable. */
-  private static @Nullable Type wildcardBound(Type type, int boundIndex) {
-    if (!(type instanceof Type.WildcardType wildcardType)) {
-      return null;
-    }
-    if (boundIndex == 0) {
-      if (wildcardType.kind == BoundKind.EXTENDS) {
-        return wildcardType.type;
-      }
-      if (wildcardType.kind == BoundKind.UNBOUND && wildcardType.bound != null) {
-        return wildcardType.bound.getUpperBound();
-      }
-    } else if (boundIndex == 1 && wildcardType.kind == BoundKind.SUPER) {
-      return wildcardType.type;
-    }
-    return null;
   }
 
   /** Applies one resolved polymorphic-nullness annotation to a method type component. */
