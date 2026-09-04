@@ -4,7 +4,6 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
@@ -98,7 +97,6 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1616")
   @Test
   public void optionalOrElseGet() {
     makeHelper()
@@ -112,6 +110,8 @@ public class JSpecifyLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void orElseGetReturnsNullable(Optional<String> value) {
+                value.orElseGet(() -> "fallback").hashCode();
+
                 // BUG: Diagnostic contains: dereferenced expression 'value.orElseGet(() -> null)' is @Nullable
                 value.orElseGet(() -> null).hashCode();
               }
