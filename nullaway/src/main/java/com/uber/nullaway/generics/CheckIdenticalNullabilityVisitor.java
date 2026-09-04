@@ -126,8 +126,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     Type lhsComponentType = lhsType.getComponentType();
-    if (!(rhsType instanceof Type.ArrayType rhsArrayType)) {
-      // this can happen, e.g., with captured types.  don't attempt to handle this yet.
+    Type effectiveRhs = rhsType;
+    if (rhsType instanceof Type.TypeVar typeVar && typeVar.isCaptured()) {
+      effectiveRhs = typeVar.getUpperBound();
+    }
+    if (!(effectiveRhs instanceof Type.ArrayType rhsArrayType)) {
       return true;
     }
     Type rhsComponentType = rhsArrayType.getComponentType();
