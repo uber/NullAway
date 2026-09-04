@@ -326,7 +326,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void customLibraryModelRejectsMismatchedExplicitTypeArguments() {
+  public void customLibraryModelRejectsIncompatibleInvariantArguments() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -348,7 +348,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodRequiresMatchingExplicitTypeArgumentNullability() {
+  public void genericMethodAcceptsCompatibleExplicitTypeArguments() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -359,16 +359,14 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
             @NullMarked
             class Test {
-              void test(String nonNull) {
+              void test(String nonNull, @Nullable String nullable) {
                 PolyNullMethods.<String, String>twoTypeVariables(nonNull, nonNull);
                 PolyNullMethods.<@Nullable String, @Nullable String>twoTypeVariables(
                     nonNull, nonNull);
-
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
                 PolyNullMethods.<String, @Nullable String>twoTypeVariables(nonNull, nonNull);
-
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
                 PolyNullMethods.<@Nullable String, String>twoTypeVariables(nonNull, nonNull);
+                PolyNullMethods.<String, @Nullable String>twoTypeVariables(nonNull, nullable);
+                PolyNullMethods.<@Nullable String, String>twoTypeVariables(nullable, nonNull);
               }
             }
             """)
@@ -400,11 +398,13 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
                 nullableResult.hashCode();
 
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
-                PolyNullMethods.genericFirst(nonNull, nullable);
+                PolyNullMethods.twoTypeVariables(nonNull, nullable);
 
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
-                PolyNullMethods.genericFirst(nullable, nonNull);
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nonNull, nullable)' is @Nullable
+                PolyNullMethods.genericFirst(nonNull, nullable).hashCode();
+
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nullable, nonNull)' is @Nullable
+                PolyNullMethods.genericFirst(nullable, nonNull).hashCode();
               }
             }
             """)
@@ -468,8 +468,11 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFromSuppliers(Test::nullableValue, Test::nullableValue)' is @Nullable
                 PolyNullMethods.genericFromSuppliers(Test::nullableValue, Test::nullableValue).hashCode();
 
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
-                PolyNullMethods.genericFromSuppliers(() -> "first", () -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFromSuppliers(() -> "first", () -> null)' is @Nullable
+                PolyNullMethods.genericFromSuppliers(() -> "first", () -> null).hashCode();
+
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFromSuppliers(Test::nonNullValue, Test::nullableValue)' is @Nullable
+                PolyNullMethods.genericFromSuppliers(Test::nonNullValue, Test::nullableValue).hashCode();
               }
             }
             """)
