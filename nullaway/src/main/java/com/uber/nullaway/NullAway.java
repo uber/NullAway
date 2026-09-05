@@ -1980,7 +1980,8 @@ public class NullAway extends BugChecker
               + " The flag -XDaddTypeAnnotationsToSymbol=true was passed, but it is not supported"
               + " by the running JDK (version "
               + Runtime.version()
-              + "). Typically, JDK 17.0.19+ or 21.0.8+ is required for flag support.";
+              + "). Typically, JDK 17.0.19+ or 21.0.8+ is required for flag support (may vary by distribution),"
+              + " and Oracle JDK 17/21 may not support the flag.";
       case VALID ->
           throw new IllegalArgumentException("Cannot create an error message for a valid config");
     };
