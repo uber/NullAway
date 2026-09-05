@@ -834,14 +834,46 @@ public class NullAway extends BugChecker
         (overridingMethod != null
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
+
+    // For a method reference or lambda, try to use a type inferred by GenericsChecks for the
+    // tree, falling back on the type inferred by javac. Used both to compute parameter nullability
+    // below and to pretty-print the functional interface method's substituted signature in error
+    // messages. Remains null for a regular (non-generic-interface) override.
+    ExpressionTree functionalInterfaceImplementation = null;
+    Type functionalInterfaceType = null;
+    Type.MethodType functionalInterfaceMethodType = null;
+    if (memberReferenceTree != null || lambdaExpressionTree != null) {
+      functionalInterfaceImplementation =
+          castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
+      functionalInterfaceType =
+          genericsChecks.getInferredPolyExpressionType(functionalInterfaceImplementation);
+      if (functionalInterfaceType == null) {
+        functionalInterfaceType = ASTHelpers.getType(functionalInterfaceImplementation);
+      }
+      if (config.isJSpecifyMode()) {
+        functionalInterfaceMethodType =
+            modeledOverriddenMethodType != null
+                ? modeledOverriddenMethodType.asMethodType()
+                : genericsChecks.getFunctionalInterfaceMethodType(
+                    functionalInterfaceImplementation, state);
+      }
+    }
+
     Type.MethodType jspecifyMemberReferenceMethodType = null;
     // Keep handler-provided nullness for the referenced method separate from nullness for the
     // functional interface method. Library models may change the referenced method's signature.
     MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
       Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
+      Type unboundReceiverType =
+          unboundMemberRef
+                  && functionalInterfaceMethodType != null
+                  && !functionalInterfaceMethodType.getParameterTypes().isEmpty()
+              ? functionalInterfaceMethodType.getParameterTypes().get(0)
+              : null;
       jspecifyMemberReferenceMethodType =
-          genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
+          genericsChecks.getMemberReferenceMethodType(
+              memberReferenceTree, referencedMethod, unboundReceiverType, state);
       referencedMethodParameterNullnessOverrides =
           handler.onOverrideMethodInvocationParametersNullability(
               state.context,
@@ -852,20 +884,6 @@ public class NullAway extends BugChecker
 
     MethodParameterNullness overriddenMethodArgumentNullness =
         MethodParameterNullness.create(overriddenMethod);
-
-    // For a method reference or lambda, try to use a type inferred by GenericsChecks for the
-    // tree, falling back on the type inferred by javac.  Used both to compute parameter
-    // nullability below and to pretty-print the functional interface method's substituted
-    // signature in error messages.  Remains null for a regular (non-generic-interface) override.
-    Type functionalInterfaceType = null;
-    if (memberReferenceTree != null || lambdaExpressionTree != null) {
-      Tree polyExprTree =
-          castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
-      functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExprTree);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(polyExprTree);
-      }
-    }
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
@@ -1008,6 +1026,10 @@ public class NullAway extends BugChecker
             paramState,
             paramSymbol);
       }
+    }
+    if (functionalInterfaceImplementation != null && functionalInterfaceMethodType != null) {
+      genericsChecks.checkTypeParameterNullnessForFunctionalInterfaceImplementation(
+          functionalInterfaceImplementation, functionalInterfaceMethodType, state);
     }
     return Description.NO_MATCH;
   }
@@ -1154,6 +1176,13 @@ public class NullAway extends BugChecker
       Tree errorTree,
       VisitorState state) {
     Type returnType = methodSymbol.getReturnType();
+    if (config.isJSpecifyMode() && lambdaTree != null) {
+      Type.MethodType functionalInterfaceMethodType =
+          genericsChecks.getFunctionalInterfaceMethodType(lambdaTree, state);
+      if (functionalInterfaceMethodType != null) {
+        returnType = functionalInterfaceMethodType.getReturnType();
+      }
+    }
     if (returnType.isPrimitive()) {
       // check for unboxing
       doUnboxingCheck(state, retExpr);
@@ -1168,7 +1197,7 @@ public class NullAway extends BugChecker
 
     // Check generic type arguments for returned expression here, since we need to check the type
     // arguments regardless of the top-level nullability of the return type
-    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
+    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, returnType, state);
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
     // type is @Nullable, and if so, bail out.
