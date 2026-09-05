@@ -766,7 +766,7 @@ public final class GenericsChecks {
                 ? getConditionalExpressionType(conditionalExpressionTree, state, calledFromDataflow)
                 : ASTHelpers.getType(tree);
       }
-      return typeOrNullIfRaw(result);
+      return typeOrNullIfRawNonArray(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
       if (isDiamondConstructorCall(newClassTree)) {
@@ -787,7 +787,7 @@ public final class GenericsChecks {
         return withEnclosingTypeFromQualifier(
             typeFromIdentifier, newClassTree, state, calledFromDataflow);
       }
-      return typeOrNullIfRaw(ASTHelpers.getType(tree));
+      return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     } else if (tree instanceof NewArrayTree
         && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
       return typeWithPreservedAnnotations(tree);
@@ -874,7 +874,7 @@ public final class GenericsChecks {
           }
         }
       }
-      return typeOrNullIfRaw(result);
+      return typeOrNullIfRawNonArray(result);
     }
   }
 
@@ -884,7 +884,7 @@ public final class GenericsChecks {
    *     type as raw when its component type is raw, but the array structure and component
    *     annotations are still usable for checking.
    */
-  private static @Nullable Type typeOrNullIfRaw(@Nullable Type type) {
+  private static @Nullable Type typeOrNullIfRawNonArray(@Nullable Type type) {
     if (type != null && type.isRaw() && !(type instanceof Type.ArrayType)) {
       return null;
     }
@@ -1084,7 +1084,7 @@ public final class GenericsChecks {
         }
         return enhancedForElementType;
       }
-      return typeOrNullIfRaw(symbol.type);
+      return typeOrNullIfRawNonArray(symbol.type);
     }
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
     return getInferredTypeForVarLocalDeclaration(
@@ -2287,7 +2287,7 @@ public final class GenericsChecks {
       }
       return typeFromAssignmentContext;
     }
-    return typeOrNullIfRaw(ASTHelpers.getType(tree));
+    return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
   }
 
   /**
@@ -2318,8 +2318,10 @@ public final class GenericsChecks {
       hasTargetType = condExprType != null;
     }
     if (condExprType == null) {
-      condExprType = typeOrNullIfRaw(ASTHelpers.getType(tree));
+      condExprType = typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     }
+    // condExprType can be raw here: typeFromAssignmentContext does not pass through
+    // typeOrNullIfRawNonArray. This check also drops a raw array type that the helper allows.
     if (condExprType == null || condExprType.isRaw()) {
       return null;
     }
