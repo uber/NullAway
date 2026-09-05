@@ -2982,8 +2982,8 @@ public final class GenericsChecks {
    * @param path the path to the invocation tree
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
-   * @return Nullness of invocation's return type, or {@code NONNULL} if the call does not invoke an
-   *     instance method
+   * @return nullness of the resolved invocation return type, or {@code NONNULL} when neither
+   *     generic substitution nor a PolyNull model can affect it
    */
   public Nullness getGenericReturnNullnessAtInvocation(
       Symbol.MethodSymbol invokedMethodSymbol,
@@ -2991,40 +2991,26 @@ public final class GenericsChecks {
       TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    if (hasPolyNullModel(invokedMethodSymbol, state)) {
-      Type.MethodType invokedMethodType =
-          getInvokedMethodTypeAtCall(invokedMethodSymbol, tree, path, state, calledFromDataflow);
-      return getTypeNullnessForRead(invokedMethodType.getReturnType(), state);
-    }
+    boolean polyNullModeled = hasPolyNullModel(invokedMethodSymbol, state);
     // If the return type is not a type variable, just return NONNULL (explicit @Nullable should
-    // have been handled by the caller)
-    if (!invokedMethodSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
+    // have been handled by the caller), unless a PolyNull model can change this invocation's
+    // return qualifier.
+    if (!invokedMethodSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)
+        && !polyNullModeled) {
       return Nullness.NONNULL;
     }
-    // If generic method invocation
-    if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
-      // Substitute type arguments inside the return type
-      Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
-      Type substitutedReturnType =
-          substituteTypeArgsInGenericMethodType(tree, forAllType, path, state, calledFromDataflow)
-              .methodType()
-              .getReturnType();
-      // If this condition evaluates to false, we fall through to the subsequent logic, to handle
-      // type variables declared on the enclosing class
-      if (substitutedReturnType != null
-          && Objects.equals(getTypeNullness(substitutedReturnType), Nullness.NULLABLE)) {
-        return Nullness.NULLABLE;
-      }
-    }
-
-    Type enclosingType =
-        getEnclosingTypeForCallExpression(
-            invokedMethodSymbol, tree, path, state, calledFromDataflow);
-    if (enclosingType == null) {
-      return Nullness.NONNULL;
-    } else {
-      return getGenericMethodReturnTypeNullness(invokedMethodSymbol, enclosingType, state);
-    }
+    Type.MethodType invokedMethodType =
+        getInvokedMethodTypeAtCall(invokedMethodSymbol, tree, path, state, calledFromDataflow);
+    Type declaredReturnType = invokedMethodSymbol.getReturnType();
+    boolean returnsMethodTypeVariable =
+        declaredReturnType instanceof Type.TypeVar typeVariable
+            && Objects.equals(typeVariable.tsym.owner, invokedMethodSymbol);
+    // For an ordinary method type variable, inference supplies a qualifier that can be more
+    // precise than the effective upper bound of a wildcard capture. PolyNull and receiver type
+    // variables instead describe a value read from the resolved return type, including captures.
+    return returnsMethodTypeVariable && !polyNullModeled
+        ? getTypeNullness(invokedMethodType.getReturnType())
+        : getTypeNullnessForRead(invokedMethodType.getReturnType(), state);
   }
 
   private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(
