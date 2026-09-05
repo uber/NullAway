@@ -110,8 +110,7 @@ import org.jspecify.annotations.Nullable;
 @BugPattern(
     severity = SeverityLevel.SUGGESTION,
     summary =
-        "[JSpecifyUnrecognizedAnnotationLocation] JSpecify gives no meaning to a nullness"
-            + " annotation in a location it does not recognize.")
+        "JSpecify gives no meaning to a nullness annotation in a location it does not recognize.")
 public final class JSpecifyUnrecognizedAnnotationLocation extends BugChecker
     implements BugChecker.AnnotatedTypeTreeMatcher,
         BugChecker.ClassTreeMatcher,
