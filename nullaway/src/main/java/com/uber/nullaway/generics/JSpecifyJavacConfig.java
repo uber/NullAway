@@ -28,6 +28,9 @@ public final class JSpecifyJavacConfig {
   private static final List<String> JSPECIFY_MODE_ARGS =
       List.of(JSPECIFY_MODE_FLAG, ADD_TYPE_ANNOTATIONS_FLAG, JSPECIFY_EXPERIMENTAL);
 
+  private static final boolean JAVAC_SUPPORTS_TYPE_ANNOTATIONS_ON_SYMBOLS =
+      Runtime.version().feature() > 21 || javacOnJDK17Or21SupportsAddTypeAnnotationsToSymbol();
+
   private JSpecifyJavacConfig() {}
 
   /**
@@ -78,9 +81,6 @@ public final class JSpecifyJavacConfig {
       return JavacConfigValidityResult.VALID;
     }
   }
-
-  private static final boolean JAVAC_SUPPORTS_TYPE_ANNOTATIONS_ON_SYMBOLS =
-      Runtime.version().feature() > 21 || javacOnJDK17Or21SupportsAddTypeAnnotationsToSymbol();
 
   /**
    * Detects whether the {@code -XDaddTypeAnnotationsToSymbol} flag is supported on JDK 17 or 21, by
