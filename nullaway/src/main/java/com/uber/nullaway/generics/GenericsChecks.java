@@ -1588,12 +1588,7 @@ public final class GenericsChecks {
       solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
       if (polyNullContext != null) {
         PolyNullInference.addResultConstraints(
-            solver,
-            methodType.getReturnType(),
-            polyNullLocations,
-            polyNullContext,
-            typeFromAssignmentContext,
-            assignedToLocal);
+            solver, polyNullContext, typeFromAssignmentContext, assignedToLocal);
       }
     }
     // then, handle parameters
@@ -1601,7 +1596,7 @@ public final class GenericsChecks {
         state, path, solver, callTree, methodType, allCalls, polyNullContexts, calledFromDataflow);
     if (callTree instanceof MethodInvocationTree invocationTree
         && polyNullContext != null
-        && !polyNullContext.inputs().isEmpty()) {
+        && polyNullContext.hasInputLocations()) {
       generateArgumentConstraintsForCall(
           state,
           path,
@@ -3488,21 +3483,14 @@ public final class GenericsChecks {
             locations,
             getSyntheticNullableAnnotType(state),
             state);
-    if (inferenceContext.inputs().isEmpty()) {
+    if (!inferenceContext.hasInputLocations()) {
       return null;
     }
     ConstraintSolver solver = makeSolver(state, analysis);
     Set<Tree> nestedCalls = new LinkedHashSet<>();
     try {
       addPolyNullResultConstraintsFromDirectAssignmentContext(
-          invocationTree,
-          substitutedMethodType,
-          locations,
-          inferenceContext,
-          path,
-          solver,
-          state,
-          calledFromDataflow);
+          invocationTree, inferenceContext, path, solver, state, calledFromDataflow);
       generateArgumentConstraintsForCall(
           state,
           path,
@@ -3530,8 +3518,6 @@ public final class GenericsChecks {
    */
   private void addPolyNullResultConstraintsFromDirectAssignmentContext(
       MethodInvocationTree invocationTree,
-      Type.MethodType methodType,
-      ImmutableSet<PolyNullLocation> locations,
       PolyNullInferenceContext inferenceContext,
       @Nullable TreePath path,
       ConstraintSolver solver,
@@ -3564,8 +3550,6 @@ public final class GenericsChecks {
     if (callAndContext.typeFromAssignmentContext() != null) {
       PolyNullInference.addResultConstraints(
           solver,
-          methodType.getReturnType(),
-          locations,
           inferenceContext,
           callAndContext.typeFromAssignmentContext(),
           callAndContext.assignedToLocal());
