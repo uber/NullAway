@@ -3001,16 +3001,7 @@ public final class GenericsChecks {
     }
     Type.MethodType invokedMethodType =
         getInvokedMethodTypeAtCall(invokedMethodSymbol, tree, path, state, calledFromDataflow);
-    Type declaredReturnType = invokedMethodSymbol.getReturnType();
-    boolean returnsMethodTypeVariable =
-        declaredReturnType instanceof Type.TypeVar typeVariable
-            && Objects.equals(typeVariable.tsym.owner, invokedMethodSymbol);
-    // For an ordinary method type variable, inference supplies a qualifier that can be more
-    // precise than the effective upper bound of a wildcard capture. PolyNull and receiver type
-    // variables instead describe a value read from the resolved return type, including captures.
-    return returnsMethodTypeVariable && !polyNullModeled
-        ? getTypeNullness(invokedMethodType.getReturnType())
-        : getTypeNullnessForRead(invokedMethodType.getReturnType(), state);
+    return getTypeNullnessForRead(invokedMethodType.getReturnType(), state);
   }
 
   private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(
@@ -3871,6 +3862,12 @@ public final class GenericsChecks {
       Type type, VisitorState state, boolean followUnsubstitutedTypeVarUpperBound) {
     if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
+    }
+    // A call-specific inference result can explicitly make a captured return type @NonNull even
+    // when the capture has a nullable upper bound. Honor that resolved qualifier before falling
+    // back to the upper bound of an otherwise unqualified wildcard or capture.
+    if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+      return Nullness.NONNULL;
     }
     if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
       Type effectiveUpperBound =
