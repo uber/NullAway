@@ -28,11 +28,22 @@ final class PolyNullInference {
   /** The result of resolving PolyNull for one invocation in a generic inference session. */
   record PolyNullInferenceResult(@Nullable Nullness nullness) {}
 
-  /** The modeled input overlay and shared PolyNull variable for one call. */
+  /** The modeled method-type overlay and shared PolyNull variable for one call. */
   record PolyNullInferenceContext(
       Type.MethodType inferenceMethodType,
-      ImmutableList<PolyNullLocation> inputs,
-      Type.TypeVar inferenceVariable) {}
+      ImmutableList<PolyNullLocation> locations,
+      Type.TypeVar inferenceVariable) {
+
+    /** Returns whether the overlay contains at least one modeled parameter location. */
+    boolean hasInputLocations() {
+      return locations.stream().anyMatch(location -> location.parameterIndex() >= 0);
+    }
+
+    /** Returns whether the overlay contains at least one modeled return location. */
+    boolean hasReturnLocations() {
+      return locations.stream().anyMatch(location -> location.parameterIndex() == -1);
+    }
+  }
 
   private PolyNullInference() {}
 
@@ -93,7 +104,7 @@ final class PolyNullInference {
         : Nullness.NONNULL;
   }
 
-  /** Creates a method-type overlay with one shared variable at every modeled PolyNull input. */
+  /** Creates a method-type overlay with one shared variable at every modeled PolyNull location. */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   static PolyNullInferenceContext createContext(
       Symbol.MethodSymbol methodSymbol,
@@ -101,8 +112,8 @@ final class PolyNullInference {
       ImmutableSet<PolyNullLocation> locations,
       Type nullableAnnotationType,
       VisitorState state) {
-    Map<Integer, java.util.List<PolyNullLocation>> inputsByParameter = new LinkedHashMap<>();
-    ImmutableList.Builder<PolyNullLocation> allInputs = ImmutableList.builder();
+    Map<Integer, java.util.List<PolyNullLocation>> locationsByParameter = new LinkedHashMap<>();
+    ImmutableList.Builder<PolyNullLocation> appliedLocations = ImmutableList.builder();
     Type.TypeVar inferenceVariable =
         createInferenceVariable(methodSymbol, 0, nullableAnnotationType, state);
     for (PolyNullLocation location : locations) {
@@ -110,7 +121,9 @@ final class PolyNullInference {
       if (parameterIndex < 0 || parameterIndex >= methodType.argtypes.size()) {
         continue;
       }
-      inputsByParameter.computeIfAbsent(parameterIndex, unused -> new ArrayList<>()).add(location);
+      locationsByParameter
+          .computeIfAbsent(parameterIndex, unused -> new ArrayList<>())
+          .add(location);
     }
     ListBuffer<Type> updatedParameterTypes = new ListBuffer<>();
     int parameterIndex = 0;
@@ -119,43 +132,46 @@ final class PolyNullInference {
         remaining = remaining.tail, parameterIndex++) {
       Type updated = remaining.head;
       for (PolyNullLocation location :
-          inputsByParameter.getOrDefault(parameterIndex, java.util.List.of())) {
+          locationsByParameter.getOrDefault(parameterIndex, java.util.List.of())) {
         Type replaced =
             NestedTypePathUpdater.replaceType(updated, location.typePath(), inferenceVariable);
         if (replaced != updated) {
           updated = replaced;
-          allInputs.add(location);
+          appliedLocations.add(location);
         }
       }
       updatedParameterTypes.append(updated);
     }
+    Type updatedReturnType = methodType.restype;
+    for (PolyNullLocation location : locations) {
+      if (location.parameterIndex() == -1) {
+        Type replaced =
+            NestedTypePathUpdater.replaceType(
+                updatedReturnType, location.typePath(), inferenceVariable);
+        if (replaced != updatedReturnType) {
+          updatedReturnType = replaced;
+          appliedLocations.add(location);
+        }
+      }
+    }
     return new PolyNullInferenceContext(
         new Type.MethodType(
-            updatedParameterTypes.toList(), methodType.restype, methodType.thrown, methodType.tsym),
-        allInputs.build(),
+            updatedParameterTypes.toList(), updatedReturnType, methodType.thrown, methodType.tsym),
+        appliedLocations.build(),
         inferenceVariable);
   }
 
   /** Adds a call-result subtype constraint using the invocation's shared PolyNull variable. */
   static void addResultConstraints(
       ConstraintSolver solver,
-      Type returnType,
-      ImmutableSet<PolyNullLocation> locations,
       PolyNullInferenceContext inferenceContext,
       Type targetType,
       boolean assignedToLocal) {
-    if (locations.stream().noneMatch(location -> location.parameterIndex() == -1)) {
+    if (!inferenceContext.hasReturnLocations()) {
       return;
     }
-    Type inferenceReturnType = returnType;
-    for (PolyNullLocation location : locations) {
-      if (location.parameterIndex() == -1) {
-        inferenceReturnType =
-            NestedTypePathUpdater.replaceType(
-                inferenceReturnType, location.typePath(), inferenceContext.inferenceVariable());
-      }
-    }
-    solver.addSubtypeConstraint(inferenceReturnType, targetType, assignedToLocal);
+    solver.addSubtypeConstraint(
+        inferenceContext.inferenceMethodType().getReturnType(), targetType, assignedToLocal);
   }
 
   /** Returns whether {@code typeVariable} is a PolyNull variable from one of {@code contexts}. */
