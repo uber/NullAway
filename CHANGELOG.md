@@ -5,6 +5,7 @@ Unreleased
 ----------
 
 * Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
+* Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` (#1815)
 
 Version 0.14.1
 --------------
