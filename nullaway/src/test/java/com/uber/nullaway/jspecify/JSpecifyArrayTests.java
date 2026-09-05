@@ -282,8 +282,13 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * An enhanced-for loop variable and a conditional expression each get their array type from a
+   * computation of their own, {@code getEnhancedForLoopElementType} and {@code
+   * getConditionalExpressionType}, which the parameter in {@link #issue1800} does not reach.
+   */
   @Test
-  public void nullableAssignmentParameterArrayWithNonGenericElementType() {
+  public void issue1800EnhancedForAndTernary() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -291,8 +296,83 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
-            public class Test {
-              void foo(@Nullable Test[] array) {
+            public class Test<E> {
+              void enhancedFor(@Nullable Test[][] nullable, Test[][] nonNull) {
+                for (var row : nullable) {
+                  // OK: @Nullable binds to the innermost element, so row has @Nullable contents
+                  row[0] = null;
+                }
+                for (var row : nonNull) {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  row[0] = null;
+                }
+              }
+              void ternary(boolean b, @Nullable Test[] nullable, Test[] nonNull) {
+                // OK: since array elements are @Nullable
+                (b ? nullable : nullable)[0] = null;
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                (b ? nonNull : nonNull)[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A raw actual array and a parameterized formal are compared on the nullability of their
+   * components alone, so a missing type argument is not reported on its own.
+   */
+  @Test
+  public void rawArrayToParameterizedArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test<E> {
+              static void takesParameterized(Test<String>[] array) {}
+              static void passNonNullElements(Test[] array) {
+                // OK: the components agree on nullability
+                takesParameterized(array);
+              }
+              static void passNullableElements(@Nullable Test[] array) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                takesParameterized(array);
+              }
+              static Test<String>[] returnNonNullElements(Test[] array) {
+                return array;
+              }
+              static Test<String>[] returnNullableElements(@Nullable Test[] array) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                return array;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * {@code Gen<String>} is not raw, so this pins the side of the rule that the allowance for raw
+   * array types must leave alone.
+   */
+  @Test
+  public void nullableAssignmentParameterArrayWithParameterizedElementType() {
+    makeHelper()
+        .addSourceLines(
+            "Gen.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Gen<E> {
+              void nullableElements(@Nullable Gen<String>[] array) {
+                // OK: since array elements are @Nullable
+                array[0] = null;
+              }
+              void nonNullElements(Gen<String>[] array) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
                 array[0] = null;
               }
             }
