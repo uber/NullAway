@@ -867,7 +867,7 @@ public class NullAway extends BugChecker
         // as raw functional-interface targets and constructor references.
         jspecifyMemberReferenceMethodType =
             genericsChecks.getMemberReferenceMethodType(
-                memberReferenceTree, referencedMethod, state);
+                memberReferenceTree, referencedMethod, /* qualifierExpressionType= */ null, state);
       }
       referencedMethodParameterNullnessOverrides =
           handler.onOverrideMethodInvocationParametersNullability(

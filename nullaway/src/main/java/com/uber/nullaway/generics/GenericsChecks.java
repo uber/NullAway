@@ -1681,24 +1681,6 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the method type for a member reference handling generics, in JSpecify mode
-   *
-   * @param memberReferenceTree the member reference tree
-   * @param overridingMethod the method symbol for the method referenced by {@code
-   *     memberReferenceTree}
-   * @param state the visitor state
-   * @return the method type for the member reference, with generics handled, or null if not in
-   *     JSpecify mode
-   */
-  public Type.@Nullable MethodType getMemberReferenceMethodType(
-      MemberReferenceTree memberReferenceTree,
-      Symbol.MethodSymbol overridingMethod,
-      VisitorState state) {
-    return getMemberReferenceMethodType(
-        memberReferenceTree, overridingMethod, /* qualifierExpressionType= */ null, state);
-  }
-
-  /**
    * Resolves a method reference's method and qualifier types using its functional-interface target.
    *
    * <p>For an unbound reference to an instance method in a generic class, javac leaves the
@@ -1760,7 +1742,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the method type for a member reference.
+   * Gets the method type for a member reference handling generics, in JSpecify mode
    *
    * @param memberReferenceTree the member reference tree
    * @param overridingMethod the method symbol for the referenced method
@@ -1773,7 +1755,7 @@ public final class GenericsChecks {
    * @return the method type for the member reference, with generics handled, or null if not in
    *     JSpecify mode
    */
-  Type.@Nullable MethodType getMemberReferenceMethodType(
+  public Type.@Nullable MethodType getMemberReferenceMethodType(
       MemberReferenceTree memberReferenceTree,
       Symbol.MethodSymbol overridingMethod,
       @Nullable Type qualifierExpressionType,
