@@ -1059,6 +1059,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
   public void annotatedUnboundMethodRefQualifier() {
+    // A qualified name crashes javac while it parses on JDK 26 through 28; see JDK-8391567.
+    int feature = Runtime.version().feature();
+    String qualifiedNameInvocation =
+        feature < 26 || feature >= 29 ? "takeNullable(@A com.uber.Test.Box::list);" : "";
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -1088,12 +1092,13 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
               static void test() {
                 takeNullable(@A Box::list);
-                takeNullable(@A com.uber.Test.Box::list);
+                %s
                 // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
                 takeNonNull(@A Box<@Nullable String>::list);
               }
             }
-            """)
+            """
+                .formatted(qualifiedNameInvocation))
         .doTest();
   }
 
