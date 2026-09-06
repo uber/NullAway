@@ -1058,6 +1058,46 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void annotatedUnboundMethodRefQualifier() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              @Target(ElementType.TYPE_USE)
+              @interface A {}
+
+              static class Box<T extends @Nullable Object> {
+                List<T> list() {
+                  throw new RuntimeException();
+                }
+              }
+
+              static void takeNullable(Function<Box<@Nullable String>, List<@Nullable String>> f) {}
+
+              static void takeNonNull(Function<Box<String>, List<String>> f) {}
+
+              static void test() {
+                takeNullable(@A Box::list);
+                takeNullable(@A com.uber.Test.Box::list);
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                takeNonNull(@A Box<@Nullable String>::list);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1528() {
     makeHelper()
         .addSourceLines(

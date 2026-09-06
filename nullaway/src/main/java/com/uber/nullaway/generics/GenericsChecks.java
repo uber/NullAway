@@ -1728,20 +1728,28 @@ public final class GenericsChecks {
               qualifierExpression,
               state.withPath(new TreePath(state.getPath(), qualifierExpression)));
       boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-      if (unbound && qualifierType instanceof Type.ClassType qualifierClassType) {
-        Symbol.MethodSymbol fiMethod =
-            NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
-        Type.MethodType fiMethodTypeAsMember =
-            TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
-                .asMethodType();
-        com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
-        Verify.verify(
-            !fiParamTypes.isEmpty(),
-            "Expected receiver parameter for unbound method ref %s",
-            memberReferenceTree);
-        qualifierType =
-            GenericsUtils.instantiateUnboundQualifierType(
-                qualifierClassType, fiParamTypes.get(0), state.getTypes(), config);
+      if (unbound) {
+        if (qualifierType == null || qualifierType.isRaw()) {
+          // javac attributes an annotated bare qualifier such as @A Box as raw. Use the generic
+          // declaration as the substitution template; the receiver type supplies its arguments.
+          qualifierType = referencedMethod.owner.type;
+        }
+        if (qualifierType instanceof Type.ClassType qualifierClassType) {
+          Symbol.MethodSymbol fiMethod =
+              NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
+          Type.MethodType fiMethodTypeAsMember =
+              TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
+                  .asMethodType();
+          com.sun.tools.javac.util.List<Type> fiParamTypes =
+              fiMethodTypeAsMember.getParameterTypes();
+          Verify.verify(
+              !fiParamTypes.isEmpty(),
+              "Expected receiver parameter for unbound method ref %s",
+              memberReferenceTree);
+          qualifierType =
+              GenericsUtils.instantiateUnboundQualifierType(
+                  qualifierClassType, fiParamTypes.get(0), state.getTypes(), config);
+        }
       }
     }
     Type.MethodType methodType =
