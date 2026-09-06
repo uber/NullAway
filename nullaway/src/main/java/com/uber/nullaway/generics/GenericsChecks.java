@@ -79,6 +79,10 @@ import org.jspecify.annotations.Nullable;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
+  /** Types resolved for a method reference using its ground target type. */
+  public record ResolvedMethodReference(
+      Type.MethodType methodType, @Nullable Type qualifierType, Type groundTargetType) {}
+
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
 
@@ -1692,6 +1696,59 @@ public final class GenericsChecks {
       VisitorState state) {
     return getMemberReferenceMethodType(
         memberReferenceTree, overridingMethod, /* qualifierExpressionType= */ null, state);
+  }
+
+  /**
+   * Resolves a method reference's method and qualifier types using its functional-interface target.
+   *
+   * <p>For an unbound reference to an instance method in a generic class, javac leaves the
+   * qualifier as the generic declaration type. The functional-interface receiver supplies the type
+   * arguments needed to instantiate that qualifier and, in turn, the referenced method type.
+   *
+   * @param memberReferenceTree the method reference tree
+   * @param referencedMethod the symbol for the referenced method
+   * @param targetType the functional-interface target type
+   * @param state visitor state whose current path ends at {@code memberReferenceTree}
+   * @return the resolved types, or {@code null} if the method reference cannot be resolved
+   */
+  public @Nullable ResolvedMethodReference resolveMemberReference(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol referencedMethod,
+      Type targetType,
+      VisitorState state) {
+    if (!config.isJSpecifyMode() || targetType.isRaw() || referencedMethod.isConstructor()) {
+      return null;
+    }
+    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    Type qualifierType = null;
+    if (!referencedMethod.isStatic()) {
+      ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
+      qualifierType =
+          getTreeType(
+              qualifierExpression,
+              state.withPath(new TreePath(state.getPath(), qualifierExpression)));
+      boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+      if (unbound && qualifierType instanceof Type.ClassType qualifierClassType) {
+        Symbol.MethodSymbol fiMethod =
+            NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
+        Type.MethodType fiMethodTypeAsMember =
+            TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
+                .asMethodType();
+        com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
+        Verify.verify(
+            !fiParamTypes.isEmpty(),
+            "Expected receiver parameter for unbound method ref %s",
+            memberReferenceTree);
+        qualifierType =
+            GenericsUtils.instantiateUnboundQualifierType(
+                qualifierClassType, fiParamTypes.get(0), state.getTypes(), config);
+      }
+    }
+    Type.MethodType methodType =
+        getMemberReferenceMethodType(memberReferenceTree, referencedMethod, qualifierType, state);
+    return methodType == null
+        ? null
+        : new ResolvedMethodReference(methodType, qualifierType, groundTargetType);
   }
 
   /**

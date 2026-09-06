@@ -5,9 +5,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -280,14 +278,15 @@ public class GenericsUtils {
       //  https://github.com/uber/NullAway/issues/1468
       return;
     }
-    Type qualifierType = null;
-    if (!referencedMethod.isStatic()) {
-      ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
-      qualifierType =
-          genericsChecks.getTreeType(
-              qualifierExpression,
-              state.withPath(new TreePath(state.getPath(), qualifierExpression)));
+    GenericsChecks.ResolvedMethodReference resolvedMethodReference =
+        genericsChecks.resolveMemberReference(
+            memberReferenceTree, referencedMethod, targetType, state);
+    if (resolvedMethodReference == null) {
+      return;
     }
+    targetType = resolvedMethodReference.groundTargetType();
+    Type qualifierType = resolvedMethodReference.qualifierType();
+    Type.MethodType referencedMethodType = resolvedMethodReference.methodType();
 
     // Get the type of the corresponding functional interface method as a member of targetType.
     Symbol.MethodSymbol fiMethod =
@@ -297,24 +296,6 @@ public class GenericsUtils {
             .asMethodType();
     com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
     boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-    if (unbound) {
-      Verify.verify(
-          !fiParamTypes.isEmpty(),
-          "Expected receiver parameter for unbound method ref %s",
-          memberReferenceTree);
-      if (qualifierType instanceof ClassType qualifierClassType) {
-        qualifierType =
-            instantiateUnboundQualifierType(
-                qualifierClassType, fiParamTypes.get(0), types, genericsChecks.getConfig());
-      }
-    }
-
-    Type.MethodType referencedMethodType =
-        genericsChecks.getMemberReferenceMethodType(
-            memberReferenceTree, referencedMethod, unbound ? qualifierType : null, state);
-    if (referencedMethodType == null) {
-      return;
-    }
 
     // method reference return type <: functional interface return type
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
@@ -396,7 +377,7 @@ public class GenericsUtils {
    * substitutes those arguments for {@code K} and {@code V}. Explicit qualifier arguments are
    * preserved because they do not contain the declaration's type-variable symbols.
    */
-  private static Type instantiateUnboundQualifierType(
+  static Type instantiateUnboundQualifierType(
       ClassType qualifierType, Type receiverType, Types types, Config config) {
     Symbol.ClassSymbol qualifierSymbol = (Symbol.ClassSymbol) qualifierType.tsym;
     ClassType declarationType = (ClassType) qualifierSymbol.type;

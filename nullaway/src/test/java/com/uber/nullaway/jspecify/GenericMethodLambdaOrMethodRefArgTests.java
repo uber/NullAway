@@ -1032,6 +1032,32 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboundGenericMethodReferenceParameterTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.BiConsumer;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                void put(T t) {}
+              }
+              static BiConsumer<Box<@Nullable String>, @Nullable String> f() {
+                return Box::put;
+              }
+              static BiConsumer<Box<String>, @Nullable String> incompatible() {
+                // BUG: Diagnostic contains: parameter t of referenced method is @NonNull
+                return Box::put;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1528() {
     makeHelper()
         .addSourceLines(
