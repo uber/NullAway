@@ -284,7 +284,6 @@ public class GenericsUtils {
     if (resolvedMethodReference == null) {
       return;
     }
-    targetType = resolvedMethodReference.groundTargetType();
     Type qualifierType = resolvedMethodReference.qualifierType();
     Type.MethodType referencedMethodType = resolvedMethodReference.methodType();
 

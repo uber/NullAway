@@ -80,8 +80,7 @@ import org.jspecify.annotations.Nullable;
 public final class GenericsChecks {
 
   /** Types resolved for a method reference using its ground target type. */
-  public record ResolvedMethodReference(
-      Type.MethodType methodType, @Nullable Type qualifierType, Type groundTargetType) {}
+  public record ResolvedMethodReference(Type.MethodType methodType, @Nullable Type qualifierType) {}
 
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
@@ -1699,6 +1698,8 @@ public final class GenericsChecks {
       Type targetType,
       VisitorState state) {
     if (!config.isJSpecifyMode() || targetType.isRaw() || referencedMethod.isConstructor()) {
+      // TODO handle constructor references like Foo::new;
+      //  https://github.com/uber/NullAway/issues/1468
       return null;
     }
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
@@ -1736,9 +1737,7 @@ public final class GenericsChecks {
     }
     Type.MethodType methodType =
         getMemberReferenceMethodType(memberReferenceTree, referencedMethod, qualifierType, state);
-    return methodType == null
-        ? null
-        : new ResolvedMethodReference(methodType, qualifierType, groundTargetType);
+    return methodType == null ? null : new ResolvedMethodReference(methodType, qualifierType);
   }
 
   /**
