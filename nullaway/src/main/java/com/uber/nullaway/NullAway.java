@@ -834,25 +834,6 @@ public class NullAway extends BugChecker
         (overridingMethod != null
                 && !codeAnnotationInfo.isSymbolUnannotated(overridingMethod, config, handler))
             || lambdaExpressionTree != null;
-    Type.MethodType jspecifyMemberReferenceMethodType = null;
-    // Keep handler-provided nullness for the referenced method separate from nullness for the
-    // functional interface method. Library models may change the referenced method's signature.
-    MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
-    if (memberReferenceTree != null) {
-      Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
-      jspecifyMemberReferenceMethodType =
-          genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
-      referencedMethodParameterNullnessOverrides =
-          handler.onOverrideMethodInvocationParametersNullability(
-              state.context,
-              referencedMethod,
-              isOverridingMethodAnnotated,
-              MethodParameterNullness.create(referencedMethod));
-    }
-
-    MethodParameterNullness overriddenMethodArgumentNullness =
-        MethodParameterNullness.create(overriddenMethod);
-
     // For a method reference or lambda, try to use a type inferred by GenericsChecks for the
     // tree, falling back on the type inferred by javac.  Used both to compute parameter
     // nullability below and to pretty-print the functional interface method's substituted
@@ -866,6 +847,38 @@ public class NullAway extends BugChecker
         functionalInterfaceType = ASTHelpers.getType(polyExprTree);
       }
     }
+
+    Type.MethodType jspecifyMemberReferenceMethodType = null;
+    // Keep handler-provided nullness for the referenced method separate from nullness for the
+    // functional interface method. Library models may change the referenced method's signature.
+    MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
+    if (memberReferenceTree != null) {
+      Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
+      if (functionalInterfaceType != null) {
+        GenericsChecks.ResolvedMethodReference resolvedMethodReference =
+            genericsChecks.resolveMemberReference(
+                memberReferenceTree, referencedMethod, functionalInterfaceType, state);
+        if (resolvedMethodReference != null) {
+          jspecifyMemberReferenceMethodType = resolvedMethodReference.methodType();
+        }
+      }
+      if (jspecifyMemberReferenceMethodType == null) {
+        // Preserve the existing behavior for cases the shared resolver intentionally skips, such
+        // as raw functional-interface targets and constructor references.
+        jspecifyMemberReferenceMethodType =
+            genericsChecks.getMemberReferenceMethodType(
+                memberReferenceTree, referencedMethod, /* qualifierExpressionType= */ null, state);
+      }
+      referencedMethodParameterNullnessOverrides =
+          handler.onOverrideMethodInvocationParametersNullability(
+              state.context,
+              referencedMethod,
+              isOverridingMethodAnnotated,
+              MethodParameterNullness.create(referencedMethod));
+    }
+
+    MethodParameterNullness overriddenMethodArgumentNullness =
+        MethodParameterNullness.create(overriddenMethod);
 
     // Collect @Nullable params of overridden method iff the overridden method is in annotated code
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the

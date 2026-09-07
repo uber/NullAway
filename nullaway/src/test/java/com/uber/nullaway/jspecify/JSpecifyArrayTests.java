@@ -257,6 +257,198 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1800() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test<E> {
+              void nullableElements(@Nullable Test[] array) {
+                array[0] = null;
+                Objects.requireNonNull(array)[0] = null;
+              }
+              void nonNullElements(Test[] array) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                array[0] = null;
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                Objects.requireNonNull(array)[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * An enhanced-for loop variable gets its array type from {@code getEnhancedForLoopElementType},
+   * which the parameter in {@link #issue1800} does not reach.
+   */
+  @Test
+  public void issue1800EnhancedForLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test<E> {
+              void nullableElements(@Nullable Test[][] array) {
+                for (var row : array) {
+                  // OK: @Nullable binds to the innermost element, so row has @Nullable contents
+                  row[0] = null;
+                }
+              }
+              void nonNullElements(Test[][] array) {
+                for (var row : array) {
+                  // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                  row[0] = null;
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A conditional expression in an array store gets its type from {@code
+   * getConditionalExpressionType}, which the parameter in {@link #issue1800} does not reach.
+   */
+  @Test
+  public void issue1800Ternary() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test<E> {
+              void nullableElements(boolean b, @Nullable Test[] array) {
+                // OK: since array elements are @Nullable
+                (b ? array : array)[0] = null;
+              }
+              void nonNullElements(boolean b, Test[] array) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                (b ? array : array)[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A raw array and a parameterized array type are compared on the nullability of their components
+   * alone, so a missing type argument is not reported on its own.
+   */
+  @Test
+  public void rawArrayToParameterizedArray() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test<E> {
+              static void takesParameterized(Test<String>[] array) {}
+              static void passNonNullElements(Test[] array) {
+                // OK: the components agree on nullability
+                takesParameterized(array);
+              }
+              static void passNullableElements(@Nullable Test[] array) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                takesParameterized(array);
+              }
+              static Test<String>[] returnNonNullElements(Test[] array) {
+                // OK: the components agree on nullability
+                return array;
+              }
+              static Test<String>[] returnNullableElements(@Nullable Test[] array) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                return array;
+              }
+              static void assignNonNullElements(Test[] array) {
+                // OK: the components agree on nullability
+                Test<String>[] assigned = array;
+              }
+              static void assignNullableElements(@Nullable Test[] array) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                Test<String>[] assigned = array;
+              }
+              static void passNonNullElementsThroughTernary(boolean b, Test[] array) {
+                // OK: the components agree on nullability
+                takesParameterized(b ? array : array);
+              }
+              static void passNullableElementsThroughTernary(boolean b, @Nullable Test[] array) {
+                // BUG: Diagnostic contains: Conditional expression must have type Test<String> [] but the sub-expression has type @Nullable Test []
+                takesParameterized(b ? array : array);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * An array with a raw component type reaches generic method inference, since {@code
+   * generateConstraintsForPseudoAssignment} bails out only on a null {@code getTreeType} result.
+   */
+  @Test
+  public void rawArrayAsGenericMethodArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test<E> {
+              static <T> void takesArray(T[] array) {}
+              static void nonNullElements(Test[] array) {
+                // OK: the components are @NonNull, so T is not constrained to be @Nullable
+                takesArray(array);
+              }
+              static void nullableElements(@Nullable Test[] array) {
+                // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                takesArray(array);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * An array-element write follows the component nullability when the element type is a
+   * parameterized type, which no other test covers. {@code Gen<String>} is not raw, so this case
+   * cannot fail if the rule for raw array types regresses.
+   */
+  @Test
+  public void nullableAssignmentParameterArrayWithParameterizedElementType() {
+    makeHelper()
+        .addSourceLines(
+            "Gen.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Gen<E> {
+              void nullableElements(@Nullable Gen<String>[] array) {
+                // OK: since array elements are @Nullable
+                array[0] = null;
+              }
+              void nonNullElements(Gen<String>[] array) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                array[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void arraySubtyping() {
     makeHelper()
         .addSourceLines(

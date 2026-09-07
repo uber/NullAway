@@ -5,9 +5,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
-import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -273,33 +271,30 @@ public class GenericsUtils {
     }
     Types types = state.getTypes();
 
-    // first, figure out the proper method type to use for the member reference
+    // First, resolve the referenced method and its qualifier type.
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     if (referencedMethod == null || referencedMethod.isConstructor()) {
       // TODO handle constructor references like Foo::new;
       //  https://github.com/uber/NullAway/issues/1468
       return;
     }
-    Type.MethodType referencedMethodType =
-        genericsChecks.getMemberReferenceMethodType(memberReferenceTree, referencedMethod, state);
-    if (referencedMethodType == null) {
+    GenericsChecks.ResolvedMethodReference resolvedMethodReference =
+        genericsChecks.resolveMemberReference(
+            memberReferenceTree, referencedMethod, targetType, state);
+    if (resolvedMethodReference == null) {
       return;
     }
-    Type qualifierType = null;
-    if (!referencedMethod.isStatic()) {
-      ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
-      qualifierType =
-          genericsChecks.getTreeType(
-              qualifierExpression,
-              state.withPath(new TreePath(state.getPath(), qualifierExpression)));
-    }
+    Type qualifierType = resolvedMethodReference.qualifierType();
+    Type.MethodType referencedMethodType = resolvedMethodReference.methodType();
 
-    // now, get the type of the corresponding functional interface method, as a member of targetType
+    // Get the type of the corresponding functional interface method as a member of targetType.
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
     Type.MethodType fiMethodTypeAsMember =
         TypeSubstitutionUtils.memberType(types, targetType, fiMethod, genericsChecks.getConfig())
             .asMethodType();
+    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
+    boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
 
     // method reference return type <: functional interface return type
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
@@ -311,15 +306,10 @@ public class GenericsUtils {
 
     //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
     //  aligned appropriately in the case of unbound method references
-    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
     com.sun.tools.javac.util.List<Type> referencedParamTypes =
         referencedMethodType.getParameterTypes();
     int fiStartIndex = 0;
-    if (((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound()) {
-      Verify.verify(
-          !fiParamTypes.isEmpty(),
-          "Expected receiver parameter for unbound method ref %s",
-          memberReferenceTree);
+    if (unbound) {
       if (qualifierType != null) {
         relationHandler.handle(
             fiParamTypes.get(0), qualifierType, MethodRefTypeRelationKind.PARAMETER);
@@ -375,5 +365,29 @@ public class GenericsUtils {
             MethodRefTypeRelationKind.PARAMETER);
       }
     }
+  }
+
+  /**
+   * Instantiates unresolved class type variables in an unbound method reference's qualifier from
+   * the functional interface receiver type.
+   *
+   * <p>For example, javac represents the qualifier in {@code Entry::getKey} as {@code Entry<K,V>}.
+   * If the functional interface receives {@code Entry<String, @Nullable String>}, this method
+   * substitutes those arguments for {@code K} and {@code V}. Explicit qualifier arguments are
+   * preserved because they do not contain the declaration's type-variable symbols.
+   */
+  static Type instantiateUnboundQualifierType(
+      ClassType qualifierType, Type receiverType, Types types, Config config) {
+    Symbol.ClassSymbol qualifierSymbol = (Symbol.ClassSymbol) qualifierType.tsym;
+    ClassType declarationType = (ClassType) qualifierSymbol.type;
+    Type receiverAsQualifier =
+        TypeSubstitutionUtils.asSuper(types, receiverType, qualifierSymbol, config);
+    if (!(receiverAsQualifier instanceof ClassType receiverClassType)
+        || receiverAsQualifier.isRaw()
+        || declarationType.allparams().size() != receiverClassType.allparams().size()) {
+      return qualifierType;
+    }
+    return TypeSubstitutionUtils.subst(
+        types, qualifierType, declarationType.allparams(), receiverClassType.allparams(), config);
   }
 }

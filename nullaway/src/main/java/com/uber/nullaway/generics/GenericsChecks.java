@@ -79,6 +79,9 @@ import org.jspecify.annotations.Nullable;
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
 
+  /** Types resolved for a method reference using its ground target type. */
+  public record ResolvedMethodReference(Type.MethodType methodType, @Nullable Type qualifierType) {}
+
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
 
@@ -718,8 +721,9 @@ public final class GenericsChecks {
    *
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
-   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
-   *     other unhandled cases.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw non-array
+   *     types and other unhandled cases. Arrays with raw component types are returned since their
+   *     structure and component annotations are still useful.
    */
   public @Nullable Type getTreeType(Tree tree, VisitorState state) {
     return getTreeType(tree, state, false);
@@ -736,8 +740,9 @@ public final class GenericsChecks {
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
    * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
-   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
-   *     other unhandled cases.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw non-array
+   *     types and other unhandled cases. Arrays with raw component types are returned since their
+   *     structure and component annotations are still useful.
    */
   /* package-private */ @Nullable Type getTreeType(
       Tree tree, VisitorState state, boolean calledFromDataflow) {
@@ -761,7 +766,7 @@ public final class GenericsChecks {
                 ? getConditionalExpressionType(conditionalExpressionTree, state, calledFromDataflow)
                 : ASTHelpers.getType(tree);
       }
-      return typeOrNullIfRaw(result);
+      return typeOrNullIfRawNonArray(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
       if (isDiamondConstructorCall(newClassTree)) {
@@ -782,7 +787,7 @@ public final class GenericsChecks {
         return withEnclosingTypeFromQualifier(
             typeFromIdentifier, newClassTree, state, calledFromDataflow);
       }
-      return typeOrNullIfRaw(ASTHelpers.getType(tree));
+      return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     } else if (tree instanceof NewArrayTree
         && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
       return typeWithPreservedAnnotations(tree);
@@ -869,16 +874,18 @@ public final class GenericsChecks {
           }
         }
       }
-      return typeOrNullIfRaw(result);
+      return typeOrNullIfRawNonArray(result);
     }
   }
 
   /**
    * @param type a type to check
-   * @return the given type, or null if the type is a raw type
+   * @return the given type, or {@code null} if it is a raw non-array type. Javac reports an array
+   *     type as raw when its component type is raw, but the array structure and component
+   *     annotations are still usable for checking.
    */
-  private static @Nullable Type typeOrNullIfRaw(@Nullable Type type) {
-    if (type != null && type.isRaw()) {
+  private static @Nullable Type typeOrNullIfRawNonArray(@Nullable Type type) {
+    if (type != null && type.isRaw() && !(type instanceof Type.ArrayType)) {
       return null;
     }
     return type;
@@ -1077,7 +1084,7 @@ public final class GenericsChecks {
         }
         return enhancedForElementType;
       }
-      return typeOrNullIfRaw(symbol.type);
+      return typeOrNullIfRawNonArray(symbol.type);
     }
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
     return getInferredTypeForVarLocalDeclaration(
@@ -1578,7 +1585,8 @@ public final class GenericsChecks {
     } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
       if (argumentType == null) {
-        // bail out of any checking involving raw types for now
+        // no type to constrain with; getTreeType returns null for a raw non-array type and for
+        // cases it does not handle
         return;
       }
       argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
@@ -1677,11 +1685,76 @@ public final class GenericsChecks {
   }
 
   /**
+   * Resolves a method reference's method and qualifier types using its functional-interface target.
+   *
+   * <p>For an unbound reference to an instance method in a generic class, javac leaves the
+   * qualifier as the generic declaration type. The functional-interface receiver supplies the type
+   * arguments needed to instantiate that qualifier and, in turn, the referenced method type.
+   *
+   * @param memberReferenceTree the method reference tree
+   * @param referencedMethod the symbol for the referenced method
+   * @param targetType the functional-interface target type
+   * @param state visitor state whose current path ends at {@code memberReferenceTree}
+   * @return the resolved types, or {@code null} if the method reference cannot be resolved
+   */
+  public @Nullable ResolvedMethodReference resolveMemberReference(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol referencedMethod,
+      Type targetType,
+      VisitorState state) {
+    if (!config.isJSpecifyMode() || targetType.isRaw() || referencedMethod.isConstructor()) {
+      // TODO handle constructor references like Foo::new;
+      //  https://github.com/uber/NullAway/issues/1468
+      return null;
+    }
+    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    Type qualifierType = null;
+    if (!referencedMethod.isStatic()) {
+      ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
+      qualifierType =
+          getTreeType(
+              qualifierExpression,
+              state.withPath(new TreePath(state.getPath(), qualifierExpression)));
+      boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+      if (unbound) {
+        if (qualifierType == null || qualifierType.isRaw()) {
+          // javac attributes an annotated bare qualifier such as @A Box as raw. Use the generic
+          // declaration as the substitution template; the receiver type supplies its arguments.
+          qualifierType = referencedMethod.owner.type;
+        }
+        if (qualifierType instanceof Type.ClassType qualifierClassType) {
+          Symbol.MethodSymbol fiMethod =
+              NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
+          Type.MethodType fiMethodTypeAsMember =
+              TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
+                  .asMethodType();
+          com.sun.tools.javac.util.List<Type> fiParamTypes =
+              fiMethodTypeAsMember.getParameterTypes();
+          Verify.verify(
+              !fiParamTypes.isEmpty(),
+              "Expected receiver parameter for unbound method ref %s",
+              memberReferenceTree);
+          qualifierType =
+              GenericsUtils.instantiateUnboundQualifierType(
+                  qualifierClassType, fiParamTypes.get(0), state.getTypes(), config);
+        }
+      }
+    }
+    Type.MethodType methodType =
+        getMemberReferenceMethodType(memberReferenceTree, referencedMethod, qualifierType, state);
+    return methodType == null ? null : new ResolvedMethodReference(methodType, qualifierType);
+  }
+
+  /**
    * Gets the method type for a member reference handling generics, in JSpecify mode
    *
    * @param memberReferenceTree the member reference tree
-   * @param overridingMethod the method symbol for the method referenced by {@code
-   *     memberReferenceTree}
+   * @param overridingMethod the method symbol for the referenced method
+   * @param qualifierExpressionType an adjusted type for the qualifier expression of the member
+   *     reference ({@code Foo} in a reference {@code Foo::bar}). For an unbound reference to a
+   *     generic instance method, javac compute the type of the qualifier expression as the generic
+   *     declaration type. Callers can provide a type instantiated from the functional interface
+   *     receiver, containing the appropriate type arguments.
    * @param state the visitor state
    * @return the method type for the member reference, with generics handled, or null if not in
    *     JSpecify mode
@@ -1689,6 +1762,7 @@ public final class GenericsChecks {
   public Type.@Nullable MethodType getMemberReferenceMethodType(
       MemberReferenceTree memberReferenceTree,
       Symbol.MethodSymbol overridingMethod,
+      @Nullable Type qualifierExpressionType,
       VisitorState state) {
     if (!config.isJSpecifyMode()) {
       return null;
@@ -1698,7 +1772,10 @@ public final class GenericsChecks {
       // This handles any generic type parameters of the qualifier of the member reference, e.g. for
       // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
       // appears in the signature of m.
-      Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      Type qualifierType =
+          qualifierExpressionType != null
+              ? qualifierExpressionType
+              : ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
       if (qualifierType != null && !qualifierType.isRaw()) {
         result =
             TypeSubstitutionUtils.memberType(
@@ -2211,7 +2288,7 @@ public final class GenericsChecks {
       }
       return typeFromAssignmentContext;
     }
-    return typeOrNullIfRaw(ASTHelpers.getType(tree));
+    return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
   }
 
   /**
@@ -2242,8 +2319,10 @@ public final class GenericsChecks {
       hasTargetType = condExprType != null;
     }
     if (condExprType == null) {
-      condExprType = typeOrNullIfRaw(ASTHelpers.getType(tree));
+      condExprType = typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     }
+    // A raw type still arrives here: typeOrNullIfRawNonArray lets a raw array through, and not
+    // every target type reaching this point passed through it.
     if (condExprType == null || condExprType.isRaw()) {
       return null;
     }
