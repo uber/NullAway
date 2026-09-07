@@ -1,11 +1,13 @@
 name: Continuous integration
 on:
+  merge_group:
   pull_request:
   push:
     branches:
       - master
+# Cancel in-progress runs for pull requests, but not for master branch pushes or merge queue
 concurrency:
-  group: ${{ github.ref }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 permissions:
   contents: read
