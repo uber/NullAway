@@ -1585,7 +1585,8 @@ public final class GenericsChecks {
     } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
       if (argumentType == null) {
-        // bail out of any checking involving raw types for now
+        // no type to constrain with; getTreeType returns null for a raw non-array type and for
+        // cases it does not handle
         return;
       }
       argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
@@ -2320,9 +2321,8 @@ public final class GenericsChecks {
     if (condExprType == null) {
       condExprType = typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     }
-    // A raw type reaches this check either way: typeOrNullIfRawNonArray lets a raw array through,
-    // and a target type taken from a formal parameter or return type passes no filter at all.
-    // Both are dropped here.
+    // A raw type still arrives here: typeOrNullIfRawNonArray lets a raw array through, and not
+    // every target type reaching this point passed through it.
     if (condExprType == null || condExprType.isRaw()) {
       return null;
     }
