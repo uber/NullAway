@@ -7,7 +7,7 @@ on:
       - master
 # Cancel in-progress runs for pull requests, but not for master branch pushes or merge queue
 concurrency:
-  group: ${{ github.workflow }}-${{ github.head_ref || github.run_id }}
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
   cancel-in-progress: true
 permissions:
   contents: read
