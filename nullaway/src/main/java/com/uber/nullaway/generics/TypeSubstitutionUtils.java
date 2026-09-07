@@ -144,9 +144,13 @@ public class TypeSubstitutionUtils {
   /**
    * Returns a copy of an unbounded wildcard with its {@code bound} field set to a copy of {@code
    * typeVariable} with {@code upperBound} as its upper bound.
+   *
+   * <p>When javac has not recorded the corresponding formal type variable on a captured wildcard,
+   * callers can supply the capture itself as {@code typeVariable}.
    */
-  private static Type.WildcardType replaceUnboundedWildcardUpperBound(
+  public static Type.WildcardType replaceUnboundedWildcardUpperBound(
       Type.WildcardType wildcard, Type.TypeVar typeVariable, Type upperBound) {
+    Verify.verify(wildcard.kind == BoundKind.UNBOUND, "wildcard must be unbounded");
     // A metadata clone of a javac TypeVar delegates setUpperBound() to the original TypeVar. Build
     // a genuinely detached TypeVar with the desired bound instead of mutating an apparent clone.
     Type.TypeVar updatedFormalTypeVariable =
