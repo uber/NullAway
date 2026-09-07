@@ -2320,8 +2320,9 @@ public final class GenericsChecks {
     if (condExprType == null) {
       condExprType = typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     }
-    // condExprType can be raw here: typeFromAssignmentContext does not pass through
-    // typeOrNullIfRawNonArray. This check also drops a raw array type that the helper allows.
+    // A raw type reaches this check either way: typeOrNullIfRawNonArray lets a raw array through,
+    // and a target type taken from a formal parameter or return type passes no filter at all.
+    // Both are dropped here.
     if (condExprType == null || condExprType.isRaw()) {
       return null;
     }
