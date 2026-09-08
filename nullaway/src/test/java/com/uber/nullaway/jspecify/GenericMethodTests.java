@@ -537,7 +537,15 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 <U extends @Nullable Object> Box(Supplier<? super U> supplier) {}
               }
               void test() {
+                // no error: U should be inferred to be @Nullable
                 Box<String> box = new Box<>(() -> null);
+              }
+              static class Box2<T> {
+                <U extends Object> Box2(Supplier<? extends U> supplier) {}
+              }
+              void test2() {
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                Box2<String> box = new Box2<>(() -> null);
               }
             }
             """)
