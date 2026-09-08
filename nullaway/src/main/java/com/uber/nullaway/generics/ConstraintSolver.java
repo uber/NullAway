@@ -12,7 +12,7 @@ import javax.lang.model.element.Element;
 public interface ConstraintSolver {
 
   /**
-   * Registers a type parameter whose nullability is being inferred by this solver. Must be called
+   * Registers a type variable whose nullability is being inferred by this solver. Must be called
    * before adding constraints involving that parameter; unregistered parameters are fixed types.
    */
   void registerInferenceVariable(Element typeVariable);

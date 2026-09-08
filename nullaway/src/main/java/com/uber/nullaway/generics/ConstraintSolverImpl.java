@@ -36,7 +36,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Handler handler;
   private final VisitorState state;
 
-  /** Type parameters belonging to the calls participating in this inference problem. */
+  /** Type variables belonging to the calls participating in this inference problem. */
   private final Set<Element> inferenceVariables = new LinkedHashSet<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
