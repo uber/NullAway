@@ -56,9 +56,6 @@ import org.jspecify.annotations.Nullable;
  */
 public final class AccessPathNullnessAnalysis {
 
-  private static final Context.Key<AccessPathNullnessAnalysis> FIELD_NULLNESS_ANALYSIS_KEY =
-      new Context.Key<>();
-
   private final AccessPath.AccessPathContext apContext;
 
   private final AccessPathNullnessPropagation nullnessPropagation;
@@ -67,8 +64,15 @@ public final class AccessPathNullnessAnalysis {
 
   private @Nullable AccessPathNullnessPropagation contractNullnessPropagation;
 
-  // Use #instance to instantiate
-  private AccessPathNullnessAnalysis(VisitorState state, NullAway analysis) {
+  /**
+   * Creates an analysis instance. {@link NullAway} holds the single instance for a compilation and
+   * exposes it via {@link NullAway#getNullnessAnalysis(VisitorState)}; other code should go through
+   * that method rather than constructing an instance directly.
+   *
+   * @param state visitor state for the compilation
+   * @param analysis instance of NullAway analysis
+   */
+  public AccessPathNullnessAnalysis(VisitorState state, NullAway analysis) {
     Config config = analysis.getConfig();
     Handler handler = analysis.getHandler();
     apContext =
@@ -95,23 +99,6 @@ public final class AccessPathNullnessAnalysis {
               new ContractNullnessStoreInitializer(),
               /* trackUnreachableStores= */ true);
     }
-  }
-
-  /**
-   * Get the per-Javac instance of the analysis.
-   *
-   * @param state visitor state for the compilation
-   * @param analysis instance of NullAway analysis
-   * @return instance of the analysis
-   */
-  public static AccessPathNullnessAnalysis instance(VisitorState state, NullAway analysis) {
-    Context context = state.context;
-    AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
-    if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(state, analysis);
-      context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
-    }
-    return instance;
   }
 
   /**
