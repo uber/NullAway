@@ -1895,8 +1895,8 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Performs any state updates required before checking a new compilation unit. Does not report any
-   * warnings directly.
+   * Performs any state updates required before checking a new compilation unit. Also clears several
+   * per-compilation-unit caches. Does not report any warnings directly.
    *
    * @param tree the {@link CompilationUnitTree}
    * @param stateForNewCompilationUnit the {@link VisitorState} for the new compilation unit
@@ -1910,6 +1910,7 @@ public class NullAway extends BugChecker
     if (codeAnnotationInfo == null) {
       codeAnnotationInfo = CodeAnnotationInfo.instance(stateForNewCompilationUnit.context);
     }
+    // Checking for a valid javac config for JSpecify mode also requires access to the context
     if (!checkedJDKVersionForJSpecifyMode) {
       checkedJDKVersionForJSpecifyMode = true;
       if (config.isJSpecifyMode()) {
@@ -1920,9 +1921,10 @@ public class NullAway extends BugChecker
         }
       }
     }
-    getNullnessAnalysis(stateForNewCompilationUnit)
-        .updateForNewCompilationUnit(stateForNewCompilationUnit);
-    getNullnessAnalysis(stateForNewCompilationUnit).invalidateCaches();
+    AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(stateForNewCompilationUnit);
+    nullnessAnalysis.updateForNewCompilationUnit(stateForNewCompilationUnit);
+    // clear per-compilation-unit caches
+    nullnessAnalysis.invalidateCaches();
     initTree2PrevFieldInit.clear();
     class2Entities.clear();
     class2ConstructorUninit.clear();
