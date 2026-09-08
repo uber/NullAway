@@ -1501,6 +1501,7 @@ public final class GenericsChecks {
       Set<Tree> allCalls,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
+    // register all the type variables for the generic method as inference variables
     for (Symbol.TypeVariableSymbol typeVariable : getCallTypeParameters(callTree)) {
       solver.registerInferenceVariable(typeVariable);
     }
@@ -1676,6 +1677,8 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
+    // if we have a reference to a generic method, and the call site does not pass explicit type
+    // arguments, register the referenced method's type variables as inference variables
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
     if (referencedMethod != null

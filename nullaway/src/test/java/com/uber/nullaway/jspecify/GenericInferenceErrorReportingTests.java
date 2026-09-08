@@ -27,7 +27,7 @@ import org.junit.Test;
 public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
 
   @Test
-  public void arraysCopyOfWithRenamedEnclosingTypeVariable() {
+  public void issue1821DoNotTreatCallerTypeVariableAsAnInferenceVariable() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -37,11 +37,15 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
             import org.jspecify.annotations.Nullable;
             @NullMarked
             class Test {
-              public static <E> E @Nullable [] copyOf(E @Nullable [] original) {
+              public static <E> E @Nullable [] copyOfConditionalExpression(E @Nullable [] original) {
                 return original == null
                     ? null
                     // BUG: Diagnostic contains: Conditional expression must have type E @Nullable [] but the sub-expression has type @Nullable E []
                     : Arrays.copyOf(original, original.length);
+              }
+              public static <E> E @Nullable [] copyOfDirectReturn(E [] original) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable E [] cannot be converted to E @Nullable []
+                return Arrays.copyOf(original, original.length);
               }
             }
             """)
