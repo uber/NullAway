@@ -1864,8 +1864,8 @@ public class LibraryModelsHandler implements Handler {
       // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
       try (InputStream androidStubxIS =
           openResourceWithoutCaching(
-              castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader()),
-              ANDROID_ASTUBX_LOCATION)) {
+              castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
+                  .getResource(ANDROID_ASTUBX_LOCATION))) {
         if (androidStubxIS != null) {
           cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
           astubxLoadLog("Loaded Android RT models.");
@@ -1882,8 +1882,8 @@ public class LibraryModelsHandler implements Handler {
     if (isJSpecifyJDKEnabled) {
       try (InputStream in =
           openResourceWithoutCaching(
-              castToNonNull(LibraryModelsHandler.class.getClassLoader()),
-              JSPECIFY_JDK_ASTUBX_FILENAME)) {
+              castToNonNull(LibraryModelsHandler.class.getClassLoader())
+                  .getResource(JSPECIFY_JDK_ASTUBX_FILENAME))) {
         if (in == null) {
           throw new IllegalStateException(
               "JDK astubx model not found on classpath: %s"
@@ -1906,13 +1906,11 @@ public class LibraryModelsHandler implements Handler {
    * files across classloaders by default, closing one classloader can otherwise invalidate a stream
    * that another classloader is still reading.
    *
-   * @param classLoader classloader used to locate the resource
-   * @param resourceName name of the resource to open
+   * @param resource URL of the resource to open, or {@code null} if it was not found
    * @return the resource stream, or {@code null} if the resource is not found
    */
-  static @Nullable InputStream openResourceWithoutCaching(
-      ClassLoader classLoader, String resourceName) throws IOException {
-    URL resource = classLoader.getResource(resourceName);
+  static @Nullable InputStream openResourceWithoutCaching(@Nullable URL resource)
+      throws IOException {
     if (resource == null) {
       return null;
     }

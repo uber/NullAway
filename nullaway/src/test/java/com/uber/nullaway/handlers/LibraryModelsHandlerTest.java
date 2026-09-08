@@ -41,9 +41,8 @@ public class LibraryModelsHandlerTest {
 
   /**
    * Verifies that closing one classloader cannot invalidate a resource stream opened by a second
-   * classloader that uses {@link LibraryModelsHandler#openResourceWithoutCaching(ClassLoader,
-   * String)}. This models overlapping compilations whose classloaders read a model from the same
-   * JAR; see <a
+   * classloader that uses {@link LibraryModelsHandler#openResourceWithoutCaching(URL)}. This models
+   * overlapping compilations whose classloaders read a model from the same JAR; see <a
    * href="https://github.com/uber/NullAway/issues/1829">https://github.com/uber/NullAway/issues/1829</a>.
    */
   @Test
@@ -58,7 +57,8 @@ public class LibraryModelsHandlerTest {
         // Compilation B starts reading its model through an independently owned JAR handle.
         InputStream streamB =
             Objects.requireNonNull(
-                LibraryModelsHandler.openResourceWithoutCaching(loaderB, RESOURCE_NAME))) {
+                LibraryModelsHandler.openResourceWithoutCaching(
+                    loaderB.getResource(RESOURCE_NAME)))) {
       // Compilation A opens the same resource through URLClassLoader's shared JAR cache.
       try (InputStream streamA =
           Objects.requireNonNull(loaderA.getResourceAsStream(RESOURCE_NAME))) {
