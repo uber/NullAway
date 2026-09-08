@@ -144,22 +144,30 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
     if (updateKind == UpdateKind.REPLACE_TYPE && pathIndex == typePath.size()) {
       return updateLeaf(t);
     }
+    Type.WildcardType wildcard = t.wildcard;
+    if (wildcard.kind == BoundKind.UNBOUND && wildcard.bound == null) {
+      // javac can omit the formal type variable on a captured wildcard. Use the capture's upper
+      // bound in that case, on a detached copy so neither path traversal nor annotation updates
+      // mutate compiler-owned types.
+      wildcard =
+          TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(wildcard, t, t.getUpperBound());
+    }
     Type.WildcardType updatedWildcard;
     if (pathIndex < typePath.size()) {
-      updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, pathIndex);
+      updatedWildcard = (Type.WildcardType) wildcard.accept(this, pathIndex);
     } else {
       Verify.verify(pathIndex == typePath.size(), "path index out of bounds");
-      if (t.wildcard.kind == BoundKind.UNBOUND) {
+      if (wildcard.kind == BoundKind.UNBOUND) {
         Type.TypeVar formalTypeVariable =
             Verify.verifyNotNull(
-                t.wildcard.bound, "unbounded wildcard has no corresponding formal type variable");
+                wildcard.bound, "unbounded wildcard has no corresponding formal type variable");
         Type updatedUpperBound =
             TypeSubstitutionUtils.typeWithAnnot(formalTypeVariable.getUpperBound(), updateType);
         updatedWildcard =
-            TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(t.wildcard, updatedUpperBound);
+            TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(wildcard, updatedUpperBound);
       } else {
-        Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(t.wildcard.type, updateType);
-        updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
+        Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(wildcard.type, updateType);
+        updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
       }
     }
     if (updatedWildcard == t.wildcard) {
