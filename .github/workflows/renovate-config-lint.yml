@@ -1,0 +1,104 @@
+name: Validate Renovate config
+# There is deliberately no paths filter: a workflow that filters itself out reports no status, and
+# a status that is sometimes absent cannot be a required check. The job runs on every pull request,
+# every merge queue entry and every push to master, and skips the validation step on a pull request
+# or a queue entry that changed neither renovate.json nor this workflow.
+on:
+  merge_group:
+  pull_request:
+  push:
+    branches:
+      - master
+# Cancel in-progress runs for pull requests, but not for master branch pushes or merge queue
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+permissions:
+  contents: read
+jobs:
+  validate-renovate-config:
+    name: "Validate renovate.json"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          # The changes step diffs two commits, so both have to be in the clone.
+          fetch-depth: 0
+          persist-credentials: false
+      # This step carries no condition on purpose: the rename it guards against happens in
+      # gradle/libs.versions.toml, which the changes step does not watch.
+      - name: Check that the rules' catalog aliases exist
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const fs = require('fs');
+
+            // Every rule that pins a version-catalog entry selects it by sharedVariableName, the
+            // alias Renovate reports for a dependency. A rename in libs.versions.toml would leave
+            // such a rule matching nothing while the config still validated.
+            const config = JSON.parse(fs.readFileSync('renovate.json', 'utf8'));
+            const pinned = new Set();
+            for (const rule of config.packageRules ?? []) {
+              for (const expression of rule.matchJsonata ?? []) {
+                if (!expression.includes('sharedVariableName')) continue;
+                for (const [, literal] of expression.matchAll(/'([^']*)'/g)) {
+                  const alias = literal.replace(/^libs\.versions\./, '');
+                  // A literal outside the alias character set belongs to some other field.
+                  if (/^[A-Za-z0-9_.-]+$/.test(alias)) pinned.add(alias);
+                }
+              }
+            }
+
+            // Renovate reports an alias with '-' and '_' replaced by '.', and that is the spelling
+            // a rule has to use, so normalize the declared names rather than the other way round.
+            const declared = new Set();
+            let inVersions = false;
+            for (const line of fs.readFileSync('gradle/libs.versions.toml', 'utf8').split('\n')) {
+              const header = line.match(/^\s*\[([^\]]+)\]/);
+              if (header) {
+                inVersions = header[1] === 'versions';
+                continue;
+              }
+              const entry = inVersions && line.match(/^\s*([A-Za-z0-9_.-]+)\s*=/);
+              if (entry) declared.add(entry[1].replace(/[-_]/g, '.'));
+            }
+
+            if (pinned.size === 0) {
+              core.setFailed(
+                'No rule in renovate.json selects a catalog alias. Either the pinning rules are ' +
+                  'gone, or their shape changed and this check no longer reads them.',
+              );
+              return;
+            }
+
+            const missing = [...pinned].filter((alias) => !declared.has(alias)).sort();
+            if (missing.length > 0) {
+              core.setFailed(
+                `renovate.json names version-catalog entries that gradle/libs.versions.toml does ` +
+                  `not declare: ${missing.join(', ')}. Renaming an entry disables the rule that ` +
+                  `pins it, and renovate-config-validator does not notice.`,
+              );
+            } else {
+              core.info(`Every catalog alias the rules select is declared: ${[...pinned].sort().join(', ')}`);
+            }
+      - name: Look for changes to the Renovate config
+        id: changes
+        if: github.event_name != 'push'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha || github.event.merge_group.base_sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha || github.event.merge_group.head_sha }}
+        run: |
+          if git diff --quiet "$BASE_SHA" "$HEAD_SHA" -- renovate.json .github/workflows/renovate-config-lint.yml; then
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          fi
+      - name: Validate renovate.json
+        # An empty output means the changes step did not run, which leaves validation on.
+        if: steps.changes.outputs.changed != 'false'
+        # --no-global is required: without it the validator treats renovate.json as a self-hosted
+        # global config and accepts options a repository config may not carry, such as onboarding.
+        # The image tag stays unpinned so the config is validated against the newest Renovate
+        # release; a pinned validator would keep passing after that release changed an option.
+        run: docker run --rm -v "$PWD":/work -w /work renovate/renovate:latest renovate-config-validator --no-global renovate.json
