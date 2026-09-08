@@ -1501,6 +1501,9 @@ public final class GenericsChecks {
       Set<Tree> allCalls,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
+    for (Symbol.TypeVariableSymbol typeVariable : getCallTypeParameters(callTree)) {
+      solver.registerInferenceVariable(typeVariable);
+    }
     Type.MethodType methodType =
         getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     // first, handle the call result flow
@@ -1673,6 +1676,14 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+    List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
+    if (referencedMethod != null
+        && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
+      for (Symbol.TypeVariableSymbol typeVariable : referencedMethod.getTypeParameters()) {
+        solver.registerInferenceVariable(typeVariable);
+      }
+    }
     Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
     GenericsUtils.processMethodRefTypeRelations(
         this,

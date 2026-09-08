@@ -12,6 +12,12 @@ import javax.lang.model.element.Element;
 public interface ConstraintSolver {
 
   /**
+   * Registers a type parameter whose nullability is being inferred by this solver. Must be called
+   * before adding constraints involving that parameter; unregistered parameters are fixed types.
+   */
+  void registerInferenceVariable(Element typeVariable);
+
+  /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
    *
    * <p>This is an unchecked exception since in our current solver implementation it needs to be

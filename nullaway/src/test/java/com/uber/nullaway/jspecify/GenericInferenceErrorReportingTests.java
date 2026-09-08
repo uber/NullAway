@@ -26,6 +26,28 @@ import org.junit.Test;
  */
 public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
 
+  @Test
+  public void arraysCopyOfWithRenamedEnclosingTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Arrays;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              public static <E> E @Nullable [] copyOf(E @Nullable [] original) {
+                return original == null
+                    ? null
+                    // BUG: Diagnostic contains: Conditional expression must have type E @Nullable [] but the sub-expression has type @Nullable E []
+                    : Arrays.copyOf(original, original.length);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Source compiled before each call site, padded so a misattributed diagnostic lands on an
    * existing line and cannot be dropped by the test framework.
