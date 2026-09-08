@@ -67,6 +67,8 @@ import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -1861,8 +1863,9 @@ public class LibraryModelsHandler implements Handler {
     if (isJarInferEnabled) {
       // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
       try (InputStream androidStubxIS =
-          castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
-              .getResourceAsStream(ANDROID_ASTUBX_LOCATION)) {
+          openResourceWithoutCaching(
+              castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader()),
+              ANDROID_ASTUBX_LOCATION)) {
         if (androidStubxIS != null) {
           cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
           astubxLoadLog("Loaded Android RT models.");
@@ -1878,8 +1881,9 @@ public class LibraryModelsHandler implements Handler {
 
     if (isJSpecifyJDKEnabled) {
       try (InputStream in =
-          castToNonNull(LibraryModelsHandler.class.getClassLoader())
-              .getResourceAsStream(JSPECIFY_JDK_ASTUBX_FILENAME)) {
+          openResourceWithoutCaching(
+              castToNonNull(LibraryModelsHandler.class.getClassLoader()),
+              JSPECIFY_JDK_ASTUBX_FILENAME)) {
         if (in == null) {
           throw new IllegalStateException(
               "JDK astubx model not found on classpath: %s"
@@ -1892,6 +1896,29 @@ public class LibraryModelsHandler implements Handler {
       }
     }
     return createImmutableStubxLibraryModels(cacheUtil);
+  }
+
+  /**
+   * Opens a classpath resource without sharing a cached JAR file with other classloaders.
+   *
+   * <p>A {@link java.net.URLClassLoader} tracks JAR files opened by {@code getResourceAsStream} and
+   * closes them when the classloader is closed. Since {@link java.net.JarURLConnection} caches JAR
+   * files across classloaders by default, closing one classloader can otherwise invalidate a stream
+   * that another classloader is still reading.
+   *
+   * @param classLoader classloader used to locate the resource
+   * @param resourceName name of the resource to open
+   * @return the resource stream, or {@code null} if the resource is not found
+   */
+  static @Nullable InputStream openResourceWithoutCaching(
+      ClassLoader classLoader, String resourceName) throws IOException {
+    URL resource = classLoader.getResource(resourceName);
+    if (resource == null) {
+      return null;
+    }
+    URLConnection connection = resource.openConnection();
+    connection.setUseCaches(false);
+    return connection.getInputStream();
   }
 
   /** Converts mutable parser caches into context-independent immutable library-model values. */
