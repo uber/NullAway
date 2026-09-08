@@ -522,6 +522,29 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferGenericConstructorTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T> {
+                <U extends @Nullable Object> Box(Supplier<? super U> supplier) {}
+              }
+              void test() {
+                Box<String> box = new Box<>(() -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAnnotOnMethodTypeVarUse() {
     makeHelper()
         .addSourceLines(
