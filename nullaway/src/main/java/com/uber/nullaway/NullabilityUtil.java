@@ -465,6 +465,19 @@ public class NullabilityUtil {
    *     type, false otherwise
    */
   private static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Symbol symbol) {
+    return isDirectTypeUseAnnotation(t, symbol.type);
+  }
+
+  /**
+   * Check whether a type-use annotation should be treated as applying directly to {@code type}
+   * rather than to something nested inside it.
+   *
+   * @param t the annotation and its position in the type
+   * @param type the annotated type
+   * @return {@code true} if the annotation should be treated as applying directly to the top-level
+   *     type, false otherwise
+   */
+  public static boolean isDirectTypeUseAnnotation(Attribute.TypeCompound t, Type type) {
     // location is a list of TypePathEntry objects, indicating whether the annotation is
     // on an array, inner type, wildcard, or type argument. If it's empty, then the
     // annotation is directly on the type.
@@ -487,11 +500,11 @@ public class NullabilityUtil {
       }
     }
     // For non-nested classes annotations apply to the innermost type.
-    if (!isTypeOfNestedClass(symbol.type)) {
+    if (!isTypeOfNestedClass(type)) {
       return true;
     }
     // For nested classes the annotation is only valid if it is on the innermost type.
-    return innerTypeCount == getNestingDepth(symbol.type) - 1;
+    return innerTypeCount == getNestingDepth(type) - 1;
   }
 
   private static int getNestingDepth(Type type) {

@@ -94,7 +94,7 @@ public class GenericsUtils {
       // type variable in @NullUnmarked code
       if (formalTypeVar != null
           && upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
-          && !Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+          && !isNullableAnnotated(upperBound, config)) {
         upperBound =
             TypeSubstitutionUtils.typeWithAnnot(
                 upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
@@ -116,7 +116,8 @@ public class GenericsUtils {
    * library model overrides the bound nullability for the type variable, or when the declared upper
    * bound has an explicit {@code @Nullable} annotation. An explicit {@code @NonNull} annotation on
    * a type-variable bound takes precedence over nullability inherited from that type variable's
-   * upper bound.
+   * upper bound. An intersection bound is nullable only when every one of its elements is; see
+   * {@link #isNullableAnnotated}.
    */
   static boolean upperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
@@ -144,7 +145,7 @@ public class GenericsUtils {
       }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (isNullableAnnotated(upperBound, config)) {
       return true;
     }
     if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
@@ -154,6 +155,27 @@ public class GenericsUtils {
       return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
     }
     return false;
+  }
+
+  /**
+   * Returns true if {@code type} carries a {@code @Nullable} annotation, treating an intersection
+   * type as {@code @Nullable} only when every one of its elements is.
+   *
+   * <p>JSpecify assigns a nullness operator to each element of an intersection type separately, and
+   * fixes the operator of the intersection as a whole to {@code NO_CHANGE}; javac stores type
+   * annotations on the elements, and an {@code IntersectionClassType} cannot carry one at all. A
+   * type variable is null-exclusive as soon as one element of its bound is, since that element
+   * still establishes a nullness-subtyping edge. See the <a
+   * href="https://jspecify.dev/docs/spec/#intersection-types">JSpecify specification</a>.
+   */
+  static boolean isNullableAnnotated(Type type, Config config) {
+    if (type instanceof Type.IntersectionClassType intersectionType) {
+      return intersectionType.getExplicitComponents().stream()
+          .allMatch(
+              element ->
+                  Nullness.hasNullableAnnotation(element.getAnnotationMirrors().stream(), config));
+    }
+    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
   private static boolean fromUnannotatedMethodOrClass(

@@ -6,6 +6,7 @@ Unreleased
 
 * Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
 * Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` (#1815)
+* Fix handling of type variables whose upper bound is an intersection: such a bound includes `null` only when every one of its elements is annotated `@Nullable` (#1836)
 
 Version 0.14.1
 --------------
