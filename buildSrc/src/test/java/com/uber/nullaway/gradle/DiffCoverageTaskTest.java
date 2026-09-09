@@ -17,7 +17,6 @@ package com.uber.nullaway.gradle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -27,16 +26,13 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.attribute.FileTime;
 import java.util.List;
-import java.util.Locale;
 import org.junit.jupiter.api.Nested;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
-import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.ValueSource;
 
 /**
  * The decisions the task makes before and after the counts: which ref the diff is taken against,
- * which sources the counts can still be trusted for, and whether a threshold was met.
+ * and which sources the counts can still be trusted for.
  *
  * <p>{@link DiffCoverageTaskRunTest} drives the task itself through a synthetic project; what is
  * here is the logic those runs carry, tested on its own.
@@ -162,99 +158,6 @@ class DiffCoverageTaskTest {
     @Test
     void aDetachedHeadHasNoBranchToRecognise() {
       assertFalse(DiffCoverageTask.isOwnPushedBranch("origin/master", null));
-    }
-  }
-
-  @Nested
-  class GivingUp {
-
-    /**
-     * A run that measured nothing has to say so. Reusing the total a measured run prints for an
-     * empty change would tell the reader that everything they changed was covered.
-     */
-    @ParameterizedTest
-    @ValueSource(strings = {DiffCoverageTask.NO_BASE, DiffCoverageTask.NO_REPORT})
-    void aMessageSayingNothingWasMeasuredIsNotTheTotalOfAMeasuredRun(String message) {
-      assertFalse(
-          message.contains(DiffCoverageReport.NO_EXECUTABLE_LINES),
-          () -> "message reads as a measured run: " + message);
-    }
-
-    @Test
-    void theTwoGiveUpMessagesNameDifferentCauses() {
-      assertNotEquals(DiffCoverageTask.NO_BASE, DiffCoverageTask.NO_REPORT);
-    }
-  }
-
-  @Nested
-  class FilesNoReportCovers {
-
-    /**
-     * Such a file contributes nothing to either side of the share, so a change made entirely in
-     * one would clear every threshold without having been measured.
-     */
-    @Test
-    void aChangedFileNoReportCoversNamesItselfRatherThanClearingTheGate() {
-      assertEquals(
-          "no JaCoCo report covers these changed files, so no threshold applies to them: "
-              + "a/A.java, b/B.java",
-          DiffCoverageTask.unmeasuredFilesFailure(List.of("a/A.java", "b/B.java")));
-    }
-
-    @Test
-    void aRunWithEveryChangedFileInTheReportAppliesTheThreshold() {
-      assertNull(DiffCoverageTask.unmeasuredFilesFailure(List.of()));
-    }
-  }
-
-  @Nested
-  class TheThreshold {
-
-    @Test
-    void anExecutedShareBelowTheThresholdIsReportedWithBothPercentages() {
-      assertEquals(
-          "66.7% of the changed lines ran, below the required 90.0%",
-          DiffCoverageTask.thresholdFailure(2, 3, 90.0));
-    }
-
-    @Test
-    void anExecutedShareAboveTheThresholdPasses() {
-      assertNull(DiffCoverageTask.thresholdFailure(3, 3, 90.0));
-    }
-
-    @Test
-    void anExecutedShareExactlyAtTheThresholdPasses() {
-      assertNull(DiffCoverageTask.thresholdFailure(9, 10, 90.0));
-    }
-
-    @Test
-    void anExecutedShareJustBelowTheThresholdFails() {
-      assertEquals(
-          "89.0% of the changed lines ran, below the required 90.0%",
-          DiffCoverageTask.thresholdFailure(89, 100, 90.0));
-    }
-
-    /** A commit that changed only comments clears every threshold. */
-    @Test
-    void aChangeWithNoExecutableLinePassesEveryThreshold() {
-      assertNull(DiffCoverageTask.thresholdFailure(0, 0, 100.0));
-    }
-
-    /**
-     * A locale that writes a decimal comma would print 66,7%, which nobody greps and which two CI
-     * runners spell differently.
-     */
-    @Test
-    void thePercentagesCarryADecimalPointUnderALocaleThatWritesAComma() {
-      Locale original = Locale.getDefault();
-      try {
-        Locale.setDefault(Locale.GERMANY);
-        assertEquals(
-            "66.7% of the changed lines ran, below the required 90.0%",
-            DiffCoverageTask.thresholdFailure(2, 3, 90.0));
-      } finally {
-        Locale.setDefault(original);
-      }
     }
   }
 

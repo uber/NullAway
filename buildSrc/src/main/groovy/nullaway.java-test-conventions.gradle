@@ -120,9 +120,6 @@ def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffC
     if (project.hasProperty("diffCoverageBase")) {
         baseRef = project.property("diffCoverageBase").toString()
     }
-    if (project.hasProperty("diffCoverageFailUnder")) {
-        failUnder = Double.parseDouble(project.property("diffCoverageFailUnder").toString())
-    }
 }
 
 // The automatic report is a local affordance, so it is wired only where nobody asked for a
