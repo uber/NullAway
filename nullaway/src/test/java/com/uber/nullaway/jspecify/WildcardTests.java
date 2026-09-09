@@ -1461,7 +1461,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Box<T extends @Nullable Object> {}
               static void takeNonNull(Box<? extends Object> b) {}
               static <T extends @Nullable Object> void test(Box<T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 takeNonNull(b);
               }
             }
@@ -1626,7 +1626,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Holder<T> {
                 @NullMarked
                 void test(Box<T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                   takeNonNull(b);
                 }
               }
@@ -1648,7 +1648,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Box<E extends @Nullable Object> {}
               static void takeNonNull(Box<? extends Object> b) {}
               static <T extends @Nullable Object, S extends T> void test(Box<S> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required Object
                 takeNonNull(b);
               }
             }
@@ -1736,7 +1736,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Holder<T> {
                 void takeExtendsT(Box<? extends T> b) {}
                 <S extends @Nullable T> void test(Box<S> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required T
                   takeExtendsT(b);
                 }
               }
@@ -1826,7 +1826,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Holder<T extends @Nullable Object> {
                 void takeExtendsNonNullT(Box<? extends @NonNull T> b) {}
                 void test(Box<T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required T
                   takeExtendsNonNullT(b);
                 }
               }
@@ -1875,7 +1875,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Box<E extends @Nullable Object> {}
               static void takeNonNull(Box<? extends Object> b) {}
               static <T extends @Nullable Object> void test(Box<? extends T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<? extends T> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 takeNonNull(b);
               }
             }
@@ -3133,12 +3133,23 @@ public class WildcardTests extends NullAwayTestsBase {
             message ->
                 message.contains(
                     """
-                    incompatible nullability: found @Nullable String, required String
+                    incompatible nullability: 2 mismatches between source and target types
                         found:    Pair<T, @Nullable String>
-                                          ^^^^^^^^^^^^^^^^
+                                       ^  ^^^^^^^^^^^^^^^^
+                                       1  2
                         required: Pair<? extends Object, String>
-                                                         ^^^^^^
-                        path: Pair type argument B
+                                                 ^^^^^^  ^^^^^^
+                                                 1       2
+                     \s
+                        1. path: Pair type argument A -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source T has no nullness of its own, so it takes the nullness of its declared upper
+                                 bound
+                     \s
+                        2. path: Pair type argument B
+                           found:    @Nullable String
+                           required: String
                     """))
         .addSourceLines(
             "Test.java",

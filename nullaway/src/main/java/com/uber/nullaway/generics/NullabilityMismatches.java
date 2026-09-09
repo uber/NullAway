@@ -170,6 +170,15 @@ final class NullabilityMismatches {
       // a wildcard on one side only, in a position javac itself rejects before NullAway runs
       return;
     }
+    if (bound != null
+        && source instanceof Type.TypeVar sourceTypeVar
+        && !(source instanceof Type.CapturedType)
+        && !checks.isNullableAnnotated(source)) {
+      // against a bound, a type variable that says nothing at the use site is judged by the bound
+      // it was declared with, which is what the check compares and what the printed T does not
+      // show. A @Nullable T says it, and is compared as written
+      source = GenericsUtils.typeVariableUpperBound(sourceTypeVar, state, config, handler);
+    }
     boolean sourceIsNullable = checks.isNullableAnnotated(source);
     boolean targetIsNullable = checks.isNullableAnnotated(target);
     if (sourceIsNullable != targetIsNullable && (sourceIsNullable || bound == null)) {
