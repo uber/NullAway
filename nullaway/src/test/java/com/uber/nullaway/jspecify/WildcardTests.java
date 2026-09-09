@@ -29,7 +29,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void testPositive(Foo<@Nullable String> f, Foo<String> f2) {
                 // not legal since the wildcard upper bound is non-null
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 // legal
                 String s2 = nonnullWildcard(f2);
@@ -58,7 +58,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void testPositive(Foo<@Nullable String> f) {
                 // not legal since the wildcard upper bound is non-null
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<@Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -89,7 +89,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<Bar<@Nullable String>> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.Bar<@Nullable String>> cannot be converted to Test.Foo<? extends Test.Bar<String>>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -121,7 +121,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<Bar<Baz<@Nullable String>>> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.Bar<Test.Baz<@Nullable String>>> cannot be converted to Test.Foo<? extends Test.Bar<Test.Baz<String>>>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -153,7 +153,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<@Nullable Bar<Baz<String>>> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<Test.@Nullable Bar<Test.Baz<String>>> cannot be converted to Test.Foo<? extends Test.Bar<Test.Baz<String>>>
+                // BUG: Diagnostic contains: incompatible nullability: found Test.@Nullable Bar<Test.Baz<String>>, required Test.Bar<Test.Baz<String>>
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -183,7 +183,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 s.hashCode();
               }
               void testPositive(Foo<? extends @Nullable String> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 String s = nonnullWildcard(f);
                 s.hashCode();
               }
@@ -206,22 +206,22 @@ public class WildcardTests extends NullAwayTestsBase {
               Foo<? extends @Nullable String> nullableField;
               Test(Foo<? extends @Nullable String> f) {
                 nullableField = f;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 nonnullField = f;
               }
               Foo<? extends @Nullable String> nullableReturn(Foo<? extends @Nullable String> f) {
                 return f;
               }
               Foo<? extends String> nonnullReturn(Foo<? extends @Nullable String> f) {
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return f;
               }
               void testLocal(Foo<? extends @Nullable String> f) {
                 Foo<? extends @Nullable String> ok = f;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Foo<? extends String> bad = f;
                 var f2 = f;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? extends @Nullable String> cannot be converted to Test.Foo<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Foo<? extends String> bad2 = f2;
               }
             }
@@ -276,11 +276,11 @@ public class WildcardTests extends NullAwayTestsBase {
                 Foo<? extends @Nullable Object> fromNonnullSuper = nonnullSuperFoo;
                 Foo<? extends @Nullable Object> fromNullableSuper = nullableSuperFoo;
                 Foo<? extends @Nullable Object> fromUnbounded = unboundedFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? super String> cannot be converted to Test.Foo<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Foo<? extends Object> badFromNonnullSuper = nonnullSuperFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<? super @Nullable String> cannot be converted to Test.Foo<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Foo<? extends Object> badFromNullableSuper = nullableSuperFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.Foo<?> cannot be converted to Test.Foo<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Foo<? extends Object> badFromUnbounded = unboundedFoo;
               }
             }
@@ -305,7 +305,7 @@ public class WildcardTests extends NullAwayTestsBase {
                   NonNullBoundFoo<? super String> nonnullSuperStringFoo) {
                 NonNullBoundFoo<?> fromNonnull = nonnullObjectFoo;
                 NonNullBoundFoo<?> fromNonnullExtends = nonnullExtendsObjectFoo;
-                // BUG: Diagnostic contains: incompatible types: Test.NonNullBoundFoo<? extends @Nullable Object> cannot be converted to Test.NonNullBoundFoo<?>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 NonNullBoundFoo<?> fromNullableExtends = nullableExtendsObjectWithNonnullBoundFoo;
                 NonNullBoundFoo<?> fromSuper = nonnullSuperStringFoo;
               }
@@ -452,18 +452,18 @@ public class WildcardTests extends NullAwayTestsBase {
               }
 
               Nested<? extends String> testDirect(Nested<? extends String> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return receiver.wildcardUpperTypeVariable();
               }
 
               Nested<? extends String> testWithSelf(Nested<? extends String> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return receiver.self().wildcardUpperTypeVariable();
               }
 
               Nested<? extends String> testWithVar(Nested<? extends String> receiver) {
                 var local = receiver;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return local.wildcardUpperTypeVariable();
               }
 
@@ -497,18 +497,18 @@ public class WildcardTests extends NullAwayTestsBase {
               }
 
               Nested<? extends Object> testDirect(Nested<?> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return receiver.wildcardUpperTypeVariable();
               }
 
               Nested<? extends Object> testWithSelf(Nested<?> receiver) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return receiver.self().wildcardUpperTypeVariable();
               }
 
               Nested<? extends Object> testWithVar(Nested<?> receiver) {
                 var local = receiver;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return local.wildcardUpperTypeVariable();
               }
 
@@ -1016,7 +1016,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               // We report an error here since we do not infer Foo<@Nullable Void> as the type of the Foo.of call;
               // javac itself has a similar inference limitation, see https://godbolt.org/z/Y875ahYMx
-              // BUG: Diagnostic contains: incompatible types: Foo<Void> cannot be converted to Foo<@Nullable Void>
+              // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Void, required @Nullable Void
               static final Foo<@Nullable Void> FOO = Foo.of(new Foo<@Nullable Void>()).or(new Foo<@Nullable Void>());
 
               // This works due to the explicit type argument
@@ -1290,7 +1290,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 throw new RuntimeException();
               }
               static Flux<?> convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<capture of ?> cannot be converted to Flux<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Flow)
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return asFlux((Flow<?>) source);
               }
             }
@@ -1315,7 +1315,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 throw new RuntimeException();
               }
               static Flux<?>[] convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<capture of ?> [] cannot be converted to Flux<?> [] (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Flow)
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return asFluxArray((Flow<?>) source);
               }
             }
@@ -1522,7 +1522,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Box<T extends @Nullable Object> {}
               static void takeNonNull(Box<? extends Object> b) {}
               static <T> void test(Box<@Nullable T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<@Nullable T> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required Object
                 takeNonNull(b);
               }
             }
@@ -1713,7 +1713,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Holder<T extends @Nullable Object> {
                 void takeExtendsT(Box<? extends T> b) {}
                 void test(Box<@Nullable T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<@Nullable T> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required T
                   takeExtendsT(b);
                 }
               }
@@ -1877,6 +1877,2035 @@ public class WildcardTests extends NullAwayTestsBase {
               static <T extends @Nullable Object> void test(Box<? extends T> b) {
                 // BUG: Diagnostic contains: incompatible types: Box<? extends T> cannot be converted to Box<? extends Object>
                 takeNonNull(b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundedWildcardErrorMessageSuggestsExplicitBound() {
+    makeHelper()
+        .expectErrorMessage(
+            "ISSUE_1822",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    List<?>
+                                       ^
+                        required: Collection<? extends Object>
+                                                       ^^^^^^
+                        path: Collection type argument E -> wildcard upper bound
+                        note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                              parameter E of List
+                        did you mean List<? extends Object>?
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.ArrayList;
+            import java.util.Collection;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              Collection<Object> copy(List<?> list) {
+                List<Object> result = new ArrayList<>();
+                // BUG: Diagnostic matches: ISSUE_1822
+                result.addAll(list);
+                return result;
+              }
+              Collection<Object> copyNonNull(List<? extends Object> list) {
+                List<Object> result = new ArrayList<>();
+                result.addAll(list);
+                return result;
+              }
+              static void takeNullable(Collection<? extends @Nullable Object> c) {}
+              void nullableTarget(List<?> list) {
+                takeNullable(list);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestionWhenAnExplicitBoundMismatchRemains() {
+    makeHelper()
+        .expectErrorMessage(
+            "EXPLICIT_BOUND_REMAINS",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<?, ? extends @Nullable Object>
+                                      ^            ^^^^^^^^^^^^^^^^
+                                      1            2
+                        required: Map<? extends Object, ? extends Object>
+                                                ^^^^^^            ^^^^^^
+                                                1                 2
+                     \s
+                        1. path: Map type argument K -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter K of Map
+                     \s
+                        2. path: Map type argument V -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                    """)
+                    && !message.contains("did you mean"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, ? extends Object> m) {}
+              void test(Map<?, ? extends @Nullable Object> m) {
+                // BUG: Diagnostic matches: EXPLICIT_BOUND_REMAINS
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void suggestionSurvivesAMismatchInTheHarmlessDirection() {
+    makeHelper()
+        .expectErrorMessage(
+            "HARMLESS_DIRECTION",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Box<?, ?>
+                                      ^
+                        required: Box<? extends Object, ? extends @Nullable Object>
+                                                ^^^^^^
+                        path: Box type argument T -> wildcard upper bound
+                        note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                              parameter T of Box
+                        did you mean Box<? extends Object, ?>?
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object, U> {}
+              static void take(Box<? extends Object, ? extends @Nullable Object> b) {}
+              void test(Box<?, ?> b) {
+                // BUG: Diagnostic matches: HARMLESS_DIRECTION
+                take(b);
+              }
+              void suggestedFormIsAccepted(Box<? extends Object, ?> b) {
+                take(b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void suggestionSurvivesASuperBoundedArgumentTheTargetAlsoDeclaresSuper() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, ? super String> m) {}
+              void suggestedFormIsAccepted(Map<? extends Object, ? super String> m) {
+                take(m);
+              }
+              void test(Map<?, ? super String> m) {
+                // BUG: Diagnostic contains: did you mean Map<? extends Object, ? super String>?
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestionWhenBoundsDifferBelowTheTopLevel() {
+    makeHelper()
+        .expectErrorMessage(
+            "BOUNDS_DIFFER_NESTED",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Holder<?>
+                                         ^
+                        required: Holder<? extends List<Object>>
+                                                        ^^^^^^
+                        path: Holder type argument E -> wildcard upper bound -> List type argument E
+                    """)
+                    && !message.contains("did you mean"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Holder<E extends List<@Nullable Object>> {}
+              static void take(Holder<? extends List<Object>> h) {}
+              void test(Holder<?> h) {
+                // BUG: Diagnostic matches: BOUNDS_DIFFER_NESTED
+                take(h);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestionWhenAConcreteTypeArgumentAlsoMismatches() {
+    makeHelper()
+        .expectErrorMessage(
+            "CONCRETE_ARGUMENT",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<?, @Nullable String>
+                                      ^  ^^^^^^^^^^^^^^^^
+                                      1  2
+                        required: Map<? extends Object, String>
+                                                ^^^^^^  ^^^^^^
+                                                1       2
+                     \s
+                        1. path: Map type argument K -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter K of Map
+                     \s
+                        2. path: Map type argument V
+                           found:    @Nullable String
+                           required: String
+                    """)
+                    && !message.contains("did you mean"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, String> m) {}
+              void test(Map<?, @Nullable String> m) {
+                // BUG: Diagnostic matches: CONCRETE_ARGUMENT
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestionWhenTheRewrittenTypeHoldsACapture() {
+    makeHelper()
+        .expectErrorMessage(
+            "REWRITE_HOLDS_CAPTURE",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Map<List<?>, @Nullable capture of ?>
+                                           ^
+                        required: Map<? extends List<? extends Object>, ?>
+                                                               ^^^^^^
+                        path: Map type argument K -> wildcard upper bound -> List type argument E -> wildcard upper bound
+                        note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                              parameter E of List
+                    """)
+                    && !message.contains("did you mean"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> Map<List<?>, T> make(List<T> l) {
+                throw new RuntimeException();
+              }
+              static void take(Map<? extends List<? extends Object>, ?> m) {}
+              void test(List<?> l) {
+                // BUG: Diagnostic matches: REWRITE_HOLDS_CAPTURE
+                take(make(l));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void caretSkipsATypeArgumentTheTargetAccepts() {
+    makeHelper()
+        .expectErrorMessage(
+            "CARET_SKIPS_ACCEPTED",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Map<? extends String, ? extends @Nullable Object>
+                                                                  ^^^^^^^^^^^^^^^^
+                        required: Map<? extends Object, ? extends Object>
+                                                                  ^^^^^^
+                        path: Map type argument V -> wildcard upper bound
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, ? extends Object> m) {}
+              void accepted(Map<? extends String, ? extends Object> m) {
+                take(m);
+              }
+              void test(Map<? extends String, ? extends @Nullable Object> m) {
+                // BUG: Diagnostic matches: CARET_SKIPS_ACCEPTED
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void bothPositionsAreMarkedWhereOneInstanceFillsTwoTypeArguments() {
+    makeHelper()
+        .expectErrorMessage(
+            "SHARED_INSTANCE",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<capture of ?, capture of ?>
+                                      ^^^^^^^^^^^^  ^^^^^^^^^^^^
+                                      1             2
+                        required: Map<? extends Object, ? extends Object>
+                                                ^^^^^^            ^^^^^^
+                                                1                 2
+                     \s
+                        1. path: Map type argument K -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source wildcard is the type argument for type parameter E of List
+                     \s
+                        2. path: Map type argument V -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source wildcard is the type argument for type parameter E of List
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> Map<T, T> duplicate(List<T> x) {
+                throw new RuntimeException();
+              }
+              static void take(Map<? extends Object, ? extends Object> m) {}
+              void test(List<?> l) {
+                // BUG: Diagnostic matches: SHARED_INSTANCE
+                take(duplicate(l));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void caretNamesTheConcreteArgumentWhenEveryWildcardIsAccepted() {
+    makeHelper()
+        .expectErrorMessage(
+            "CONCRETE_AMONG_ACCEPTED",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Map<? extends String, @Nullable String>
+                                                        ^^^^^^^^^^^^^^^^
+                        required: Map<? extends Object, String>
+                                                        ^^^^^^
+                        path: Map type argument V
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, String> m) {}
+              void accepted(Map<? extends String, String> m) {
+                take(m);
+              }
+              void test(Map<? extends String, @Nullable String> m) {
+                // BUG: Diagnostic matches: CONCRETE_AMONG_ACCEPTED
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void caretMarksTheFailingArgumentWhereTheTargetRepeatsAType() {
+    makeHelper()
+        .expectErrorMessage(
+            "REPEATED_ARGUMENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Three<? extends String, String, @Nullable String>
+                                                                  ^^^^^^^^^^^^^^^^
+                        required: Three<? extends Object, String, String>
+                                                                  ^^^^^^
+                        path: Three type argument C
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Three<A, B, C extends @Nullable Object> {}
+              static void take(Three<? extends Object, String, String> t) {}
+              void test(Three<? extends String, String, @Nullable String> t) {
+                // BUG: Diagnostic matches: REPEATED_ARGUMENT
+                take(t);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void onlyTheFailingArgumentIsNamedBesideAWildcardTheTargetAccepts() {
+    makeHelper()
+        .expectErrorMessage(
+            "ACCEPTED_BESIDE_FAILING",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Three<?, String, @Nullable String>
+                                                   ^^^^^^^^^^^^^^^^
+                        required: Three<? extends @Nullable Object, String, String>
+                                                                            ^^^^^^
+                        path: Three type argument C
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Three<A, B, C extends @Nullable Object> {}
+              static void take(Three<? extends @Nullable Object, String, String> t) {}
+              void test(Three<?, String, @Nullable String> t) {
+                // BUG: Diagnostic matches: ACCEPTED_BESIDE_FAILING
+                take(t);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void suggestionRewritesEveryMismatchingWildcard() {
+    makeHelper()
+        .expectErrorMessage(
+            "REWRITES_EVERY_WILDCARD",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<?, ?>
+                                      ^  ^
+                                      1  2
+                        required: Map<? extends Object, ? extends Object>
+                                                ^^^^^^            ^^^^^^
+                                                1                 2
+                     \s
+                        1. path: Map type argument K -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter K of Map
+                     \s
+                        2. path: Map type argument V -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter V of Map
+                     \s
+                        did you mean Map<? extends Object, ? extends Object>?
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, ? extends Object> m) {}
+              void suggestedFormIsAccepted(Map<? extends Object, ? extends Object> m) {
+                take(m);
+              }
+              void test(Map<?, ?> m) {
+                // BUG: Diagnostic matches: REWRITES_EVERY_WILDCARD
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestionWhenOneMismatchCannotBeRewritten() {
+    makeHelper()
+        .expectErrorMessage(
+            "SUPER_ARGUMENT_REMAINS",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<?, ? super String>
+                                      ^  ^^^^^^^^^^^^^^
+                                      1  2
+                        required: Map<? extends Object, ? extends Object>
+                                                ^^^^^^            ^^^^^^
+                                                1                 2
+                     \s
+                        1. path: Map type argument K -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter K of Map
+                     \s
+                        2. path: Map type argument V -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? super String has no explicit upper bound, so its upper bound is inherited
+                                 from type parameter V of Map
+                    """)
+                    && !message.contains("did you mean"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, ? extends Object> m) {}
+              void test(Map<?, ? super String> m) {
+                // BUG: Diagnostic matches: SUPER_ARGUMENT_REMAINS
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void suggestionLeavesAWildcardTheTargetAllowsToBeNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, ? extends @Nullable Object> m) {}
+              void suggestedFormIsAccepted(Map<? extends Object, ?> m) {
+                take(m);
+              }
+              void test(Map<?, ?> m) {
+                // BUG: Diagnostic contains: did you mean Map<? extends Object, ?>?
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void superWildcardArgumentIsMarkedAndGetsNoSuggestion() {
+    makeHelper()
+        .expectErrorMessage(
+            "SUPER_WILDCARD",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    List<? super String>
+                                       ^^^^^^^^^^^^^^
+                        required: Collection<? extends Object>
+                                                       ^^^^^^
+                        path: Collection type argument E -> wildcard upper bound
+                        note: the source ? super String has no explicit upper bound, so its upper bound is inherited from
+                              type parameter E of List
+                    """)
+                    && !message.contains("did you mean"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Collection;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static void take(Collection<? extends Object> c) {}
+              void test(List<? super String> list) {
+                // BUG: Diagnostic matches: SUPER_WILDCARD
+                take(list);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundedWildcardSuggestionInsideAnArrayElement() {
+    makeHelper()
+        .expectErrorMessage(
+            "SUGGESTION_IN_ARRAY",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    List<?> []
+                                       ^
+                        required: Collection<? extends Object> []
+                                                       ^^^^^^
+                        path: array element -> Collection type argument E -> wildcard upper bound
+                        note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                              parameter E of List
+                        did you mean List<? extends Object> []?
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Collection;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static void takeArray(Collection<? extends Object>[] c) {}
+              void suggestedFormIsAccepted(List<? extends Object>[] lists) {
+                takeArray(lists);
+              }
+              void test(List<?>[] lists) {
+                // BUG: Diagnostic matches: SUGGESTION_IN_ARRAY
+                takeArray(lists);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundedWildcardSuggestionInsideANestedTypeArgument() {
+    makeHelper()
+        .expectErrorMessage(
+            "SUGGESTION_IN_NESTED_ARGUMENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    List<List<?>>
+                                            ^
+                        required: Collection<? extends List<? extends Object>>
+                                                                      ^^^^^^
+                        path: Collection type argument E -> wildcard upper bound -> List type argument E
+                              -> wildcard upper bound
+                        note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                              parameter E of List
+                        did you mean List<List<? extends Object>>?
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Collection;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static void takeNested(Collection<? extends List<? extends Object>> c) {}
+              void suggestedFormIsAccepted(List<List<? extends Object>> lists) {
+                takeNested(lists);
+              }
+              void test(List<List<?>> lists) {
+                // BUG: Diagnostic matches: SUGGESTION_IN_NESTED_ARGUMENT
+                takeNested(lists);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundedWildcardSuggestionInAnEnclosingTypeArgument() {
+    makeHelper()
+        .expectErrorMessage(
+            "SUGGESTION_IN_ENCLOSING_ARGUMENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Outer<?>.Inner
+                                        ^
+                        required: Outer<? extends Object>.Inner
+                                                  ^^^^^^
+                        path: enclosing type -> Outer type argument T -> wildcard upper bound
+                        note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                              parameter T of Outer
+                        did you mean Outer<? extends Object>.Inner?
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Outer<T extends @Nullable Object> {
+                class Inner {}
+              }
+              static void take(Outer<? extends Object>.Inner inner) {}
+              void suggestedFormIsAccepted(Outer<? extends Object>.Inner inner) {
+                take(inner);
+              }
+              void test(Outer<?>.Inner inner) {
+                // BUG: Diagnostic matches: SUGGESTION_IN_ENCLOSING_ARGUMENT
+                take(inner);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void suggestsTheRequiredTypeAtAVariableDeclaration() {
+    makeHelper()
+        .expectErrorMessage(
+            "TARGET_FIX",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Map<? extends String, @Nullable String>
+                                                        ^^^^^^^^^^^^^^^^
+                        required: Map<? extends Object, String>
+                                                        ^^^^^^
+                        path: Map type argument V
+                        consider changing the required type to:
+                          Map<? extends Object, @Nullable String>
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              Map<? extends Object, @Nullable String> suggestedFormIsAccepted(
+                  Map<? extends String, @Nullable String> m) {
+                Map<? extends Object, @Nullable String> accepted = m;
+                return accepted;
+              }
+              Map<? extends Object, String> test(Map<? extends String, @Nullable String> m) {
+                // BUG: Diagnostic matches: TARGET_FIX
+                Map<? extends Object, String> declared = m;
+                return declared;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestedRequiredTypeAtACallSite() {
+    makeHelper()
+        .expectErrorMessage(
+            "CALL_SITE",
+            message ->
+                message.contains(
+                        "incompatible nullability: found @Nullable String, required String")
+                    && !message.contains("consider changing the required type"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(Map<? extends Object, String> m) {}
+              void test(Map<? extends String, @Nullable String> m) {
+                // BUG: Diagnostic matches: CALL_SITE
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void listsAtMostFiveMismatchesAndSaysHowManyMoreThereAre() {
+    makeHelper()
+        .expectErrorMessage(
+            "SIX_MISMATCHES",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: 6 mismatches between source and target types
+                        found:    Six<?, ?, ?, ?, ?, ?>
+                                      ^  ^  ^  ^  ^
+                                      1  2  3  4  5
+                        required: Six<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>
+                                                ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^
+                                                1                 2                 3                 4                 5
+                     \s
+                        1. path: Six type argument A -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter A of Six
+                     \s
+                        2. path: Six type argument B -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter B of Six
+                     \s
+                        3. path: Six type argument C -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter C of Six
+                     \s
+                        4. path: Six type argument D -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter D of Six
+                     \s
+                        5. path: Six type argument E -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter E of Six
+                     \s
+                        and 1 more, not listed
+                     \s
+                        did you mean Six<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>?
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Six<
+                  A extends @Nullable Object,
+                  B extends @Nullable Object,
+                  C extends @Nullable Object,
+                  D extends @Nullable Object,
+                  E extends @Nullable Object,
+                  F extends @Nullable Object> {}
+              static void take(
+                  Six<
+                      ? extends Object,
+                      ? extends Object,
+                      ? extends Object,
+                      ? extends Object,
+                      ? extends Object,
+                      ? extends Object> six) {}
+              void test(Six<?, ?, ?, ?, ?, ?> six) {
+                // BUG: Diagnostic matches: SIX_MISMATCHES
+                take(six);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void invariantTypeArgumentIsReportedWhenTheSourceIsLessNullableThanRequired() {
+    makeHelper()
+        .expectErrorMessage(
+            "REVERSE_INVARIANCE",
+            message ->
+                !message.contains("consider changing the required type")
+                    && message.contains(
+                        """
+                    incompatible nullability: a type argument must match exactly; found String, required @Nullable String
+                        found:    List<String>
+                                       ^^^^^^
+                        required: List<@Nullable String>
+                                       ^^^^^^^^^^^^^^^^
+                        path: List type argument E
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void test(java.util.List<String> source) {
+                // BUG: Diagnostic matches: REVERSE_INVARIANCE
+                java.util.List<@Nullable String> target = source;
+                target.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void adjacentTypeArgumentsThatBothMismatchAreNumberedSideBySide() {
+    makeHelper()
+        .expectErrorMessage(
+            "ADJACENT_MISMATCHES",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<@Nullable String, @Nullable String>
+                                      ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^
+                                      1                 2
+                        required: Map<String, String>
+                                      ^^^^^^  ^^^^^^
+                                      1       2
+                     \s
+                        1. path: Map type argument K
+                           found:    @Nullable String
+                           required: String
+                     \s
+                        2. path: Map type argument V
+                           found:    @Nullable String
+                           required: String
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.Map<String, String> m) {}
+              void test(java.util.Map<@Nullable String, @Nullable String> m) {
+                // BUG: Diagnostic matches: ADJACENT_MISMATCHES
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void onlyTheInnermostDifferingNodeIsMarkedInsideAWildcardBound() {
+    makeHelper()
+        .expectErrorMessage(
+            "MINIMAL_SPAN",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    List<? extends List<@Nullable String>>
+                                                      ^^^^^^^^^^^^^^^^
+                        required: List<? extends List<String>>
+                                                      ^^^^^^
+                        path: List type argument E -> wildcard upper bound -> List type argument E
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.List<? extends java.util.List<String>> l) {}
+              void test(java.util.List<? extends java.util.List<@Nullable String>> l) {
+                // BUG: Diagnostic matches: MINIMAL_SPAN
+                take(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mismatchesAtDifferentDepthsEachGetTheirOwnPath() {
+    makeHelper()
+        .expectErrorMessage(
+            "DIFFERENT_DEPTHS",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<@Nullable String, List<? extends Collection<@Nullable Integer>>>
+                                      ^^^^^^^^^^^^^^^^                            ^^^^^^^^^^^^^^^^^
+                                      1                                           2
+                        required: Map<String, List<? extends Collection<Integer>>>
+                                      ^^^^^^                            ^^^^^^^
+                                      1                                 2
+                     \s
+                        1. path: Map type argument K
+                           found:    @Nullable String
+                           required: String
+                     \s
+                        2. path: Map type argument V -> List type argument E -> wildcard upper bound
+                                 -> Collection type argument E
+                           found:    @Nullable Integer
+                           required: Integer
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.Map<String, java.util.List<? extends java.util.Collection<Integer>>> m) {}
+              void test(
+                  java.util.Map<@Nullable String, java.util.List<? extends java.util.Collection<@Nullable Integer>>> m) {
+                // BUG: Diagnostic matches: DIFFERENT_DEPTHS
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void twoMismatchesInsideOneTypeArgumentSharePathPrefix() {
+    makeHelper()
+        .expectErrorMessage(
+            "SHARED_PREFIX",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: 2 mismatches between source and target types
+                        found:    Map<String, Map<@Nullable String, @Nullable Integer>>
+                                                  ^^^^^^^^^^^^^^^^  ^^^^^^^^^^^^^^^^^
+                                                  1                 2
+                        required: Map<String, Map<String, Integer>>
+                                                  ^^^^^^  ^^^^^^^
+                                                  1       2
+                     \s
+                        1. path: Map type argument V -> Map type argument K
+                           found:    @Nullable String
+                           required: String
+                     \s
+                        2. path: Map type argument V -> Map type argument V
+                           found:    @Nullable Integer
+                           required: Integer
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.Map<String, java.util.Map<String, Integer>> m) {}
+              void test(java.util.Map<String, java.util.Map<@Nullable String, @Nullable Integer>> m) {
+                // BUG: Diagnostic matches: SHARED_PREFIX
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void pathRepeatsTheTypeParameterNameAtEveryLevelThatSharesIt() {
+    makeHelper()
+        .expectErrorMessage(
+            "REPEATED_PARAMETER_NAME",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    List<Collection<List<@Nullable String>>>
+                                                       ^^^^^^^^^^^^^^^^
+                        required: List<Collection<List<String>>>
+                                                       ^^^^^^
+                        path: List type argument E -> Collection type argument E -> List type argument E
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.List<java.util.Collection<java.util.List<String>>> l) {}
+              void test(java.util.List<java.util.Collection<java.util.List<@Nullable String>>> l) {
+                // BUG: Diagnostic matches: REPEATED_PARAMETER_NAME
+                take(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void pathNamesTheTypeParameterTheDeclarationDeclared() {
+    makeHelper()
+        .expectErrorMessage(
+            "USER_DEFINED_PARAMETER_NAME",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Result<String, @Nullable String>
+                                                 ^^^^^^^^^^^^^^^^
+                        required: Result<String, String>
+                                                 ^^^^^^
+                        path: Result type argument Failure
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Result<Success extends @Nullable Object, Failure extends @Nullable Object> {}
+              static void take(Result<String, String> r) {}
+              void test(Result<String, @Nullable String> r) {
+                // BUG: Diagnostic matches: USER_DEFINED_PARAMETER_NAME
+                take(r);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anExplicitlyWrittenNullableBoundDrawsNoInheritedBoundNote() {
+    makeHelper()
+        .expectErrorMessage(
+            "EXPLICIT_NULLABLE_BOUND",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    List<? extends @Nullable String>
+                                                 ^^^^^^^^^^^^^^^^
+                        required: List<? extends String>
+                                                 ^^^^^^
+                        path: List type argument E -> wildcard upper bound
+                    """)
+                    && !message.contains("note:"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.List<? extends String> l) {}
+              void test(java.util.List<? extends @Nullable String> l) {
+                // BUG: Diagnostic matches: EXPLICIT_NULLABLE_BOUND
+                take(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aLowerBoundDifferenceFallsBackToThePlainIncompatibleTypesMessage() {
+    makeHelper()
+        .expectErrorMessage(
+            "LOWER_BOUND_FALLBACK",
+            message ->
+                message.contains(
+                        """
+                    incompatible types: List<? super String> cannot be converted to List<? super @Nullable String>
+                    """)
+                    && !message.contains("path:"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void takeNonNullLower(java.util.List<? super String> l) {}
+              static void takeNullableLower(java.util.List<? super @Nullable String> l) {}
+              void nullableSourceLowerBound(java.util.List<? super @Nullable String> l) {
+                takeNonNullLower(l);
+              }
+              void nonNullSourceLowerBound(java.util.List<? super String> l) {
+                // BUG: Diagnostic matches: LOWER_BOUND_FALLBACK
+                takeNullableLower(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noInheritedBoundNoteWhereTheUseStatesItsOwnNullness() {
+    makeHelper()
+        .expectErrorMessage(
+            "NULLABLE_TYPE_VARIABLE_USE",
+            message ->
+                !message.contains("note:")
+                    && message.contains(
+                        """
+                        incompatible nullability: found @Nullable T, required Object
+                            found:    Box<@Nullable T>
+                                          ^^^^^^^^^^^
+                            required: Box<? extends Object>
+                                                    ^^^^^^
+                            path: Box type argument T -> wildcard upper bound
+                        """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static void takeNonNull(Box<? extends Object> b) {}
+              static <T> void theBoundAloneIsAccepted(Box<T> b) {
+                takeNonNull(b);
+              }
+              static <T> void test(Box<@Nullable T> b) {
+                // BUG: Diagnostic matches: NULLABLE_TYPE_VARIABLE_USE
+                takeNonNull(b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aTypeVariableWithANullableBoundIsReportedBesideAMismatchingSibling() {
+    makeHelper()
+        .expectErrorMessage(
+            "TYPE_VARIABLE_ARGUMENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Pair<T, @Nullable String>
+                                          ^^^^^^^^^^^^^^^^
+                        required: Pair<? extends Object, String>
+                                                         ^^^^^^
+                        path: Pair type argument B
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
+              static void take(Pair<? extends Object, String> p) {}
+              static <T extends @Nullable Object> void test(Pair<T, @Nullable String> p) {
+                // BUG: Diagnostic matches: TYPE_VARIABLE_ARGUMENT
+                take(p);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aMismatchInsideAnArrayElementTypeArgumentIsMarked() {
+    makeHelper()
+        .expectErrorMessage(
+            "ARRAY_ELEMENT_ARGUMENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    List<@Nullable String> []
+                                       ^^^^^^^^^^^^^^^^
+                        required: List<String> []
+                                       ^^^^^^
+                        path: array element -> List type argument E
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.List<String>[] l) {}
+              void test(java.util.List<@Nullable String>[] l) {
+                // BUG: Diagnostic matches: ARRAY_ELEMENT_ARGUMENT
+                take(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aNullableArrayComponentTypeIsMarkedInsideATypeArgument() {
+    makeHelper()
+        .expectErrorMessage(
+            "NULLABLE_COMPONENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    List<@Nullable String []>
+                                       ^^^^^^^^^^^^^^^^
+                        required: List<String []>
+                                       ^^^^^^
+                        path: List type argument E -> array element
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.List<String[]> l) {}
+              void test(java.util.List<@Nullable String[]> l) {
+                // BUG: Diagnostic matches: NULLABLE_COMPONENT
+                take(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aNullableArrayTypeIsMarkedInsideATypeArgument() {
+    makeHelper()
+        .expectErrorMessage(
+            "NULLABLE_ARRAY",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found String @Nullable [], required String []
+                        found:    List<String @Nullable []>
+                                       ^^^^^^^^^^^^^^^^^^^
+                        required: List<String []>
+                                       ^^^^^^^^^
+                        path: List type argument E
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.List<String[]> l) {}
+              void test(java.util.List<String @Nullable []> l) {
+                // BUG: Diagnostic matches: NULLABLE_ARRAY
+                take(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void pathKeepsTheEnclosingTypeApartFromTheInnerType() {
+    makeHelper()
+        .expectErrorMessage(
+            "ENCLOSING_AND_INNER",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Integer, required Integer
+                        found:    Outer<String>.Inner<@Nullable Integer>
+                                                      ^^^^^^^^^^^^^^^^^
+                        required: Outer<String>.Inner<Integer>
+                                                      ^^^^^^^
+                        path: Inner type argument U
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Outer<T extends @Nullable Object> {
+                class Inner<U extends @Nullable Object> {}
+              }
+              static void take(Outer<String>.Inner<Integer> i) {}
+              void test(Outer<String>.Inner<@Nullable Integer> i) {
+                // BUG: Diagnostic matches: ENCLOSING_AND_INNER
+                take(i);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  // b.Result extends a.Result, so the assignment reaches NullAway and both sides print as
+  // "Result".
+  @Test
+  public void simpleNamesAloneDoNotShowThatTheTwoTypesComeFromDifferentPackages() {
+    makeHelper()
+        .addSourceLines(
+            "a/Result.java",
+            """
+            package a;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Result<T extends @Nullable Object> {}
+            """)
+        .addSourceLines(
+            "b/Result.java",
+            """
+            package b;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Result<T extends @Nullable Object> extends a.Result<T> {}
+            """)
+        .expectErrorMessage(
+            "SAME_SIMPLE_NAME",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Result<@Nullable String>
+                        found as: Result<@Nullable String>
+                                         ^^^^^^^^^^^^^^^^
+                        required: Result<String>
+                                         ^^^^^^
+                        path: Result type argument T
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(a.Result<String> r) {}
+              void test(b.Result<@Nullable String> r) {
+                // BUG: Diagnostic matches: SAME_SIMPLE_NAME
+                take(r);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aRawSourceTypeIsAcceptedWithNoMismatchToReport() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              @SuppressWarnings("rawtypes")
+              void test(List raw) {
+                List<String> typed = raw;
+                typed.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void theSuggestedRequiredTypeIsTheDeclaredTypeNotAnInstantiatedSupertype() {
+    makeHelper()
+        .expectErrorMessage(
+            "DECLARED_NOT_SUPERTYPE",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Sub<@Nullable String>
+                        found as: List<@Nullable String>
+                                       ^^^^^^^^^^^^^^^^
+                        required: List<String>
+                                       ^^^^^^
+                        path: List type argument E
+                        consider changing the required type to:
+                          List<@Nullable String>
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Sub<T extends @Nullable Object> extends java.util.ArrayList<T> {}
+              void test(Sub<@Nullable String> s) {
+                // BUG: Diagnostic matches: DECLARED_NOT_SUPERTYPE
+                java.util.List<String> l = s;
+                l.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  // The printed types carry no @Tainted: dropping it is what the printer does, and what the repair
+  // may not do, so the two methods below differ in the message only by the repair line.
+  @Test
+  public void noSourceRepairWhereItsPrintedFormWouldDropAnnotations() {
+    makeHelper()
+        .expectErrorMessage(
+            "SOURCE_REPAIR_DROPS_ANNOTATIONS",
+            message ->
+                !message.contains("did you mean")
+                    && message.contains(
+                        """
+                        incompatible nullability: found @Nullable Object, required Object
+                            found:    Map<?, String>
+                                          ^
+                            required: Map<? extends Object, String>
+                                                    ^^^^^^
+                            path: Map type argument K -> wildcard upper bound
+                            note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                  parameter K of Map
+                        """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE)
+              @interface Tainted {}
+              static void take(Map<? extends Object, String> m) {}
+              void withoutTheAnnotationTheRepairIsOffered(Map<?, String> m) {
+                // BUG: Diagnostic contains: did you mean Map<? extends Object, String>?
+                take(m);
+              }
+              void test(Map<?, @Tainted String> m) {
+                // BUG: Diagnostic matches: SOURCE_REPAIR_DROPS_ANNOTATIONS
+                take(m);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestedRequiredTypeWhereItsPrintedFormWouldDropAnnotations() {
+    makeHelper()
+        .expectErrorMessage(
+            "OTHER_ANNOTATIONS",
+            message ->
+                !message.contains("consider changing the required type")
+                    && message.contains(
+                        """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Map<String, @Nullable String>
+                                              ^^^^^^^^^^^^^^^^
+                        required: Map<String, String>
+                                              ^^^^^^
+                        path: Map type argument V
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @java.lang.annotation.Target(java.lang.annotation.ElementType.TYPE_USE)
+              @interface Tainted {}
+              void test(java.util.Map<@Tainted String, @Nullable String> m) {
+                // BUG: Diagnostic matches: OTHER_ANNOTATIONS
+                java.util.Map<@Tainted String, String> declared = m;
+                declared.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void theSourceRepairIsStillOfferedWhereTheRequiredTypeIsNotEditable() {
+    makeHelper()
+        .expectErrorMessage(
+            "SOURCE_REPAIR_AT_CALL",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    List<?>
+                                       ^
+                        required: Collection<? extends Object>
+                                                       ^^^^^^
+                        path: Collection type argument E -> wildcard upper bound
+                        note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                              parameter E of List
+                        did you mean List<? extends Object>?
+                    """)
+                    && !message.contains("consider changing the required type"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.Collection<? extends Object> c) {}
+              void test(java.util.List<?> l) {
+                // BUG: Diagnostic matches: SOURCE_REPAIR_AT_CALL
+                take(l);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestedRequiredTypeAtAnAssignmentToAnExistingVariable() {
+    makeHelper()
+        .expectErrorMessage(
+            "ASSIGNMENT_TARGET",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Map<? extends String, @Nullable String>
+                                                        ^^^^^^^^^^^^^^^^
+                        required: Map<? extends Object, String>
+                                                        ^^^^^^
+                        path: Map type argument V
+                    """)
+                    && !message.contains("consider changing the required type"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void take(java.util.Map<? extends Object, String> m) {}
+              void test(java.util.Map<? extends String, @Nullable String> m) {
+                java.util.Map<? extends Object, String> declared = someMap();
+                // BUG: Diagnostic matches: ASSIGNMENT_TARGET
+                declared = m;
+                declared.hashCode();
+              }
+              static java.util.Map<? extends Object, String> someMap() {
+                throw new RuntimeException();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void noSuggestedRequiredTypeAtAReturnStatement() {
+    makeHelper()
+        .expectErrorMessage(
+            "RETURN_TARGET",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Map<? extends String, @Nullable String>
+                                                        ^^^^^^^^^^^^^^^^
+                        required: Map<? extends Object, String>
+                                                        ^^^^^^
+                        path: Map type argument V
+                    """)
+                    && !message.contains("consider changing the required type"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              java.util.Map<? extends Object, String> test(java.util.Map<? extends String, @Nullable String> m) {
+                // BUG: Diagnostic matches: RETURN_TARGET
+                return m;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void listsFiveMismatchesWithoutSayingThereAreMore() {
+    makeHelper()
+        .expectErrorMessage(
+            "FIVE_MISMATCHES",
+            message ->
+                message.contains(
+                        """
+                    incompatible nullability: 5 mismatches between source and target types
+                        found:    Five<?, ?, ?, ?, ?>
+                                       ^  ^  ^  ^  ^
+                                       1  2  3  4  5
+                        required: Five<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>
+                                                 ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^            ^^^^^^
+                                                 1                 2                 3                 4                 5
+                     \s
+                        1. path: Five type argument A -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter A of Five
+                     \s
+                        2. path: Five type argument B -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter B of Five
+                     \s
+                        3. path: Five type argument C -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter C of Five
+                     \s
+                        4. path: Five type argument D -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter D of Five
+                     \s
+                        5. path: Five type argument E -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source ? has no explicit upper bound, so its upper bound is inherited from type
+                                 parameter E of Five
+                     \s
+                        did you mean Five<? extends Object, ? extends Object, ? extends Object, ? extends Object, ? extends Object>?
+                    """)
+                    && !message.contains("more, not listed"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Five<
+                  A extends @Nullable Object,
+                  B extends @Nullable Object,
+                  C extends @Nullable Object,
+                  D extends @Nullable Object,
+                  E extends @Nullable Object> {}
+              static void take(
+                  Five<
+                      ? extends Object,
+                      ? extends Object,
+                      ? extends Object,
+                      ? extends Object,
+                      ? extends Object> five) {}
+              void test(Five<?, ?, ?, ?, ?> five) {
+                // BUG: Diagnostic matches: FIVE_MISMATCHES
+                take(five);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  // Sub and Base declare the same type parameter with different nullness bounds, so the two
+  // unbounded wildcards print alike and differ only in the bound each inherits.
+  @Test
+  public void theNoteStatesTheBoundAndNamesNoTypeParameterAcrossAView() {
+    makeHelper()
+        .expectErrorMessage(
+            "PROVENANCE_ACROSS_VIEW",
+            message ->
+                !message.contains("type parameter")
+                    && message.contains(
+                        """
+                        incompatible nullability: found @Nullable Object, required Object
+                            found:    Sub<?>
+                            found as: Base<?>
+                                           ^
+                            required: Base<?>
+                                           ^
+                            path: Base type argument B -> wildcard upper bound
+                            note: the source wildcard has an implicit @Nullable Object upper bound
+                        """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<B> {}
+              static class Sub<S extends @Nullable Object> extends Base<S> {}
+              static void take(Base<?> b) {}
+              void test(Sub<?> s) {
+                // BUG: Diagnostic matches: PROVENANCE_ACROSS_VIEW
+                take(s);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aPathAcrossAViewReachesIntoWhateverTheSubclassPassed() {
+    makeHelper()
+        .expectErrorMessage(
+            "NO_WRITTEN_ARGUMENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Indirect<?>
+                        found as: Base<List<?>>
+                                            ^
+                        required: Base<? extends List<? extends Object>>
+                                                                ^^^^^^
+                        path: Base type argument B -> wildcard upper bound -> List type argument E -> wildcard upper bound
+                        note: the source wildcard has an implicit @Nullable Object upper bound
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<B> {}
+              static class Indirect<X extends @Nullable Object> extends Base<List<X>> {}
+              static void take(Base<? extends List<? extends Object>> b) {}
+              void test(Indirect<?> i) {
+                // BUG: Diagnostic matches: NO_WRITTEN_ARGUMENT
+                take(i);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void theFallbackMessageStatesTheSubtypeRelationBetweenTheTwoTypes() {
+    makeHelper()
+        .expectErrorMessage(
+            "SUBTYPE_CLAUSE",
+            message ->
+                message.contains(
+                    """
+                    incompatible types: Sub<? super String> cannot be converted to Base<? super @Nullable String> (Sub<? super String> is a subtype of Base<? super String>)
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<T extends @Nullable Object> {}
+              static class Sub<T extends @Nullable Object> extends Base<T> {}
+              static void take(Base<? super @Nullable String> b) {}
+              void test(Sub<? super String> s) {
+                // BUG: Diagnostic matches: SUBTYPE_CLAUSE
+                take(s);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aMismatchInsideAWildcardBoundIsMarkedOnTheViewedSource() {
+    makeHelper()
+        .expectErrorMessage(
+            "VIEWED_WILDCARD_BOUND",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Sub<? extends List<@Nullable String>>
+                        found as: Base<? extends List<@Nullable String>>
+                                                      ^^^^^^^^^^^^^^^^
+                        required: Base<? extends List<String>>
+                                                      ^^^^^^
+                        path: Base type argument T -> wildcard upper bound -> List type argument E
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<T extends @Nullable Object> {}
+              static class Sub<T extends @Nullable Object> extends Base<T> {}
+              static void take(Base<? extends List<String>> b) {}
+              void test(Sub<? extends List<@Nullable String>> s) {
+                // BUG: Diagnostic matches: VIEWED_WILDCARD_BOUND
+                take(s);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aMismatchInsideAnArrayElementIsMarkedOnTheViewedSource() {
+    makeHelper()
+        .expectErrorMessage(
+            "VIEWED_ARRAY_ELEMENT",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable String, required String
+                        found:    Sub<@Nullable String []>
+                        found as: Base<@Nullable String []>
+                                       ^^^^^^^^^^^^^^^^
+                        required: Base<String []>
+                                       ^^^^^^
+                        path: Base type argument T -> array element
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<T extends @Nullable Object> {}
+              static class Sub<T extends @Nullable Object> extends Base<T> {}
+              static void take(Base<String[]> b) {}
+              void test(Sub<@Nullable String[]> s) {
+                // BUG: Diagnostic matches: VIEWED_ARRAY_ELEMENT
+                take(s);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aCapturedWildcardIsMarkedOnTheViewedSourceAndKeepsItsProvenance() {
+    makeHelper()
+        .expectErrorMessage(
+            "VIEWED_CAPTURE",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Sub<capture of ?>
+                        found as: Base<capture of ?>
+                                       ^^^^^^^^^^^^
+                        required: Base<? extends Object>
+                                                 ^^^^^^
+                        path: Base type argument T -> wildcard upper bound
+                        note: the source wildcard is the type argument for type parameter T of Sub
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<T extends @Nullable Object> {}
+              static class Sub<T extends @Nullable Object> extends Base<T> {}
+              static void take(Base<? extends Object> b) {}
+              static Sub<?> make() {
+                throw new RuntimeException();
+              }
+              void test() {
+                // BUG: Diagnostic matches: VIEWED_CAPTURE
+                take(make());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void twoUnboundedWildcardsThatDifferOnlyInTheirInheritedBounds() {
+    makeHelper()
+        .expectErrorMessage(
+            "INHERITED_BOUNDS_DIFFER",
+            message ->
+                message.contains(
+                    """
+                    incompatible nullability: found @Nullable Object, required Object
+                        found:    Sub<?>
+                        found as: Base<?>
+                                       ^
+                        required: Base<?>
+                                       ^
+                        path: Base type argument T -> wildcard upper bound
+                        note: the source wildcard has an implicit @Nullable Object upper bound
+                    """))
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<T> {}
+              static class Sub<T extends @Nullable Object> extends Base<T> {}
+              static void take(Base<?> b) {}
+              void test(Sub<?> s) {
+                // BUG: Diagnostic matches: INHERITED_BOUNDS_DIFFER
+                take(s);
               }
             }
             """)

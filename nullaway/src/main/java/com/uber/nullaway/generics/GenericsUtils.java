@@ -171,7 +171,7 @@ public class GenericsUtils {
     return false;
   }
 
-  private static boolean fromUnannotatedMethodOrClass(
+  static boolean fromUnannotatedMethodOrClass(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (!(enclosingElement instanceof Symbol.MethodSymbol)
