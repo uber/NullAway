@@ -23,6 +23,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -67,12 +68,18 @@ public final class AccessPathNullnessAnalysis {
   /**
    * Creates an analysis instance. {@link NullAway} holds the single instance for a compilation and
    * exposes it via {@link NullAway#getNullnessAnalysis(VisitorState)}; other code should go through
-   * that method rather than constructing an instance directly.
+   * that method rather than constructing an instance directly (hence the {@code @DoNotCall}
+   * annotation).
    *
    * @param state visitor state for the compilation
    * @param analysis instance of NullAway analysis
    */
-  public AccessPathNullnessAnalysis(VisitorState state, NullAway analysis) {
+  @DoNotCall
+  public static AccessPathNullnessAnalysis create(VisitorState state, NullAway analysis) {
+    return new AccessPathNullnessAnalysis(state, analysis);
+  }
+
+  private AccessPathNullnessAnalysis(VisitorState state, NullAway analysis) {
     Config config = analysis.getConfig();
     Handler handler = analysis.getHandler();
     apContext =

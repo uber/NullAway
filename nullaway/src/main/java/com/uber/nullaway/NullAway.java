@@ -3044,9 +3044,10 @@ public class NullAway extends BugChecker
    * @param state visitor state for the compilation
    * @return the analysis instance
    */
+  @SuppressWarnings("DoNotCall") // this is the one place a call to create() is allowed
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
     if (nullnessAnalysis == null) {
-      nullnessAnalysis = new AccessPathNullnessAnalysis(state, this);
+      nullnessAnalysis = AccessPathNullnessAnalysis.create(state, this);
     }
     return nullnessAnalysis;
   }
