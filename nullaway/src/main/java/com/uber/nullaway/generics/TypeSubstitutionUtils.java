@@ -425,6 +425,8 @@ public class TypeSubstitutionUtils {
         if (updatedUpperBound != upperBound) {
           wt = replaceImplicitWildcardUpperBound(wt, formalTypeVariable, updatedUpperBound);
         }
+        // return here for unbounded wildcards.  For lower-bounded wildcards we need to fall through
+        // to restore annotations to the lower bound
         if (wt.kind == BoundKind.UNBOUND) {
           return wt;
         }
