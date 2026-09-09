@@ -365,6 +365,24 @@ public class GenericsUtils {
         && boundIsExplicitlyNullable(upperBound.asElement(), config, handler, state);
   }
 
+  /**
+   * Returns the declared upper bound of {@code typeVariable}, annotated {@code @Nullable} where
+   * {@link #boundIsExplicitlyNullable} holds and the bound does not carry the annotation itself.
+   *
+   * <p>This describes the declaration and not a use of it: a {@code @Nullable T} carries its own
+   * nullness where it is written, and a caller that replaced it with this bound would discard it.
+   */
+  static Type typeVariableUpperBound(
+      Type.TypeVar typeVariable, VisitorState state, Config config, Handler handler) {
+    Type upperBound = typeVariable.getUpperBound();
+    if (boundIsExplicitlyNullable(typeVariable.asElement(), config, handler, state)
+        && !Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return TypeSubstitutionUtils.typeWithAnnot(
+          upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
+    }
+    return upperBound;
+  }
+
   /** Returns true if a library model overrides the upper bound of the given type variable. */
   static boolean libraryModelMakesBoundNullable(
       Element typeVarElement, Handler handler, VisitorState state) {

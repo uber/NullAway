@@ -57,7 +57,9 @@ import org.jspecify.annotations.Nullable;
  * {@code found as} and carries the carets, so a caret marks the type the check compared rather than
  * a node in one where the difference cannot be seen.
  *
- * <p>A note explains itself in the entities the message already shows. Where the source wildcard
+ * <p>A note explains itself in the entities the message already shows, and it appears where the
+ * printed source does not carry the nullness the comparison used: under a wildcard that inherits a
+ * bound, and under a type variable whose own declaration supplies one. Where the source wildcard
  * stands at a position of the type the reader wrote, the note names the type parameter it takes its
  * bound from. Where the source was viewed as a supertype, that parameter belongs to a declaration
  * this message never prints, and naming it would set a second frame of reference against the {@code
@@ -444,8 +446,9 @@ final class NullabilityMismatchMessage {
   }
 
   /**
-   * Says where the source wildcard takes its upper bound from, or returns {@code null} where the
-   * printed type already shows that bound or the type variable cannot be named.
+   * Says where the source takes a nullness its printed form does not show: the bound a wildcard
+   * inherits, or the bound a type variable was declared with. Returns {@code null} where the
+   * printed type shows it already.
    *
    * <p>A wildcard with no explicit upper bound and a captured one both take a bound the printed
    * type does not state, and a reader who is not told where it comes from reads the two bounds as a
@@ -460,7 +463,15 @@ final class NullabilityMismatchMessage {
     // looking at a wildcard and reading that the source has a bound the wildcard does not print
     Type.WildcardType wildcard = GenericsUtils.asWildcard(mismatch.sourcePrintedNode());
     if (wildcard == null) {
-      return null;
+      // a captured wildcard is a Type.TypeVar as well, so it is ruled out above rather than here
+      // a type variable that carries its own @Nullable is printed with it, and needs no note
+      return mismatch.sourcePrintedNode() instanceof Type.TypeVar sourceTypeVariable
+              && !checks.isNullableAnnotated(mismatch.sourcePrintedNode())
+          ? String.format(
+              "the source %s has no nullness of its own, so it takes the nullness of its declared"
+                  + " upper bound",
+              sourceTypeVariable.tsym.getSimpleName())
+          : null;
     }
     if (mismatch.sourcePrintedNode() instanceof Type.CapturedType) {
       // a captured wildcard was captured where it was written, so its bound link still names the

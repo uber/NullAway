@@ -510,12 +510,12 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // dimension of the creation expression
                 @Nullable Integer[][] x1 = new @Nullable Integer[3][4];
                 @Nullable Integer[][][] x2 = new @Nullable Integer[1][2][3];
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[][] x3 = new @Nullable Integer[3][4];
                 // an array creation with an initializer has no explicit dimension expressions, but
                 // still creates a single-dimension array
                 @Nullable Integer[] x4 = new @Nullable Integer[]{null};
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[] x5 = new @Nullable Integer[]{null};
                 // the reverse direction is legal by covariant array subtyping
                 @Nullable Integer[] y1 = new Integer[3];
@@ -553,13 +553,13 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // the declared type and the type computed for the creation expression made
                 // CheckIdenticalNullabilityVisitor#visitArrayType bail out, so the innermost
                 // element types were never compared
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer @Nullable [] []
+                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found @Nullable Integer [], required Integer @Nullable []
                 Integer[] @Nullable [] y4 = new @Nullable Integer[3][4];
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[][] y1 = nullableElems2D;
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] [] cannot be converted to Integer [] [] []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[][][] y2 = nullableElems3D;
-                // BUG: Diagnostic contains: incompatible types: Integer @Nullable [] [] cannot be converted to Integer [] []
+                // BUG: Diagnostic contains: incompatible nullability: found Integer @Nullable [], required Integer []
                 Integer[][] y3 = nullableInner;
               }
             }
@@ -1195,7 +1195,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void nullableTypeArgumentRejectedFromNonNullBoundedWildcardArray(
                   CompletableFuture<? extends String>[] futures,
                   CompletableFuture<@Nullable String> value) {
-                // BUG: Diagnostic contains: incompatible types: CompletableFuture<@Nullable String> cannot be converted to CompletableFuture<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 futures[0] = value;
               }
             }

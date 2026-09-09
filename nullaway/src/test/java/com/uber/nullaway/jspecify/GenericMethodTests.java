@@ -1555,8 +1555,8 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 message.contains(
                     """
                     incompatible nullability: found @Nullable Object, required Object
-                        found:    Foo<@Nullable capture of ?>
-                                      ^^^^^^^^^^^^^^^^^^^^^^
+                        found:    Foo<capture of ?>
+                                      ^^^^^^^^^^^^
                         required: Foo<?>
                                       ^
                         path: Foo type argument T -> wildcard upper bound

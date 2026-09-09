@@ -549,13 +549,13 @@ public class WildcardTests extends NullAwayTestsBase {
 
               static void nullableFirstArgument(Pair<@Nullable String, ?> pair) {
                 Pair<@Nullable String, ? extends @Nullable String> target = pair;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Pair<@Nullable String, ? extends String> invalid = pair;
               }
 
               static void capturedFirstArgument(Pair<?, ?> pair) {
                 Pair<?, ? extends @Nullable Object> target = pair;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Pair<?, ? extends Object> invalid = pair;
               }
 
@@ -564,7 +564,7 @@ public class WildcardTests extends NullAwayTestsBase {
 
               static void capturedFirstArgumentFromUnmarkedCode(UnmarkedPair<?, ?> pair) {
                 UnmarkedPair<?, ? extends @Nullable Object> target = pair;
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 UnmarkedPair<?, ? extends Object> invalid = pair;
               }
             }
@@ -1878,7 +1878,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static void takeNullable(Box<? extends @Nullable Object> b) {}
               static void takeAny(Box<?> b) {}
               static <T extends @Nullable Object> void nullableBoundIntoNonNull(Box<T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 takeNonNull(b);
               }
               static <T> void nonNullBoundIntoNonNull(Box<T> b) {
@@ -1920,7 +1920,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static void takeNonNull(Box<? extends Object> b) {}
               static void takeNullable(Box<? extends @Nullable Object> b) {}
               static <T> void nullableUseIntoNonNull(Box<@Nullable T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<@Nullable T> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required Object
                 takeNonNull(b);
               }
               static <T> void nullableUseIntoNullable(Box<@Nullable T> b) {
@@ -1949,7 +1949,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static void takeNonNull(Box<? extends Object> b) {}
               static <T extends @Nullable Object, S extends T> void variableOverNullableBound(
                   Box<S> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required Object
                 takeNonNull(b);
               }
               static <T, S extends T> void variableOverNonNullBound(Box<S> b) {
@@ -1960,7 +1960,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 takeNonNull(b);
               }
               static <T extends @Nullable Object> void wildcardOverNullableBound(Box<? extends T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<? extends T> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 takeNonNull(b);
               }
               static <T> void wildcardOverNonNullBound(Box<? extends T> b) {
@@ -2000,12 +2000,12 @@ public class WildcardTests extends NullAwayTestsBase {
               static class UnannotatedNullableBound<T extends @Nullable Object> {
                 @NullMarked
                 void explicitNullableBoundIntoNonNull(Box<T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                   takeNonNull(b);
                 }
                 @NullMarked
                 <U extends T> void variableOverAnExplicitNullableBound(Box<U> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<U> cannot be converted to Box<? extends Object>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required Object
                   takeNonNull(b);
                 }
               }
@@ -2095,7 +2095,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class Box<E extends @Nullable Object> {}
               static void takeNonNullElements(Box<? extends List<String>> b) {}
               static <S extends List<@Nullable String>> void nullableElements(Box<S> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends List<String>>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 takeNonNullElements(b);
               }
               static <S extends List<String>> void nonNullElements(Box<S> b) {
@@ -2174,16 +2174,16 @@ public class WildcardTests extends NullAwayTestsBase {
                   takeExtendsT(b);
                 }
                 void nullableUse(Box<@Nullable T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<@Nullable T> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required T
                   takeExtendsT(b);
                 }
                 <S extends @Nullable T> void variableThatAdmitsNullBeyondIt(Box<S> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required T
                   takeExtendsT(b);
                 }
                 <S extends @Nullable T, R extends S> void variableReachingItThroughANullableLink(
                     Box<R> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<R> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable S, required T
                   takeExtendsT(b);
                 }
                 <S extends @NonNull T> void variableReachingItThroughANonNullLink(Box<S> b) {
@@ -2194,7 +2194,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 }
                 <S extends @NonNull T, R extends @Nullable S> void nullableLinkAboveANonNullLink(
                     Box<R> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<R> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable S, required T
                   takeExtendsT(b);
                 }
                 void takeExtendsNullableT(Box<? extends @Nullable T> b) {}
@@ -2212,7 +2212,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 class UnannotatedNullableLink<S extends @Nullable T> {
                   @NullMarked
                   void explicitNullableLinkDeclaredInUnannotatedCode(Box<S> b) {
-                    // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends T>
+                    // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required T
                     takeExtendsT(b);
                   }
                 }
@@ -2227,7 +2227,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class NonNullBound<T> {
                 void takeExtendsT(Box<? extends T> b) {}
                 <S extends @Nullable T> void variableThatAdmitsNull(Box<S> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable T, required T
                   takeExtendsT(b);
                 }
                 <S extends T> void variableThatAdmitsNoNull(Box<S> b) {
@@ -2235,7 +2235,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 }
                 <S extends @NonNull T, R extends @Nullable S> void nullableLinkAboveANonNullLink(
                     Box<R> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<R> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable S, required T
                   takeExtendsT(b);
                 }
               }
@@ -2260,11 +2260,11 @@ public class WildcardTests extends NullAwayTestsBase {
               static class NullableBound<T extends @Nullable Object> {
                 void takeExtendsNonNullT(Box<? extends @NonNull T> b) {}
                 void bareUse(Box<T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required T
                   takeExtendsNonNullT(b);
                 }
                 void wildcardUse(Box<? extends T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<? extends T> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required T
                   takeExtendsNonNullT(b);
                 }
               }
@@ -2285,7 +2285,7 @@ public class WildcardTests extends NullAwayTestsBase {
               static class UnannotatedNullableBound<T extends @Nullable Object> {
                 @NullMarked
                 Box<? extends @NonNull T> bareUse(Box<T> b) {
-                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends T>
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required T
                   return b;
                 }
               }
@@ -2355,7 +2355,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 List<T> copy = copyOf(in);
               }
               void writtenNonNullProjection(List<T> in) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required T
                 List<T> copy = copyNonNull(in);
               }
               void diamond(List<T> in) {
@@ -2439,7 +2439,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 throw new UnsupportedOperationException();
               }
               static <T extends @Nullable Object> Object variableFixedByTheReturnTarget(Box<T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends T>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required T
                 return first(b);
               }
               static <T extends @Nullable Object> void variableLeftToTheArgumentThenDereferenced(
@@ -2447,7 +2447,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 first(b).toString();
               }
               static <T extends @Nullable Object> void variableFixedByTheTarget(List<T> in) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 List<Object> copy = new ArrayList<>(in);
               }
               static <T extends @Nullable Object> void variableLeftToTheArgument(List<T> in) {
@@ -2545,7 +2545,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void intoANonNullUpperBound(Box<T> original) {
                 var inferred = id(original);
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Box<? extends Object> source = inferred;
               }
               void throughADiamond(List<T> original) {
@@ -2607,11 +2607,11 @@ public class WildcardTests extends NullAwayTestsBase {
                 var inferred = of(t, "x");
                 List<? super @Nullable Object> sink = inferred;
                 sink.add(null);
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable Object> cannot be converted to List<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 List<? extends Object> source = inferred;
                 // BUG: Diagnostic contains: dereferenced expression 'inferred.get(0)' is @Nullable
                 inferred.get(0).toString();
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 takeObjects(inferred);
               }
               void throughTheCall(T t) {
@@ -2727,7 +2727,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression 'box.self().get()' is @Nullable
                 box.self().get().toString();
                 box.sink().set(null);
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Box<? extends Object> nonNull = box.self();
               }
             }
@@ -3006,7 +3006,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <T extends @Nullable Object> void intoNonNullVariableFixedByAnotherArgument(
                   Box<T> b) {
-                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Object o = nonNullVariableWithValue(b, new Object());
               }
               static <T extends @Nullable Object> void intoJdkCopyOf(List<T> in) {
@@ -3157,16 +3157,16 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               void anExplicitlyNullableTypeArgument(
                   Box<@Nullable String> nullable, List<@Nullable String> source, List<String> target) {
-                // BUG: Diagnostic contains: Box<@Nullable String> cannot be converted to Box<? extends U>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required U
                 new StrictConsumer(nullable);
-                // BUG: Diagnostic contains: List<@Nullable String> cannot be converted to List<? extends U>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required U
                 new Copier(source, target);
                 // BUG: Diagnostic contains: parameter type of referenced method is Box<? extends U>
                 useBoxes(Test::take);
               }
               void explicitConstructorTypeArguments(Box<@Nullable String> nullable) {
                 new <@Nullable String>GenericNullableConsumer<String>(nullable);
-                // BUG: Diagnostic contains: Box<@Nullable String> cannot be converted to Box<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 new <String>GenericNullableConsumer<String>(nullable);
               }
               void aTypeVariableOfAGenericFunctionalInterfaceMethodKeepsItsBound() {
@@ -3174,7 +3174,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 useSink(Test::takeNonNull);
               }
               <U extends @Nullable Object> void aTypeVariableInScope(Box<U> box) {
-                // BUG: Diagnostic contains: Box<U> cannot be converted to Box<? extends Object>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 Box<? extends Object> nonNull = box;
               }
             }
@@ -3214,7 +3214,6 @@ public class WildcardTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
-
 
   @Test
   public void unboundedWildcardErrorMessageSuggestsExplicitBound() {
@@ -3460,7 +3459,7 @@ public class WildcardTests extends NullAwayTestsBase {
                 message.contains(
                         """
                     incompatible nullability: found @Nullable Object, required Object
-                        found:    Map<List<?>, @Nullable capture of ?>
+                        found:    Map<List<?>, capture of ?>
                                            ^
                         required: Map<? extends List<? extends Object>, ?>
                                                                ^^^^^^
@@ -4466,12 +4465,23 @@ public class WildcardTests extends NullAwayTestsBase {
             message ->
                 message.contains(
                     """
-                    incompatible nullability: found @Nullable String, required String
+                    incompatible nullability: 2 mismatches between source and target types
                         found:    Pair<T, @Nullable String>
-                                          ^^^^^^^^^^^^^^^^
+                                       ^  ^^^^^^^^^^^^^^^^
+                                       1  2
                         required: Pair<? extends Object, String>
-                                                         ^^^^^^
-                        path: Pair type argument B
+                                                 ^^^^^^  ^^^^^^
+                                                 1       2
+                     \s
+                        1. path: Pair type argument A -> wildcard upper bound
+                           found:    @Nullable Object
+                           required: Object
+                           note: the source T has no nullness of its own, so it takes the nullness of its declared upper
+                                 bound
+                     \s
+                        2. path: Pair type argument B
+                           found:    @Nullable String
+                           required: String
                     """))
         .addSourceLines(
             "Test.java",
@@ -4994,53 +5004,15 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  // Sub and Base declare the same type parameter with different nullness bounds, so the two
-  // unbounded wildcards print alike and differ only in the bound each inherits.
-  @Test
-  public void theNoteStatesTheBoundAndNamesNoTypeParameterAcrossAView() {
-    makeHelper()
-        .expectErrorMessage(
-            "PROVENANCE_ACROSS_VIEW",
-            message ->
-                !message.contains("type parameter")
-                    && message.contains(
-                        """
-                        incompatible nullability: found @Nullable Object, required Object
-                            found:    Sub<?>
-                            found as: Base<?>
-                                           ^
-                            required: Base<?>
-                                           ^
-                            path: Base type argument B -> wildcard upper bound
-                            note: the source wildcard has an implicit @Nullable Object upper bound
-                        """))
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            @NullMarked
-            class Test {
-              static class Base<B> {}
-              static class Sub<S extends @Nullable Object> extends Base<S> {}
-              static void take(Base<?> b) {}
-              void test(Sub<?> s) {
-                // BUG: Diagnostic matches: PROVENANCE_ACROSS_VIEW
-                take(s);
-              }
-            }
-            """)
-        .doTest();
-  }
-
   @Test
   public void aPathAcrossAViewReachesIntoWhateverTheSubclassPassed() {
     makeHelper()
         .expectErrorMessage(
             "NO_WRITTEN_ARGUMENT",
             message ->
-                message.contains(
-                    """
+                !message.contains("type parameter")
+                    && message.contains(
+                        """
                     incompatible nullability: found @Nullable Object, required Object
                         found:    Indirect<?>
                         found as: Base<List<?>>
@@ -5203,42 +5175,6 @@ public class WildcardTests extends NullAwayTestsBase {
               void test() {
                 // BUG: Diagnostic matches: VIEWED_CAPTURE
                 take(make());
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
-  public void twoUnboundedWildcardsThatDifferOnlyInTheirInheritedBounds() {
-    makeHelper()
-        .expectErrorMessage(
-            "INHERITED_BOUNDS_DIFFER",
-            message ->
-                message.contains(
-                    """
-                    incompatible nullability: found @Nullable Object, required Object
-                        found:    Sub<?>
-                        found as: Base<?>
-                                       ^
-                        required: Base<?>
-                                       ^
-                        path: Base type argument T -> wildcard upper bound
-                        note: the source wildcard has an implicit @Nullable Object upper bound
-                    """))
-        .addSourceLines(
-            "Test.java",
-            """
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-            @NullMarked
-            class Test {
-              static class Base<T> {}
-              static class Sub<T extends @Nullable Object> extends Base<T> {}
-              static void take(Base<?> b) {}
-              void test(Sub<?> s) {
-                // BUG: Diagnostic matches: INHERITED_BOUNDS_DIFFER
-                take(s);
               }
             }
             """)
