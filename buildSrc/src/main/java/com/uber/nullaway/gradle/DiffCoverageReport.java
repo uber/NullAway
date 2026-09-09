@@ -43,21 +43,8 @@ final class DiffCoverageReport {
       Pattern.compile("(?://|/\\*|\\*)\\s*diff-coverage:\\s*ignore(?![\\w-])");
 
   /** One changed line the run left uncovered, with the source text the report quotes for it. */
-  static final class AffectedLine {
-    final int number;
-    final boolean executed;
-    final int coveredBranches;
-    final int totalBranches;
-    final String source;
-
-    AffectedLine(
-        int number, boolean executed, int coveredBranches, int totalBranches, String source) {
-      this.number = number;
-      this.executed = executed;
-      this.coveredBranches = coveredBranches;
-      this.totalBranches = totalBranches;
-      this.source = source;
-    }
+  record AffectedLine(
+      int number, boolean executed, int coveredBranches, int totalBranches, String source) {
 
     /** Returns how many branch outcomes of this line nothing took. */
     int missedBranches() {
@@ -119,7 +106,7 @@ final class DiffCoverageReport {
 
     /** Returns how many of the lines this file owes a test nothing ran. */
     int uncoveredChangedLines() {
-      return (int) affected.stream().filter(line -> !line.executed).count();
+      return (int) affected.stream().filter(line -> !line.executed()).count();
     }
 
     /**

@@ -52,19 +52,13 @@ public abstract class GitService implements BuildService<GitService.Parameters> 
     DirectoryProperty getRepositoryRoot();
   }
 
-  /** What one git command printed, kept so that a repeat of it prints the same thing. */
-  private static final class Output {
-    /** The trimmed standard output, or null where git reported failure. */
-    final String value;
-
-    /** The trimmed standard error, which is what a failure has to report. */
-    final String error;
-
-    Output(String value, String error) {
-      this.value = value;
-      this.error = error;
-    }
-  }
+  /**
+   * What one git command printed, kept so that a repeat of it prints the same thing.
+   *
+   * @param value the trimmed standard output, or null where git reported failure
+   * @param error the trimmed standard error, which is what a failure has to report
+   */
+  private record Output(String value, String error) {}
 
   private final Map<List<String>, Output> outputs = new ConcurrentHashMap<>();
 
@@ -84,16 +78,16 @@ public abstract class GitService implements BuildService<GitService.Parameters> 
    */
   public String output(String... arguments) {
     Output result = run(arguments);
-    if (result.value == null) {
+    if (result.value() == null) {
       throw new GradleException(
-          "git " + String.join(" ", arguments) + " failed: " + result.error);
+          "git " + String.join(" ", arguments) + " failed: " + result.error());
     }
-    return result.value;
+    return result.value();
   }
 
   /** Returns the trimmed output of a git command, or null where git reported failure. */
   public String outputOrNull(String... arguments) {
-    return run(arguments).value;
+    return run(arguments).value();
   }
 
   private Output run(String... arguments) {

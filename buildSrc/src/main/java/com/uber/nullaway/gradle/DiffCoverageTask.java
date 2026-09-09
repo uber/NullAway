@@ -169,7 +169,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
       return giveUp(NO_BASE);
     }
     List<String> unreadable = new ArrayList<>();
-    Map<String, NavigableSet<Integer>> changed = changedLines(git, base.commit, unreadable);
+    Map<String, NavigableSet<Integer>> changed = changedLines(git, base.commit(), unreadable);
 
     // A module the change never reached has nothing to say, and saying it anyway would put a line
     // in every whole-build run for every module with no test and for every module the change
@@ -190,9 +190,9 @@ public abstract class DiffCoverageTask extends DefaultTask {
             SourceLines.under(repository));
     String scope =
         "against "
-            + base.ref
+            + base.ref()
             + " ("
-            + base.commit.substring(0, Math.min(9, base.commit.length()))
+            + base.commit().substring(0, Math.min(9, base.commit().length()))
             + "), from "
             + getScopeDescription().get();
     List<String> stale = staleSources(repository, report.measuredPaths(), reports);
@@ -378,15 +378,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
   }
 
   /** The ref the diff is taken against, and the merge base with HEAD it resolved to. */
-  private static final class Base {
-    final String ref;
-    final String commit;
-
-    Base(String ref, String commit) {
-      this.ref = ref;
-      this.commit = commit;
-    }
-  }
+  private record Base(String ref, String commit) {}
 
   /**
    * Returns the first candidate ref that resolves with its merge base, or null where none does.
