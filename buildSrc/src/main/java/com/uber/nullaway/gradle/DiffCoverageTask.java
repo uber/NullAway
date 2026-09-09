@@ -15,33 +15,28 @@
  */
 package com.uber.nullaway.gradle;
 
-import java.io.ByteArrayOutputStream;
 import java.io.File;
 import java.io.IOException;
-import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.TreeSet;
-import javax.inject.Inject;
 import org.gradle.api.DefaultTask;
 import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
-import org.gradle.api.file.DirectoryProperty;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
 import org.gradle.api.provider.Property;
+import org.gradle.api.services.ServiceReference;
 import org.gradle.api.tasks.InputFiles;
 import org.gradle.api.tasks.Internal;
 import org.gradle.api.tasks.OutputFile;
 import org.gradle.api.tasks.TaskAction;
 import org.gradle.api.tasks.UntrackedTask;
-import org.gradle.process.ExecOperations;
 
 /**
  * Prints which of the lines this branch changed the preceding test run executed.
@@ -77,10 +72,6 @@ public abstract class DiffCoverageTask extends DefaultTask {
   /** Source directories of the module, relative to the repository root. */
   @Internal
   public abstract ListProperty<String> getSourceRoots();
-
-  /** The repository the diff is taken in. */
-  @Internal
-  public abstract DirectoryProperty getRepositoryRoot();
 
   /**
    * The ref whose merge base with HEAD the diff is taken from.
@@ -131,8 +122,17 @@ public abstract class DiffCoverageTask extends DefaultTask {
   @Internal
   public abstract Property<Double> getFailUnder();
 
-  @Inject
-  protected abstract ExecOperations getExecOperations();
+  /**
+   * The name the build registers {@link GitService} under.
+   *
+   * <p>The registration and this reference share the constant because a reference that names an
+   * unregistered service fails only in a build that runs the task, which no test here does.
+   */
+  public static final String GIT_SERVICE = "nullaway.git";
+
+  /** Runs the git commands, and names the repository the diff and the sources are read from. */
+  @ServiceReference(GIT_SERVICE)
+  public abstract Property<GitService> getGit();
 
   @TaskAction
   public void report() throws IOException {
@@ -162,13 +162,14 @@ public abstract class DiffCoverageTask extends DefaultTask {
     if (Files.isRegularFile(output)) {
       Files.delete(output);
     }
-    File repository = getRepositoryRoot().get().getAsFile();
-    Base base = resolveBase(repository);
+    GitService git = getGit().get();
+    File repository = git.repositoryRoot();
+    Base base = resolveBase(git);
     if (base == null) {
       return giveUp(NO_BASE);
     }
     List<String> unreadable = new ArrayList<>();
-    Map<String, NavigableSet<Integer>> changed = changedLines(repository, base.commit, unreadable);
+    Map<String, NavigableSet<Integer>> changed = changedLines(git, base.commit, unreadable);
 
     // A module the change never reached has nothing to say, and saying it anyway would put a line
     // in every whole-build run for every module with no test and for every module the change
@@ -393,23 +394,22 @@ public abstract class DiffCoverageTask extends DefaultTask {
    * <p>The ref is carried back so that the report names the one that won, which {@code
    * @{upstream}} and {@code origin/master} otherwise leave the reader to guess between.
    */
-  private Base resolveBase(File repository) {
+  private Base resolveBase(GitService git) {
     String explicit = getBaseRef().getOrNull();
-    if (explicit != null && !resolves(repository, explicit)) {
+    if (explicit != null && !resolves(git, explicit)) {
       throw new GradleException(
           "diffCoverageBase " + explicit + " does not resolve to a commit");
     }
-    String upstream = gitOrNull(repository, new ByteArrayOutputStream(), UPSTREAM_NAME);
-    String branch = gitOrNull(repository, new ByteArrayOutputStream(), BRANCH_NAME);
+    String upstream = git.outputOrNull(UPSTREAM_NAME);
+    String branch = git.outputOrNull(BRANCH_NAME);
     for (String candidate : baseCandidates(explicit, upstream, branch)) {
-      if (!resolves(repository, candidate)) {
+      if (!resolves(git, candidate)) {
         continue;
       }
       // A ref can resolve and still share no commit with HEAD, as in a shallow clone or after an
       // orphan branch, and merge-base then fails. That is a base this run does not have, not a
       // reason to fail a build whose tests passed.
-      String mergeBase =
-          gitOrNull(repository, new ByteArrayOutputStream(), "merge-base", candidate, "HEAD");
+      String mergeBase = git.outputOrNull("merge-base", candidate, "HEAD");
       if (mergeBase != null) {
         return new Base(candidate, mergeBase);
       }
@@ -444,15 +444,8 @@ public abstract class DiffCoverageTask extends DefaultTask {
   }
 
   /** Returns whether the ref names a commit of this repository. */
-  private boolean resolves(File repository, String ref) {
-    return gitOrNull(
-            repository,
-            new ByteArrayOutputStream(),
-            "rev-parse",
-            "--verify",
-            "--quiet",
-            ref + "^{commit}")
-        != null;
+  private boolean resolves(GitService git, String ref) {
+    return git.outputOrNull("rev-parse", "--verify", "--quiet", ref + "^{commit}") != null;
   }
 
   /**
@@ -465,14 +458,13 @@ public abstract class DiffCoverageTask extends DefaultTask {
    * @param unreadable collects a line naming each untracked file this JVM cannot decode
    */
   private Map<String, NavigableSet<Integer>> changedLines(
-      File repository, String base, List<String> unreadable) {
-    String diff = git(repository, diffCommand(base).toArray(new String[0]));
+      GitService git, String base, List<String> unreadable) {
+    String diff = git.output(diffCommand(base).toArray(new String[0]));
     Map<String, NavigableSet<Integer>> changed = UnifiedDiff.parse(diff);
     // core.quotePath is off here for the reason diffCommand gives: a quoted path names no file
     // this JVM can open, and the file would be reported as unreadable rather than measured.
     String untracked =
-        git(
-            repository,
+        git.output(
             "-c",
             "core.quotePath=false",
             "ls-files",
@@ -490,7 +482,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
       // An untracked file has no diff, so every line in it counts as changed.
       NavigableSet<Integer> lines = new TreeSet<>();
       try {
-        int count = Files.readAllLines(repository.toPath().resolve(path)).size();
+        int count = Files.readAllLines(git.repositoryRoot().toPath().resolve(path)).size();
         for (int number = 1; number <= count; number++) {
           lines.add(number);
         }
@@ -525,42 +517,4 @@ public abstract class DiffCoverageTask extends DefaultTask {
     return stale;
   }
 
-  /**
-   * Returns the trimmed output of a git command.
-   *
-   * @throws GradleException where git reported failure, since empty output means the command
-   *     succeeded and found nothing, and the two must not read alike
-   */
-  private String git(File repository, String... arguments) {
-    ByteArrayOutputStream error = new ByteArrayOutputStream();
-    String output = gitOrNull(repository, error, arguments);
-    if (output == null) {
-      throw new GradleException(
-          "git "
-              + String.join(" ", arguments)
-              + " failed: "
-              + new String(error.toByteArray(), StandardCharsets.UTF_8).trim());
-    }
-    return output;
-  }
-
-  /** Returns the trimmed output of a git command, or null where git reported failure. */
-  private String gitOrNull(File repository, ByteArrayOutputStream error, String... arguments) {
-    ByteArrayOutputStream output = new ByteArrayOutputStream();
-    List<String> command = new ArrayList<>();
-    command.add("git");
-    command.addAll(Arrays.asList(arguments));
-    int exitCode =
-        getExecOperations()
-            .exec(
-                spec -> {
-                  spec.setWorkingDir(repository);
-                  spec.setCommandLine(command);
-                  spec.setStandardOutput(output);
-                  spec.setErrorOutput(error);
-                  spec.setIgnoreExitValue(true);
-                })
-            .getExitValue();
-    return exitCode == 0 ? new String(output.toByteArray(), StandardCharsets.UTF_8).trim() : null;
-  }
 }

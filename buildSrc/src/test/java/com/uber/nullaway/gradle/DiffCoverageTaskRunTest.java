@@ -59,7 +59,16 @@ class DiffCoverageTaskRunTest {
     Project project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
     DiffCoverageTask task =
         project.getTasks().register("diffCoverage", DiffCoverageTask.class).get();
-    task.getRepositoryRoot().set(directory.toFile());
+    task.getGit()
+        .set(
+            project
+                .getGradle()
+                .getSharedServices()
+                .registerIfAbsent(
+                    "git",
+                    GitService.class,
+                    service ->
+                        service.getParameters().getRepositoryRoot().set(directory.toFile())));
     task.getSourceRoots().set(List.of("src/main/java"));
     task.getScopeDescription().set("a test");
     task.getFiltered().set(false);
