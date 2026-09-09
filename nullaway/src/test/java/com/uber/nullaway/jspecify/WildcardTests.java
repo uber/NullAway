@@ -10,6 +10,93 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void nonNullTypeVariableThroughWildcardCapture() {
+    // https://github.com/uber/NullAway/issues/1823
+    // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.ConcurrentMap;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                @NonNull V value();
+                ConcurrentMap<String, @NonNull V> asMap();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void explicitNullableArgument(Holder<@Nullable Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void nonNullBoundedWildcard(Holder<? extends Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void unboundedWildcard(Holder<?> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void nullableBoundedWildcard(Holder<? extends @Nullable Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void superBoundedWildcard(Holder<? super String> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Checks that inherited {@code @NonNull V} returns remain non-null through unbounded and super
+   * wildcards. Interleaving calls to an inherited plain {@code V} return checks that restoring
+   * {@code @NonNull} does not mutate shared wildcard bounds: the plain return must remain nullable,
+   * and subsequent explicitly non-null returns must still be accepted.
+   */
+  @Test
+  public void nonNullWildcardMemberDoesNotChangeOtherInheritedMembers() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                @NonNull V nonNullValue();
+                V value();
+              }
+              interface Child<V extends @Nullable Object> extends Holder<V> {}
+
+              static void takesNonNull(Object value) {}
+
+              static void unbounded(Child<?> holder) {
+                takesNonNull(holder.nonNullValue());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+              }
+
+              static void superBounded(Child<? super String> holder) {
+                takesNonNull(holder.nonNullValue());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void simpleWildcardNoInference() {
     makeHelper()
         .addSourceLines(

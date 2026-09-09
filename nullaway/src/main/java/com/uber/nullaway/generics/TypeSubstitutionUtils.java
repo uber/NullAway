@@ -321,7 +321,7 @@ public class TypeSubstitutionUtils {
     private final Config config;
 
     /** Pairs of implicit wildcard bounds currently being traversed. */
-    private final IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeUnboundedWildcardBounds =
+    private final IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds =
         new IdentityHashMap<>();
 
     RestoreNullnessAnnotationsVisitor(Config config) {
@@ -374,20 +374,19 @@ public class TypeSubstitutionUtils {
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
       if (!(other instanceof Type.WildcardType wildcardType)) {
-        return wt;
+        return restoreWildcardUpperBoundAnnotation(wt, wt.bound, other);
       }
-      // for unbound wildcards, we restore annotations onto the upper bound of the underlying type
-      // variable, stored in the `bound` field
-      if (wt.kind == BoundKind.UNBOUND
-          && wildcardType.kind == BoundKind.UNBOUND
+      // Unbounded and super wildcards have an implicit upper bound on the formal type variable.
+      if (wt.kind != BoundKind.EXTENDS
+          && wildcardType.kind == wt.kind
           && wt.bound != null
           && wildcardType.bound != null) {
         Type.TypeVar formalTypeVariable = wt.bound;
         Type.TypeVar otherFormalTypeVariable = wildcardType.bound;
-        Set<Type.TypeVar> activeOtherBounds = activeUnboundedWildcardBounds.get(formalTypeVariable);
+        Set<Type.TypeVar> activeOtherBounds = activeImplicitWildcardBounds.get(formalTypeVariable);
         if (activeOtherBounds == null) {
           activeOtherBounds = Collections.newSetFromMap(new IdentityHashMap<>());
-          activeUnboundedWildcardBounds.put(formalTypeVariable, activeOtherBounds);
+          activeImplicitWildcardBounds.put(formalTypeVariable, activeOtherBounds);
         } else if (activeOtherBounds.contains(otherFormalTypeVariable)) {
           // F-bounded type variables make the implicit upper-bound graph cyclic. Re-entering the
           // same pair cannot reveal any annotations that were not handled on the first visit.
@@ -401,12 +400,18 @@ public class TypeSubstitutionUtils {
         } finally {
           activeOtherBounds.remove(otherFormalTypeVariable);
           if (activeOtherBounds.isEmpty()) {
-            activeUnboundedWildcardBounds.remove(formalTypeVariable);
+            activeImplicitWildcardBounds.remove(formalTypeVariable);
           }
         }
-        return updatedUpperBound == upperBound
-            ? wt
-            : replaceUnboundedWildcardUpperBound(wt, updatedUpperBound);
+        if (updatedUpperBound != upperBound) {
+          Type.WildcardType updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wt, wt.type);
+          updatedWildcard.bound =
+              TYPE_METADATA_BUILDER.createDetachedTypeVar(formalTypeVariable, updatedUpperBound);
+          wt = updatedWildcard;
+        }
+        if (wt.kind == BoundKind.UNBOUND) {
+          return wt;
+        }
       }
       Type t = wt.type;
       if (t != null) {
@@ -425,6 +430,43 @@ public class TypeSubstitutionUtils {
     }
 
     /**
+     * Restores annotations from another type onto a wildcard's upper bound.
+     *
+     * @param wildcard the wildcard type whose upper bound should be updated
+     * @param implicitUpperBoundTypeVariable for unbounded or lower bounded wildcard types, the type
+     *     variable from which to obtain an upper bound, or null if not available
+     * @param other the other type from which to restore annotations
+     */
+    private Type.WildcardType restoreWildcardUpperBoundAnnotation(
+        Type.WildcardType wildcard,
+        Type.@Nullable TypeVar implicitUpperBoundTypeVariable,
+        Type other) {
+      Type upperBound =
+          wildcard.kind == BoundKind.EXTENDS
+              ? wildcard.type
+              : implicitUpperBoundTypeVariable == null
+                  ? null
+                  : implicitUpperBoundTypeVariable.getUpperBound();
+      if (upperBound == null) {
+        return wildcard;
+      }
+      Type updatedBound = updateDirectNullabilityAnnotationsForType(upperBound, other);
+      if (updatedBound == upperBound) {
+        return wildcard;
+      }
+      if (wildcard.kind == BoundKind.EXTENDS) {
+        return TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
+      } else { // unbounded or lower-bounded wildcard
+        Type.WildcardType updated =
+            TYPE_METADATA_BUILDER.createWildcardType(wildcard, wildcard.type);
+        updated.bound =
+            TYPE_METADATA_BUILDER.createDetachedTypeVar(
+                Verify.verifyNotNull(implicitUpperBoundTypeVariable), updatedBound);
+        return updated;
+      }
+    }
+
+    /**
      * Restores annotations on both the captured type {@code t} and its backing wildcard.
      *
      * <p>The corresponding type {@code other} may be an ordinary wildcard because javac can
@@ -435,9 +477,9 @@ public class TypeSubstitutionUtils {
      * type. In that case, annotations from {@code other} must be restored to the backing wildcard's
      * upper bound.
      *
-     * <p>For an unbounded wildcard, the relevant upper bound is its implicit upper bound from the
-     * corresponding formal type variable. Wildcard-aware checks use these bounds rather than
-     * annotations directly on the captured type.
+     * <p>For an unbounded or super wildcard, the relevant upper bound is its implicit upper bound
+     * from the corresponding formal type variable. Wildcard-aware checks use these bounds rather
+     * than annotations directly on the captured type.
      */
     @Override
     public Type visitCapturedType(Type.CapturedType t, Type other) {
@@ -468,17 +510,25 @@ public class TypeSubstitutionUtils {
           return updated;
         }
         updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
-      } else if (t.wildcard.kind == BoundKind.UNBOUND) {
-        Type.TypeVar formalTypeVariable = t.wildcard.bound != null ? t.wildcard.bound : t;
-        Type upperBound = formalTypeVariable.getUpperBound();
+      } else {
+        Verify.verify(t.wildcard.kind == BoundKind.UNBOUND || t.wildcard.kind == BoundKind.SUPER);
+        // t.wildcard is either unbounded or lower bounded (with super).  We want to find the
+        // corresponding type variable X for t (the type variable for which t.wildcard was passed
+        // as a type argument), in order to obtain the upper bound of X later on.
+        // Normally, X is stored in t.wildcard.bound.  If it is unavailable, we fall back on using
+        // the captured type t itself, as its own upper bound (t.getUpperBound()) could provide
+        // useful information.
+        Type.TypeVar implicitUpperBoundTypeVariable =
+            t.wildcard.bound != null ? t.wildcard.bound : t;
+        Type upperBound = implicitUpperBoundTypeVariable.getUpperBound();
         Type updatedUpperBound = upperBound.accept(this, other);
         if (updatedUpperBound == upperBound) {
           return updated;
         }
-        updatedWildcard =
-            replaceUnboundedWildcardUpperBound(t.wildcard, formalTypeVariable, updatedUpperBound);
-      } else {
-        return updated;
+        updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, t.wildcard.type);
+        updatedWildcard.bound =
+            TYPE_METADATA_BUILDER.createDetachedTypeVar(
+                implicitUpperBoundTypeVariable, updatedUpperBound);
       }
       if (updatedWildcard == t.wildcard) {
         return updated;

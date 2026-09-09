@@ -90,11 +90,15 @@ public class GenericsUtils {
           formalTypeVar == null
               ? Symtab.instance(state.context).objectType
               : formalTypeVar.getUpperBound();
-      // check if the upper bound should be treated as @Nullable, e.g., due to a library model or a
-      // type variable in @NullUnmarked code
+      boolean upperBoundHasExplicitNullnessAnnotation =
+          Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)
+              || Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+      // if the upper bound of formalTypeVar is @Nullable, and there is no
+      // explicit annotation on upperBound already, add a @Nullable annotation to upperBound.
+      // Explicit annotations on upperBound always take precedence.
       if (formalTypeVar != null
           && upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
-          && !Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+          && !upperBoundHasExplicitNullnessAnnotation) {
         upperBound =
             TypeSubstitutionUtils.typeWithAnnot(
                 upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
