@@ -285,11 +285,6 @@ final class DiffCoverageReport {
         : stripped.substring(0, QUOTE_WIDTH) + "...";
   }
 
-  /** Returns the changed files under a source root that no report read here mentions. */
-  List<String> unmeasuredPaths() {
-    return List.copyOf(notInAnyReport);
-  }
-
   /** Returns the paths whose changed lines the counts came from. */
   List<String> measuredPaths() {
     return measured.stream().map(file -> file.path).collect(Collectors.toList());

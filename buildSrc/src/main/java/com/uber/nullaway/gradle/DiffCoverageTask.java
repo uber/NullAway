@@ -21,7 +21,6 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.NavigableSet;
 import java.util.TreeSet;
@@ -118,10 +117,6 @@ public abstract class DiffCoverageTask extends DefaultTask {
   @OutputFile
   public abstract RegularFileProperty getOutputFile();
 
-  /** Fails the task where fewer than this percentage of the changed lines ran; unset by default. */
-  @Internal
-  public abstract Property<Double> getFailUnder();
-
   /**
    * The name the build registers {@link GitService} under.
    *
@@ -151,8 +146,6 @@ public abstract class DiffCoverageTask extends DefaultTask {
    *
    * <p>The file {@link #getOutputFile()} names is rewritten here, and is deleted where this run
    * measured nothing, so that it holds this run's report or no report at all.
-   *
-   * @throws GradleException where a threshold was asked for and this run cannot honour it
    */
   String describeRun() throws IOException {
     // The file belongs to this task, so a run that measures nothing must not leave the last run's
@@ -166,7 +159,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
     File repository = git.repositoryRoot();
     Base base = resolveBase(git);
     if (base == null) {
-      return giveUp(NO_BASE);
+      return NO_BASE;
     }
     List<String> unreadable = new ArrayList<>();
     Map<String, NavigableSet<Integer>> changed = changedLines(git, base.commit(), unreadable);
@@ -180,7 +173,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
     List<File> reports = new ArrayList<>(getReportFiles().getFiles());
     reports.removeIf(file -> !file.isFile());
     if (reports.isEmpty()) {
-      return giveUp(NO_REPORT);
+      return NO_REPORT;
     }
     DiffCoverageReport report =
         DiffCoverageReport.measure(
@@ -208,7 +201,6 @@ public abstract class DiffCoverageTask extends DefaultTask {
                 new DiffCoverageReport.Limits(
                     getMaxFiles().get(), getMaxLinesPerFile().get(), getMaxLinesTotal().get()));
     String text = console.isEmpty() ? console : withReportPaths(repository, reports, console, full);
-    failIfBelowThreshold(report, fullReportPath(repository));
     if (unreadable.isEmpty()) {
       return text;
     }
@@ -251,90 +243,6 @@ public abstract class DiffCoverageTask extends DefaultTask {
     Path root = repository.toPath().toAbsolutePath().normalize();
     Path target = file.toPath().toAbsolutePath().normalize();
     return target.startsWith(root) ? root.relativize(target).toString() : target.toString();
-  }
-
-  /**
-   * Reports that no measurement was possible, and fails the task where a threshold was asked for.
-   *
-   * <p>A threshold is a gate, and a gate that passes because the measurement did not happen is
-   * worse than no gate. Without one the message is advice, and failing the build over it would
-   * stop a test run that otherwise succeeded.
-   */
-  private String giveUp(String reason) {
-    if (getFailUnder().isPresent()) {
-      throw new GradleException(reason);
-    }
-    return reason;
-  }
-
-  /**
-   * Fails the task where the run left a changed file unmeasured or below the threshold.
-   *
-   * @param reportPath the report this run wrote, or null where it wrote none. A failing task
-   *     prints its exception and not the block, so the message carries the one line of it a reader
-   *     needs to see which lines fell short
-   */
-  private void failIfBelowThreshold(DiffCoverageReport report, String reportPath) {
-    if (!getFailUnder().isPresent()) {
-      return;
-    }
-    String unmeasured = unmeasuredFilesFailure(report.unmeasuredPaths());
-    if (unmeasured != null) {
-      throw new GradleException(naming(unmeasured, reportPath));
-    }
-    String failure =
-        thresholdFailure(report.executedLines(), report.executableLines(), getFailUnder().get());
-    if (failure != null) {
-      throw new GradleException(naming(failure, reportPath));
-    }
-  }
-
-  /** Returns the path of the report this run wrote, or null where it wrote none. */
-  private String fullReportPath(File repository) {
-    File output = getOutputFile().get().getAsFile();
-    return output.isFile() ? relativize(repository, output) : null;
-  }
-
-  /** Returns the failure with the report named after it, where there is a report to name. */
-  private static String naming(String failure, String reportPath) {
-    return reportPath == null ? failure : failure + ". The full report is in " + reportPath;
-  }
-
-  /**
-   * Returns why a gate cannot be applied to the given files, or null where there are none.
-   *
-   * <p>A changed file no report mentions contributes nothing to either side of the share, so a
-   * change made entirely in such files would clear every threshold without being measured.
-   */
-  static String unmeasuredFilesFailure(List<String> unmeasuredPaths) {
-    if (unmeasuredPaths.isEmpty()) {
-      return null;
-    }
-    return "no JaCoCo report covers these changed files, so no threshold applies to them: "
-        + String.join(", ", unmeasuredPaths);
-  }
-
-  /**
-   * Returns why the executed share falls below required, or null where it does not.
-   *
-   * <p>A change with no executable line clears every threshold, since a gate on a share of nothing
-   * would fail a commit that touched only comments.
-   */
-  static String thresholdFailure(int executedLines, int executableLines, double required) {
-    if (executableLines == 0) {
-      return null;
-    }
-    double executed = 100.0 * executedLines / executableLines;
-    if (executed >= required) {
-      return null;
-    }
-    return String.format(
-        // The default locale would write 66,7% here, which no reader greps and no CI log spells
-        // the same way twice across runners.
-        Locale.ROOT,
-        "%.1f%% of the changed lines ran, below the required %.1f%%",
-        executed,
-        required);
   }
 
   /**

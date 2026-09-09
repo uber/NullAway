@@ -230,22 +230,25 @@ class DiffCoverageReportTest {
   @Nested
   class FilesThatCannotBeMeasured {
 
-    /** A file no report covers is the one thing that fails a threshold whatever the coverage. */
+    /**
+     * A file no report covers was never measured, so counting it as covered would report a test
+     * that does not exist.
+     */
     @Test
     void aFileUnderARootThatNoReportMentionsIsNamedAsMissingFromTheReport() throws IOException {
       DiffCoverageReport result = measure(changed(OTHER, 10), ROOTS, report(""));
-      assertEquals(List.of(OTHER), result.unmeasuredPaths());
+      assertEquals(List.of(OTHER), result.notInAnyReport);
     }
 
     /**
      * A comment-only change contributes to neither side of the share, so it has to be named
-     * without joining the files that fail the threshold for want of a report.
+     * without joining the files that a report was expected to cover and did not.
      */
     @Test
     void aFileWhoseChangedLinesEmitNoBytecodeIsNamedSeparately() throws IOException {
       DiffCoverageReport result = measure(changed(SAMPLE, 10), ROOTS, report(line(99, 4, 0, 0)));
       assertAll(
-          () -> assertEquals(List.of(), result.unmeasuredPaths(), "unmeasuredPaths"),
+          () -> assertEquals(List.of(), result.notInAnyReport, "unmeasuredPaths"),
           () ->
               assertLinesMatch(
                   List.of(
@@ -257,14 +260,14 @@ class DiffCoverageReportTest {
     }
 
     @Test
-    void aFileOfAnotherModuleIsMeasuredNowhereAndFailsNoThreshold() throws IOException {
+    void aFileOfAnotherModuleIsLeftOutOfTheReportEntirely() throws IOException {
       DiffCoverageReport result =
           measure(
               changed("other/src/main/java/com/uber/nullaway/Sample.java", 10),
               ROOTS,
               report(line(10, 0, 0, 0)));
       assertAll(
-          () -> assertEquals(List.of(), result.unmeasuredPaths(), "unmeasuredPaths"),
+          () -> assertEquals(List.of(), result.notInAnyReport, "unmeasuredPaths"),
           () -> assertEquals(0, result.executableLines(), "executableLines"));
     }
 
@@ -308,14 +311,14 @@ class DiffCoverageReportTest {
 
     /** The test tree of this module shares its prefix and is still not a main source root. */
     @Test
-    void aTestSourceOfThisModuleIsMeasuredNowhereAndFailsNoThreshold() throws IOException {
+    void aTestSourceOfThisModuleIsLeftOutOfTheReportEntirely() throws IOException {
       DiffCoverageReport result =
           measure(
               changed("nullaway/src/test/java/com/uber/nullaway/SampleTest.java", 10),
               ROOTS,
               report(line(10, 0, 0, 0)));
       assertAll(
-          () -> assertEquals(List.of(), result.unmeasuredPaths(), "unmeasuredPaths"),
+          () -> assertEquals(List.of(), result.notInAnyReport, "unmeasuredPaths"),
           () -> assertEquals(0, result.executableLines(), "executableLines"));
     }
   }

@@ -17,7 +17,6 @@ package com.uber.nullaway.gradle;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.junit.jupiter.api.Assertions.assertAll;
-import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
@@ -38,7 +37,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * A run that measures nothing says so, and fails where a threshold asked for a gate.
+ * A run that measures nothing says so rather than reporting a change as fully covered.
  *
  * <p>These are the two outcomes a caller cannot tell apart from the counts: a base ref that does
  * not resolve and a report that was never written both leave no line changed and no line executed,
@@ -55,7 +54,7 @@ class DiffCoverageTaskRunTest {
 
   @TempDir Path directory;
 
-  private DiffCoverageTask task(Double failUnder, Path... reports) {
+  private DiffCoverageTask task(Path... reports) {
     Project project = ProjectBuilder.builder().withProjectDir(directory.toFile()).build();
     DiffCoverageTask task =
         project.getTasks().register("diffCoverage", DiffCoverageTask.class).get();
@@ -77,9 +76,6 @@ class DiffCoverageTaskRunTest {
     task.getMaxFiles().set(4);
     task.getShowAll().set(false);
     task.getOutputFile().set(directory.resolve(FULL_REPORT).toFile());
-    if (failUnder != null) {
-      task.getFailUnder().set(failUnder);
-    }
     for (Path report : reports) {
       task.getReportFiles().from(report.toFile());
     }
@@ -151,16 +147,9 @@ class DiffCoverageTaskRunTest {
 
     /** A repository with no commit resolves neither an upstream branch nor origin/master. */
     @Test
-    void aRunWithNoThresholdOnlyAdvises() throws Exception {
+    void aRunThatResolvedNoBaseSaysSoRatherThanReportingNoChangedLine() throws Exception {
       emptyRepository();
-      assertDoesNotThrow(() -> task(null).describeRun());
-    }
-
-    @Test
-    void aRunWithAThresholdFailsRatherThanPassingOnAnUnmeasuredChange() throws Exception {
-      emptyRepository();
-      GradleException thrown = assertThrows(GradleException.class, () -> task(90.0).describeRun());
-      assertEquals(DiffCoverageTask.NO_BASE, thrown.getMessage());
+      assertEquals(DiffCoverageTask.NO_BASE, task().describeRun());
     }
   }
 
@@ -168,27 +157,16 @@ class DiffCoverageTaskRunTest {
   class WithNoReport {
 
     /** The module has to be one the change reached, or it would rightly say nothing at all. */
-    private DiffCoverageTask taskInARepository(Double failUnder) throws Exception {
+    @Test
+    void aRunThatFoundNoReportSaysSoRatherThanReportingNoExecutedLine() throws Exception {
       repositoryWithOneCommit();
       Path source = directory.resolve("src/main/java/A.java");
       Files.createDirectories(source.getParent());
       Files.writeString(source, "class A {}\n");
-      DiffCoverageTask task = task(failUnder, directory.resolve("absent.xml"));
+      DiffCoverageTask task = task(directory.resolve("absent.xml"));
       task.getBaseRef().set("master");
-      return task;
-    }
 
-    @Test
-    void aRunWithNoThresholdOnlyAdvises() throws Exception {
-      DiffCoverageTask task = taskInARepository(null);
-      assertDoesNotThrow(task::describeRun);
-    }
-
-    @Test
-    void aRunWithAThresholdFailsRatherThanPassingOnAnUnmeasuredChange() throws Exception {
-      DiffCoverageTask task = taskInARepository(90.0);
-      GradleException thrown = assertThrows(GradleException.class, task::describeRun);
-      assertEquals(DiffCoverageTask.NO_REPORT, thrown.getMessage());
+      assertEquals(DiffCoverageTask.NO_REPORT, task.describeRun());
     }
   }
 
@@ -203,7 +181,7 @@ class DiffCoverageTaskRunTest {
     void aFileThisJvmCannotDecodeIsNamedInTheReport() throws Exception {
       repositoryWithOneCommit();
       undecodableSource();
-      DiffCoverageTask task = task(null, reportCovering("Other.java"));
+      DiffCoverageTask task = task(reportCovering("Other.java"));
       task.getBaseRef().set("master");
       assertEquals(
           "Diff coverage: cannot read the untracked file src/main/java/Bad.java: "
@@ -212,16 +190,21 @@ class DiffCoverageTaskRunTest {
     }
 
     /**
-     * Left in the counts, the file would be a changed file no report covers, which is the one
-     * thing that fails a gate whatever the coverage.
+     * Left in the counts, the file would be reported as changed code no report covers, which is a
+     * measurement it never received.
      */
     @Test
     void aFileThisJvmCannotDecodeIsLeftOutOfTheCounts() throws Exception {
       repositoryWithOneCommit();
       undecodableSource();
-      DiffCoverageTask task = task(90.0, reportCovering("Other.java"));
+      DiffCoverageTask task = task(reportCovering("Other.java"));
       task.getBaseRef().set("master");
-      assertDoesNotThrow(task::describeRun);
+
+      String printed = task.describeRun();
+
+      assertFalse(
+          printed.contains("covers these files"),
+          () -> "the block listing files no report covers: " + printed);
     }
 
     private void undecodableSource() throws IOException {
@@ -235,9 +218,9 @@ class DiffCoverageTaskRunTest {
   class WithABaseThatDoesNotResolve {
 
     @Test
-    void anExplicitRefThatDoesNotResolveFailsWhateverTheThreshold() throws Exception {
+    void anExplicitRefThatDoesNotResolveFailsTheTask() throws Exception {
       repositoryWithOneCommit();
-      DiffCoverageTask task = task(null);
+      DiffCoverageTask task = task();
       task.getBaseRef().set("no/such/ref");
       GradleException thrown = assertThrows(GradleException.class, task::describeRun);
       assertEquals(
@@ -249,11 +232,11 @@ class DiffCoverageTaskRunTest {
   class WithAChangedFileNoReportCovers {
 
     /**
-     * Such a file contributes nothing to either side of the share, so a threshold applied to the
-     * rest of the change would pass over it without having measured it.
+     * Such a file was never measured, and a report that left it out silently would read as one
+     * where every changed line of it ran.
      */
     @Test
-    void aThresholdFailsRatherThanPassingOverAFileTheReportNeverMentions() throws Exception {
+    void aFileTheReportNeverMentionsIsNamedRatherThanLeftOut() throws Exception {
       repositoryWithOneCommit();
       Path source = directory.resolve("src/main/java/A.java");
       Files.createDirectories(source.getParent());
@@ -263,14 +246,16 @@ class DiffCoverageTaskRunTest {
           report,
           "<report name=\"test\"><package name=\"\">"
               + "<sourcefile name=\"Other.java\"/></package></report>");
-      DiffCoverageTask task = task(90.0, report);
+      DiffCoverageTask task = task(report);
       task.getBaseRef().set("master");
-      GradleException thrown = assertThrows(GradleException.class, task::describeRun);
-      assertEquals(
-          "no JaCoCo report covers these changed files, so no threshold applies to them: "
-              + "src/main/java/A.java. The full report is in "
-              + FULL_REPORT,
-          thrown.getMessage());
+
+      String printed = task.describeRun();
+
+      assertTrue(
+          printed.contains(
+              "No report read here covers these files, so they were probably not part of the "
+                  + "run:\n    src/main/java/A.java"),
+          () -> "the block naming the unmeasured file: " + printed);
     }
   }
 
@@ -287,7 +272,7 @@ class DiffCoverageTaskRunTest {
       Path elsewhere = directory.resolve("other/src/main/java/A.java");
       Files.createDirectories(elsewhere.getParent());
       Files.writeString(elsewhere, "class A {}\n");
-      DiffCoverageTask task = task(null, directory.resolve("absent.xml"));
+      DiffCoverageTask task = task(directory.resolve("absent.xml"));
       task.getBaseRef().set("master");
       assertEquals("", task.describeRun());
     }
@@ -299,7 +284,7 @@ class DiffCoverageTaskRunTest {
       Path source = directory.resolve("src/main/java/A.java");
       Files.createDirectories(source.getParent());
       Files.writeString(source, "class A {}\n");
-      DiffCoverageTask task = task(null, directory.resolve("absent.xml"));
+      DiffCoverageTask task = task(directory.resolve("absent.xml"));
       task.getBaseRef().set("master");
       assertEquals(DiffCoverageTask.NO_REPORT, task.describeRun());
     }
@@ -318,7 +303,7 @@ class DiffCoverageTaskRunTest {
       Path source = directory.resolve("src/main/java/A.java");
       Files.createDirectories(source.getParent());
       Files.writeString(source, "class A {}\n");
-      DiffCoverageTask task = task(null, reportCovering("A.java"));
+      DiffCoverageTask task = task(reportCovering("A.java"));
       task.getBaseRef().set("master");
       String head = revParse("HEAD").substring(0, 9);
       assertEquals(
@@ -343,10 +328,10 @@ class DiffCoverageTaskRunTest {
       Files.writeString(directory.resolve("OTHER.md"), "other\n");
       run("add", "-A");
       run("commit", "-m", "unrelated");
-      DiffCoverageTask task = task(90.0);
+      DiffCoverageTask task = task();
       task.getBaseRef().set("master");
-      GradleException thrown = assertThrows(GradleException.class, task::describeRun);
-      assertEquals(DiffCoverageTask.NO_BASE, thrown.getMessage());
+
+      assertEquals(DiffCoverageTask.NO_BASE, task.describeRun());
     }
   }
 
@@ -376,7 +361,7 @@ class DiffCoverageTaskRunTest {
       Files.writeString(file, source.toString());
       Path report = directory.resolve("report.xml");
       Files.writeString(report, xml.toString());
-      DiffCoverageTask task = task(null, report);
+      DiffCoverageTask task = task(report);
       task.getBaseRef().set("master");
       return task;
     }
@@ -470,21 +455,6 @@ class DiffCoverageTaskRunTest {
       assertFalse(
           Files.exists(directory.resolve(FULL_REPORT)),
           () -> "the report of the earlier run is still at " + FULL_REPORT);
-    }
-
-    /**
-     * A failing task prints its exception and not the block, so the reader is left with a
-     * percentage and nowhere to see which lines produced it.
-     */
-    @Test
-    void aThresholdFailureNamesTheReportHoldingTheLinesThatFailedIt() throws Exception {
-      DiffCoverageTask task = taskWithUncoveredLines(2);
-      task.getFailUnder().set(90.0);
-      GradleException thrown = assertThrows(GradleException.class, task::describeRun);
-      assertEquals(
-          "0.0% of the changed lines ran, below the required 90.0%. The full report is in "
-              + FULL_REPORT,
-          thrown.getMessage());
     }
 
     @Test
