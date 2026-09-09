@@ -80,11 +80,17 @@ tasks.named("test") {
     finalizedBy(tasks.named("jacocoTestReport"))
 }
 
+// Every module asks git the same questions about the same repository, so one service answers them
+// once for the whole build.  The name is what the task's @ServiceReference binds to.
+gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask.GIT_SERVICE,
+        com.uber.nullaway.gradle.GitService) {
+    parameters.repositoryRoot = rootProject.layout.projectDirectory
+}
+
 def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffCoverageTask) {
     description = "Reports which of the lines this branch changed the last test run executed"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     reportFiles.from(tasks.named("jacocoTestReport").map { it.reports.xml.outputLocation })
-    repositoryRoot = rootProject.layout.projectDirectory
     sourceRoots.set(providers.provider {
         sourceSets.main.java.srcDirs.collect { rootDir.toPath().relativize(it.toPath()).toString() }
     })
