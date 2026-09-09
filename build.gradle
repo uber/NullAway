@@ -138,6 +138,19 @@ subprojects { project ->
 
     tasks.withType(Test).configureEach {
         maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+        // A failed test has to be diagnosable from the console alone: CI runs `./gradlew build`
+        // and publishes no test report, so the log is all a reader gets.  Gradle's default logging
+        // names the exception class and the line of the test method and drops the message, which
+        // for a NullAway compilation test throws away the entire diagnosis.
+        testLogging {
+            exceptionFormat = 'full'
+            // The top-level settings above configure the lifecycle log level only, so a run under
+            // --quiet, as agents make, would otherwise report a failure count and nothing else.
+            quiet {
+                events 'failed'
+                exceptionFormat = 'full'
+            }
+        }
     }
 
     repositories {
