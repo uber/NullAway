@@ -4,8 +4,9 @@ import org.junit.Test;
 
 /**
  * A {@code note:} line says where the source takes a nullness its printed form does not show: the
- * bound an unbounded or lower-bounded wildcard inherits, or the type parameter a captured wildcard
- * instantiates. A source that prints its own nullness gets no note.
+ * bound an unbounded or lower-bounded wildcard inherits, the type parameter a captured wildcard
+ * instantiates, or the declared bound of a type variable written without nullness. A source that
+ * prints its own nullness gets no note.
  */
 public class NoteTests extends MismatchMessageTestBase {
 
@@ -83,6 +84,38 @@ public class NoteTests extends MismatchMessageTestBase {
         void test(List<? extends @Nullable String> l) {
           // BUG: Diagnostic matches: MESSAGE
           take(l);
+        }
+        """);
+  }
+
+  @Test
+  public void aTypeVariableWithANullableBoundIsReportedBesideAMismatchingSibling() {
+    assertMessage(
+        """
+        incompatible nullability: 2 mismatches between source and target types
+            found:    Pair<T, @Nullable String>
+                           ^  ^^^^^^^^^^^^^^^^
+                           1  2
+            required: Pair<? extends Object, String>
+                                     ^^^^^^  ^^^^^^
+                                     1       2
+         \s
+            1. path: Pair type argument A -> wildcard upper bound
+               found:    @Nullable Object
+               required: Object
+               note: the source T has no nullness of its own, so it takes the nullness of its declared upper
+                     bound
+         \s
+            2. path: Pair type argument B
+               found:    @Nullable String
+               required: String
+        """,
+        """
+        static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
+        static void take(Pair<? extends Object, String> p) {}
+        static <T extends @Nullable Object> void test(Pair<T, @Nullable String> p) {
+          // BUG: Diagnostic matches: MESSAGE
+          take(p);
         }
         """);
   }
