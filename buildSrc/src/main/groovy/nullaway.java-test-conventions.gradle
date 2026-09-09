@@ -82,8 +82,7 @@ tasks.named("test") {
 
 // Every module asks git the same questions about the same repository, so one service answers them
 // once for the whole build.  The name is what the task's @ServiceReference binds to.
-gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask.GIT_SERVICE,
-        com.uber.nullaway.gradle.GitService) {
+gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask.GIT_SERVICE, com.uber.nullaway.gradle.GitService) {
     parameters.repositoryRoot = rootProject.layout.projectDirectory
 }
 
