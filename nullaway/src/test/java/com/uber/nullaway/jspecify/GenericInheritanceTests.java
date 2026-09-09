@@ -291,7 +291,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
               }
 
               static <V extends @Nullable Object> MyFuture<List<V>> invalid() {
-                // BUG: Diagnostic contains: incompatible types: ListFuture<V> cannot be converted to MyFuture<List<V>> (ListFuture<V> is a subtype of MyFuture<List<@Nullable V>>)
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable V, required V
                 return new ListFuture<V>();
               }
             }
@@ -323,10 +323,10 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
                   List<@Nullable String> nullableList,
                   List<String> nonNullList) {
                 List<@Nullable String> valid = box.get();
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 List<String> invalid = box.get();
                 box.set(nullableList);
-                // BUG: Diagnostic contains: incompatible types: List<String> cannot be converted to List<@Nullable String>
+                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found String, required @Nullable String
                 box.set(nonNullList);
               }
             }
@@ -353,7 +353,7 @@ public class GenericInheritanceTests extends NullAwayTestsBase {
 
               void test(Child<String> child) {
                 List<@Nullable O> valid = child.get();
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable O> cannot be converted to List<O>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable O, required O
                 List<O> invalid = child.get();
               }
             }
