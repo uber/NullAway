@@ -8,6 +8,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.Collections;
 import java.util.IdentityHashMap;
@@ -248,7 +249,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   /**
    * Returns whether a formal {@code ? extends S} contains the actual type argument on the right.
    * For concrete actuals {@code T}, wildcard actuals {@code ? extends T}, and non-extends wildcard
-   * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}.
+   * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}. An
+   * actual that is a type variable with no annotation at the use site is judged by its own declared
+   * upper bound, for the same reason a wildcard is, unless {@code S} is itself a type variable.
+   * {@code S} then states a parametric requirement, admitting whatever it is instantiated as, so
+   * the two are compared as written; and an actual that may be null is contained only if {@code S}
+   * may be null too.
    *
    * @param lhsBound the effective upper bound {@code S} of the formal wildcard on the left
    * @param rhsTypeArgument the actual type argument on the right whose containment is checked
@@ -262,13 +268,70 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private boolean extendsBoundContains(
       Type lhsBound, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
     Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
-    if (rhsWildcard != null) {
-      Type rhsUpperBound =
-          GenericsUtils.wildcardUpperBound(
-              rhsWildcard, correspondingTypeVariable, state, config, handler);
-      return typeArgumentSubtype(lhsBound, rhsUpperBound);
+    Type rhsUpperBound =
+        rhsWildcard == null
+            ? rhsTypeArgument
+            : GenericsUtils.wildcardUpperBound(
+                rhsWildcard, correspondingTypeVariable, state, config, handler);
+    if (lhsBound instanceof Type.TypeVar) {
+      return typeArgumentSubtype(lhsBound, rhsUpperBound)
+          // capture conversion drops type-use annotations, so a captured actual carries no
+          // nullness of its own to compare
+          && (rhsTypeArgument instanceof Type.CapturedType
+              || admitsNull(lhsBound)
+              || !admitsNull(rhsUpperBound));
     }
-    return typeArgumentSubtype(lhsBound, rhsTypeArgument);
+    return typeArgumentSubtype(lhsBound, typeComparedForNullness(rhsUpperBound));
+  }
+
+  /**
+   * Returns whether a value of {@code type} may be null: the use site says so, or it says nothing
+   * and the declared upper bound admits null.
+   *
+   * <p>This is the one question a parametric requirement still answers. {@code ? extends T} admits
+   * whatever {@code T} is instantiated as, so the actual is compared to {@code T} as written; but
+   * an actual that may be null where {@code T} may not is holding a null the requirement rejects,
+   * however the two names relate.
+   */
+  private boolean admitsNull(Type type) {
+    if (type instanceof Type.TypeVar typeVar && !hasNullnessAnnotation(type)) {
+      // the same answer as isNullableAnnotated(typeVariableUpperBound(typeVar)), without building
+      // the annotated bound to read one bit off it: that method annotates exactly when
+      // upperBoundIsNullable holds, which is itself true whenever the declared bound carries
+      // @Nullable
+      return GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, handler, state);
+    }
+    return genericsChecks.isNullableAnnotated(type);
+  }
+
+  /**
+   * Returns the type whose nullness stands for {@code type} in a containment comparison. A type
+   * variable carrying no nullness annotation at the use site admits null exactly when its declared
+   * upper bound does, so it is compared as that bound; every other type is compared as written.
+   *
+   * <p>A {@code Box<T>} declared with {@code T extends @Nullable Object} holds a null where a
+   * {@code Box<? extends Object>} may not, whatever the use site writes. A {@code @Nullable T} and
+   * a {@code @NonNull T} each carry their own nullness and are left alone.
+   *
+   * <p>This answers for an actual type argument compared against a concrete requirement. Where the
+   * requirement names a type variable, no bound stands in for it and the two types are compared as
+   * written; {@link #admitsNull(Type)} answers the nullness question there.
+   */
+  private Type typeComparedForNullness(Type type) {
+    if (type instanceof Type.TypeVar typeVar && !hasNullnessAnnotation(type)) {
+      return GenericsUtils.typeVariableUpperBound(typeVar, state, config, handler);
+    }
+    return type;
+  }
+
+  /**
+   * Returns whether {@code type} carries a {@code @Nullable} or a {@code @NonNull} annotation of
+   * its own. This asks about the type as written, not about whether the code around it is
+   * null-annotated, which is what {@link com.uber.nullaway.CodeAnnotationInfo} answers.
+   */
+  private boolean hasNullnessAnnotation(Type type) {
+    return genericsChecks.isNullableAnnotated(type)
+        || Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
   /**

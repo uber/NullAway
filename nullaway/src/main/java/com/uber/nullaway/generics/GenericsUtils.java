@@ -89,22 +89,37 @@ public class GenericsUtils {
       upperBound =
           formalTypeVar == null
               ? Symtab.instance(state.context).objectType
-              : formalTypeVar.getUpperBound();
-      // check if the upper bound should be treated as @Nullable, e.g., due to a library model or a
-      // type variable in @NullUnmarked code
-      if (formalTypeVar != null
-          && upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
-          && !Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
-        upperBound =
-            TypeSubstitutionUtils.typeWithAnnot(
-                upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
-      }
+              : typeVariableUpperBound(formalTypeVar, state, config, handler);
     }
     if (upperBound instanceof WildcardType nestedWildcard) {
       return wildcardUpperBound(nestedWildcard, state, config, handler);
     }
     if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
       return wildcardUpperBound(capturedType.wildcard, state, config, handler);
+    }
+    return upperBound;
+  }
+
+  /**
+   * Returns the upper bound of {@code typeVariable}, carrying {@code @Nullable} where that bound
+   * admits null.
+   *
+   * <p>The declared bound does not always say so itself: a library model may override it, and a
+   * type variable declared in unannotated code admits null whatever its bound reads. Where that
+   * holds, the returned type carries the annotation, so that one comparison serves a bound written
+   * as {@code @Nullable Object} and a bound that only behaves like one.
+   *
+   * <p>This describes the declaration and not a use of it. A {@code @Nullable T} carries its own
+   * nullness where it is written, and a caller that replaced it with this bound would discard what
+   * the reader wrote.
+   */
+  static Type typeVariableUpperBound(
+      Type.TypeVar typeVariable, VisitorState state, Config config, Handler handler) {
+    Type upperBound = typeVariable.getUpperBound();
+    if (upperBoundIsNullable(typeVariable.asElement(), config, handler, state)
+        && !Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return TypeSubstitutionUtils.typeWithAnnot(
+          upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
     }
     return upperBound;
   }
