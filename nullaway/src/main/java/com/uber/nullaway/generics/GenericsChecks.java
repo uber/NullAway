@@ -141,13 +141,14 @@ public final class GenericsChecks {
 
   /**
    * Returns the functional-interface method type for a poly expression after target-type
-   * substitution.
+   * substitution and application of library models.
    *
    * @param polyExpressionTree lambda or method-reference tree
    * @param state visitor state
-   * @return the method type, or {@code null} if the expression's target type is unavailable or raw
+   * @return the modeled method type, or {@code null} if the expression's target type is unavailable
+   *     or raw
    */
-  public Type.@Nullable MethodType getFunctionalInterfaceMethodType(
+  public Type.@Nullable MethodType getModeledFunctionalInterfaceMethodType(
       ExpressionTree polyExpressionTree, VisitorState state) {
     Type functionalInterfaceType = getInferredPolyExpressionType(polyExpressionTree);
     if (functionalInterfaceType == null) {
@@ -156,20 +157,28 @@ public final class GenericsChecks {
     if (functionalInterfaceType == null || functionalInterfaceType.isRaw()) {
       return null;
     }
-    return getFunctionalInterfaceMethodType(functionalInterfaceType, polyExpressionTree, state);
+    return getModeledFunctionalInterfaceMethodType(
+        functionalInterfaceType, polyExpressionTree, state);
   }
 
-  /** Returns a functional-interface method type as a member of {@code functionalInterfaceType}. */
-  private Type.MethodType getFunctionalInterfaceMethodType(
+  /**
+   * Returns a functional-interface method type as a member of {@code functionalInterfaceType}, with
+   * library models applied in JSpecify mode.
+   */
+  private Type.MethodType getModeledFunctionalInterfaceMethodType(
       Type functionalInterfaceType,
       ExpressionTree functionalInterfaceImplementation,
       VisitorState state) {
     Symbol.MethodSymbol functionalInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(
             functionalInterfaceImplementation, state.getTypes());
-    return TypeSubstitutionUtils.memberType(
-            state.getTypes(), functionalInterfaceType, functionalInterfaceMethod, config)
-        .asMethodType();
+    Type.MethodType methodType =
+        TypeSubstitutionUtils.memberType(
+                state.getTypes(), functionalInterfaceType, functionalInterfaceMethod, config)
+            .asMethodType();
+    return config.isJSpecifyMode()
+        ? handler.onOverrideMethodType(functionalInterfaceMethod, methodType, state, null)
+        : methodType;
   }
 
   /**
@@ -709,7 +718,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * Checks nested nullability for a lambda or method reference against its substituted
+   * Checks nested nullability for a lambda or method reference against its substituted, modeled
    * functional-interface method type.
    *
    * <p>Lambda return expressions are checked separately as they are visited; this method checks
@@ -717,7 +726,7 @@ public final class GenericsChecks {
    * type relations.
    *
    * @param functionalInterfaceImplementation lambda or method reference being checked
-   * @param functionalInterfaceMethodType substituted functional-interface method type
+   * @param functionalInterfaceMethodType substituted, modeled functional-interface method type
    * @param state visitor state
    */
   public void checkTypeParameterNullnessForFunctionalInterfaceImplementation(
@@ -1034,7 +1043,7 @@ public final class GenericsChecks {
               Symbol paramSymbol = ASTHelpers.getSymbol(param);
               if (paramSymbol != null && paramSymbol.equals(symbol)) {
                 Type.MethodType fiMethodType =
-                    getFunctionalInterfaceMethodType(inferredLambdaType, lambdaTree, state);
+                    getModeledFunctionalInterfaceMethodType(inferredLambdaType, lambdaTree, state);
                 return fiMethodType.getParameterTypes().get(i);
               }
             }
@@ -1751,7 +1760,7 @@ public final class GenericsChecks {
       return;
     }
     Type.MethodType functionalInterfaceMethodType =
-        getFunctionalInterfaceMethodType(groundTargetType, memberReferenceTree, state);
+        getModeledFunctionalInterfaceMethodType(groundTargetType, memberReferenceTree, state);
     GenericsUtils.processMethodRefTypeRelations(
         this,
         functionalInterfaceMethodType,
@@ -2115,7 +2124,7 @@ public final class GenericsChecks {
    * return type.
    *
    * @param retExpr returned expression
-   * @param formalReturnType effective formal return type, including substitutions
+   * @param formalReturnType effective formal return type, including substitutions and models
    * @param state visitor state
    */
   public void checkTypeParameterNullnessForFunctionReturnType(
