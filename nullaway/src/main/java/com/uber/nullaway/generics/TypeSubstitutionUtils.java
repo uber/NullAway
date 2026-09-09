@@ -151,6 +151,25 @@ public class TypeSubstitutionUtils {
   public static Type.WildcardType replaceUnboundedWildcardUpperBound(
       Type.WildcardType wildcard, Type.TypeVar typeVariable, Type upperBound) {
     Verify.verify(wildcard.kind == BoundKind.UNBOUND, "wildcard must be unbounded");
+    return replaceImplicitWildcardUpperBound(wildcard, typeVariable, upperBound);
+  }
+
+  /**
+   * Returns a copy of an unbounded or lower-bounded wildcard with its {@code bound} field set to a
+   * copy of {@code typeVariable} with {@code upperBound} as its upper bound.
+   *
+   * <p>The wildcard and type variable are both copied so that shared javac types are not mutated.
+   *
+   * @param wildcard the unbounded or lower-bounded wildcard to copy
+   * @param typeVariable the type variable that supplies the wildcard's implicit upper bound
+   * @param upperBound the new implicit upper bound
+   * @return the copied wildcard
+   */
+  private static Type.WildcardType replaceImplicitWildcardUpperBound(
+      Type.WildcardType wildcard, Type.TypeVar typeVariable, Type upperBound) {
+    Verify.verify(
+        wildcard.kind == BoundKind.UNBOUND || wildcard.kind == BoundKind.SUPER,
+        "wildcard must have an implicit upper bound");
     // A metadata clone of a javac TypeVar delegates setUpperBound() to the original TypeVar. Build
     // a genuinely detached TypeVar with the desired bound instead of mutating an apparent clone.
     Type.TypeVar updatedFormalTypeVariable =
@@ -404,10 +423,7 @@ public class TypeSubstitutionUtils {
           }
         }
         if (updatedUpperBound != upperBound) {
-          Type.WildcardType updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wt, wt.type);
-          updatedWildcard.bound =
-              TYPE_METADATA_BUILDER.createDetachedTypeVar(formalTypeVariable, updatedUpperBound);
-          wt = updatedWildcard;
+          wt = replaceImplicitWildcardUpperBound(wt, formalTypeVariable, updatedUpperBound);
         }
         if (wt.kind == BoundKind.UNBOUND) {
           return wt;
@@ -457,12 +473,8 @@ public class TypeSubstitutionUtils {
       if (wildcard.kind == BoundKind.EXTENDS) {
         return TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
       } else { // unbounded or lower-bounded wildcard
-        Type.WildcardType updated =
-            TYPE_METADATA_BUILDER.createWildcardType(wildcard, wildcard.type);
-        updated.bound =
-            TYPE_METADATA_BUILDER.createDetachedTypeVar(
-                Verify.verifyNotNull(implicitUpperBoundTypeVariable), updatedBound);
-        return updated;
+        return replaceImplicitWildcardUpperBound(
+            wildcard, Verify.verifyNotNull(implicitUpperBoundTypeVariable), updatedBound);
       }
     }
 
@@ -525,10 +537,9 @@ public class TypeSubstitutionUtils {
         if (updatedUpperBound == upperBound) {
           return updated;
         }
-        updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, t.wildcard.type);
-        updatedWildcard.bound =
-            TYPE_METADATA_BUILDER.createDetachedTypeVar(
-                implicitUpperBoundTypeVariable, updatedUpperBound);
+        updatedWildcard =
+            replaceImplicitWildcardUpperBound(
+                t.wildcard, implicitUpperBoundTypeVariable, updatedUpperBound);
       }
       if (updatedWildcard == t.wildcard) {
         return updated;
