@@ -229,6 +229,15 @@ tasks.named('check').configure {
     dependsOn(epOldestTest)
 }
 
+// Reverses the compilation units of each test and requires the same diagnostics; see
+// com.uber.nullaway.tools.SourceOrder.  CI turns this on for some rows of its matrix, and it is
+// scoped to the default test task so that a row pays for one extra compilation per multi-file
+// test rather than one per test task.
+tasks.named('test').configure {
+    systemProperty 'nullaway.permute.sources',
+        providers.gradleProperty('permuteSources').getOrElse('false')
+}
+
 [
     'test',
     'testJdk21',
