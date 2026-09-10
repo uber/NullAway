@@ -279,6 +279,25 @@ public interface Handler {
   }
 
   /**
+   * Called when NullAway visits an assignment node during dataflow analysis.
+   *
+   * @param node The assignment node being visited.
+   * @param state The current visitor state.
+   * @param apContext The current access path context.
+   * @param store The current nullness store.
+   * @param updates The updates to be applied to the store.
+   */
+  default void onDataflowVisitAssignment(
+      org.checkerframework.nullaway.dataflow.cfg.node.AssignmentNode node,
+      com.google.errorprone.VisitorState state,
+      com.uber.nullaway.dataflow.AccessPath.AccessPathContext apContext,
+      com.uber.nullaway.dataflow.AccessPathNullnessPropagation.SubNodeValues inputs,
+      com.uber.nullaway.dataflow.NullnessStore store,
+      com.uber.nullaway.dataflow.AccessPathNullnessPropagation.Updates updates) {
+    // NoOp
+  }
+
+  /**
    * Called when the Dataflow analysis visits each field access.
    *
    * @param node The AST node for the field access.
