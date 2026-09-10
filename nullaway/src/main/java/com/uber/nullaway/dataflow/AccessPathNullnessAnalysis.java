@@ -23,6 +23,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.annotations.DoNotCall;
 import com.google.errorprone.dataflow.nullnesspropagation.NullnessAnalysis;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.LambdaExpressionTree;
@@ -56,9 +57,6 @@ import org.jspecify.annotations.Nullable;
  */
 public final class AccessPathNullnessAnalysis {
 
-  private static final Context.Key<AccessPathNullnessAnalysis> FIELD_NULLNESS_ANALYSIS_KEY =
-      new Context.Key<>();
-
   private final AccessPath.AccessPathContext apContext;
 
   private final AccessPathNullnessPropagation nullnessPropagation;
@@ -67,7 +65,20 @@ public final class AccessPathNullnessAnalysis {
 
   private @Nullable AccessPathNullnessPropagation contractNullnessPropagation;
 
-  // Use #instance to instantiate
+  /**
+   * Creates an analysis instance. {@link NullAway} holds the single instance for a compilation and
+   * exposes it via {@link NullAway#getNullnessAnalysis(VisitorState)}; other code should go through
+   * that method rather than constructing an instance directly (hence the {@code @DoNotCall}
+   * annotation).
+   *
+   * @param state visitor state for the compilation
+   * @param analysis instance of NullAway analysis
+   */
+  @DoNotCall
+  public static AccessPathNullnessAnalysis create(VisitorState state, NullAway analysis) {
+    return new AccessPathNullnessAnalysis(state, analysis);
+  }
+
   private AccessPathNullnessAnalysis(VisitorState state, NullAway analysis) {
     Config config = analysis.getConfig();
     Handler handler = analysis.getHandler();
@@ -95,23 +106,6 @@ public final class AccessPathNullnessAnalysis {
               new ContractNullnessStoreInitializer(),
               /* trackUnreachableStores= */ true);
     }
-  }
-
-  /**
-   * Get the per-Javac instance of the analysis.
-   *
-   * @param state visitor state for the compilation
-   * @param analysis instance of NullAway analysis
-   * @return instance of the analysis
-   */
-  public static AccessPathNullnessAnalysis instance(VisitorState state, NullAway analysis) {
-    Context context = state.context;
-    AccessPathNullnessAnalysis instance = context.get(FIELD_NULLNESS_ANALYSIS_KEY);
-    if (instance == null) {
-      instance = new AccessPathNullnessAnalysis(state, analysis);
-      context.put(FIELD_NULLNESS_ANALYSIS_KEY, instance);
-    }
-    return instance;
   }
 
   /**

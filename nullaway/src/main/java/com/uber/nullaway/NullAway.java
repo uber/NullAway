@@ -235,6 +235,13 @@ public class NullAway extends BugChecker
 
   private boolean checkedJDKVersionForJSpecifyMode = false;
 
+  /**
+   * The dataflow analysis for this compilation; lazily created by {@link
+   * #getNullnessAnalysis(VisitorState)}, as its construction requires a {@link VisitorState}, which
+   * is not available in the constructor.
+   */
+  private @Nullable AccessPathNullnessAnalysis nullnessAnalysis;
+
   private final Config config;
 
   /** Returns the configuration being used for this analysis. */
@@ -3032,8 +3039,18 @@ public class NullAway extends BugChecker
     return NullabilityUtil.nullnessToBool(nullness);
   }
 
+  /**
+   * Returns the dataflow analysis for this compilation, creating it on the first call.
+   *
+   * @param state visitor state for the compilation
+   * @return the analysis instance
+   */
+  @SuppressWarnings("DoNotCall") // this is the one place a call to create() is allowed
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
-    return AccessPathNullnessAnalysis.instance(state, this);
+    if (nullnessAnalysis == null) {
+      nullnessAnalysis = AccessPathNullnessAnalysis.create(state, this);
+    }
+    return nullnessAnalysis;
   }
 
   private Description matchDereference(
