@@ -6,6 +6,8 @@ Unreleased
 
 * Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
 * Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` (#1815)
+* Maintenance
+  - Report diff coverage after each test run, quoting the changed lines the run did not execute and the branches it took one way, and writing the whole report to `<module>/build/reports/diff-coverage/test.txt`; a `// diff-coverage: ignore` comment moves a line out of that list without changing the counts by @vlsi (#1833)
 
 Version 0.14.1
 --------------
