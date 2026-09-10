@@ -304,9 +304,7 @@ public final class GenericsChecks {
     for (int i = 0; i < baseTypeArgs.size(); i++) {
       Type typeVariable = baseTypeArgs.get(i);
       Type upperBound = typeVariable.getUpperBound();
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          upperBound.getAnnotationMirrors();
-      if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+      if (GenericsUtils.isNullableAnnotated(upperBound, config)
           || handler.onOverrideClassTypeVariableUpperBound(type.tsym.toString(), i)) {
         result[i] = true;
       }
@@ -318,16 +316,67 @@ public final class GenericsChecks {
     com.sun.tools.javac.util.List<Attribute.TypeCompound> rawTypeAttributes =
         tsym.getRawTypeAttributes();
     if (rawTypeAttributes != null) {
+      Map<Integer, Set<Integer>> nullableBoundsPerTypeParam = new LinkedHashMap<>();
       for (Attribute.TypeCompound typeCompound : rawTypeAttributes) {
-        if (typeCompound.position.type.equals(TargetType.CLASS_TYPE_PARAMETER_BOUND)
-            && Nullness.isNullableAnnotation(
+        if (!typeCompound.position.type.equals(TargetType.CLASS_TYPE_PARAMETER_BOUND)
+            || !Nullness.isNullableAnnotation(
                 typeCompound.type.tsym.getQualifiedName().toString(), config)) {
-          int index = typeCompound.position.parameter_index;
-          result[index] = true;
+          continue;
+        }
+        int typeParamIndex = typeCompound.position.parameter_index;
+        Type bound =
+            boundAt(
+                baseTypeArgs.get(typeParamIndex).getUpperBound(),
+                typeCompound.position.bound_index);
+        // The annotation may sit on a type argument nested inside the bound, or on an enclosing
+        // type of a nested-class bound, rather than on the bound itself.
+        if (bound != null && NullabilityUtil.isDirectTypeUseAnnotation(typeCompound, bound)) {
+          nullableBoundsPerTypeParam
+              .computeIfAbsent(typeParamIndex, k -> new LinkedHashSet<>())
+              .add(typeCompound.position.bound_index);
         }
       }
+      nullableBoundsPerTypeParam.forEach(
+          (index, nullableBounds) ->
+              result[index] |=
+                  nullableBounds.size() == boundCount(baseTypeArgs.get(index).getUpperBound()));
     }
     return result;
+  }
+
+  /**
+   * Returns the bound that {@code boundIndex} names in a {@code CLASS_TYPE_PARAMETER_BOUND}
+   * type-annotation position, or {@code null} if the index names no bound of an intersection. The
+   * type path of such an annotation is relative to that one bound, so it cannot be read against the
+   * intersection. A type variable with a single bound has only that bound, which is returned for
+   * any index.
+   *
+   * <p>javac numbers the bounds of an intersection in declaration order, giving index 0 to the
+   * class bound. Where the declaration has none, index 0 goes to the implicit {@code Object}
+   * supertype and the declared bounds start at 1.
+   */
+  private static @Nullable Type boundAt(Type upperBound, int boundIndex) {
+    if (!(upperBound instanceof Type.IntersectionClassType intersectionType)) {
+      return upperBound;
+    }
+    com.sun.tools.javac.util.List<Type> bounds = intersectionType.getExplicitComponents();
+    int position = boundIndex - (intersectionType.allInterfaces ? 1 : 0);
+    return position >= 0 && position < bounds.size() ? bounds.get(position) : null;
+  }
+
+  /**
+   * Returns the number of bounds declared for a type variable with the given upper bound. An
+   * intersection bound includes {@code null} only when every one of these bounds is annotated
+   * {@code @Nullable}.
+   *
+   * <p>An intersection whose bounds are all interfaces carries an implicit {@code Object} supertype
+   * that the declaration did not write, hence {@code getExplicitComponents()}. It occupies {@code
+   * bound_index} 0 but never carries an annotation; see {@link #boundAt}.
+   */
+  private static int boundCount(Type upperBound) {
+    return upperBound instanceof Type.IntersectionClassType intersectionType
+        ? intersectionType.getExplicitComponents().size()
+        : 1;
   }
 
   /**
@@ -373,10 +422,8 @@ public final class GenericsChecks {
       if (nullableTypeArguments.containsKey(i)) {
         Type typeVariable = baseTypeVariables.get(i);
         Type upperBound = typeVariable.getUpperBound();
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+            GenericsUtils.isNullableAnnotated(upperBound, config)
                 || handler.onOverrideClassTypeVariableUpperBound(baseType.tsym.toString(), i);
         // if type variable's upper bound does not have @Nullable annotation then the instantiation
         // is invalid
@@ -1988,16 +2035,21 @@ public final class GenericsChecks {
 
   private Type updateTypeWithNullness(
       VisitorState state, Type argumentType, Nullness refinedNullness) {
+    // Both branches act on the top-level annotation of argumentType, so they read the mirrors
+    // rather than going through GenericsUtils#isNullableAnnotated: removeNullableAnnotation
+    // requires a top-level annotation to be present, which an intersection never has.
+    boolean hasNullableAnnotation =
+        Nullness.hasNullableAnnotation(argumentType.getAnnotationMirrors().stream(), config);
     if (NullabilityUtil.nullnessToBool(refinedNullness)) {
       // refine to @Nullable
-      if (isNullableAnnotated(argumentType)) {
+      if (hasNullableAnnotation) {
         return argumentType;
       }
       return TypeSubstitutionUtils.typeWithAnnot(
           argumentType, getSyntheticNullableAnnotType(state));
     } else {
       // refine to @NonNull, by removing the top-level @Nullable annotation if present.
-      if (!isNullableAnnotated(argumentType)) {
+      if (!hasNullableAnnotation) {
         return argumentType;
       }
       return TypeSubstitutionUtils.removeNullableAnnotation(argumentType, config);
@@ -2131,8 +2183,8 @@ public final class GenericsChecks {
       Type.ArrayType rhsArrayType = (Type.ArrayType) rhsType;
       Type lhsComponentType = lhsArrayType.getComponentType();
       Type rhsComponentType = rhsArrayType.getComponentType();
-      boolean isLHSNullableAnnotated = isNullableAnnotated(lhsComponentType);
-      boolean isRHSNullableAnnotated = isNullableAnnotated(rhsComponentType);
+      boolean isLHSNullableAnnotated = GenericsUtils.isNullableAnnotated(lhsComponentType, config);
+      boolean isRHSNullableAnnotated = GenericsUtils.isNullableAnnotated(rhsComponentType, config);
       // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
       if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
         return false;
@@ -2758,7 +2810,7 @@ public final class GenericsChecks {
       return true;
     }
     Type upperBound = substitutedTypeVar.getUpperBound();
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isNullableAnnotated(upperBound, config)) {
       return true;
     }
     if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
@@ -2775,7 +2827,7 @@ public final class GenericsChecks {
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     Type originalBound =
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-    if (Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isNullableAnnotated(originalBound, config)) {
       return true;
     }
     if (Nullness.hasNonNullAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
@@ -3587,12 +3639,7 @@ public final class GenericsChecks {
    * @return Returns the Nullness of the type based on the Nullability annotation.
    */
   private Nullness getTypeNullness(Type type) {
-    boolean hasNullableAnnotation =
-        Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
-    if (hasNullableAnnotation) {
-      return Nullness.NULLABLE;
-    }
-    return Nullness.NONNULL;
+    return GenericsUtils.isNullableAnnotated(type, config) ? Nullness.NULLABLE : Nullness.NONNULL;
   }
 
   /**
@@ -3724,10 +3771,6 @@ public final class GenericsChecks {
     inferredVarLocalTypes.clear();
     varLocalDeclarations.clear();
     nestedNullabilityRepairInProgress.clear();
-  }
-
-  public boolean isNullableAnnotated(Type type) {
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
   /**
