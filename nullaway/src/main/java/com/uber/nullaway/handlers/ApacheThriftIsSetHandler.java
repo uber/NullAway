@@ -26,7 +26,7 @@ import static com.google.errorprone.util.ASTHelpers.getEnclosedElements;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
-import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -56,13 +56,13 @@ public class ApacheThriftIsSetHandler implements Handler {
   private Optional<Type> tbaseType;
 
   /**
-   * This method is annotated {@code @Initializer} since it will be invoked when the first class is
-   * processed, before any other handler methods
+   * This method is annotated {@code @Initializer} since it will be invoked when the first
+   * compilation unit is processed, before any other handler methods.
    */
   @Initializer
   @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+  public void onMatchCompilationUnit(
+      NullAway analysis, CompilationUnitTree tree, VisitorState state) {
     if (tbaseType == null) {
       tbaseType =
           Optional.ofNullable(TBASE_TYPE_SUPPLIER.get(state)).map(state.getTypes()::erasure);
