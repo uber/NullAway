@@ -420,7 +420,9 @@ public final class GenericsChecks {
   private void reportInvalidAssignmentInstantiationError(
       Tree tree, Type lhsType, Type rhsType, VisitorState state) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-    String msg = errorMessageForIncompatibleTypesAtPseudoAssignment(lhsType, rhsType, state);
+    String msg =
+        new NullabilityMismatchMessage(this, config, handler, state)
+            .build(lhsType, rhsType, tree instanceof VariableTree);
     ErrorMessage errorMessage =
         new ErrorMessage(ErrorMessage.MessageTypes.ASSIGN_GENERIC_NULLABLE, msg);
     state.reportMatch(
@@ -428,178 +430,14 @@ public final class GenericsChecks {
             errorMessage, analysis.buildDescription(tree), state, null));
   }
 
-  private String errorMessageForIncompatibleTypesAtPseudoAssignment(
-      Type lhsType, Type rhsType, VisitorState state) {
-    String prettyRhsType = prettyTypeForError(rhsType, state);
-    String prettyLhsType = prettyTypeForError(lhsType, state);
-    String result =
-        String.format(
-            "incompatible types: %s cannot be converted to %s", prettyRhsType, prettyLhsType);
-    boolean allowNonCaptureMismatch = prettyRhsType.equals(prettyLhsType);
-    WildcardBoundMismatch wildcardBoundMismatch =
-        firstWildcardBoundMismatch(lhsType, rhsType, state, allowNonCaptureMismatch);
-    if (wildcardBoundMismatch != null) {
-      result += " (" + describeWildcardBoundMismatch(wildcardBoundMismatch) + ")";
-    }
-    if (!ASTHelpers.isSameType(lhsType, rhsType, state)
-        && lhsType.getKind() == TypeKind.DECLARED
-        && rhsType.getKind() == TypeKind.DECLARED) {
-      Symbol.TypeSymbol lhsSym = lhsType.asElement();
-      if (lhsSym instanceof Symbol.ClassSymbol classSymbol) {
-        Type asSuper =
-            TypeSubstitutionUtils.asSuper(state.getTypes(), rhsType, classSymbol, config);
-        if (asSuper != null) {
-          result +=
-              String.format(
-                  " (%s is a subtype of %s)", prettyRhsType, prettyTypeForError(asSuper, state));
-        }
-      }
-    }
-    return result;
-  }
-
-  /**
-   * Returns the first wildcard bound difference between {@code lhsType} and {@code rhsType}, or
-   * {@code null} if no such difference can be found. Recursively traverses {@code lhsType} and
-   * {@code rhsType} to find such a difference.
-   *
-   * <p>This is especially useful when two types pretty-print identically, but differ in the
-   * effective upper bound of a wildcard nested somewhere inside the type.
-   *
-   * @param lhsType the lhs (target) type
-   * @param rhsType the rhs (source) type
-   * @param state the visitor state
-   * @param allowNonCaptureMismatch whether a mismatch may be returned when neither causal wildcard
-   *     is captured. Such details are useful when the full types print identically, but redundant
-   *     when the full types already expose the difference.
-   */
-  private @Nullable WildcardBoundMismatch firstWildcardBoundMismatch(
-      Type lhsType, Type rhsType, VisitorState state, boolean allowNonCaptureMismatch) {
-    // base case: both wildcard types
-    Type.WildcardType lhsWildcard = GenericsUtils.asWildcard(lhsType);
-    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsType);
-    if (lhsWildcard != null && rhsWildcard != null) {
-      if (!allowNonCaptureMismatch
-          && !(lhsType instanceof Type.CapturedType)
-          && !(rhsType instanceof Type.CapturedType)) {
-        return null;
-      }
-      return wildcardBoundMismatch(lhsType, rhsType, lhsWildcard, rhsWildcard, state);
-    }
-    if (lhsType instanceof Type.ClassType lhsClassType && rhsType instanceof Type.ClassType) {
-      Type rhsTypeAsSuper =
-          TypeSubstitutionUtils.asSuper(
-              state.getTypes(), rhsType, (Symbol.ClassSymbol) lhsType.tsym, config);
-      if (!(rhsTypeAsSuper instanceof Type.ClassType rhsClassType)
-          || rhsTypeAsSuper.isRaw()
-          || lhsType.isRaw()) {
-        return null;
-      }
-      List<Type> lhsTypeArguments = lhsClassType.getTypeArguments();
-      List<Type> rhsTypeArguments = rhsClassType.getTypeArguments();
-      if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
-        return null;
-      }
-      for (int i = 0; i < lhsTypeArguments.size(); i++) {
-        WildcardBoundMismatch mismatch =
-            firstWildcardBoundMismatch(
-                lhsTypeArguments.get(i), rhsTypeArguments.get(i), state, allowNonCaptureMismatch);
-        if (mismatch != null) {
-          return mismatch;
-        }
-      }
-      return firstWildcardBoundMismatch(
-          lhsClassType.getEnclosingType(),
-          rhsClassType.getEnclosingType(),
-          state,
-          allowNonCaptureMismatch);
-    }
-    if (lhsType instanceof Type.ArrayType lhsArrayType
-        && rhsType instanceof Type.ArrayType rhsArrayType) {
-      return firstWildcardBoundMismatch(
-          lhsArrayType.elemtype, rhsArrayType.elemtype, state, allowNonCaptureMismatch);
-    }
-    return null;
-  }
-
-  /**
-   * Creates a structured mismatch for two wildcards with visibly different effective upper bounds,
-   * or returns {@code null} if those bounds pretty-print the same.
-   */
-  private @Nullable WildcardBoundMismatch wildcardBoundMismatch(
-      Type lhsType,
-      Type rhsType,
-      Type.WildcardType lhsWildcard,
-      Type.WildcardType rhsWildcard,
-      VisitorState state) {
-    Type lhsUpperBound = GenericsUtils.wildcardUpperBound(lhsWildcard, state, config, handler);
-    Type rhsUpperBound = GenericsUtils.wildcardUpperBound(rhsWildcard, state, config, handler);
-    String prettyLhsUpperBound = prettyTypeForError(lhsUpperBound, state);
-    String prettyRhsUpperBound = prettyTypeForError(rhsUpperBound, state);
-    if (!prettyLhsUpperBound.equals(prettyRhsUpperBound)) {
-      return new WildcardBoundMismatch(lhsType, rhsType, prettyLhsUpperBound, prettyRhsUpperBound);
-    }
-    return null;
-  }
-
-  /**
-   * Describes a wildcard-bound mismatch, including provenance for every captured wildcard that
-   * directly participates in that mismatch.
-   */
-  private static String describeWildcardBoundMismatch(WildcardBoundMismatch mismatch) {
-    String result =
-        String.format(
-            "target wildcard upper bound is %s; source wildcard upper bound is %s",
-            mismatch.prettyTargetUpperBound(), mismatch.prettySourceUpperBound());
-    String targetCaptureDescription =
-        captureProvenanceDescription(mismatch.targetWildcardType(), "target");
-    if (targetCaptureDescription != null) {
-      result += "; " + targetCaptureDescription;
-    }
-    String sourceCaptureDescription =
-        captureProvenanceDescription(mismatch.sourceWildcardType(), "source");
-    if (sourceCaptureDescription != null) {
-      result += "; " + sourceCaptureDescription;
-    }
-    return result;
-  }
-
-  /** Returns a short description of the type parameter underlying a captured type, if available. */
-  private static @Nullable String captureProvenanceDescription(Type type, String assignmentRole) {
-    if (!(type instanceof Type.CapturedType capturedType)) {
-      return null;
-    }
-    Type.TypeVar formalTypeVariable = capturedType.wildcard.bound;
-    if (formalTypeVariable == null
-        || !(formalTypeVariable.tsym.owner instanceof Symbol.ClassSymbol owner)
-        || owner.getSimpleName().isEmpty()) {
-      return null;
-    }
-    return String.format(
-        "%s wildcard is the type argument for type variable %s of %s",
-        assignmentRole, formalTypeVariable.tsym.getSimpleName(), owner.getSimpleName());
-  }
-
-  /**
-   * A difference between the effective upper bounds of two corresponding wildcards.
-   *
-   * <p>The wildcard types are retained so the diagnostic can report provenance for the captured
-   * wildcard or wildcards that directly caused the mismatch, without reporting unrelated captures
-   * elsewhere in the enclosing types.
-   */
-  private record WildcardBoundMismatch(
-      Type targetWildcardType,
-      Type sourceWildcardType,
-      String prettyTargetUpperBound,
-      String prettySourceUpperBound) {}
-
   private void reportInvalidReturnTypeError(
       Tree tree, Type methodType, Type returnType, VisitorState state) {
     ErrorBuilder errorBuilder = analysis.getErrorBuilder();
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.RETURN_NULLABLE_GENERIC,
-            errorMessageForIncompatibleTypesAtPseudoAssignment(methodType, returnType, state));
+            new NullabilityMismatchMessage(this, config, handler, state)
+                .build(methodType, returnType, false));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(tree), state, null));
@@ -631,8 +469,8 @@ public final class GenericsChecks {
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC,
-            errorMessageForIncompatibleTypesAtPseudoAssignment(
-                formalParameterType, actualParameterType, state));
+            new NullabilityMismatchMessage(this, config, handler, state)
+                .build(formalParameterType, actualParameterType, false));
     state.reportMatch(
         errorBuilder.createErrorDescription(
             errorMessage, analysis.buildDescription(paramExpression), state, null));
@@ -3642,9 +3480,10 @@ public final class GenericsChecks {
 
   /**
    * Returns a pretty-printed representation of type suitable for error messages. The representation
-   * uses simple names rather than fully-qualified names, and retains all type-use annotations.
+   * uses simple names rather than fully-qualified names, and keeps {@code @Nullable} and drops
+   * every other type-use annotation.
    */
-  private static String prettyTypeForError(Type type, VisitorState state) {
+  static String prettyTypeForError(Type type, VisitorState state) {
     return type.accept(new GenericTypePrettyPrintingVisitor(state), null);
   }
 

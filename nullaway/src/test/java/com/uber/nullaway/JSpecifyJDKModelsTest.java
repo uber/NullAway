@@ -105,7 +105,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
               }
 
               static boolean callOwnExtendsObject(Collection<@Nullable String> collection) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required Object
                 return ownExtendsObject(collection);
               }
             }
@@ -466,7 +466,7 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
                 return list.toArray();
               }
               static Object[] invalidCall(List<String> list) {
-                // BUG: Diagnostic contains: incompatible types: @Nullable Object [] cannot be converted to Object []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Object, required Object
                 return list.toArray();
               }
               static class DelegatingList extends AbstractList<String> {
