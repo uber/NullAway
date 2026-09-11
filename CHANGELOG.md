@@ -4,6 +4,8 @@ Changelog
 Unreleased
 ----------
 
+* JSpecify: report a type argument whose declared upper bound admits null where a wildcard requires a non-null one, an assignment that was accepted silently before; for example a `Box<T>` with `T extends @Nullable Object` passed to a `Box<? extends Object>` parameter, a `Box<? extends T>` with the same `T` passed to the same parameter, or a `Box<S>` with `S extends @Nullable T` passed to a `Box<? extends T>` whose `T` cannot be null, by @vlsi (#1834)
+  - This also reaches override checks: an override returning `List<V>` where the overridden method returns `List<? extends @NonNull V>` now reports `mismatched type parameter nullability`, since `V` may be null and `@NonNull V` may not. Code that compiled clean can need a narrower return type or a suppression
 * Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
 * Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` (#1815)
 
