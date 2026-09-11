@@ -1420,13 +1420,18 @@ public final class GenericsChecks {
   }
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
-  private com.sun.tools.javac.util.List<Symbol.TypeVariableSymbol> getCallTypeParameters(
-      ExpressionTree callTree) {
+  private List<Symbol.TypeVariableSymbol> getCallTypeParameters(ExpressionTree callTree) {
     if (callTree instanceof MethodInvocationTree invocationTree) {
       return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
     }
     Verify.verify(callTree instanceof NewClassTree);
-    return getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.getTypeParameters();
+    NewClassTree newClassTree = (NewClassTree) callTree;
+    List<Symbol.TypeVariableSymbol> typeParameters =
+        new ArrayList<>(getConstructedTypeAtCallSite(newClassTree).tsym.getTypeParameters());
+    if (newClassTree.getTypeArguments().isEmpty()) {
+      typeParameters.addAll(getMethodSymbolForCall(newClassTree).getTypeParameters());
+    }
+    return typeParameters;
   }
 
   /**
@@ -1438,9 +1443,10 @@ public final class GenericsChecks {
    * receiver of type {@code Foo<@Nullable Object>}, the return type is {@code @Nullable Object}.
    *
    * <p>Type variables being inferred for this call remain unsubstituted so constraints can be
-   * generated for them. These are method type variables for a generic method invocation and class
-   * type variables for a diamond constructor. Unlike {@link #getInvokedMethodTypeAtCall}, this
-   * method does not resolve those variables using an already-computed inference result.
+   * generated for them. These are method type variables for a generic method invocation, and class
+   * and constructor type variables for a diamond constructor. Unlike {@link
+   * #getInvokedMethodTypeAtCall}, this method does not resolve those variables using an
+   * already-computed inference result.
    */
   private Type.MethodType getExecutableTypeForInference(
       ExpressionTree callTree,
@@ -1501,6 +1507,10 @@ public final class GenericsChecks {
       Set<Tree> allCalls,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
+    // Register all type variables whose nullability is inferred for this call.
+    for (Symbol.TypeVariableSymbol typeVariable : getCallTypeParameters(callTree)) {
+      solver.registerInferenceVariable(typeVariable);
+    }
     Type.MethodType methodType =
         getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     // first, handle the call result flow
@@ -1673,6 +1683,16 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
+    // if we have a reference to a generic method, and the call site does not pass explicit type
+    // arguments, register the referenced method's type variables as inference variables
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+    List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
+    if (referencedMethod != null
+        && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
+      for (Symbol.TypeVariableSymbol typeVariable : referencedMethod.getTypeParameters()) {
+        solver.registerInferenceVariable(typeVariable);
+      }
+    }
     Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
     GenericsUtils.processMethodRefTypeRelations(
         this,

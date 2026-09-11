@@ -36,6 +36,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Handler handler;
   private final VisitorState state;
 
+  /** Type variables belonging to the calls participating in this inference problem. */
+  private final Set<Element> inferenceVariables = new LinkedHashSet<>();
+
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.handler = analysis.getHandler();
@@ -80,6 +83,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Map<Element, VarState> vars = new LinkedHashMap<>();
 
   /* ───────────────────── public API ───────────────────── */
+
+  @Override
+  public void registerInferenceVariable(Element typeVariable) {
+    inferenceVariables.add(typeVariable);
+  }
 
   @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
@@ -368,10 +376,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /**
    * Records that {@code t} must be {@code @Nullable}.
    *
-   * <p>Only an inference variable takes a constraint, meaning a type-variable use with no explicit
-   * nullness annotation. Every other type already has a fixed nullness, including a class type and
-   * an explicitly annotated type-variable use. For those cases, this method does not introduce any
-   * constraint, and the normal type compatibility checks report any incompatibility.
+   * <p>Only a registered inference variable with no explicit nullness annotation takes a
+   * constraint. For other types, including enclosing type parameters and explicitly annotated
+   * type-variable uses, this method does not introduce any constraint, and the normal type
+   * compatibility checks report any incompatibility.
    *
    * @param t the type to constrain
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
@@ -385,10 +393,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /**
    * Records that {@code t} must be {@code @NonNull}.
    *
-   * <p>Only an inference variable takes a constraint, meaning a type-variable use with no explicit
-   * nullness annotation. Every other type already has a fixed nullness, including a class type and
-   * an explicitly annotated type-variable use. For those cases, this method does not introduce any
-   * constraint, and the normal type compatibility checks report any incompatibility.
+   * <p>Only a registered inference variable with no explicit nullness annotation takes a
+   * constraint. For other types, including enclosing type parameters and explicitly annotated
+   * type-variable uses, this method does not introduce any constraint, and the normal type
+   * compatibility checks report any incompatibility.
    *
    * @param t the type to constrain
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
@@ -407,24 +415,40 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         v -> new VarState(GenericsUtils.upperBoundIsNullable(v, config, handler, state)));
   }
 
+  /** Returns whether this use denotes an inference variable without a nullness override. */
   private boolean treatAsTypeVariableForInference(Type t) {
     if (t instanceof TypeVar tv) {
       // Only treat as a type variable if it _doesn't_ have an explicit @Nullable or @NonNull
       // annotation.
-      return !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
+      return inferenceVariables.contains(tv.asElement())
+          && !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
           && !Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors().stream(), config);
     } else {
       return false;
     }
   }
 
+  /** Returns whether a type is explicitly nullable or is the null type. */
   private boolean isKnownNullable(Type t) {
     return t instanceof NullType
         || Nullness.hasNullableAnnotation(t.getAnnotationMirrors().stream(), config);
   }
 
-  /** Everything non-nullable *and* non-variable counts as @NonNull. */
+  /**
+   * Returns whether a type is known non-null without solving inference constraints.
+   *
+   * <p>For the null type and types with an explicit {@code @Nullable} annotation, returns {@code
+   * false}. All other non-type-variable types are treated as non-null. Type-variable uses with an
+   * explicit {@code @NonNull} annotation are also known non-null; unannotated inference variables
+   * are not. For unannotated fixed type variables, a non-null upper bound establishes non-nullness,
+   * while a nullable upper bound alone establishes neither known-nullable nor known-non-null
+   * status.
+   */
   private boolean isKnownNonNull(Type t) {
-    return !isKnownNullable(t) && !treatAsTypeVariableForInference(t);
+    return !isKnownNullable(t)
+        && !treatAsTypeVariableForInference(t)
+        && (!(t instanceof TypeVar tv)
+            || Nullness.hasNonNullAnnotation(t.getAnnotationMirrors().stream(), config)
+            || !GenericsUtils.upperBoundIsNullable(tv.asElement(), config, handler, state));
   }
 }

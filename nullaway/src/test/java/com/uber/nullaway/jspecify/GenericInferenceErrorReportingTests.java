@@ -26,6 +26,32 @@ import org.junit.Test;
  */
 public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
 
+  @Test
+  public void issue1821DoNotTreatCallerTypeVariableAsAnInferenceVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Arrays;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              public static <E> E @Nullable [] copyOfConditionalExpression(E @Nullable [] original) {
+                return original == null
+                    ? null
+                    // BUG: Diagnostic contains: Conditional expression must have type E @Nullable [] but the sub-expression has type @Nullable E []
+                    : Arrays.copyOf(original, original.length);
+              }
+              public static <E> E @Nullable [] copyOfDirectReturn(E [] original) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable E [] cannot be converted to E @Nullable []
+                return Arrays.copyOf(original, original.length);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Source compiled before each call site, padded so a misattributed diagnostic lands on an
    * existing line and cannot be dropped by the test framework.
