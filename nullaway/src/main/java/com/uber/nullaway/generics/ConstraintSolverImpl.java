@@ -17,7 +17,9 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.Map;
@@ -89,6 +91,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
     private boolean localVariableType;
+
+    /**
+     * Wildcard containment checks currently in progress, keyed by the formal wildcard. Used to stop
+     * recursion through self-referential bounds.
+     */
+    private final IdentityHashMap<WildcardType, Set<Type>> activeWildcardContainments =
+        new IdentityHashMap<>();
 
     AddSubtypeConstraintsVisitor(boolean localVariableType) {
       this.localVariableType = localVariableType;
@@ -215,28 +224,47 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * bound to be a subtype of {@code S}. For {@code ? super S}, concrete actual arguments require
      * {@code S <: subtypeTypeArg}; {@code ? super T} actual arguments require {@code S <: T}. Other
      * actual wildcard forms place no useful nullability constraint.
+     *
+     * <p>Self-referential bounds such as {@code N extends Node<?>} can lead back to the exact same
+     * containment check. Re-entering a check that is already in progress adds no constraints, since
+     * the outer visit of that pair is already adding them.
      */
     private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
-      switch (supertypeWildcard.kind) {
-        case UNBOUND, EXTENDS -> {
-          Type subtypeUpperBound =
-              GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
-          subtypeUpperBound.accept(
-              this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
-        }
-        case SUPER -> {
-          Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
-          WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
-          if (subtypeWildcard != null) {
-            if (subtypeWildcard.kind == BoundKind.SUPER) {
-              supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
-            }
-            // the subtype wildcard could have an extends bound, but as far as I know we do not
-            // need to generate constraints for this case
-            // TODO revisit if needed
-          } else {
-            supertypeLowerBound.accept(this, subtypeTypeArg);
+      Set<Type> activeSubtypeArguments = activeWildcardContainments.get(supertypeWildcard);
+      if (activeSubtypeArguments == null) {
+        activeSubtypeArguments = Collections.newSetFromMap(new IdentityHashMap<>());
+        activeWildcardContainments.put(supertypeWildcard, activeSubtypeArguments);
+      } else if (activeSubtypeArguments.contains(subtypeTypeArg)) {
+        return;
+      }
+      activeSubtypeArguments.add(subtypeTypeArg);
+      try {
+        switch (supertypeWildcard.kind) {
+          case UNBOUND, EXTENDS -> {
+            Type subtypeUpperBound =
+                GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
+            subtypeUpperBound.accept(
+                this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
           }
+          case SUPER -> {
+            Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
+            WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
+            if (subtypeWildcard != null) {
+              if (subtypeWildcard.kind == BoundKind.SUPER) {
+                supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
+              }
+              // the subtype wildcard could have an extends bound, but as far as I know we do not
+              // need to generate constraints for this case
+              // TODO revisit if needed
+            } else {
+              supertypeLowerBound.accept(this, subtypeTypeArg);
+            }
+          }
+        }
+      } finally {
+        activeSubtypeArguments.remove(subtypeTypeArg);
+        if (activeSubtypeArguments.isEmpty()) {
+          activeWildcardContainments.remove(supertypeWildcard);
         }
       }
     }
