@@ -22,6 +22,7 @@ public class WildcardTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               interface Holder<V extends @Nullable Object> {
+                // IMPORTANT: Explicit @NonNull annotation on these methods:
                 @NonNull V value();
                 ConcurrentMap<String, @NonNull V> asMap();
               }
