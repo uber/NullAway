@@ -10,9 +10,7 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
-  public void nonNullTypeVariableThroughWildcardCapture() {
-    // https://github.com/uber/NullAway/issues/1823
-    // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
+  public void nonNullTypeVariableThroughNullableTypeArgument() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -33,25 +31,201 @@ public class WildcardTests extends NullAwayTestsBase {
                 takesNonNull(holder.value());
                 holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonNullTypeVariableThroughNonNullBoundedWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.ConcurrentMap;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                // IMPORTANT: Explicit @NonNull annotation on these methods:
+                @NonNull V value();
+                ConcurrentMap<String, @NonNull V> asMap();
+              }
+
+              static void takesNonNull(Object value) {}
 
               static void nonNullBoundedWildcard(Holder<? extends Object> holder) {
                 takesNonNull(holder.value());
                 holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonNullTypeVariableThroughUnboundedWildcard() {
+    // https://github.com/uber/NullAway/issues/1823
+    // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.ConcurrentMap;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                // IMPORTANT: Explicit @NonNull annotation on these methods:
+                @NonNull V value();
+                ConcurrentMap<String, @NonNull V> asMap();
+              }
+
+              static void takesNonNull(Object value) {}
 
               static void unboundedWildcard(Holder<?> holder) {
                 takesNonNull(holder.value());
                 holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonNullTypeVariableThroughNullableBoundedWildcard() {
+    // https://github.com/uber/NullAway/issues/1823
+    // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.ConcurrentMap;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                // IMPORTANT: Explicit @NonNull annotation on these methods:
+                @NonNull V value();
+                ConcurrentMap<String, @NonNull V> asMap();
+              }
+
+              static void takesNonNull(Object value) {}
 
               static void nullableBoundedWildcard(Holder<? extends @Nullable Object> holder) {
                 takesNonNull(holder.value());
                 holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonNullTypeVariableThroughSuperBoundedWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.ConcurrentMap;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                // IMPORTANT: Explicit @NonNull annotation on these methods:
+                @NonNull V value();
+                ConcurrentMap<String, @NonNull V> asMap();
+              }
+
+              static void takesNonNull(Object value) {}
 
               static void superBoundedWildcard(Holder<? super String> holder) {
                 takesNonNull(holder.value());
                 holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeVariableInTypeArgumentThroughUnboundedWildcardStaysNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V> {
+                @Nullable V value();
+                List<@Nullable V> list();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void unboundedWildcard(Holder<?> holder) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.list().get(0)'
+                takesNonNull(holder.list().get(0));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeVariableInTypeArgumentThroughNonNullBoundedWildcardStaysNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V> {
+                @Nullable V value();
+                List<@Nullable V> list();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void nonNullBoundedWildcard(Holder<? extends Object> holder) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.list().get(0)'
+                takesNonNull(holder.list().get(0));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeVariableInTypeArgumentThroughSuperBoundedWildcardStaysNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V> {
+                @Nullable V value();
+                List<@Nullable V> list();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void superBoundedWildcard(Holder<? super String> holder) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.list().get(0)'
+                takesNonNull(holder.list().get(0));
               }
             }
             """)
