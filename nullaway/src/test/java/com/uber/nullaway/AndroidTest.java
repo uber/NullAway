@@ -12,7 +12,7 @@ import org.junit.runners.JUnit4;
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
 @RunWith(JUnit4.class)
 public class AndroidTest {
-  private static final String CORE_FRAGMENT_STUB =
+  private static final String ANDROID_APP_FRAGMENT_STUB =
       """
       package android.app;
 
@@ -83,7 +83,7 @@ public class AndroidTest {
       }
       """;
 
-  private static final String CORE_ACTIVITY_STUB =
+  private static final String ANDROID_APP_CORE_ACTIVITY_STUB =
       """
       package android.app;
 
@@ -150,7 +150,7 @@ public class AndroidTest {
   public void coreFragmentSuccess() {
     initializeAndroidCoreClasses();
     compilationHelper
-        .addSourceLines("androidstubs/core/Fragment.java", CORE_FRAGMENT_STUB)
+        .addSourceLines("androidstubs/core/Fragment.java", ANDROID_APP_FRAGMENT_STUB)
         .addSourceLines(
             "android-success/CoreFragment.java",
             """
@@ -196,7 +196,7 @@ public class AndroidTest {
   public void coreFragmentMissingOnAttachError() {
     initializeAndroidCoreClasses();
     compilationHelper
-        .addSourceLines("androidstubs/core/Fragment.java", CORE_FRAGMENT_STUB)
+        .addSourceLines("androidstubs/core/Fragment.java", ANDROID_APP_FRAGMENT_STUB)
         .addSourceLines(
             "android-error/CoreFragmentWithoutOnAttach.java",
             """
@@ -236,7 +236,7 @@ public class AndroidTest {
   public void coreFragmentMissingOnCreateError() {
     initializeAndroidCoreClasses();
     compilationHelper
-        .addSourceLines("androidstubs/core/Fragment.java", CORE_FRAGMENT_STUB)
+        .addSourceLines("androidstubs/core/Fragment.java", ANDROID_APP_FRAGMENT_STUB)
         .addSourceLines(
             "android-error/CoreFragmentWithoutOnCreate.java",
             """
@@ -276,7 +276,7 @@ public class AndroidTest {
   public void coreFragmentMissingOnCreateViewError() {
     initializeAndroidCoreClasses();
     compilationHelper
-        .addSourceLines("androidstubs/core/Fragment.java", CORE_FRAGMENT_STUB)
+        .addSourceLines("androidstubs/core/Fragment.java", ANDROID_APP_FRAGMENT_STUB)
         .addSourceLines(
             "android-error/CoreFragmentWithoutOnCreateView.java",
             """
@@ -651,7 +651,7 @@ public class AndroidTest {
   public void coreActivitySuccess() {
     initializeAndroidCoreClasses();
     compilationHelper
-        .addSourceLines("androidstubs/core/Activity.java", CORE_ACTIVITY_STUB)
+        .addSourceLines("androidstubs/core/Activity.java", ANDROID_APP_CORE_ACTIVITY_STUB)
         .addSourceLines(
             "android-success/CoreActivity.java",
             """
