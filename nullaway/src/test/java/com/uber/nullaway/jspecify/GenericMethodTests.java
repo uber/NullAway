@@ -522,6 +522,37 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferGenericConstructorTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T> {
+                <U extends @Nullable Object> Box(Supplier<? super U> supplier) {}
+              }
+              void test() {
+                // no error: U should be inferred to be @Nullable
+                Box<String> box = new Box<>(() -> null);
+              }
+              static class Box2<T> {
+                <U extends Object> Box2(Supplier<? extends U> supplier) {}
+              }
+              void test2() {
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                Box2<String> box = new Box2<>(() -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAnnotOnMethodTypeVarUse() {
     makeHelper()
         .addSourceLines(
