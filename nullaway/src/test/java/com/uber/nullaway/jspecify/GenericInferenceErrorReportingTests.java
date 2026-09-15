@@ -46,14 +46,20 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                     ? null
                     // NOTE: this does not typecheck because the JSpecify JDK model of Arrays.copyOf annotates its
                     // return type as @Nullable T[] (where T is copyOf's type variable), which is incompatible with the
-                    // return type E @Nullable [] of the enclosing method
+                    // return type E @Nullable [] of the enclosing method.  Arrays.copyOf returns an explicit @Nullable T[]
+                    // since it will pad the array with `null` whenever the passed new length is greater
+                    // than original.length (the example below is safe, but NullAway / JSpecify do not reason
+                    // about integer constraints)
                     // BUG: Diagnostic contains: Conditional expression must have type E @Nullable [] but the sub-expression has type @Nullable E []
                     : Arrays.copyOf(original, original.length);
               }
               public static <E> E @Nullable [] copyOfDirectReturn(E [] original) {
                 // NOTE: this does not typecheck because the JSpecify JDK model of Arrays.copyOf annotates its
-                // return type as @Nullable T[], which is incompatible with the return type E @Nullable [] of
-                // the enclosing method
+                // return type as @Nullable T[] (where T is copyOf's type variable), which is incompatible with the
+                // return type E @Nullable [] of the enclosing method.  Arrays.copyOf returns an explicit @Nullable T[]
+                // since it will pad the array with `null` whenever the passed new length is greater
+                // than original.length (the example below is safe, but NullAway / JSpecify do not reason
+                // about integer constraints)
                 // BUG: Diagnostic contains: incompatible types: @Nullable E [] cannot be converted to E @Nullable []
                 return Arrays.copyOf(original, original.length);
               }
