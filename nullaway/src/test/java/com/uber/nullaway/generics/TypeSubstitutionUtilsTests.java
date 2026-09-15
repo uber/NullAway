@@ -3,6 +3,7 @@ package com.uber.nullaway.generics;
 import static com.google.common.truth.Truth.assertThat;
 import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
@@ -14,12 +15,15 @@ import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.DummyOptionsConfig;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests operations that copy mutable javac type variables and captured types.
+ * Tests operations that copy mutable javac type variables, captured types, and wildcards.
  *
  * <p>These behaviors require types created by an active javac compilation, so each test compiles a
  * small source file with {@link TypeCopyIsolationChecker}. Special field names in that source
@@ -69,13 +73,28 @@ public class TypeSubstitutionUtilsTests {
         .doTest();
   }
 
+  @Test
+  public void restoringBothBoundsOfSuperWildcardKeepsBoth() {
+    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            class Test<T> {
+              Test<?> superWildcardRestorationField;
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Checker that exercises the mutable javac types used by the replacement helpers.
    *
    * <p>The fields named {@code typeVarField} and {@code capturedTypeField} exercise the two public
    * replacement helpers. The fields named {@code typeVarMetadataField} and {@code
    * capturedTypeMetadataField} exercise the metadata-copying path used by {@link
-   * TypeSubstitutionUtils#typeWithAnnot}. Other variable declarations are ignored.
+   * TypeSubstitutionUtils#typeWithAnnot}. The field named {@code superWildcardRestorationField}
+   * exercises {@link TypeSubstitutionUtils#restoreExplicitNullabilityAnnotations} on a {@code super}
+   * wildcard. Any other field name fails the compilation.
    */
   @BugPattern(summary = "Checks that copied javac types are detached", severity = SUGGESTION)
   public static final class TypeCopyIsolationChecker extends BugChecker
@@ -85,6 +104,36 @@ public class TypeSubstitutionUtilsTests {
     private static final String CAPTURED_TYPE_FIELD = "capturedTypeField";
     private static final String TYPE_VAR_METADATA_FIELD = "typeVarMetadataField";
     private static final String CAPTURED_TYPE_METADATA_FIELD = "capturedTypeMetadataField";
+    private static final String SUPER_WILDCARD_RESTORATION_FIELD = "superWildcardRestorationField";
+
+    /**
+     * Config that recognizes only the built-in nullness annotation names.
+     *
+     * <p>{@link DummyOptionsConfig} throws from every method; annotation matching calls only the
+     * four overridden here.
+     */
+    private static final Config ANNOTATION_NAMES_ONLY_CONFIG =
+        new DummyOptionsConfig() {
+          @Override
+          public boolean isJSpecifyMode() {
+            return true;
+          }
+
+          @Override
+          public boolean acknowledgeAndroidRecent() {
+            return false;
+          }
+
+          @Override
+          public boolean isCustomNullableAnnotation(String annotationName) {
+            return false;
+          }
+
+          @Override
+          public boolean isCustomNonnullAnnotation(String annotationName) {
+            return false;
+          }
+        };
 
     @Override
     public Description matchVariable(VariableTree tree, VisitorState state) {
@@ -96,6 +145,8 @@ public class TypeSubstitutionUtilsTests {
         case TYPE_VAR_METADATA_FIELD -> checkTypeVariableMetadataCopy(testTypeContext);
         case CAPTURED_TYPE_METADATA_FIELD ->
             checkCapturedTypeMetadataCopy(testTypeContext, tree, state);
+        case SUPER_WILDCARD_RESTORATION_FIELD ->
+            checkSuperWildcardRestoration(testTypeContext, state);
         default -> {
           throw new RuntimeException("Unknown field name: " + fieldName);
         }
@@ -104,8 +155,7 @@ public class TypeSubstitutionUtilsTests {
     }
 
     /**
-     * Extracts the compiler types shared by all four scenarios from a synthetic {@code Test<?>}
-     * field.
+     * Extracts the compiler types shared by all scenarios from a synthetic {@code Test<?>} field.
      */
     private static TestTypeContext createTestTypeContext(VariableTree tree, VisitorState state) {
       Type.ClassType fieldType = (Type.ClassType) ASTHelpers.getType(tree);
@@ -195,6 +245,54 @@ public class TypeSubstitutionUtilsTests {
       assertThat(updatedCapture.baseType()).isSameInstanceAs(capturedType.baseType());
       assertThat(capturedType.getAnnotationMirrors()).isEmpty();
       assertThat(updatedCapture.getAnnotationMirrors()).isNotEmpty();
+    }
+
+    /**
+     * Checks that restoring annotations onto a {@code super} wildcard keeps both of its bounds.
+     *
+     * <p>The annotated wildcard is {@code ? super @Nullable String} whose formal type variable has
+     * the upper bound {@code @Nullable Object}. Restoring its annotations onto an unannotated {@code
+     * ? super String} changes the lower bound and the implicit upper bound, so the result must carry
+     * {@code @Nullable} on both. {@link GenericsUtils#wildcardUpperBound(Type.WildcardType,
+     * VisitorState, Config, com.uber.nullaway.handlers.Handler)} reads the implicit upper bound from
+     * the wildcard's {@code bound} field and returns {@code Object} when that field is {@code null}.
+     */
+    private static void checkSuperWildcardRestoration(
+        TestTypeContext context, VisitorState state) {
+      Type stringType = state.getSymtab().stringType;
+      Type.TypeVar annotatedFormalTypeVariable =
+          TYPE_METADATA_BUILDER.createDetachedTypeVar(
+              context.formalTypeVariable(), context.updatedUpperBound());
+      Type.WildcardType annotatedWildcard =
+          new Type.WildcardType(
+              TypeSubstitutionUtils.typeWithAnnot(stringType, context.nullableAnnotationType()),
+              BoundKind.SUPER,
+              context.sourceWildcard().tsym,
+              annotatedFormalTypeVariable);
+      Type.WildcardType unannotatedWildcard =
+          new Type.WildcardType(
+              stringType,
+              BoundKind.SUPER,
+              context.sourceWildcard().tsym,
+              context.formalTypeVariable());
+
+      Type.WildcardType restored =
+          (Type.WildcardType)
+              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                  annotatedWildcard, unannotatedWildcard, ANNOTATION_NAMES_ONLY_CONFIG);
+
+      assertThat(restored.kind).isEqualTo(BoundKind.SUPER);
+      assertThat(annotationNames(restored.type)).containsExactly("nullaway.synthetic.Nullable");
+      assertThat(restored.bound).isNotNull();
+      assertThat(annotationNames(restored.bound.getUpperBound()))
+          .containsExactly("nullaway.synthetic.Nullable");
+    }
+
+    /** Returns the names of the type annotations on {@code type}, as NullAway matches them. */
+    private static List<String> annotationNames(Type type) {
+      return type.getAnnotationMirrors().stream()
+          .map(annotation -> annotation.getAnnotationType().toString())
+          .toList();
     }
 
     /** Creates the synthetic captured type used by both capture-copy scenarios. */

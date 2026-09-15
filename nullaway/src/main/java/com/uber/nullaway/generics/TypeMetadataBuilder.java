@@ -38,6 +38,13 @@ public interface TypeMetadataBuilder {
 
   Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType);
 
+  /**
+   * Returns a copy of {@code baseType} with {@code boundType} as its bound type.
+   *
+   * <p>The copy keeps the kind, the metadata, and the {@code bound} field of {@code baseType}. That
+   * field holds the formal type variable whose upper bound is the implicit upper bound of an
+   * unbounded or {@code super} wildcard.
+   */
   Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType);
 
   /**
@@ -309,8 +316,11 @@ public interface TypeMetadataBuilder {
     public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
       try {
         TypeMetadata metadata = (TypeMetadata) getMetadataHandleV17.invoke(baseType);
-        return (Type.WildcardType)
-            wildcardTypeCtorHandleV17.invoke(boundType, baseType.kind, baseType.tsym, metadata);
+        Type.WildcardType wildcard =
+            (Type.WildcardType)
+                wildcardTypeCtorHandleV17.invoke(boundType, baseType.kind, baseType.tsym, metadata);
+        wildcard.bound = baseType.bound;
+        return wildcard;
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -381,7 +391,10 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
       com.sun.tools.javac.util.List<TypeMetadata> metadata = baseType.getMetadata();
-      return new Type.WildcardType(boundType, baseType.kind, baseType.tsym, metadata);
+      Type.WildcardType wildcard =
+          new Type.WildcardType(boundType, baseType.kind, baseType.tsym, metadata);
+      wildcard.bound = baseType.bound;
+      return wildcard;
     }
 
     @Override
