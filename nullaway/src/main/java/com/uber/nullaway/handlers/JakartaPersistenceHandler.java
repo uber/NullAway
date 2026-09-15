@@ -3,7 +3,7 @@ package com.uber.nullaway.handlers;
 import static com.uber.nullaway.NullabilityUtil.hasAnyAnnotationMatching;
 
 import com.google.errorprone.VisitorState;
-import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.tools.javac.code.Symbol;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
@@ -123,8 +123,8 @@ public class JakartaPersistenceHandler implements Handler {
   private final Map<Symbol.ClassSymbol, JpaAccess> jpaAccessCache = new HashMap<>();
 
   @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+  public void onMatchCompilationUnit(
+      NullAway analysis, CompilationUnitTree tree, VisitorState state) {
     jpaAccessCache.clear();
   }
 

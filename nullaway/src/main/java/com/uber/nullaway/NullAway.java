@@ -226,14 +226,21 @@ public class NullAway extends BugChecker
 
   /**
    * We store the CodeAnnotationInfo object in a field for convenience; it is initialized in {@link
-   * #matchClass(ClassTree, VisitorState)}
+   * #matchCompilationUnit(CompilationUnitTree, VisitorState)}
    */
-  // suppress initialization warning rather than casting everywhere; we know matchClass() will
-  // always be called before the field gets dereferenced
+  // suppress initialization warning rather than casting everywhere; we know matchCompilationUnit()
+  // will always be called before the field gets dereferenced
   @SuppressWarnings("NullAway.Init")
   private CodeAnnotationInfo codeAnnotationInfo;
 
   private boolean checkedJDKVersionForJSpecifyMode = false;
+
+  /**
+   * The dataflow analysis for this compilation; lazily created by {@link
+   * #getNullnessAnalysis(VisitorState)}, as its construction requires a {@link VisitorState}, which
+   * is not available in the constructor.
+   */
+  private @Nullable AccessPathNullnessAnalysis nullnessAnalysis;
 
   private final Config config;
 
@@ -256,14 +263,14 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * entities relevant to field initialization per class. cached for performance. nulled out in
-   * {@link #matchClass(ClassTree, VisitorState)}
+   * entities relevant to field initialization per class. cached for performance. cleared in {@link
+   * #matchCompilationUnit(CompilationUnitTree, VisitorState)}
    */
   private final Map<Symbol.ClassSymbol, FieldInitEntities> class2Entities = new LinkedHashMap<>();
 
   /**
-   * fields not initialized by constructors, per class. cached for performance. nulled out in {@link
-   * #matchClass(ClassTree, VisitorState)}
+   * fields not initialized by constructors, per class. cached for performance. cleared in {@link
+   * #matchCompilationUnit(CompilationUnitTree, VisitorState)}
    */
   private final SetMultimap<Symbol.ClassSymbol, Symbol> class2ConstructorUninit =
       LinkedHashMultimap.create();
@@ -272,7 +279,8 @@ public class NullAway extends BugChecker
    * maps each top-level initialization member (constructor, init block, field decl with initializer
    * expression) to the set of @NonNull fields known to be initialized before that member executes.
    *
-   * <p>cached for performance. nulled out in {@link #matchClass(ClassTree, VisitorState)}
+   * <p>cached for performance. cleared in {@link #matchCompilationUnit(CompilationUnitTree,
+   * VisitorState)}
    */
   private final Map<Symbol.ClassSymbol, Multimap<Tree, Element>> initTree2PrevFieldInit =
       new LinkedHashMap<>();
@@ -1894,8 +1902,8 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Performs any state updates required before checking a new compilation unit. Does not report any
-   * warnings directly.
+   * Performs any state updates required before checking a new compilation unit. Also clears several
+   * per-compilation-unit caches. Does not report any warnings directly.
    *
    * @param tree the {@link CompilationUnitTree}
    * @param stateForNewCompilationUnit the {@link VisitorState} for the new compilation unit
@@ -1904,28 +1912,38 @@ public class NullAway extends BugChecker
   @Override
   public Description matchCompilationUnit(
       CompilationUnitTree tree, VisitorState stateForNewCompilationUnit) {
-    getNullnessAnalysis(stateForNewCompilationUnit)
-        .updateForNewCompilationUnit(stateForNewCompilationUnit);
-    return Description.NO_MATCH;
-  }
-
-  @Override
-  public Description matchClass(ClassTree tree, VisitorState state) {
     // Ensure codeAnnotationInfo is initialized here since it requires access to the Context,
-    // which is not available in the constructor
+    // which is not available in the constructor.
     if (codeAnnotationInfo == null) {
-      codeAnnotationInfo = CodeAnnotationInfo.instance(state.context);
+      codeAnnotationInfo = CodeAnnotationInfo.instance(stateForNewCompilationUnit.context);
     }
+    // Checking for a valid javac config for JSpecify mode also requires access to the context
     if (!checkedJDKVersionForJSpecifyMode) {
       checkedJDKVersionForJSpecifyMode = true;
       if (config.isJSpecifyMode()) {
         JSpecifyJavacConfig.JavacConfigValidityResult validity =
-            JSpecifyJavacConfig.isValidJavacConfigForJSpecifyMode(state);
+            JSpecifyJavacConfig.isValidJavacConfigForJSpecifyMode(stateForNewCompilationUnit);
         if (validity != JSpecifyJavacConfig.JavacConfigValidityResult.VALID) {
           throw new IllegalStateException(invalidJSpecifyJavacConfigErrorMessage(validity));
         }
       }
     }
+    AccessPathNullnessAnalysis nullnessAnalysis = getNullnessAnalysis(stateForNewCompilationUnit);
+    nullnessAnalysis.updateForNewCompilationUnit(stateForNewCompilationUnit);
+    // clear per-compilation-unit caches
+    nullnessAnalysis.invalidateCaches();
+    initTree2PrevFieldInit.clear();
+    class2Entities.clear();
+    class2ConstructorUninit.clear();
+    computedNullnessMap.clear();
+    genericsChecks.clearCache();
+    EnclosingEnvironmentNullness.instance(stateForNewCompilationUnit.context).clear();
+    handler.onMatchCompilationUnit(this, tree, stateForNewCompilationUnit);
+    return Description.NO_MATCH;
+  }
+
+  @Override
+  public Description matchClass(ClassTree tree, VisitorState state) {
     // Check if the class is excluded according to the filter
     // if so, set the flag to match within the class to false
     // NOTE: for this mechanism to work, we rely on the enclosing ClassTree
@@ -1949,16 +1967,6 @@ public class NullAway extends BugChecker
       // class
       nullMarkingForTopLevelClass =
           isExcludedClass(classSymbol) ? NullMarking.FULLY_UNMARKED : NullMarking.FULLY_MARKED;
-      // since we are processing a new top-level class, invalidate any cached
-      // results for previous classes
-      handler.onMatchTopLevelClass(this, tree, state, classSymbol);
-      getNullnessAnalysis(state).invalidateCaches();
-      initTree2PrevFieldInit.clear();
-      class2Entities.clear();
-      class2ConstructorUninit.clear();
-      computedNullnessMap.clear();
-      genericsChecks.clearCache();
-      EnclosingEnvironmentNullness.instance(state.context).clear();
     } else if (classAnnotationIntroducesPartialMarking(classSymbol)) {
       // Handle the case where the top-class is unannotated, but there is a @NullMarked annotation
       // on a nested class, or, conversely the top-level is annotated but there is a @NullUnmarked
@@ -3031,8 +3039,18 @@ public class NullAway extends BugChecker
     return NullabilityUtil.nullnessToBool(nullness);
   }
 
+  /**
+   * Returns the dataflow analysis for this compilation, creating it on the first call.
+   *
+   * @param state visitor state for the compilation
+   * @return the analysis instance
+   */
+  @SuppressWarnings("DoNotCall") // this is the one place a call to create() is allowed
   public AccessPathNullnessAnalysis getNullnessAnalysis(VisitorState state) {
-    return AccessPathNullnessAnalysis.instance(state, this);
+    if (nullnessAnalysis == null) {
+      nullnessAnalysis = AccessPathNullnessAnalysis.create(state, this);
+    }
+    return nullnessAnalysis;
   }
 
   private Description matchDereference(
