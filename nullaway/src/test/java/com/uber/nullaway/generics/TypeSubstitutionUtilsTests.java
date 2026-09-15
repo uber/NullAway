@@ -93,8 +93,8 @@ public class TypeSubstitutionUtilsTests {
    * replacement helpers. The fields named {@code typeVarMetadataField} and {@code
    * capturedTypeMetadataField} exercise the metadata-copying path used by {@link
    * TypeSubstitutionUtils#typeWithAnnot}. The field named {@code superWildcardRestorationField}
-   * exercises {@link TypeSubstitutionUtils#restoreExplicitNullabilityAnnotations} on a {@code super}
-   * wildcard. Any other field name fails the compilation.
+   * exercises {@link TypeSubstitutionUtils#restoreExplicitNullabilityAnnotations} on a {@code
+   * super} wildcard. Any other field name fails the compilation.
    */
   @BugPattern(summary = "Checks that copied javac types are detached", severity = SUGGESTION)
   public static final class TypeCopyIsolationChecker extends BugChecker
@@ -251,14 +251,14 @@ public class TypeSubstitutionUtilsTests {
      * Checks that restoring annotations onto a {@code super} wildcard keeps both of its bounds.
      *
      * <p>The annotated wildcard is {@code ? super @Nullable String} whose formal type variable has
-     * the upper bound {@code @Nullable Object}. Restoring its annotations onto an unannotated {@code
-     * ? super String} changes the lower bound and the implicit upper bound, so the result must carry
-     * {@code @Nullable} on both. {@link GenericsUtils#wildcardUpperBound(Type.WildcardType,
-     * VisitorState, Config, com.uber.nullaway.handlers.Handler)} reads the implicit upper bound from
-     * the wildcard's {@code bound} field and returns {@code Object} when that field is {@code null}.
+     * the upper bound {@code @Nullable Object}. Restoring its annotations onto an unannotated
+     * {@code ? super String} changes the lower bound and the implicit upper bound, so the result
+     * must carry {@code @Nullable} on both. {@link
+     * GenericsUtils#wildcardUpperBound(Type.WildcardType, VisitorState, Config,
+     * com.uber.nullaway.handlers.Handler)} reads the implicit upper bound from the wildcard's
+     * {@code bound} field and returns {@code Object} when that field is {@code null}.
      */
-    private static void checkSuperWildcardRestoration(
-        TestTypeContext context, VisitorState state) {
+    private static void checkSuperWildcardRestoration(TestTypeContext context, VisitorState state) {
       Type stringType = state.getSymtab().stringType;
       Type.TypeVar annotatedFormalTypeVariable =
           TYPE_METADATA_BUILDER.createDetachedTypeVar(
