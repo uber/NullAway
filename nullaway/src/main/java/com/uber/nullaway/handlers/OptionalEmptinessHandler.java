@@ -25,7 +25,7 @@ import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreePath;
@@ -98,8 +98,8 @@ public class OptionalEmptinessHandler implements Handler {
   }
 
   @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+  public void onMatchCompilationUnit(
+      NullAway analysis, CompilationUnitTree tree, VisitorState state) {
 
     this.analysis = analysis;
 
