@@ -3,7 +3,6 @@ package com.uber.nullaway;
 import com.google.errorprone.CompilationTestHelper;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
 public class JakartaPersistenceTests extends NullAwayTestsBase {
 
   private CompilationTestHelper addJpaAnnotationStubs(CompilationTestHelper helper) {
