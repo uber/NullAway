@@ -182,6 +182,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
           "jakarta.inject.Inject", // no explicit initialization when there is dependency injection
           "javax.inject.Inject", // no explicit initialization when there is dependency injection
           "com.google.errorprone.annotations.concurrent.LazyInit",
+          "org.apache.maven.plugins.annotations.Parameter",
           "org.mockito.Captor",
           "org.mockito.InjectMocks",
           "org.mockito.Mock",
