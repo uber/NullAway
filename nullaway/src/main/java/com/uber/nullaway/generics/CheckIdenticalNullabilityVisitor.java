@@ -245,7 +245,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     try {
       return switch (lhsWildcard.kind) {
         case UNBOUND, EXTENDS ->
-            extendsBoundContains(lhsEffectiveUpperBound, rhsEffectiveUpperBound);
+            typeArgumentSubtype(lhsEffectiveUpperBound, rhsEffectiveUpperBound);
         case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
       };
     } finally {
@@ -254,20 +254,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
         activeWildcardComparisons.remove(lhsWildcard);
       }
     }
-  }
-
-  /**
-   * Returns whether a formal {@code ? extends S} contains the actual type argument on the right.
-   * For concrete actuals {@code T}, wildcard actuals {@code ? extends T}, and non-extends wildcard
-   * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}.
-   *
-   * @param lhsBound the effective upper bound {@code S} of the formal wildcard on the left
-   * @param rhsBound the effective upper bound of the actual type argument on the right
-   * @return whether a formal wildcard whose effective upper bound is {@code lhsBound} contains the
-   *     actual type argument
-   */
-  private boolean extendsBoundContains(Type lhsBound, Type rhsBound) {
-    return typeArgumentSubtype(lhsBound, rhsBound);
   }
 
   /**
