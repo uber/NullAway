@@ -422,6 +422,21 @@ public class WildcardTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types
                 Pair<@Nullable String, ? extends String> invalid = pair;
               }
+
+              static void capturedFirstArgument(Pair<?, ?> pair) {
+                Pair<?, ? extends @Nullable Object> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                Pair<?, ? extends Object> invalid = pair;
+              }
+
+              @NullUnmarked
+              static class UnmarkedPair<T, U extends T> {}
+
+              static void capturedFirstArgumentFromUnmarkedCode(UnmarkedPair<?, ?> pair) {
+                UnmarkedPair<?, ? extends @Nullable Object> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                UnmarkedPair<?, ? extends Object> invalid = pair;
+              }
             }
             """)
         .doTest();
