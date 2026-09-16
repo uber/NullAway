@@ -23,6 +23,9 @@ plugins {
 java.sourceCompatibility = null
 java.targetCompatibility = null
 java.toolchain.languageVersion.set JavaLanguageVersion.of(25)
+tasks.withType(JavaCompile).configureEach {
+    options.release.set(25)
+}
 
 configurations {
     // We use this configuration to expose a module path that can be
