@@ -89,10 +89,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
-    // Where appropriate, we compute a fresh capture conversion of the type and save the new
-    // captured type arguments.  The resulting capture variables are ensured to have a correct upper
-    // bound.  In contrast, the WildcardType.bound field is unreliable, as javac can mutate it while
-    // computing an unrelated supertype.  See https://github.com/uber/NullAway/issues/1840.
+    // When some type argument is a wildcard with an implicit upper bound, we compute a fresh
+    // capture conversion of the type and save the new captured type arguments.  The resulting
+    // capture variables are ensured to have a correct upper bound.  In contrast, the
+    // discovering the (implicit) upper bound of the original wildcard via the WildcardType.bound
+    // field is unreliable, as javac can mutate it while computing an unrelated supertype.  See
+    // https://github.com/uber/NullAway/issues/1840.
     List<Type> capturedLhsTypeArguments =
         config.handleWildcardGenerics() && hasDirectImplicitWildcard(lhsTypeArguments)
             ? types.capture(lhsType).getTypeArguments()
@@ -132,13 +134,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     return lhsType.getEnclosingType().accept(this, rhsType.getEnclosingType());
   }
 
-  /**
-   * Returns whether the type arguments contain a direct wildcard with an implicit upper bound.
-   *
-   * <p>Explicit {@code extends} wildcards do not need capture conversion because their upper bound
-   * is stored directly on the wildcard. Captured wildcards are type variables rather than direct
-   * wildcard arguments and already carry their contextual bounds.
-   */
+  /** Returns whether some type argument is a wildcard with an implicit upper bound. */
   private static boolean hasDirectImplicitWildcard(List<Type> typeArguments) {
     for (Type typeArgument : typeArguments) {
       if (typeArgument instanceof Type.WildcardType wildcardType
@@ -284,7 +280,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return switch (lhsWildcard.kind) {
         case UNBOUND, EXTENDS ->
             extendsBoundContains(
-                GenericsUtils.wildcardUpperBoundFromCapture(
+                GenericsUtils.effectiveUpperBoundForTypeArgument(
                     lhsWildcard,
                     capturedLhsTypeArgument,
                     correspondingTypeVariable,
@@ -324,22 +320,15 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       Type rhsTypeArgument,
       Type capturedRhsTypeArgument,
       Type.TypeVar correspondingTypeVariable) {
-    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
-    if (rhsWildcard != null) {
-      Type rhsUpperBound =
-          rhsTypeArgument instanceof Type.WildcardType
-              ? GenericsUtils.wildcardUpperBoundFromCapture(
-                  rhsWildcard,
-                  capturedRhsTypeArgument,
-                  correspondingTypeVariable,
-                  state,
-                  config,
-                  handler)
-              : GenericsUtils.wildcardUpperBound(
-                  rhsWildcard, correspondingTypeVariable, state, config, handler);
-      return typeArgumentSubtype(lhsBound, rhsUpperBound);
-    }
-    return typeArgumentSubtype(lhsBound, rhsTypeArgument);
+    Type rhsUpperBound =
+        GenericsUtils.effectiveUpperBoundForTypeArgument(
+            rhsTypeArgument,
+            capturedRhsTypeArgument,
+            correspondingTypeVariable,
+            state,
+            config,
+            handler);
+    return typeArgumentSubtype(lhsBound, rhsUpperBound);
   }
 
   /**

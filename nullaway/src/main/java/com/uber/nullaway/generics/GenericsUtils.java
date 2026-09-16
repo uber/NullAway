@@ -98,6 +98,44 @@ public class GenericsUtils {
   }
 
   /**
+   * Returns the effective upper bound of a type argument, using a fresh contextual capture for a
+   * direct wildcard when available.
+   *
+   * <p>For a direct wildcard with an implicit upper bound, {@code capturedTypeArgument} is the
+   * corresponding argument obtained by capture-converting the complete containing parameterized
+   * type. Its upper bound is therefore preferred over the mutable {@link Type.WildcardType#bound}
+   * field. If {@code typeArgument} is already a captured type, no fresh contextual capture was
+   * performed; in that case, use its backing wildcard because NullAway may have restored nullness
+   * annotations there that are absent from the captured type's structural upper bound. Concrete
+   * type arguments are returned unchanged.
+   *
+   * @param typeArgument the original type argument
+   * @param capturedTypeArgument the corresponding type argument after capture conversion, or the
+   *     original argument when no fresh capture conversion was needed
+   * @param correspondingTypeVariable the declaration's formal type variable for this position
+   * @param state visitor state
+   * @param config NullAway configuration
+   * @param handler NullAway extension handler
+   * @return the type argument's effective upper bound
+   */
+  static Type effectiveUpperBoundForTypeArgument(
+      Type typeArgument,
+      Type capturedTypeArgument,
+      Type.TypeVar correspondingTypeVariable,
+      VisitorState state,
+      Config config,
+      Handler handler) {
+    WildcardType wildcardType = asWildcard(typeArgument);
+    if (wildcardType == null) {
+      return typeArgument;
+    }
+    return typeArgument instanceof WildcardType
+        ? wildcardUpperBoundFromCapture(
+            wildcardType, capturedTypeArgument, correspondingTypeVariable, state, config, handler)
+        : wildcardUpperBound(wildcardType, correspondingTypeVariable, state, config, handler);
+  }
+
+  /**
    * Returns the effective upper bound of a direct wildcard using javac capture conversion on its
    * containing parameterized type.
    *
@@ -117,7 +155,7 @@ public class GenericsUtils {
    * @param handler NullAway extension handler
    * @return the wildcard's effective upper bound
    */
-  static Type wildcardUpperBoundFromCapture(
+  private static Type wildcardUpperBoundFromCapture(
       WildcardType wildcardType,
       Type capturedTypeArgument,
       Type.TypeVar correspondingTypeVariable,
