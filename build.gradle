@@ -74,7 +74,7 @@ subprojects { project ->
         dependsOn(installGitHooks)
         // Always compile using the latest JDK we can
         javaCompiler = javaToolchains.compilerFor {
-            languageVersion = JavaLanguageVersion.of(25)
+            languageVersion = JavaLanguageVersion.of(27)
         }
         options.compilerArgs += [
             "-Xlint:deprecation",
