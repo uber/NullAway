@@ -90,20 +90,103 @@ public class GenericsUtils {
           formalTypeVar == null
               ? Symtab.instance(state.context).objectType
               : formalTypeVar.getUpperBound();
-      boolean upperBoundHasExplicitNullnessAnnotation =
-          Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)
-              || Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
-      // if the upper bound of formalTypeVar is @Nullable, and there is no
-      // explicit annotation on upperBound already, add a @Nullable annotation to upperBound.
-      // Explicit annotations on upperBound always take precedence.
-      if (formalTypeVar != null
-          && upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
-          && !upperBoundHasExplicitNullnessAnnotation) {
-        upperBound =
-            TypeSubstitutionUtils.typeWithAnnot(
-                upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
+      if (formalTypeVar != null) {
+        upperBound = applyUpperBoundNullability(upperBound, formalTypeVar, state, config, handler);
       }
     }
+    return resolveNestedWildcardUpperBound(upperBound, state, config, handler);
+  }
+
+  /**
+   * Returns the effective upper bound of a direct wildcard using javac capture conversion on its
+   * containing parameterized type.
+   *
+   * <p>{@link Type.WildcardType#bound} is mutable. javac can reuse a wildcard while constructing a
+   * supertype and change that field to the supertype's formal type variable, leaving it
+   * inconsistent with the parameterized type in which the wildcard was originally written. Capture
+   * conversion recomputes the bound from the declaration and current type arguments. Explicit
+   * nullness annotations restored during type substitution are taken from the captured type
+   * argument itself, so this method does not depend on the wildcard's mutable stored bound.
+   *
+   * @param wildcardType the direct wildcard type argument
+   * @param capturedTypeArgument the corresponding type argument after capture-converting the
+   *     containing parameterized type
+   * @param correspondingTypeVariable the declaration's formal type variable for this position
+   * @param state visitor state
+   * @param config NullAway configuration
+   * @param handler NullAway extension handler
+   * @return the wildcard's effective upper bound
+   */
+  static Type wildcardUpperBoundFromCapture(
+      WildcardType wildcardType,
+      Type capturedTypeArgument,
+      Type.TypeVar correspondingTypeVariable,
+      VisitorState state,
+      Config config,
+      Handler handler) {
+    if (wildcardType.kind == BoundKind.EXTENDS) {
+      return wildcardUpperBound(wildcardType, correspondingTypeVariable, state, config, handler);
+    }
+    Verify.verify(
+        capturedTypeArgument instanceof CapturedType,
+        "capture conversion did not capture wildcard %s",
+        wildcardType);
+    CapturedType capturedType = (CapturedType) capturedTypeArgument;
+    Type upperBound = capturedType.getUpperBound();
+    // A substituted capture can carry an explicit annotation from a type-variable use (for
+    // example, @NonNull V) that javac's structural upper bound does not retain. Restore that
+    // annotation from the capture itself rather than consulting the wildcard's mutable bound.
+    upperBound =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            capturedTypeArgument, upperBound, config);
+    // If capture conversion substituted a dependent bound (for example, U extends T becoming
+    // String), the substituted type supplies its own nullability. Declaration-level defaults for U
+    // apply only when its declared upper bound is still the bound being interpreted.
+    if (state.getTypes().isSameType(upperBound, correspondingTypeVariable.getUpperBound())) {
+      upperBound =
+          applyUpperBoundNullability(upperBound, correspondingTypeVariable, state, config, handler);
+    }
+    return resolveNestedWildcardUpperBound(upperBound, state, config, handler);
+  }
+
+  /**
+   * Applies NullAway's default upper-bound nullability unless an explicit annotation is present.
+   *
+   * @param upperBound the compiler-computed upper bound
+   * @param formalTypeVar the formal type variable supplying the implicit bound
+   * @param state visitor state
+   * @param config NullAway configuration
+   * @param handler NullAway extension handler
+   * @return the upper bound with NullAway's default nullability applied
+   */
+  private static Type applyUpperBoundNullability(
+      Type upperBound,
+      Type.TypeVar formalTypeVar,
+      VisitorState state,
+      Config config,
+      Handler handler) {
+    boolean upperBoundHasExplicitNullnessAnnotation =
+        Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)
+            || Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+    if (upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
+        && !upperBoundHasExplicitNullnessAnnotation) {
+      return TypeSubstitutionUtils.typeWithAnnot(
+          upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
+    }
+    return upperBound;
+  }
+
+  /**
+   * Resolves wildcard and capture layers that javac can leave around an effective upper bound.
+   *
+   * @param upperBound the upper bound to resolve
+   * @param state visitor state
+   * @param config NullAway configuration
+   * @param handler NullAway extension handler
+   * @return the resolved upper bound
+   */
+  private static Type resolveNestedWildcardUpperBound(
+      Type upperBound, VisitorState state, Config config, Handler handler) {
     if (upperBound instanceof WildcardType nestedWildcard) {
       return wildcardUpperBound(nestedWildcard, state, config, handler);
     }
