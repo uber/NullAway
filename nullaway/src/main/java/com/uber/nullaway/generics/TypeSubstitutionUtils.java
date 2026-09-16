@@ -165,7 +165,7 @@ public class TypeSubstitutionUtils {
    * @param upperBound the new implicit upper bound
    * @return the copied wildcard
    */
-  static Type.WildcardType replaceImplicitWildcardUpperBound(
+  private static Type.WildcardType replaceImplicitWildcardUpperBound(
       Type.WildcardType wildcard, Type.TypeVar typeVariable, Type upperBound) {
     Verify.verify(
         wildcard.kind == BoundKind.UNBOUND || wildcard.kind == BoundKind.SUPER,
