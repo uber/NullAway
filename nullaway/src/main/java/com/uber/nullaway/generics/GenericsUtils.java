@@ -216,7 +216,7 @@ public class GenericsUtils {
   }
 
   /**
-   * Resolves wildcard and capture layers that javac can leave around an effective upper bound.
+   * Resolve nested wildcard layers of a computed wildcard upper bound.
    *
    * @param upperBound the upper bound to resolve
    * @param state visitor state
@@ -230,6 +230,11 @@ public class GenericsUtils {
       return wildcardUpperBound(nestedWildcard, state, config, handler);
     }
     if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
+      // A dependent bound can resolve to another capture. For example, capturing Pair<?, ?> for
+      // Pair<T, U extends T> gives the second capture an upper bound equal to the first capture.
+      // Resolve through the backing wildcard so wildcardUpperBound() can apply NullAway's
+      // declaration-level defaults, which are not necessarily present on javac's structural upper
+      // bound (notably for type variables declared in unannotated code).
       return wildcardUpperBound(capturedType.wildcard, state, config, handler);
     }
     return upperBound;
