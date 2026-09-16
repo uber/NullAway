@@ -20,11 +20,12 @@ plugins {
 
 // Use JDK 25 for this module, via a toolchain
 // We must null out sourceCompatibility and targetCompatibility to use toolchains.
+def languageVersion = 25
 java.sourceCompatibility = null
 java.targetCompatibility = null
-java.toolchain.languageVersion.set JavaLanguageVersion.of(25)
+java.toolchain.languageVersion.set JavaLanguageVersion.of(languageVersion)
 tasks.withType(JavaCompile).configureEach {
-    options.release.set(25)
+    options.release.set(languageVersion)
 }
 
 configurations {

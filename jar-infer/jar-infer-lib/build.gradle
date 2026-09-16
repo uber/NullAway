@@ -50,13 +50,10 @@ tasks.withType(JavaCompile).configureEach {
     options.compilerArgs += "--add-exports=jdk.compiler/com.sun.tools.javac.main=ALL-UNNAMED"
 }
 
-tasks.getByName('testJdk27').configure {
-    // Won't work until WALA supports JDK 27
-    onlyIf { false }
-}
-
-tasks.getByName('testJdk28').configure {
-    // Won't work until WALA supports JDK 28
-    onlyIf { false }
+[27, 28].each { jdkVersion ->
+    tasks.getByName("testJdk${jdkVersion}").configure {
+        // Won't work until WALA supports this JDK version
+        onlyIf { false }
+    }
 }
 apply plugin: 'com.vanniktech.maven.publish'
