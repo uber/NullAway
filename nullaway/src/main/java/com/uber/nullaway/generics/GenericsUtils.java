@@ -98,15 +98,13 @@ public class GenericsUtils {
   }
 
   /**
-   * Returns the effective upper bound of a type argument, using a fresh contextual capture for a
-   * direct wildcard when available.
+   * Returns the effective upper bound of a type argument.
    *
-   * <p>For a direct wildcard with an implicit upper bound, {@code capturedTypeArgument} is the
-   * corresponding argument obtained by capture-converting the complete containing parameterized
-   * type. Its upper bound is therefore preferred over the mutable {@link Type.WildcardType#bound}
-   * field. If {@code typeArgument} is already a captured type, no fresh contextual capture was
-   * performed; in that case, use its backing wildcard because NullAway may have restored nullness
-   * annotations there that are absent from the captured type's structural upper bound. Concrete
+   * <p>If {@code typeArgument} is a wildcard with an implicit upper bound, {@code
+   * capturedTypeArgument} is the corresponding argument obtained by capture-converting the complete
+   * containing parameterized type. If {@code typeArgument} is already a captured type, compute the
+   * upper bound from its backing wildcard because NullAway may have restored nullness annotations
+   * there that are absent from the captured type's structural upper bound. Non wildcard / captured
    * type arguments are returned unchanged.
    *
    * @param typeArgument the original type argument
@@ -125,28 +123,32 @@ public class GenericsUtils {
       VisitorState state,
       Config config,
       Handler handler) {
-    WildcardType wildcardType = asWildcard(typeArgument);
-    if (wildcardType == null) {
+    WildcardType typeArgumentAsWildcard = asWildcard(typeArgument);
+    if (typeArgumentAsWildcard == null) {
       return typeArgument;
     }
-    return typeArgument instanceof WildcardType
+    return isWildcardWithImplicitUpperBound(typeArgument)
         ? wildcardUpperBoundFromCapture(
-            wildcardType, capturedTypeArgument, correspondingTypeVariable, state, config, handler)
-        : wildcardUpperBound(wildcardType, correspondingTypeVariable, state, config, handler);
+            typeArgumentAsWildcard,
+            capturedTypeArgument,
+            correspondingTypeVariable,
+            state,
+            config,
+            handler)
+        : wildcardUpperBound(
+            typeArgumentAsWildcard, correspondingTypeVariable, state, config, handler);
+  }
+
+  private static boolean isWildcardWithImplicitUpperBound(Type typeArgument) {
+    return typeArgument instanceof WildcardType wildcardType
+        && wildcardType.kind != BoundKind.EXTENDS;
   }
 
   /**
-   * Returns the effective upper bound of a direct wildcard using javac capture conversion on its
-   * containing parameterized type.
+   * Returns the effective upper bound of a wildcard with an implicit upper bound using the result
+   * of capture conversion on its containing parameterized type.
    *
-   * <p>{@link Type.WildcardType#bound} is mutable. javac can reuse a wildcard while constructing a
-   * supertype and change that field to the supertype's formal type variable, leaving it
-   * inconsistent with the parameterized type in which the wildcard was originally written. Capture
-   * conversion recomputes the bound from the declaration and current type arguments. Explicit
-   * nullness annotations restored during type substitution are taken from the captured type
-   * argument itself, so this method does not depend on the wildcard's mutable stored bound.
-   *
-   * @param wildcardType the direct wildcard type argument
+   * @param wildcardType the wildcard type argument with an implicit upper bound
    * @param capturedTypeArgument the corresponding type argument after capture-converting the
    *     containing parameterized type
    * @param correspondingTypeVariable the declaration's formal type variable for this position
@@ -162,9 +164,10 @@ public class GenericsUtils {
       VisitorState state,
       Config config,
       Handler handler) {
-    if (wildcardType.kind == BoundKind.EXTENDS) {
-      return wildcardUpperBound(wildcardType, correspondingTypeVariable, state, config, handler);
-    }
+    Verify.verify(
+        wildcardType.kind != BoundKind.EXTENDS,
+        "This method only supports wildcards with implicit upper bounds, not %s",
+        wildcardType);
     Verify.verify(
         capturedTypeArgument instanceof CapturedType,
         "capture conversion did not capture wildcard %s",
@@ -173,7 +176,7 @@ public class GenericsUtils {
     Type upperBound = capturedType.getUpperBound();
     // A substituted capture can carry an explicit annotation from a type-variable use (for
     // example, @NonNull V) that javac's structural upper bound does not retain. Restore that
-    // annotation from the capture itself rather than consulting the wildcard's mutable bound.
+    // annotation from the capture itself.
     upperBound =
         TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
             capturedTypeArgument, upperBound, config);
