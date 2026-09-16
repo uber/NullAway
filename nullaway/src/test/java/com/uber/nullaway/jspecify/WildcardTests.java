@@ -1496,6 +1496,38 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1842() {
+    makeHelper()
+        .addSourceLines(
+            "Node.java",
+            """
+            package org.example;
+
+            public class Node<N extends Node<?>> {}
+            """)
+        .addSourceLines(
+            "Main.java",
+            """
+            package org.example;
+
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Main {
+              static <T> T take(List<? extends Node<?>> in, T t) {
+                return t;
+              }
+
+              static String test(List<Node<?>> nodes) {
+                return take(nodes, "x");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
     makeTestHelperWithArgs(
             List.of(
