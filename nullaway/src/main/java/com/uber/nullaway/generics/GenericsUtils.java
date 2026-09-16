@@ -174,15 +174,13 @@ public class GenericsUtils {
         wildcardType);
     CapturedType capturedType = (CapturedType) capturedTypeArgument;
     Type upperBound = capturedType.getUpperBound();
-    // A substituted capture can carry an explicit annotation from a type-variable use (for
-    // example, @NonNull V) that javac's structural upper bound does not retain. Restore that
-    // annotation from the capture itself.
-    upperBound =
-        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            capturedTypeArgument, upperBound, config);
-    // If capture conversion substituted a dependent bound (for example, U extends T becoming
-    // String), the substituted type supplies its own nullability. Declaration-level defaults for U
-    // apply only when its declared upper bound is still the bound being interpreted.
+    // Apply the upper bound nullability from correspondingTypeVariable when needed.  For dependent
+    // bounds, like Pair<T, U extends T>, we need to be careful.
+    // Capture conversion substitutes actual type arguments into dependent bounds. For example, when
+    // capturing Pair<String, ?> for the above case, the capture's upper bound is
+    // String rather than T, and the substituted upper bound already carries the right nullability.
+    // So only apply the upper bound nullability from correspondingTypeVariable when its declared
+    // upper bound is the same as the bound on the captured type.
     if (state.getTypes().isSameType(upperBound, correspondingTypeVariable.getUpperBound())) {
       upperBound =
           applyUpperBoundNullability(upperBound, correspondingTypeVariable, state, config, handler);
