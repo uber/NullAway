@@ -21,6 +21,29 @@ import org.junit.Test;
 public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
+  public void issue1851SelfReferentialWildcardBound() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+
+            import com.example.jspecify.unannotatedpackage.Self;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static int pass(Self<?> value) {
+                return Self.consume(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void unboundedWildcardWithNonNullFormalBoundAfterTypeInspection() {
     makeTypeInspectionHelper()
         .addSourceLines(
