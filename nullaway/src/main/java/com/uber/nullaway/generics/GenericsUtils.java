@@ -96,7 +96,8 @@ public class GenericsUtils {
         upperBound = applyUpperBoundNullability(upperBound, formalTypeVar, state, config, handler);
       }
     }
-    return resolveNestedWildcardUpperBoundIfNeeded(upperBound, state, config, handler);
+    return resolveNestedWildcardUpperBoundIfNeeded(
+        upperBound, correspondingTypeVariable, state, config, handler);
   }
 
   /**
@@ -313,15 +314,21 @@ public class GenericsUtils {
    * Resolve nested wildcard layers of a computed wildcard upper bound.
    *
    * @param upperBound the upper bound to resolve
+   * @param correspondingTypeVariable the formal type variable for the wildcard whose bound is being
+   *     resolved, if known
    * @param state visitor state
    * @param config NullAway configuration
    * @param handler NullAway extension handler
    * @return the resolved upper bound
    */
   private static Type resolveNestedWildcardUpperBoundIfNeeded(
-      Type upperBound, VisitorState state, Config config, Handler handler) {
+      Type upperBound,
+      Type.@Nullable TypeVar correspondingTypeVariable,
+      VisitorState state,
+      Config config,
+      Handler handler) {
     if (upperBound instanceof WildcardType nestedWildcard) {
-      return wildcardUpperBound(nestedWildcard, state, config, handler);
+      return wildcardUpperBound(nestedWildcard, correspondingTypeVariable, state, config, handler);
     }
     if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
       // A dependent bound can resolve to another capture. For example, capturing Pair<?, ?> for
@@ -329,7 +336,8 @@ public class GenericsUtils {
       // For an explicit extends wildcard, resolve through the backing wildcard to preserve the
       // explicitly written bound and its nullability.
       if (capturedType.wildcard.kind == BoundKind.EXTENDS) {
-        return wildcardUpperBound(capturedType.wildcard, state, config, handler);
+        return wildcardUpperBound(
+            capturedType.wildcard, correspondingTypeVariable, state, config, handler);
       }
       // Preserve the contextual upper bound computed by capture conversion rather than resolving
       // an implicit bound through the backing wildcard. The latter can discard substitutions in
@@ -338,7 +346,13 @@ public class GenericsUtils {
       // The structural upper bound does not necessarily carry declaration-level nullability
       // defaults, so apply the default from the backing wildcard's formal type variable explicitly.
       Type contextualUpperBound = capturedType.getUpperBound();
-      Type.TypeVar formalTypeVariable = capturedType.wildcard.bound;
+      // Before JDK 23, a wildcard read from bytecode does not retain its corresponding formal even
+      // after capture conversion. Use the formal supplied by the containing class type in that
+      // case.
+      Type.TypeVar formalTypeVariable =
+          capturedType.wildcard.bound != null
+              ? capturedType.wildcard.bound
+              : correspondingTypeVariable;
       return formalTypeVariable == null
           ? contextualUpperBound
           : applyUpperBoundNullability(
