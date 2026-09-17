@@ -844,7 +844,9 @@ public final class GenericsChecks {
             Type returnType = methodType.getReturnType();
             // If the return type is a wildcard, restore annotations from its upper bound
             Type annotationSource =
-                GenericsUtils.effectiveWildcardUpperBound(returnType, state, config, handler);
+                config.handleWildcardGenerics()
+                    ? GenericsUtils.effectiveWildcardUpperBound(returnType, state, config, handler)
+                    : returnType;
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
                     annotationSource, result, config);
