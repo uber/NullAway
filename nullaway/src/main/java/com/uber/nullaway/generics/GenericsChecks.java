@@ -842,9 +842,14 @@ public final class GenericsChecks {
                     symbol, invocationTree, state.getPath(), state, calledFromDataflow);
             // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
+            // A member return type can remain a wildcard after substitution, while javac types the
+            // invocation expression as that wildcard's effective upper bound. Restore annotations
+            // from the same upper bound so the source and destination type structures align.
+            Type annotationSource =
+                GenericsUtils.effectiveWildcardUpperBound(returnType, state, config, handler);
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    returnType, result, config);
+                    annotationSource, result, config);
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {

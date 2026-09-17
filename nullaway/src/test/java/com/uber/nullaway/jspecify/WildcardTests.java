@@ -1659,6 +1659,40 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1846() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Node<T extends Comparable<Integer>> {
+                T get();
+              }
+
+              interface NullableNode<T extends @Nullable Comparable<Integer>> {
+                T get();
+              }
+
+              static void takesObject(Object value) {}
+
+              static void superBounded(Node<? super Integer> node) {
+                takesObject(node.get());
+              }
+
+              static void nullableSuperBounded(NullableNode<? super Integer> node) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'node.get()'
+                takesObject(node.get());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
     makeTestHelperWithArgs(
             List.of(
