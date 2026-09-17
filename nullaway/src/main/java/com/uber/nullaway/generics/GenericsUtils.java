@@ -66,7 +66,8 @@ public class GenericsUtils {
    */
   static Type wildcardUpperBound(
       WildcardType wildcardType, VisitorState state, Config config, Handler handler) {
-    return resolveEffectiveUpperBound(wildcardType, null, Map.of(), state, config, handler);
+    return resolveEffectiveUpperBound(
+        wildcardType, wildcardType.bound, Map.of(), state, config, handler);
   }
 
   /**
@@ -249,7 +250,12 @@ public class GenericsUtils {
     }
     if (upperBound instanceof WildcardType wildcardUpperBound) {
       return resolveEffectiveUpperBound(
-          wildcardUpperBound, null, captureToFormalTypeVar, state, config, handler);
+          wildcardUpperBound,
+          formalTypeVariable,
+          captureToFormalTypeVar,
+          state,
+          config,
+          handler);
     }
     return upperBound;
   }
