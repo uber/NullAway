@@ -226,11 +226,11 @@ public class GenericsUtils {
             : capturedTypeArgument;
     // Apply the upper-bound nullability from the declaration formal when needed. For a dependent
     // bound such as U extends T in Pair<T, U>, capture conversion can replace the entire bound (for
-    // example, T with String), in which case the substituted type supplies its own nullability. By
-    // contrast, capture conversion of a recursive class bound such as S extends Self<S> only
-    // substitutes nested type arguments; the top-level Self still gets its nullability from S's
-    // declaration. Treat matching class symbols as the latter case even though javac's structural
-    // types differ after substitution.
+    // example, T with String), in which case the substituted type supplies its own nullability.
+    // Capture conversion of a recursive class bound such as S extends Self<S> only
+    // substitutes nested type arguments; the top-level Self still gets its type argument
+    // nullability from S's declaration. So, also apply upper bound nullability when we have
+    // matching class symbols.
     Type declaredUpperBound = formalTypeVariable.getUpperBound();
     if (state.getTypes().isSameType(upperBound, declaredUpperBound)
         || (upperBound instanceof ClassType
@@ -339,12 +339,9 @@ public class GenericsUtils {
         return wildcardUpperBound(
             capturedType.wildcard, correspondingTypeVariable, state, config, handler);
       }
-      // Preserve the contextual upper bound computed by capture conversion rather than resolving
-      // an implicit bound through the backing wildcard. The latter can discard substitutions in
-      // recursive bounds for wildcards read from bytecode. For example, the contextual bound
-      // Self<? extends capture of ?> can be replaced by the declaration bound Self<? extends S>.
-      // The structural upper bound does not necessarily carry declaration-level nullability
-      // defaults, so apply the default from the backing wildcard's formal type variable explicitly.
+      // Use capturedType.getUpperBound() as the upper bound for a wildcard with an implicit upper
+      // bound, and then apply explicit nullability annotations from the formal type variable is
+      // possible.
       Type contextualUpperBound = capturedType.getUpperBound();
       // Before JDK 23, a wildcard read from bytecode does not retain its corresponding formal even
       // after capture conversion. Use the formal supplied by the containing class type in that
