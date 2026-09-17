@@ -1092,6 +1092,33 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nullableTypeArgumentStoredInWildcardArraySlot() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.concurrent.CompletableFuture;
+            class Test {
+              static void concreteArrayStore(CompletableFuture<String> value) {
+                var futures = new CompletableFuture<?>[1];
+                futures[0] = value;
+              }
+
+              static void nullableLocalStore() {
+                CompletableFuture<?> future = CompletableFuture.runAsync(() -> {});
+              }
+
+              static void nullableArrayStore() {
+                var futures = new CompletableFuture<?>[1];
+                futures[0] = CompletableFuture.runAsync(() -> {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
