@@ -12,6 +12,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -816,10 +817,22 @@ public final class GenericsChecks {
           result = symbol.type;
         }
       } else if (tree instanceof AssignmentTree assignmentTree) {
-        // type on the tree itself can be missing nested annotations for arrays; get the type from
-        // the symbol for the assigned location instead, if available
-        Symbol lhsSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
-        if (lhsSymbol != null) {
+        // The type on the tree itself can be missing nested annotations, so prefer the declared
+        // type of the assigned location. For an array access, javac capture-converts the component
+        // type; recover the pre-capture component type from the array expression instead.
+        ExpressionTree lhs = assignmentTree.getVariable();
+        Symbol lhsSymbol = ASTHelpers.getSymbol(lhs);
+        if (lhs instanceof ArrayAccessTree arrayAccess) {
+          ExpressionTree arrayExpression = arrayAccess.getExpression();
+          TreePath arrayExpressionPath =
+              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpression);
+          Type arrayType =
+              getTreeType(arrayExpression, state.withPath(arrayExpressionPath), calledFromDataflow);
+          result =
+              arrayType instanceof Type.ArrayType arrayTypeWithComponent
+                  ? arrayTypeWithComponent.getComponentType()
+                  : ASTHelpers.getType(assignmentTree);
+        } else if (lhsSymbol != null) {
           Type inferredVarLocalType = getInferredVarLocalType(lhsSymbol, state, calledFromDataflow);
           result = inferredVarLocalType != null ? inferredVarLocalType : lhsSymbol.type;
         } else {
