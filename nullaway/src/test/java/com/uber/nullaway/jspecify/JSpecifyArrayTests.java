@@ -1100,6 +1100,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             """
             package com.uber;
             import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.Nullable;
             class Test {
               static void concreteArrayStore(CompletableFuture<String> value) {
                 var futures = new CompletableFuture<?>[1];
@@ -1113,6 +1114,18 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void nullableArrayStore() {
                 var futures = new CompletableFuture<?>[1];
                 futures[0] = CompletableFuture.runAsync(() -> {});
+              }
+
+              static void nullableExplicitArrayStore() {
+                CompletableFuture<?>[] futures = new CompletableFuture<?>[1];
+                futures[0] = CompletableFuture.runAsync(() -> {});
+              }
+
+              static void nullableTypeArgumentRejectedFromNonNullBoundedWildcardArray(
+                  CompletableFuture<? extends String>[] futures,
+                  CompletableFuture<@Nullable String> value) {
+                // BUG: Diagnostic contains: incompatible types: CompletableFuture<@Nullable String> cannot be converted to CompletableFuture<? extends String>
+                futures[0] = value;
               }
             }
             """)
