@@ -1568,6 +1568,39 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1851SourceOnly() {
+    makeHelper()
+        .addSourceLines(
+            "Self.java",
+            """
+            package org.example;
+
+            public class Self<S extends Self<? extends S>> {}
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package org.example;
+
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static void consume(Self<?> value) {}
+
+              static void exercise(Self<?> value) {
+                consume(identity(value));
+              }
+
+              static <T> T identity(T value) {
+                return value;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
     makeTestHelperWithArgs(
             List.of(

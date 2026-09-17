@@ -223,14 +223,18 @@ public class GenericsUtils {
         capturedTypeArgument instanceof CapturedType capturedType
             ? capturedType.getUpperBound()
             : capturedTypeArgument;
-    // Apply the upper-bound nullability from the declaration formal when needed. For dependent
-    // bounds, like Pair<T, U extends T>, we need to be careful.
-    // Capture conversion substitutes actual type arguments into dependent bounds. For example, when
-    // capturing Pair<String, ?> for the above case, the capture's upper bound is
-    // String rather than T, and the substituted upper bound already carries the right nullability.
-    // So only apply the declaration formal's upper-bound nullability when its declared upper bound
-    // is the same as the bound on the captured type.
-    if (state.getTypes().isSameType(upperBound, formalTypeVariable.getUpperBound())) {
+    // Apply the upper-bound nullability from the declaration formal when needed. For a dependent
+    // bound such as U extends T in Pair<T, U>, capture conversion can replace the entire bound (for
+    // example, T with String), in which case the substituted type supplies its own nullability. By
+    // contrast, capture conversion of a recursive class bound such as S extends Self<S> only
+    // substitutes nested type arguments; the top-level Self still gets its nullability from S's
+    // declaration. Treat matching class symbols as the latter case even though javac's structural
+    // types differ after substitution.
+    Type declaredUpperBound = formalTypeVariable.getUpperBound();
+    if (state.getTypes().isSameType(upperBound, declaredUpperBound)
+        || (upperBound instanceof ClassType
+            && declaredUpperBound instanceof ClassType
+            && upperBound.tsym.equals(declaredUpperBound.tsym))) {
       upperBound =
           applyUpperBoundNullability(upperBound, formalTypeVariable, state, config, handler);
     }
@@ -322,10 +326,23 @@ public class GenericsUtils {
     if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
       // A dependent bound can resolve to another capture. For example, capturing Pair<?, ?> for
       // Pair<T, U extends T> gives the second capture an upper bound equal to the first capture.
-      // Resolve through the backing wildcard so wildcardUpperBound() can apply NullAway's
-      // declaration-level defaults, which are not necessarily present on javac's structural upper
-      // bound (notably for type variables declared in unannotated code).
-      return wildcardUpperBound(capturedType.wildcard, state, config, handler);
+      // For an explicit extends wildcard, resolve through the backing wildcard to preserve the
+      // explicitly written bound and its nullability.
+      if (capturedType.wildcard.kind == BoundKind.EXTENDS) {
+        return wildcardUpperBound(capturedType.wildcard, state, config, handler);
+      }
+      // Preserve the contextual upper bound computed by capture conversion rather than resolving
+      // an implicit bound through the backing wildcard. The latter can discard substitutions in
+      // recursive bounds for wildcards read from bytecode. For example, the contextual bound
+      // Self<? extends capture of ?> can be replaced by the declaration bound Self<? extends S>.
+      // The structural upper bound does not necessarily carry declaration-level nullability
+      // defaults, so apply the default from the backing wildcard's formal type variable explicitly.
+      Type contextualUpperBound = capturedType.getUpperBound();
+      Type.TypeVar formalTypeVariable = capturedType.wildcard.bound;
+      return formalTypeVariable == null
+          ? contextualUpperBound
+          : applyUpperBoundNullability(
+              contextualUpperBound, formalTypeVariable, state, config, handler);
     }
     return upperBound;
   }
