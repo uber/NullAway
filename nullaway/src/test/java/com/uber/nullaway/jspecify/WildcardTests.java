@@ -403,6 +403,46 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboundedWildcardUsesSubstitutedDependentFormalBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Pair<T extends @Nullable Object, U extends T> {}
+
+              static void nonNullFirstArgument(Pair<String, ?> pair) {
+                Pair<String, ? extends String> target = pair;
+              }
+
+              static void nullableFirstArgument(Pair<@Nullable String, ?> pair) {
+                Pair<@Nullable String, ? extends @Nullable String> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                Pair<@Nullable String, ? extends String> invalid = pair;
+              }
+
+              static void capturedFirstArgument(Pair<?, ?> pair) {
+                Pair<?, ? extends @Nullable Object> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                Pair<?, ? extends Object> invalid = pair;
+              }
+
+              @NullUnmarked
+              static class UnmarkedPair<T, U extends T> {}
+
+              static void capturedFirstArgumentFromUnmarkedCode(UnmarkedPair<?, ?> pair) {
+                UnmarkedPair<?, ? extends @Nullable Object> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                UnmarkedPair<?, ? extends Object> invalid = pair;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void unboundedWildcardFormalWithNullableTypeParameterBound() {
     makeHelper()
         .addSourceLines(
