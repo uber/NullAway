@@ -148,7 +148,8 @@ public interface LibraryModels {
    * every modeled location. Explicit method type arguments seed the corresponding inference
    * variables after substitution. A parameter index of {@code -1} denotes the return type. This
    * model is used only in JSpecify mode, and the modeled method's enclosing class is expected to be
-   * modeled as {@code @NullMarked}.
+   * modeled as {@code @NullMarked}. A PolyNull location takes precedence over any fixed nullable or
+   * non-null library model for the same location.
    *
    * @return map from methods to signature locations with polymorphic nullness
    */

@@ -91,18 +91,12 @@ public final class GenericsChecks {
 
   /**
    * Indicates successful inference of nullability of type variables at a call. Stores the inferred
-   * type variable nullability and any PolyNull resolutions computed by the same solver run.
+   * type variable nullability and any PolyNull nullability computed by the same solver run.
    */
   private record InferenceSuccess(
       Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
       IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation)
       implements CallInferenceResult {}
-
-  /**
-   * A generic method type after substitution, together with any jointly inferred PolyNull value.
-   */
-  private record MethodTypeSubstitution(
-      Type.MethodType methodType, @Nullable Nullness polyNullness) {}
 
   /** Indicates failed inference of nullability of type variables at a call */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
@@ -3123,24 +3117,30 @@ public final class GenericsChecks {
    * @param path the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
-   * @return the substituted method type and any PolyNull value inferred in the same solver run
+   * @return the substituted method type with library models applied
    */
-  private MethodTypeSubstitution substituteTypeArgsInGenericMethodType(
+  private Type.MethodType substituteTypeArgsInGenericMethodType(
       Tree tree,
       Type.ForAll forAllType,
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
     Type.MethodType methodType = forAllType.asMethodType();
+    MethodInvocationTree invocationTree =
+        tree instanceof MethodInvocationTree methodInvocationTree ? methodInvocationTree : null;
+    Symbol.MethodSymbol methodSymbol =
+        (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(tree));
 
     List<? extends Tree> typeArgumentTrees =
-        (tree instanceof MethodInvocationTree methodInvocationTree)
-            ? methodInvocationTree.getTypeArguments()
+        invocationTree != null
+            ? invocationTree.getTypeArguments()
             : ((NewClassTree) tree).getTypeArguments();
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
+    Type.MethodType substitutedMethodType;
+    Nullness jointlyInferredPolyNullness = null;
 
     // There are no explicit type arguments, so use the inferred types
-    if (explicitTypeArgs.isEmpty() && tree instanceof MethodInvocationTree invocationTree) {
+    if (explicitTypeArgs.isEmpty() && invocationTree != null) {
       CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(tree);
       if (result == null) {
         // have not yet attempted inference for this call
@@ -3179,21 +3179,32 @@ public final class GenericsChecks {
             nestedNullabilityRepairInProgress.remove(invocationTree);
           }
         }
-        Type.MethodType substitutedMethodType =
+        substitutedMethodType =
             TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
                 methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
-        return new MethodTypeSubstitution(
-            substitutedMethodType, successResult.polyNullnessByInvocation().get(invocationTree));
+        jointlyInferredPolyNullness = successResult.polyNullnessByInvocation().get(invocationTree);
       } else {
         // inference failed; just return the method type at the call site with no substitutions
-        return new MethodTypeSubstitution(methodTypeAtCallSite, null);
+        substitutedMethodType = methodTypeAtCallSite;
       }
+    } else {
+      substitutedMethodType =
+          TypeSubstitutionUtils.subst(
+                  state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config)
+              .asMethodType();
     }
-    return new MethodTypeSubstitution(
-        TypeSubstitutionUtils.subst(
-                state.getTypes(), methodType, forAllType.tvars, explicitTypeArgs, config)
-            .asMethodType(),
-        null);
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(methodSymbol, substitutedMethodType, state, invocationTree);
+    return invocationTree == null
+        ? modeledMethodType
+        : applyPolyNullModel(
+            methodSymbol,
+            invocationTree,
+            modeledMethodType,
+            jointlyInferredPolyNullness,
+            path,
+            state,
+            calledFromDataflow);
   }
 
   /**
@@ -3413,13 +3424,10 @@ public final class GenericsChecks {
       invokedMethodType =
           TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
     }
-    Nullness jointlyInferredPolyNullness = null;
     if (tree instanceof MethodInvocationTree
         && invokedMethodType instanceof Type.ForAll forAllType) {
-      MethodTypeSubstitution substitution =
-          substituteTypeArgsInGenericMethodType(tree, forAllType, path, state, calledFromDataflow);
-      invokedMethodType = substitution.methodType();
-      jointlyInferredPolyNullness = substitution.polyNullness();
+      return substituteTypeArgsInGenericMethodType(
+          tree, forAllType, path, state, calledFromDataflow);
     }
     Type.MethodType modeledMethodType =
         handler.onOverrideMethodType(
@@ -3429,13 +3437,7 @@ public final class GenericsChecks {
             tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
     return tree instanceof MethodInvocationTree invocationTree
         ? applyPolyNullModel(
-            methodSymbol,
-            invocationTree,
-            modeledMethodType,
-            jointlyInferredPolyNullness,
-            path,
-            state,
-            calledFromDataflow)
+            methodSymbol, invocationTree, modeledMethodType, null, path, state, calledFromDataflow)
         : modeledMethodType;
   }
 
@@ -3673,7 +3675,6 @@ public final class GenericsChecks {
       Type.ForAll forAllType = (Type.ForAll) invokedMethodSymbol.type;
       List<Type> substitutedParamTypes =
           substituteTypeArgsInGenericMethodType(tree, forAllType, null, state, false)
-              .methodType()
               .getParameterTypes();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
