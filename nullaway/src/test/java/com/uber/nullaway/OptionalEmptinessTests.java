@@ -724,4 +724,36 @@ public class OptionalEmptinessTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+  
+  @Test
+  public void testOptionalOfAndOfNullableInitialValues() {
+    makeTestHelperWithArgs(
+            java.util.List.of(
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:CheckOptionalEmptiness=true"))
+        .addSourceLines(
+            "Test.java",
+            "package com.uber;",
+            "import java.util.Optional;",
+            "import javax.annotation.Nullable;", 
+            "public class Test {",
+            "  public void logOptionalOf() {",
+            "    Optional<Object> o = Optional.of(new Object());",
+            "    // Should be a true negative (no error) because of Optional.of()",
+            "    o.get().hashCode();",
+            "  }",
+            "  public void logOptionalOfNullableWithNonNull() {",
+            "    Object nonNullObj = new Object();",
+            "    Optional<Object> o = Optional.ofNullable(nonNullObj);",
+            "    // Should be a true negative because the argument is explicitly non-null",
+            "    o.get().hashCode();",
+            "  }",
+            "  public void logOptionalOfNullableWithNullable(@Nullable Object nullableObj) {", 
+            "    Optional<Object> o = Optional.ofNullable(nullableObj);",
+            "    // BUG: Diagnostic contains: Invoking get() on possibly empty Optional o",
+            "    o.get().hashCode();",
+            "  }",
+            "}")
+        .doTest();
+  }
 }

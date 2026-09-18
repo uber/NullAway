@@ -130,6 +130,19 @@ public class OptionalEmptinessHandler implements Handler {
     } else if (optionalIsEmptyCall(symbol, types)) {
       updateNonNullAPsForOptionalContent(
           state.context, elseUpdates, node.getTarget().getReceiver(), apContext);
+    } else if (optionalOfCall(symbol, types)) {
+      // Optional.of(...) always yields a non-empty Optional
+      updateNonNullAPsForOptionalContent(
+          state.context, bothUpdates, node, apContext);
+    } else if (optionalOfNullableCall(symbol, types)) {
+      // Optional.ofNullable(...) yields a non-empty Optional ONLY if the argument is non-null
+      if (node.getArguments().size() == 1) {
+        Node arg = node.getArgument(0);
+        if (inputs.valueOfSubNode(arg) == Nullness.NONNULL) {
+          updateNonNullAPsForOptionalContent(
+              state.context, bothUpdates, node, apContext);
+        }
+      }
     } else if (config.handleTestAssertionLibraries()) {
       handleTestAssertions(state, apContext, bothUpdates, node, symbol);
     }
@@ -149,6 +162,85 @@ public class OptionalEmptinessHandler implements Handler {
           new ErrorMessage(ErrorMessage.MessageTypes.GET_ON_EMPTY_OPTIONAL, message));
     }
     return Optional.empty();
+  }
+
+  @Override
+  public void onDataflowVisitAssignment(
+      org.checkerframework.nullaway.dataflow.cfg.node.AssignmentNode node,
+      com.google.errorprone.VisitorState state,
+      com.uber.nullaway.dataflow.AccessPath.AccessPathContext apContext,
+      com.uber.nullaway.dataflow.AccessPathNullnessPropagation.SubNodeValues inputs,
+      com.uber.nullaway.dataflow.NullnessStore store,
+      com.uber.nullaway.dataflow.AccessPathNullnessPropagation.Updates updates) {
+
+    org.checkerframework.nullaway.dataflow.cfg.node.Node rhs = node.getExpression();
+    org.checkerframework.nullaway.dataflow.cfg.node.Node lhs = node.getTarget();
+
+    // Peel back any type cast, null check, widening or narrowing conversion nodes using shaded paths
+    while (rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode
+        || rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.NullChkNode
+        || rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode
+        || rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.NarrowingConversionNode) {
+      if (rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode) {
+        rhs = ((org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode) rhs).getOperand();
+      } else if (rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.NullChkNode) {
+        rhs = ((org.checkerframework.nullaway.dataflow.cfg.node.NullChkNode) rhs).getOperand();
+      } else if (rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode) {
+        rhs = ((org.checkerframework.nullaway.dataflow.cfg.node.WideningConversionNode) rhs).getOperand();
+      } else if (rhs instanceof org.checkerframework.nullaway.dataflow.cfg.node.NarrowingConversionNode) {
+        rhs = ((org.checkerframework.nullaway.dataflow.cfg.node.NarrowingConversionNode) rhs).getOperand();
+      }
+    }
+
+    // Case 1: The RHS is a factory method (e.g., Optional.of or Optional.ofNullable)
+    if (rhs instanceof MethodInvocationNode methodNode) {
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodNode.getTree());
+      Types types = state.getTypes();
+      if (symbol != null) {
+        if (optionalOfCall(symbol, types)) {
+          updateNonNullAPsForOptionalContent(state.context, updates, lhs, apContext);
+          return;
+        } else if (optionalOfNullableCall(symbol, types)) {
+          if (methodNode.getArguments().size() == 1) {
+            org.checkerframework.nullaway.dataflow.cfg.node.Node arg = methodNode.getArgument(0);
+            Nullness argNullness = inputs.valueOfSubNode(arg);
+            if (argNullness != Nullness.NONNULL) {
+              AccessPath argAp = AccessPath.getAccessPathForNode(arg, state, apContext);
+              if (argAp != null) {
+                argNullness = store.getNullnessOfAccessPath(argAp);
+              }
+            }
+            if (argNullness == Nullness.NONNULL) {
+              updateNonNullAPsForOptionalContent(state.context, updates, lhs, apContext);
+            }
+          }
+          return;
+        }
+      }
+    }
+
+    // Case 2: Copying existing tracking facts across regular variables (e.g., o2 = o1)
+    AccessPath rhsAp = AccessPath.fromBaseAndElement(
+        rhs, OptionalContentVariableElement.instance(state.context), apContext);
+    if (rhsAp != null) {
+      Nullness rhsNullness = store.getNullnessOfAccessPath(rhsAp);
+      if (rhsNullness == Nullness.NONNULL) {
+        updateNonNullAPsForOptionalContent(state.context, updates, lhs, apContext);
+      }
+    }
+  }
+
+  private void updateNonNullAPsForOptionalContent(
+      Context context,
+      AccessPathNullnessPropagation.Updates updates,
+      Node base,
+      AccessPath.AccessPathContext apContext) {
+    AccessPath ap =
+        AccessPath.fromBaseAndElement(
+            base, OptionalContentVariableElement.instance(context), apContext);
+    if (ap != null) {
+      updates.set(ap, Nullness.NONNULL);
+    }
   }
 
   private boolean isOptionalContentNullable(
@@ -259,32 +351,31 @@ public class OptionalEmptinessHandler implements Handler {
     return node;
   }
 
-  private void updateNonNullAPsForOptionalContent(
-      Context context,
-      AccessPathNullnessPropagation.Updates updates,
-      Node base,
-      AccessPath.AccessPathContext apContext) {
-    AccessPath ap =
-        AccessPath.fromBaseAndElement(
-            base, OptionalContentVariableElement.instance(context), apContext);
-    if (ap != null && base.getTree() != null) {
-      updates.set(ap, Nullness.NONNULL);
-    }
+  public static javax.lang.model.element.VariableElement getOptionalContentElement(com.sun.tools.javac.util.Context context) {
+    return OptionalContentVariableElement.instance(context);
   }
 
   private boolean optionalIsPresentCall(Symbol.MethodSymbol symbol, Types types) {
-    return isZeroArgOptionalMethod("isPresent", symbol, types);
+    return isOptionalMethod("isPresent", 0, symbol, types);
   }
 
   private boolean optionalIsEmptyCall(Symbol.MethodSymbol symbol, Types types) {
-    return isZeroArgOptionalMethod("isEmpty", symbol, types);
+    return isOptionalMethod("isEmpty", 0, symbol, types);
   }
 
-  private boolean isZeroArgOptionalMethod(
-      String methodName, Symbol.MethodSymbol symbol, Types types) {
+  private boolean optionalOfCall(Symbol.MethodSymbol symbol, Types types) {
+    return isOptionalMethod("of", 1, symbol, types);
+  }
+
+  private boolean optionalOfNullableCall(Symbol.MethodSymbol symbol, Types types) {
+    return isOptionalMethod("ofNullable", 1, symbol, types);
+  }
+
+  private boolean isOptionalMethod(
+      String methodName, int paramCount, Symbol.MethodSymbol symbol, Types types) {
     Preconditions.checkNotNull(optionalTypes);
     if (!(symbol.getSimpleName().toString().equals(methodName)
-        && symbol.getParameters().length() == 0)) {
+        && symbol.getParameters().length() == paramCount)) {
       return false;
     }
     for (Type optionalType : optionalTypes) {
@@ -296,7 +387,7 @@ public class OptionalEmptinessHandler implements Handler {
   }
 
   private boolean optionalIsGetCall(Symbol.MethodSymbol symbol, Types types) {
-    return isZeroArgOptionalMethod("get", symbol, types);
+    return isOptionalMethod("get", 0, symbol, types);
   }
 
   /**
