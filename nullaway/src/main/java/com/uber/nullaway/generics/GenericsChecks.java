@@ -1588,6 +1588,7 @@ public final class GenericsChecks {
                         locations,
                         getSyntheticNullableAnnotType(state),
                         state));
+        solver.registerInferenceVariable(polyNullContext.inferenceVariable().asElement());
       }
     }
     // first, handle the call result flow
@@ -3515,6 +3516,7 @@ public final class GenericsChecks {
       return null;
     }
     ConstraintSolver solver = makeSolver(state, analysis);
+    solver.registerInferenceVariable(inferenceContext.inferenceVariable().asElement());
     Set<Tree> nestedCalls = new LinkedHashSet<>();
     try {
       addPolyNullResultConstraintsFromDirectAssignmentContext(
