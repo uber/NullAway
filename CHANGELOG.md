@@ -1,11 +1,51 @@
 Changelog
 =========
 
-Unreleased
-----------
+Version 0.14.2
+--------------
 
-* Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
-* Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` (#1815)
+This release adds `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports
+nullness annotations in locations JSpecify does not recognize.  See further documentation
+on the wiki: https://github.com/uber/NullAway/wiki/JSpecify-Support#jspecifyunrecognizedannotationlocation-checker
+
+Not in the release, but we have also added a script to remove unnecessary NullAway
+suppressions to the repo: https://github.com/uber/NullAway/tree/master/scripts/nullaway-suppression-remover
+We expect this to be a useful script to run after NullAway updates, to check if
+NullAway improvements make some suppressions unnecessary.
+
+Also of note, NullAway now more precisely detects whether the JDK used for the build properly
+supports reading type use annotations from bytecode, particularly important for JSpecify
+mode.  This may lead NullAway to crash on certain build configurations that were
+unsupported before but we were not detecting precisely.
+
+Beyond the above, we have a few bug fixes for JSpecifyExperimental mode, and we're
+working on more fixes.
+
+* Small optimization for stream handlers (#1774)
+* Check wildcard generics handling flag for enhanced for loops (#1786)
+* Cover anonymous class type arguments and modeled call-site returns by @vlsi (#1777)
+* Write the full encoded byte array when serializing TSV/XML rows #1788 by @AzazelSensei (#1798)
+* Fix @RequiresNonNull override error message to list the extra fields added by the child method by @Beluomini (#1751)
+* Model Stream.takeWhile (+ reactive equivalents) like .filter by @jeffrey-easyesi (#1809)
+* Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize by @vlsi (#1787)
+* Detect support for the addTypeAnnotationsToSymbol flag on JDK 17 / 21 (#1794)
+* Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` by @vlsi (#1815)
+* Less conservative handling of raw array types (#1807)
+* Fix crasher example from Caffeine (#1820)
+* Add a script to remove unnecessary NullAway suppressions (#1803)
+* Use LinkedHashMap / LinkedHashSet for determinism (#1796)
+* Maintenance
+  - Remove outdated Spark test (#1772)
+  - Disable Jacoco by default (#1773)
+  - Document MethodRef overload signatures in the sample library model #1016 by @AzazelSensei (#1779)
+  - Migrate CoreTests to addSourceLines by @abdeltaehass (#1765)
+  - Fix builds from a linked git worktree by skipping installGitHooks by @vlsi (#1776)
+  - Add tests for JPA mixed access type and anonymous-class callbacks in Map.forEach by @Beluomini (#1752)
+  - Add test case for issue #1799 (#1806)
+  - Document PR squash merging and commit headline style in AGENTS.md by @vlsi (#1810)
+  - Require an `Assisted-by:` commit trailer for AI-assisted work by @vlsi (#1811)
+  - Set up zizmor-action by @ZedingZhang (#1816)
+  - Tweak CI configuration to prepare for enabling merge queue (#1818)
 
 Version 0.14.1
 --------------
