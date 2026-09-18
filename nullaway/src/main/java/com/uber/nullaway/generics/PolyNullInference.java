@@ -16,7 +16,6 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.lang.model.element.Element;
-import org.jspecify.annotations.Nullable;
 
 /** Constructs and applies polymorphic-nullness constraints for modeled method locations. */
 final class PolyNullInference {
@@ -24,9 +23,6 @@ final class PolyNullInference {
   /** Diagnostic for incompatible constraints on modeled PolyNull locations. */
   static final String INFERENCE_FAILURE_MESSAGE =
       "inference failure: polymorphic nullness constrained to both @NonNull and @Nullable";
-
-  /** The result of resolving PolyNull for one invocation in a generic inference session. */
-  record PolyNullInferenceResult(@Nullable Nullness nullness) {}
 
   /** The modeled method-type overlay and shared PolyNull variable for one call. */
   record PolyNullInferenceContext(
@@ -78,17 +74,15 @@ final class PolyNullInference {
     return applyToType(returnType, -1, locations, annotationType);
   }
 
-  /** Resolves all PolyNull contexts after a shared generic-inference solver run. */
-  static IdentityHashMap<MethodInvocationTree, PolyNullInferenceResult> resolveContexts(
+  /** Resolves PolyNull nullness by invocation after a shared generic-inference solver run. */
+  static IdentityHashMap<MethodInvocationTree, Nullness> resolveNullnessByInvocation(
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> contexts,
       Map<Element, ConstraintSolver.InferredNullability> solution) {
-    IdentityHashMap<MethodInvocationTree, PolyNullInferenceResult> results =
-        new IdentityHashMap<>();
+    IdentityHashMap<MethodInvocationTree, Nullness> nullnessByInvocation = new IdentityHashMap<>();
     for (Map.Entry<MethodInvocationTree, PolyNullInferenceContext> entry : contexts.entrySet()) {
-      results.put(
-          entry.getKey(), new PolyNullInferenceResult(resolveContext(entry.getValue(), solution)));
+      nullnessByInvocation.put(entry.getKey(), resolveContext(entry.getValue(), solution));
     }
-    return results;
+    return nullnessByInvocation;
   }
 
   /** Resolves the shared PolyNull variable for one invocation. */
