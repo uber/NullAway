@@ -325,6 +325,11 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 @Nullable Integer[] x4 = new @Nullable Integer[]{null};
                 // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []
                 Integer[] x5 = new @Nullable Integer[]{null};
+                // the reverse direction is legal by covariant array subtyping
+                @Nullable Integer[] y1 = new Integer[3];
+                // TODO: this is a false positive; see #1150
+                // BUG: Diagnostic contains: incompatible types: Integer [] [] cannot be converted to @Nullable Integer [] []
+                @Nullable Integer[][] y2 = new Integer[3][4];
               }
             }
             """)
