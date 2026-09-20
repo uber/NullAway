@@ -66,26 +66,7 @@ public class GenericsUtils {
    */
   static Type wildcardUpperBound(
       WildcardType wildcardType, VisitorState state, Config config, Handler handler) {
-    return wildcardUpperBound(wildcardType, null, state, config, handler);
-  }
-
-  /**
-   * Returns the effective upper bound of a wildcard, using {@code correspondingTypeVariable} when
-   * javac has not stored one on the wildcard itself.
-   *
-   * <p>Before JDK 23, javac does not associate wildcard type arguments read from classfiles with
-   * their corresponding formal type variables. The {@code correspondingTypeVariable} parameter
-   * allows the caller to provide that information, when available (see <a
-   * href="https://github.com/uber/NullAway/issues/1732">#1732</a>).
-   */
-  static Type wildcardUpperBound(
-      WildcardType wildcardType,
-      Type.@Nullable TypeVar correspondingTypeVariable,
-      VisitorState state,
-      Config config,
-      Handler handler) {
-    return resolveEffectiveUpperBound(
-        wildcardType, correspondingTypeVariable, Map.of(), state, config, handler);
+    return resolveEffectiveUpperBound(wildcardType, null, Map.of(), state, config, handler);
   }
 
   /**
@@ -246,13 +227,10 @@ public class GenericsUtils {
         }
       }
     } else {
-      upperBound = type;
-      if (formalTypeVariable != null) {
-        upperBound =
-            applyDeclarationUpperBoundNullabilityIfApplicable(
-                upperBound, formalTypeVariable, state, config, handler);
-      }
+      // neither a wildcard nor a captured type; just return it
+      return type;
     }
+    // if the upper bound is either a capture or a wildcard, recurse
     if (upperBound instanceof CapturedType capturedUpperBound) {
       return resolveEffectiveUpperBound(
           capturedUpperBound,
