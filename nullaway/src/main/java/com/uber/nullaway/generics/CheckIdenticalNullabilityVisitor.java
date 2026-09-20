@@ -106,9 +106,11 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
+      Type lhsUpperBound = lhsUpperBounds.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
+      Type rhsUpperBound = rhsUpperBounds.get(i);
       if (!typeArgumentContainedBy(
-          lhsTypeArgument, rhsTypeArgument, lhsUpperBounds.get(i), rhsUpperBounds.get(i))) {
+          lhsTypeArgument, rhsTypeArgument, lhsUpperBound, rhsUpperBound)) {
         return false;
       }
     }
