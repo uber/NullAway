@@ -42,6 +42,32 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void capturedUnboundedWildcardAfterBackingWildcardTypeInspection() {
+    CompilationTestHelper.newInstance(
+            ScannerSupplier.fromBugCheckerClasses(TypeInspectionChecker.class, NullAway.class),
+            getClass())
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.generics.SeparatelyCompiledQueue;
+            class Test {
+              static <T> T identity(T value) {
+                return value;
+              }
+              static long producerIndex(SeparatelyCompiledQueue<?> queue) {
+                // identity() returns an already captured form of queue's wildcard.
+                return SeparatelyCompiledQueue.producerIndex(identity(queue));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Performs the type inspection that exposes javac's mutable wildcard bound to NullAway.
    *
