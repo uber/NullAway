@@ -24,6 +24,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
 import javax.lang.model.type.TypeVariable;
@@ -47,10 +48,16 @@ public class GenericsUtils {
    */
   static Type effectiveWildcardUpperBound(
       Type typeArg, VisitorState state, Config config, Handler handler) {
-    WildcardType wildcardType = asWildcard(typeArg);
-    return wildcardType == null
-        ? typeArg
-        : wildcardUpperBound(wildcardType, state, config, handler);
+    if (typeArg instanceof CapturedType capturedType) {
+      Type.TypeVar formalTypeVariable =
+          capturedType.wildcard == null ? null : capturedType.wildcard.bound;
+      return resolveEffectiveUpperBound(
+          capturedType, formalTypeVariable, Map.of(), state, config, handler);
+    }
+    if (typeArg instanceof WildcardType wildcardType) {
+      return wildcardUpperBound(wildcardType, state, config, handler);
+    }
+    return typeArg;
   }
 
   /**
@@ -59,7 +66,7 @@ public class GenericsUtils {
    */
   static Type wildcardUpperBound(
       WildcardType wildcardType, VisitorState state, Config config, Handler handler) {
-    return wildcardUpperBound(wildcardType, wildcardType.bound, state, config, handler);
+    return wildcardUpperBound(wildcardType, null, state, config, handler);
   }
 
   /**
@@ -77,26 +84,8 @@ public class GenericsUtils {
       VisitorState state,
       Config config,
       Handler handler) {
-    Type upperBound;
-    if (wildcardType.kind == BoundKind.EXTENDS) {
-      upperBound = wildcardType.getExtendsBound();
-    } else {
-      // We have an unbound wildcard or a wildcard with just a lower bound.  In such cases, if
-      // present, we use the upper bound of the formal type variable to which the wildcard is being
-      // passed (confusingly stored in the `bound` field).  E.g., if we have class Foo<T extends
-      // @Nullable Object>, and then see Foo<? super String>, we use @Nullable Object as the upper
-      // bound.  If not present, default to Object.
-      Type.TypeVar formalTypeVar =
-          wildcardType.bound != null ? wildcardType.bound : correspondingTypeVariable;
-      upperBound =
-          formalTypeVar == null
-              ? Symtab.instance(state.context).objectType
-              : formalTypeVar.getUpperBound();
-      if (formalTypeVar != null) {
-        upperBound = applyUpperBoundNullability(upperBound, formalTypeVar, state, config, handler);
-      }
-    }
-    return resolveNestedWildcardUpperBoundIfNeeded(upperBound, state, config, handler);
+    return resolveEffectiveUpperBound(
+        wildcardType, correspondingTypeVariable, Map.of(), state, config, handler);
   }
 
   /**
@@ -122,18 +111,19 @@ public class GenericsUtils {
         typeArguments.size() == correspondingTypeVariables.size(),
         "type argument count does not match declaration for %s",
         classType);
-    boolean hasWildcard = false;
+    boolean hasWildcardOrCapture = false;
     boolean hasDirectImplicitWildcard = false;
     for (Type typeArgument : typeArguments) {
-      WildcardType wildcardType = asWildcard(typeArgument);
-      if (wildcardType != null) {
-        hasWildcard = true;
-        if (typeArgument instanceof WildcardType && wildcardType.kind != BoundKind.EXTENDS) {
+      if (typeArgument instanceof CapturedType) {
+        hasWildcardOrCapture = true;
+      } else if (typeArgument instanceof WildcardType wildcardType) {
+        hasWildcardOrCapture = true;
+        if (wildcardType.kind != BoundKind.EXTENDS) {
           hasDirectImplicitWildcard = true;
         }
       }
     }
-    if (!hasWildcard) {
+    if (!hasWildcardOrCapture) {
       return typeArguments;
     }
     List<Type> capturedTypeArguments =
@@ -146,7 +136,8 @@ public class GenericsUtils {
         classType);
     IdentityHashMap<Type, Type.TypeVar> captureToFormalTypeVar = new IdentityHashMap<>();
     for (int i = 0; i < typeArguments.size(); i++) {
-      if (asWildcard(typeArguments.get(i)) != null) {
+      Type typeArgument = typeArguments.get(i);
+      if (typeArgument instanceof CapturedType || typeArgument instanceof WildcardType) {
         captureToFormalTypeVar.put(
             capturedTypeArguments.get(i), (Type.TypeVar) correspondingTypeVariables.get(i));
       }
@@ -155,139 +146,127 @@ public class GenericsUtils {
     java.util.List<Type> effectiveUpperBounds = new ArrayList<>(typeArguments.size());
     for (int i = 0; i < typeArguments.size(); i++) {
       Type typeArgument = typeArguments.get(i);
-      WildcardType wildcardType = asWildcard(typeArgument);
-      if (wildcardType == null) {
-        // A concrete type argument is its own upper bound.
-        effectiveUpperBounds.add(typeArgument);
-      } else if (typeArgument instanceof CapturedType capturedType) {
+      Type.TypeVar correspondingTypeVariable = (Type.TypeVar) correspondingTypeVariables.get(i);
+      Type upperBoundSource;
+      if (typeArgument instanceof CapturedType capturedType) {
         // Use the capture's structural bound. Its backing wildcard can have a stale declaration
         // formal in its mutable bound field after javac inspects an unrelated supertype.
-        effectiveUpperBounds.add(
-            capturedTypeUpperBound(
-                capturedType,
-                (Type.TypeVar) correspondingTypeVariables.get(i),
-                captureToFormalTypeVar,
-                state,
-                config,
-                handler));
-      } else if (typeArgument instanceof WildcardType && wildcardType.kind != BoundKind.EXTENDS) {
-        // The upper bound of a direct unbounded or lower-bounded wildcard is implicit. Derive it
-        // from capture conversion of the complete containing type so substitutions in dependent
-        // formal bounds are included.
-        effectiveUpperBounds.add(
-            wildcardUpperBoundFromCapture(
-                wildcardType,
-                capturedTypeArguments.get(i),
-                captureToFormalTypeVar,
-                state,
-                config,
-                handler));
+        upperBoundSource = capturedType;
+      } else if (typeArgument instanceof WildcardType wildcardType) {
+        if (wildcardType.kind == BoundKind.EXTENDS) {
+          // An explicit extends wildcard stores its upper bound directly.
+          upperBoundSource = wildcardType;
+        } else {
+          // Derive an implicit upper bound by capture-converting the complete containing type so
+          // substitutions in dependent formal bounds are included.
+          upperBoundSource = capturedTypeArguments.get(i);
+        }
       } else {
-        // An explicit extends wildcard stores its upper bound directly; we don't need the capture
-        // variable here
-        effectiveUpperBounds.add(
-            wildcardUpperBound(
-                wildcardType,
-                (Type.TypeVar) correspondingTypeVariables.get(i),
-                state,
-                config,
-                handler));
+        // A concrete type argument is its own upper bound.
+        effectiveUpperBounds.add(typeArgument);
+        continue;
       }
+      effectiveUpperBounds.add(
+          resolveEffectiveUpperBound(
+              upperBoundSource,
+              correspondingTypeVariable,
+              captureToFormalTypeVar,
+              state,
+              config,
+              handler));
     }
     return effectiveUpperBounds;
   }
 
   /**
-   * Returns the effective upper bound of a wildcard with an implicit upper bound using the result
-   * of capture conversion on its containing parameterized type.
+   * Resolves the effective upper bound of a wildcard, capture, or capture-conversion result.
    *
-   * @param wildcardType the wildcard type argument with an implicit upper bound
-   * @param capturedTypeArgument the corresponding type argument after capture-converting the
-   *     containing parameterized type
-   * @param captureToFormalTypeVar declaration formals corresponding to the results of capture
-   *     conversion on the containing type's wildcard arguments
-   * @param state visitor state
-   * @param config NullAway configuration
-   * @param handler NullAway extension handler
-   * @return the wildcard's effective upper bound
-   */
-  private static Type wildcardUpperBoundFromCapture(
-      WildcardType wildcardType,
-      Type capturedTypeArgument,
-      IdentityHashMap<Type, Type.TypeVar> captureToFormalTypeVar,
-      VisitorState state,
-      Config config,
-      Handler handler) {
-    Verify.verify(
-        wildcardType.kind != BoundKind.EXTENDS,
-        "This method only supports wildcards with implicit upper bounds, not %s",
-        wildcardType);
-    Type.TypeVar formalTypeVariable =
-        Verify.verifyNotNull(
-            captureToFormalTypeVar.get(capturedTypeArgument),
-            "no declaration formal found for capture-conversion result %s",
-            capturedTypeArgument);
-    // javac normally creates a capture variable here, but during method-invocation inference it can
-    // leave the wildcard unchanged. Preserve the previous fallback behavior for that case.
-    if (capturedTypeArgument instanceof CapturedType capturedType) {
-      return capturedTypeUpperBound(
-          capturedType, formalTypeVariable, captureToFormalTypeVar, state, config, handler);
-    }
-    Type upperBound = capturedTypeArgument;
-    // Apply the upper-bound nullability from the declaration formal when needed. For dependent
-    // bounds, like Pair<T, U extends T>, we need to be careful.
-    // Capture conversion substitutes actual type arguments into dependent bounds. For example, when
-    // capturing Pair<String, ?> for the above case, the capture's upper bound is
-    // String rather than T, and the substituted upper bound already carries the right nullability.
-    // So only apply the declaration formal's upper-bound nullability when its declared upper bound
-    // is the same as the bound on the captured type.
-    if (state.getTypes().isSameType(upperBound, formalTypeVariable.getUpperBound())) {
-      upperBound =
-          applyUpperBoundNullability(upperBound, formalTypeVariable, state, config, handler);
-    }
-    return resolveCapturedUpperBoundIfNeeded(
-        upperBound, captureToFormalTypeVar, state, config, handler);
-  }
-
-  /**
-   * Returns the structural upper bound of an existing capture while applying declaration-level
-   * nullability when the declaration bound remains relevant.
+   * <p>Existing captures are resolved from their structural upper bounds. Explicit annotations on
+   * an {@code extends} bound are restored before following dependent captures. For implicit bounds,
+   * declaration-level nullability is applied only when the declaration bound still describes the
+   * structural bound.
    *
-   * @param capturedType the capture whose structural upper bound should be used
-   * @param formalTypeVariable the corresponding declaration formal, or {@code null} for a dependent
-   *     capture whose declaration formal is unavailable
+   * @param type the wildcard, capture, or capture-conversion result to resolve
+   * @param formalTypeVariable the corresponding declaration formal, or {@code null} when none is
+   *     available
    * @param captureToFormalTypeVar declaration formals corresponding to captures in the containing
    *     type
    * @param state visitor state
    * @param config NullAway configuration
    * @param handler NullAway extension handler
-   * @return the capture's resolved effective upper bound
+   * @return the resolved effective upper bound
    */
-  private static Type capturedTypeUpperBound(
-      CapturedType capturedType,
+  private static Type resolveEffectiveUpperBound(
+      Type type,
       Type.@Nullable TypeVar formalTypeVariable,
-      IdentityHashMap<Type, Type.TypeVar> captureToFormalTypeVar,
+      Map<Type, Type.TypeVar> captureToFormalTypeVar,
       VisitorState state,
       Config config,
       Handler handler) {
-    Type upperBound = capturedType.getUpperBound();
-    if (capturedType.wildcard != null && capturedType.wildcard.kind == BoundKind.EXTENDS) {
-      // Explicit annotations can be restored onto the backing extends bound without also being
-      // copied to javac's structural bound. The extends bound itself is stable; only the implicit
-      // formal stored in WildcardType.bound is mutable.
-      upperBound =
-          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-              capturedType.wildcard.getExtendsBound(), upperBound, config);
-    } else if (formalTypeVariable != null) {
-      formalTypeVariable =
-          declarationFormalForImplicitCapture(capturedType, formalTypeVariable, state);
-      if (state.getTypes().isSameType(upperBound, formalTypeVariable.getUpperBound())) {
+    Type upperBound;
+    if (type instanceof CapturedType capturedType) {
+      upperBound = capturedType.getUpperBound();
+      if (capturedType.wildcard != null && capturedType.wildcard.kind == BoundKind.EXTENDS) {
+        // Explicit annotations can be restored onto the backing extends bound without also being
+        // copied to javac's structural bound. The extends bound itself is stable; only the implicit
+        // formal stored in WildcardType.bound is mutable.
         upperBound =
-            applyUpperBoundNullability(upperBound, formalTypeVariable, state, config, handler);
+            TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                capturedType.wildcard.getExtendsBound(), upperBound, config);
+      } else {
+        if (formalTypeVariable != null) {
+          formalTypeVariable =
+              declarationFormalForImplicitCapture(capturedType, formalTypeVariable, state);
+        } else if (capturedType.wildcard != null) {
+          // Without a containing-type formal, the backing formal is the only available source of
+          // declaration-level nullability.
+          formalTypeVariable = capturedType.wildcard.bound;
+        }
+        if (formalTypeVariable != null) {
+          upperBound =
+              applyDeclarationUpperBoundNullabilityIfApplicable(
+                  upperBound, formalTypeVariable, state, config, handler);
+        }
+      }
+    } else if (type instanceof WildcardType wildcardType) {
+      if (wildcardType.kind == BoundKind.EXTENDS) {
+        upperBound = wildcardType.getExtendsBound();
+      } else {
+        // For an unbounded or lower-bounded wildcard, use the upper bound of the corresponding
+        // declaration formal when available, and otherwise default to Object.
+        formalTypeVariable = wildcardType.bound != null ? wildcardType.bound : formalTypeVariable;
+        upperBound =
+            formalTypeVariable == null
+                ? Symtab.instance(state.context).objectType
+                : formalTypeVariable.getUpperBound();
+        if (formalTypeVariable != null) {
+          upperBound =
+              applyDeclarationUpperBoundNullabilityIfApplicable(
+                  upperBound, formalTypeVariable, state, config, handler);
+        }
+      }
+    } else {
+      upperBound = type;
+      if (formalTypeVariable != null) {
+        upperBound =
+            applyDeclarationUpperBoundNullabilityIfApplicable(
+                upperBound, formalTypeVariable, state, config, handler);
       }
     }
-    return resolveCapturedUpperBoundIfNeeded(
-        upperBound, captureToFormalTypeVar, state, config, handler);
+    if (upperBound instanceof CapturedType capturedUpperBound) {
+      return resolveEffectiveUpperBound(
+          capturedUpperBound,
+          captureToFormalTypeVar.get(capturedUpperBound),
+          captureToFormalTypeVar,
+          state,
+          config,
+          handler);
+    }
+    if (upperBound instanceof WildcardType wildcardUpperBound) {
+      return resolveEffectiveUpperBound(
+          wildcardUpperBound, null, captureToFormalTypeVar, state, config, handler);
+    }
+    return upperBound;
   }
 
   /**
@@ -328,54 +307,29 @@ public class GenericsUtils {
   }
 
   /**
-   * Resolves capture variables occurring as dependent upper bounds using their known declaration
-   * formals.
-   *
-   * <p>For example, capturing {@code Pair<?, ?>} for {@code Pair<T, U extends T>} makes the second
-   * capture's upper bound the first capture. The {@code captureToFormalTypeVar} map supplies {@code
-   * T} for that first capture, so NullAway can apply declaration-level defaults.
-   *
-   * @param upperBound the upper bound to resolve
-   * @param captureToFormalTypeVar declaration formals corresponding to the results of capture
-   *     conversion on the containing type's wildcard arguments
-   * @param state visitor state
-   * @param config NullAway configuration
-   * @param handler NullAway extension handler
-   * @return the resolved upper bound
-   */
-  private static Type resolveCapturedUpperBoundIfNeeded(
-      Type upperBound,
-      IdentityHashMap<Type, Type.TypeVar> captureToFormalTypeVar,
-      VisitorState state,
-      Config config,
-      Handler handler) {
-    if (upperBound instanceof CapturedType capturedType) {
-      Type.TypeVar formalTypeVariable = captureToFormalTypeVar.get(capturedType);
-      return capturedTypeUpperBound(
-          capturedType, formalTypeVariable, captureToFormalTypeVar, state, config, handler);
-    }
-    if (upperBound instanceof WildcardType wildcardType) {
-      return wildcardUpperBound(wildcardType, state, config, handler);
-    }
-    return upperBound;
-  }
-
-  /**
-   * Applies NullAway's default upper-bound nullability unless an explicit annotation is present.
+   * Applies a declaration formal's upper-bound nullability when that formal still describes the
+   * computed bound. Explicit annotations on the declaration bound are restored first; otherwise,
+   * the declaration's default nullability is applied when needed.
    *
    * @param upperBound the compiler-computed upper bound
    * @param formalTypeVar the formal type variable supplying the implicit bound
    * @param state visitor state
    * @param config NullAway configuration
    * @param handler NullAway extension handler
-   * @return the upper bound with NullAway's default nullability applied
+   * @return the upper bound with applicable declaration-level nullability applied
    */
-  private static Type applyUpperBoundNullability(
+  private static Type applyDeclarationUpperBoundNullabilityIfApplicable(
       Type upperBound,
       Type.TypeVar formalTypeVar,
       VisitorState state,
       Config config,
       Handler handler) {
+    if (!state.getTypes().isSameType(upperBound, formalTypeVar.getUpperBound())) {
+      return upperBound;
+    }
+    upperBound =
+        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+            formalTypeVar.getUpperBound(), upperBound, config);
     boolean upperBoundHasExplicitNullnessAnnotation =
         Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)
             || Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
@@ -383,31 +337,6 @@ public class GenericsUtils {
         && !upperBoundHasExplicitNullnessAnnotation) {
       return TypeSubstitutionUtils.typeWithAnnot(
           upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
-    }
-    return upperBound;
-  }
-
-  /**
-   * Resolve nested wildcard layers of a computed wildcard upper bound.
-   *
-   * @param upperBound the upper bound to resolve
-   * @param state visitor state
-   * @param config NullAway configuration
-   * @param handler NullAway extension handler
-   * @return the resolved upper bound
-   */
-  private static Type resolveNestedWildcardUpperBoundIfNeeded(
-      Type upperBound, VisitorState state, Config config, Handler handler) {
-    if (upperBound instanceof WildcardType nestedWildcard) {
-      return wildcardUpperBound(nestedWildcard, state, config, handler);
-    }
-    if (upperBound instanceof CapturedType capturedType && capturedType.wildcard != null) {
-      // A dependent bound can resolve to another capture. For example, capturing Pair<?, ?> for
-      // Pair<T, U extends T> gives the second capture an upper bound equal to the first capture.
-      // Resolve through the backing wildcard so wildcardUpperBound() can apply NullAway's
-      // declaration-level defaults, which are not necessarily present on javac's structural upper
-      // bound (notably for type variables declared in unannotated code).
-      return wildcardUpperBound(capturedType.wildcard, state, config, handler);
     }
     return upperBound;
   }
@@ -526,14 +455,22 @@ public class GenericsUtils {
    */
   private static Type groundTypeArgument(
       Type typeArgument, VisitorState state, Config config, Handler handler) {
-    WildcardType wildcardType = asWildcard(typeArgument);
-    if (wildcardType == null) {
-      return typeArgument;
+    if (typeArgument instanceof CapturedType capturedType) {
+      if (capturedType.wildcard == null) {
+        return typeArgument;
+      }
+      if (capturedType.wildcard.kind == BoundKind.SUPER) {
+        return castToNonNull(capturedType.wildcard.getSuperBound());
+      }
+      return effectiveWildcardUpperBound(capturedType, state, config, handler);
     }
-    if (wildcardType.kind == BoundKind.SUPER) {
-      return castToNonNull(wildcardType.getSuperBound());
+    if (typeArgument instanceof WildcardType wildcardType) {
+      if (wildcardType.kind == BoundKind.SUPER) {
+        return castToNonNull(wildcardType.getSuperBound());
+      }
+      return wildcardUpperBound(wildcardType, state, config, handler);
     }
-    return wildcardUpperBound(wildcardType, state, config, handler);
+    return typeArgument;
   }
 
   /**
