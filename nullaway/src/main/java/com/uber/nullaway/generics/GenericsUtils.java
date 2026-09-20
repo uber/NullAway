@@ -250,11 +250,17 @@ public class GenericsUtils {
   /**
    * Selects the declaration formal that supplies nullability for an implicit captured bound.
    *
-   * <p>A capture propagated through inference can retain the formal from the wildcard's original,
-   * unrelated generic type. That formal supplies the capture's declaration-level nullability. In
-   * contrast, javac supertype inspection can mutate the same field to a formal owned by a supertype
-   * of the current containing type. Such a formal is stale, so this method retains the current
-   * containing type's formal instead.
+   * <p>A capture can move between unrelated generic types through method inference. For example,
+   * passing {@code Source<?>} to {@code <X> Result<X> convert(Source<? extends X>)} can infer
+   * {@code X} as the capture of {@code Source<?>}, producing {@code Result<capture>}. When that
+   * result is inspected, {@code correspondingFormal} is {@code Result.R}, but the backing formal
+   * remains {@code Source.E}. The latter supplies the implicit bound's declaration-level
+   * nullability (for example, when {@code Source} is unannotated), so it must be retained even
+   * though its owner is unrelated to {@code Result}.
+   *
+   * <p>In contrast, javac supertype inspection can mutate the backing formal to one owned by a
+   * supertype of the current containing type. Such a formal is stale, so this method retains the
+   * current containing type's formal instead.
    *
    * @param capturedType the capture whose declaration formal is needed
    * @param correspondingFormal the formal from the capture's current containing type
@@ -281,6 +287,9 @@ public class GenericsUtils {
                 state.getTypes().erasure(backingClass.type))) {
       return correspondingFormal;
     }
+    // The unrelated owner can be the capture's origin after generic method inference. Its formal,
+    // rather than the formal for the destination type-argument position, supplies the implicit
+    // bound's declaration-level nullability.
     return backingFormal;
   }
 
