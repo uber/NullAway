@@ -250,12 +250,7 @@ public class GenericsUtils {
     }
     if (upperBound instanceof WildcardType wildcardUpperBound) {
       return resolveEffectiveUpperBound(
-          wildcardUpperBound,
-          formalTypeVariable,
-          captureToFormalTypeVar,
-          state,
-          config,
-          handler);
+          wildcardUpperBound, formalTypeVariable, captureToFormalTypeVar, state, config, handler);
     }
     return upperBound;
   }
