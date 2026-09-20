@@ -48,6 +48,12 @@ public class PreservedAnnotationTreeVisitor extends SimpleTreeVisitor<Type, @Nul
    * array-initializer form {@code new @Nullable Integer[]{null}}, which has no explicit dimension
    * expressions but still creates a one-dimensional array.
    *
+   * <p>The element type can itself already be an array type, so the wrapping starts from its rank
+   * rather than from zero. That happens when an annotation applies to an inner array dimension
+   * rather than to the innermost element type, as in {@code new char [] @Nullable []{}}: there the
+   * tree returned by {@link NewArrayTree#getType()} is {@code @Nullable} applied to {@code char[]},
+   * which already accounts for one of the two dimensions.
+   *
    * @param tree the array creation expression
    * @return the type of {@code tree}, with nullability annotations preserved on the element type
    */
