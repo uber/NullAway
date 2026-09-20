@@ -240,9 +240,13 @@ public class GenericsUtils {
     }
     // if the upper bound is either a capture or a wildcard, recurse
     if (upperBound instanceof CapturedType capturedUpperBound) {
+      // Captures nested inside an explicit wildcard are not entries in the contextual map. Keep
+      // the current formal in that case; older javac versions may also leave the capture's backing
+      // wildcard without a formal, so it cannot recover the declaration bound itself.
+      Type.TypeVar capturedFormalTypeVariable = captureToFormalTypeVar.get(capturedUpperBound);
       return resolveEffectiveUpperBound(
           capturedUpperBound,
-          captureToFormalTypeVar.get(capturedUpperBound),
+          capturedFormalTypeVariable != null ? capturedFormalTypeVariable : formalTypeVariable,
           captureToFormalTypeVar,
           state,
           config,
