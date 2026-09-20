@@ -89,6 +89,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
+    // This is impossible, considering the fact that standard Java subtyping succeeds before
+    // running NullAway
+    if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
+      throw new RuntimeException(
+          "Number of types arguments in " + rhsTypeAsSuper + " does not match " + lhsType);
+    }
     List<Type> lhsUpperBounds = lhsTypeArguments;
     List<Type> rhsUpperBounds = rhsTypeArguments;
     if (config.handleWildcardGenerics()) {
@@ -97,12 +103,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       rhsUpperBounds =
           GenericsUtils.effectiveUpperBoundsForTypeArguments(
               (Type.ClassType) rhsTypeAsSuper, state, config, handler);
-    }
-    // This is impossible, considering the fact that standard Java subtyping succeeds before
-    // running NullAway
-    if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
-      throw new RuntimeException(
-          "Number of types arguments in " + rhsTypeAsSuper + " does not match " + lhsType);
     }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);

@@ -22,12 +22,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void unboundedWildcardWithNonNullFormalBoundAfterTypeInspection() {
-    CompilationTestHelper.newInstance(
-            ScannerSupplier.fromBugCheckerClasses(TypeInspectionChecker.class, NullAway.class),
-            getClass())
-        .setArgs(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+    makeTypeInspectionHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -44,12 +39,7 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
 
   @Test
   public void capturedUnboundedWildcardAfterBackingWildcardTypeInspection() {
-    CompilationTestHelper.newInstance(
-            ScannerSupplier.fromBugCheckerClasses(TypeInspectionChecker.class, NullAway.class),
-            getClass())
-        .setArgs(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+    makeTypeInspectionHelper()
         .addSourceLines(
             "Test.java",
             """
@@ -66,6 +56,18 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  /**
+   * Returns a test helper that runs the wildcard-bound-mutating type inspection before NullAway.
+   */
+  private CompilationTestHelper makeTypeInspectionHelper() {
+    return CompilationTestHelper.newInstance(
+            ScannerSupplier.fromBugCheckerClasses(TypeInspectionChecker.class, NullAway.class),
+            getClass())
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
 
   /**
