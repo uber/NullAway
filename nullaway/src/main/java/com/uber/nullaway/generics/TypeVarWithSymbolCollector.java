@@ -20,8 +20,13 @@ import org.jspecify.annotations.Nullable;
 /**
  * Visitor that collects every TypeVar whose symbol is the given Element.
  *
- * <p>Usage: TypeVarWithSymbolCollector v = new TypeVarWithSymbolCollector(elem);
- * rootType.accept(v,null); Set<TypeVar> matches = v.getMatches();
+ * <p>Usage:
+ *
+ * <pre>{@code
+ * TypeVarWithSymbolCollector v = new TypeVarWithSymbolCollector(elem);
+ * rootType.accept(v, null);
+ * Set<TypeVar> matches = v.getMatches();
+ * }</pre>
  *
  * <p>Not safe to run multiple times; create a fresh visitor for each root type to scan.
  */
