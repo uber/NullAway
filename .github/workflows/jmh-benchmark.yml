@@ -24,12 +24,13 @@ jobs:
       with:
         persist-credentials: false
 
-    - name: Set branch name
+    - name: Get pull request details
       env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }} 
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        PR_NUMBER: ${{ github.event.number }}
+        REPO_NAME: ${{ github.repository }}
       run: |
-        chmod +x ./.github/workflows/get_repo_details.sh 
-        ./.github/workflows/get_repo_details.sh "${{ secrets.GITHUB_TOKEN }}" "${{ github.event.number }}" "${{ github.repository }}"
+        bash ./.github/workflows/get_repo_details.sh "$GH_TOKEN" "$PR_NUMBER" "$REPO_NAME"
 
     - id: 'auth'
       name: Authenticating 
@@ -45,14 +46,13 @@ jobs:
       
     - name: Run benchmarks 
       run: |
-        chmod +x ./.github/workflows/run_gcp_benchmarks.sh
-        ./.github/workflows/run_gcp_benchmarks.sh 
+        bash ./.github/workflows/run_gcp_benchmarks.sh
         
     - name: Cleanup
-      # Delete the branch directory on the Google Cloud instance
+      # Delete the run directory on the Google Cloud instance
       if: always()
       run: |
-        ./.github/workflows/gcloud_ssh.sh " export BRANCH_NAME=${BRANCH_NAME} && rm -r -f $BRANCH_NAME"
+        bash ./.github/workflows/run_gcp_benchmarks.sh --cleanup
 
     - name: Formatting Benchmark # Create a text file containing the benchmark results
       run:  |
@@ -78,4 +78,3 @@ jobs:
       run: gcloud compute instances stop nullway-jmh --zone=us-central1-a
 
       
-
