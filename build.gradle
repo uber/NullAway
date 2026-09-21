@@ -33,7 +33,6 @@ plugins {
     alias(libs.plugins.errorprone) apply false
     alias(libs.plugins.shadow) apply false
     alias(libs.plugins.jmh) apply false
-    alias(libs.plugins.versions)
     alias(libs.plugins.shellcheck)
 }
 
