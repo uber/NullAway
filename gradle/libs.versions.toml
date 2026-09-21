@@ -12,7 +12,7 @@ spotless = "8.10.2"
 errorprone-plugin = "5.1.1"
 shadow = "9.6.1"
 jmh = "0.7.3"
-versions-plugin = "0.53.0"
+versions-plugin = "0.62.0"
 shellcheck = "1.5.1"
 
 errorProne = "2.50.0"
