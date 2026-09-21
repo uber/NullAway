@@ -54,10 +54,10 @@ def generateJarInferAstubx = tasks.register('generateJarInferAstubx', Exec) {
 jar {
     manifest {
         attributes(
-                'Created-By' : "Gradle ${gradle.gradleVersion}",
-                'Build-Jdk'  : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
-                'Build-OS'   : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
-                )
+        'Created-By' : "Gradle ${gradle.gradleVersion}",
+        'Build-Jdk' : "${System.properties['java.version']} (${System.properties['java.vendor']} ${System.properties['java.vm.version']})",
+        'Build-OS' : "${System.properties['os.name']} ${System.properties['os.arch']} ${System.properties['os.version']}"
+        )
     }
     dependsOn(generateJarInferAstubx)
     from(outputAstubxFile) {
