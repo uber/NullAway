@@ -195,12 +195,20 @@ public class GenericsUtils {
             TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
                 capturedType.wildcard.getExtendsBound(), upperBound, config);
       } else {
+        // An explicit annotation on the capture is a use-site projection and takes precedence over
+        // both the capture's structural bound and declaration-level fallback information.
+        boolean captureHasDirectNullnessAnnotation = hasNullnessAnnotation(capturedType, config);
+        if (captureHasDirectNullnessAnnotation) {
+          upperBound =
+              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                  capturedType, upperBound, config);
+        }
         if (formalTypeVariable == null && capturedType.wildcard != null) {
           // Without a containing-type formal, the backing formal is the only available source of
           // declaration-level nullability.
           formalTypeVariable = capturedType.wildcard.bound;
         }
-        if (formalTypeVariable != null) {
+        if (formalTypeVariable != null && !captureHasDirectNullnessAnnotation) {
           upperBound =
               applyDeclarationUpperBoundNullabilityIfApplicable(
                   upperBound, formalTypeVariable, state, config, handler);
@@ -244,8 +252,10 @@ public class GenericsUtils {
 
   /**
    * Applies a declaration formal's upper-bound nullability when that formal still describes the
-   * computed bound. Explicit annotations on the declaration bound are restored first; otherwise,
-   * the declaration's default nullability is applied when needed.
+   * computed bound. An explicit non-null declaration bound may narrow the computed bound. Nullable
+   * declaration annotations and defaults are applied only when the computed bound has no nullness
+   * annotation, since they permit nullable instantiations but do not widen a known non-null
+   * capture.
    *
    * @param upperBound the compiler-computed upper bound
    * @param formalTypeVar the formal type variable supplying the implicit bound
@@ -263,18 +273,29 @@ public class GenericsUtils {
     if (!state.getTypes().isSameType(upperBound, formalTypeVar.getUpperBound())) {
       return upperBound;
     }
-    upperBound =
-        TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-            formalTypeVar.getUpperBound(), upperBound, config);
-    boolean upperBoundHasExplicitNullnessAnnotation =
-        Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)
-            || Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config);
+    Type declarationUpperBound = formalTypeVar.getUpperBound();
+    boolean upperBoundHasExplicitNullnessAnnotation = hasNullnessAnnotation(upperBound, config);
+    // An explicit @NonNull declaration bound narrows the computed bound. A nullable declaration
+    // bound only permits nullable instantiations, so it is fallback information and must not widen
+    // an already-qualified computed bound.
+    if (Nullness.hasNonNullAnnotation(declarationUpperBound.getAnnotationMirrors().stream(), config)
+        || !upperBoundHasExplicitNullnessAnnotation) {
+      upperBound =
+          TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+              declarationUpperBound, upperBound, config);
+      upperBoundHasExplicitNullnessAnnotation = hasNullnessAnnotation(upperBound, config);
+    }
     if (upperBoundIsNullable(formalTypeVar.asElement(), config, handler, state)
         && !upperBoundHasExplicitNullnessAnnotation) {
       return TypeSubstitutionUtils.typeWithAnnot(
           upperBound, GenericsChecks.getSyntheticNullableAnnotType(state));
     }
     return upperBound;
+  }
+
+  private static boolean hasNullnessAnnotation(Type type, Config config) {
+    return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
+        || Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
 
   /**

@@ -1430,6 +1430,31 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferredCaptureBoundTakesPrecedenceOverDestinationFormalBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            final class Test {
+              static final class Source<E> {}
+              static final class Result<R extends @Nullable Object> {}
+              static <X> Result<X> convert(Source<? extends X> source) {
+                throw new RuntimeException();
+              }
+              static Result<? extends Object> exercise(Source<?> source) {
+                // Inference gives the capture of Source<?> a @NonNull upper bound. Result.R's
+                // declaration permits @Nullable arguments, but does not make this capture nullable.
+                return convert(source);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void weirdErrorMessageReducedFromSpring() {
     makeHelper()
         .addSourceLines(
