@@ -3,7 +3,7 @@ asm = "9.10.1"
 checker-framework = "4.2.3"
 support = "27.1.1"
 wala = "1.7.1"
-commons-cli = "1.4"
+commons-cli = "1.11.0"
 auto-service = "1.1.1"
 google-java-format = "1.34.1"
 android-gradle-plugin = "9.4.0"
@@ -12,7 +12,6 @@ spotless = "8.10.2"
 errorprone-plugin = "5.1.1"
 shadow = "9.6.1"
 jmh = "0.7.3"
-versions-plugin = "0.53.0"
 shellcheck = "1.5.1"
 
 errorProne = "2.50.0"
@@ -129,5 +128,4 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 jmh = { id = "me.champeau.jmh", version.ref = "jmh" }
-versions = { id = "com.github.ben-manes.versions", version.ref = "versions-plugin" }
 shellcheck = { id = "com.felipefzdz.gradle.shellcheck", version.ref = "shellcheck" }
