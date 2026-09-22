@@ -1412,13 +1412,16 @@ public class WildcardTests extends NullAwayTestsBase {
             @NullMarked
             final class Test {
               static final class Flux<T> {}
+              // unmarked, so NullAway treats U as having a @Nullable upper bound
               @NullUnmarked
-              static final class Flow<T> {}
-              static <T> Flux<T> asFlux(Flow<? extends T> flow) {
+              static final class Flow<U> {}
+              static <V> Flux<V> asFlux(Flow<? extends V> flow) {
                 throw new RuntimeException();
               }
               static Flux<?> convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<capture of ?> cannot be converted to Flux<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Flow)
+                // inference fails since for Flow<?>, the upper bound of the wildcard is @Nullable, but
+                // asFlux requires V to be @NonNull
+                // BUG: Diagnostic contains: inference failure: type variable V is constrained to be @Nullable
                 return asFlux((Flow<?>) source);
               }
             }
@@ -1438,12 +1441,14 @@ public class WildcardTests extends NullAwayTestsBase {
             final class Test {
               static final class Flux<T> {}
               @NullUnmarked
-              static final class Flow<T> {}
-              static <T> Flux<T>[] asFluxArray(Flow<? extends T> flow) {
+              static final class Flow<U> {}
+              static <V> Flux<V>[] asFluxArray(Flow<? extends V> flow) {
                 throw new RuntimeException();
               }
               static Flux<?>[] convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<capture of ?> [] cannot be converted to Flux<?> [] (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Flow)
+                // inference fails since for Flow<?>, the upper bound of the wildcard is @Nullable, but
+                // asFlux requires V to be @NonNull
+                // BUG: Diagnostic contains: inference failure: type variable V is constrained to be @Nullable
                 return asFluxArray((Flow<?>) source);
               }
             }
