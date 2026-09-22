@@ -842,9 +842,14 @@ public final class GenericsChecks {
                     symbol, invocationTree, state.getPath(), state, calledFromDataflow);
             // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
+            // If the return type is a wildcard, restore annotations from its upper bound
+            Type annotationSource =
+                config.handleWildcardGenerics()
+                    ? GenericsUtils.effectiveWildcardUpperBound(returnType, state, config, handler)
+                    : returnType;
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    returnType, result, config);
+                    annotationSource, result, config);
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
