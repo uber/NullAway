@@ -213,14 +213,12 @@ public class GenericsUtils {
         // For an unbounded or lower-bounded wildcard, use the upper bound of the corresponding
         // declaration formal when available, and otherwise default to Object.
         formalTypeVariable = wildcardType.bound != null ? wildcardType.bound : formalTypeVariable;
-        upperBound =
-            formalTypeVariable == null
-                ? Symtab.instance(state.context).objectType
-                : formalTypeVariable.getUpperBound();
         if (formalTypeVariable != null) {
           upperBound =
               applyDeclarationUpperBoundNullabilityIfApplicable(
-                  upperBound, formalTypeVariable, state, config, handler);
+                  formalTypeVariable.getUpperBound(), formalTypeVariable, state, config, handler);
+        } else {
+          upperBound = Symtab.instance(state.context).objectType;
         }
       }
     } else {
