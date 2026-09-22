@@ -522,6 +522,37 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferGenericConstructorTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T> {
+                <U extends @Nullable Object> Box(Supplier<? super U> supplier) {}
+              }
+              void test() {
+                // no error: U should be inferred to be @Nullable
+                Box<String> box = new Box<>(() -> null);
+              }
+              static class Box2<T> {
+                <U extends Object> Box2(Supplier<? extends U> supplier) {}
+              }
+              void test2() {
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                Box2<String> box = new Box2<>(() -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAnnotOnMethodTypeVarUse() {
     makeHelper()
         .addSourceLines(
@@ -2130,6 +2161,181 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 @Override
                 // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
                 public <T> void bar(T arg) {
+                  arg.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideWidensSubstitutedExplicitNonNullMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<Y extends @Nullable Object> implements Foo<@NonNull Y> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends Y> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              interface Bar<X extends @Nullable Object> extends Foo<X> {
+                @Override
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                public <T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesExplicitNonNullFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends @NonNull X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                public <T extends @NonNull X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideWidensExplicitNonNullFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends @NonNull X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideNarrowsNullableFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends @NonNull X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesChainedMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <X extends @Nullable Object, T extends X> void bar(T arg);
+              }
+              static class Baz implements Foo {
+                @Override
+                public <X extends @Nullable Object, T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideNarrowsFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X> {
+                <T extends @Nullable X> void bar(T arg);
+              }
+              static class Baz<X> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends X> void bar(T arg) {
                   arg.hashCode();
                 }
               }

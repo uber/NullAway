@@ -1892,6 +1892,38 @@ public class FrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void mavenParameterFieldTest() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Parameter.java",
+            """
+            package org.apache.maven.plugins.annotations;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Retention;
+            import java.lang.annotation.RetentionPolicy;
+            import java.lang.annotation.Target;
+            @Retention(RetentionPolicy.CLASS)
+            @Target({ElementType.FIELD, ElementType.METHOD})
+            public @interface Parameter {}
+            """)
+        .addSourceLines(
+            "TestCase.java",
+            """
+            package com.uber;
+            import org.apache.maven.plugins.annotations.Parameter;
+            class TestCase {
+              @Parameter Object injectedParameter;
+              // BUG: Diagnostic contains: @NonNull field 'uninitialized' not initialized
+              Object uninitialized;
+              void useParameter() {
+                injectedParameter.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Adds source stubs for the Spring Boot test annotations that mark a field as initialized by the
    * Spring test context.

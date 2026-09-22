@@ -39,6 +39,18 @@ jacoco {
     toolVersion = "0.8.16-SNAPSHOT"
 }
 
+// Instrument test processes only when coverage is explicitly requested.  JaCoCo adds measurable
+// overhead to compilation-heavy tests, so ordinary local and CI test runs should not pay that cost.
+def enableJacoco = providers.gradleProperty("enableJacoco")
+        .map { it.toBoolean() }
+        .orElse(false)
+
+tasks.withType(Test).configureEach {
+    extensions.configure(JacocoTaskExtension) { jacocoExtension ->
+        jacocoExtension.enabled = enableJacoco.get()
+    }
+}
+
 // Do not generate reports for individual projects
 tasks.named("jacocoTestReport") {
     enabled = false
@@ -78,7 +90,7 @@ test {
 }
 
 // Tasks for testing on other JDK versions; see https://jakewharton.com/build-on-latest-java-test-through-lowest-java/
-[21, 26, 28].each { majorVersion ->
+[21, 27, 28].each { majorVersion ->
     def jdkTest = tasks.register("testJdk$majorVersion", Test) {
         javaLauncher = javaToolchains.launcherFor {
             languageVersion = JavaLanguageVersion.of(majorVersion)
@@ -128,7 +140,7 @@ tasks.named('check').configure {
 // The built-in jacoco-report-aggregation plugin aggregates coverage per test suite,
 // matching the variant whose org.gradle.testsuite.name == "test". That auto-created
 // variant (coverageDataElementsForTest) only carries the default `test` task's exec
-// data. testJdk17/21/26/27 are plain Test tasks that re-run the `test` source set
+// data. testJdk17/21/27/28 are plain Test tasks that re-run the `test` source set
 // under other JDKs, so without this their coverage is dropped from aggregation.
 // This attaches their exec files to the `test` suite's coverage variant and
 // replaces the old hand-rolled `coverageDataElements` configuration
@@ -138,8 +150,8 @@ configurations.named('coverageDataElementsForTest') {
         // tasks.named(...).map { } keeps the exec-file reference lazy and carries the
         // task dependency, so requesting the coverage data runs the JDK-specific tests.
         outgoing.artifact(
-                tasks.named(testTask.name).map { t ->
-                    t.extensions.getByType(JacocoTaskExtension).destinationFile
-                })
+        tasks.named(testTask.name).map { t ->
+            t.extensions.getByType(JacocoTaskExtension).destinationFile
+        })
     }
 }

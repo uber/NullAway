@@ -10,6 +10,94 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void nonNullTypeVariableThroughWildcardCapture() {
+    // https://github.com/uber/NullAway/issues/1823
+    // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.ConcurrentMap;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                // IMPORTANT: Explicit @NonNull annotation on these methods:
+                @NonNull V value();
+                ConcurrentMap<String, @NonNull V> asMap();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void explicitNullableArgument(Holder<@Nullable Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void nonNullBoundedWildcard(Holder<? extends Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void unboundedWildcard(Holder<?> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void nullableBoundedWildcard(Holder<? extends @Nullable Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void superBoundedWildcard(Holder<? super String> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Checks that inherited {@code @NonNull V} returns remain non-null through unbounded and super
+   * wildcards. Interleaving calls to an inherited plain {@code V} return checks that restoring
+   * {@code @NonNull} does not mutate shared wildcard bounds: the plain return must remain nullable,
+   * and subsequent explicitly non-null returns must still be accepted.
+   */
+  @Test
+  public void nonNullWildcardMemberDoesNotChangeOtherInheritedMembers() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                @NonNull V nonNullValue();
+                V value();
+              }
+              interface Child<V extends @Nullable Object> extends Holder<V> {}
+
+              static void takesNonNull(Object value) {}
+
+              static void unbounded(Child<?> holder) {
+                takesNonNull(holder.nonNullValue());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+              }
+
+              static void superBounded(Child<? super String> holder) {
+                takesNonNull(holder.nonNullValue());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void simpleWildcardNoInference() {
     makeHelper()
         .addSourceLines(
@@ -1401,6 +1489,73 @@ public class WildcardTests extends NullAwayTestsBase {
 
               static List<? extends Settings<?>> pass(List<? extends Settings<?>> in) {
                 return in;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1842() {
+    makeHelper()
+        .addSourceLines(
+            "Node.java",
+            """
+            package org.example;
+
+            public class Node<N extends Node<?>> {}
+            """)
+        .addSourceLines(
+            "Main.java",
+            """
+            package org.example;
+
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Main {
+              static <T> T take(List<? extends Node<?>> in, T t) {
+                return t;
+              }
+
+              static String test(List<Node<?>> nodes) {
+                return take(nodes, "x");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Repro.java",
+            """
+            import java.util.Collection;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Repro<E extends @Nullable Object> {
+
+              boolean add(E element) {
+                return false;
+              }
+
+              boolean addAll(Collection<? extends E> elements) {
+                boolean changed = false;
+                for (E element : elements) {
+                  if (add(element)) {
+                    changed = true;
+                  }
+                }
+                return changed;
               }
             }
             """)

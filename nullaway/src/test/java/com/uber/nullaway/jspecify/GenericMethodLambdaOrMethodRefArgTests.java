@@ -964,6 +964,145 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1795MapEntryKeyMethodReference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.Map.Entry;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void test() {
+                Map<String, @Nullable String> map = new HashMap<>();
+                map.put("foo", "bar");
+                map.entrySet().stream()
+                    .map(entry -> entry.getKey())
+                    .forEach(System.out::println);
+                map.entrySet().stream()
+                    .map(Entry::getKey)
+                    .forEach(System.out::println);
+                map.entrySet().stream()
+                    .map(Map.Entry::getKey)
+                    .forEach(System.out::println);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundGenericMethodReferenceQualifierTypeArguments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                T get() {
+                  throw new UnsupportedOperationException();
+                }
+                Wrapper<T> getWrapped() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class Wrapper<T extends @Nullable Object> {}
+              static void acceptNonNull(Function<Box<String>, String> function) {}
+              static void acceptNullable(
+                  Function<Box<@Nullable String>, @Nullable String> function) {}
+              static void acceptNullableReceiverWithMismatchedNestedReturn(
+                  Function<Box<@Nullable String>, Wrapper<String>> function) {}
+              static void test() {
+                acceptNonNull(Box::get);
+                acceptNullable(Box::get);
+                // BUG: Diagnostic contains: referenced method returns Wrapper<@Nullable String>
+                acceptNullableReceiverWithMismatchedNestedReturn(Box::getWrapped);
+                // BUG: Diagnostic contains: mismatched type parameter nullability
+                acceptNullable(Box<String>::get);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundGenericMethodReferenceParameterTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.BiConsumer;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                void put(T t) {}
+              }
+              static BiConsumer<Box<@Nullable String>, @Nullable String> f() {
+                return Box::put;
+              }
+              static BiConsumer<Box<String>, @Nullable String> incompatible() {
+                // BUG: Diagnostic contains: parameter t of referenced method is @NonNull
+                return Box::put;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void annotatedUnboundMethodRefQualifier() {
+    // A qualified name crashes javac while it parses on JDK 26 through 28; see JDK-8391567.
+    int feature = Runtime.version().feature();
+    String qualifiedNameInvocation =
+        feature < 26 || feature >= 29 ? "takeNullable(@A com.uber.Test.Box::list);" : "";
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              @Target(ElementType.TYPE_USE)
+              @interface A {}
+
+              static class Box<T extends @Nullable Object> {
+                List<T> list() {
+                  throw new RuntimeException();
+                }
+              }
+
+              static void takeNullable(Function<Box<@Nullable String>, List<@Nullable String>> f) {}
+
+              static void takeNonNull(Function<Box<String>, List<String>> f) {}
+
+              static void test() {
+                takeNullable(@A Box::list);
+                %s
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                takeNonNull(@A Box<@Nullable String>::list);
+              }
+            }
+            """
+                .formatted(qualifiedNameInvocation))
+        .doTest();
+  }
+
+  @Test
   public void issue1528() {
     makeHelper()
         .addSourceLines(

@@ -226,7 +226,7 @@ public class GenericsTests extends NullAwayTestsBase {
                   abstract R apply(P p);
                 }
               }
-              static void param(@Nullable Wrapper<String>.Fn<String> p) {}
+              static void param(Wrapper<String>.@Nullable Fn<String> p) {}
               static void positiveParam() {
                 Wrapper<@Nullable String>.Fn<String> x = null;
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>
@@ -237,7 +237,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String> cannot be converted to Test.Wrapper<String>.Fn<String>
                 Wrapper<String>.Fn<String> p2 = p1;
               }
-              static @Nullable Wrapper<String>.Fn<String> positiveReturn() {
+              static Wrapper<String>.@Nullable Fn<String> positiveReturn() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>
                 return p1;
@@ -250,7 +250,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 Wrapper<@Nullable String>.Fn<String> p2 = p1;
               }
-              static @Nullable Wrapper<@Nullable String>.Fn<String> negativeReturn() {
+              static Wrapper<@Nullable String>.@Nullable Fn<String> negativeReturn() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 return p1;
               }
@@ -1901,6 +1901,84 @@ public class GenericsTests extends NullAwayTestsBase {
                 };
                 FnClass<String, @Nullable String> fn4 = new FnClass<>() {
                   public @Nullable String apply(String s) { return null; }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Fails when a diamond anonymous class loses the {@code @Nullable} on its supertype's type
+   * argument. See https://github.com/uber/NullAway/issues/1746
+   */
+  @Test
+  public void overrideDiamondAnonymousClassWithNestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                List<T> get();
+                void accept(List<T> values);
+              }
+              static void test() {
+                Foo<@Nullable String> foo = new Foo<>() {
+                  @Override
+                  public List<@Nullable String> get() { throw new AssertionError(); }
+                  @Override
+                  public void accept(List<@Nullable String> values) {}
+                };
+                Foo<@Nullable String> badFoo = new Foo<>() {
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public List<String> get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public void accept(List<String> values) {}
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Fails when an anonymous class loses the {@code @Nullable} on its supertype's type argument and
+   * the override wraps the type variable in an array. See
+   * https://github.com/uber/NullAway/issues/1746
+   */
+  @Test
+  public void overrideAnonymousClassWithArrayOfTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T[] get();
+                void accept(T[] values);
+              }
+              static void test() {
+                Foo<@Nullable String> explicit = new Foo<@Nullable String>() {
+                  @Override
+                  public @Nullable String[] get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: Parameter has type String [], but overridden method has parameter type @Nullable String []
+                  public void accept(String[] values) {}
+                };
+                Foo<@Nullable String> diamond = new Foo<>() {
+                  @Override
+                  public @Nullable String[] get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: Parameter has type String [], but overridden method has parameter type @Nullable String []
+                  public void accept(String[] values) {}
                 };
               }
             }

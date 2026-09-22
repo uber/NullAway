@@ -17,9 +17,11 @@ import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
+import java.util.Collections;
 import java.util.Deque;
-import java.util.HashMap;
-import java.util.HashSet;
+import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Element;
@@ -35,6 +37,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final Config config;
   private final Handler handler;
   private final VisitorState state;
+
+  /** Type variables belonging to the calls participating in this inference problem. */
+  private final Set<Element> inferenceVariables = new LinkedHashSet<>();
 
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
@@ -61,18 +66,30 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     final boolean nullableAllowed;
 
     NullnessState nullness = NullnessState.UNKNOWN;
-    final Set<Element> supertypes = new HashSet<>();
-    final Set<Element> subtypes = new HashSet<>();
+
+    /** Important to use a LinkedHashSet here for determinism in error messages. */
+    final Set<Element> supertypes = new LinkedHashSet<>();
+
+    /** Important to use a LinkedHashSet here for determinism in error messages. */
+    final Set<Element> subtypes = new LinkedHashSet<>();
 
     VarState(boolean nullableAllowed) {
       this.nullableAllowed = nullableAllowed;
     }
   }
 
-  /* All variables seen so far. */
-  private final Map<Element, VarState> vars = new HashMap<>();
+  /**
+   * All variables seen so far. Important to use a LinkedHashMap here for determinism in error
+   * messages.
+   */
+  private final Map<Element, VarState> vars = new LinkedHashMap<>();
 
   /* ───────────────────── public API ───────────────────── */
+
+  @Override
+  public void registerInferenceVariable(Element typeVariable) {
+    inferenceVariables.add(typeVariable);
+  }
 
   @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
@@ -82,6 +99,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
     private boolean localVariableType;
+
+    /**
+     * Wildcard containment checks currently in progress, keyed by the formal wildcard. Used to stop
+     * recursion through self-referential bounds.
+     */
+    private final IdentityHashMap<WildcardType, Set<Type>> activeWildcardContainments =
+        new IdentityHashMap<>();
 
     AddSubtypeConstraintsVisitor(boolean localVariableType) {
       this.localVariableType = localVariableType;
@@ -208,28 +232,47 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * bound to be a subtype of {@code S}. For {@code ? super S}, concrete actual arguments require
      * {@code S <: subtypeTypeArg}; {@code ? super T} actual arguments require {@code S <: T}. Other
      * actual wildcard forms place no useful nullability constraint.
+     *
+     * <p>Self-referential bounds such as {@code N extends Node<?>} can lead back to the exact same
+     * containment check. Re-entering a check that is already in progress adds no constraints, since
+     * the outer visit of that pair is already adding them.
      */
     private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
-      switch (supertypeWildcard.kind) {
-        case UNBOUND, EXTENDS -> {
-          Type subtypeUpperBound =
-              GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
-          subtypeUpperBound.accept(
-              this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
-        }
-        case SUPER -> {
-          Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
-          WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
-          if (subtypeWildcard != null) {
-            if (subtypeWildcard.kind == BoundKind.SUPER) {
-              supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
-            }
-            // the subtype wildcard could have an extends bound, but as far as I know we do not
-            // need to generate constraints for this case
-            // TODO revisit if needed
-          } else {
-            supertypeLowerBound.accept(this, subtypeTypeArg);
+      Set<Type> activeSubtypeArguments = activeWildcardContainments.get(supertypeWildcard);
+      if (activeSubtypeArguments == null) {
+        activeSubtypeArguments = Collections.newSetFromMap(new IdentityHashMap<>());
+        activeWildcardContainments.put(supertypeWildcard, activeSubtypeArguments);
+      } else if (activeSubtypeArguments.contains(subtypeTypeArg)) {
+        return;
+      }
+      activeSubtypeArguments.add(subtypeTypeArg);
+      try {
+        switch (supertypeWildcard.kind) {
+          case UNBOUND, EXTENDS -> {
+            Type subtypeUpperBound =
+                GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
+            subtypeUpperBound.accept(
+                this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
           }
+          case SUPER -> {
+            Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
+            WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
+            if (subtypeWildcard != null) {
+              if (subtypeWildcard.kind == BoundKind.SUPER) {
+                supertypeLowerBound.accept(this, castToNonNull(subtypeWildcard.getSuperBound()));
+              }
+              // the subtype wildcard could have an extends bound, but as far as I know we do not
+              // need to generate constraints for this case
+              // TODO revisit if needed
+            } else {
+              supertypeLowerBound.accept(this, subtypeTypeArg);
+            }
+          }
+        }
+      } finally {
+        activeSubtypeArguments.remove(subtypeTypeArg);
+        if (activeSubtypeArguments.isEmpty()) {
+          activeWildcardContainments.remove(supertypeWildcard);
         }
       }
     }
@@ -301,7 +344,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /* ---------- build final solution map ---------- */
-    Map<Element, InferredNullability> result = new HashMap<>();
+    Map<Element, InferredNullability> result = new LinkedHashMap<>();
     vars.forEach(
         (tv, st) -> {
           // Note: if the nullness state is UNKNOWN, we infer NONNULL arbitrarily
@@ -361,10 +404,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /**
    * Records that {@code t} must be {@code @Nullable}.
    *
-   * <p>Only an inference variable takes a constraint, meaning a type-variable use with no explicit
-   * nullness annotation. Every other type already has a fixed nullness, including a class type and
-   * an explicitly annotated type-variable use. For those cases, this method does not introduce any
-   * constraint, and the normal type compatibility checks report any incompatibility.
+   * <p>Only a registered inference variable with no explicit nullness annotation takes a
+   * constraint. For other types, including enclosing type parameters and explicitly annotated
+   * type-variable uses, this method does not introduce any constraint, and the normal type
+   * compatibility checks report any incompatibility.
    *
    * @param t the type to constrain
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
@@ -378,10 +421,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /**
    * Records that {@code t} must be {@code @NonNull}.
    *
-   * <p>Only an inference variable takes a constraint, meaning a type-variable use with no explicit
-   * nullness annotation. Every other type already has a fixed nullness, including a class type and
-   * an explicitly annotated type-variable use. For those cases, this method does not introduce any
-   * constraint, and the normal type compatibility checks report any incompatibility.
+   * <p>Only a registered inference variable with no explicit nullness annotation takes a
+   * constraint. For other types, including enclosing type parameters and explicitly annotated
+   * type-variable uses, this method does not introduce any constraint, and the normal type
+   * compatibility checks report any incompatibility.
    *
    * @param t the type to constrain
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
@@ -400,24 +443,40 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         v -> new VarState(GenericsUtils.upperBoundIsNullable(v, config, handler, state)));
   }
 
+  /** Returns whether this use denotes an inference variable without a nullness override. */
   private boolean treatAsTypeVariableForInference(Type t) {
     if (t instanceof TypeVar tv) {
       // Only treat as a type variable if it _doesn't_ have an explicit @Nullable or @NonNull
       // annotation.
-      return !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
+      return inferenceVariables.contains(tv.asElement())
+          && !Nullness.hasNullableAnnotation(tv.getAnnotationMirrors().stream(), config)
           && !Nullness.hasNonNullAnnotation(tv.getAnnotationMirrors().stream(), config);
     } else {
       return false;
     }
   }
 
+  /** Returns whether a type is explicitly nullable or is the null type. */
   private boolean isKnownNullable(Type t) {
     return t instanceof NullType
         || Nullness.hasNullableAnnotation(t.getAnnotationMirrors().stream(), config);
   }
 
-  /** Everything non-nullable *and* non-variable counts as @NonNull. */
+  /**
+   * Returns whether a type is known non-null without solving inference constraints.
+   *
+   * <p>For the null type and types with an explicit {@code @Nullable} annotation, returns {@code
+   * false}. All other non-type-variable types are treated as non-null. Type-variable uses with an
+   * explicit {@code @NonNull} annotation are also known non-null; unannotated inference variables
+   * are not. For unannotated fixed type variables, a non-null upper bound establishes non-nullness,
+   * while a nullable upper bound alone establishes neither known-nullable nor known-non-null
+   * status.
+   */
   private boolean isKnownNonNull(Type t) {
-    return !isKnownNullable(t) && !treatAsTypeVariableForInference(t);
+    return !isKnownNullable(t)
+        && !treatAsTypeVariableForInference(t)
+        && (!(t instanceof TypeVar tv)
+            || Nullness.hasNonNullAnnotation(t.getAnnotationMirrors().stream(), config)
+            || !GenericsUtils.upperBoundIsNullable(tv.asElement(), config, handler, state));
   }
 }

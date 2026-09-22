@@ -1,48 +1,49 @@
 [versions]
-asm = "9.3"
-checker-framework = "4.2.2"
+asm = "9.10.1"
+checker-framework = "4.2.3"
 support = "27.1.1"
 wala = "1.7.1"
-commons-cli = "1.4"
+commons-cli = "1.11.0"
 auto-service = "1.1.1"
 google-java-format = "1.34.1"
-android-gradle-plugin = "9.3.0"
+android-gradle-plugin = "9.4.0"
 gradle-maven-publish-plugin = "0.34.0"
-spotless = "8.4.0"
-errorprone-plugin = "5.1.0"
+spotless = "8.10.2"
+errorprone-plugin = "5.1.1"
 shadow = "9.6.1"
 jmh = "0.7.3"
-versions-plugin = "0.53.0"
-shellcheck = "1.5.0"
+shellcheck = "1.5.1"
 
 errorProne = "2.50.0"
 errorProneJdk17 = "2.42.0"
 errorProneOldest = "2.36.0"
 
-jakarta-inject = "2.0.0"
+jakarta-inject = "2.0.1"
 jakarta-annotations = "2.1.1"
 javax-inject = "1"
-gson = "2.13.1"
+gson = "2.14.0"
 guava = "31.1-jre"
-guava-latest = "33.6.0-jre"
+guava-latest = "33.7.1-jre"
 javax-validation = "2.0.1.Final"
 jspecify = "1.0.1"
 jackson = "3.1.4"
 commons-io = "2.11.0"
 junit4 = "4.13.2"
-junit-jupiter = "5.14.0"
+junit-jupiter = "5.14.4"
 apiguardian = "1.0.0"
 jetbrains-annotations = "24.1.0"
-checker-compat-qual = "2.5.5"
+checker-compat-qual = "2.5.6"
 rxjava2 = "2.1.2"
-reactor = "3.8.6"
+reactor = "3.8.7"
 commons-lang3 = "3.8.1"
 commons-lang = "2.6"
+commons-collections = "3.2.2"
+commons-collections4 = "4.4"
 jsr305 = "3.0.2"
-lombok = "1.18.38"
-spring-beans = "5.3.7"
-spring-context = "5.3.7"
-spring-webflux = "7.0.8"
+lombok = "1.18.48"
+spring-beans = "5.3.39"
+spring-context = "5.3.39"
+spring-webflux = "7.0.9"
 grpc-core = "1.15.1"
 mockito = "5.21.0"
 javax-annotation = "1.3.2"
@@ -104,6 +105,8 @@ rxjava2 = { module = "io.reactivex.rxjava2:rxjava", version.ref = "rxjava2" }
 reactor-core = { module = "io.projectreactor:reactor-core", version.ref = "reactor" }
 commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 commons-lang = { module = "commons-lang:commons-lang", version.ref = "commons-lang" }
+commons-collections = { module = "commons-collections:commons-collections", version.ref = "commons-collections" }
+commons-collections4 = { module = "org.apache.commons:commons-collections4", version.ref = "commons-collections4" }
 jsr305 = { module = "com.google.code.findbugs:jsr305", version.ref = "jsr305" }
 lombok = { module = "org.projectlombok:lombok", version.ref = "lombok" }
 spring-beans = { module = "org.springframework:spring-beans", version.ref = "spring-beans" }
@@ -125,5 +128,4 @@ spotless = { id = "com.diffplug.spotless", version.ref = "spotless" }
 errorprone = { id = "net.ltgt.errorprone", version.ref = "errorprone-plugin" }
 shadow = { id = "com.gradleup.shadow", version.ref = "shadow" }
 jmh = { id = "me.champeau.jmh", version.ref = "jmh" }
-versions = { id = "com.github.ben-manes.versions", version.ref = "versions-plugin" }
 shellcheck = { id = "com.felipefzdz.gradle.shellcheck", version.ref = "shellcheck" }

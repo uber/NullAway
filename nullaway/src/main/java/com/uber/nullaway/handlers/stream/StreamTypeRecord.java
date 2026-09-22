@@ -59,6 +59,10 @@ public class StreamTypeRecord {
   private final ImmutableSet<String> passthroughMethodSigs;
   private final ImmutableSet<String> passthroughMethodSimpleNames;
 
+  // Simple names of all methods modeled by this record. This supports rejecting unrelated method
+  // invocations before running the more expensive receiver-type predicate.
+  private final ImmutableSet<String> modeledMethodSimpleNames;
+
   public StreamTypeRecord(
       TypePredicate typePredicate,
       ImmutableSet<String> filterMethodSigs,
@@ -76,6 +80,52 @@ public class StreamTypeRecord {
     this.collectMethodSigToRecords = collectMethodSigToRecords;
     this.passthroughMethodSigs = passthroughMethodSigs;
     this.passthroughMethodSimpleNames = passthroughMethodSimpleNames;
+
+    ImmutableSet.Builder<String> modeledMethodSimpleNamesBuilder = ImmutableSet.builder();
+    modeledMethodSimpleNamesBuilder.addAll(filterMethodSimpleNames);
+    modeledMethodSimpleNamesBuilder.addAll(mapMethodSimpleNameToRecord.keySet());
+    modeledMethodSimpleNamesBuilder.addAll(passthroughMethodSimpleNames);
+    filterMethodSigs.forEach(
+        signature -> modeledMethodSimpleNamesBuilder.add(methodNameFromSignature(signature)));
+    mapMethodSigToRecord
+        .keySet()
+        .forEach(
+            signature -> modeledMethodSimpleNamesBuilder.add(methodNameFromSignature(signature)));
+    collectMethodSigToRecords
+        .keySet()
+        .forEach(
+            signature -> modeledMethodSimpleNamesBuilder.add(methodNameFromSignature(signature)));
+    passthroughMethodSigs.forEach(
+        signature -> modeledMethodSimpleNamesBuilder.add(methodNameFromSignature(signature)));
+    this.modeledMethodSimpleNames = modeledMethodSimpleNamesBuilder.build();
+  }
+
+  /**
+   * Extracts the simple method name from a modeled method signature.
+   *
+   * @param signature a method signature such as {@code map(Function)} or {@code <R>map(Function)}
+   * @return the method's simple name
+   */
+  private static String methodNameFromSignature(String signature) {
+    int parameterListStart = signature.indexOf('(');
+    if (parameterListStart < 0) {
+      throw new IllegalArgumentException("Malformed method signature: " + signature);
+    }
+    int typeParametersEnd = signature.lastIndexOf('>', parameterListStart);
+    return signature.substring(typeParametersEnd + 1, parameterListStart);
+  }
+
+  /**
+   * Returns whether this record models any overload of the method's simple name.
+   *
+   * <p>This is a deliberately coarse but cheap prefilter. Callers must still perform the exact
+   * signature check after checking the receiver type.
+   *
+   * @param methodSymbol the invoked method
+   * @return whether this record might model the method
+   */
+  public boolean hasModelForMethod(Symbol.MethodSymbol methodSymbol) {
+    return modeledMethodSimpleNames.contains(methodSymbol.getSimpleName().toString());
   }
 
   public boolean matchesType(Type type, VisitorState state) {

@@ -27,7 +27,7 @@ import static org.junit.Assert.fail;
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
 import com.google.errorprone.CompilationTestHelper;
-import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullAwayTestsBase;
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.nio.charset.Charset;
@@ -69,9 +69,15 @@ public class SerializationTestHelper<T extends Display> {
     return this;
   }
 
+  /**
+   * Creates the {@link CompilationTestHelper} that compiles the test sources with {@code args} on
+   * the javac command line.
+   *
+   * <p>Call this before {@link #addSourceLines}, which adds to the helper created here. A second
+   * call starts over with a fresh helper and loses the sources added so far.
+   */
   public SerializationTestHelper<T> setArgs(List<String> args) {
-    compilationTestHelper =
-        CompilationTestHelper.newInstance(NullAway.class, getClass()).setArgs(args);
+    compilationTestHelper = NullAwayTestsBase.makeTestHelperWithArgs(getClass(), args);
     return this;
   }
 

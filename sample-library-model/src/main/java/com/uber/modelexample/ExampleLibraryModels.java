@@ -40,10 +40,18 @@ public class ExampleLibraryModels implements LibraryModels {
     return ImmutableSetMultimap.of();
   }
 
+  /**
+   * MethodRef signatures are the method name plus argument types with no spaces after commas.
+   * Overloads need a separate entry each; {@code isEmptyOrNull(java.lang.CharSequence, boolean)}
+   * (space after the comma) would not match the two-argument method.
+   */
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters() {
     return ImmutableSetMultimap.<MethodRef, Integer>builder()
         .put(methodRef("org.utilities.StringUtils", "isEmptyOrNull(java.lang.CharSequence)"), 0)
+        .put(
+            methodRef("org.utilities.StringUtils", "isEmptyOrNull(java.lang.CharSequence,boolean)"),
+            0)
         .build();
   }
 

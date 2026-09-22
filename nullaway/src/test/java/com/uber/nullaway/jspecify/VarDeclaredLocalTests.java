@@ -9,6 +9,54 @@ import org.junit.Test;
 public class VarDeclaredLocalTests extends NullAwayTestsBase {
 
   @Test
+  public void wildcardCompletableFutureHandleWithVar() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.concurrent.CompletableFuture;
+            class Test {
+              private static CompletableFuture<?> supply() {
+                return CompletableFuture.completedFuture("x");
+              }
+
+              static void crash() {
+                var future = supply();
+                var ready = future.handle((result, error) -> "x");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCompletableFutureHandleWithVarChecksCallbackNullability() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.concurrent.CompletableFuture;
+            class Test {
+              private static CompletableFuture<?> supply() {
+                return CompletableFuture.completedFuture("x");
+              }
+
+              static void test() {
+                var future = supply();
+                var ready = future.handle((result, error) -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'error' is @Nullable
+                  error.toString();
+                  return "x";
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericInferenceForVarLocal() {
     makeHelper()
         .addSourceLines(

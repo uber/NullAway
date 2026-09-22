@@ -126,7 +126,7 @@ public class Serializer {
     }
     try (OutputStream os = new FileOutputStream(path.toFile())) {
       header += "\n";
-      os.write(header.getBytes(Charset.defaultCharset()), 0, header.length());
+      os.write(header.getBytes(Charset.defaultCharset()));
       os.flush();
     } catch (IOException e) {
       throw new RuntimeException("Could not finish resetting File at Path: " + path, e);
@@ -184,7 +184,7 @@ public class Serializer {
     }
     row = row + "\n";
     try (OutputStream os = new FileOutputStream(path.toFile(), true)) {
-      os.write(row.getBytes(Charset.defaultCharset()), 0, row.length());
+      os.write(row.getBytes(Charset.defaultCharset()));
       os.flush();
     } catch (IOException e) {
       throw new RuntimeException("Error happened for writing at file: " + path, e);

@@ -38,7 +38,6 @@ import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
-import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
@@ -78,6 +77,9 @@ import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
+
+  /** Types resolved for a method reference using its ground target type. */
+  public record ResolvedMethodReference(Type.MethodType methodType, @Nullable Type qualifierType) {}
 
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
@@ -306,22 +308,6 @@ public final class GenericsChecks {
       if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
           || handler.onOverrideClassTypeVariableUpperBound(type.tsym.toString(), i)) {
         result[i] = true;
-      }
-    }
-    // For handling types declared in bytecode rather than source code.
-    // Due to a bug in javac versions before JDK 22 (https://bugs.openjdk.org/browse/JDK-8225377),
-    // the above code does not work for types declared in bytecode.  We need to read the raw type
-    // attributes instead.
-    com.sun.tools.javac.util.List<Attribute.TypeCompound> rawTypeAttributes =
-        tsym.getRawTypeAttributes();
-    if (rawTypeAttributes != null) {
-      for (Attribute.TypeCompound typeCompound : rawTypeAttributes) {
-        if (typeCompound.position.type.equals(TargetType.CLASS_TYPE_PARAMETER_BOUND)
-            && Nullness.isNullableAnnotation(
-                typeCompound.type.tsym.getQualifiedName().toString(), config)) {
-          int index = typeCompound.position.parameter_index;
-          result[index] = true;
-        }
       }
     }
     return result;
@@ -718,8 +704,9 @@ public final class GenericsChecks {
    *
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
-   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
-   *     other unhandled cases.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw non-array
+   *     types and other unhandled cases. Arrays with raw component types are returned since their
+   *     structure and component annotations are still useful.
    */
   public @Nullable Type getTreeType(Tree tree, VisitorState state) {
     return getTreeType(tree, state, false);
@@ -736,8 +723,9 @@ public final class GenericsChecks {
    * @param tree A tree for which we need the type with preserved annotations.
    * @param state the visitor state
    * @param calledFromDataflow true if the type is being computed as part of dataflow analysis
-   * @return Type of the tree with preserved annotations. Returns {@code null} for raw types and
-   *     other unhandled cases.
+   * @return Type of the tree with preserved annotations. Returns {@code null} for raw non-array
+   *     types and other unhandled cases. Arrays with raw component types are returned since their
+   *     structure and component annotations are still useful.
    */
   /* package-private */ @Nullable Type getTreeType(
       Tree tree, VisitorState state, boolean calledFromDataflow) {
@@ -761,7 +749,7 @@ public final class GenericsChecks {
                 ? getConditionalExpressionType(conditionalExpressionTree, state, calledFromDataflow)
                 : ASTHelpers.getType(tree);
       }
-      return typeOrNullIfRaw(result);
+      return typeOrNullIfRawNonArray(result);
     }
     if (tree instanceof NewClassTree newClassTree) {
       if (isDiamondConstructorCall(newClassTree)) {
@@ -782,7 +770,7 @@ public final class GenericsChecks {
         return withEnclosingTypeFromQualifier(
             typeFromIdentifier, newClassTree, state, calledFromDataflow);
       }
-      return typeOrNullIfRaw(ASTHelpers.getType(tree));
+      return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     } else if (tree instanceof NewArrayTree
         && ((NewArrayTree) tree).getType() instanceof AnnotatedTypeTree) {
       return typeWithPreservedAnnotations(tree);
@@ -869,16 +857,18 @@ public final class GenericsChecks {
           }
         }
       }
-      return typeOrNullIfRaw(result);
+      return typeOrNullIfRawNonArray(result);
     }
   }
 
   /**
    * @param type a type to check
-   * @return the given type, or null if the type is a raw type
+   * @return the given type, or {@code null} if it is a raw non-array type. Javac reports an array
+   *     type as raw when its component type is raw, but the array structure and component
+   *     annotations are still usable for checking.
    */
-  private static @Nullable Type typeOrNullIfRaw(@Nullable Type type) {
-    if (type != null && type.isRaw()) {
+  private static @Nullable Type typeOrNullIfRawNonArray(@Nullable Type type) {
+    if (type != null && type.isRaw() && !(type instanceof Type.ArrayType)) {
       return null;
     }
     return type;
@@ -1077,7 +1067,7 @@ public final class GenericsChecks {
         }
         return enhancedForElementType;
       }
-      return typeOrNullIfRaw(symbol.type);
+      return typeOrNullIfRawNonArray(symbol.type);
     }
     TreePath pathToInitializer = pathWithLeaf(state.getPath(), initializer);
     return getInferredTypeForVarLocalDeclaration(
@@ -1133,13 +1123,26 @@ public final class GenericsChecks {
   public Nullness getEnhancedForLoopElementNullness(ExpressionTree expression, VisitorState state) {
     Type elementType =
         getEnhancedForLoopElementType(expression, state, /* calledFromDataflow= */ true);
+    if (!config.handleWildcardGenerics()
+        && elementType != null
+        && GenericsUtils.asWildcard(elementType) != null) {
+      // if we're not handling wildcards, always treat as non-null
+      return Nullness.NONNULL;
+    }
     return elementType == null
         ? Nullness.NONNULL
-        : getReturnTypeNullness(elementType, state, /* followTypeVarUpperBound= */ true);
+        : getTypeNullnessForRead(
+            elementType, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
   }
 
   /**
    * Gets the element type of an enhanced-for expression, preserving nested nullability annotations.
+   *
+   * @param expression the expression being iterated over
+   * @param state the visitor state
+   * @param calledFromDataflow whether this function was called from dataflow analysis
+   * @return the element type for the loop variable of the enhanced-for, or {@code null} if it can't
+   *     be found
    */
   private @Nullable Type getEnhancedForLoopElementType(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
@@ -1162,7 +1165,9 @@ public final class GenericsChecks {
       return null;
     }
     com.sun.tools.javac.util.List<Type> typeArguments = iterableType.getTypeArguments();
-    return GenericsUtils.effectiveWildcardUpperBound(typeArguments.head, state, config, handler);
+    return config.handleWildcardGenerics()
+        ? GenericsUtils.effectiveWildcardUpperBound(typeArguments.head, state, config, handler)
+        : typeArguments.head;
   }
 
   private @Nullable Type getInferredTypeForVarLocalDeclaration(
@@ -1322,7 +1327,7 @@ public final class GenericsChecks {
           callTree,
           allCalls,
           calledFromDataflow);
-      typeVarNullability = new HashMap<>(solver.solve());
+      typeVarNullability = new LinkedHashMap<>(solver.solve());
       // The solver only computes a solution for variables that appear in constraints. For
       // unconstrained variables, treat them as NONNULL, consistent with solver behavior for
       // unconstrained variables that do appear in the constraint graph.
@@ -1398,13 +1403,18 @@ public final class GenericsChecks {
   }
 
   /** Returns the type parameters whose nullability is inferred for {@code callTree}. */
-  private com.sun.tools.javac.util.List<Symbol.TypeVariableSymbol> getCallTypeParameters(
-      ExpressionTree callTree) {
+  private List<Symbol.TypeVariableSymbol> getCallTypeParameters(ExpressionTree callTree) {
     if (callTree instanceof MethodInvocationTree invocationTree) {
       return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
     }
     Verify.verify(callTree instanceof NewClassTree);
-    return getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.getTypeParameters();
+    NewClassTree newClassTree = (NewClassTree) callTree;
+    List<Symbol.TypeVariableSymbol> typeParameters =
+        new ArrayList<>(getConstructedTypeAtCallSite(newClassTree).tsym.getTypeParameters());
+    if (newClassTree.getTypeArguments().isEmpty()) {
+      typeParameters.addAll(getMethodSymbolForCall(newClassTree).getTypeParameters());
+    }
+    return typeParameters;
   }
 
   /**
@@ -1416,9 +1426,10 @@ public final class GenericsChecks {
    * receiver of type {@code Foo<@Nullable Object>}, the return type is {@code @Nullable Object}.
    *
    * <p>Type variables being inferred for this call remain unsubstituted so constraints can be
-   * generated for them. These are method type variables for a generic method invocation and class
-   * type variables for a diamond constructor. Unlike {@link #getInvokedMethodTypeAtCall}, this
-   * method does not resolve those variables using an already-computed inference result.
+   * generated for them. These are method type variables for a generic method invocation, and class
+   * and constructor type variables for a diamond constructor. Unlike {@link
+   * #getInvokedMethodTypeAtCall}, this method does not resolve those variables using an
+   * already-computed inference result.
    */
   private Type.MethodType getExecutableTypeForInference(
       ExpressionTree callTree,
@@ -1479,6 +1490,10 @@ public final class GenericsChecks {
       Set<Tree> allCalls,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
+    // Register all type variables whose nullability is inferred for this call.
+    for (Symbol.TypeVariableSymbol typeVariable : getCallTypeParameters(callTree)) {
+      solver.registerInferenceVariable(typeVariable);
+    }
     Type.MethodType methodType =
         getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     // first, handle the call result flow
@@ -1563,7 +1578,8 @@ public final class GenericsChecks {
     } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
       if (argumentType == null) {
-        // bail out of any checking involving raw types for now
+        // no type to constrain with; getTreeType returns null for a raw non-array type and for
+        // cases it does not handle
         return;
       }
       argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
@@ -1650,6 +1666,16 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       Type lhsType,
       MemberReferenceTree memberReferenceTree) {
+    // if we have a reference to a generic method, and the call site does not pass explicit type
+    // arguments, register the referenced method's type variables as inference variables
+    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+    List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
+    if (referencedMethod != null
+        && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
+      for (Symbol.TypeVariableSymbol typeVariable : referencedMethod.getTypeParameters()) {
+        solver.registerInferenceVariable(typeVariable);
+      }
+    }
     Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
     GenericsUtils.processMethodRefTypeRelations(
         this,
@@ -1662,11 +1688,76 @@ public final class GenericsChecks {
   }
 
   /**
+   * Resolves a method reference's method and qualifier types using its functional-interface target.
+   *
+   * <p>For an unbound reference to an instance method in a generic class, javac leaves the
+   * qualifier as the generic declaration type. The functional-interface receiver supplies the type
+   * arguments needed to instantiate that qualifier and, in turn, the referenced method type.
+   *
+   * @param memberReferenceTree the method reference tree
+   * @param referencedMethod the symbol for the referenced method
+   * @param targetType the functional-interface target type
+   * @param state visitor state whose current path ends at {@code memberReferenceTree}
+   * @return the resolved types, or {@code null} if the method reference cannot be resolved
+   */
+  public @Nullable ResolvedMethodReference resolveMemberReference(
+      MemberReferenceTree memberReferenceTree,
+      Symbol.MethodSymbol referencedMethod,
+      Type targetType,
+      VisitorState state) {
+    if (!config.isJSpecifyMode() || targetType.isRaw() || referencedMethod.isConstructor()) {
+      // TODO handle constructor references like Foo::new;
+      //  https://github.com/uber/NullAway/issues/1468
+      return null;
+    }
+    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    Type qualifierType = null;
+    if (!referencedMethod.isStatic()) {
+      ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
+      qualifierType =
+          getTreeType(
+              qualifierExpression,
+              state.withPath(new TreePath(state.getPath(), qualifierExpression)));
+      boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+      if (unbound) {
+        if (qualifierType == null || qualifierType.isRaw()) {
+          // javac attributes an annotated bare qualifier such as @A Box as raw. Use the generic
+          // declaration as the substitution template; the receiver type supplies its arguments.
+          qualifierType = referencedMethod.owner.type;
+        }
+        if (qualifierType instanceof Type.ClassType qualifierClassType) {
+          Symbol.MethodSymbol fiMethod =
+              NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
+          Type.MethodType fiMethodTypeAsMember =
+              TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
+                  .asMethodType();
+          com.sun.tools.javac.util.List<Type> fiParamTypes =
+              fiMethodTypeAsMember.getParameterTypes();
+          Verify.verify(
+              !fiParamTypes.isEmpty(),
+              "Expected receiver parameter for unbound method ref %s",
+              memberReferenceTree);
+          qualifierType =
+              GenericsUtils.instantiateUnboundQualifierType(
+                  qualifierClassType, fiParamTypes.get(0), state.getTypes(), config);
+        }
+      }
+    }
+    Type.MethodType methodType =
+        getMemberReferenceMethodType(memberReferenceTree, referencedMethod, qualifierType, state);
+    return methodType == null ? null : new ResolvedMethodReference(methodType, qualifierType);
+  }
+
+  /**
    * Gets the method type for a member reference handling generics, in JSpecify mode
    *
    * @param memberReferenceTree the member reference tree
-   * @param overridingMethod the method symbol for the method referenced by {@code
-   *     memberReferenceTree}
+   * @param overridingMethod the method symbol for the referenced method
+   * @param qualifierExpressionType an adjusted type for the qualifier expression of the member
+   *     reference ({@code Foo} in a reference {@code Foo::bar}). For an unbound reference to a
+   *     generic instance method, javac compute the type of the qualifier expression as the generic
+   *     declaration type. Callers can provide a type instantiated from the functional interface
+   *     receiver, containing the appropriate type arguments.
    * @param state the visitor state
    * @return the method type for the member reference, with generics handled, or null if not in
    *     JSpecify mode
@@ -1674,6 +1765,7 @@ public final class GenericsChecks {
   public Type.@Nullable MethodType getMemberReferenceMethodType(
       MemberReferenceTree memberReferenceTree,
       Symbol.MethodSymbol overridingMethod,
+      @Nullable Type qualifierExpressionType,
       VisitorState state) {
     if (!config.isJSpecifyMode()) {
       return null;
@@ -1683,7 +1775,10 @@ public final class GenericsChecks {
       // This handles any generic type parameters of the qualifier of the member reference, e.g. for
       // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
       // appears in the signature of m.
-      Type qualifierType = ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
+      Type qualifierType =
+          qualifierExpressionType != null
+              ? qualifierExpressionType
+              : ASTHelpers.getType(memberReferenceTree.getQualifierExpression());
       if (qualifierType != null && !qualifierType.isRaw()) {
         result =
             TypeSubstitutionUtils.memberType(
@@ -2196,7 +2291,7 @@ public final class GenericsChecks {
       }
       return typeFromAssignmentContext;
     }
-    return typeOrNullIfRaw(ASTHelpers.getType(tree));
+    return typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
   }
 
   /**
@@ -2227,8 +2322,10 @@ public final class GenericsChecks {
       hasTargetType = condExprType != null;
     }
     if (condExprType == null) {
-      condExprType = typeOrNullIfRaw(ASTHelpers.getType(tree));
+      condExprType = typeOrNullIfRawNonArray(ASTHelpers.getType(tree));
     }
+    // A raw type still arrives here: typeOrNullIfRawNonArray lets a raw array through, and not
+    // every target type reaching this point passed through it.
     if (condExprType == null || condExprType.isRaw()) {
       return null;
     }
@@ -2667,10 +2764,8 @@ public final class GenericsChecks {
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return true;
     }
-    // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
-    // In that case, use the declaration-site nullability of that type variable's upper bound.
-    if (upperBound.getKind() == TypeKind.TYPEVAR) {
-      return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return false;
     }
     // Member-type substitution (asMemberOf) can strip type-use @Nullable from a concrete method
     // type-variable bound while leaving the bound type itself (e.g. Object). Example that needs
@@ -2679,14 +2774,20 @@ public final class GenericsChecks {
     //   class Baz implements Foo { public <T extends @Nullable Object> void bar(T arg) {} }
     // After substitution the bound may look like plain Object with no annotation mirrors; without
     // consulting the original declaration we would treat the overridden bound as non-null and
-    // false-positive on a matching @Nullable override. Skip original bounds that are still type
-    // variables — those must be resolved via substitution (or the free type-var path above).
+    // false-positive on a matching @Nullable override.
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     Type originalBound =
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-    if (originalBound.getKind() != TypeKind.TYPEVAR
-        && Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+    if (Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
       return true;
+    }
+    if (Nullness.hasNonNullAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
+    // In that case, use the declaration-site nullability of that type variable's upper bound.
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return GenericsUtils.upperBoundIsNullable(upperBound.asElement(), config, handler, state);
     }
     return false;
   }
@@ -2818,7 +2919,7 @@ public final class GenericsChecks {
         overriddenMethodType instanceof ExecutableType,
         "expected ExecutableType but instead got %s",
         overriddenMethodType.getClass());
-    return getReturnTypeNullness(overriddenMethodType.getReturnType(), state);
+    return getTypeNullnessForRead(overriddenMethodType.getReturnType(), state);
   }
 
   /**
@@ -3498,28 +3599,45 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns the nullness of a return type. For wildcard and javac captured wildcard types, use the
-   * effective upper bound: a read from {@code Foo<? extends @Nullable Object>} or {@code Foo<?
-   * super String>} can produce any value permitted by the capture's upper bound.
+   * Returns the nullness of a value read from {@code type}. For wildcard and javac captured
+   * wildcard types, uses the effective upper bound: a read from {@code Foo<? extends @Nullable
+   * Object>} or {@code Foo<? super String>} can produce any value permitted by the capture's upper
+   * bound.
+   *
+   * @param type type from which a value is read
+   * @param state visitor state
+   * @return nullness of a value read from {@code type}
    */
-  private Nullness getReturnTypeNullness(Type type, VisitorState state) {
-    return getReturnTypeNullness(type, state, false);
+  private Nullness getTypeNullnessForRead(Type type, VisitorState state) {
+    return getTypeNullnessForRead(type, state, /* followUnsubstitutedTypeVarUpperBound= */ false);
   }
 
-  private Nullness getReturnTypeNullness(
-      Type type, VisitorState state, boolean followTypeVarUpperBound) {
+  /**
+   * Returns the nullness of a value read from {@code type}, optionally following the upper bound of
+   * an unsubstituted type variable.
+   *
+   * @param type type from which a value is read
+   * @param state visitor state
+   * @param followUnsubstitutedTypeVarUpperBound whether to use the upper bound when {@code type} is
+   *     an unsubstituted type variable
+   * @return nullness of a value read from {@code type}
+   */
+  private Nullness getTypeNullnessForRead(
+      Type type, VisitorState state, boolean followUnsubstitutedTypeVarUpperBound) {
     if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
     if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
       Type effectiveUpperBound =
           GenericsUtils.effectiveWildcardUpperBound(type, state, config, handler);
-      return getReturnTypeNullness(effectiveUpperBound, state, true);
+      return getTypeNullnessForRead(
+          effectiveUpperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
     }
-    if (followTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
+    if (followUnsubstitutedTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
       Type upperBound = typeVar.getUpperBound();
       if (upperBound != null) {
-        return getReturnTypeNullness(upperBound, state, true);
+        return getTypeNullnessForRead(
+            upperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
       }
     }
     return Nullness.NONNULL;
