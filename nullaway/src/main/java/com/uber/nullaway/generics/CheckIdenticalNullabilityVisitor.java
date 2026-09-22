@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -27,9 +28,18 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final Config config;
   private final Handler handler;
 
-  /** Wildcard argument pairs currently being checked for containment. */
-  private final IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons =
-      new IdentityHashMap<>();
+  /**
+   * Wildcard argument pairs currently being checked for containment. Allocated lazily, as the map
+   * is only needed for types involving wildcards.
+   */
+  private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
+
+  private IdentityHashMap<Type.WildcardType, Set<Type>> getActiveWildcardComparisons() {
+    if (activeWildcardComparisons == null) {
+      activeWildcardComparisons = new IdentityHashMap<>();
+    }
+    return activeWildcardComparisons;
+  }
 
   CheckIdenticalNullabilityVisitor(
       VisitorState state, GenericsChecks genericsChecks, Config config, Handler handler) {
@@ -224,10 +234,12 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    */
   private boolean wildcardContains(
       Type.WildcardType lhsWildcard, Type lhsUpperBound, Type rhsTypeArgument, Type rhsUpperBound) {
-    Set<Type> activeRhsArguments = activeWildcardComparisons.get(lhsWildcard);
+    IdentityHashMap<Type.WildcardType, Set<Type>> activeComparisons =
+        getActiveWildcardComparisons();
+    Set<Type> activeRhsArguments = activeComparisons.get(lhsWildcard);
     if (activeRhsArguments == null) {
       activeRhsArguments = Collections.newSetFromMap(new IdentityHashMap<>());
-      activeWildcardComparisons.put(lhsWildcard, activeRhsArguments);
+      activeComparisons.put(lhsWildcard, activeRhsArguments);
     } else if (activeRhsArguments.contains(rhsTypeArgument)) {
       // Recursive bounds can lead back to the exact same containment question. Re-entering that
       // pair cannot reveal a mismatch that was not already handled on the first visit.
@@ -242,7 +254,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     } finally {
       activeRhsArguments.remove(rhsTypeArgument);
       if (activeRhsArguments.isEmpty()) {
-        activeWildcardComparisons.remove(lhsWildcard);
+        activeComparisons.remove(lhsWildcard);
       }
     }
   }
