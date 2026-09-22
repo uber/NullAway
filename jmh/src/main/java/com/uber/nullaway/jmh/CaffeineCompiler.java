@@ -40,6 +40,7 @@ public class CaffeineCompiler extends AbstractBenchmarkCompiler {
           "com/github/benmanes/caffeine/cache/Node.java",
           "com/github/benmanes/caffeine/cache/BoundedBuffer.java",
           "com/github/benmanes/caffeine/cache/BoundedLocalCache.java",
+          "com/github/benmanes/caffeine/cache/WindowClimber.java",
           "com/github/benmanes/caffeine/cache/TimerWheel.java",
           "com/github/benmanes/caffeine/cache/UnboundedLocalCache.java",
           "com/github/benmanes/caffeine/cache/Pacer.java",
@@ -118,6 +119,7 @@ public class CaffeineCompiler extends AbstractBenchmarkCompiler {
   protected List<String> getExtraErrorProneArgs() {
     return List.of(
         "-XepOpt:NullAway:JSpecifyMode=true",
+        "-XepOpt:NullAway:JSpecifyExperimental=true",
         "-XepOpt:NullAway:CheckOptionalEmptiness=true",
         "-XepOpt:NullAway:SuggestSuppressions=true",
         "-XepOpt:NullAway:CheckContracts=true");
