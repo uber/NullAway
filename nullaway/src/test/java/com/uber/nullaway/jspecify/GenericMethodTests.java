@@ -1537,8 +1537,6 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
               static Foo<?> getReturnType() {
                 var returnType = Api.convert(Api.wildcard());
-                // The inferred @Nullable qualifier is stored on the capture's upper bound, rather
-                // than directly on the capture.
                 // BUG: Diagnostic contains: incompatible types: Foo<capture of ?> cannot be converted to Foo<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Box)
                 return returnType;
               }
