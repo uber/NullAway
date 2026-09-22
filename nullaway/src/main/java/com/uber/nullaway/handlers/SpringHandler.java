@@ -26,14 +26,12 @@ public class SpringHandler implements Handler {
       Pattern.compile("#\\{[^}]*\\bnull\\b[^}]*}");
 
   /**
-   * Matches {@code null} used as an operand in equality comparisons ({@code null == null}, {@code
-   * == null}, {@code != null}, {@code null ==}, {@code null !=}). These occurrences do not produce
-   * a {@code null} value and should be excluded from the SpEL null detection heuristic. The
-   * two-{@code null} alternative comes first so that both operands of e.g. {@code null == null} are
-   * consumed by a single match.
+   * Matches {@code null} used as an operand in equality comparisons ({@code == null}, {@code !=
+   * null}, {@code null ==}, {@code null !=}). These occurrences do not produce a {@code null} value
+   * and should be excluded from the SpEL null detection heuristic.
    */
   private static final Pattern NULL_COMPARISON_PATTERN =
-      Pattern.compile("\\bnull\\b\\s*[!=]=\\s*\\bnull\\b|[!=]=\\s*\\bnull\\b|\\bnull\\b\\s*[!=]=");
+      Pattern.compile("[!=]=\\s*\\bnull\\b|\\bnull\\b\\s*[!=]=");
 
   @Override
   public FieldSkipResult shouldSkipFieldInitializationCheck(

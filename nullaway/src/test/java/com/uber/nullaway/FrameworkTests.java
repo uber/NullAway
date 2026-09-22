@@ -3265,23 +3265,4 @@ public class FrameworkTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
-
-  @Test
-  public void springValueSpelNullComparedToNull() {
-    addSpringValueAnnotationStub(defaultCompilationHelper)
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            import org.springframework.beans.factory.annotation.Value;
-            class Test {
-              // Boundary: null on both sides of the comparison; the whole comparison is stripped.
-              @Value("#{null == null ? 'a' : 'b'}")
-              String nullEqNull;
-              @Value("#{null != null ? 'a' : 'b'}")
-              String nullNeqNull;
-            }
-            """)
-        .doTest();
-  }
 }
