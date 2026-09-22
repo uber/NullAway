@@ -3759,6 +3759,13 @@ public final class GenericsChecks {
   private static @Nullable Type syntheticNullableAnnotType;
   private static @Nullable Type syntheticNonNullAnnotType;
 
+  /** Returns whether {@code annotationType} is one of NullAway's synthetic nullness annotations. */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity checks
+  static boolean isSyntheticNullnessAnnotation(Type annotationType) {
+    return annotationType == syntheticNullableAnnotType
+        || annotationType == syntheticNonNullAnnotType;
+  }
+
   /**
    * Returns a "fake" {@link Type} object representing a synthetic {@code @Nullable} annotation.
    *
