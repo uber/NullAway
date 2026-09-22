@@ -66,7 +66,8 @@ public class GenericsUtils {
    */
   static Type wildcardUpperBound(
       WildcardType wildcardType, VisitorState state, Config config, Handler handler) {
-    return resolveEffectiveUpperBound(wildcardType, null, Map.of(), state, config, handler);
+    return resolveEffectiveUpperBound(
+        wildcardType, wildcardType.bound, Map.of(), state, config, handler);
   }
 
   /**
@@ -166,9 +167,10 @@ public class GenericsUtils {
    * an {@code extends} bound are restored before following dependent captures. For an implicit
    * bound, annotations on the capture and its structural bound are handled first. Nullability from
    * the corresponding declaration formal is consulted only when its declared upper bound has the
-   * same underlying Java type as the compiler-computed structural bound. If capture substitution
-   * replaced that declared bound with a different type, the formal no longer supplies nullability
-   * for the result.
+   * same underlying Java type as the compiler-computed structural bound, including a recursive
+   * class bound whose nested type arguments were changed by capture conversion. If capture
+   * substitution replaced that declared bound with a different type, the formal no longer supplies
+   * nullability for the result.
    *
    * @param type the wildcard, capture, or capture-conversion result to resolve
    * @param formalTypeVariable the corresponding declaration formal, or {@code null} when none is
@@ -238,9 +240,13 @@ public class GenericsUtils {
     }
     // if the upper bound is either a capture or a wildcard, recurse
     if (upperBound instanceof CapturedType capturedUpperBound) {
+      // Captures nested inside an explicit wildcard are not entries in the contextual map. Keep
+      // the current formal in that case; older javac versions may also leave the capture's backing
+      // wildcard without a formal, so it cannot recover the declaration bound itself.
+      Type.TypeVar capturedFormalTypeVariable = captureToFormalTypeVar.get(capturedUpperBound);
       return resolveEffectiveUpperBound(
           capturedUpperBound,
-          captureToFormalTypeVar.get(capturedUpperBound),
+          capturedFormalTypeVariable != null ? capturedFormalTypeVariable : formalTypeVariable,
           captureToFormalTypeVar,
           state,
           config,
@@ -248,7 +254,7 @@ public class GenericsUtils {
     }
     if (upperBound instanceof WildcardType wildcardUpperBound) {
       return resolveEffectiveUpperBound(
-          wildcardUpperBound, null, captureToFormalTypeVar, state, config, handler);
+          wildcardUpperBound, formalTypeVariable, captureToFormalTypeVar, state, config, handler);
     }
     return upperBound;
   }
@@ -273,7 +279,15 @@ public class GenericsUtils {
       VisitorState state,
       Config config,
       Handler handler) {
-    if (!state.getTypes().isSameType(upperBound, formalTypeVar.getUpperBound())) {
+    Type declaredUpperBound = formalTypeVar.getUpperBound();
+    // A dependent bound such as U extends T can be replaced entirely by capture conversion, in
+    // which case the substituted type supplies its own nullability. A recursive class bound such as
+    // S extends Self<S> retains its top-level class while only its nested type arguments change, so
+    // it still gets nullability from S's declaration.
+    if (!state.getTypes().isSameType(upperBound, declaredUpperBound)
+        && (!(upperBound instanceof ClassType)
+            || !(declaredUpperBound instanceof ClassType)
+            || !upperBound.tsym.equals(declaredUpperBound.tsym))) {
       return upperBound;
     }
     Type declarationUpperBound = formalTypeVar.getUpperBound();
