@@ -195,10 +195,7 @@ public class GenericsUtils {
             TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
                 capturedType.wildcard.getExtendsBound(), upperBound, config);
       } else {
-        if (formalTypeVariable != null) {
-          formalTypeVariable =
-              declarationFormalForImplicitCapture(capturedType, formalTypeVariable, state);
-        } else if (capturedType.wildcard != null) {
+        if (formalTypeVariable == null && capturedType.wildcard != null) {
           // Without a containing-type formal, the backing formal is the only available source of
           // declaration-level nullability.
           formalTypeVariable = capturedType.wildcard.bound;
@@ -245,52 +242,6 @@ public class GenericsUtils {
           wildcardUpperBound, null, captureToFormalTypeVar, state, config, handler);
     }
     return upperBound;
-  }
-
-  /**
-   * Selects the declaration formal that supplies nullability for an implicit captured bound.
-   *
-   * <p>A capture can move between unrelated generic types through method inference. For example,
-   * passing {@code Source<?>} to {@code <X> Result<X> convert(Source<? extends X>)} can infer
-   * {@code X} as the capture of {@code Source<?>}, producing {@code Result<capture>}. When that
-   * result is inspected, {@code correspondingFormal} is {@code Result.R}, but the backing formal
-   * remains {@code Source.E}. The latter supplies the implicit bound's declaration-level
-   * nullability (for example, when {@code Source} is unannotated), so it must be retained even
-   * though its owner is unrelated to {@code Result}.
-   *
-   * <p>In contrast, javac supertype inspection can mutate the backing formal to one owned by a
-   * supertype of the current containing type. Such a formal is stale, so this method retains the
-   * current containing type's formal instead.
-   *
-   * @param capturedType the capture whose declaration formal is needed
-   * @param correspondingFormal the formal from the capture's current containing type
-   * @param state visitor state
-   * @return the formal supplying declaration-level nullability
-   */
-  private static Type.TypeVar declarationFormalForImplicitCapture(
-      CapturedType capturedType, Type.TypeVar correspondingFormal, VisitorState state) {
-    if (capturedType.wildcard == null || capturedType.wildcard.bound == null) {
-      return correspondingFormal;
-    }
-    Type.TypeVar backingFormal = capturedType.wildcard.bound;
-    Symbol backingOwner = backingFormal.tsym.owner;
-    Symbol correspondingOwner = correspondingFormal.tsym.owner;
-    if (backingOwner.equals(correspondingOwner)) {
-      return correspondingFormal;
-    }
-    if (backingOwner instanceof Symbol.ClassSymbol backingClass
-        && correspondingOwner instanceof Symbol.ClassSymbol correspondingClass
-        && state
-            .getTypes()
-            .isSubtype(
-                state.getTypes().erasure(correspondingClass.type),
-                state.getTypes().erasure(backingClass.type))) {
-      return correspondingFormal;
-    }
-    // The unrelated owner can be the capture's origin after generic method inference. Its formal,
-    // rather than the formal for the destination type-argument position, supplies the implicit
-    // bound's declaration-level nullability.
-    return backingFormal;
   }
 
   /**

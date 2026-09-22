@@ -1402,6 +1402,34 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferredCaptureRetainsOriginFormalNullabilityAcrossGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            @NullMarked
+            final class Test {
+              // Source.E has a @NonNull upper bound.
+              static final class Source<E> {}
+              // Result.R has a @Nullable upper bound.
+              @NullUnmarked
+              static final class Result<R> {}
+              static <X> Result<X> convert(Source<? extends X> source) {
+                throw new RuntimeException();
+              }
+              static Result<? extends Object> exercise(Source<?> source) {
+                // Inference succeeds with X as the capture of Source<?>. The capture keeps
+                // Source.E's @NonNull upper bound when it moves into Result<X>.
+                return convert(source);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void weirdErrorMessageReducedFromSpring() {
     makeHelper()
         .addSourceLines(

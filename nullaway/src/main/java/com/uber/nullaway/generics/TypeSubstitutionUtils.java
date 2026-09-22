@@ -481,7 +481,10 @@ public class TypeSubstitutionUtils {
     }
 
     /**
-     * Restores annotations on both the captured type {@code t} and its backing wildcard.
+     * Restores nullability information on the captured type {@code t} and its backing wildcard.
+     * Explicit annotations on a type-variable use remain direct annotations on the capture.
+     * Synthetic annotations representing inferred nullability instead annotate the capture's
+     * structural upper bound.
      *
      * <p>The corresponding type {@code other} may be an ordinary wildcard because javac can
      * capture-convert {@code t} without capture-converting {@code other}. In such cases, the
@@ -497,7 +500,21 @@ public class TypeSubstitutionUtils {
      */
     @Override
     public Type visitCapturedType(Type.CapturedType t, Type other) {
-      Type updated = updateDirectNullabilityAnnotationsForType(t, other);
+      Attribute.TypeCompound syntheticNullnessAnnotation =
+          config.handleWildcardGenerics() ? getDirectSyntheticNullnessAnnotation(other) : null;
+      Type updated;
+      if (syntheticNullnessAnnotation != null) {
+        // A synthetic annotation records NullAway's inferred nullability for the type variable that
+        // javac instantiated as this capture. It constrains the capture itself, so represent it on
+        // the capture's structural upper bound rather than as a use-site projection of the capture.
+        Type updatedUpperBound = typeWithAnnot(t.getUpperBound(), syntheticNullnessAnnotation);
+        updated =
+            TYPE_METADATA_BUILDER.createDetachedCapturedType(t, t.wildcard, updatedUpperBound);
+      } else {
+        // An explicit annotation on a type-variable use remains a use-site annotation after the
+        // type variable is instantiated as a capture.
+        updated = updateDirectNullabilityAnnotationsForType(t, other);
+      }
       Type.WildcardType otherWildcard = GenericsUtils.asWildcard(other);
       Type.WildcardType updatedWildcard;
       if (otherWildcard != null) {
@@ -547,6 +564,20 @@ public class TypeSubstitutionUtils {
         return updated;
       }
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
+    }
+
+    /** Returns a synthetic nullness annotation directly on {@code type}, if one is present. */
+    private static Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(
+        Type type) {
+      for (Attribute.TypeCompound annotation : type.getAnnotationMirrors()) {
+        if (annotation.type.tsym == null) {
+          continue;
+        }
+        if (GenericsChecks.isSyntheticNullnessAnnotation(annotation.type)) {
+          return annotation;
+        }
+      }
+      return null;
     }
 
     @Override
