@@ -339,7 +339,10 @@ public class TypeSubstitutionUtils {
 
     private final Config config;
 
-    /** Pairs of implicit wildcard bounds currently being traversed. */
+    /**
+     * Pairs of implicit wildcard bounds currently being traversed. Allocated lazily, as the map is
+     * only needed for types involving wildcards.
+     */
     private @Nullable IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds;
 
     private IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> getActiveImplicitWildcardBounds() {

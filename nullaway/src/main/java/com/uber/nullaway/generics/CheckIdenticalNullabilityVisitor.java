@@ -28,7 +28,10 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final Config config;
   private final Handler handler;
 
-  /** Wildcard argument pairs currently being checked for containment. */
+  /**
+   * Wildcard argument pairs currently being checked for containment. Allocated lazily, as the map
+   * is only needed for types involving wildcards.
+   */
   private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
 
   private IdentityHashMap<Type.WildcardType, Set<Type>> getActiveWildcardComparisons() {
