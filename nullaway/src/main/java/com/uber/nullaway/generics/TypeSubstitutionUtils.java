@@ -340,8 +340,14 @@ public class TypeSubstitutionUtils {
     private final Config config;
 
     /** Pairs of implicit wildcard bounds currently being traversed. */
-    private final IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds =
-        new IdentityHashMap<>();
+    private @Nullable IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds;
+
+    private IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> getActiveImplicitWildcardBounds() {
+      if (activeImplicitWildcardBounds == null) {
+        activeImplicitWildcardBounds = new IdentityHashMap<>();
+      }
+      return activeImplicitWildcardBounds;
+    }
 
     RestoreNullnessAnnotationsVisitor(Config config) {
       this.config = config;
@@ -402,10 +408,12 @@ public class TypeSubstitutionUtils {
           && wildcardType.bound != null) {
         Type.TypeVar formalTypeVariable = wt.bound;
         Type.TypeVar otherFormalTypeVariable = wildcardType.bound;
-        Set<Type.TypeVar> activeOtherBounds = activeImplicitWildcardBounds.get(formalTypeVariable);
+        IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeBounds =
+            getActiveImplicitWildcardBounds();
+        Set<Type.TypeVar> activeOtherBounds = activeBounds.get(formalTypeVariable);
         if (activeOtherBounds == null) {
           activeOtherBounds = Collections.newSetFromMap(new IdentityHashMap<>());
-          activeImplicitWildcardBounds.put(formalTypeVariable, activeOtherBounds);
+          activeBounds.put(formalTypeVariable, activeOtherBounds);
         } else if (activeOtherBounds.contains(otherFormalTypeVariable)) {
           // F-bounded type variables make the implicit upper-bound graph cyclic. Re-entering the
           // same pair cannot reveal any annotations that were not handled on the first visit.
@@ -419,7 +427,7 @@ public class TypeSubstitutionUtils {
         } finally {
           activeOtherBounds.remove(otherFormalTypeVariable);
           if (activeOtherBounds.isEmpty()) {
-            activeImplicitWildcardBounds.remove(formalTypeVariable);
+            activeBounds.remove(formalTypeVariable);
           }
         }
         if (updatedUpperBound != upperBound) {
