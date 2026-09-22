@@ -163,9 +163,12 @@ public class GenericsUtils {
    * Resolves the effective upper bound of a wildcard, capture, or capture-conversion result.
    *
    * <p>Existing captures are resolved from their structural upper bounds. Explicit annotations on
-   * an {@code extends} bound are restored before following dependent captures. For implicit bounds,
-   * declaration-level nullability is applied only when the declaration bound still describes the
-   * structural bound.
+   * an {@code extends} bound are restored before following dependent captures. For an implicit
+   * bound, annotations on the capture and its structural bound are handled first. Nullability from
+   * the corresponding declaration formal is consulted only when its declared upper bound has the
+   * same underlying Java type as the compiler-computed structural bound. If capture substitution
+   * replaced that declared bound with a different type, the formal no longer supplies nullability
+   * for the result.
    *
    * @param type the wildcard, capture, or capture-conversion result to resolve
    * @param formalTypeVariable the corresponding declaration formal, or {@code null} when none is
