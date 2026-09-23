@@ -519,9 +519,48 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 Integer[] x5 = new @Nullable Integer[]{null};
                 // the reverse direction is legal by covariant array subtyping
                 @Nullable Integer[] y1 = new Integer[3];
-                // TODO: this is a false positive; see #1150
-                // BUG: Diagnostic contains: incompatible types: Integer [] [] cannot be converted to @Nullable Integer [] []
                 @Nullable Integer[][] y2 = new Integer[3][4];
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void multiDimensionalArrayCovariance() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void test(
+                  Integer[][] nonnull2D,
+                  Integer[][][] nonnull3D,
+                  @Nullable Integer[][] nullableElems2D,
+                  @Nullable Integer[][][] nullableElems3D,
+                  Integer[] @Nullable [] nullableInner) {
+                // legal; covariance applies at every dimension, not just the outermost one
+                @Nullable Integer[][] x1 = nonnull2D;
+                @Nullable Integer[][][] x2 = nonnull3D;
+                // legal; the nullable dimension here is the inner array level
+                Integer[] @Nullable [] x3 = nonnull2D;
+                // legal; covariance at two levels at once, on the inner arrays and on the
+                // innermost elements
+                @Nullable Integer[] @Nullable [] x4 = new Integer[3][4];
+                // an error, and one that went unreported before #1711: a rank mismatch between
+                // the declared type and the type computed for the creation expression made
+                // CheckIdenticalNullabilityVisitor#visitArrayType bail out, so the innermost
+                // element types were never compared
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer @Nullable [] []
+                Integer[] @Nullable [] y4 = new @Nullable Integer[3][4];
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                Integer[][] y1 = nullableElems2D;
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] [] cannot be converted to Integer [] [] []
+                Integer[][][] y2 = nullableElems3D;
+                // BUG: Diagnostic contains: incompatible types: Integer @Nullable [] [] cannot be converted to Integer [] []
+                Integer[][] y3 = nullableInner;
               }
             }
             """)
