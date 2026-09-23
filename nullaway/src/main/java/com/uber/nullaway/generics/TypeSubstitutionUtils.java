@@ -1,6 +1,6 @@
 package com.uber.nullaway.generics;
 
-import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotsOnTypeVarsFromSubtypes;
+import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotatedSupertype;
 import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
@@ -20,7 +20,6 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
-import javax.lang.model.element.AnnotationMirror;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
@@ -31,7 +30,7 @@ public class TypeSubstitutionUtils {
 
   /**
    * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
-   * variables from the subtype to the resulting supertype.
+   * arguments from the subtype's inheritance path to the resulting supertype.
    *
    * @param types the {@link Types} instance
    * @param subtype the subtype
@@ -46,16 +45,17 @@ public class TypeSubstitutionUtils {
     if (asSuper == null) {
       return null;
     }
-    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
+    if (subtype.tsym.equals(superTypeSymbol)) {
+      return asSuper;
+    }
+    Type annotatedSupertype =
         subtype instanceof DeclaredType declaredType
-            ? getAnnotsOnTypeVarsFromSubtypes(declaredType, superTypeSymbol, types, config)
-            : Map.of();
-    // superTypeSymbol.asType() is the unsubstituted type of the supertype, which has the
-    // same type variables as asSuper; we use it to find the positions corresponding to type
-    // variables in asSuper to substitute nullability annotations based on
-    // annotsOnTypeVarsFromSubtypes.
-    return restoreExplicitNullabilityAnnotations(
-        superTypeSymbol.asType(), asSuper, config, annotsOnTypeVarsFromSubtypes);
+            ? getAnnotatedSupertype(declaredType, superTypeSymbol, types, config)
+            : null;
+    if (annotatedSupertype == null) {
+      return asSuper;
+    }
+    return restoreExplicitNullabilityAnnotations(annotatedSupertype, asSuper, config);
   }
 
   /**
@@ -70,13 +70,27 @@ public class TypeSubstitutionUtils {
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
     Type origType = sym.type;
     Type memberType = types.memberType(t, sym);
-    Map<Symbol.TypeVariableSymbol, AnnotationMirror> annotsOnTypeVarsFromSubtypes =
-        t instanceof DeclaredType declaredType
-            ? getAnnotsOnTypeVarsFromSubtypes(
-                declaredType, (Symbol.MethodSymbol) sym, types, config)
-            : Map.of();
-    return restoreExplicitNullabilityAnnotations(
-        origType, memberType, config, annotsOnTypeVarsFromSubtypes);
+    Type annotationSource = origType;
+    if (t instanceof DeclaredType declaredType
+        && sym.owner instanceof Symbol.ClassSymbol owner
+        && !t.tsym.equals(owner)) {
+      // annotatedOwner is the type of the class containing sym (a supertype of t), capturing any
+      // annotations in extends / inherits clauses on the inheritance path from subtype t
+      Type annotatedOwner = getAnnotatedSupertype(declaredType, owner, types, config);
+      if (annotatedOwner instanceof Type.ClassType annotatedOwnerClassType) {
+        Type asMemberOfAnnotatedOwner = types.memberType(annotatedOwnerClassType, sym);
+        // this call restores any explicit nullability annotations from the member itself, e.g.,
+        // if its return type is declared as @NonNull T
+        annotationSource =
+            restoreExplicitNullabilityAnnotations(origType, asMemberOfAnnotatedOwner, config);
+      }
+    }
+    // Here, annotationSource is the type of the member in the superclass with all proper
+    // annotations.  But, it might still have generic type variables, which have been properly
+    // instantiated in memberType.  So, as a final step, restore the annotations from
+    // annotationSource onto memberType.
+    Type result = restoreExplicitNullabilityAnnotations(annotationSource, memberType, config);
+    return result;
   }
 
   /**
@@ -86,20 +100,11 @@ public class TypeSubstitutionUtils {
    * @param origType the original type
    * @param newType the new type, a result of applying some substitution to {@code origType}
    * @param config the NullAway config
-   * @param extraTypeVariableAnnotations Additional annotations to consider for type variables. If
-   *     there is no explicit nullability annotation on a type variable {@code X} in {@code
-   *     origType}, but {@code X} is present as a key in this map, the corresponding annotation will
-   *     be used when substituting in {@code newType}. If {@code X} has an explicit nullability
-   *     annotation in {@code origType}, that takes precedence over this map.
    * @return the new type with explicit nullability annotations restored
    */
   public static Type restoreExplicitNullabilityAnnotations(
-      Type origType,
-      Type newType,
-      Config config,
-      Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
-    return new RestoreNullnessAnnotationsVisitor(config, extraTypeVariableAnnotations)
-        .visit(newType, origType);
+      Type origType, Type newType, Config config) {
+    return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
   }
 
   /**
@@ -139,9 +144,32 @@ public class TypeSubstitutionUtils {
   /**
    * Returns a copy of an unbounded wildcard with its {@code bound} field set to a copy of {@code
    * typeVariable} with {@code upperBound} as its upper bound.
+   *
+   * <p>When javac has not recorded the corresponding formal type variable on a captured wildcard,
+   * callers can supply the capture itself as {@code typeVariable}.
    */
-  private static Type.WildcardType replaceUnboundedWildcardUpperBound(
+  public static Type.WildcardType replaceUnboundedWildcardUpperBound(
       Type.WildcardType wildcard, Type.TypeVar typeVariable, Type upperBound) {
+    Verify.verify(wildcard.kind == BoundKind.UNBOUND, "wildcard must be unbounded");
+    return replaceImplicitWildcardUpperBound(wildcard, typeVariable, upperBound);
+  }
+
+  /**
+   * Returns a copy of an unbounded or lower-bounded wildcard with its {@code bound} field set to a
+   * copy of {@code typeVariable} with {@code upperBound} as its upper bound.
+   *
+   * <p>The wildcard and type variable are both copied so that shared javac types are not mutated.
+   *
+   * @param wildcard the unbounded or lower-bounded wildcard to copy
+   * @param typeVariable the type variable that supplies the wildcard's implicit upper bound
+   * @param upperBound the new implicit upper bound
+   * @return the copied wildcard
+   */
+  private static Type.WildcardType replaceImplicitWildcardUpperBound(
+      Type.WildcardType wildcard, Type.TypeVar typeVariable, Type upperBound) {
+    Verify.verify(
+        wildcard.kind == BoundKind.UNBOUND || wildcard.kind == BoundKind.SUPER,
+        "wildcard must have an implicit upper bound");
     // A metadata clone of a javac TypeVar delegates setUpperBound() to the original TypeVar. Build
     // a genuinely detached TypeVar with the desired bound instead of mutating an apparent clone.
     Type.TypeVar updatedFormalTypeVariable =
@@ -191,12 +219,11 @@ public class TypeSubstitutionUtils {
         substituteInferredNullabilityForTypeVariables(origType, typeVarNullability, state, config);
     // step 2
     Type origExplicitAnnotationsRestored =
-        restoreExplicitNullabilityAnnotations(
-            origType, inferredNullabilitySubstituted, config, Collections.emptyMap());
+        restoreExplicitNullabilityAnnotations(origType, inferredNullabilitySubstituted, config);
     // step 3
     // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
     return restoreExplicitNullabilityAnnotations(
-        origExplicitAnnotationsRestored, typeToUpdate, config, Collections.emptyMap());
+        origExplicitAnnotationsRestored, typeToUpdate, config);
   }
 
   /**
@@ -312,23 +339,21 @@ public class TypeSubstitutionUtils {
 
     private final Config config;
 
-    /** Pairs of implicit wildcard bounds currently being traversed. */
-    private final IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeUnboundedWildcardBounds =
-        new IdentityHashMap<>();
-
     /**
-     * Additional annotations to consider for type variables. If there is no explicit nullability
-     * annotation on a type variable {@code X}, but {@code X} is present as a key in this map, the
-     * corresponding annotation will be used when substituting in the visited type. If {@code X} has
-     * an explicit nullability annotation, that takes precedence over this map.
+     * Pairs of implicit wildcard bounds currently being traversed. Allocated lazily, as the map is
+     * only needed for types involving wildcards.
      */
-    private final Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations;
+    private @Nullable IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeImplicitWildcardBounds;
 
-    RestoreNullnessAnnotationsVisitor(
-        Config config,
-        Map<Symbol.TypeVariableSymbol, AnnotationMirror> extraTypeVariableAnnotations) {
+    private IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> getActiveImplicitWildcardBounds() {
+      if (activeImplicitWildcardBounds == null) {
+        activeImplicitWildcardBounds = new IdentityHashMap<>();
+      }
+      return activeImplicitWildcardBounds;
+    }
+
+    RestoreNullnessAnnotationsVisitor(Config config) {
       this.config = config;
-      this.extraTypeVariableAnnotations = extraTypeVariableAnnotations;
     }
 
     @Override
@@ -377,20 +402,21 @@ public class TypeSubstitutionUtils {
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
       if (!(other instanceof Type.WildcardType wildcardType)) {
-        return wt;
+        return restoreWildcardUpperBoundAnnotation(wt, wt.bound, other);
       }
-      // for unbound wildcards, we restore annotations onto the upper bound of the underlying type
-      // variable, stored in the `bound` field
-      if (wt.kind == BoundKind.UNBOUND
-          && wildcardType.kind == BoundKind.UNBOUND
+      // Unbounded and super wildcards have an implicit upper bound on the formal type variable.
+      if (wt.kind != BoundKind.EXTENDS
+          && wildcardType.kind == wt.kind
           && wt.bound != null
           && wildcardType.bound != null) {
         Type.TypeVar formalTypeVariable = wt.bound;
         Type.TypeVar otherFormalTypeVariable = wildcardType.bound;
-        Set<Type.TypeVar> activeOtherBounds = activeUnboundedWildcardBounds.get(formalTypeVariable);
+        IdentityHashMap<Type.TypeVar, Set<Type.TypeVar>> activeBounds =
+            getActiveImplicitWildcardBounds();
+        Set<Type.TypeVar> activeOtherBounds = activeBounds.get(formalTypeVariable);
         if (activeOtherBounds == null) {
           activeOtherBounds = Collections.newSetFromMap(new IdentityHashMap<>());
-          activeUnboundedWildcardBounds.put(formalTypeVariable, activeOtherBounds);
+          activeBounds.put(formalTypeVariable, activeOtherBounds);
         } else if (activeOtherBounds.contains(otherFormalTypeVariable)) {
           // F-bounded type variables make the implicit upper-bound graph cyclic. Re-entering the
           // same pair cannot reveal any annotations that were not handled on the first visit.
@@ -404,12 +430,17 @@ public class TypeSubstitutionUtils {
         } finally {
           activeOtherBounds.remove(otherFormalTypeVariable);
           if (activeOtherBounds.isEmpty()) {
-            activeUnboundedWildcardBounds.remove(formalTypeVariable);
+            activeBounds.remove(formalTypeVariable);
           }
         }
-        return updatedUpperBound == upperBound
-            ? wt
-            : replaceUnboundedWildcardUpperBound(wt, updatedUpperBound);
+        if (updatedUpperBound != upperBound) {
+          wt = replaceImplicitWildcardUpperBound(wt, formalTypeVariable, updatedUpperBound);
+        }
+        // return here for unbounded wildcards.  For lower-bounded wildcards we need to fall through
+        // to restore annotations to the lower bound
+        if (wt.kind == BoundKind.UNBOUND) {
+          return wt;
+        }
       }
       Type t = wt.type;
       if (t != null) {
@@ -428,7 +459,43 @@ public class TypeSubstitutionUtils {
     }
 
     /**
-     * Restores annotations on both the captured type {@code t} and its backing wildcard.
+     * Restores annotations from another type onto a wildcard's upper bound.
+     *
+     * @param wildcard the wildcard type whose upper bound should be updated
+     * @param implicitUpperBoundTypeVariable for unbounded or lower bounded wildcard types, the type
+     *     variable from which to obtain an upper bound, or null if not available
+     * @param other the other type from which to restore annotations
+     */
+    private Type.WildcardType restoreWildcardUpperBoundAnnotation(
+        Type.WildcardType wildcard,
+        Type.@Nullable TypeVar implicitUpperBoundTypeVariable,
+        Type other) {
+      Type upperBound =
+          wildcard.kind == BoundKind.EXTENDS
+              ? wildcard.type
+              : implicitUpperBoundTypeVariable == null
+                  ? null
+                  : implicitUpperBoundTypeVariable.getUpperBound();
+      if (upperBound == null) {
+        return wildcard;
+      }
+      Type updatedBound = updateDirectNullabilityAnnotationsForType(upperBound, other);
+      if (updatedBound == upperBound) {
+        return wildcard;
+      }
+      if (wildcard.kind == BoundKind.EXTENDS) {
+        return TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
+      } else { // unbounded or lower-bounded wildcard
+        return replaceImplicitWildcardUpperBound(
+            wildcard, Verify.verifyNotNull(implicitUpperBoundTypeVariable), updatedBound);
+      }
+    }
+
+    /**
+     * Restores nullability information on the captured type {@code t} and its backing wildcard.
+     * Explicit annotations on a type-variable use remain direct annotations on the capture.
+     * Synthetic annotations representing inferred nullability instead annotate the capture's
+     * structural upper bound.
      *
      * <p>The corresponding type {@code other} may be an ordinary wildcard because javac can
      * capture-convert {@code t} without capture-converting {@code other}. In such cases, the
@@ -438,39 +505,90 @@ public class TypeSubstitutionUtils {
      * type. In that case, annotations from {@code other} must be restored to the backing wildcard's
      * upper bound.
      *
-     * <p>For an unbounded wildcard, the relevant upper bound is its implicit upper bound from the
-     * corresponding formal type variable. Wildcard-aware checks use these bounds rather than
-     * annotations directly on the captured type.
+     * <p>For an unbounded or super wildcard, the relevant upper bound is its implicit upper bound
+     * from the corresponding formal type variable. Wildcard-aware checks use these bounds rather
+     * than annotations directly on the captured type.
      */
     @Override
     public Type visitCapturedType(Type.CapturedType t, Type other) {
-      Type updated = updateDirectNullabilityAnnotationsForType(t, other);
+      Attribute.TypeCompound syntheticNullnessAnnotation =
+          config.handleWildcardGenerics() ? getDirectSyntheticNullnessAnnotation(other) : null;
+      Type updated;
+      if (syntheticNullnessAnnotation != null) {
+        // A synthetic annotation records NullAway's inferred nullability for the type variable that
+        // javac instantiated as this capture. It constrains the capture itself, so represent it on
+        // the capture's structural upper bound rather than as a use-site projection of the capture.
+        Type updatedUpperBound = typeWithAnnot(t.getUpperBound(), syntheticNullnessAnnotation);
+        updated =
+            TYPE_METADATA_BUILDER.createDetachedCapturedType(t, t.wildcard, updatedUpperBound);
+      } else {
+        // An explicit annotation on a type-variable use remains a use-site annotation after the
+        // type variable is instantiated as a capture.
+        updated = updateDirectNullabilityAnnotationsForType(t, other);
+      }
       Type.WildcardType otherWildcard = GenericsUtils.asWildcard(other);
       Type.WildcardType updatedWildcard;
       if (otherWildcard != null) {
-        updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
+        if (t.wildcard.kind == BoundKind.EXTENDS && otherWildcard.kind == BoundKind.UNBOUND) {
+          // Substitution can turn the capture's backing wildcard into an explicit extends
+          // wildcard while the corresponding declared wildcard remains unbounded. Its `type`
+          // field is just an Object placeholder; annotations must be restored from the implicit
+          // upper bound of its formal type variable instead.
+          Type.TypeVar formalTypeVariable = otherWildcard.bound;
+          if (formalTypeVariable == null) {
+            return updated;
+          }
+          Type updatedBound = t.wildcard.type.accept(this, formalTypeVariable.getUpperBound());
+          if (updatedBound == t.wildcard.type) {
+            return updated;
+          }
+          updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
+        } else {
+          updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
+        }
       } else if (t.wildcard.kind == BoundKind.EXTENDS) {
         Type updatedBound = t.wildcard.type.accept(this, other);
         if (updatedBound == t.wildcard.type) {
           return updated;
         }
         updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
-      } else if (t.wildcard.kind == BoundKind.UNBOUND) {
-        Type.TypeVar formalTypeVariable = t.wildcard.bound != null ? t.wildcard.bound : t;
-        Type upperBound = formalTypeVariable.getUpperBound();
+      } else {
+        Verify.verify(t.wildcard.kind == BoundKind.UNBOUND || t.wildcard.kind == BoundKind.SUPER);
+        // t.wildcard is either unbounded or lower bounded (with super).  We want to find the
+        // corresponding type variable X for t (the type variable for which t.wildcard was passed
+        // as a type argument), in order to obtain the upper bound of X later on.
+        // Normally, X is stored in t.wildcard.bound.  If it is unavailable, we fall back on using
+        // the captured type t itself, as its own upper bound (t.getUpperBound()) could provide
+        // useful information.
+        Type.TypeVar implicitUpperBoundTypeVariable =
+            t.wildcard.bound != null ? t.wildcard.bound : t;
+        Type upperBound = implicitUpperBoundTypeVariable.getUpperBound();
         Type updatedUpperBound = upperBound.accept(this, other);
         if (updatedUpperBound == upperBound) {
           return updated;
         }
         updatedWildcard =
-            replaceUnboundedWildcardUpperBound(t.wildcard, formalTypeVariable, updatedUpperBound);
-      } else {
-        return updated;
+            replaceImplicitWildcardUpperBound(
+                t.wildcard, implicitUpperBoundTypeVariable, updatedUpperBound);
       }
       if (updatedWildcard == t.wildcard) {
         return updated;
       }
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
+    }
+
+    /** Returns a synthetic nullness annotation directly on {@code type}, if one is present. */
+    private static Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(
+        Type type) {
+      for (Attribute.TypeCompound annotation : type.getAnnotationMirrors()) {
+        if (annotation.type.tsym == null) {
+          continue;
+        }
+        if (GenericsChecks.isSyntheticNullnessAnnotation(annotation.type)) {
+          return annotation;
+        }
+      }
+      return null;
     }
 
     @Override
@@ -487,8 +605,7 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type {@code other}. If {@code other} is a type variable, we also check {@code
-     * extraTypeVariableAnnotations} for any additional annotations to consider.
+     * on a type {@code other}.
      *
      * @param t the type to update
      * @param other the type to update from
@@ -505,12 +622,6 @@ public class TypeSubstitutionUtils {
             || Nullness.isNonNullAnnotation(qualifiedName, config)) {
           return typeWithAnnot(t, annot);
         }
-      }
-      // then see if there are any extra annotations to consider
-      Attribute.TypeCompound typeArgAnnot =
-          (Attribute.TypeCompound) extraTypeVariableAnnotations.get(other.tsym);
-      if (typeArgAnnot != null) {
-        return typeWithAnnot(t, typeArgAnnot);
       }
       return t;
     }
@@ -604,6 +715,6 @@ public class TypeSubstitutionUtils {
    */
   public static Type subst(Types types, Type t, List<Type> from, List<Type> to, Config config) {
     Type substResult = types.subst(t, from, to);
-    return restoreExplicitNullabilityAnnotations(t, substResult, config, Collections.emptyMap());
+    return restoreExplicitNullabilityAnnotations(t, substResult, config);
   }
 }

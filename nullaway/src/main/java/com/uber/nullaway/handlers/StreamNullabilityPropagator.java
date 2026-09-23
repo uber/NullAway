@@ -31,6 +31,7 @@ import com.google.common.collect.SetMultimap;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.LiteralTree;
@@ -202,8 +203,8 @@ class StreamNullabilityPropagator implements Handler {
   }
 
   @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+  public void onMatchCompilationUnit(
+      NullAway analysis, CompilationUnitTree tree, VisitorState state) {
     this.analysis = analysis;
     // Clear compilation unit specific state
     this.filterMethodOrLambdaSet.clear();
@@ -214,6 +215,7 @@ class StreamNullabilityPropagator implements Handler {
     this.filterToNSMap.clear();
     this.bodyToMethodOrLambda.clear();
     this.returnToEnclosingMethodOrLambda.clear();
+    this.expressionBodyToFilterLambda.clear();
   }
 
   @Override
@@ -224,7 +226,8 @@ class StreamNullabilityPropagator implements Handler {
     VisitorState state = methodAnalysisContext.state();
     Type receiverType = ASTHelpers.getReceiverType(tree);
     for (StreamTypeRecord streamType : models) {
-      if (!streamType.matchesType(receiverType, state)) {
+      if (!streamType.hasModelForMethod(methodSymbol)
+          || !streamType.matchesType(receiverType, state)) {
         continue;
       }
       // Build observable call chain
@@ -341,7 +344,9 @@ class StreamNullabilityPropagator implements Handler {
     }
     Type receiverType = ASTHelpers.getReceiverType(invocationTree);
     for (StreamTypeRecord streamType : models) {
-      if (streamType.matchesType(receiverType, state) && streamType.isFilterMethod(methodSymbol)) {
+      if (streamType.hasModelForMethod(methodSymbol)
+          && streamType.matchesType(receiverType, state)
+          && streamType.isFilterMethod(methodSymbol)) {
         Symbol predicateMethodSymbol = ASTHelpers.getSymbol(invocationTree.getArguments().get(0));
         if (predicateMethodSymbol instanceof Symbol.MethodSymbol predicateMethod
             && mainHandler.isSingleArgNullImpliesFalseMethod(predicateMethod, state)) {
@@ -475,6 +480,7 @@ class StreamNullabilityPropagator implements Handler {
         }
       }
     } while (outerCallInChain != null
+        && streamType.hasModelForMethod(ASTHelpers.getSymbol(outerCallInChain))
         && streamType.matchesType(ASTHelpers.getReceiverType(outerCallInChain), state)
         && streamType.isPassthroughMethod(ASTHelpers.getSymbol(outerCallInChain)));
   }

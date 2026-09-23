@@ -18,10 +18,11 @@ package com.uber.nullaway.jarinfer;
 import java.io.File;
 import org.apache.commons.cli.CommandLine;
 import org.apache.commons.cli.DefaultParser;
-import org.apache.commons.cli.HelpFormatter;
 import org.apache.commons.cli.Option;
 import org.apache.commons.cli.Options;
 import org.apache.commons.cli.ParseException;
+import org.apache.commons.cli.help.HelpFormatter;
+import org.apache.commons.cli.help.TextHelpAppendable;
 
 /** CLI interface for running the jarinfer analysis. {@link DefinitelyDerefedParamsDriver} */
 public class JarInfer {
@@ -35,8 +36,10 @@ public class JarInfer {
    */
   public static void main(String[] args) throws Exception {
     Options options = new Options();
-    HelpFormatter hf = new HelpFormatter();
-    hf.setWidth(100);
+    TextHelpAppendable helpAppendable = new TextHelpAppendable(System.out);
+    helpAppendable.setMaxWidth(100);
+    HelpFormatter hf =
+        HelpFormatter.builder().setHelpAppendable(helpAppendable).setShowSince(false).get();
     options.addOption(
         Option.builder("i")
             .argName("in_path")
@@ -44,14 +47,14 @@ public class JarInfer {
             .hasArg()
             .required()
             .desc("path to target jar/aar file")
-            .build());
+            .get());
     options.addOption(
         Option.builder("p")
             .argName("pkg_name")
             .longOpt("package")
             .hasArg()
             .desc("qualified package name")
-            .build());
+            .get());
     options.addOption(
         Option.builder("o")
             .argName("out_path")
@@ -59,37 +62,33 @@ public class JarInfer {
             .hasArg()
             .required()
             .desc("path to processed jar/aar file")
-            .build());
+            .get());
     options.addOption(
         Option.builder("b")
             .argName("annotate_bytecode")
             .longOpt("annotate_bytecode")
             .desc("annotate bytecode")
-            .build());
+            .get());
     options.addOption(
         Option.builder("s")
             .argName("strip-jar-signatures")
             .longOpt("strip-jar-signatures")
             .desc("handle signed jars by removing signature information from META-INF/")
-            .build());
+            .get());
     options.addOption(
-        Option.builder("h")
-            .argName("help")
-            .longOpt("help")
-            .desc("print usage information")
-            .build());
+        Option.builder("h").argName("help").longOpt("help").desc("print usage information").get());
     options.addOption(
         Option.builder("d")
             .argName("debug")
             .longOpt("debug")
             .desc("print debug information")
-            .build());
+            .get());
     options.addOption(
-        Option.builder("v").argName("verbose").longOpt("verbose").desc("set verbosity").build());
+        Option.builder("v").argName("verbose").longOpt("verbose").desc("set verbosity").get());
     try {
       CommandLine line = new DefaultParser().parse(options, args);
       if (line.hasOption('h')) {
-        hf.printHelp(appName, options, true);
+        hf.printHelp(appName, null, options, null, true);
         return;
       }
       String jarPath = line.getOptionValue('i');
@@ -109,7 +108,7 @@ public class JarInfer {
         System.out.println("Could not write jar file: " + outPath);
       }
     } catch (ParseException pe) {
-      hf.printHelp(appName, options, true);
+      hf.printHelp(appName, null, options, null, true);
     }
   }
 }

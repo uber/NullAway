@@ -3,7 +3,6 @@ package com.uber.nullaway;
 import com.google.errorprone.CompilationTestHelper;
 import org.junit.Test;
 
-@SuppressWarnings("deprecation")
 public class JakartaPersistenceTests extends NullAwayTestsBase {
 
   private CompilationTestHelper addJpaAnnotationStubs(CompilationTestHelper helper) {
@@ -499,6 +498,39 @@ public class JakartaPersistenceTests extends NullAwayTestsBase {
             class Sub extends Super {
               @Column private Object o3;
               @Id private Object o4;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void jakartaPersistenceMixedAccessBothMappingsIsUnknown() {
+    addJpaAnnotationStubs(defaultCompilationHelper)
+        .addSourceLines(
+            "MixedAccessEntity.java",
+            """
+            package com.uber;
+            import jakarta.persistence.Entity;
+            import jakarta.persistence.Column;
+            import jakarta.persistence.Id;
+            @Entity
+            class MixedAccessEntity {
+              // @Column on a field -> hasFieldMapping = true
+              @Column
+              // BUG: Diagnostic contains: @NonNull field 'name' not initialized
+              String name;
+              // BUG: Diagnostic contains: @NonNull field 'id' not initialized
+              Long id;
+              // @Id on a getter -> hasPropertyMapping = true
+              // Both field and property mappings present -> access type is UNKNOWN
+              // -> shouldSkipFieldInitializationCheck returns false for all fields
+              @Id
+              public Long getId() {
+                return id;
+              }
+              public void setId(Long id) {
+                this.id = id;
+              }
             }
             """)
         .doTest();

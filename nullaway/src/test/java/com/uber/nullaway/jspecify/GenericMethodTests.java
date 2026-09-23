@@ -522,6 +522,37 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferGenericConstructorTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T> {
+                <U extends @Nullable Object> Box(Supplier<? super U> supplier) {}
+              }
+              void test() {
+                // no error: U should be inferred to be @Nullable
+                Box<String> box = new Box<>(() -> null);
+              }
+              static class Box2<T> {
+                <U extends Object> Box2(Supplier<? extends U> supplier) {}
+              }
+              void test2() {
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                Box2<String> box = new Box2<>(() -> null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAnnotOnMethodTypeVarUse() {
     makeHelper()
         .addSourceLines(
@@ -945,9 +976,94 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 }
                 String field = "hello";
                 void testField() {
-                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                     field = f("hello");
                 }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Pins the diagnostics NullAway reports for a call involving an explicitly annotated
+   * type-variable use (https://github.com/uber/NullAway/issues/1730). A line that expects no
+   * diagnostic is checked in full here. For a line carrying a {@code // BUG: Diagnostic contains:}
+   * comment, {@link
+   * GenericInferenceErrorReportingTests#annotatedTypeVariableUseIsNotAnInferenceFailure()} is what
+   * guards the absence of the redundant inference failure.
+   */
+  @Test
+  public void nullableTypeVariableReturnDoesNotCauseInferenceFailure() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import org.jspecify.annotations.NonNull;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> @Nullable T id(T value) {
+                return value;
+              }
+              static String nonNullTarget() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return id("");
+              }
+              static @Nullable String nullableTarget() {
+                return id("");
+              }
+              static String witness() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return Test.<String>id("");
+              }
+              static String nullableArgument(@Nullable String value) {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return id(value);
+              }
+              static <T extends @Nullable Object> T nonNullParamId(@NonNull T value) {
+                return value;
+              }
+              static void testNonNullParamWarn(@Nullable String value) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'value' where @NonNull is required
+                nonNullParamId(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Regression test for the {@code @Contract} case from issue 1730. */
+  @Test
+  public void nullableTypeVariableReturnWithContractDoesNotCauseInferenceFailure() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @Contract("_, !null -> !null")
+              static <T extends @Nullable Object> @Nullable T first(
+                  @Nullable T first, @Nullable T second) {
+                return first != null ? first : second;
+              }
+              @Contract("_, !null -> !null")
+              static @Nullable String firstString(
+                  @Nullable String first, @Nullable String second) {
+                return first != null ? first : second;
+              }
+              static String useGeneric(@Nullable String value) {
+                return first(value, "");
+              }
+              static String useConcrete(@Nullable String value) {
+                return firstString(value, "");
+              }
+              static String useWitness(@Nullable String value) {
+                return Test.<String>first(value, "");
+              }
             }
             """)
         .doTest();
@@ -1259,7 +1375,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     return Optional.ofNullable(value);
                 }
                 public static <U extends @Nullable Object> Optional<U> optionalResultPositive1(@Nullable U value) {
-                    // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                    // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
                     return Optional.of(value);
                 }
                 // identical to above, testing the other error message
@@ -1421,7 +1537,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
               static Foo<?> getReturnType() {
                 var returnType = Api.convert(Api.wildcard());
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable capture of ?> cannot be converted to Foo<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Box)
+                // BUG: Diagnostic contains: incompatible types: Foo<capture of ?> cannot be converted to Foo<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Box)
                 return returnType;
               }
             }
@@ -1831,7 +1947,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
               static class Box<T extends @Nullable Object> {}
               static <T extends @Nullable Object> void accept(Box<@Nullable T> box) {}
               void test(Box<CompletableFuture<Object>> box) {
-                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                // BUG: Diagnostic contains: incompatible types: Box<CompletableFuture<Object>> cannot be converted to Box<@Nullable CompletableFuture<Object>>
                 accept(box);
               }
             }""")
@@ -2045,6 +2161,181 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 @Override
                 // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
                 public <T> void bar(T arg) {
+                  arg.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideWidensSubstitutedExplicitNonNullMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<Y extends @Nullable Object> implements Foo<@NonNull Y> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends Y> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              interface Bar<X extends @Nullable Object> extends Foo<X> {
+                @Override
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                public <T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesExplicitNonNullFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends @NonNull X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                public <T extends @NonNull X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideWidensExplicitNonNullFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends @NonNull X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                public <T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideNarrowsNullableFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X extends @Nullable Object> {
+                <T extends X> void bar(T arg);
+              }
+              static class Baz<X extends @Nullable Object> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends @NonNull X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overridePreservesChainedMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo {
+                <X extends @Nullable Object, T extends X> void bar(T arg);
+              }
+              static class Baz implements Foo {
+                @Override
+                public <X extends @Nullable Object, T extends X> void bar(T arg) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void overrideNarrowsFreeTypeVariableMethodTypeVariableBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<X> {
+                <T extends @Nullable X> void bar(T arg);
+              }
+              static class Baz<X> implements Foo<X> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                public <T extends X> void bar(T arg) {
                   arg.hashCode();
                 }
               }

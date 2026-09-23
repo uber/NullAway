@@ -67,6 +67,8 @@ import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
+import java.net.URL;
+import java.net.URLConnection;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -226,11 +228,11 @@ public class LibraryModelsHandler implements Handler {
       return exprMayBeNull;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
-    // When looking up library models of annotated code, we match the exact method signature only;
-    // overriding methods in subclasses must be explicitly given their own library model.
-    // When dealing with unannotated code, we default to generality: a model applies to a method
-    // and any of its overriding implementations.
-    // see https://github.com/uber/NullAway/issues/445 for why this is needed.
+    // A model of a method's return nullness matches the exact signature when the method is
+    // annotated: the overriding method carries its own annotations, and an inherited model must
+    // not override them (issue #445). Unannotated code has no annotations to defer to, so there a
+    // model covers every overriding implementation. A nullImpliesNull model is a conditional
+    // contract, and applies to an overriding implementation in annotated code too.
     boolean isMethodUnannotated =
         getCodeAnnotationInfo(state.context)
             .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
@@ -242,7 +244,7 @@ public class LibraryModelsHandler implements Handler {
     if (optLibraryModels.hasNullableReturn(methodSymbol, state.getTypes(), isMethodUnannotated)) {
       return true;
     }
-    if (!optLibraryModels.nullImpliesNullParameters(methodSymbol).isEmpty()) {
+    if (!optLibraryModels.nullImpliesNullParameters(methodSymbol, state.getTypes()).isEmpty()) {
       return true;
     }
     return false;
@@ -294,8 +296,9 @@ public class LibraryModelsHandler implements Handler {
     setUnconditionalArgumentNullness(bothUpdates, node.getArguments(), callee, state, apContext);
     setConditionalArgumentNullness(thenUpdates, elseUpdates, node, callee, state, apContext);
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
+    Types types = state.getTypes();
     ImmutableSet<Integer> nullImpliesNullIndexes =
-        optLibraryModels.nullImpliesNullParameters(callee);
+        optLibraryModels.nullImpliesNullParameters(callee, types);
     if (!nullImpliesNullIndexes.isEmpty()) {
       // If the method is marked as having argument dependent nullability and any of the
       // corresponding arguments is null, then the return is nullable. If the method is
@@ -310,7 +313,6 @@ public class LibraryModelsHandler implements Handler {
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
     }
-    Types types = state.getTypes();
     if (optLibraryModels.hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
     } else if (optLibraryModels.hasNullableReturn(callee, types, !isMethodAnnotated)) {
@@ -491,6 +493,14 @@ public class LibraryModelsHandler implements Handler {
   }
 
   @Override
+  public boolean onOverrideMethodNullMarkedness(
+      Symbol.MethodSymbol methodSymbol, boolean currentNullMarkedness) {
+    String classDotMethod =
+        methodSymbol.enclClass().getQualifiedName() + "." + methodSymbol.getSimpleName();
+    return config.isSkippedLibraryModel(classDotMethod) ? false : currentNullMarkedness;
+  }
+
+  @Override
   public boolean isSingleArgNullImpliesFalseMethod(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
     return methodSymbol.getParameters().size() == 1
@@ -498,10 +508,10 @@ public class LibraryModelsHandler implements Handler {
   }
 
   /**
-   * Updates method types based on top-level parameter and nested annotation library models. For
-   * now, this method is only used in JSpecify mode, primarily for its handling of nested
-   * annotations. Outside of JSpecify mode, other handler methods are available for reasoning about
-   * top-level annotations only.
+   * Updates method types based on top-level parameter and return annotations and nested annotation
+   * library models. For now, this method is only used in JSpecify mode, primarily for its handling
+   * of nested annotations. Outside of JSpecify mode, other handler methods are available for
+   * reasoning about top-level annotations only.
    */
   @Override
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
@@ -516,9 +526,17 @@ public class LibraryModelsHandler implements Handler {
         config.isJSpecifyMode()
             ? optimizedLibraryModels.explicitlyNullableParameters(methodSymbol)
             : ImmutableSet.of();
+    boolean isMethodUnannotated =
+        getCodeAnnotationInfo(state.context)
+            .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
+    boolean modeledNullableReturn =
+        optimizedLibraryModels.hasNullableReturn(
+            methodSymbol, state.getTypes(), isMethodUnannotated);
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
         optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
-    if (explicitlyNullableParameters.isEmpty() && nestedAnnotations.isEmpty()) {
+    if (explicitlyNullableParameters.isEmpty()
+        && !modeledNullableReturn
+        && nestedAnnotations.isEmpty()) {
       return methodType;
     }
     // update argument types, tracking if anything changed
@@ -546,10 +564,13 @@ public class LibraryModelsHandler implements Handler {
     // update return type
     Type returnType = methodType.restype;
     ImmutableSet<NestedAnnotationInfo> returnAnnotations = nestedAnnotations.get(-1);
-    Type updatedReturnType =
-        returnAnnotations.isEmpty()
-            ? returnType
-            : applyNestedAnnotations(returnType, returnAnnotations, state);
+    Type updatedReturnType = returnType;
+    if (modeledNullableReturn) {
+      updatedReturnType = applyTopLevelNullableAnnotation(updatedReturnType, state);
+    }
+    if (!returnAnnotations.isEmpty()) {
+      updatedReturnType = applyNestedAnnotations(updatedReturnType, returnAnnotations, state);
+    }
     if (updatedReturnType != returnType) {
       changed = true;
     }
@@ -619,9 +640,15 @@ public class LibraryModelsHandler implements Handler {
         ServiceLoader.load(LibraryModels.class, LibraryModels.class.getClassLoader());
     ImmutableSet.Builder<LibraryModels> libModelsBuilder = new ImmutableSet.Builder<>();
     libModelsBuilder.add(new DefaultLibraryModels(config)).addAll(externalLibraryModels);
-    if (config.isJarInferEnabled() || config.isJSpecifyJDKModels()) {
-      libModelsBuilder.add(
-          new ExternalStubxLibraryModels(config.isJarInferEnabled(), config.isJSpecifyJDKModels()));
+    if (config.isJarInferEnabled()) {
+      // JarInfer models come from service-loaded providers and must be discovered for each
+      // checker instance rather than cached in static state.
+      libModelsBuilder.add(loadExternalStubxLibraryModels(true, false));
+    }
+    if (config.isJSpecifyJDKModels()) {
+      // This model is bundled with NullAway and contains only immutable, context-independent
+      // values, so it is safe to share across javac invocations in this classloader.
+      libModelsBuilder.add(JSpecifyJdkModelsHolder.INSTANCE);
     }
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
@@ -1049,13 +1076,6 @@ public class LibraryModelsHandler implements Handler {
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
             .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
-            // We add ImmutableMap.getOrDefault explicitly, since when
-            // AcknowledgeRestrictiveAnnotations is enabled, the explicit annotations in the code
-            // override the inherited library model
-            .put(
-                methodRef(
-                    "com.google.common.collect.ImmutableMap", "getOrDefault(java.lang.Object,V)"),
-                1)
             .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
             .build();
 
@@ -1634,12 +1654,12 @@ public class LibraryModelsHandler implements Handler {
           makeOptimizedNestedAnnotationLookup(names, models.nestedAnnotationsForMethods());
     }
 
-    boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
-      return lookupHandlingOverrides(symbol, types, nonNullRet, checkSuper) != null;
+    boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
+      return lookupHandlingOverrides(symbol, types, nonNullRet, allowInherited) != null;
     }
 
-    boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean checkSuper) {
-      return lookupHandlingOverrides(symbol, types, nullableRet, checkSuper) != null;
+    boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
+      return lookupHandlingOverrides(symbol, types, nullableRet, allowInherited) != null;
     }
 
     ImmutableSet<Integer> failIfNullParameters(Symbol.MethodSymbol symbol) {
@@ -1666,8 +1686,13 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, ensuresNonNullIfTrueMethodCalls);
     }
 
-    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol) {
-      return lookupImmutableSet(symbol, nullImpliesNullParams);
+    ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol, Types types) {
+      Symbol.MethodSymbol modelSymbol =
+          lookupHandlingOverrides(
+              symbol, types, nullImpliesNullParams, /* allowInheritedModelLookup= */ true);
+      return modelSymbol == null
+          ? ImmutableSet.of()
+          : lookupImmutableSet(modelSymbol, nullImpliesNullParams);
     }
 
     ImmutableSet<Integer> castToNonNullMethod(Symbol.MethodSymbol symbol) {
@@ -1721,14 +1746,24 @@ public class LibraryModelsHandler implements Handler {
     }
 
     /**
-     * checks if symbol is present in the NameIndexedMap or if it overrides some method in the
-     * NameIndexedMap
+     * Checks if {@code symbol} is present in {@code optLookup}, optionally falling back to an
+     * overridden method in the lookup.
+     *
+     * <p>The method-name index avoids traversing supertypes when no model with the relevant name
+     * exists. A model on the method itself always takes precedence over an inherited model.
+     *
+     * @param symbol symbol to look up
+     * @param types for type operations
+     * @param optLookup map to check
+     * @param allowInheritedModelLookup true if we should look for a model in overridden methods
+     * @return the symbol for the method present in {@code optLookup}, possibly a method overriden
+     *     by {@code symbol}, or {@code null} if no such method exists
      */
     private static Symbol.@Nullable MethodSymbol lookupHandlingOverrides(
         Symbol.MethodSymbol symbol,
         Types types,
-        NameIndexedMap<Boolean> optLookup,
-        boolean checkSuperTypes) {
+        NameIndexedMap<?> optLookup,
+        boolean allowInheritedModelLookup) {
       if (optLookup.nameNotPresent(symbol)) {
         // no model matching the method name, so we don't need to check for overridden methods
         return null;
@@ -1736,197 +1771,51 @@ public class LibraryModelsHandler implements Handler {
       if (optLookup.get(symbol) != null) {
         return symbol;
       }
-      if (checkSuperTypes == false) {
-        // Consider only a model on the exact class and method, used when checking annotated code
-        return null;
-      }
-      // For unannotated code, we allow a single model to cover all overriding implementations /
-      // subtypes
-      for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
-        if (optLookup.get(superSymbol) != null) {
-          return superSymbol;
+      // No exact model exists. If the model can be inherited, look for a model on an
+      // overridden method.
+      if (allowInheritedModelLookup) {
+        for (Symbol.MethodSymbol superSymbol : ASTHelpers.findSuperMethods(symbol, types)) {
+          if (optLookup.get(superSymbol) != null) {
+            return superSymbol;
+          }
         }
       }
       return null;
     }
   }
 
-  /** Constructs Library Models from stubx files */
-  private static class ExternalStubxLibraryModels implements LibraryModels {
+  /** astubx file name used in our Android SDK JarInfer models. */
+  private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
 
-    /** astubx file name used in our Android SDK JarInfer models */
-    private static final String ANDROID_ASTUBX_LOCATION = "jarinfer.astubx";
+  /** astubx file name used for the JSpecify JDK models. */
+  private static final String JSPECIFY_JDK_ASTUBX_FILENAME = "jspecify-jdk.astubx";
 
-    /** astubx file name used for the JSpecify JDK models */
-    private static final String JSPECIFY_JDK_ASTUBX_FILENAME = "jspecify-jdk.astubx";
+  /** Class we expect to be present in a jar containing Android SDK JarInfer models. */
+  private static final String ANDROID_MODEL_CLASS =
+      "com.uber.nullaway.jarinfer.AndroidJarInferModels";
 
-    /** Class we expect to be present in a jar containing Android SDK JarInfer models */
-    private static final String ANDROID_MODEL_CLASS =
-        "com.uber.nullaway.jarinfer.AndroidJarInferModels";
+  /**
+   * Immutable, javac-context-independent model data converted from one or more stubx resources.
+   * Instances are safe to read concurrently from multiple javac invocations.
+   */
+  private record ImmutableStubxLibraryModels(
+      ImmutableSet<String> nullMarkedClasses,
+      ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+          nestedAnnotationsForMethods,
+      ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds,
+      ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds,
+      ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters,
+      ImmutableSetMultimap<MethodRef, Integer> nonNullParameters,
+      ImmutableSet<MethodRef> nullableReturns)
+      implements LibraryModels {
 
-    private final Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache;
-    private final Set<String> nullMarkedClassesCache;
-    private final SetMultimap<String, Integer> upperBoundsCache;
-    private final SetMultimap<String, Integer> methodTypeParamNullableUpperBoundCache;
-    private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfo;
-
-    ExternalStubxLibraryModels(boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
-      String libraryModelLogName = "LM";
-      StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName, isJarInferEnabled);
-      if (isJarInferEnabled) {
-        // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
-        try (InputStream androidStubxIS =
-            castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
-                .getResourceAsStream(ANDROID_ASTUBX_LOCATION)) {
-          if (androidStubxIS != null) {
-            cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
-            astubxLoadLog("Loaded Android RT models.");
-          }
-        } catch (ClassNotFoundException e) {
-          astubxLoadLog(
-              "Cannot find Android RT models locator class."
-                  + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
-
-        } catch (IOException e) {
-          astubxLoadLog("Loading Android RT models failed: " + e.getMessage());
-        }
-      }
-
-      if (isJSpecifyJDKEnabled) {
-        // hardcoded loading of JSpecify JDK astubx from jspecify-jdk.astubx
-        try (InputStream in =
-            castToNonNull(getClass().getClassLoader())
-                .getResourceAsStream(JSPECIFY_JDK_ASTUBX_FILENAME)) {
-          if (in == null) {
-            throw new IllegalStateException(
-                "JDK astubx model not found on classpath: %s"
-                    .formatted(JSPECIFY_JDK_ASTUBX_FILENAME));
-          } else {
-            cacheUtil.parseStubStream(in, JSPECIFY_JDK_ASTUBX_FILENAME);
-            astubxLoadLog("Loaded JDK astubx model.");
-          }
-        } catch (IOException e) {
-          throw new UncheckedIOException(e);
-        }
-      }
-
-      argAnnotCache = cacheUtil.getArgAnnotCache();
-      nullMarkedClassesCache = cacheUtil.getNullMarkedClassesCache();
-      upperBoundsCache = cacheUtil.getUpperBoundCache();
-      methodTypeParamNullableUpperBoundCache =
-          cacheUtil.getMethodTypeParamNullableUpperBoundCache();
-      nestedAnnotationInfo = cacheUtil.getNestedAnnotationInfoCache();
-    }
-
-    @Override
-    public ImmutableSet<String> nullMarkedClasses() {
-      return new ImmutableSet.Builder<String>().addAll(nullMarkedClassesCache).build();
-    }
-
-    @Override
-    public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
-        nestedAnnotationsForMethods() {
-      ImmutableMap.Builder<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
-          mapBuilder = new ImmutableMap.Builder<>();
-      for (Map.Entry<String, SetMultimap<Integer, NestedAnnotationInfo>> entry :
-          nestedAnnotationInfo.entrySet()) {
-        String className = entry.getKey().split(":")[0].replace('$', '.');
-        String methodSig = getMethodNameAndSignature(entry.getKey());
-        mapBuilder.put(
-            MethodRef.methodRef(className, methodSig),
-            ImmutableSetMultimap.copyOf(entry.getValue()));
-      }
-      return mapBuilder.build();
-    }
-
-    @Override
-    public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
-      ImmutableSetMultimap.Builder<String, Integer> mapBuilder =
-          new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Integer> entry : upperBoundsCache.entries()) {
-        mapBuilder.put(entry.getKey(), entry.getValue());
-      }
-      return mapBuilder.build();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
-      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
-          new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Integer> entry : methodTypeParamNullableUpperBoundCache.entries()) {
-        String className = entry.getKey().split(":")[0].replace('$', '.');
-        String methodSig = getMethodNameAndSignature(entry.getKey());
-        mapBuilder.put(MethodRef.methodRef(className, methodSig), entry.getValue());
-      }
-      return mapBuilder.build();
-    }
+    // The record accessors implement the populated LibraryModels methods declared as components
+    // above. Stubx files do not represent the remaining model categories, so those methods retain
+    // the empty results returned by the previous ExternalStubxLibraryModels implementation.
 
     @Override
     public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
       return ImmutableSetMultimap.of();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
-      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
-          new ImmutableSetMultimap.Builder<>();
-      for (Map.Entry<String, Map<String, Map<Integer, Set<String>>>> outerEntry :
-          argAnnotCache.entrySet()) {
-        String className = outerEntry.getKey();
-        for (Map.Entry<String, Map<Integer, Set<String>>> innerEntry :
-            outerEntry.getValue().entrySet()) {
-          String methodNameAndSignature = getMethodNameAndSignature(innerEntry.getKey());
-          for (Map.Entry<Integer, Set<String>> entry : innerEntry.getValue().entrySet()) {
-            Integer index = entry.getKey();
-            if (index >= 0 && entry.getValue().stream().anyMatch(a -> a.contains("Nullable"))) {
-              // remove spaces after commas
-              methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
-              mapBuilder.put(methodRef(className, methodNameAndSignature), index);
-            }
-          }
-        }
-      }
-      return mapBuilder.build();
-    }
-
-    @Override
-    public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
-      ImmutableSetMultimap.Builder<MethodRef, Integer> mapBuilder =
-          new ImmutableSetMultimap.Builder<>();
-      for (String className : argAnnotCache.keySet()) {
-        for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
-            argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature = getMethodNameAndSignature(methodEntry.getKey());
-          for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
-            Integer index = argEntry.getKey();
-            if (index >= 0) {
-              for (String annotation : argEntry.getValue()) {
-                if (annotation.contains("NonNull")
-                    || annotation.equals("javax.annotation.Nonnull")) {
-                  astubxLoadLog(
-                      "Found non-null parameter: "
-                          + className
-                          + "."
-                          + methodEntry.getKey()
-                          + " arg "
-                          + argEntry.getKey());
-                  // remove spaces after commas
-                  methodNameAndSignature = methodNameAndSignature.replaceAll(",\\s", ",");
-                  mapBuilder.put(methodRef(className, methodNameAndSignature), index);
-                }
-              }
-            }
-          }
-        }
-      }
-      return mapBuilder.build();
-    }
-
-    private static String getMethodNameAndSignature(String methodInfo) {
-      int openParenIndex = methodInfo.indexOf('(');
-      Verify.verify(openParenIndex != -1, "Malformed method info: %s", methodInfo);
-      int methodNameIndex = methodInfo.lastIndexOf(' ', openParenIndex) + 1;
-      return methodInfo.substring(methodNameIndex);
     }
 
     @Override
@@ -1945,29 +1834,6 @@ public class LibraryModelsHandler implements Handler {
     }
 
     @Override
-    public ImmutableSet<MethodRef> nullableReturns() {
-      ImmutableSet.Builder<MethodRef> builder = new ImmutableSet.Builder<>();
-      for (String className : argAnnotCache.keySet()) {
-        for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
-            argAnnotCache.get(className).entrySet()) {
-          String methodNameAndSignature = getMethodNameAndSignature(methodEntry.getKey());
-          for (Map.Entry<Integer, Set<String>> argEntry : methodEntry.getValue().entrySet()) {
-            Integer index = argEntry.getKey();
-            if (index == -1) {
-              Set<String> annotations = argEntry.getValue();
-              if (annotations.contains("javax.annotation.Nullable")
-                  || annotations.contains("org.jspecify.annotations.Nullable")) {
-                methodNameAndSignature = methodNameAndSignature.replaceAll("\\s", "");
-                builder.add(methodRef(className, methodNameAndSignature));
-              }
-            }
-          }
-        }
-      }
-      return builder.build();
-    }
-
-    @Override
     public ImmutableSet<MethodRef> nonNullReturns() {
       return ImmutableSet.of();
     }
@@ -1976,6 +1842,165 @@ public class LibraryModelsHandler implements Handler {
     public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
       return ImmutableSetMultimap.of();
     }
+  }
+
+  /** Lazily initializes the bundled JSpecify JDK models once per NullAway classloader. */
+  private static final class JSpecifyJdkModelsHolder {
+    private static final LibraryModels INSTANCE = loadExternalStubxLibraryModels(false, true);
+  }
+
+  /**
+   * Loads stubx resources and converts all parsed state to deeply immutable value data.
+   *
+   * <p>JarInfer resources are intentionally loaded for each checker instance because they come from
+   * dynamic service providers. The bundled JSpecify resource is loaded only by {@link
+   * JSpecifyJdkModelsHolder}.
+   */
+  private static LibraryModels loadExternalStubxLibraryModels(
+      boolean isJarInferEnabled, boolean isJSpecifyJDKEnabled) {
+    String libraryModelLogName = "LM";
+    StubxCacheUtil cacheUtil = new StubxCacheUtil(libraryModelLogName, isJarInferEnabled);
+    if (isJarInferEnabled) {
+      // hardcoded loading of stubx files from android-jarinfer-models-sdkXX artifacts
+      try (InputStream androidStubxIS =
+          openResourceWithoutCaching(
+              castToNonNull(Class.forName(ANDROID_MODEL_CLASS).getClassLoader())
+                  .getResource(ANDROID_ASTUBX_LOCATION))) {
+        if (androidStubxIS != null) {
+          cacheUtil.parseStubStream(androidStubxIS, "android.jar: " + ANDROID_ASTUBX_LOCATION);
+          astubxLoadLog("Loaded Android RT models.");
+        }
+      } catch (ClassNotFoundException e) {
+        astubxLoadLog(
+            "Cannot find Android RT models locator class."
+                + " This is expected if not in an Android project, or the Android SDK JarInfer models Jar has not been set up for this build.");
+      } catch (IOException e) {
+        astubxLoadLog("Loading Android RT models failed: " + e.getMessage());
+      }
+    }
+
+    if (isJSpecifyJDKEnabled) {
+      try (InputStream in =
+          openResourceWithoutCaching(
+              castToNonNull(LibraryModelsHandler.class.getClassLoader())
+                  .getResource(JSPECIFY_JDK_ASTUBX_FILENAME))) {
+        if (in == null) {
+          throw new IllegalStateException(
+              "JDK astubx model not found on classpath: %s"
+                  .formatted(JSPECIFY_JDK_ASTUBX_FILENAME));
+        }
+        cacheUtil.parseStubStream(in, JSPECIFY_JDK_ASTUBX_FILENAME);
+        astubxLoadLog("Loaded JDK astubx model.");
+      } catch (IOException e) {
+        throw new UncheckedIOException(e);
+      }
+    }
+    return createImmutableStubxLibraryModels(cacheUtil);
+  }
+
+  /**
+   * Opens a classpath resource without sharing a cached JAR file with other classloaders.
+   *
+   * <p>A {@link java.net.URLClassLoader} tracks JAR files opened by {@code getResourceAsStream} and
+   * closes them when the classloader is closed. Since {@link java.net.JarURLConnection} caches JAR
+   * files across classloaders by default, closing one classloader can otherwise invalidate a stream
+   * that another classloader is still reading.
+   *
+   * @param resource URL of the resource to open, or {@code null} if it was not found
+   * @return the resource stream, or {@code null} if the resource is not found
+   */
+  static @Nullable InputStream openResourceWithoutCaching(@Nullable URL resource)
+      throws IOException {
+    if (resource == null) {
+      return null;
+    }
+    URLConnection connection = resource.openConnection();
+    connection.setUseCaches(false);
+    return connection.getInputStream();
+  }
+
+  /** Converts mutable parser caches into context-independent immutable library-model values. */
+  private static ImmutableStubxLibraryModels createImmutableStubxLibraryModels(
+      StubxCacheUtil cacheUtil) {
+    Map<String, Map<String, Map<Integer, Set<String>>>> argAnnotCache =
+        cacheUtil.getArgAnnotCache();
+
+    ImmutableMap.Builder<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+        nestedAnnotationsBuilder = ImmutableMap.builder();
+    for (Map.Entry<String, SetMultimap<Integer, NestedAnnotationInfo>> entry :
+        cacheUtil.getNestedAnnotationInfoCache().entrySet()) {
+      String className = entry.getKey().split(":")[0].replace('$', '.');
+      nestedAnnotationsBuilder.put(
+          methodRef(className, getMethodNameAndSignature(entry.getKey())),
+          ImmutableSetMultimap.copyOf(entry.getValue()));
+    }
+
+    ImmutableSetMultimap.Builder<MethodRef, Integer> methodTypeUpperBoundsBuilder =
+        ImmutableSetMultimap.builder();
+    for (Map.Entry<String, Integer> entry :
+        cacheUtil.getMethodTypeParamNullableUpperBoundCache().entries()) {
+      String className = entry.getKey().split(":")[0].replace('$', '.');
+      methodTypeUpperBoundsBuilder.put(
+          methodRef(className, getMethodNameAndSignature(entry.getKey())), entry.getValue());
+    }
+
+    ImmutableSetMultimap.Builder<MethodRef, Integer> explicitlyNullableParametersBuilder =
+        ImmutableSetMultimap.builder();
+    ImmutableSetMultimap.Builder<MethodRef, Integer> nonNullParametersBuilder =
+        ImmutableSetMultimap.builder();
+    ImmutableSet.Builder<MethodRef> nullableReturnsBuilder = ImmutableSet.builder();
+    for (Map.Entry<String, Map<String, Map<Integer, Set<String>>>> classEntry :
+        argAnnotCache.entrySet()) {
+      String className = classEntry.getKey();
+      for (Map.Entry<String, Map<Integer, Set<String>>> methodEntry :
+          classEntry.getValue().entrySet()) {
+        String methodSignature = getMethodNameAndSignature(methodEntry.getKey());
+        MethodRef ref = methodRef(className, methodSignature);
+        for (Map.Entry<Integer, Set<String>> argumentEntry : methodEntry.getValue().entrySet()) {
+          int index = argumentEntry.getKey();
+          Set<String> annotations = argumentEntry.getValue();
+          if (index >= 0 && annotations.stream().anyMatch(a -> a.contains("Nullable"))) {
+            explicitlyNullableParametersBuilder.put(ref, index);
+          }
+          if (index >= 0
+              && annotations.stream()
+                  .anyMatch(a -> a.contains("NonNull") || a.equals("javax.annotation.Nonnull"))) {
+            astubxLoadLog(
+                "Found non-null parameter: "
+                    + className
+                    + "."
+                    + methodEntry.getKey()
+                    + " arg "
+                    + index);
+            nonNullParametersBuilder.put(ref, index);
+          }
+          if (index == -1
+              && (annotations.contains("javax.annotation.Nullable")
+                  || annotations.contains("org.jspecify.annotations.Nullable"))) {
+            nullableReturnsBuilder.add(ref);
+          }
+        }
+      }
+    }
+
+    return new ImmutableStubxLibraryModels(
+        ImmutableSet.copyOf(cacheUtil.getNullMarkedClassesCache()),
+        nestedAnnotationsBuilder.buildOrThrow(),
+        ImmutableSetMultimap.copyOf(cacheUtil.getUpperBoundCache()),
+        methodTypeUpperBoundsBuilder.build(),
+        explicitlyNullableParametersBuilder.build(),
+        nonNullParametersBuilder.build(),
+        nullableReturnsBuilder.build());
+  }
+
+  /** Extracts a model method signature from the fuller signature stored in a stubx file. */
+  private static String getMethodNameAndSignature(String methodInfo) {
+    int openParenIndex = methodInfo.indexOf('(');
+    Verify.verify(openParenIndex != -1, "Malformed method info: %s", methodInfo);
+    int methodNameIndex = methodInfo.lastIndexOf(' ', openParenIndex) + 1;
+    // MethodRef signatures omit spaces after commas, but spaces in wildcard bounds (for example,
+    // "? super T") are significant and must be preserved.
+    return methodInfo.substring(methodNameIndex).replaceAll(",\\s", ",");
   }
 
   private static boolean DEBUG_ASTUBX_LOADING = false;

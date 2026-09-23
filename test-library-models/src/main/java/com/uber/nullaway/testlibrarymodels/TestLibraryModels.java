@@ -36,6 +36,30 @@ import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry;
 @AutoService(LibraryModels.class)
 public class TestLibraryModels implements LibraryModels {
 
+  // These values contain only strings, integers, and immutable model records. They are safe to
+  // share across concurrent javac invocations in the same classloader. Stream models are excluded
+  // because their TypePredicates contain invocation-aware memoizing suppliers.
+  private static final ImmutableSetMultimap<MethodRef, Integer> EXPLICITLY_NULLABLE_PARAMETERS =
+      createExplicitlyNullableParameters();
+  private static final ImmutableSetMultimap<MethodRef, Integer> NON_NULL_PARAMETERS =
+      createNonNullParameters();
+  private static final ImmutableSetMultimap<MethodRef, Integer> NULL_IMPLIES_FALSE_PARAMETERS =
+      createNullImpliesFalseParameters();
+  private static final ImmutableSetMultimap<MethodRef, MethodRef>
+      ENSURES_NON_NULL_IF_TRUE_METHOD_CALLS = createEnsuresNonNullIfTrueMethodCalls();
+  private static final ImmutableSet<MethodRef> NULLABLE_RETURNS = createNullableReturns();
+  private static final ImmutableSetMultimap<MethodRef, Integer> CAST_TO_NON_NULL_METHODS =
+      createCastToNonNullMethods();
+  private static final ImmutableSet<FieldRef> NULLABLE_FIELDS = createNullableFields();
+  private static final ImmutableSetMultimap<String, Integer>
+      TYPE_VARIABLES_WITH_NULLABLE_UPPER_BOUNDS = createTypeVariablesWithNullableUpperBounds();
+  private static final ImmutableSet<String> NULL_MARKED_CLASSES = createNullMarkedClasses();
+  private static final ImmutableSetMultimap<MethodRef, Integer>
+      METHOD_TYPE_VARIABLES_WITH_NULLABLE_UPPER_BOUNDS =
+          createMethodTypeVariablesWithNullableUpperBounds();
+  private static final ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+      NESTED_ANNOTATIONS_FOR_METHODS = createNestedAnnotationsForMethods();
+
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters() {
     return ImmutableSetMultimap.of();
@@ -43,6 +67,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters() {
+    return EXPLICITLY_NULLABLE_PARAMETERS;
+  }
+
+  /** Creates the immutable explicitly-nullable parameter models used by this test provider. */
+  private static ImmutableSetMultimap<MethodRef, Integer> createExplicitlyNullableParameters() {
     return ImmutableSetMultimap.of(
         methodRef(
             "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
@@ -60,6 +89,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nonNullParameters() {
+    return NON_NULL_PARAMETERS;
+  }
+
+  /** Creates the immutable non-null parameter models used by this test provider. */
+  private static ImmutableSetMultimap<MethodRef, Integer> createNonNullParameters() {
     return new ImmutableSetMultimap.Builder<MethodRef, Integer>()
         .put(
             methodRef(
@@ -86,6 +120,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters() {
+    return NULL_IMPLIES_FALSE_PARAMETERS;
+  }
+
+  /** Creates the immutable null-implies-false models used by this test provider. */
+  private static ImmutableSetMultimap<MethodRef, Integer> createNullImpliesFalseParameters() {
     return ImmutableSetMultimap.of(
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "isNonNull(java.lang.Object)"),
         0);
@@ -98,6 +137,12 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, MethodRef> ensuresNonNullIfTrueMethodCalls() {
+    return ENSURES_NON_NULL_IF_TRUE_METHOD_CALLS;
+  }
+
+  /** Creates the immutable ensures-non-null models used by this test provider. */
+  private static ImmutableSetMultimap<MethodRef, MethodRef>
+      createEnsuresNonNullIfTrueMethodCalls() {
     return ImmutableSetMultimap.of(
         methodRef("com.uber.lib.unannotated.CustomInterface", "hasContent()"),
         methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()"));
@@ -105,6 +150,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSet<MethodRef> nullableReturns() {
+    return NULLABLE_RETURNS;
+  }
+
+  /** Creates the immutable nullable-return models used by this test provider. */
+  private static ImmutableSet<MethodRef> createNullableReturns() {
     return ImmutableSet.of(
         methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
@@ -120,6 +170,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> castToNonNullMethods() {
+    return CAST_TO_NON_NULL_METHODS;
+  }
+
+  /** Creates the immutable cast-to-non-null models used by this test provider. */
+  private static ImmutableSetMultimap<MethodRef, Integer> createCastToNonNullMethods() {
     return ImmutableSetMultimap.<MethodRef, Integer>builder()
         .put(
             methodRef("com.uber.nullaway.testdata.Util", "<T>castToNonNull(T,java.lang.String)"), 0)
@@ -165,6 +220,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSet<FieldRef> nullableFields() {
+    return NULLABLE_FIELDS;
+  }
+
+  /** Creates the immutable nullable-field models used by this test provider. */
+  private static ImmutableSet<FieldRef> createNullableFields() {
     return ImmutableSet.<FieldRef>builder()
         .add(
             fieldRef("com.uber.lib.unannotated.UnannotatedWithModels", "nullableFieldUnannotated1"),
@@ -174,6 +234,12 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<String, Integer> typeVariablesWithNullableUpperBounds() {
+    return TYPE_VARIABLES_WITH_NULLABLE_UPPER_BOUNDS;
+  }
+
+  /** Creates the immutable class type-variable models used by this test provider. */
+  private static ImmutableSetMultimap<String, Integer>
+      createTypeVariablesWithNullableUpperBounds() {
     return ImmutableSetMultimap.of(
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
         0,
@@ -185,6 +251,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSet<String> nullMarkedClasses() {
+    return NULL_MARKED_CLASSES;
+  }
+
+  /** Creates the immutable null-marked class models used by this test provider. */
+  private static ImmutableSet<String> createNullMarkedClasses() {
     return ImmutableSet.of(
         "com.uber.lib.unannotated.ProviderNullMarkedViaModel",
         "com.uber.lib.unannotated.LambdaBox",
@@ -197,6 +268,12 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds() {
+    return METHOD_TYPE_VARIABLES_WITH_NULLABLE_UPPER_BOUNDS;
+  }
+
+  /** Creates the immutable method type-variable models used by this test provider. */
+  private static ImmutableSetMultimap<MethodRef, Integer>
+      createMethodTypeVariablesWithNullableUpperBounds() {
     return ImmutableSetMultimap.of(
         methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"),
         0,
@@ -207,6 +284,12 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
       nestedAnnotationsForMethods() {
+    return NESTED_ANNOTATIONS_FOR_METHODS;
+  }
+
+  /** Creates the immutable nested-annotation models used by this test provider. */
+  private static ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
+      createNestedAnnotationsForMethods() {
     return new ImmutableMap.Builder<
             MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>()
         .put(

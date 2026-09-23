@@ -18,7 +18,7 @@ tasks.withType(JavaCompile).configureEach {
 
 jar{
     manifest {
-        attributes('Main-Class':'com.uber.nullaway.jdkannotations.AstubxGeneratorCLI')
+        attributes('Main-Class': 'com.uber.nullaway.jdkannotations.AstubxGeneratorCLI')
     }
     // add this classifier so that the output file for the jar task differs from
     // the output file for the shadowJar task (otherwise they overwrite each other's

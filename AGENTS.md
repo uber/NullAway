@@ -11,6 +11,9 @@ test class or method within that module, you can use the `--tests` flag. For exa
 
 Do _not_ try to run multiple Gradle build commands in parallel; it is not supported and often leads to a failure.
 
+Generally, whenever you run a test suite, it's best to also check that `./gradlew :nullaway:buildWithNullAway`
+also passes; that runs NullAway checking on itself.  You don't need to run this after every targeted test run.
+
 # Changelog
 
 Our `CHANGELOG.md` file should be formatted as follows:
@@ -28,3 +31,16 @@ Whenever you add a non-trivial method, add Javadoc, even if it's a private metho
 
 You do _not_ need to run `./gradlew spotlessJavaCheck` to check formatting.  We have a pre-commit hook that
 automatically formats code before it is committed.
+
+
+## Commit messages
+
+Always end commit messages, including drafts, with `Assisted-by: <tool> (<model-id>)`, never `Co-Authored-By:`.
+Keep existing trailers and add yours when amending someone else's commit.
+
+# Pull requests
+
+Pull requests are squash-merged: the description becomes the body of the single commit that lands on the target branch,
+so write it as the commit message for all the changes in the PR.  Headlines are imperative and in sentence case, with no
+Conventional Commits prefix and no trailing period, e.g. `Preserve nested nullness in enhanced for var types`; the squash
+merge appends the PR number.

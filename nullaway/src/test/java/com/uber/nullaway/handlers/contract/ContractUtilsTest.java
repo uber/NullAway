@@ -1,6 +1,7 @@
 package com.uber.nullaway.handlers.contract;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.mockito.Mockito.RETURNS_MOCKS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.verifyNoInteractions;
@@ -32,6 +33,15 @@ public class ContractUtilsTest {
     String[] antecedent = ContractUtils.getAntecedent("->_", tree, analysis, state, symbol, 0);
 
     assertArrayEquals(new String[0], antecedent);
+    verifyNoInteractions(tree, state, analysis, symbol);
+  }
+
+  @Test
+  public void getMismatchedAntecedent() {
+    String[] antecedent =
+        ContractUtils.getAntecedent("!null -> !null", tree, analysis, state, symbol, 0);
+
+    assertNull(antecedent);
     verifyNoInteractions(tree, state, analysis, symbol);
   }
 }

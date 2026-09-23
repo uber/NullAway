@@ -5,8 +5,8 @@ enable_free_tier: true
 reviews:
   profile: assertive
   request_changes_workflow: false
-  high_level_summary: true
-  high_level_summary_placeholder: '@coderabbitai summary'
+  high_level_summary: false
+  high_level_summary_placeholder: ''
   high_level_summary_in_walkthrough: false
   auto_title_placeholder: '@coderabbitai'
   auto_title_instructions: ''

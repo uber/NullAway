@@ -28,7 +28,7 @@ import static com.uber.nullaway.handlers.AccessPathPredicates.TRUE_AP_PREDICATE;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
-import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
@@ -75,10 +75,10 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+  public void onMatchCompilationUnit(
+      NullAway analysis, CompilationUnitTree tree, VisitorState state) {
     for (Handler h : handlers) {
-      h.onMatchTopLevelClass(analysis, tree, state, classSymbol);
+      h.onMatchCompilationUnit(analysis, tree, state);
     }
   }
 
@@ -349,6 +349,16 @@ class CompositeHandler implements Handler {
       if (result) {
         break;
       }
+    }
+    return result;
+  }
+
+  @Override
+  public boolean onOverrideMethodNullMarkedness(
+      Symbol.MethodSymbol methodSymbol, boolean currentNullMarkedness) {
+    boolean result = currentNullMarkedness;
+    for (Handler h : handlers) {
+      result = h.onOverrideMethodNullMarkedness(methodSymbol, result);
     }
     return result;
   }

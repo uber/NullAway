@@ -273,10 +273,6 @@ public class ConditionalExprTests extends NullAwayTestsBase {
                 }
               }
               void test(boolean flag) {
-                // TODO: we should infer Box<@Nullable Object> (or something like that) as the type
-                // of inferredFromInitializer, but currently we do not.  When we do, the warning on
-                // the next line should go away.  https://github.com/uber/NullAway/issues/1633
-                // BUG: Diagnostic contains: passing @Nullable parameter
                 var inferredFromInitializer = flag ? new Box<>(null) : new Box<>("fallback");
                 Box<@Nullable String> explicitNullableTarget =
                     flag ? new Box<>(null) : new Box<>("fallback");

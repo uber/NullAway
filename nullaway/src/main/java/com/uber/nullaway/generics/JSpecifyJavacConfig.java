@@ -18,13 +18,18 @@ import java.util.List;
 public final class JSpecifyJavacConfig {
 
   public static final String JSPECIFY_MODE_FLAG = "-XepOpt:NullAway:JSpecifyMode=true";
-  public static final String ADD_TYPE_ANNOTATIONS_FLAG = "-XDaddTypeAnnotationsToSymbol=true";
+  public static final String ADD_TYPE_ANNOTATIONS_FLAG_NAME = "addTypeAnnotationsToSymbol";
+  public static final String ADD_TYPE_ANNOTATIONS_FLAG =
+      "-XD" + ADD_TYPE_ANNOTATIONS_FLAG_NAME + "=true";
   public static final String HANDLE_WILDCARD_GENERICS_FLAG =
       "-XepOpt:NullAway:HandleWildcardGenerics=true";
   public static final String JSPECIFY_EXPERIMENTAL = "-XepOpt:NullAway:JSpecifyExperimental=true";
 
   private static final List<String> JSPECIFY_MODE_ARGS =
       List.of(JSPECIFY_MODE_FLAG, ADD_TYPE_ANNOTATIONS_FLAG, JSPECIFY_EXPERIMENTAL);
+
+  private static final boolean JAVAC_SUPPORTS_TYPE_ANNOTATIONS_ON_SYMBOLS =
+      Runtime.version().feature() > 21 || javacOnJDK17Or21SupportsAddTypeAnnotationsToSymbol();
 
   private JSpecifyJavacConfig() {}
 
@@ -40,25 +45,59 @@ public final class JSpecifyJavacConfig {
     return Collections.unmodifiableList(result);
   }
 
+  public enum JavacConfigValidityResult {
+    /** valid configuration */
+    VALID,
+    /** {@code -XDaddTypeAnnotationsToSymbol=true} is missing */
+    FLAG_NOT_SET_TO_TRUE,
+    /** JDK 17 or 21 and {@code -XDaddTypeAnnotationsToSymbol} is not supported */
+    FLAG_NOT_SUPPORTED_BY_JAVAC
+  }
+
   /**
    * Checks that in JSpecify mode, either (1) we are running on JDK 22 or above, or (2) the user has
-   * passed {@code -XDaddTypeAnnotationsToSymbol=true} to javac
+   * passed {@code -XDaddTypeAnnotationsToSymbol=true} to javac _and_ the running javac version
+   * supports that flag
    *
    * @param state the visitor state
-   * @return true if the javac configuration is valid for JSpecify mode, false otherwise
+   * @return a {@link JavacConfigValidityResult} indicating whether the config is valid or why it is
+   *     invalid
    */
-  public static boolean isValidJavacConfigForJSpecifyMode(VisitorState state) {
+  public static JavacConfigValidityResult isValidJavacConfigForJSpecifyMode(VisitorState state) {
     Runtime.Version version = Runtime.version();
     if (version.feature() < 22) {
       Options opts = Options.instance(state.context);
-      String key = "addTypeAnnotationsToSymbol";
-      if (!opts.isSet(key)) {
-        return false;
+      // The flag must be set to true
+      if (!opts.isSet(ADD_TYPE_ANNOTATIONS_FLAG_NAME)
+          || !Boolean.parseBoolean(opts.get(ADD_TYPE_ANNOTATIONS_FLAG_NAME))) {
+        return JavacConfigValidityResult.FLAG_NOT_SET_TO_TRUE;
       }
-      return Boolean.parseBoolean(opts.get(key));
+      // we must also be running on a JDK version that supports the flag
+      return JAVAC_SUPPORTS_TYPE_ANNOTATIONS_ON_SYMBOLS
+          ? JavacConfigValidityResult.VALID
+          : JavacConfigValidityResult.FLAG_NOT_SUPPORTED_BY_JAVAC;
     } else {
       // JDK 22+ always has type annotations on symbols
+      return JavacConfigValidityResult.VALID;
+    }
+  }
+
+  /**
+   * Detects whether the {@code -XDaddTypeAnnotationsToSymbol} flag is supported on JDK 17 or 21, by
+   * using reflection to detect the presence of a corresponding field on {@code ClassReader}. This
+   * is fragile, but, the relevant field name in JDKs 17 / 21 is unlikely to change.
+   */
+  static boolean javacOnJDK17Or21SupportsAddTypeAnnotationsToSymbol() {
+    try {
+      Class<?> classReader =
+          Class.forName(
+              "com.sun.tools.javac.jvm.ClassReader",
+              false,
+              JSpecifyJavacConfig.class.getClassLoader());
+      var ignored = classReader.getDeclaredField("addTypeAnnotationsToSymbol");
       return true;
+    } catch (ReflectiveOperationException | LinkageError | SecurityException e) {
+      return false;
     }
   }
 }

@@ -5,6 +5,7 @@ import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -225,7 +226,7 @@ public class GenericsTests extends NullAwayTestsBase {
                   abstract R apply(P p);
                 }
               }
-              static void param(@Nullable Wrapper<String>.Fn<String> p) {}
+              static void param(Wrapper<String>.@Nullable Fn<String> p) {}
               static void positiveParam() {
                 Wrapper<@Nullable String>.Fn<String> x = null;
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>
@@ -236,7 +237,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String> cannot be converted to Test.Wrapper<String>.Fn<String>
                 Wrapper<String>.Fn<String> p2 = p1;
               }
-              static @Nullable Wrapper<String>.Fn<String> positiveReturn() {
+              static Wrapper<String>.@Nullable Fn<String> positiveReturn() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 // BUG: Diagnostic contains: incompatible types: Test.Wrapper<@Nullable String>.Fn<String>
                 return p1;
@@ -249,7 +250,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 Wrapper<@Nullable String>.Fn<String> p2 = p1;
               }
-              static @Nullable Wrapper<@Nullable String>.Fn<String> negativeReturn() {
+              static Wrapper<@Nullable String>.@Nullable Fn<String> negativeReturn() {
                 Wrapper<@Nullable String>.Fn<String> p1 = null;
                 return p1;
               }
@@ -326,8 +327,6 @@ public class GenericsTests extends NullAwayTestsBase {
                     new Callback<>() {
                       @Override
                       public void onResult(@Nullable Integer value) {
-                        // TODO: we should infer Callback<@Nullable Integer> for the anonymous class and not report an error
-                        // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>
                         removeCallback(this);
                       }
                     });
@@ -336,8 +335,8 @@ public class GenericsTests extends NullAwayTestsBase {
                 addCallback(
                     new Callback<>() {
                       @Override
+                      // BUG: Diagnostic contains: parameter value is @NonNull, but parameter in superclass method
                       public void onResult(Integer value) {
-                        // BUG: Diagnostic contains: incompatible types: <anonymous Test.Callback<java.lang.Integer>>
                         removeCallback(this);
                       }
                     });
@@ -947,8 +946,7 @@ public class GenericsTests extends NullAwayTestsBase {
                 }
               }
               static void testPositive() {
-                // TODO: we should report an error here, since B's type parameter
-                // cannot be @Nullable; we do not catch this yet
+                // BUG: Diagnostic contains: incompatible types: B<Object> cannot be converted to A<@Nullable Object>
                 A<@Nullable Object> p = new B<>();
               }
               static void testNegative() {
@@ -1620,6 +1618,41 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void overrideExplicitlyTypedAnonymousClassWithNestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                List<T> get();
+                void accept(List<T> values);
+              }
+              static void test() {
+                Foo<@Nullable String> foo = new Foo<@Nullable String>() {
+                  @Override
+                  public List<@Nullable String> get() { throw new AssertionError(); }
+                  @Override
+                  public void accept(List<@Nullable String> values) {}
+                };
+                Foo<@Nullable String> badFoo = new Foo<@Nullable String>() {
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public List<String> get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public void accept(List<String> values) {}
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void overrideAnonymousNestedClass() {
     makeHelper()
         .addSourceLines(
@@ -1839,7 +1872,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /** Diamond anonymous classes are not supported yet; tests are for future reference */
   @Test
   public void overrideDiamondAnonymousClass() {
     makeHelper()
@@ -1857,22 +1889,96 @@ public class GenericsTests extends NullAwayTestsBase {
               }
               static void anonymousClasses() {
                 Fn<@Nullable String, String> fn1 = new Fn<>() {
-                  // TODO: should report a bug here
+                  // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
                 FnClass<@Nullable String, String> fn2 = new FnClass<>() {
-                  // TODO: should report a bug here
+                  // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in superclass method
                   public String apply(String s) { return s; }
                 };
                 Fn<String, @Nullable String> fn3 = new Fn<>() {
-                  // TODO: this is a false positive
-                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method
                   public @Nullable String apply(String s) { return null; }
                 };
                 FnClass<String, @Nullable String> fn4 = new FnClass<>() {
-                  // TODO: this is a false positive
-                  // BUG: Diagnostic contains: method returns @Nullable, but superclass method
                   public @Nullable String apply(String s) { return null; }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Fails when a diamond anonymous class loses the {@code @Nullable} on its supertype's type
+   * argument. See https://github.com/uber/NullAway/issues/1746
+   */
+  @Test
+  public void overrideDiamondAnonymousClassWithNestedGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                List<T> get();
+                void accept(List<T> values);
+              }
+              static void test() {
+                Foo<@Nullable String> foo = new Foo<>() {
+                  @Override
+                  public List<@Nullable String> get() { throw new AssertionError(); }
+                  @Override
+                  public void accept(List<@Nullable String> values) {}
+                };
+                Foo<@Nullable String> badFoo = new Foo<>() {
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public List<String> get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  public void accept(List<String> values) {}
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Fails when an anonymous class loses the {@code @Nullable} on its supertype's type argument and
+   * the override wraps the type variable in an array. See
+   * https://github.com/uber/NullAway/issues/1746
+   */
+  @Test
+  public void overrideAnonymousClassWithArrayOfTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T[] get();
+                void accept(T[] values);
+              }
+              static void test() {
+                Foo<@Nullable String> explicit = new Foo<@Nullable String>() {
+                  @Override
+                  public @Nullable String[] get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: Parameter has type String [], but overridden method has parameter type @Nullable String []
+                  public void accept(String[] values) {}
+                };
+                Foo<@Nullable String> diamond = new Foo<>() {
+                  @Override
+                  public @Nullable String[] get() { throw new AssertionError(); }
+                  @Override
+                  // BUG: Diagnostic contains: Parameter has type String [], but overridden method has parameter type @Nullable String []
+                  public void accept(String[] values) {}
                 };
               }
             }
@@ -2410,6 +2516,9 @@ public class GenericsTests extends NullAwayTestsBase {
 
   @Test
   public void intersectionTypeInvalidAssign() {
+    // javac does not preserve type use annotations in the intersection type within the cast before
+    // JDK 25.  Corner case; not going to fix for now.
+    Assume.assumeTrue(Runtime.version().feature() >= 25);
     makeHelper()
         .addSourceLines(
             "Test.java",

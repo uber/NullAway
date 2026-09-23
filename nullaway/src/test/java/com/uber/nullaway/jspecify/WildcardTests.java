@@ -10,6 +10,94 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void nonNullTypeVariableThroughWildcardCapture() {
+    // https://github.com/uber/NullAway/issues/1823
+    // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.ConcurrentMap;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                // IMPORTANT: Explicit @NonNull annotation on these methods:
+                @NonNull V value();
+                ConcurrentMap<String, @NonNull V> asMap();
+              }
+
+              static void takesNonNull(Object value) {}
+
+              static void explicitNullableArgument(Holder<@Nullable Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void nonNullBoundedWildcard(Holder<? extends Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void unboundedWildcard(Holder<?> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void nullableBoundedWildcard(Holder<? extends @Nullable Object> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+
+              static void superBoundedWildcard(Holder<? super String> holder) {
+                takesNonNull(holder.value());
+                holder.asMap().entrySet().forEach(e -> takesNonNull(e.getValue()));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Checks that inherited {@code @NonNull V} returns remain non-null through unbounded and super
+   * wildcards. Interleaving calls to an inherited plain {@code V} return checks that restoring
+   * {@code @NonNull} does not mutate shared wildcard bounds: the plain return must remain nullable,
+   * and subsequent explicitly non-null returns must still be accepted.
+   */
+  @Test
+  public void nonNullWildcardMemberDoesNotChangeOtherInheritedMembers() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Holder<V extends @Nullable Object> {
+                @NonNull V nonNullValue();
+                V value();
+              }
+              interface Child<V extends @Nullable Object> extends Holder<V> {}
+
+              static void takesNonNull(Object value) {}
+
+              static void unbounded(Child<?> holder) {
+                takesNonNull(holder.nonNullValue());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+              }
+
+              static void superBounded(Child<? super String> holder) {
+                takesNonNull(holder.nonNullValue());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'holder.value()'
+                takesNonNull(holder.value());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void simpleWildcardNoInference() {
     makeHelper()
         .addSourceLines(
@@ -315,6 +403,46 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboundedWildcardUsesSubstitutedDependentFormalBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Pair<T extends @Nullable Object, U extends T> {}
+
+              static void nonNullFirstArgument(Pair<String, ?> pair) {
+                Pair<String, ? extends String> target = pair;
+              }
+
+              static void nullableFirstArgument(Pair<@Nullable String, ?> pair) {
+                Pair<@Nullable String, ? extends @Nullable String> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                Pair<@Nullable String, ? extends String> invalid = pair;
+              }
+
+              static void capturedFirstArgument(Pair<?, ?> pair) {
+                Pair<?, ? extends @Nullable Object> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                Pair<?, ? extends Object> invalid = pair;
+              }
+
+              @NullUnmarked
+              static class UnmarkedPair<T, U extends T> {}
+
+              static void capturedFirstArgumentFromUnmarkedCode(UnmarkedPair<?, ?> pair) {
+                UnmarkedPair<?, ? extends @Nullable Object> target = pair;
+                // BUG: Diagnostic contains: incompatible types
+                UnmarkedPair<?, ? extends Object> invalid = pair;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void unboundedWildcardFormalWithNullableTypeParameterBound() {
     makeHelper()
         .addSourceLines(
@@ -546,6 +674,40 @@ public class WildcardTests extends NullAwayTestsBase {
                 }
               }
             }""")
+        .doTest();
+  }
+
+  @Test
+  public void issue1715() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface I1<X> {}
+              interface I2<X, Y extends I1<X>> {
+                Y get();
+              }
+              I1<Object> crash(I2<Object, ?> i2) {
+                var i2var = i2;
+                return i2var.get();
+              }
+
+              interface NullableI1<X extends @Nullable Object> {}
+              interface NullableI2<
+                  X extends @Nullable Object, Y extends NullableI1<@Nullable X>> {
+                Y get();
+              }
+              NullableI1<Object> incompatible(NullableI2<Object, ?> i2) {
+                var i2var = i2;
+                // BUG: Diagnostic contains: incompatible types
+                return i2var.get();
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -1240,6 +1402,59 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferredCaptureRetainsOriginFormalNullabilityAcrossGenericTypes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            @NullMarked
+            final class Test {
+              // Source.E has a @NonNull upper bound.
+              static final class Source<E> {}
+              // Result.R has a @Nullable upper bound.
+              @NullUnmarked
+              static final class Result<R> {}
+              static <X> Result<X> convert(Source<? extends X> source) {
+                throw new RuntimeException();
+              }
+              static Result<? extends Object> exercise(Source<?> source) {
+                // Inference succeeds with X as the capture of Source<?>. The capture keeps
+                // Source.E's @NonNull upper bound when it moves into Result<X>.
+                return convert(source);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferredCaptureBoundTakesPrecedenceOverDestinationFormalBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            final class Test {
+              static final class Source<E> {}
+              static final class Result<R extends @Nullable Object> {}
+              static <X> Result<X> convert(Source<? extends X> source) {
+                throw new RuntimeException();
+              }
+              static Result<? extends Object> exercise(Source<?> source) {
+                // Inference gives the capture of Source<?> a @NonNull upper bound. Result.R's
+                // declaration permits @Nullable arguments, but does not make this capture nullable.
+                return convert(source);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void weirdErrorMessageReducedFromSpring() {
     makeHelper()
         .addSourceLines(
@@ -1250,13 +1465,16 @@ public class WildcardTests extends NullAwayTestsBase {
             @NullMarked
             final class Test {
               static final class Flux<T> {}
+              // unmarked, so NullAway treats U as having a @Nullable upper bound
               @NullUnmarked
-              static final class Flow<T> {}
-              static <T> Flux<T> asFlux(Flow<? extends T> flow) {
+              static final class Flow<U> {}
+              static <V> Flux<V> asFlux(Flow<? extends V> flow) {
                 throw new RuntimeException();
               }
               static Flux<?> convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<capture of ?> cannot be converted to Flux<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Flow)
+                // inference fails since for Flow<?>, the upper bound of the wildcard is @Nullable, but
+                // asFlux requires V to be @NonNull
+                // BUG: Diagnostic contains: inference failure: type variable V is constrained to be @Nullable
                 return asFlux((Flow<?>) source);
               }
             }
@@ -1276,12 +1494,14 @@ public class WildcardTests extends NullAwayTestsBase {
             final class Test {
               static final class Flux<T> {}
               @NullUnmarked
-              static final class Flow<T> {}
-              static <T> Flux<T>[] asFluxArray(Flow<? extends T> flow) {
+              static final class Flow<U> {}
+              static <V> Flux<V>[] asFluxArray(Flow<? extends V> flow) {
                 throw new RuntimeException();
               }
               static Flux<?>[] convert(Object source) {
-                // BUG: Diagnostic contains: incompatible types: Flux<capture of ?> [] cannot be converted to Flux<?> [] (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Flow)
+                // inference fails since for Flow<?>, the upper bound of the wildcard is @Nullable, but
+                // asFlux requires V to be @NonNull
+                // BUG: Diagnostic contains: inference failure: type variable V is constrained to be @Nullable
                 return asFluxArray((Flow<?>) source);
               }
             }
@@ -1344,6 +1564,163 @@ public class WildcardTests extends NullAwayTestsBase {
                     .mapNotNull(ResponseEntity::getBody)
                     .mapNotNull(jsonNode -> jsonNode.get("access_token").asString())
                     .switchIfEmpty(Mono.error(() -> new IllegalStateException("Unable to get access token")));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1760() {
+    makeHelper()
+        .addSourceLines(
+            "Main.java",
+            """
+            package org.example;
+
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Main {
+              abstract static class Settings<S extends Settings<? extends S>> {}
+
+              static List<? extends Settings<?>> pass(List<? extends Settings<?>> in) {
+                return in;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1842() {
+    makeHelper()
+        .addSourceLines(
+            "Node.java",
+            """
+            package org.example;
+
+            public class Node<N extends Node<?>> {}
+            """)
+        .addSourceLines(
+            "Main.java",
+            """
+            package org.example;
+
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Main {
+              static <T> T take(List<? extends Node<?>> in, T t) {
+                return t;
+              }
+
+              static String test(List<Node<?>> nodes) {
+                return take(nodes, "x");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1851SourceOnly() {
+    makeHelper()
+        .addSourceLines(
+            "Self.java",
+            """
+            package org.example;
+
+            public class Self<S extends Self<? extends S>> {}
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package org.example;
+
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static void consume(Self<?> value) {}
+
+              static void exercise(Self<?> value) {
+                consume(identity(value));
+              }
+
+              static <T> T identity(T value) {
+                return value;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1846() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Node<T extends Comparable<Integer>> {
+                T get();
+              }
+
+              interface NullableNode<T extends @Nullable Comparable<Integer>> {
+                T get();
+              }
+
+              static void takesObject(Object value) {}
+
+              static void superBounded(Node<? super Integer> node) {
+                takesObject(node.get());
+              }
+
+              static void nullableSuperBounded(NullableNode<? super Integer> node) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'node.get()'
+                takesObject(node.get());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Repro.java",
+            """
+            import java.util.Collection;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Repro<E extends @Nullable Object> {
+
+              boolean add(E element) {
+                return false;
+              }
+
+              boolean addAll(Collection<? extends E> elements) {
+                boolean changed = false;
+                for (E element : elements) {
+                  if (add(element)) {
+                    changed = true;
+                  }
+                }
+                return changed;
               }
             }
             """)

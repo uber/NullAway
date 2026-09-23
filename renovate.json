@@ -1,0 +1,96 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "minimumReleaseAge holds an update back until its release is seven days old, so that a broken or compromised publish has time to be found and pulled before it reaches a PR. internalChecksFilter defaults to strict, so such an update waits rather than opening a PR that is revised later. The Error Prone rule and the GitHub official actions rule set minimumReleaseAge to null; a security update bypasses it through Renovate's own vulnerabilityAlerts defaults.",
+  "extends": [
+    "config:best-practices"
+  ],
+  "labels": [
+    "dependencies"
+  ],
+  "semanticCommits": "disabled",
+  "schedule": [
+    "every 2 weeks on Monday"
+  ],
+  "minimumReleaseAge": "7 days",
+  "packageRules": [
+    {
+      "description": "A major update lands on the dependency dashboard for manual review instead of opening a PR. The rule matches every manager, so a major GitHub Actions or Gradle plugin bump goes to the dashboard too.",
+      "matchUpdateTypes": [
+        "major"
+      ],
+      "dependencyDashboardApproval": true
+    },
+    {
+      "description": "NullAway compiles against Error Prone internals such as ASTHelpers, so an Error Prone release can change what NullAway builds and runs against; testErrorProneLatestSnapshot exists to catch such a change before the release lands (#1555). Error Prone PRs open as soon as a release lands, rather than waiting for the next two-week window. Error Prone also skips the seven-day cooldown: a broken release breaks this build rather than reaching users, and testErrorProneLatestSnapshot has already exercised the change while it was a snapshot. A major Error Prone release still needs dependency dashboard approval, like every other major.",
+      "matchPackageNames": [
+        "com.google.errorprone{/,}**"
+      ],
+      "schedule": [
+        "at any time"
+      ],
+      "minimumReleaseAge": null
+    },
+    {
+      "description": "The errorProne entry in gradle/libs.versions.toml is the Error Prone release NullAway builds and tests against, and it tracks the newest one. It needs a group of its own because group:monorepos, which config:best-practices pulls in through config:recommended, otherwise collects every com.google.errorprone dependency into one error-prone-monorepo PR, pinned catalog entries included.",
+      "matchJsonata": [
+        "sharedVariableName in ['errorProne', 'libs.versions.errorProne']"
+      ],
+      "groupName": "libs.versions.errorProne"
+    },
+    {
+      "description": "The errorProneOldest entry in gradle/libs.versions.toml is the oldest Error Prone release NullAway supports: README.md gives 2.36.0 as the minimum, and testErrorProneOldest runs the test suite against it. Raising that floor is a decision rather than maintenance, so this entry takes 2.36.x patch releases only. This rule and the errorProne, errorProneJdk17 and guava rules match on sharedVariableName, the version-catalog alias Renovate records for a dependency, because the three Error Prone entries resolve to the same com.google.errorprone artifacts and no other stable field distinguishes them. Each rule also accepts a libs.versions.-prefixed spelling as insurance. Renovate reports the bare alias for every entry here, because it strips that prefix while more than one dependency shares a catalog entry; an entry that build.gradle reads through an ext property would keep the prefix if a refactor left a single dependency on it. Renaming an alias would therefore drop its pin without failing the validator, so the lint workflow checks the names separately. Each bound is written as a Gradle range. Renovate's gradle versioning has no '<' range syntax, so a bound of '< 2.37' in either allowedVersions or matchCurrentVersion parses as nothing and holds nothing back.",
+      "matchJsonata": [
+        "sharedVariableName in ['errorProneOldest', 'libs.versions.errorProneOldest']"
+      ],
+      "groupName": "libs.versions.errorProneOldest",
+      "allowedVersions": "[,2.37)"
+    },
+    {
+      "description": "The errorProneJdk17 entry in gradle/libs.versions.toml holds the newest Error Prone that runs on JDK 17, because 2.43.0 and later require JDK 21 (#1401). The testJdk17 task puts its jars in front of the test classpath. This entry takes 2.42.x patch releases only.",
+      "matchJsonata": [
+        "sharedVariableName in ['errorProneJdk17', 'libs.versions.errorProneJdk17']"
+      ],
+      "groupName": "libs.versions.errorProneJdk17",
+      "allowedVersions": "[,2.43)"
+    },
+    {
+      "description": "The guava entry in gradle/libs.versions.toml is the Guava version NullAway itself depends on, so it stays on 31.x; guava-recent-unit-tests exists to test newer Guava without bumping it (#629). The guava-latest entry holds that newer Guava, resolves to the same com.google.guava:guava, and keeps the default schedule and the preset guava-monorepo group. The guava entry needs a group of its own, or group:monorepos would put both entries in one PR.",
+      "matchJsonata": [
+        "sharedVariableName in ['guava', 'libs.versions.guava']"
+      ],
+      "groupName": "libs.versions.guava",
+      "allowedVersions": "[,32)"
+    },
+    {
+      "description": "The errorProneLatestSnapshot configuration in nullaway/build.gradle asks for 1.0-HEAD-SNAPSHOT, the marker that resolves to the current Error Prone snapshot in the Sonatype snapshot repository. Renovate reads the marker as version 1.0 and offers every release above it, and replacing it would break testErrorProneLatestSnapshot.",
+      "matchCurrentValue": "1.0-HEAD-SNAPSHOT",
+      "enabled": false
+    },
+    {
+      "description": "jmh/build.gradle pins every version it names, so none of them takes an update. Most of them compile a released NullAway against the dependency versions that release was built with. The caffeine, autodispose and nullaway versions also appear as literal substrings in the classpath filters in that file, so a bump would leave a filter matching nothing and put the benchmark artifact back on its own classpath.",
+      "matchFileNames": [
+        "jmh/build.gradle"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "com.android.support is the legacy Android support library, superseded by AndroidX. sample-app is the only module that depends on it.",
+      "matchPackageNames": [
+        "com.android.support{/,}**"
+      ],
+      "enabled": false
+    },
+    {
+      "description": "actions/* and github/* are maintained by GitHub and can update together. GitHub publishes them, so they skip the seven-day cooldown; an action from any other publisher waits it out.",
+      "groupName": "github official actions",
+      "matchManagers": [
+        "github-actions"
+      ],
+      "matchPackageNames": [
+        "actions/**",
+        "github/**"
+      ],
+      "minimumReleaseAge": null
+    }
+  ]
+}

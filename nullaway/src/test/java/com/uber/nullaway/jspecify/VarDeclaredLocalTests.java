@@ -9,6 +9,54 @@ import org.junit.Test;
 public class VarDeclaredLocalTests extends NullAwayTestsBase {
 
   @Test
+  public void wildcardCompletableFutureHandleWithVar() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.concurrent.CompletableFuture;
+            class Test {
+              private static CompletableFuture<?> supply() {
+                return CompletableFuture.completedFuture("x");
+              }
+
+              static void crash() {
+                var future = supply();
+                var ready = future.handle((result, error) -> "x");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void wildcardCompletableFutureHandleWithVarChecksCallbackNullability() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.concurrent.CompletableFuture;
+            class Test {
+              private static CompletableFuture<?> supply() {
+                return CompletableFuture.completedFuture("x");
+              }
+
+              static void test() {
+                var future = supply();
+                var ready = future.handle((result, error) -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'error' is @Nullable
+                  error.toString();
+                  return "x";
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericInferenceForVarLocal() {
     makeHelper()
         .addSourceLines(
@@ -255,10 +303,139 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
               void test(List<Foo<@Nullable String>> l) {
                 for (var foo : l) {
                   var x = foo.get();
-                  // TODO we should be reporting a warning here consistently
-                  // See https://github.com/uber/NullAway/issues/1581
-                  // commented out since we only report a warning on JDK 27+
-                  // x.hashCode();
+                  // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                  x.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedEnhancedForLoop() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              void test(
+                  List<@Nullable String> nullableList,
+                  List<String> nonNullList,
+                  List<? extends @Nullable String> nullableWildcardList) {
+                for (String value : nullableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+                for (String value : nonNullList) {
+                  value.hashCode();
+                }
+                for (String value : nullableWildcardList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+              <T extends @Nullable Object> void testNullableTypeVariableUpperBound(
+                  List<T> nullableTypeVariableList,
+                  List<? extends T> nullableWildcardTypeVariableList) {
+                for (T value : nullableTypeVariableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+                for (T value : nullableWildcardTypeVariableList) {
+                  // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                  value.hashCode();
+                }
+              }
+              <T> void testNonNullTypeVariableUpperBound(
+                  List<T> nonNullTypeVariableList,
+                  List<? extends T> nonNullWildcardTypeVariableList) {
+                for (T value : nonNullTypeVariableList) {
+                  value.hashCode();
+                }
+                for (T value : nonNullWildcardTypeVariableList) {
+                  value.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void enhancedForLoopMapEntryPreservesValueTypeNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.LinkedHashMap;
+            import java.util.concurrent.CompletableFuture;
+            @NullMarked
+            class Test {
+              static <K, V> void put(
+                  LinkedHashMap<K, @Nullable V> map, K key, @Nullable V value) {
+                map.put(key, value);
+              }
+              static <K, V> void setValue(
+                  LinkedHashMap<K, @Nullable V> map, @Nullable V value) {
+                for (var entry : map.entrySet()) {
+                  entry.setValue(value);
+                }
+              }
+              static <K, V> void setNestedValue(
+                  LinkedHashMap<K, CompletableFuture<@Nullable V>> map) {
+                for (var entry : map.entrySet()) {
+                  entry.getValue().obtrudeValue(null);
+                }
+              }
+              static <K, V> void rejectNullableValue(
+                  LinkedHashMap<K, V> map, @Nullable V value) {
+                for (var entry : map.entrySet()) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'value' where @NonNull is required
+                  entry.setValue(value);
+                }
+              }
+              static <K, V> void rejectNestedNullableValue(
+                  LinkedHashMap<K, CompletableFuture<V>> map) {
+                for (var entry : map.entrySet()) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                  entry.getValue().obtrudeValue(null);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void enhancedForLoopOverArrayPreservesElementTypeNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Foo<T extends @Nullable Object> {
+                T get();
+              }
+              void test(Foo<@Nullable String>[] nullableArray, Foo<String>[] nonNullArray) {
+                for (var foo : nullableArray) {
+                  // BUG: Diagnostic contains: dereferenced expression 'foo.get()' is @Nullable
+                  foo.get().hashCode();
+                }
+                for (var foo : nonNullArray) {
+                  foo.get().hashCode();
                 }
               }
             }

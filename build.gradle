@@ -33,7 +33,6 @@ plugins {
     alias(libs.plugins.errorprone) apply false
     alias(libs.plugins.shadow) apply false
     alias(libs.plugins.jmh) apply false
-    alias(libs.plugins.versions)
     alias(libs.plugins.shellcheck)
 }
 
@@ -74,7 +73,7 @@ subprojects { project ->
         dependsOn(installGitHooks)
         // Always compile using the latest JDK we can
         javaCompiler = javaToolchains.compilerFor {
-            languageVersion = JavaLanguageVersion.of(25)
+            languageVersion = JavaLanguageVersion.of(27)
         }
         options.compilerArgs += [
             "-Xlint:deprecation",
@@ -138,6 +137,19 @@ subprojects { project ->
 
     tasks.withType(Test).configureEach {
         maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+        // A failed test has to be diagnosable from the console alone: CI runs `./gradlew build`
+        // and publishes no test report, so the log is all a reader gets.  Gradle's default logging
+        // names the exception class and the line of the test method and drops the message, which
+        // for a NullAway compilation test throws away the entire diagnosis.
+        testLogging {
+            exceptionFormat = 'full'
+            // The top-level settings above configure the lifecycle log level only, so a run under
+            // --quiet, as agents make, would otherwise report a failure count and nothing else.
+            quiet {
+                events 'failed'
+                exceptionFormat = 'full'
+            }
+        }
     }
 
     repositories {
@@ -188,11 +200,23 @@ shellcheck {
 //  Google Java Format pre-commit hook installation
 //
 
+// The hook goes into `.git/hooks`, which exists only where `.git` is a directory.  A linked worktree
+// has a `.git` file naming that worktree's git directory instead, and a source archive has no
+// `.git` at all; a `Copy` task pointed at either one fails validation.  A worktree loses no hook by
+// being skipped, since git runs the hooks of the shared repository that the main checkout installs
+// into.
+def dotGitDir = file('.git')
+def gitHooksDir = dotGitDir.isDirectory() ? new File(dotGitDir, 'hooks') : null
+
 tasks.register('installGitHooks', Copy) {
     from(file('config/hooks/pre-commit-stub')) {
         rename 'pre-commit-stub', 'pre-commit'
     }
-    into file('.git/hooks')
+    if (gitHooksDir == null) {
+        enabled = false
+    } else {
+        into gitHooksDir
+    }
     filePermissions {
         unix(0777)
     }

@@ -40,7 +40,7 @@ import javax.lang.model.element.NestingKind;
 @BugPattern(
     severity = SeverityLevel.SUGGESTION,
     summary =
-        "[RequireExplicitNullMarking] Top-level classes must either be directly annotated with @NullMarked/@NullUnmarked,"
+        "Top-level classes must either be directly annotated with @NullMarked/@NullUnmarked,"
             + " be in a package that is explicitly @NullMarked/@NullUnmarked,"
             + " or be in a module that is explicitly @NullMarked.")
 public final class RequireExplicitNullMarking extends BugChecker

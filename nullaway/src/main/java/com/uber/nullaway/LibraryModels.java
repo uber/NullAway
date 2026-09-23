@@ -42,16 +42,16 @@ public interface LibraryModels {
   /**
    * Get methods which fail/error out when passed null.
    *
-   * @return map from the names of null-rejecting methods to the indexes of the arguments that
-   *     aren't permitted to be null.
+   * @return map from null-rejecting methods to the indexes of the arguments that aren't permitted
+   *     to be null.
    */
   ImmutableSetMultimap<MethodRef, Integer> failIfNullParameters();
 
   /**
    * Get (method, parameter) pairs that must be modeled as if explicitly annotated with @Nullable.
    *
-   * @return map from the names of methods with @Nullable parameters to the indexes of the arguments
-   *     that are @Nullable.
+   * @return map from methods with @Nullable parameters to the indexes of the arguments that
+   *     are @Nullable.
    *     <p>This is taken into account for override checks, requiring methods that override the
    *     methods listed here to take @Nullable parameters on the same indexes. The main use for this
    *     is to document which API callbacks can be passed null values.
@@ -61,8 +61,8 @@ public interface LibraryModels {
   /**
    * Get (method, parameter) pairs that must be modeled as @NonNull.
    *
-   * @return map from the names of methods with @NonNull parameters to the indexes of the arguments
-   *     that are @NonNull.
+   * @return map from methods with @NonNull parameters to the indexes of the arguments that
+   *     are @NonNull.
    *     <p>Note that these methods are different from the {@link #failIfNullParameters()} methods,
    *     in that we expect the null checker to ensure that the parameters passed to these methods
    *     are @NonNull. In contrast, the null checker does no such enforcement for methods in {@link
@@ -74,16 +74,16 @@ public interface LibraryModels {
   /**
    * Get (method, parameter) pairs that cause the method to return <code>true</code> when null.
    *
-   * @return map from the names of null-querying methods to the indexes of the arguments that are
-   *     compared against null.
+   * @return map from null-querying methods to the indexes of the arguments that are compared
+   *     against null.
    */
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesTrueParameters();
 
   /**
    * Get (method, parameter) pairs that cause the method to return <code>false</code> when null.
    *
-   * @return map from the names of non-null-querying methods to the indexes of the arguments that
-   *     are compared against null.
+   * @return map from non-null-querying methods to the indexes of the arguments that are compared
+   *     against null.
    */
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesFalseParameters();
 
@@ -108,8 +108,11 @@ public interface LibraryModels {
    *
    * <pre><code>@Contract("!null -&gt; !null") @Nullable</code></pre>
    *
-   * @return map from the names of null-in-implies-null out methods to the indexes of the arguments
-   *     that determine nullness of the return.
+   * <p>The model applies to any method that overrides the listed method. NullAway does not check
+   * that such an override obeys the contract (issue #803).
+   *
+   * @return map from null-in-implies-null-out methods to the indexes of the arguments that
+   *     determine nullness of the return.
    */
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters();
 

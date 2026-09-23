@@ -181,7 +181,7 @@ public final class CodeAnnotationInfo {
     boolean inAnnotatedClass = classCacheRecord.isNullnessAnnotated;
     if (symbol.getKind().equals(ElementKind.METHOD)
         || symbol.getKind().equals(ElementKind.CONSTRUCTOR)) {
-      return !classCacheRecord.isMethodNullnessAnnotated((Symbol.MethodSymbol) symbol);
+      return !classCacheRecord.isMethodNullnessAnnotated((Symbol.MethodSymbol) symbol, handler);
     } else {
       return !inAnnotatedClass;
     }
@@ -236,7 +236,7 @@ public final class CodeAnnotationInfo {
         // Check if this class is annotated, recall that enclosed scopes override enclosing scopes
         boolean isAnnotated = recordForEnclosing.isNullnessAnnotated;
         if (enclosingMethod != null) {
-          isAnnotated = recordForEnclosing.isMethodNullnessAnnotated(enclosingMethod);
+          isAnnotated = recordForEnclosing.isMethodNullnessAnnotated(enclosingMethod, handler);
         }
         if (hasDirectAnnotationWithSimpleName(
             classSymbol, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
@@ -331,17 +331,22 @@ public final class CodeAnnotationInfo {
       this.methodNullnessCache = new HashMap<>();
     }
 
-    boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol) {
+    boolean isMethodNullnessAnnotated(Symbol.MethodSymbol methodSymbol, @Nullable Handler handler) {
       return methodNullnessCache.computeIfAbsent(
           methodSymbol,
           m -> {
+            boolean isAnnotated;
             if (hasDirectAnnotationWithSimpleName(m, NullabilityUtil.NULLUNMARKED_SIMPLE_NAME)) {
-              return false;
+              isAnnotated = false;
             } else if (this.isNullnessAnnotated) {
-              return true;
+              isAnnotated = true;
             } else {
-              return hasDirectAnnotationWithSimpleName(m, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
+              isAnnotated =
+                  hasDirectAnnotationWithSimpleName(m, NullabilityUtil.NULLMARKED_SIMPLE_NAME);
             }
+            return handler == null
+                ? isAnnotated
+                : handler.onOverrideMethodNullMarkedness(m, isAnnotated);
           });
     }
   }

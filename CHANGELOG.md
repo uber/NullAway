@@ -1,6 +1,137 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
+* Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` (#1815)
+
+Version 0.14.1
+--------------
+
+Several bug fixes in this release, particularly for `JSpecifyExperimental`.
+Thanks to all who tested out this mode, reported bugs, and contributed!  Please
+continue to test and send feedback.  See the 0.14.0 release notes below for
+more information on `JSpecifyExperimental`.
+
+* Fix restoring nullness annotations from an unbounded wildcard to a captured type (#1717)
+* JSpecify: support anonymous diamond classes by @subhramit (#1710)
+* Fix attribute errors reported during dataflow (#1736)
+* Apply library models to an overridden method type when checking overrides (#1722)
+* Deduplicate generic inference failure warnings (#1741)
+* Preserve nested nullness annotations through inheritance (#1742)
+* Fix crash for generic qualifiers in method references (#1744)
+* Cache immutable stubx library models (#1745)
+* Allow nullable method references for void functions (#1747)
+* Preserve nested nullness in enhanced-for variable types (#1748)
+* Track nullable elements in enhanced-for dataflow (#1749)
+* Honor ignored methods in null-marked library models (#1753)
+* Avoid crashes on malformed `@Contract` arity (fixes #1726) (#1756)
+* Inherit null-implies-null models across overrides (#1758)
+* Fix inference for annotated type variable uses (#1759)
+* Preserve contract unreachability across store joins (#1761)
+* Prevent recursion on self-referential wildcard bounds (#1763)
+* Work around pre-JDK-25 limitations in reading upper bounds from wildcard arguments in bytecode (#1764)
+* Improve diagnostics for non-null type variable bounds (#1770)
+* Fix override checks for method type variables bounded by a class type variable by @pivovarit (#1775)
+* Maintenance
+  - Migrate FrameworkTests to `addSourceLines` by @abdeltaehass (#1712)
+  - Attribute errors reported during dataflow to the right file by @vlsi (#1734)
+  - Disable CodeRabbit summaries (#1755)
+  - Add tests for overrides of `Collection.toArray` (#1757)
+  - Assert the full set of diagnostics for annotated type-variable uses by @vlsi (#1768)
+  - Document that a `nullImpliesNull` model applies to overriding methods by @vlsi (#1771)
+  - Add tests for the JSpecify nullness operator by @vlsi (#1767)
+
+Version 0.14.0
+--------------
+
+This release has significant improvements to JSpecify support, including
+improved support for wildcards and integration of the standard library
+nullability annotations from https://github.com/jspecify/jdk.  Much of this
+new support is gated behind a new `JSpecifyExperimental` flag, which is off by
+default.  We disable the flag by default since this new support leads to many
+new errors in existing projects (mostly from the new JDK models), and because we
+need more real-world testing before enabling it by default.  We encourage
+projects to enable the `JSpecifyExperimental` flag (alongside JSpecify mode) and
+to report any issues that arise.  We expect to turn `JSpecifyExperimental` on
+by default in a future release.
+
+Aside from the above, you may observe some newly reported warnings in JSpecify
+mode, due to other checking improvements.
+
+This release also removes the `LegacyAnnotationLocations` flag.  Type-use
+annotations must now be placed correctly on qualified and array types, even
+outside JSpecify mode, see details here:
+
+https://github.com/uber/NullAway/wiki/JSpecify-Support#type-use-annotation-placement
+
+Beyond the above, we had useful changes from a variety of new contributors;
+thanks so much!
+
+* Remove LegacyAnnotationLocations flag (#1640)
+* Handle signature-polymorphic calls in InvocationArguments (#1644)
+* Fix handling of reference to method with `@Nullable` parameter from library model (#1642)
+* Enable JSpecify JDK models (under a flag) (#1641)
+* Enable JSpecify JDK models for regression tests (#1646)
+* Fix bug with lambdas assigned to locals with a wildcard in their type (#1647)
+* Add JSpecifyExperimental configuration flag (#1648)
+* Improve wildcard mismatch diagnostics for identical-looking types (#1627)
+* Enable inference failure warnings in experimental mode, and fix related bug in library models (#1649)
+* Fix inference bug with generic instance methods (#1654)
+* Fixes related to captured types and inference (#1655)
+* Augment NullAway error / fix serialization for Annotator auto fix mode by @nimakarimipour (#1322)
+* More consistent checks for captured types (#1662)
+* Update to JSpecify 1.0.1 (#1665)
+* Add test for issue 1671 (#1673)
+* Test case and fix for issue 1672 (#1674)
+* Fix subtype checking for nested captured types (#1663)
+* Handle interaction of captured types and library models (#1666)
+* Follow-on fix for restoring annotation on captured type wildcards (#1667)
+* Fix subtle issue with invalid TreePaths (#1681)
+* Honor @Contract when a @Nullable method is used as a method reference by @Eljees (#1679)
+* Defensively thread path into NestedTypeVarSubstitutionRepairVisitor (#1683)
+* More TreePath hardening (#1684)
+* Harden TypeSubstitutionUtils type copies (#1669)
+* Handle unbound wildcards and interactions with captured types better (#1668)
+* Improve error messages involving capture variables (#1675)
+* Update JarInfer to skip synthetic methods (#1686)
+* Fix bug with storing library model type variable upper bounds (#1687)
+* Fixes for processing return array types and multi-dimensional array types in AstubxGenerator (#1689)
+* Pretty-print substituted types in bad-override error messages by @dbwiddis (#1697)
+* Add test for issue 1693 (#1698)
+* JSpecify: support annotated type arguments from an enclosing class by @dbwiddis (#1699)
+* Fix crash in @Contract dataflow init for zero-argument methods by @dbwiddis (#1701)
+* Support method-based conditional library model postconditions by @Shankar-v27 (#1677)
+* Update JSpecify JDK astubx (#1702)
+* JSpecify: preserve array element nullability through requireNonNull by @kamilkrzywanski (#1645)
+* Add positive test cases for annotations on generic method return types by @dbwiddis (#1704)
+* Add regression test for inner classes inheriting enclosing type arguments by @dbwiddis (#1703)
+* Fix JSpecify false negative when override narrows method type variable bound by @arimu1 (#1682)
+* Fix bug with library-modeled return types, method references, and streams (#1706)
+* Rename MethodInferenceResult to CallInferenceResult (#1692)
+* Generalize generic-call inference internals to call expressions (#1707)
+* Basic nullability inference for diamond constructor type arguments (#1708)
+* Handle nested generic diamond call inference (#1544)
+* Rename getExecutableTypeForInference and improve Javadoc (#1709)
+* Maintenance
+  - Add policy on AI-generated PRs (#1635)
+  - Enable CodeRabbit reviews for all base branches (#1650)
+  - Fix Javadoc errors and allow future Javadoc errors to fail the build (#1652)
+  - Test on JDK 28 early access (#1653)
+  - Update to latest Shadow plugin (#1658)
+  - Remove duplicate NestedAnnotationInfo source from NullAway module (#1659)
+  - Fix Javadoc warnings (#1660)
+  - Fixes to JarInfer test harness and test inputs (#1670)
+  - Address zizmor findings (#1676)
+  - Update to Checker Dataflow 4.2.2 (#1678)
+  - Convert various classes to records (#1685)
+  - Update script to use snapshot builds in integration tests (#1691)
+  - Replace deprecated addSourceFile calls with addSourceLines in FrameworkTests by @dbwiddis (#1695)
+  - Migrate InitializationTests to addSourceLines by @abdeltaehass (#1694)
+  - Migrate anonymous class test to addSourceLines by @terminalchai (#1696)
+
 Version 0.13.8
 --------------
 

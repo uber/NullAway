@@ -24,7 +24,7 @@ package com.uber.nullaway.handlers;
 
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
-import com.sun.source.tree.ClassTree;
+import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MemberReferenceTree;
@@ -67,18 +67,14 @@ import org.jspecify.annotations.Nullable;
 public interface Handler {
 
   /**
-   * Called when NullAway matches a particular top level class.
-   *
-   * <p>This also means we are starting a new Compilation Unit, which allows us to clear CU-specific
-   * state.
+   * Called when NullAway matches a compilation unit.
    *
    * @param analysis A reference to the running NullAway analysis.
-   * @param tree The AST node for the class being matched.
+   * @param tree The compilation unit being matched.
    * @param state The current visitor state.
-   * @param classSymbol The class symbol for the class being matched.
    */
-  default void onMatchTopLevelClass(
-      NullAway analysis, ClassTree tree, VisitorState state, Symbol.ClassSymbol classSymbol) {
+  default void onMatchCompilationUnit(
+      NullAway analysis, CompilationUnitTree tree, VisitorState state) {
     // NoOp
   }
 
@@ -475,6 +471,21 @@ public interface Handler {
    */
   default boolean onOverrideNullMarkedClasses(String className) {
     return false;
+  }
+
+  /**
+   * Updates whether a method should be treated as {@code @NullMarked}.
+   *
+   * <p>This hook supports method-level exceptions to null-markedness inherited from an enclosing
+   * class, including exceptions represented by library models.
+   *
+   * @param methodSymbol symbol for the method
+   * @param currentNullMarkedness null-markedness computed by the core and upstream handlers
+   * @return the possibly updated null-markedness
+   */
+  default boolean onOverrideMethodNullMarkedness(
+      Symbol.MethodSymbol methodSymbol, boolean currentNullMarkedness) {
+    return currentNullMarkedness;
   }
 
   /**

@@ -37,6 +37,28 @@ public class RequireExplicitNullMarkingTest {
         .doTest();
   }
 
+  /**
+   * Error Prone prefixes every diagnostic with the check name, so the {@code @BugPattern} summary
+   * must not repeat it.
+   */
+  @Test
+  public void checkNameAppearsOnceInDiagnostic() {
+    compilationHelper
+        .expectErrorMessage(
+            "SINGLE_CHECK_NAME",
+            message ->
+                message.startsWith("[RequireExplicitNullMarking] Top-level classes must either be"))
+        .addSourceLines(
+            "test/MissingAnnotation.java",
+            """
+            package test;
+            // BUG: Diagnostic matches: SINGLE_CHECK_NAME
+            class MissingAnnotation {
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void defaultURL() {
     compilationHelper

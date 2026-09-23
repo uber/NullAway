@@ -12,6 +12,12 @@ import javax.lang.model.element.Element;
 public interface ConstraintSolver {
 
   /**
+   * Registers a type variable whose nullability is being inferred by this solver. Must be called
+   * before adding constraints involving that parameter; unregistered parameters are fixed types.
+   */
+  void registerInferenceVariable(Element typeVariable);
+
+  /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
    *
    * <p>This is an unchecked exception since in our current solver implementation it needs to be
@@ -22,12 +28,25 @@ public interface ConstraintSolver {
     /** Type variable on which the contradiction was detected */
     private final Element typeVariable;
 
+    /** Whether a {@code @Nullable} constraint conflicts with the type variable's upper bound. */
+    private final boolean causedByNonNullUpperBound;
+
     public UnsatisfiableConstraintsException(Element typeVariable) {
+      this(typeVariable, false);
+    }
+
+    public UnsatisfiableConstraintsException(
+        Element typeVariable, boolean causedByNonNullUpperBound) {
       this.typeVariable = typeVariable;
+      this.causedByNonNullUpperBound = causedByNonNullUpperBound;
     }
 
     public Element getTypeVariable() {
       return typeVariable;
+    }
+
+    public boolean isCausedByNonNullUpperBound() {
+      return causedByNonNullUpperBound;
     }
   }
 

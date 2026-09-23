@@ -1,5 +1,7 @@
 package com.uber.nullaway.jspecify;
 
+import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
+
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
@@ -1418,6 +1420,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines("Util.java", UTIL_SOURCE)
         .addSourceLines(
             "package-info.java",
             """
@@ -1464,6 +1467,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines("Util.java", UTIL_SOURCE)
         .addSourceLines(
             "package-info.java",
             """
@@ -1506,6 +1510,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines("Util.java", UTIL_SOURCE)
         .addSourceLines(
             "ThirdPartyUtils.java",
             """
@@ -1543,6 +1548,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines("Util.java", UTIL_SOURCE)
         .addSourceLines(
             "ThirdPartyUtils.java",
             """
@@ -1579,6 +1585,7 @@ public class NullMarkednessTests extends NullAwayTestsBase {
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.testdata.Util.castToNonNull"))
+        .addSourceLines("Util.java", UTIL_SOURCE)
         .addSourceLines(
             "ThirdPartyUtils.java",
             """
