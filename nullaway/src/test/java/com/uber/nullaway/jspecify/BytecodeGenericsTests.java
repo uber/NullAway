@@ -1,12 +1,120 @@
 package com.uber.nullaway.jspecify;
 
+import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
+import static com.google.errorprone.matchers.Description.NO_MATCH;
+
+import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.matchers.Description;
+import com.google.errorprone.scanner.ScannerSupplier;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.MethodTree;
+import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.List;
 import org.junit.Test;
 
 public class BytecodeGenericsTests extends NullAwayTestsBase {
+
+  @Test
+  public void issue1851SelfReferentialWildcardBound() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+
+            import com.example.jspecify.unannotatedpackage.Self;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static int pass(Self<?> value) {
+                return Self.consume(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundedWildcardWithNonNullFormalBoundAfterTypeInspection() {
+    makeTypeInspectionHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.generics.SeparatelyCompiledQueue;
+            class Test {
+              static long producerIndex(SeparatelyCompiledQueue<?> queue) {
+                return SeparatelyCompiledQueue.producerIndex(queue);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void capturedUnboundedWildcardAfterBackingWildcardTypeInspection() {
+    makeTypeInspectionHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.generics.SeparatelyCompiledQueue;
+            class Test {
+              static <T> T identity(T value) {
+                return value;
+              }
+              static long producerIndex(SeparatelyCompiledQueue<?> queue) {
+                // identity() returns an already captured form of queue's wildcard.
+                return SeparatelyCompiledQueue.producerIndex(identity(queue));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Returns a test helper that runs the wildcard-bound-mutating type inspection before NullAway.
+   */
+  private CompilationTestHelper makeTypeInspectionHelper() {
+    return CompilationTestHelper.newInstance(
+            ScannerSupplier.fromBugCheckerClasses(TypeInspectionChecker.class, NullAway.class),
+            getClass())
+        .setArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
+  }
+
+  /**
+   * Performs the type inspection that exposes javac's mutable wildcard bound to NullAway.
+   *
+   * <p>This is the relevant behavior reduced from Error Prone's {@code PreferTestParameter}
+   * checker. Calling {@link com.sun.tools.javac.code.Types#unboxedTypeOrType(Type)} searches the
+   * parameter type's supertypes and can recontextualize a shared wildcard's {@code bound} field.
+   */
+  @BugPattern(summary = "Inspects single-parameter method types", severity = SUGGESTION)
+  public static final class TypeInspectionChecker extends BugChecker
+      implements BugChecker.MethodTreeMatcher {
+
+    @Override
+    public Description matchMethod(MethodTree tree, VisitorState state) {
+      if (tree.getParameters().size() == 1) {
+        Type parameterType = ASTHelpers.getType(tree.getParameters().get(0));
+        if (parameterType != null) {
+          state.getTypes().unboxedTypeOrType(parameterType);
+        }
+      }
+      return NO_MATCH;
+    }
+  }
 
   @Test
   public void basicTypeParamInstantiation() {
