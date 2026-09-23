@@ -497,6 +497,38 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void multiDimensionalArraySubtypingWithNewExpression() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void test() {
+                // legal; the nullability of the element type must be preserved across every
+                // dimension of the creation expression
+                @Nullable Integer[][] x1 = new @Nullable Integer[3][4];
+                @Nullable Integer[][][] x2 = new @Nullable Integer[1][2][3];
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                Integer[][] x3 = new @Nullable Integer[3][4];
+                // an array creation with an initializer has no explicit dimension expressions, but
+                // still creates a single-dimension array
+                @Nullable Integer[] x4 = new @Nullable Integer[]{null};
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []
+                Integer[] x5 = new @Nullable Integer[]{null};
+                // the reverse direction is legal by covariant array subtyping
+                @Nullable Integer[] y1 = new Integer[3];
+                // TODO: this is a false positive; see #1150
+                // BUG: Diagnostic contains: incompatible types: Integer [] [] cannot be converted to @Nullable Integer [] []
+                @Nullable Integer[][] y2 = new Integer[3][4];
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void arraysAndGenerics() {
     makeHelper()
         .addSourceLines(
