@@ -2116,7 +2116,7 @@ public final class GenericsChecks {
 
   /**
    * Like {@link #identicalTypeParameterNullability(Type, Type, CheckIdenticalNullabilityVisitor)},
-   * but allows for covariant array subtyping at the top level.
+   * but allows for covariant array subtyping at every dimension of an array type.
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
@@ -2157,6 +2157,13 @@ public final class GenericsChecks {
       // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
       if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
         return false;
+      }
+      if (lhsComponentType.getKind().equals(TypeKind.ARRAY)
+          && rhsComponentType.getKind().equals(TypeKind.ARRAY)) {
+        // covariance applies at every dimension of a multi-dimensional array, not just the
+        // outermost one.  The ARRAY check keeps array types nested inside generic type arguments
+        // on the invariant path below, since generics are not covariant.
+        return subtypeParameterNullability(lhsComponentType, rhsComponentType, state, visitor);
       }
       return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, visitor);
     } else {
