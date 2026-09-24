@@ -124,6 +124,8 @@ publishing {
             }
         }
         project.tasks.named('publishShadowPublicationToMavenCentralRepository').configure {
+            dependsOn 'sourcesJar'
+            dependsOn 'plainJavadocJar'
             if (project.tasks.findByName('signMavenPublication')) {
                 dependsOn 'signMavenPublication'
             }
