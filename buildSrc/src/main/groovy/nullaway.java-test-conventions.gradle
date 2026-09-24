@@ -39,21 +39,96 @@ jacoco {
     toolVersion = "0.8.16-SNAPSHOT"
 }
 
-// Instrument test processes only when coverage is explicitly requested.  JaCoCo adds measurable
-// overhead to compilation-heavy tests, so ordinary local and CI test runs should not pay that cost.
-def enableJacoco = providers.gradleProperty("enableJacoco")
-        .map { it.toBoolean() }
-        .orElse(false)
+// -PenableJacoco decides instrumentation for every Test task.  Left unset, only the `test` task is
+// instrumented: it costs about 20% of that task's wall time, which buys the per-module XML report
+// the diffCoverage task reads.  The testJdk* tasks re-run the same suite under other JDKs,
+// so instrumenting them locally would multiply that cost over lines the `test` task already
+// reaches.  CI sets the property explicitly in both directions, and the aggregate report still
+// collects the JDK-specific execution data through coverageDataElementsForTest below.
+def enableJacoco = providers.gradleProperty("enableJacoco").map { it.toBoolean() }
 
-tasks.withType(Test).configureEach {
-    extensions.configure(JacocoTaskExtension) { jacocoExtension ->
-        jacocoExtension.enabled = enableJacoco.get()
+// -PdiffCoverageEnabled=false takes back everything the default turns on: the report, the XML it
+// reads, and the instrumentation that exists only to produce them, so that one flag buys back the
+// 20% for a run that is not about coverage.  -PenableJacoco still decides instrumentation wherever
+// it is set, since the aggregate report needs the execution data whether or not diffCoverage runs.
+def diffCoverageEnabled = providers.gradleProperty("diffCoverageEnabled")
+        .map { it.isEmpty() || Boolean.parseBoolean(it) }
+        .orElse(true)
+
+tasks.withType(Test).configureEach { testTask ->
+    def instrumented = enableJacoco
+            .orElse(diffCoverageEnabled.get() && testTask.name == "test")
+            .get()
+    testTask.extensions.configure(JacocoTaskExtension) { jacocoExtension ->
+        jacocoExtension.enabled = instrumented
     }
 }
 
-// Do not generate reports for individual projects
+// The aggregate report in :code-coverage-report covers the whole build.  This per-module XML covers
+// the `test` task alone, which is what a single-module run produces and all diffCoverage needs.
 tasks.named("jacocoTestReport") {
-    enabled = false
+    enabled = enableJacoco.orElse(diffCoverageEnabled).get()
+    reports {
+        xml.required = true
+        html.required = false
+    }
+}
+
+// Running the report as part of the test run keeps the XML in step with the execution data, so
+// diffCoverage cannot read line numbers left over from an earlier run.
+tasks.named("test") {
+    finalizedBy(tasks.named("jacocoTestReport"))
+}
+
+// Every module asks git the same questions about the same repository, so one service answers them
+// once for the whole build.  The name is what the task's @ServiceReference binds to.
+gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask.GIT_SERVICE, com.uber.nullaway.gradle.GitService) {
+    parameters.repositoryRoot = rootProject.layout.projectDirectory
+}
+
+def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffCoverageTask) {
+    description = "Reports which of the lines this branch changed the last test run executed"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    reportFiles.from(tasks.named("jacocoTestReport").map { it.reports.xml.outputLocation })
+    sourceRoots.set(providers.provider {
+        sourceSets.main.java.srcDirs.collect { rootDir.toPath().relativize(it.toPath()).toString() }
+    })
+    // A filtered run leaves the rest of the change looking unexecuted, so the scope is printed
+    // beside the counts rather than left for the reader to remember.
+    def testFilterPatterns = providers.provider {
+        def testTask = tasks.getByName("test")
+        def patterns = testTask.filter.includePatterns as List
+        if (testTask.filter.metaClass.respondsTo(testTask.filter, "getCommandLineIncludePatterns")) {
+            patterns += testTask.filter.commandLineIncludePatterns as List
+        }
+        patterns
+    }
+    scopeDescription = testFilterPatterns.map { patterns ->
+        patterns.isEmpty() ? "${project.path}:test" : "${project.path}:test --tests ${patterns.join(' --tests ')}"
+    }
+    filtered = testFilterPatterns.map { !it.isEmpty() }
+    // The console block is a summary of the work left; the file below holds the report whole.
+    maxFiles = providers.gradleProperty("diffCoverageMaxFiles").map { Integer.parseInt(it) }.orElse(10)
+    maxLinesPerFile = providers.gradleProperty("diffCoverageMaxLinesPerFile").map { Integer.parseInt(it) }.orElse(10)
+    maxLinesTotal = providers.gradleProperty("diffCoverageMaxLines").map { Integer.parseInt(it) }.orElse(50)
+    // -PdiffCoverageShowAll with no value reads as true, since nobody passing it means false.
+    showAll = providers.gradleProperty("diffCoverageShowAll")
+            .map { it.isEmpty() || Boolean.parseBoolean(it) }
+            .orElse(false)
+    outputFile = layout.buildDirectory.file("reports/diff-coverage/test.txt")
+    if (project.hasProperty("diffCoverageBase")) {
+        baseRef = project.property("diffCoverageBase").toString()
+    }
+}
+
+// The automatic report is a local affordance, so it is wired only where nobody asked for a
+// particular JaCoCo setting.  Every CI job that reaches jacocoTestReport sets enableJacoco, and a
+// CI checkout fetches the pull request ref alone, so there the task would find no base ref and say
+// so once per module on every build.  `./gradlew :<module>:diffCoverage` still runs it on demand.
+if (!enableJacoco.isPresent() && diffCoverageEnabled.get()) {
+    tasks.named("jacocoTestReport") {
+        finalizedBy(diffCoverage)
+    }
 }
 
 configurations {

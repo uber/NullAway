@@ -17,3 +17,34 @@
 plugins {
     id 'groovy-gradle-plugin'
 }
+
+repositories {
+    mavenCentral()
+}
+
+dependencies {
+    testImplementation gradleApi()
+    testImplementation platform("org.junit:junit-bom:5.14.0")
+    testImplementation "org.junit.jupiter:junit-jupiter"
+    testRuntimeOnly "org.junit.platform:junit-platform-launcher"
+}
+
+// Gradle builds buildSrc as an included build and asks it only for its plugins, so these tests run
+// when something asks for them: `./gradlew -p buildSrc test`, which is what CI runs.
+tasks.named("test") {
+    useJUnitPlatform()
+    // Random method order reports an order dependence rather than hiding it behind whatever order
+    // the compiler happened to emit; the seed is logged at CONFIG level and replays with
+    // -Djunit.jupiter.execution.order.random.seed=<seed>.
+    systemProperty "junit.jupiter.testmethod.order.default",
+            "org.junit.jupiter.api.MethodOrderer\$Random"
+    testLogging {
+        exceptionFormat = "full"
+    }
+}
+
+// Parameterized cases print each argument with its parameter name only where the names survive
+// compilation.
+tasks.withType(JavaCompile).configureEach {
+    options.compilerArgs << "-parameters"
+}

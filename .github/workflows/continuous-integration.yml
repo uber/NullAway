@@ -101,6 +101,26 @@ jobs:
       - name: Run suppression remover regression tests
         working-directory: scripts/nullaway-suppression-remover
         run: python -m pytest
+  build-logic-tests:
+    name: "Build logic tests"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        with:
+          persist-credentials: false
+      - name: 'Set up JDKs'
+        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        with:
+          java-version: '25'
+          distribution: 'temurin'
+          check-latest: 'true'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      # Gradle builds buildSrc as an included build and asks it only for its plugins, so its own
+      # tests run only when something asks for them.
+      - name: Run buildSrc tests
+        run: ./gradlew -p buildSrc test
   test-with-error-prone-snapshot:
     name: "Test with Error Prone snapshot"
     runs-on: ubuntu-latest

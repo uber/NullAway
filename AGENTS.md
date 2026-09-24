@@ -14,6 +14,17 @@ Do _not_ try to run multiple Gradle build commands in parallel; it is not suppor
 Generally, whenever you run a test suite, it's best to also check that `./gradlew :nullaway:buildWithNullAway`
 also passes; that runs NullAway checking on itself.  You don't need to run this after every targeted test run.
 
+# Code coverage
+
+`./gradlew :nullaway:test` reports diff coverage for changed executable lines and branches; filtered test runs only
+reflect the tests actually executed, so run the module's full suite before treating uncovered code as a missing test.
+
+By default the diff is measured against the configured upstream/base; for stacked PRs, set `-PdiffCoverageBase=<ref>`
+to the parent PR or commit so only the current layer is measured.
+
+If an uncovered line is intentionally unreachable or not worth testing, acknowledge the reviewed exception with
+`// diff-coverage: ignore -- <reason>`; it remains counted as uncovered but is removed from the actionable list.
+
 # Changelog
 
 Our `CHANGELOG.md` file should be formatted as follows:
