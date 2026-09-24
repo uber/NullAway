@@ -160,3 +160,29 @@ jobs:
           cp .github/workflows/use-snapshot.gradle.kts /tmp/${{ matrix.project }}
           cd /tmp/${{ matrix.project }}
           ./gradlew --init-script use-snapshot.gradle.kts assemble
+  publish-snapshot:
+    name: Publish snapshot to Maven Central
+    needs:
+      - build
+    if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository == 'uber/NullAway'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: 25
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Verify snapshot version
+        run: grep -Eq '^VERSION_NAME=.*-SNAPSHOT$' gradle.properties
+      - name: Publish snapshot
+        env:
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USER_TOKEN_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_USER_TOKEN_PASSWORD }}
+          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
+        run: ./gradlew publishToMavenCentral
