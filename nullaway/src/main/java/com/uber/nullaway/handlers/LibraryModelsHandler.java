@@ -1519,12 +1519,14 @@ public class LibraryModelsHandler implements Handler {
                   entry.getKey(), key -> new ImmutableSetMultimap.Builder<>());
           builder.putAll(entry.getValue());
         }
-        for (Map.Entry<MethodRef, PolyNullLocation> entry :
-            libraryModels.polyNullLocations().entries()) {
-          if (shouldSkipModel(entry.getKey())) {
-            continue;
+        if (config.isJSpecifyJDKModels()) {
+          for (Map.Entry<MethodRef, PolyNullLocation> entry :
+              libraryModels.polyNullLocations().entries()) {
+            if (shouldSkipModel(entry.getKey())) {
+              continue;
+            }
+            polyNullLocationsBuilder.put(entry);
           }
-          polyNullLocationsBuilder.put(entry);
         }
       }
       polyNullLocations = polyNullLocationsBuilder.build();

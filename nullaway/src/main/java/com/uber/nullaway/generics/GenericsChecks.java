@@ -129,8 +129,11 @@ public final class GenericsChecks {
   /** Maps each {@code var}-declared local to its declaration tree */
   private final Map<Symbol, VariableTree> varLocalDeclarations = new LinkedHashMap<>();
 
-  /** Successfully inferred polymorphic nullness values cached by invocation identity. */
-  private final IdentityHashMap<MethodInvocationTree, Nullness> polyNullResolutions =
+  /**
+   * PolyNull results inferred separately from generic call inference, cached by invocation
+   * identity. Results from joint generic inference remain in {@link InferenceSuccess}.
+   */
+  private final IdentityHashMap<MethodInvocationTree, Nullness> separatelyInferredPolyNullness =
       new IdentityHashMap<>();
 
   /**
@@ -1384,10 +1387,6 @@ public final class GenericsChecks {
       // don't cache result if we were called from dataflow, since the result may rely on dataflow
       // facts that do not reflect the fixed point
       if (!calledFromDataflow) {
-        for (Map.Entry<MethodInvocationTree, Nullness> entry :
-            polyNullnessByInvocation.entrySet()) {
-          polyNullResolutions.put(entry.getKey(), entry.getValue());
-        }
         for (Tree inferredCall : allCalls) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
         }
@@ -3138,6 +3137,7 @@ public final class GenericsChecks {
     com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
     Type.MethodType substitutedMethodType;
     Nullness jointlyInferredPolyNullness = null;
+    boolean genericInferenceFailed = false;
 
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty() && invocationTree != null) {
@@ -3186,6 +3186,7 @@ public final class GenericsChecks {
       } else {
         // inference failed; just return the method type at the call site with no substitutions
         substitutedMethodType = methodTypeAtCallSite;
+        genericInferenceFailed = true;
       }
     } else {
       substitutedMethodType =
@@ -3195,7 +3196,7 @@ public final class GenericsChecks {
     }
     Type.MethodType modeledMethodType =
         handler.onOverrideMethodType(methodSymbol, substitutedMethodType, state, invocationTree);
-    return invocationTree == null
+    return invocationTree == null || genericInferenceFailed
         ? modeledMethodType
         : applyPolyNullModel(
             methodSymbol,
@@ -3466,7 +3467,7 @@ public final class GenericsChecks {
     Nullness polyNullness =
         jointlyInferredPolyNullness != null
             ? jointlyInferredPolyNullness
-            : inferPolyNullness(
+            : inferPolyNullnessSeparately(
                 methodSymbol,
                 invocationTree,
                 substitutedMethodType,
@@ -3482,13 +3483,14 @@ public final class GenericsChecks {
   }
 
   /**
-   * Infers the nullness shared by all PolyNull occurrences using the generic constraint solver.
+   * Infers the nullness shared by all PolyNull occurrences when no jointly inferred value is
+   * available. This includes non-generic calls and generic calls with explicit type arguments.
    *
    * <p>All modeled locations share one synthetic type variable. Ordinary assignment-compatibility
    * constraints therefore select the most specific qualifier that makes every argument and the
    * invocation result compatible with the instantiated method signature.
    */
-  private @Nullable Nullness inferPolyNullness(
+  private @Nullable Nullness inferPolyNullnessSeparately(
       Symbol.MethodSymbol methodSymbol,
       MethodInvocationTree invocationTree,
       Type.MethodType substitutedMethodType,
@@ -3496,7 +3498,7 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
-    Nullness cached = polyNullResolutions.get(invocationTree);
+    Nullness cached = separatelyInferredPolyNullness.get(invocationTree);
     if (cached != null) {
       return cached;
     }
@@ -3528,7 +3530,7 @@ public final class GenericsChecks {
       Map<Element, ConstraintSolver.InferredNullability> solution = solver.solve();
       Nullness resolved = PolyNullInference.resolveContext(inferenceContext, solution);
       if (resolved != null && !calledFromDataflow) {
-        polyNullResolutions.put(invocationTree, resolved);
+        separatelyInferredPolyNullness.put(invocationTree, resolved);
       }
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
@@ -4045,12 +4047,10 @@ public final class GenericsChecks {
     return callingUnannotated;
   }
 
-  /**
-   * Clears the cache of inferred substitutions for generic method calls. This should be invoked
-   * after each CompilationUnit to avoid memory leaks.
-   */
+  /** Clears inference caches after each CompilationUnit to avoid memory leaks. */
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
+    separatelyInferredPolyNullness.clear();
     callsWithReportedInferenceFailures.clear();
     inferredPolyExpressionTypes.clear();
     inferredVarLocalTypes.clear();

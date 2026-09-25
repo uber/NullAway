@@ -17,6 +17,32 @@ import org.junit.Test;
 public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
   @Test
+  public void polyNullModelsRequireJSpecifyJdkModels() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:JSpecifyJDKModels=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              private Object field = new Object();
+
+              void test(@Nullable Object nullable) {
+                field = PolyNullMethods.genericObject(nullable, nullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void optionalOrElseGetWithExplicitSupplierTypeArgument() {
     makeHelper()
         .addSourceLines(
