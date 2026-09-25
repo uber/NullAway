@@ -32,11 +32,13 @@ Releasing
  2. Update the `CHANGELOG.md` for the impending release.
  3. `git commit -am "Prepare for release X.Y.Z."` (where X.Y.Z is the new version)
  4. `git tag -a vX.Y.Z -m "Version X.Y.Z"` (where X.Y.Z is the new version)
- 5. `./gradlew clean publish`
- 6. Update the `gradle.properties` to the next SNAPSHOT version.
- 7. `git commit -am "Prepare next development version."`
- 8. `git push && git push --tags`.  Go to GitHub and double check that the `master` branch has been
-    pushed correctly and the new tag also appears correctly.  Do not proceed to step 9 if there are
-    any issues here.
- 9. Visit [Maven Central Repository](https://central.sonatype.com/publishing/deployments) and publish the artifact.
- 10. Go to [this page](https://github.com/uber/NullAway/releases/new) to create a new release on GitHub, using the release notes from `CHANGELOG.md`.
+ 5. Update the `gradle.properties` to the next SNAPSHOT version.
+ 6. `git commit -am "Prepare next development version."`
+ 7. `git push && git push --tags`. Go to GitHub and check that the `master` branch and the new tag
+    were pushed correctly. A tag of the form `vX.Y.Z` in `uber/NullAway` starts the
+    [release upload workflow](.github/workflows/publish-release.yml), which checks that the tag
+    matches `VERSION_NAME` on the tagged commit and uploads signed artifacts to Maven Central.
+ 8. Wait for the release upload workflow to succeed, then visit
+    [Maven Central Repository](https://central.sonatype.com/publishing/deployments) and publish
+    the deployment.
+ 9. Go to [this page](https://github.com/uber/NullAway/releases/new) to create a new release on GitHub, using the release notes from `CHANGELOG.md`.
