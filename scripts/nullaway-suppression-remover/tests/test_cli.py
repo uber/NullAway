@@ -89,6 +89,24 @@ class TestParseArgs(TestCase):
             with self.subTest(value=value), self.assertRaises(SystemExit):
                 parse_args(["mymodule", "NullAway", "--max-iterations", value])
 
+    def test_source_encoding_defaults_to_utf8(self):
+        args = parse_args(["mymodule", "NullAway"])
+        self.assertEqual(args.source_encoding, "utf-8")
+
+    def test_source_encoding_accepts_python_codec(self):
+        args = parse_args(
+            ["mymodule", "NullAway", "--source-encoding", "iso-8859-1"]
+        )
+        self.assertEqual(args.source_encoding, "iso-8859-1")
+
+    def test_source_encoding_rejects_unknown_codec(self):
+        with self.assertRaises(SystemExit):
+            parse_args(["mymodule", "NullAway", "--source-encoding", "not-a-codec"])
+
+    def test_source_encoding_rejects_non_text_codec(self):
+        with self.assertRaises(SystemExit):
+            parse_args(["mymodule", "NullAway", "--source-encoding", "base64_codec"])
+
     def test_dot_module_for_project_root(self):
         args = parse_args([".", "NullAway"])
         self.assertEqual(args.module, ".")
@@ -147,4 +165,23 @@ class TestMain(TestCase):
                 root,
                 build_cmd=["./gradlew", "build", "--continue"],
                 max_iterations=5,
+                source_encoding="utf-8",
             )
+
+    def test_passes_source_encoding_to_core(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir).resolve()
+            with patch("suppression_remover.cli.core.run") as mock_run:
+                main(
+                    [
+                        ".",
+                        "NullAway",
+                        "--project-root",
+                        str(root),
+                        "--build-cmd",
+                        "true",
+                        "--source-encoding",
+                        "iso-8859-1",
+                    ]
+                )
+            self.assertEqual(mock_run.call_args.kwargs["source_encoding"], "iso-8859-1")

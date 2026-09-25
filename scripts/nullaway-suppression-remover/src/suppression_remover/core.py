@@ -51,6 +51,15 @@ import tree_sitter_java as tsjava
 JAVA_LANGUAGE = ts.Language(tsjava.language())
 
 
+def _java_source_lines(source: str) -> list[str]:
+    """Split Java source at CR, LF, and CRLF without treating U+0085 as a newline."""
+    return [
+        line
+        for line in re.findall(r"[^\r\n]*(?:\r\n|\r|\n|$)", source)
+        if line
+    ]
+
+
 @dataclass
 class Annotation:
     """A @SuppressWarnings annotation found in a Java source file."""
@@ -220,7 +229,7 @@ def _rewrite_multiline_annotation(
 
     def include_newly_trailing_whitespace(data: bytes, start: int, end: int) -> int:
         """Expand an edit to remove whitespace it would newly leave at line end."""
-        if re.match(rb"[ \t]*(?:\r?\n|$)", data[end:]):
+        if re.match(rb"[ \t]*(?:\r\n|\r|\n|$)", data[end:]):
             return len(data[:start].rstrip(b" \t"))
         return start
 
@@ -246,18 +255,28 @@ def _rewrite_multiline_annotation(
     for literal in literals:
         if not literal.text or literal.text.decode()[1:-1] not in suppression_names:
             continue
-        line_start = source.rfind(b"\n", 0, literal.start_byte) + 1
-        newline = source.find(b"\n", literal.end_byte)
-        line_end = len(source) if newline == -1 else newline + 1
+        line_start = (
+            max(
+                source.rfind(b"\r", 0, literal.start_byte),
+                source.rfind(b"\n", 0, literal.start_byte),
+            )
+            + 1
+        )
+        newline = re.search(rb"\r\n|\r|\n", source[literal.end_byte :])
+        line_end = (
+            len(source)
+            if newline is None
+            else literal.end_byte + newline.end()
+        )
         without_literal = (
             source[line_start : literal.start_byte]
             + source[literal.end_byte : line_end]
         )
-        if re.fullmatch(rb"[ \t]*,?[ \t]*(?:\r?\n)?", without_literal):
+        if re.fullmatch(rb"[ \t]*,?[ \t]*(?:\r\n|\r|\n)?", without_literal):
             line_deletions.add((line_start, line_end))
 
     for start, end in sorted(line_deletions, reverse=True):
-        deleted_lines.add(source.count(b"\n", 0, start) + 1)
+        deleted_lines.add(len(re.findall(rb"\r\n|\r|\n", source[:start])) + 1)
         source = source[:start] + source[end:]
 
     # Handle values that share a line. Work one contiguous target run at a time and
@@ -286,7 +305,10 @@ def _rewrite_multiline_annotation(
         if run_end + 1 < len(literals):
             start = literals[run_start].start_byte
             next_literal = literals[run_end + 1]
-            if literals[run_end].end_point[0] == next_literal.start_point[0]:
+            if not re.search(
+                rb"[\r\n]",
+                source[literals[run_end].end_byte : next_literal.start_byte],
+            ):
                 end = next_literal.start_byte
             else:
                 separator = source.rfind(
@@ -299,7 +321,12 @@ def _rewrite_multiline_annotation(
             source = source[:start] + source[end:]
         else:
             previous_literal = literals[run_start - 1]
-            if previous_literal.end_point[0] == literals[run_start].start_point[0]:
+            if not re.search(
+                rb"[\r\n]",
+                source[
+                    previous_literal.end_byte : literals[run_start].start_byte
+                ],
+            ):
                 start = previous_literal.end_byte
                 end = literals[run_end].end_byte
             else:
@@ -318,15 +345,19 @@ def _rewrite_multiline_annotation(
 
 
 def find_annotations(
-    file_path: Path, checker: str, alt_suppressions: list[str] | None = None
+    file_path: Path,
+    checker: str,
+    alt_suppressions: list[str] | None = None,
+    source_encoding: str = "utf-8",
 ) -> list[Annotation]:
     """Return all Annotation objects in *file_path* containing *checker* or any alt."""
     all_suppressions = set([checker] + (alt_suppressions or []))
-    source = file_path.read_bytes()
-    lines = source.decode("utf-8").splitlines(keepends=True)
+    source_text = file_path.read_bytes().decode(source_encoding)
+    lines = _java_source_lines(source_text)
 
     annotations: list[Annotation] = []
-    tree = _get_parser().parse(source)
+    parser_text = source_text.replace("\r\n", "\n").replace("\r", "\n")
+    tree = _get_parser().parse(parser_text.encode("utf-8"))
     for node in find_suppress_warnings_nodes(tree.root_node):
         checkers = annotation_checkers(node)
         if any(c in all_suppressions for c in checkers):
@@ -376,7 +407,7 @@ def build_modified_lines_and_deleted(
             rewritten, deleted_relative_lines = _rewrite_multiline_annotation(
                 "".join(original_annotation_lines), all_suppressions
             )
-            rewritten_lines = rewritten.splitlines(keepends=True)
+            rewritten_lines = _java_source_lines(rewritten)
             removed_line_count = len(original_annotation_lines) - len(rewritten_lines)
             deleted.update(
                 ann.start_line + relative_line - 1
@@ -409,14 +440,15 @@ def apply_removals(
     annotations_to_remove: list[Annotation],
     checker: str,
     alt_suppressions: list[str] | None = None,
+    source_encoding: str = "utf-8",
 ) -> set[int]:
     if not annotations_to_remove:
         return set()
-    original_lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    original_lines = _java_source_lines(file_path.read_bytes().decode(source_encoding))
     new_lines, deleted = build_modified_lines_and_deleted(
         original_lines, annotations_to_remove, checker, alt_suppressions
     )
-    file_path.write_text("".join(new_lines), encoding="utf-8")
+    file_path.write_bytes("".join(new_lines).encode(source_encoding))
     return deleted
 
 
@@ -617,6 +649,7 @@ def run(
     project_root: Path,
     build_cmd: list[str] | None = None,
     max_iterations: int | None = None,
+    source_encoding: str = "utf-8",
 ) -> None:
     """
     Discover, strip, build, and iteratively restore needed @SuppressWarnings
@@ -665,7 +698,7 @@ def run(
             if not unneeded:
                 continue
             removed_count += len(unneeded)
-            apply_removals(path, unneeded, checker, alt_suppressions)
+            apply_removals(path, unneeded, checker, alt_suppressions, source_encoding)
 
         _final_output, final_ok = _do_build("final confirmation")
 
@@ -696,7 +729,7 @@ def run(
     )
     annotations_by_file: dict[Path, list[Annotation]] = {}
     for path in source_files:
-        anns = find_annotations(path, checker, alt_suppressions)
+        anns = find_annotations(path, checker, alt_suppressions, source_encoding)
         if anns:
             annotations_by_file[path] = anns
 
@@ -710,12 +743,15 @@ def run(
     print(f"\nPass 1 — removing all suppression(s) for {checker!r} ...")
     originals: dict[Path, bytes] = {p: p.read_bytes() for p in annotations_by_file}
     original_line_counts: dict[Path, int] = {
-        p: len(p.read_text(encoding="utf-8").splitlines()) for p in annotations_by_file
+        p: len(_java_source_lines(p.read_bytes().decode(source_encoding)))
+        for p in annotations_by_file
     }
     deleted_by_file: dict[Path, set[int]] = {}
 
     for path, anns in annotations_by_file.items():
-        deleted_by_file[path] = apply_removals(path, anns, checker, alt_suppressions)
+        deleted_by_file[path] = apply_removals(
+            path, anns, checker, alt_suppressions, source_encoding
+        )
         print(
             f"  {path.relative_to(project_root)}  ({len(anns)} annotation(s) removed)"
         )
@@ -776,7 +812,7 @@ def run(
                 continue
             removed_count += len(unneeded)
             deleted_iter[path] = apply_removals(
-                path, unneeded, checker, alt_suppressions
+                path, unneeded, checker, alt_suppressions, source_encoding
             )
             kept = len(anns) - len(unneeded)
             print(

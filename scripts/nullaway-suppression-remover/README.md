@@ -128,6 +128,14 @@ normal test or verification command before committing them.
     --max-iterations 10
   ```
 
+`--source-encoding ENCODING`
+: Read and write Java source files using `ENCODING` (default: `utf-8`). Use a
+  Python codec name such as `iso-8859-1` for projects with legacy source files:
+
+  ```bash
+  suppression-remover app NullAway --source-encoding iso-8859-1
+  ```
+
 Use `suppression-remover --help` to display the command-line help.
 
 ## Default Gradle build
