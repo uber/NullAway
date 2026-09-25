@@ -45,6 +45,12 @@ def source_encoding(value: str) -> str:
         codecs.lookup(value)
     except LookupError as error:
         raise argparse.ArgumentTypeError(f"unknown source encoding: {value}") from error
+    try:
+        "".encode(value)
+    except LookupError as error:
+        raise argparse.ArgumentTypeError(
+            f"source encoding is not a text encoding: {value}"
+        ) from error
     return value
 
 

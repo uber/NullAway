@@ -103,6 +103,10 @@ class TestParseArgs(TestCase):
         with self.assertRaises(SystemExit):
             parse_args(["mymodule", "NullAway", "--source-encoding", "not-a-codec"])
 
+    def test_source_encoding_rejects_non_text_codec(self):
+        with self.assertRaises(SystemExit):
+            parse_args(["mymodule", "NullAway", "--source-encoding", "base64_codec"])
+
     def test_dot_module_for_project_root(self):
         args = parse_args([".", "NullAway"])
         self.assertEqual(args.module, ".")

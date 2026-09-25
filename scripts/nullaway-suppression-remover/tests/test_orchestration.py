@@ -142,6 +142,33 @@ class TestOrchestrationAllNeeded(TestCase):
 
 
 class TestOrchestrationMixed(TestCase):
+    def test_legacy_encoding_control_character_and_cr_line_endings(self):
+        content = (
+            "class Foo { /* \x85 */\r"
+            '    @SuppressWarnings("NullAway")\r'
+            "    public void foo() {}\r"
+            "    @SuppressWarnings({\r"
+            '        "NullAway",\r'
+            '        "deprecation"\r'
+            "    })\r"
+            "    public void bar() {}\r"
+            "}\r"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            java_file = root / "Foo.java"
+            java_file.write_bytes(content.encode("iso-8859-1"))
+            get_src, mock_build = _patch_run(
+                root,
+                [java_file],
+                [("Foo.java:2: error: [NullAway] null\n", False), ("", True)],
+            )
+            with get_src, mock_build:
+                run(root, CHECKER, [], root, source_encoding="iso-8859-1")
+
+            expected = content.replace('        "NullAway",\r', "")
+            self.assertEqual(java_file.read_bytes(), expected.encode("iso-8859-1"))
+
     def test_legacy_encoding_preserves_bytes_through_restore_and_rewrite(self):
         content = (
             "class Foo {\r\n"
