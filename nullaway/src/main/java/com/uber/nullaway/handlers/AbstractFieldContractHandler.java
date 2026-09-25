@@ -127,16 +127,12 @@ public abstract class AbstractFieldContractHandler implements Handler {
    * Validates whether the parameter inside annotation conforms to the syntax rules. Parameters must
    * conform to the following rules:
    *
-   * <p>
-   *
    * <ul>
    *   <li>Cannot annotate a method with empty param set.
    *   <li>The receiver of selected fields in annotation can only be the receiver of the method.
    *   <li>All parameters given in the annotation must be one of the fields of the class or its
    *       super classes.
    * </ul>
-   *
-   * <p>
    *
    * @return Returns true, if the annotation conforms to the syntax rules.
    * @param methodAnalysisContext The MethodAnalysisContext object
