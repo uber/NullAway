@@ -1537,7 +1537,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
 
               static Foo<?> getReturnType() {
                 var returnType = Api.convert(Api.wildcard());
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable capture of ?> cannot be converted to Foo<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Box)
+                // BUG: Diagnostic contains: incompatible types: Foo<capture of ?> cannot be converted to Foo<?> (target wildcard upper bound is Object; source wildcard upper bound is @Nullable Object; source wildcard is the type argument for type variable T of Box)
                 return returnType;
               }
             }

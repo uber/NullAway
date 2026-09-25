@@ -12,6 +12,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
+import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BlockTree;
 import com.sun.source.tree.ClassTree;
@@ -816,10 +817,22 @@ public final class GenericsChecks {
           result = symbol.type;
         }
       } else if (tree instanceof AssignmentTree assignmentTree) {
-        // type on the tree itself can be missing nested annotations for arrays; get the type from
-        // the symbol for the assigned location instead, if available
-        Symbol lhsSymbol = ASTHelpers.getSymbol(assignmentTree.getVariable());
-        if (lhsSymbol != null) {
+        // The type on the tree itself can be missing nested annotations, so prefer the declared
+        // type of the assigned location. For an array access, javac capture-converts the component
+        // type; recover the pre-capture component type from the array expression instead.
+        ExpressionTree lhs = assignmentTree.getVariable();
+        Symbol lhsSymbol = ASTHelpers.getSymbol(lhs);
+        if (lhs instanceof ArrayAccessTree arrayAccess) {
+          ExpressionTree arrayExpression = arrayAccess.getExpression();
+          TreePath arrayExpressionPath =
+              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpression);
+          Type arrayType =
+              getTreeType(arrayExpression, state.withPath(arrayExpressionPath), calledFromDataflow);
+          result =
+              arrayType instanceof Type.ArrayType arrayTypeWithComponent
+                  ? arrayTypeWithComponent.getComponentType()
+                  : ASTHelpers.getType(assignmentTree);
+        } else if (lhsSymbol != null) {
           Type inferredVarLocalType = getInferredVarLocalType(lhsSymbol, state, calledFromDataflow);
           result = inferredVarLocalType != null ? inferredVarLocalType : lhsSymbol.type;
         } else {
@@ -842,9 +855,14 @@ public final class GenericsChecks {
                     symbol, invocationTree, state.getPath(), state, calledFromDataflow);
             // restore explicit annotations from the return type
             Type returnType = methodType.getReturnType();
+            // If the return type is a wildcard, restore annotations from its upper bound
+            Type annotationSource =
+                config.handleWildcardGenerics()
+                    ? GenericsUtils.effectiveWildcardUpperBound(returnType, state, config, handler)
+                    : returnType;
             result =
                 TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    returnType, result, config);
+                    annotationSource, result, config);
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
@@ -2098,7 +2116,7 @@ public final class GenericsChecks {
 
   /**
    * Like {@link #identicalTypeParameterNullability(Type, Type, CheckIdenticalNullabilityVisitor)},
-   * but allows for covariant array subtyping at the top level.
+   * but allows for covariant array subtyping at every dimension of an array type.
    *
    * @param lhsType type for the lhs of the assignment
    * @param rhsType type for the rhs of the assignment
@@ -2139,6 +2157,13 @@ public final class GenericsChecks {
       // an array of @Nullable references is _not_ a subtype of an array of @NonNull references
       if (isRHSNullableAnnotated && !isLHSNullableAnnotated) {
         return false;
+      }
+      if (lhsComponentType.getKind().equals(TypeKind.ARRAY)
+          && rhsComponentType.getKind().equals(TypeKind.ARRAY)) {
+        // covariance applies at every dimension of a multi-dimensional array, not just the
+        // outermost one.  The ARRAY check keeps array types nested inside generic type arguments
+        // on the invariant path below, since generics are not covariant.
+        return subtypeParameterNullability(lhsComponentType, rhsComponentType, state, visitor);
       }
       return identicalTypeParameterNullability(lhsComponentType, rhsComponentType, visitor);
     } else {
@@ -3758,6 +3783,13 @@ public final class GenericsChecks {
 
   private static @Nullable Type syntheticNullableAnnotType;
   private static @Nullable Type syntheticNonNullAnnotType;
+
+  /** Returns whether {@code annotationType} is one of NullAway's synthetic nullness annotations. */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity checks
+  static boolean isSyntheticNullnessAnnotation(Type annotationType) {
+    return annotationType == syntheticNullableAnnotType
+        || annotationType == syntheticNonNullAnnotType;
+  }
 
   /**
    * Returns a "fake" {@link Type} object representing a synthetic {@code @Nullable} annotation.

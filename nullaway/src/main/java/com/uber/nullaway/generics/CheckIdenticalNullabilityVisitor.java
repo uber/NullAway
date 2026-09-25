@@ -15,6 +15,7 @@ import java.util.List;
 import java.util.Set;
 import javax.lang.model.type.NullType;
 import javax.lang.model.type.TypeKind;
+import org.jspecify.annotations.Nullable;
 
 /**
  * Visitor that checks for identical nullability annotations at all nesting levels within two types.
@@ -27,9 +28,18 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   private final Config config;
   private final Handler handler;
 
-  /** Wildcard argument pairs currently being checked for containment. */
-  private final IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons =
-      new IdentityHashMap<>();
+  /**
+   * Wildcard argument pairs currently being checked for containment. Allocated lazily, as the map
+   * is only needed for types involving wildcards.
+   */
+  private @Nullable IdentityHashMap<Type.WildcardType, Set<Type>> activeWildcardComparisons;
+
+  private IdentityHashMap<Type.WildcardType, Set<Type>> getActiveWildcardComparisons() {
+    if (activeWildcardComparisons == null) {
+      activeWildcardComparisons = new IdentityHashMap<>();
+    }
+    return activeWildcardComparisons;
+  }
 
   CheckIdenticalNullabilityVisitor(
       VisitorState state, GenericsChecks genericsChecks, Config config, Handler handler) {
@@ -42,9 +52,9 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   /**
    * Checks whether the nested nullability of an RHS type is compatible with an LHS class type.
    *
-   * <p>The RHS is aligned with the LHS's base type before comparing type arguments. When {@link
-   * Config#handleWildcardGenerics()} is enabled, a direct or captured RHS wildcard is first
-   * replaced with its effective upper bound.
+   * <p>The RHS is aligned with the LHS's base type before comparing type arguments. When wildcard
+   * handling is enabled and the RHS itself is a wildcard or capture, the comparison continues with
+   * its upper bound.
    *
    * @param lhsType class type on the left side of the comparison
    * @param rhsType type on the right side of the comparison
@@ -89,19 +99,28 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
     List<Type> lhsTypeArguments = lhsType.getTypeArguments();
     List<Type> rhsTypeArguments = rhsTypeAsSuper.getTypeArguments();
-    List<Type> correspondingTypeVariables = lhsType.tsym.type.getTypeArguments();
     // This is impossible, considering the fact that standard Java subtyping succeeds before
     // running NullAway
-    if (lhsTypeArguments.size() != rhsTypeArguments.size()
-        || lhsTypeArguments.size() != correspondingTypeVariables.size()) {
+    if (lhsTypeArguments.size() != rhsTypeArguments.size()) {
       throw new RuntimeException(
           "Number of types arguments in " + rhsTypeAsSuper + " does not match " + lhsType);
     }
+    List<Type> lhsUpperBounds = lhsTypeArguments;
+    List<Type> rhsUpperBounds = rhsTypeArguments;
+    if (config.handleWildcardGenerics()) {
+      lhsUpperBounds =
+          GenericsUtils.effectiveUpperBoundsForTypeArguments(lhsType, state, config, handler);
+      rhsUpperBounds =
+          GenericsUtils.effectiveUpperBoundsForTypeArguments(
+              (Type.ClassType) rhsTypeAsSuper, state, config, handler);
+    }
     for (int i = 0; i < lhsTypeArguments.size(); i++) {
       Type lhsTypeArgument = lhsTypeArguments.get(i);
+      Type lhsUpperBound = lhsUpperBounds.get(i);
       Type rhsTypeArgument = rhsTypeArguments.get(i);
-      Type.TypeVar correspondingTypeVariable = (Type.TypeVar) correspondingTypeVariables.get(i);
-      if (!typeArgumentContainedBy(lhsTypeArgument, rhsTypeArgument, correspondingTypeVariable)) {
+      Type rhsUpperBound = rhsUpperBounds.get(i);
+      if (!typeArgumentContainedBy(
+          lhsTypeArgument, rhsTypeArgument, lhsUpperBound, rhsUpperBound)) {
         return false;
       }
     }
@@ -148,14 +167,14 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
    *
    * @param lhsTypeArgument the formal type argument on the left
    * @param rhsTypeArgument the actual type argument on the right whose containment is checked
-   * @param correspondingTypeVariable the formal type variable for this type-argument position, used
-   *     in wildcard containment checks so they can compute effective wildcard bounds when javac has
-   *     not stored the corresponding formal type variable on the wildcard itself (see <a
-   *     href="https://github.com/uber/NullAway/issues/1732">#1732</a>)
+   * @param lhsUpperBound the upper bound of {@code lhsTypeArgument} ({@code lhsTypeArgument} itself
+   *     if not a wildcard)
+   * @param rhsUpperBound the upper bound of {@code rhsTypeArgument} ({@code rhsTypeArgument} itself
+   *     if not a wildcard)
    * @return whether {@code rhsTypeArgument} is contained by {@code lhsTypeArgument}
    */
   private boolean typeArgumentContainedBy(
-      Type lhsTypeArgument, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
+      Type lhsTypeArgument, Type rhsTypeArgument, Type lhsUpperBound, Type rhsUpperBound) {
     if (!config.handleWildcardGenerics()) {
       if (lhsTypeArgument.getKind().equals(TypeKind.WILDCARD)
           || rhsTypeArgument.getKind().equals(TypeKind.WILDCARD)) {
@@ -171,7 +190,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
           lhsTypeArgument instanceof Type.WildcardType wildcardType ? wildcardType : null;
       Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
       if (lhsWildcard != null) {
-        return wildcardContains(lhsWildcard, rhsTypeArgument, correspondingTypeVariable);
+        return wildcardContains(lhsWildcard, lhsUpperBound, rhsTypeArgument, rhsUpperBound);
       }
       if (rhsWildcard != null) {
         // This case should only arise when generic method invocation inference / capture conversion
@@ -202,25 +221,25 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
   /**
    * Handles JLS 4.5.1 type-argument containment for wildcard formal type arguments, using
    * NullAway's nullability-aware subtype relation in place of plain Java subtyping. A formal {@code
-   * ? extends S} contains actual arguments whose effective upper bound is a subtype of {@code S}; a
-   * formal {@code ? super S} contains concrete actuals {@code T} and wildcard actuals {@code ?
-   * super T} when {@code S <: T}; and a formal {@code ?} is treated as {@code ? extends B}, where
-   * {@code B} is the corresponding type variable's upper bound.
+   * ? extends S} contains actual arguments whose upper bound is a subtype of {@code S}; a formal
+   * {@code ? super S} contains concrete actuals {@code T} and wildcard actuals {@code ? super T}
+   * when {@code S <: T}; and a formal {@code ?} is treated as {@code ? extends B}, where {@code B}
+   * is the corresponding type variable's upper bound.
    *
    * @param lhsWildcard the formal wildcard type argument on the left
+   * @param lhsUpperBound the upper bound of {@code lhsWildcard}
    * @param rhsTypeArgument the actual type argument on the right whose containment is checked
-   * @param correspondingTypeVariable the formal type variable for this type-argument position, used
-   *     to compute effective wildcard bounds when javac has not stored the corresponding formal
-   *     type variable on the wildcard itself (see <a
-   *     href="https://github.com/uber/NullAway/issues/1732">#1732</a>)
+   * @param rhsUpperBound the upper bound of {@code rhsTypeArgument}
    * @return whether {@code lhsWildcard} contains {@code rhsTypeArgument}
    */
   private boolean wildcardContains(
-      Type.WildcardType lhsWildcard, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
-    Set<Type> activeRhsArguments = activeWildcardComparisons.get(lhsWildcard);
+      Type.WildcardType lhsWildcard, Type lhsUpperBound, Type rhsTypeArgument, Type rhsUpperBound) {
+    IdentityHashMap<Type.WildcardType, Set<Type>> activeComparisons =
+        getActiveWildcardComparisons();
+    Set<Type> activeRhsArguments = activeComparisons.get(lhsWildcard);
     if (activeRhsArguments == null) {
       activeRhsArguments = Collections.newSetFromMap(new IdentityHashMap<>());
-      activeWildcardComparisons.put(lhsWildcard, activeRhsArguments);
+      activeComparisons.put(lhsWildcard, activeRhsArguments);
     } else if (activeRhsArguments.contains(rhsTypeArgument)) {
       // Recursive bounds can lead back to the exact same containment question. Re-entering that
       // pair cannot reveal a mismatch that was not already handled on the first visit.
@@ -229,46 +248,15 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     activeRhsArguments.add(rhsTypeArgument);
     try {
       return switch (lhsWildcard.kind) {
-        case UNBOUND, EXTENDS ->
-            extendsBoundContains(
-                GenericsUtils.wildcardUpperBound(
-                    lhsWildcard, correspondingTypeVariable, state, config, handler),
-                rhsTypeArgument,
-                correspondingTypeVariable);
+        case UNBOUND, EXTENDS -> typeArgumentSubtype(lhsUpperBound, rhsUpperBound);
         case SUPER -> superWildcardContains(lhsWildcard, rhsTypeArgument);
       };
     } finally {
       activeRhsArguments.remove(rhsTypeArgument);
       if (activeRhsArguments.isEmpty()) {
-        activeWildcardComparisons.remove(lhsWildcard);
+        activeComparisons.remove(lhsWildcard);
       }
     }
-  }
-
-  /**
-   * Returns whether a formal {@code ? extends S} contains the actual type argument on the right.
-   * For concrete actuals {@code T}, wildcard actuals {@code ? extends T}, and non-extends wildcard
-   * actuals whose effective upper bound is {@code T}, containment holds when {@code T <: S}.
-   *
-   * @param lhsBound the effective upper bound {@code S} of the formal wildcard on the left
-   * @param rhsTypeArgument the actual type argument on the right whose containment is checked
-   * @param correspondingTypeVariable the formal type variable for this type-argument position, used
-   *     to compute the effective upper bound of a wildcard actual when javac has not stored the
-   *     corresponding formal type variable on the wildcard itself (see <a
-   *     href="https://github.com/uber/NullAway/issues/1732">#1732</a>)
-   * @return whether a formal wildcard whose effective upper bound is {@code lhsBound} contains
-   *     {@code rhsTypeArgument}
-   */
-  private boolean extendsBoundContains(
-      Type lhsBound, Type rhsTypeArgument, Type.TypeVar correspondingTypeVariable) {
-    Type.WildcardType rhsWildcard = GenericsUtils.asWildcard(rhsTypeArgument);
-    if (rhsWildcard != null) {
-      Type rhsUpperBound =
-          GenericsUtils.wildcardUpperBound(
-              rhsWildcard, correspondingTypeVariable, state, config, handler);
-      return typeArgumentSubtype(lhsBound, rhsUpperBound);
-    }
-    return typeArgumentSubtype(lhsBound, rhsTypeArgument);
   }
 
   /**

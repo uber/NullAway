@@ -497,6 +497,77 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void multiDimensionalArraySubtypingWithNewExpression() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void test() {
+                // legal; the nullability of the element type must be preserved across every
+                // dimension of the creation expression
+                @Nullable Integer[][] x1 = new @Nullable Integer[3][4];
+                @Nullable Integer[][][] x2 = new @Nullable Integer[1][2][3];
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                Integer[][] x3 = new @Nullable Integer[3][4];
+                // an array creation with an initializer has no explicit dimension expressions, but
+                // still creates a single-dimension array
+                @Nullable Integer[] x4 = new @Nullable Integer[]{null};
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []
+                Integer[] x5 = new @Nullable Integer[]{null};
+                // the reverse direction is legal by covariant array subtyping
+                @Nullable Integer[] y1 = new Integer[3];
+                @Nullable Integer[][] y2 = new Integer[3][4];
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void multiDimensionalArrayCovariance() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void test(
+                  Integer[][] nonnull2D,
+                  Integer[][][] nonnull3D,
+                  @Nullable Integer[][] nullableElems2D,
+                  @Nullable Integer[][][] nullableElems3D,
+                  Integer[] @Nullable [] nullableInner) {
+                // legal; covariance applies at every dimension, not just the outermost one
+                @Nullable Integer[][] x1 = nonnull2D;
+                @Nullable Integer[][][] x2 = nonnull3D;
+                // legal; the nullable dimension here is the inner array level
+                Integer[] @Nullable [] x3 = nonnull2D;
+                // legal; covariance at two levels at once, on the inner arrays and on the
+                // innermost elements
+                @Nullable Integer[] @Nullable [] x4 = new Integer[3][4];
+                // an error, and one that went unreported before #1711: a rank mismatch between
+                // the declared type and the type computed for the creation expression made
+                // CheckIdenticalNullabilityVisitor#visitArrayType bail out, so the innermost
+                // element types were never compared
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer @Nullable [] []
+                Integer[] @Nullable [] y4 = new @Nullable Integer[3][4];
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                Integer[][] y1 = nullableElems2D;
+                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] [] cannot be converted to Integer [] [] []
+                Integer[][][] y2 = nullableElems3D;
+                // BUG: Diagnostic contains: incompatible types: Integer @Nullable [] [] cannot be converted to Integer [] []
+                Integer[][] y3 = nullableInner;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void arraysAndGenerics() {
     makeHelper()
         .addSourceLines(
@@ -1086,6 +1157,46 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               void bothDimensionsNullableWithoutRequireNonNull() {
                 char @Nullable [] @Nullable [] c = new char @Nullable [] @Nullable []{};
                 c[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableTypeArgumentStoredInWildcardArraySlot() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void concreteArrayStore(CompletableFuture<String> value) {
+                var futures = new CompletableFuture<?>[1];
+                futures[0] = value;
+              }
+
+              static void nullableLocalStore() {
+                CompletableFuture<?> future = CompletableFuture.runAsync(() -> {});
+              }
+
+              static void nullableArrayStore() {
+                var futures = new CompletableFuture<?>[1];
+                futures[0] = CompletableFuture.runAsync(() -> {});
+              }
+
+              static void nullableExplicitArrayStore() {
+                CompletableFuture<?>[] futures = new CompletableFuture<?>[1];
+                futures[0] = CompletableFuture.runAsync(() -> {});
+              }
+
+              static void nullableTypeArgumentRejectedFromNonNullBoundedWildcardArray(
+                  CompletableFuture<? extends String>[] futures,
+                  CompletableFuture<@Nullable String> value) {
+                // BUG: Diagnostic contains: incompatible types: CompletableFuture<@Nullable String> cannot be converted to CompletableFuture<? extends String>
+                futures[0] = value;
               }
             }
             """)

@@ -1,0 +1,59 @@
+name: Publish release to Maven Central
+
+on:
+  push:
+    tags:
+      - 'v[0-9]+.[0-9]+.[0-9]+'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: maven-central-release
+  cancel-in-progress: false
+
+jobs:
+  publish-release:
+    if: github.repository == 'uber/NullAway'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Verify release tag and version
+        env:
+          RELEASE_TAG: ${{ github.ref_name }}
+        run: |
+          if [[ ! "$RELEASE_TAG" =~ ^v([0-9]+)\.([0-9]+)\.([0-9]+)$ ]]; then
+            echo "Release tag must have the form vX.Y.Z: $RELEASE_TAG" >&2
+            exit 1
+          fi
+          release_version="${BASH_REMATCH[1]}.${BASH_REMATCH[2]}.${BASH_REMATCH[3]}"
+          configured_version="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"
+          if [[ "$configured_version" != "$release_version" ]]; then
+            echo "VERSION_NAME ($configured_version) must match the release tag ($RELEASE_TAG)" >&2
+            exit 1
+          fi
+      - name: Set up JDKs
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: |
+            27
+            25
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          cache-disabled: true
+      - name: List toolchains
+        run: ./gradlew javaToolchains
+      - name: Upload signed release
+        env:
+          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'true'
+          ORG_GRADLE_PROJECT_mavenCentralUsername: ${{ secrets.MAVEN_CENTRAL_USER_TOKEN_USERNAME }}
+          ORG_GRADLE_PROJECT_mavenCentralPassword: ${{ secrets.MAVEN_CENTRAL_USER_TOKEN_PASSWORD }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyId: ${{ secrets.PGP_PRIVATE_KEY_ID }}
+          ORG_GRADLE_PROJECT_signingInMemoryKey: ${{ secrets.PGP_SIGNING_KEY_PRIVATE_KEY }}
+          ORG_GRADLE_PROJECT_signingInMemoryKeyPassword: ${{ secrets.PGP_SIGNING_KEY_PASSWORD }}
+        run: ./gradlew publishToMavenCentral
