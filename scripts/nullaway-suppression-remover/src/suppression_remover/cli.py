@@ -21,6 +21,7 @@
 """Command-line interface for the suppression remover."""
 
 import argparse
+import codecs
 import sys
 from pathlib import Path
 
@@ -36,6 +37,15 @@ def positive_int(value: str) -> int:
     if parsed < 1:
         raise argparse.ArgumentTypeError("must be a positive integer")
     return parsed
+
+
+def source_encoding(value: str) -> str:
+    """Validate a Python codec name supplied for Java source files."""
+    try:
+        codecs.lookup(value)
+    except LookupError as error:
+        raise argparse.ArgumentTypeError(f"unknown source encoding: {value}") from error
+    return value
 
 
 def parse_args(input_args=None):
@@ -107,6 +117,13 @@ def parse_args(input_args=None):
             f"build (default: {core.MAX_ITERATIONS})."
         ),
     )
+    parser.add_argument(
+        "--source-encoding",
+        type=source_encoding,
+        default="utf-8",
+        metavar="ENCODING",
+        help="Encoding of Java source files (default: utf-8).",
+    )
     return parser.parse_args(input_args)
 
 
@@ -140,6 +157,7 @@ def main(input_args=None):
         project_root,
         build_cmd=build_cmd,
         max_iterations=args.max_iterations,
+        source_encoding=args.source_encoding,
     )
 
 

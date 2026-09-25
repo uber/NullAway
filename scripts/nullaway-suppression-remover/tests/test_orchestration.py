@@ -142,6 +142,33 @@ class TestOrchestrationAllNeeded(TestCase):
 
 
 class TestOrchestrationMixed(TestCase):
+    def test_legacy_encoding_preserves_bytes_through_restore_and_rewrite(self):
+        content = (
+            "class Foo {\r\n"
+            '    /* café */ @SuppressWarnings("NullAway")\r\n'
+            "    public void foo() {}\r\n"
+            '    /* piñata */ @SuppressWarnings({"NullAway", "deprecation"})\r\n'
+            "    public void bar() {}\r\n"
+            "}\r\n"
+        )
+        with tempfile.TemporaryDirectory() as tmpdir:
+            root = Path(tmpdir)
+            java_file = root / "Foo.java"
+            java_file.write_bytes(content.encode("iso-8859-1"))
+            build_returns = [
+                ("Foo.java:2: error: [NullAway] null\n", False),
+                ("", True),
+            ]
+            get_src, mock_build = _patch_run(root, [java_file], build_returns)
+            with get_src, mock_build:
+                run(root, CHECKER, [], root, source_encoding="iso-8859-1")
+
+            expected = content.replace(
+                '@SuppressWarnings({"NullAway", "deprecation"})',
+                '@SuppressWarnings("deprecation")',
+            )
+            self.assertEqual(java_file.read_bytes(), expected.encode("iso-8859-1"))
+
     def test_needed_kept_unnecessary_removed(self):
         content = (
             "class Foo {\n"

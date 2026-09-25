@@ -318,15 +318,18 @@ def _rewrite_multiline_annotation(
 
 
 def find_annotations(
-    file_path: Path, checker: str, alt_suppressions: list[str] | None = None
+    file_path: Path,
+    checker: str,
+    alt_suppressions: list[str] | None = None,
+    source_encoding: str = "utf-8",
 ) -> list[Annotation]:
     """Return all Annotation objects in *file_path* containing *checker* or any alt."""
     all_suppressions = set([checker] + (alt_suppressions or []))
-    source = file_path.read_bytes()
-    lines = source.decode("utf-8").splitlines(keepends=True)
+    source_text = file_path.read_bytes().decode(source_encoding)
+    lines = source_text.splitlines(keepends=True)
 
     annotations: list[Annotation] = []
-    tree = _get_parser().parse(source)
+    tree = _get_parser().parse(source_text.encode("utf-8"))
     for node in find_suppress_warnings_nodes(tree.root_node):
         checkers = annotation_checkers(node)
         if any(c in all_suppressions for c in checkers):
@@ -409,14 +412,17 @@ def apply_removals(
     annotations_to_remove: list[Annotation],
     checker: str,
     alt_suppressions: list[str] | None = None,
+    source_encoding: str = "utf-8",
 ) -> set[int]:
     if not annotations_to_remove:
         return set()
-    original_lines = file_path.read_text(encoding="utf-8").splitlines(keepends=True)
+    original_lines = file_path.read_bytes().decode(source_encoding).splitlines(
+        keepends=True
+    )
     new_lines, deleted = build_modified_lines_and_deleted(
         original_lines, annotations_to_remove, checker, alt_suppressions
     )
-    file_path.write_text("".join(new_lines), encoding="utf-8")
+    file_path.write_bytes("".join(new_lines).encode(source_encoding))
     return deleted
 
 
@@ -617,6 +623,7 @@ def run(
     project_root: Path,
     build_cmd: list[str] | None = None,
     max_iterations: int | None = None,
+    source_encoding: str = "utf-8",
 ) -> None:
     """
     Discover, strip, build, and iteratively restore needed @SuppressWarnings
@@ -665,7 +672,7 @@ def run(
             if not unneeded:
                 continue
             removed_count += len(unneeded)
-            apply_removals(path, unneeded, checker, alt_suppressions)
+            apply_removals(path, unneeded, checker, alt_suppressions, source_encoding)
 
         _final_output, final_ok = _do_build("final confirmation")
 
@@ -696,7 +703,7 @@ def run(
     )
     annotations_by_file: dict[Path, list[Annotation]] = {}
     for path in source_files:
-        anns = find_annotations(path, checker, alt_suppressions)
+        anns = find_annotations(path, checker, alt_suppressions, source_encoding)
         if anns:
             annotations_by_file[path] = anns
 
@@ -710,12 +717,15 @@ def run(
     print(f"\nPass 1 — removing all suppression(s) for {checker!r} ...")
     originals: dict[Path, bytes] = {p: p.read_bytes() for p in annotations_by_file}
     original_line_counts: dict[Path, int] = {
-        p: len(p.read_text(encoding="utf-8").splitlines()) for p in annotations_by_file
+        p: len(p.read_bytes().decode(source_encoding).splitlines())
+        for p in annotations_by_file
     }
     deleted_by_file: dict[Path, set[int]] = {}
 
     for path, anns in annotations_by_file.items():
-        deleted_by_file[path] = apply_removals(path, anns, checker, alt_suppressions)
+        deleted_by_file[path] = apply_removals(
+            path, anns, checker, alt_suppressions, source_encoding
+        )
         print(
             f"  {path.relative_to(project_root)}  ({len(anns)} annotation(s) removed)"
         )
@@ -776,7 +786,7 @@ def run(
                 continue
             removed_count += len(unneeded)
             deleted_iter[path] = apply_removals(
-                path, unneeded, checker, alt_suppressions
+                path, unneeded, checker, alt_suppressions, source_encoding
             )
             kept = len(anns) - len(unneeded)
             print(
