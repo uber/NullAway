@@ -1,11 +1,87 @@
 Changelog
 =========
 
-Unreleased
-----------
+Version 0.14.2
+--------------
 
-* Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize (#1787)
-* Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` (#1815)
+This release adds `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports
+nullness annotations in locations JSpecify does not recognize.  See further documentation
+on the wiki: https://github.com/uber/NullAway/wiki/JSpecify-Support#jspecifyunrecognizedannotationlocation-checker
+
+Not packaged in the release, but we have also added a script to remove unnecessary NullAway
+suppressions to the repo: https://github.com/uber/NullAway/tree/master/scripts/nullaway-suppression-remover
+We expect this to be a useful script to run after NullAway updates, to check if
+NullAway improvements make some suppressions unnecessary.
+
+Also of note, NullAway now more precisely detects whether the JDK used for the build properly
+supports reading type use annotations from bytecode, particularly important for JSpecify
+mode.  This may lead NullAway to crash on certain build configurations that were
+unsupported before but we were not detecting precisely.
+
+Beyond the above, this release includes further fixes for JSpecify mode and
+JSpecifyExperimental, especially for wildcard bounds and multi-dimensional  arrays,
+along with other bug fixes.
+
+Finally, we have re-enabled pushing snapshot builds to the Sonatype snapshots repository,
+which should ease testing NullAway versions between releases.
+
+* Small optimization for stream handlers (#1774)
+* Check wildcard generics handling flag for enhanced for loops (#1786)
+* Cover anonymous class type arguments and modeled call-site returns by @vlsi (#1777)
+* Write the full encoded byte array when serializing TSV/XML rows #1788 by @AzazelSensei (#1798)
+* Fix @RequiresNonNull override error message to list the extra fields added by the child method by @Beluomini (#1751)
+* Model Stream.takeWhile (+ reactive equivalents) like .filter by @jeffrey-easyesi (#1809)
+* Add `JSpecifyUnrecognizedAnnotationLocation`, an opt-in check that reports nullness annotations in locations JSpecify does not recognize by @vlsi (#1787)
+* Detect support for the addTypeAnnotationsToSymbol flag on JDK 17 / 21 (#1794)
+* Fix `RequireExplicitNullMarking` diagnostics repeating the check name, so a report no longer begins with `[RequireExplicitNullMarking] [RequireExplicitNullMarking]` by @vlsi (#1815)
+* Less conservative handling of raw array types (#1807)
+* Fix crasher example from Caffeine (#1820)
+* Add a script to remove unnecessary NullAway suppressions (#1803)
+* Use LinkedHashMap / LinkedHashSet for determinism (#1796)
+* Prevent classloader closure from interrupting stubx reads (#1830)
+* Preserve non-null type variables through wildcard capture (#1837)
+* Treat Maven plugin parameters as externally initialized by @ZedingZhang (#1848)
+* Do not treat type variables from the caller as inference variables (#1824)
+* Prevent recursion on self-referential wildcard bounds during inference by @adityaanikam (#1843)
+* Avoid stale wildcard bounds after javac supertype inspection (#1849)
+* Preserve contextual bounds for recursive wildcard captures (#1853)
+* Restore effective wildcard upper bounds for invocation types (#1855)
+* Preserve wildcard component types for array element assignments (#1857)
+* Lazily allocate maps to detect wildcard cycles (#1888)
+* Preserve all dimensions of multi-dimensional array creation expressions in JSpecify mode by @dbwiddis (#1711)
+* Fix false positives for Spring SpEL expressions using `null` in comparisons by @Beluomini (#1750)
+* Apply covariant array subtyping at every dimension by @dbwiddis (#1889)
+* Maintenance
+  - Remove outdated Spark test (#1772)
+  - Disable Jacoco by default (#1773)
+  - Document MethodRef overload signatures in the sample library model #1016 by @AzazelSensei (#1779)
+  - Migrate CoreTests to addSourceLines by @abdeltaehass (#1765)
+  - Fix builds from a linked git worktree by skipping installGitHooks by @vlsi (#1776)
+  - Add tests for JPA mixed access type and anonymous-class callbacks in Map.forEach by @Beluomini (#1752)
+  - Add test case for issue #1799 (#1806)
+  - Document PR squash merging and commit headline style in AGENTS.md by @vlsi (#1810)
+  - Require an `Assisted-by:` commit trailer for AI-assisted work by @vlsi (#1811)
+  - Set up zizmor-action by @ZedingZhang (#1816)
+  - Tweak CI configuration to prepare for enabling merge queue (#1818)
+  - Set up Renovate and validate its configuration in CI by @vlsi (#1827)
+  - Move compilation-unit cleanup out of class matching (#1831)
+  - Store the nullness analysis in a NullAway field instead of the javac context by @abdeltaehass (#1832)
+  - Print the failure message and stack trace for a failing test (#1835)
+  - Add `Assisted-by:` text to the PR template and CONTRIBUTING.md (#1838)
+  - Remove code using `getRawTypeAttributes` in `GenericsChecks` (#1844)
+  - Replace deprecated `addSourceFile` calls in AndroidTest by @jabrailkhalil (#1839)
+  - Test NullAway on JDK 27 (#1852)
+  - Update to Gradle 9.7.1 (#1858)
+  - Harden GCP benchmark workspace handling (#1865)
+  - Update GitHub Actions and zizmor-action (#1860, #1861)
+  - Update Checker Framework dependencies (#1863, #1869)
+  - Update build plugins (#1864, #1868, #1873, #1874)
+  - Update library and test dependencies (#1866, #1867, #1870, #1871, #1872, #1876, #1877, #1879, #1880, #1881, #1882, #1883)
+  - Remove the versions plugin (#1886)
+  - Update the Caffeine JMH benchmark to 3.3.0 and re-enable its compilation test by @abdeltaehass (#1887)
+  - Publish snapshots to Maven Central (#1890)
+  - Add missing dependencies for the Maven Central shadow publication task (#1891)
+  - Add a workflow for cutting releases (#1892)
 
 Version 0.14.1
 --------------
