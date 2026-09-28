@@ -4,6 +4,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import java.util.Collections;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -140,6 +141,42 @@ public class GenericMethodTests extends NullAwayTestsBase {
               }
             }
             """)
+        .doTest();
+  }
+
+  @Test(timeout = 60_000)
+  public void longChainOfGenericInstanceMethodCalls() {
+    // Every link calls two generic methods, each on a receiver whose type must itself be inferred.
+    // The time to check such a chain once grew exponentially with its length.
+    String chain =
+        String.join(
+            "",
+            Collections.nCopies(
+                24, "\n        .path(\"field\").entity(String.class).isEqualTo(\"value\")"));
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Traversable {
+                Path path(String path);
+              }
+              interface Path extends Traversable {
+                <D> Entity<D, ?> entity(Class<D> entityType);
+              }
+              interface Entity<D, S extends Entity<D, S>> extends Traversable {
+                <T extends S> T isEqualTo(@Nullable Object expected);
+              }
+              static void test(Traversable response) {
+                response%s
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                    .path(null);
+              }
+            }
+            """
+                .formatted(chain))
         .doTest();
   }
 

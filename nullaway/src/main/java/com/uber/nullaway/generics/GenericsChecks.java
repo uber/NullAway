@@ -1279,6 +1279,10 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       boolean calledFromDataflow) {
     Verify.verify(isCallNeedingInference(callTree));
+    // Computing the executable type of a method invocation computes the type of its receiver,
+    // which may itself require inference, so compute it only once
+    Type.MethodType executableType =
+        getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullability = null;
     CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
     if (result == null) { // have not yet attempted inference for this call
@@ -1287,6 +1291,7 @@ public final class GenericsChecks {
               state,
               path,
               callTree,
+              executableType,
               typeFromAssignmentContext,
               assignedToLocal,
               calledFromDataflow);
@@ -1296,10 +1301,8 @@ public final class GenericsChecks {
     }
     Type typeAtCallSite = castToNonNull(ASTHelpers.getType(callTree));
     if (callTree instanceof MethodInvocationTree) {
-      Type methodReturnType =
-          getExecutableTypeForInference(callTree, path, state, calledFromDataflow).getReturnType();
       return TypeSubstitutionUtils.updateTypeWithInferredNullability(
-          typeAtCallSite, methodReturnType, typeVarNullability, state, config);
+          typeAtCallSite, executableType.getReturnType(), typeVarNullability, state, config);
     }
     Verify.verify(callTree instanceof NewClassTree);
     Type constructedTypeAtCallSite = getConstructedTypeAtCallSite((NewClassTree) callTree);
@@ -1316,6 +1319,8 @@ public final class GenericsChecks {
    * @param path the tree path to the call tree if available and possibly distinct from {@code
    *     state.getPath()}
    * @param callTree the method invocation tree or constructor call tree representing the call
+   * @param executableType the executable type of {@code callTree}, as computed by {@link
+   *     #getExecutableTypeForInference}
    * @param typeFromAssignmentContext the type being "assigned to" in the assignment context, or
    *     {@code null} if the type is unavailable or the method result is not assigned anywhere
    * @param assignedToLocal true if the call result is assigned to a local variable, false otherwise
@@ -1327,6 +1332,7 @@ public final class GenericsChecks {
       VisitorState state,
       @Nullable TreePath path,
       ExpressionTree callTree,
+      Type.MethodType executableType,
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       boolean calledFromDataflow) {
@@ -1343,6 +1349,7 @@ public final class GenericsChecks {
           assignedToLocal,
           solver,
           callTree,
+          executableType,
           allCalls,
           calledFromDataflow);
       typeVarNullability = new LinkedHashMap<>(solver.solve());
@@ -1361,9 +1368,7 @@ public final class GenericsChecks {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
         }
         // Store inferred types for lambda or method reference arguments
-        Type.MethodType callMethodType =
-            getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
-        new InvocationArguments(callTree, callMethodType)
+        new InvocationArguments(callTree, executableType)
             .forEach(
                 (argument, argPos, formalParamType, unused) -> {
                   if (argument instanceof LambdaExpressionTree
@@ -1493,6 +1498,8 @@ public final class GenericsChecks {
    * @param assignedToLocal whether the call result is assigned to a local variable
    * @param solver the constraint solver
    * @param callTree the call tree representing the generic method call or diamond constructor call
+   * @param methodType the executable type of {@code callTree}, as computed by {@link
+   *     #getExecutableTypeForInference}
    * @param allCalls a set of all calls that require inference, including nested ones. This is an
    *     output parameter that gets mutated while generating the constraints to add nested calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
@@ -1505,6 +1512,7 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       ConstraintSolver solver,
       ExpressionTree callTree,
+      Type.MethodType methodType,
       Set<Tree> allCalls,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
@@ -1512,8 +1520,6 @@ public final class GenericsChecks {
     for (Symbol.TypeVariableSymbol typeVariable : getCallTypeParameters(callTree)) {
       solver.registerInferenceVariable(typeVariable);
     }
-    Type.MethodType methodType =
-        getExecutableTypeForInference(callTree, path, state, calledFromDataflow);
     // first, handle the call result flow
     if (typeFromAssignmentContext != null) {
       Type callResultType =
@@ -1566,7 +1572,15 @@ public final class GenericsChecks {
     if (isCallNeedingInference(rhsExpr)) {
       allCalls.add(rhsExpr);
       generateConstraintsForCall(
-          state, state.getPath(), lhsType, false, solver, rhsExpr, allCalls, calledFromDataflow);
+          state,
+          state.getPath(),
+          lhsType,
+          false,
+          solver,
+          rhsExpr,
+          getExecutableTypeForInference(rhsExpr, state.getPath(), state, calledFromDataflow),
+          allCalls,
+          calledFromDataflow);
     } else if (rhsExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
       // generate constraints for both the true and false sub-expressions of the conditional
       // expression
@@ -3067,6 +3081,8 @@ public final class GenericsChecks {
                 state,
                 path,
                 invocationAndType.call,
+                getExecutableTypeForInference(
+                    invocationAndType.call, path, state, calledFromDataflow),
                 invocationAndType.typeFromAssignmentContext,
                 invocationAndType.assignedToLocal,
                 calledFromDataflow);
