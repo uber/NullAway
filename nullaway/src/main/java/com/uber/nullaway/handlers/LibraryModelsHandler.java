@@ -174,6 +174,14 @@ public class LibraryModelsHandler implements Handler {
       }
       argumentNullness.setParameterNullness(nonNullParam, NONNULL);
     }
+    // The PolyNull solver checks whether a nullable argument is compatible with the result target.
+    // The ordinary top-level argument check must allow that argument through to the solver.
+    for (PolyNullLocation location :
+        optimizedLibraryModels.polyNullLocations(methodSymbol, Types.instance(context))) {
+      if (location.parameterIndex() >= 0 && location.typePath().isEmpty()) {
+        argumentNullness.setParameterNullness(location.parameterIndex(), NULLABLE);
+      }
+    }
     if (varArgsMethod) {
       ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
           optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
@@ -1222,6 +1230,12 @@ public class LibraryModelsHandler implements Handler {
 
     private static final ImmutableSetMultimap<MethodRef, PolyNullLocation> POLY_NULL_LOCATIONS =
         new ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation>()
+            .put(
+                methodRef("java.util.Optional", "orElse(T)"),
+                new PolyNullLocation(0, ImmutableList.of()))
+            .put(
+                methodRef("java.util.Optional", "orElse(T)"),
+                new PolyNullLocation(-1, ImmutableList.of()))
             .put(
                 methodRef(
                     "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"),
