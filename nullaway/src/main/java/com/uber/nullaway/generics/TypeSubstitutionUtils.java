@@ -385,7 +385,8 @@ public class TypeSubstitutionUtils {
         }
       }
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
-      if (!(other instanceof Type.ClassType)) {
+      // A raw source type has no type arguments from which to restore nested annotations.
+      if (!(other instanceof Type.ClassType) || other.isRaw()) {
         return updated;
       }
       Type outer = updated.getEnclosingType();

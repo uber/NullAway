@@ -10,6 +10,36 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void issue1897WildcardWithRawGenericBoundDoesNotCrash() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static class InitActivity<T> {}
+
+              abstract static class ActivityPlace<T extends InitActivity> {
+                abstract T getActivity();
+              }
+
+              abstract static class AbstractTabPlace<T extends InitActivity<?>>
+                  extends ActivityPlace<T> {}
+
+              static Object getActivity(AbstractTabPlace<?> tabPlace) {
+                // Regression for #1897: attempting to restore annotations from ActivityPlace's raw
+                // InitActivity upper bound for T onto the captured InitActivity<?> return type
+                // previously caused a crash.
+                return tabPlace.getActivity();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nonNullTypeVariableThroughWildcardCapture() {
     // https://github.com/uber/NullAway/issues/1823
     // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
