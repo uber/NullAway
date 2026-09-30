@@ -42,6 +42,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Receiver;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -381,8 +382,27 @@ class CompositeHandler implements Handler {
   public ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
     ImmutableSet.Builder<PolyNullLocation> result = ImmutableSet.builder();
+    Handler previousOwner = null;
     for (Handler h : handlers) {
-      result.addAll(h.onGetPolyNullLocations(methodSymbol, state));
+      ImmutableSet<PolyNullLocation> locations = h.onGetPolyNullLocations(methodSymbol, state);
+      if (locations.isEmpty()) {
+        continue;
+      }
+      if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
+        throw new IllegalArgumentException(
+            "PolyNull receiver locations are not yet supported for " + methodSymbol);
+      }
+      if (previousOwner != null) {
+        throw new IllegalArgumentException(
+            "Multiple handlers provide PolyNull locations for "
+                + methodSymbol
+                + ": "
+                + previousOwner.getClass().getName()
+                + " and "
+                + h.getClass().getName());
+      }
+      previousOwner = h;
+      result.addAll(locations);
     }
     return result.build();
   }

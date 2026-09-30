@@ -8,6 +8,9 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Position;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.util.ArrayList;
@@ -32,12 +35,12 @@ final class PolyNullInference {
 
     /** Returns whether the overlay contains at least one modeled parameter location. */
     boolean hasInputLocations() {
-      return locations.stream().anyMatch(location -> location.parameterIndex() >= 0);
+      return locations.stream().anyMatch(location -> location.position() instanceof Parameter);
     }
 
     /** Returns whether the overlay contains at least one modeled return location. */
     boolean hasReturnLocations() {
-      return locations.stream().anyMatch(location -> location.parameterIndex() == -1);
+      return locations.stream().anyMatch(location -> location.position() instanceof Return);
     }
   }
 
@@ -55,7 +58,7 @@ final class PolyNullInference {
         remaining = remaining.tail, parameterIndex++) {
       Type parameterType = remaining.head;
       Type updatedParameterType =
-          applyToType(parameterType, parameterIndex, locations, annotationType);
+          applyToType(parameterType, new Parameter(parameterIndex), locations, annotationType);
       updatedParameterTypes.append(updatedParameterType);
       changed |= updatedParameterType != parameterType;
     }
@@ -71,7 +74,7 @@ final class PolyNullInference {
   /** Applies a resolved PolyNull annotation to every modeled location within a return type. */
   static Type applyToReturnType(
       Type returnType, ImmutableSet<PolyNullLocation> locations, Type annotationType) {
-    return applyToType(returnType, -1, locations, annotationType);
+    return applyToType(returnType, new Return(), locations, annotationType);
   }
 
   /** Resolves PolyNull nullness by invocation after a shared generic-inference solver run. */
@@ -111,7 +114,10 @@ final class PolyNullInference {
     Type.TypeVar inferenceVariable =
         createInferenceVariable(methodSymbol, 0, nullableAnnotationType, state);
     for (PolyNullLocation location : locations) {
-      int parameterIndex = location.parameterIndex();
+      if (!(location.position() instanceof Parameter parameter)) {
+        continue;
+      }
+      int parameterIndex = parameter.index();
       if (parameterIndex < 0 || parameterIndex >= methodType.argtypes.size()) {
         continue;
       }
@@ -138,7 +144,7 @@ final class PolyNullInference {
     }
     Type updatedReturnType = methodType.restype;
     for (PolyNullLocation location : locations) {
-      if (location.parameterIndex() == -1) {
+      if (location.position() instanceof Return) {
         Type replaced =
             NestedTypePathUpdater.replaceType(
                 updatedReturnType, location.typePath(), inferenceVariable);
@@ -194,13 +200,10 @@ final class PolyNullInference {
 
   /** Applies {@code annotationType} at modeled locations within one method-type component. */
   private static Type applyToType(
-      Type type,
-      int parameterIndex,
-      ImmutableSet<PolyNullLocation> locations,
-      Type annotationType) {
+      Type type, Position position, ImmutableSet<PolyNullLocation> locations, Type annotationType) {
     Type updated = type;
     for (PolyNullLocation location : locations) {
-      if (location.parameterIndex() == parameterIndex) {
+      if (location.position().equals(position)) {
         updated = NestedTypePathUpdater.addAnnotation(updated, location.typePath(), annotationType);
       }
     }
