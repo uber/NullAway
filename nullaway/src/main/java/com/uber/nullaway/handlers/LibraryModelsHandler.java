@@ -54,6 +54,9 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Receiver;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -178,8 +181,8 @@ public class LibraryModelsHandler implements Handler {
     // The ordinary top-level argument check must allow that argument through to the solver.
     for (PolyNullLocation location :
         optimizedLibraryModels.polyNullLocations(methodSymbol, Types.instance(context))) {
-      if (location.parameterIndex() >= 0 && location.typePath().isEmpty()) {
-        argumentNullness.setParameterNullness(location.parameterIndex(), NULLABLE);
+      if (location.position() instanceof Parameter parameter && location.typePath().isEmpty()) {
+        argumentNullness.setParameterNullness(parameter.index(), NULLABLE);
       }
     }
     if (varArgsMethod) {
@@ -1232,28 +1235,28 @@ public class LibraryModelsHandler implements Handler {
         new ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation>()
             .put(
                 methodRef("java.util.Optional", "orElse(T)"),
-                new PolyNullLocation(0, ImmutableList.of()))
+                new PolyNullLocation(new Parameter(0), ImmutableList.of()))
             .put(
                 methodRef("java.util.Optional", "orElse(T)"),
-                new PolyNullLocation(-1, ImmutableList.of()))
+                new PolyNullLocation(new Return(), ImmutableList.of()))
             .put(
                 methodRef(
                     "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"),
                 new PolyNullLocation(
-                    0,
+                    new Parameter(0),
                     ImmutableList.of(
                         new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0),
                         new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0))))
             .put(
                 methodRef(
                     "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"),
-                new PolyNullLocation(-1, ImmutableList.of()))
+                new PolyNullLocation(new Return(), ImmutableList.of()))
             .put(
                 methodRef(
                     "java.util.Map",
                     "computeIfAbsent(K,java.util.function.Function<? super K,? extends V>)"),
                 new PolyNullLocation(
-                    1,
+                    new Parameter(1),
                     ImmutableList.of(
                         new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 1),
                         new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0))))
@@ -1261,7 +1264,7 @@ public class LibraryModelsHandler implements Handler {
                 methodRef(
                     "java.util.Map",
                     "computeIfAbsent(K,java.util.function.Function<? super K,? extends V>)"),
-                new PolyNullLocation(-1, ImmutableList.of()))
+                new PolyNullLocation(new Return(), ImmutableList.of()))
             .build();
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =
@@ -1372,7 +1375,7 @@ public class LibraryModelsHandler implements Handler {
     }
   }
 
-  private static class CombinedLibraryModels implements LibraryModels {
+  static class CombinedLibraryModels implements LibraryModels {
 
     private final Config config;
 
@@ -1444,6 +1447,7 @@ public class LibraryModelsHandler implements Handler {
           nestedAnnotationsBuilder = new LinkedHashMap<>();
       ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation> polyNullLocationsBuilder =
           new ImmutableSetMultimap.Builder<>();
+      Map<MethodRef, LibraryModels> polyNullModelOwners = new LinkedHashMap<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           if (shouldSkipModel(entry.getKey())) {
@@ -1534,10 +1538,28 @@ public class LibraryModelsHandler implements Handler {
           builder.putAll(entry.getValue());
         }
         if (config.isJSpecifyJDKModels()) {
+          Set<MethodRef> methodsFromThisProvider = new HashSet<>();
           for (Map.Entry<MethodRef, PolyNullLocation> entry :
               libraryModels.polyNullLocations().entries()) {
             if (shouldSkipModel(entry.getKey())) {
               continue;
+            }
+            if (entry.getValue().position() instanceof Receiver) {
+              throw new IllegalArgumentException(
+                  "PolyNull receiver locations are not yet supported for " + entry.getKey());
+            }
+            if (methodsFromThisProvider.add(entry.getKey())) {
+              LibraryModels previousOwner =
+                  polyNullModelOwners.putIfAbsent(entry.getKey(), libraryModels);
+              if (previousOwner != null) {
+                throw new IllegalArgumentException(
+                    "Multiple PolyNull library model providers for "
+                        + entry.getKey()
+                        + ": "
+                        + previousOwner.getClass().getName()
+                        + " and "
+                        + libraryModels.getClass().getName());
+              }
             }
             polyNullLocationsBuilder.put(entry);
           }
@@ -1574,7 +1596,9 @@ public class LibraryModelsHandler implements Handler {
         for (Map.Entry<Integer, NestedAnnotationInfo> annotation : annotations.entries()) {
           if (!polyNullLocations.containsEntry(
               entry.getKey(),
-              new PolyNullLocation(annotation.getKey(), annotation.getValue().typePath()))) {
+              new PolyNullLocation(
+                  annotation.getKey() == -1 ? new Return() : new Parameter(annotation.getKey()),
+                  annotation.getValue().typePath()))) {
             filteredAnnotations.put(annotation);
           }
         }
@@ -1593,7 +1617,8 @@ public class LibraryModelsHandler implements Handler {
       ImmutableSetMultimap.Builder<MethodRef, Integer> result = ImmutableSetMultimap.builder();
       for (Map.Entry<MethodRef, Integer> entry : fixedModels.entries()) {
         if (!polyNullLocations.containsEntry(
-            entry.getKey(), new PolyNullLocation(entry.getValue(), ImmutableList.of()))) {
+            entry.getKey(),
+            new PolyNullLocation(new Parameter(entry.getValue()), ImmutableList.of()))) {
           result.put(entry);
         }
       }
@@ -1605,7 +1630,7 @@ public class LibraryModelsHandler implements Handler {
         ImmutableSet<MethodRef> fixedModels,
         ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations) {
       ImmutableSet.Builder<MethodRef> result = ImmutableSet.builder();
-      PolyNullLocation returnLocation = new PolyNullLocation(-1, ImmutableList.of());
+      PolyNullLocation returnLocation = new PolyNullLocation(new Return(), ImmutableList.of());
       for (MethodRef method : fixedModels) {
         if (!polyNullLocations.containsEntry(method, returnLocation)) {
           result.add(method);
