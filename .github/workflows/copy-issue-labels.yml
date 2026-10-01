@@ -1,0 +1,83 @@
+name: Copy issue labels to pull requests
+
+# pull_request_target is required to label pull requests from forks. This workflow only runs a
+# pinned action from the trusted base branch and never checks out or executes pull request code.
+on: # zizmor: ignore[dangerous-triggers]
+  pull_request_target:
+    types: [opened, edited, reopened]
+    branches: [master]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  copy-labels:
+    name: Copy labels from referenced issues
+    if: github.repository == 'uber/NullAway'
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write # Required to read issue labels and label the pull request.
+    steps:
+      - name: Copy labels
+        uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
+        with:
+          script: |
+            const body = context.payload.pull_request.body ?? '';
+            const issueNumbers = new Set();
+            const keywordPattern = /\b(?:close[sd]?|fix(?:e[sd])?|resolve[sd]?|refs?)\b/i;
+            const issuePattern = /(?:<?https?:\/\/github\.com\/uber\/NullAway\/issues\/(\d+)>?|uber\/NullAway#(\d+)|(?:^|[\s,(:;])#(\d+))/gi;
+
+            // Treat issue references after a linking keyword as related issues. Parsing line by line
+            // avoids copying labels from unrelated issue numbers elsewhere in the description.
+            for (const line of body.split(/\r?\n/)) {
+              const keyword = keywordPattern.exec(line);
+              if (keyword === null) continue;
+              const references = line.slice(keyword.index + keyword[0].length);
+              for (const match of references.matchAll(issuePattern)) {
+                issueNumbers.add(Number(match[1] ?? match[2] ?? match[3]));
+              }
+            }
+
+            if (issueNumbers.size === 0) {
+              core.info('No referenced issues found in the pull request description.');
+              return;
+            }
+
+            const labels = new Set();
+            for (const issueNumber of issueNumbers) {
+              try {
+                const {data: issue} = await github.rest.issues.get({
+                  ...context.repo,
+                  issue_number: issueNumber,
+                });
+                if (issue.pull_request !== undefined) {
+                  core.info(`#${issueNumber} is a pull request; skipping it.`);
+                  continue;
+                }
+                for (const label of issue.labels) {
+                  labels.add(typeof label === 'string' ? label : label.name);
+                }
+              } catch (error) {
+                if (error.status === 404) {
+                  core.warning(`Referenced issue #${issueNumber} was not found.`);
+                  continue;
+                }
+                throw error;
+              }
+            }
+
+            if (labels.size === 0) {
+              core.info('The referenced issues have no labels to copy.');
+              return;
+            }
+
+            const labelsToCopy = [...labels].sort();
+            await github.rest.issues.addLabels({
+              ...context.repo,
+              issue_number: context.payload.pull_request.number,
+              labels: labelsToCopy,
+            });
+            core.info(`Copied labels: ${labelsToCopy.join(', ')}`);
