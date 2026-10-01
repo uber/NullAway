@@ -12,8 +12,25 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  formatting:
+    name: "Spotless"
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up JDK
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: 25
+          distribution: 'temurin'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
   build:
-    name: "Build and test on ${{ matrix.os }}"
+    name: "Build on ${{ matrix.os }}"
     strategy:
       matrix:
         include:
@@ -45,10 +62,54 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: List toolchains
         run: ./gradlew javaToolchains
-      - name: Build and test
-        run: ./gradlew build
+      - name: Build
+        run: ./gradlew assemble
+      - name: Test publishToMavenLocal flow
         env:
-          # The Linux build produces the execution data consumed by the Codecov aggregation step.
+          ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
+          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
+        run: ./gradlew publishToMavenLocal
+      - name: Check that Git tree is clean after build
+        run: ./.buildscript/check_git_clean.sh
+  test:
+    name: "Unit tests and verification on ${{ matrix.os }}"
+    strategy:
+      matrix:
+        include:
+          - os: macos-latest
+          - os: windows-latest
+          - os: ubuntu-latest
+      fail-fast: false
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: 'Set up JDK 28 EA from jdk.java.net'
+        uses: oracle-actions/setup-java@ec7274acdd237c7fe61395ed2edda22d756b5afe # v1
+        with:
+          website: jdk.java.net
+          release: 28
+      - name: 'Set up JDKs'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: |
+            17
+            21
+            25
+          distribution: 'temurin'
+          check-latest: 'true'
+      - name: Setup Gradle
+        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+      - name: List toolchains
+        run: ./gradlew javaToolchains
+      - name: Run unit tests and verification
+        # Spotless has a dedicated job, while check retains custom verification tasks such as the
+        # additional JDK test suites and buildWithNullAway.
+        run: ./gradlew check -x spotlessCheck
+        env:
+          # The Linux tests produce the execution data consumed by the Codecov aggregation step.
           # Keep ordinary macOS and Windows test runs free of JaCoCo instrumentation overhead.
           ORG_GRADLE_PROJECT_enableJacoco: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
       - name: Run shellcheck
@@ -58,8 +119,8 @@ jobs:
         id: jacoco_report
         run: ./gradlew codeCoverageReport
         env:
-          # Use the same test-task configuration as the preceding Linux build so its JaCoCo
-          # execution data remains up-to-date and is included in the aggregate XML report.
+          # Use the same test-task configuration as the preceding Linux verification step so its
+          # JaCoCo execution data remains up-to-date and is included in the aggregate XML report.
           ORG_GRADLE_PROJECT_enableJacoco: 'true'
         continue-on-error: true
         if: runner.os == 'Linux' && github.repository == 'uber/NullAway'
@@ -73,13 +134,8 @@ jobs:
         run: |
           # See https://github.com/codecov/codecov-action/issues/1851
           rm -rf codecov codecov.SHA256SUM codecov.SHA256SUM.sig
-        if: steps.jacoco_report.outcome == 'success'        
-      - name: Test publishToMavenLocal flow
-        env:
-          ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
-          ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
-        run: ./gradlew publishToMavenLocal
-      - name: Check that Git tree is clean after build and test
+        if: steps.jacoco_report.outcome == 'success'
+      - name: Check that Git tree is clean after tests
         run: ./.buildscript/check_git_clean.sh
   suppression-remover-regression-tests:
     name: "Suppression remover regression tests"
@@ -163,7 +219,9 @@ jobs:
   publish-snapshot:
     name: Publish snapshot to Maven Central
     needs:
+      - formatting
       - build
+      - test
     if: github.event_name == 'push' && github.ref == 'refs/heads/master' && github.repository == 'uber/NullAway'
     runs-on: ubuntu-latest
     steps:
