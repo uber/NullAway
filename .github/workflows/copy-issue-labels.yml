@@ -2,7 +2,7 @@ name: Copy issue labels to pull requests
 
 # pull_request_target is required to label pull requests from forks. This workflow only runs a
 # pinned action from the trusted base branch and never checks out or executes pull request code.
-on: # zizmor: ignore[dangerous-triggers]
+on: # zizmor: ignore[dangerous-triggers] Required for fork PR labels; no PR code runs.
   pull_request_target:
     types: [opened, edited, reopened]
     branches: [master]
