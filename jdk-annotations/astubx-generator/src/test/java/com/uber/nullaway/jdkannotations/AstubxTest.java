@@ -19,6 +19,7 @@ import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind;
 import java.nio.file.Files;
 import java.nio.file.Paths;
 import java.util.Arrays;
+import java.util.Map;
 import java.util.Set;
 import org.junit.Assert;
 import org.junit.Before;
@@ -683,6 +684,33 @@ public class AstubxTest {
                         Annotation.NULLABLE,
                         ImmutableList.of(new TypePathEntry(Kind.ARRAY_ELEMENT, -1))))));
     runTest(expectedMethodRecords, ImmutableMap.of(), ImmutableSet.of("Test"));
+  }
+
+  @Test
+  public void nullableFields() {
+    compilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              public @Nullable String a;
+              public String b = "";
+              public static class Inner {
+                public @Nullable Object c;
+              }
+            }
+            """)
+        .doTest();
+    AstubxGenerator.AstubxData astubxData =
+        AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath());
+    assertThat(
+        astubxData.nullableFields(),
+        equalTo(Map.of("Test", Set.of("a"), "Test$Inner", Set.of("c"))));
+    String astubxOutputDirPath = astubxFolder.getRoot().getAbsolutePath();
+    AstubxGenerator.writeToAstubxFile(astubxOutputDirPath, astubxData);
+    Assert.assertTrue(Files.exists(Paths.get(astubxOutputDirPath, "output.astubx")));
   }
 
   private void runTest(

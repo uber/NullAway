@@ -28,6 +28,13 @@ public final class StubxWriter {
   private static final int VERSION_1_FILE_MAGIC_NUMBER = 481874642;
 
   /**
+   * The file magic number for version 2 .astubx files. Version 2 is version 1 plus a trailing
+   * section for nullable fields. We only write version 2 if there are nullable fields, so older
+   * readers can still read files that do not need the new section.
+   */
+  private static final int VERSION_2_FILE_MAGIC_NUMBER = 481874643;
+
+  /**
    * This method writes the provided list of annotations to a DataOutputStream in the astubx format.
    *
    * @param out Output stream.
@@ -48,8 +55,37 @@ public final class StubxWriter {
       Set<String> nullMarkedClasses,
       Map<String, Set<Integer>> nullableUpperBounds)
       throws IOException {
+    write(
+        out,
+        importedAnnotations,
+        packageAnnotations,
+        typeAnnotations,
+        methodRecords,
+        nullMarkedClasses,
+        nullableUpperBounds,
+        Map.of());
+  }
+
+  /**
+   * Same as {@link #write(DataOutputStream, Map, Map, Map, Map, Set, Map)}, plus nullable fields.
+   *
+   * @param nullableFields Map of flat class name to the names of its nullable fields. If not empty,
+   *     the file is written in version 2 format.
+   * @throws IOException On output error.
+   */
+  public static void write(
+      DataOutputStream out,
+      Map<String, String> importedAnnotations,
+      Map<String, Set<String>> packageAnnotations,
+      Map<String, Set<String>> typeAnnotations,
+      Map<String, MethodAnnotationsRecord> methodRecords,
+      Set<String> nullMarkedClasses,
+      Map<String, Set<Integer>> nullableUpperBounds,
+      Map<String, Set<String>> nullableFields)
+      throws IOException {
+    boolean writeFields = !nullableFields.isEmpty();
     // File format version/magic number
-    out.writeInt(VERSION_1_FILE_MAGIC_NUMBER);
+    out.writeInt(writeFields ? VERSION_2_FILE_MAGIC_NUMBER : VERSION_1_FILE_MAGIC_NUMBER);
     // Followed by the number of string dictionary entries
     int numStringEntries = 0;
     Map<String, Integer> encodingDictionary = new LinkedHashMap<>();
@@ -67,7 +103,9 @@ public final class StubxWriter {
             nullMarkedClasses,
             nullableUpperBounds.keySet(),
             kindNames,
-            annotationNames);
+            annotationNames,
+            nullableFields.keySet(),
+            nullableFields.values().stream().flatMap(Set::stream).toList());
     for (Collection<String> keyset : keysets) {
       for (String key : keyset) {
         if (encodingDictionary.containsKey(key)) {
@@ -184,6 +222,18 @@ public final class StubxWriter {
         // Followed by the nullable upper bound record as a pair of integers
         out.writeInt(encodingDictionary.get(entry.getKey()));
         out.writeInt(parameter);
+      }
+    }
+    if (writeFields) {
+      // Version 2 only: followed by the number of classes with nullable fields
+      out.writeInt(nullableFields.size());
+      for (Map.Entry<String, Set<String>> entry : nullableFields.entrySet()) {
+        // Followed by the class name, the number of fields, and each field name
+        out.writeInt(encodingDictionary.get(entry.getKey()));
+        out.writeInt(entry.getValue().size());
+        for (String fieldName : entry.getValue()) {
+          out.writeInt(encodingDictionary.get(fieldName));
+        }
       }
     }
   }

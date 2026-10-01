@@ -1806,7 +1806,8 @@ public class LibraryModelsHandler implements Handler {
       ImmutableSetMultimap<MethodRef, Integer> methodTypeVariablesWithNullableUpperBounds,
       ImmutableSetMultimap<MethodRef, Integer> explicitlyNullableParameters,
       ImmutableSetMultimap<MethodRef, Integer> nonNullParameters,
-      ImmutableSet<MethodRef> nullableReturns)
+      ImmutableSet<MethodRef> nullableReturns,
+      ImmutableSet<FieldRef> nullableFields)
       implements LibraryModels {
 
     // The record accessors implement the populated LibraryModels methods declared as components
@@ -1990,7 +1991,10 @@ public class LibraryModelsHandler implements Handler {
         methodTypeUpperBoundsBuilder.build(),
         explicitlyNullableParametersBuilder.build(),
         nonNullParametersBuilder.build(),
-        nullableReturnsBuilder.build());
+        nullableReturnsBuilder.build(),
+        cacheUtil.getNullableFieldsCache().entries().stream()
+            .map(e -> fieldRef(e.getKey(), e.getValue()))
+            .collect(ImmutableSet.toImmutableSet()));
   }
 
   /** Extracts a model method signature from the fuller signature stored in a stubx file. */

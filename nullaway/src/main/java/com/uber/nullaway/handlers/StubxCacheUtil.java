@@ -57,6 +57,12 @@ public class StubxCacheUtil {
    */
   private static final int VERSION_1_FILE_MAGIC_NUMBER = 481874642;
 
+  /**
+   * The file magic number for version 2 .astubx files. Version 2 adds a trailing section for
+   * nullable fields.
+   */
+  private static final int VERSION_2_FILE_MAGIC_NUMBER = 481874643;
+
   private boolean DEBUG = false;
   private String logCaller = "";
 
@@ -78,6 +84,9 @@ public class StubxCacheUtil {
 
   private final Map<String, SetMultimap<Integer, NestedAnnotationInfo>> nestedAnnotationInfoCache;
 
+  /** Map from flat class name to the names of its nullable fields. */
+  private final SetMultimap<String, String> nullableFieldsCache;
+
   /**
    * Initializes a new {@code StubxCacheUtil} instance, optionally loading JarInfer stubx files
    * discovered on the classpath.
@@ -92,6 +101,7 @@ public class StubxCacheUtil {
     nullMarkedClassesCache = new HashSet<>();
     methodTypeParamNullableUpperBoundCache = HashMultimap.create();
     nestedAnnotationInfoCache = new HashMap<>();
+    nullableFieldsCache = HashMultimap.create();
     this.logCaller = logCaller;
     if (loadJarInferModels) {
       loadStubxFiles();
@@ -116,6 +126,10 @@ public class StubxCacheUtil {
 
   public Map<String, Map<String, Map<Integer, Set<String>>>> getArgAnnotCache() {
     return argAnnotCache;
+  }
+
+  public SetMultimap<String, String> getNullableFieldsCache() {
+    return nullableFieldsCache;
   }
 
   /**
@@ -149,7 +163,8 @@ public class StubxCacheUtil {
     String[] strings;
     DataInputStream in = new DataInputStream(stubxInputStream);
     // Read and check the magic version number
-    if (in.readInt() != VERSION_1_FILE_MAGIC_NUMBER) {
+    int magicNumber = in.readInt();
+    if (magicNumber != VERSION_1_FILE_MAGIC_NUMBER && magicNumber != VERSION_2_FILE_MAGIC_NUMBER) {
       throw new Error("Invalid file version/magic number for stubx file!" + stubxLocation);
     }
     // Read the number of strings in the string dictionary
@@ -239,6 +254,19 @@ public class StubxCacheUtil {
       int numParams = in.readInt();
       for (int j = 0; j < numParams; j++) {
         cacheUpperBounds(strings[in.readInt()], in.readInt());
+      }
+    }
+    if (magicNumber == VERSION_2_FILE_MAGIC_NUMBER) {
+      // read the nullable fields
+      int numClassesWithNullableFields = in.readInt();
+      for (int i = 0; i < numClassesWithNullableFields; i++) {
+        String className = strings[in.readInt()];
+        int numFields = in.readInt();
+        for (int j = 0; j < numFields; j++) {
+          String fieldName = strings[in.readInt()];
+          LOG(DEBUG, "DEBUG", "nullable field: " + className + "." + fieldName);
+          nullableFieldsCache.put(className, fieldName);
+        }
       }
     }
   }
