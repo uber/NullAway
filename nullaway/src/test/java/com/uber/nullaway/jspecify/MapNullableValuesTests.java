@@ -99,7 +99,8 @@ public class MapNullableValuesTests extends NullAwayTestsBase {
 
   @Test
   public void containsKeyNotJSpecifyMode() {
-    // outside JSpecify mode, we keep the old behavior
+    // Outside JSpecify mode, preserve the legacy containsKey() refinement: get() is treated as
+    // non-null even if the map value type has a JSpecify @Nullable annotation.
     defaultCompilationHelper
         .addSourceLines(
             "Test.java",
