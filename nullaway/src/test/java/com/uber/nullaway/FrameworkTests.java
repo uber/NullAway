@@ -1622,6 +1622,80 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supportObjectsEquals() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Objects;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable String f;
+              void nonNullFirst(String s, @Nullable String n) {
+                if (Objects.equals(s, n)) {
+                  n.toString();
+                }
+              }
+              void nonNullSecond(String s, @Nullable String n) {
+                if (Objects.equals(n, s)) {
+                  n.toString();
+                }
+              }
+              void field(String s) {
+                if (Objects.equals(this.f, s)) {
+                  this.f.toString();
+                }
+              }
+              void notEqualToNull(@Nullable String n) {
+                if (!Objects.equals(n, null)) {
+                  n.toString();
+                }
+              }
+              void elseBranch(String s, @Nullable String n) {
+                if (Objects.equals(s, n)) {
+                  return;
+                }
+                // BUG: Diagnostic contains: dereferenced expression 'n' is @Nullable
+                n.toString();
+              }
+              void bothNullable(@Nullable String n1, @Nullable String n2) {
+                if (Objects.equals(n1, n2)) {
+                  // BUG: Diagnostic contains: dereferenced expression 'n2' is @Nullable
+                  n2.toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void objectsEqualsLookalikeNotModeled() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static class Other {
+                static boolean equals(@Nullable Object a, @Nullable Object b) {
+                  return true;
+                }
+              }
+              void foo(String s, @Nullable String n) {
+                if (Other.equals(s, n)) {
+                  // BUG: Diagnostic contains: dereferenced expression 'n' is @Nullable
+                  n.toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void defaultLibraryModelsClassIsInstance() {
     defaultCompilationHelper
         .addSourceLines(
