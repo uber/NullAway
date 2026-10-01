@@ -819,7 +819,8 @@ public class NullAway extends BugChecker
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
-   *     library models, for a regular override in JSpecify mode; otherwise {@code null}
+   *     library models, in JSpecify mode (for a lambda or method reference, the functional
+   *     interface method type as a member of the poly expression's type); otherwise {@code null}
    * @param state visitor state
    * @param overridingMethod if available, the symbol for the overriding method
    * @return discovered error, or {@link Description#NO_MATCH} if no error
@@ -1244,13 +1245,18 @@ public class NullAway extends BugChecker
     if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
       return Description.NO_MATCH;
     }
+    Type modeledFuncInterfaceMethodType =
+        config.isJSpecifyMode()
+            ? genericsChecks.getModeledFunctionalInterfaceMethodType(
+                tree, funcInterfaceMethod, state)
+            : null;
     Description description =
         checkParamOverriding(
             tree.getParameters().stream().map(ASTHelpers::getSymbol).collect(Collectors.toList()),
             funcInterfaceMethod,
             tree,
             /* memberReferenceTree= */ null,
-            /* modeledOverriddenMethodType= */ null,
+            modeledFuncInterfaceMethodType,
             state,
             /* overridingMethod= */ null);
     if (!description.equals(Description.NO_MATCH)) {
@@ -1290,7 +1296,13 @@ public class NullAway extends BugChecker
     Symbol.MethodSymbol funcInterfaceSymbol =
         NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes());
     handler.onMatchMethodReference(tree, new MethodAnalysisContext(this, state, referencedMethod));
-    return checkOverriding(funcInterfaceSymbol, referencedMethod, null, tree, state);
+    Type modeledFuncInterfaceMethodType =
+        config.isJSpecifyMode()
+            ? genericsChecks.getModeledFunctionalInterfaceMethodType(
+                tree, funcInterfaceSymbol, state)
+            : null;
+    return checkOverriding(
+        funcInterfaceSymbol, referencedMethod, modeledFuncInterfaceMethodType, tree, state);
   }
 
   /**
@@ -1300,7 +1312,8 @@ public class NullAway extends BugChecker
    * @param overriddenMethod method being overridden
    * @param overridingMethod overriding method
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
-   *     library models, for a regular override in JSpecify mode; otherwise {@code null}
+   *     library models, in JSpecify mode (for a lambda or method reference, the functional
+   *     interface method type as a member of the poly expression's type); otherwise {@code null}
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
    *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
    *     referenced method

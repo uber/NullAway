@@ -2676,6 +2676,53 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns the type of a functional interface method, as a member of the type of a lambda or
+   * method reference, with library models applied. This is the analog of {@link
+   * #getModeledOverriddenMethodType} for lambdas and method references, which "override" the
+   * functional interface method.
+   *
+   * <p>The type of the poly expression comes from the cache of inferred types if present (which may
+   * already reflect library models for the invoked method), otherwise from javac.
+   *
+   * @param polyExpressionTree the lambda or method reference
+   * @param funcInterfaceMethod the functional interface method
+   * @param state visitor state
+   * @return the substituted, modeled functional interface method type, or {@code null} if the type
+   *     of {@code polyExpressionTree} is not available, is raw, or is an intersection type
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
+  public @Nullable Type getModeledFunctionalInterfaceMethodType(
+      Tree polyExpressionTree, Symbol.MethodSymbol funcInterfaceMethod, VisitorState state) {
+    Preconditions.checkArgument(
+        polyExpressionTree instanceof LambdaExpressionTree
+            || polyExpressionTree instanceof MemberReferenceTree,
+        "Expected lambda or method reference tree but got: %s",
+        polyExpressionTree.getKind());
+    Type functionalInterfaceType = getInferredPolyExpressionType(polyExpressionTree);
+    if (functionalInterfaceType == null) {
+      functionalInterfaceType = ASTHelpers.getType(polyExpressionTree);
+    }
+    if (functionalInterfaceType == null
+        || functionalInterfaceType.isRaw()
+        || functionalInterfaceType.isCompound()) {
+      return null;
+    }
+    Type substitutedMethodType =
+        TypeSubstitutionUtils.memberType(
+            state.getTypes(), functionalInterfaceType, funcInterfaceMethod, config);
+    Type.MethodType methodType = substitutedMethodType.asMethodType();
+    Type.MethodType modeledMethodType =
+        handler.onOverrideMethodType(funcInterfaceMethod, methodType, state, null);
+    if (modeledMethodType == methodType) {
+      return substitutedMethodType;
+    }
+    if (substitutedMethodType instanceof Type.ForAll forAll) {
+      return new Type.ForAll(forAll.tvars, modeledMethodType);
+    }
+    return modeledMethodType;
+  }
+
+  /**
    * Returns the overridden method type in the overriding class context with library models applied.
    *
    * <p>The {@link Type.ForAll} wrapper must be retained for subsequent checks of method type
