@@ -1140,10 +1140,11 @@ public class AccessPathNullnessPropagation
     if (AccessPath.isContainsKey(callee, state)) {
       // make sure argument is a variable, and get its element
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
-      if (getAccessPath != null) {
-        // in the then branch, we want the get() call with the same argument to be non-null
-        // we assume that the declared target of the get() method will be in the same class
-        // as containsKey()
+      // in the then branch, we want the get() call with the same argument to be non-null
+      // we assume that the declared target of the get() method will be in the same class
+      // as containsKey(). We skip this if the map can contain null values, since then get()
+      // can return null even when containsKey() returns true.
+      if (getAccessPath != null && !mapHasNullableValues(node)) {
         thenUpdates.set(getAccessPath, NONNULL);
       }
     } else if (AccessPath.isMapPut(callee, state)) {
@@ -1248,6 +1249,28 @@ public class AccessPathNullnessPropagation
         genericsChecks.getEnhancedForLoopElementNullness(
             iterableExpression, state.withPath(expressionPath));
     return elementNullness.equals(NULLABLE);
+  }
+
+  /**
+   * Checks if the receiver of a {@code containsKey()} call is a map with {@code @Nullable} values,
+   * e.g., {@code Map<String, @Nullable Object>}. Only checked in JSpecify mode.
+   *
+   * @param node the {@code containsKey()} invocation node
+   * @return true if the map value type is {@code @Nullable}, false otherwise
+   */
+  private boolean mapHasNullableValues(MethodInvocationNode node) {
+    if (!config.isJSpecifyMode()) {
+      return false;
+    }
+    MethodInvocationTree tree = node.getTree();
+    if (tree == null) {
+      return false;
+    }
+    TreePath pathToInvocation = node.getTreePath();
+    Nullness valueNullness =
+        genericsChecks.getMapValueNullnessAtInvocation(
+            tree, pathToInvocation, state.withPath(pathToInvocation));
+    return valueNullness.equals(NULLABLE);
   }
 
   /**
