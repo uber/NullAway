@@ -19,8 +19,8 @@ jobs:
     if: github.repository == 'uber/NullAway'
     runs-on: ubuntu-latest
     permissions:
-      issues: write # Required to create size labels and label the pull request.
-      pull-requests: read # Required to read the latest PR line counts and labels.
+      issues: write # Required to create missing repository labels.
+      pull-requests: write # Required to read and update pull request labels.
     steps:
       - name: Apply size label
         uses: actions/github-script@3a2844b7e9c422d3c10d287c895573f7108da1b3 # v9.0.0
