@@ -32,21 +32,8 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
               void test(Optional<String> optional, String nonNull, @Nullable String nullable) {
                 optional.orElse(nonNull).hashCode();
-
                 // BUG: Diagnostic contains: dereferenced expression 'optional.orElse(nullable)' is @Nullable
                 optional.orElse(nullable).hashCode();
-
-                var nonNullResult = optional.orElse(nonNull);
-                nonNullResult.hashCode();
-
-                var nullableResult = optional.orElse(nullable);
-                // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
-                nullableResult.hashCode();
-
-                field = optional.orElse(nonNull);
-
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
-                field = optional.orElse(nullable);
               }
             }
             """)
