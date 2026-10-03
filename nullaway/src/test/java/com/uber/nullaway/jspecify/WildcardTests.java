@@ -1723,6 +1723,60 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1854() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Node<T extends Comparable<Integer>> {
+                T value;
+
+                Node(T value) {
+                  this.value = value;
+                }
+              }
+
+              static class NullableNode<T extends @Nullable Comparable<Integer>> {
+                T value;
+
+                NullableNode(T value) {
+                  this.value = value;
+                }
+              }
+
+              static void takesObject(Object value) {}
+
+              static void superBounded(Node<? super Integer> node) {
+                takesObject(node.value);
+              }
+
+              static void nullableSuperBounded(NullableNode<? super Integer> node) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'node.value'
+                takesObject(node.value);
+              }
+
+              static void nullableSuperBoundedDeref(NullableNode<? super Integer> node) {
+                // BUG: Diagnostic contains: dereferenced expression 'node.value' is @Nullable
+                node.value.hashCode();
+              }
+
+              static void nullableSuperBoundedNullCheck(NullableNode<? super Integer> node) {
+                if (node.value != null) {
+                  takesObject(node.value);
+                  node.value.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
     makeTestHelperWithArgs(
             List.of(

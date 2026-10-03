@@ -833,7 +833,8 @@ public class AccessPathNullnessPropagation
           case FORCE_NONNULL -> false;
           case UNKNOWN ->
               NullabilityUtil.mayBeNullFieldFromType(
-                  symbol, config, handler, getCodeAnnotationInfo(state));
+                      symbol, config, handler, getCodeAnnotationInfo(state))
+                  || genericFieldIsNullable(fieldAccessNode);
         };
     if (!fieldMayBeNull) {
       nullness = NONNULL;
@@ -1271,6 +1272,33 @@ public class AccessPathNullnessPropagation
             genericsChecks.getGenericReturnNullnessAtInvocation(
                 ASTHelpers.getSymbol(tree), tree, pathToInvocation, stateWithUpdatedPath, true);
         return nullness.equals(NULLABLE);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Computes the nullability of a generic field in the context of the receiver at {@code node}.
+   *
+   * @param node the field access node
+   * @return {@code true} if the field's substituted type is nullable
+   */
+  private boolean genericFieldIsNullable(FieldAccessNode node) {
+    if (node != null && config.isJSpecifyMode()) {
+      Tree tree = node.getTree();
+      if (tree != null) {
+        Symbol symbol = ASTHelpers.getSymbol(tree);
+        if (symbol instanceof Symbol.VarSymbol varSymbol
+            && varSymbol.getKind() == ElementKind.FIELD
+            && varSymbol.type.getKind().equals(TypeKind.TYPEVAR)) {
+          Node receiverNode = node.getReceiver();
+          Type enclosingType = receiverNode != null ? (Type) receiverNode.getType() : null;
+          if (enclosingType != null) {
+            Nullness nullness =
+                genericsChecks.getGenericFieldNullness(varSymbol, enclosingType, state);
+            return nullness.equals(NULLABLE);
+          }
+        }
       }
     }
     return false;

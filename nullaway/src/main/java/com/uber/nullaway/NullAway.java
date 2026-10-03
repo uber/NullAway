@@ -2965,8 +2965,13 @@ public class NullAway extends BugChecker
           throw new IllegalStateException(
               "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
         }
-        exprMayBeNull =
-            NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, handler, codeAnnotationInfo);
+        if (exprSymbol.getKind() == ElementKind.FIELD) {
+          exprMayBeNull = mayBeNullField((Symbol.VarSymbol) exprSymbol, expr, state);
+        } else {
+          exprMayBeNull =
+              NullabilityUtil.mayBeNullFieldFromType(
+                  exprSymbol, config, handler, codeAnnotationInfo);
+        }
       }
       case IDENTIFIER -> {
         if (exprSymbol == null) {
@@ -2974,9 +2979,7 @@ public class NullAway extends BugChecker
               "unexpected null symbol for identifier " + state.getSourceForNode(expr));
         }
         if (exprSymbol.getKind() == ElementKind.FIELD) {
-          exprMayBeNull =
-              NullabilityUtil.mayBeNullFieldFromType(
-                  exprSymbol, config, handler, codeAnnotationInfo);
+          exprMayBeNull = mayBeNullField((Symbol.VarSymbol) exprSymbol, expr, state);
         } else {
           // rely on dataflow analysis for local variables
           exprMayBeNull = true;
@@ -3023,6 +3026,35 @@ public class NullAway extends BugChecker
       return genericsChecks
           .getGenericReturnNullnessAtInvocation(
               exprSymbol, invocationTree, invocationPath, state, false)
+          .equals(Nullness.NULLABLE);
+    }
+    return false;
+  }
+
+  /**
+   * Returns whether reading a field access expression may evaluate to {@code null}.
+   *
+   * @param exprSymbol symbol for the field
+   * @param expr expression tree for the field access
+   * @param state visitor state
+   * @return {@code true} if reading the field may yield {@code null}
+   */
+  private boolean mayBeNullField(
+      Symbol.VarSymbol exprSymbol, ExpressionTree expr, VisitorState state) {
+    if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config, handler)) {
+      return false;
+    }
+    if (NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, handler, codeAnnotationInfo)) {
+      return true;
+    }
+    if (config.isJSpecifyMode() && exprSymbol.type.getKind().equals(TypeKind.TYPEVAR)) {
+      TreePath path = state.getPath();
+      var exprPath = TreePath.getPath(path, expr);
+      if (exprPath == null) {
+        exprPath = new TreePath(path, expr);
+      }
+      return genericsChecks
+          .getGenericFieldAccessNullness(exprSymbol, expr, exprPath, state, false)
           .equals(Nullness.NULLABLE);
     }
     return false;
