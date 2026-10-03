@@ -2877,6 +2877,13 @@ public class NullAway extends BugChecker
         .anyMatch(excludedClassAnnotations::contains);
   }
 
+  /**
+   * Returns whether evaluating an expression may produce {@code null}.
+   *
+   * @param state visitor state
+   * @param expr the expression tree
+   * @return {@code true} if evaluating the expression may produce {@code null}
+   */
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
     expr = NullabilityUtil.stripParensAndCasts(expr);
     if (ASTHelpers.constValue(expr) != null) {
@@ -3004,6 +3011,14 @@ public class NullAway extends BugChecker
     return exprMayBeNull && nullnessFromDataflow(state, expr);
   }
 
+  /**
+   * Returns whether a method invocation expression may evaluate to {@code null}.
+   *
+   * @param exprSymbol symbol of the invoked method
+   * @param invocationTree the method invocation expression tree
+   * @param state visitor state
+   * @return {@code true} if the invocation may return {@code null}
+   */
   private boolean mayBeNullMethodCall(
       Symbol.MethodSymbol exprSymbol, MethodInvocationTree invocationTree, VisitorState state) {
     if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config, handler)) {
@@ -3060,6 +3075,13 @@ public class NullAway extends BugChecker
     return false;
   }
 
+  /**
+   * Determines whether an expression may evaluate to {@code null} using dataflow analysis.
+   *
+   * @param state visitor state
+   * @param expr the expression tree
+   * @return {@code true} if dataflow analysis indicates the expression may be {@code null}
+   */
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
     Nullness nullness =
         getNullnessAnalysis(state).getNullness(new TreePath(state.getPath(), expr), state.context);

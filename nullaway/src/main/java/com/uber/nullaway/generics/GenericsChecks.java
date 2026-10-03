@@ -3087,6 +3087,12 @@ public final class GenericsChecks {
     return getTypeNullnessForRead(memberFieldType, state);
   }
 
+  /**
+   * Converts a list of type argument trees into a javac list of types.
+   *
+   * @param typeArgumentTrees trees representing type arguments
+   * @return javac list of resolved types
+   */
   private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(
       List<? extends Tree> typeArgumentTrees) {
     List<Type> types = new ArrayList<>();

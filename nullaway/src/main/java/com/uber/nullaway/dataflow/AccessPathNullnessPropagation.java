@@ -812,6 +812,13 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(BOTTOM, input, updates);
   }
 
+  /**
+   * Computes the nullness and updates store for a field access node.
+   *
+   * @param fieldAccessNode the field access node
+   * @param input the transfer input
+   * @return transfer result containing field nullness and updated store
+   */
   @Override
   public TransferResult<Nullness, NullnessStore> visitFieldAccess(
       FieldAccessNode fieldAccessNode, TransferInput<Nullness, NullnessStore> input) {

@@ -1722,6 +1722,10 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Tests that reading a generic field via a wildcard with a nullable upper bound preserves
+   * nullability.
+   */
   @Test
   public void issue1854() {
     makeHelper()
@@ -1733,38 +1737,75 @@ public class WildcardTests extends NullAwayTestsBase {
 
             @NullMarked
             class Test {
+              /** Wrapper node holding a value. */
               static class Node<T extends Comparable<Integer>> {
                 T value;
 
+                /**
+                 * Constructs a node.
+                 *
+                 * @param value the node value
+                 */
                 Node(T value) {
                   this.value = value;
                 }
               }
 
+              /** Wrapper node holding a potentially nullable value. */
               static class NullableNode<T extends @Nullable Comparable<Integer>> {
                 T value;
 
+                /**
+                 * Constructs a nullable node.
+                 *
+                 * @param value the node value
+                 */
                 NullableNode(T value) {
                   this.value = value;
                 }
               }
 
+              /**
+               * Consumes an object.
+               *
+               * @param value the object value
+               */
               static void takesObject(Object value) {}
 
+              /**
+               * Tests field access with a non-null upper bound.
+               *
+               * @param node the node with super wildcard
+               */
               static void superBounded(Node<? super Integer> node) {
                 takesObject(node.value);
               }
 
+              /**
+               * Tests field access with a nullable upper bound.
+               *
+               * @param node the node with nullable super wildcard
+               */
               static void nullableSuperBounded(NullableNode<? super Integer> node) {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'node.value'
                 takesObject(node.value);
               }
 
+              /**
+               * Tests dereferencing field with a nullable upper bound.
+               *
+               * @param node the node with nullable super wildcard
+               */
               static void nullableSuperBoundedDeref(NullableNode<? super Integer> node) {
                 // BUG: Diagnostic contains: dereferenced expression 'node.value' is @Nullable
                 node.value.hashCode();
               }
 
+              /**
+               * Tests null-checking field with a nullable upper bound.
+               *
+               * @param node the node with nullable super wildcard
+               */
               static void nullableSuperBoundedNullCheck(NullableNode<? super Integer> node) {
                 if (node.value != null) {
                   takesObject(node.value);
