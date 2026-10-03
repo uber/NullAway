@@ -373,6 +373,14 @@ public class TypeSubstitutionUtils {
       }
     }
 
+    /**
+     * Restores nullability annotations from {@code other} onto the class type {@code t} and its
+     * enclosing and type argument components when types match.
+     *
+     * @param t the class type to update
+     * @param other the type from which to restore annotations
+     * @return the updated class type with annotations restored
+     */
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
       if (other instanceof Type.WildcardType wt) {
@@ -386,7 +394,11 @@ public class TypeSubstitutionUtils {
       }
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       // A raw source type has no type arguments from which to restore nested annotations.
-      if (!(other instanceof Type.ClassType) || other.isRaw()) {
+      if (!(other instanceof Type.ClassType otherClassType) || other.isRaw()) {
+        return updated;
+      }
+      // If the class symbols do not match, nested type arguments do not correspond.
+      if (!updated.tsym.equals(otherClassType.tsym)) {
         return updated;
       }
       Type outer = updated.getEnclosingType();
@@ -400,6 +412,14 @@ public class TypeSubstitutionUtils {
       }
     }
 
+    /**
+     * Restores nullability annotations from {@code other} onto the wildcard type {@code wt} and its
+     * explicit or implicit bounds.
+     *
+     * @param wt the wildcard type to update
+     * @param other the type from which to restore annotations
+     * @return the updated wildcard type with annotations restored
+     */
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
       if (!(other instanceof Type.WildcardType wildcardType)) {
@@ -445,7 +465,19 @@ public class TypeSubstitutionUtils {
       }
       Type t = wt.type;
       if (t != null) {
-        t = visit(t, wildcardType.type);
+        if (wt.kind == BoundKind.EXTENDS && wildcardType.kind == BoundKind.UNBOUND) {
+          // Substitution can turn a capture's backing wildcard into an explicit extends wildcard
+          // while the corresponding declared wildcard remains unbounded. Its `type` field is just
+          // an Object placeholder; annotations must be restored from the implicit upper bound of
+          // its formal type variable instead.
+          Type.TypeVar formalTypeVariable =
+              Verify.verifyNotNull(
+                  wildcardType.bound,
+                  "unbounded wildcard has no corresponding formal type variable");
+          t = visit(t, formalTypeVariable.getUpperBound());
+        } else if (wildcardType.kind != BoundKind.UNBOUND) {
+          t = visit(t, wildcardType.type);
+        }
       }
       if (t == wt.type) {
         return wt;
@@ -650,13 +682,16 @@ public class TypeSubstitutionUtils {
 
     /**
      * Visits each corresponding pair in two lists of types. Returns a list of the updated types, or
-     * {@code newtypes} itself if no updates were made.
+     * {@code newtypes} itself if no updates were made or if list sizes do not match.
      *
      * @param newtypes list of new types to be updated
      * @param origtypes list of original types to update from
      * @return the updated list of types, or {@code newtypes} itself if no updates were made
      */
     private List<Type> visitTypeLists(List<Type> newtypes, List<Type> origtypes) {
+      if (newtypes.size() != origtypes.size()) {
+        return newtypes;
+      }
       ListBuffer<Type> buf = new ListBuffer<>();
       boolean changed = false;
       for (List<Type> l = newtypes, l1 = origtypes; l.nonEmpty(); l = l.tail, l1 = l1.tail) {
