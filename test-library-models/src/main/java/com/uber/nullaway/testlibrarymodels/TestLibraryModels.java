@@ -84,6 +84,8 @@ public class TestLibraryModels implements LibraryModels {
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "isNonNull(java.lang.Object)"),
         0,
         methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
+        0,
+        methodRef("com.uber.lib.unannotated.ModeledFI", "apply(java.lang.String)"),
         0);
   }
 
@@ -160,7 +162,8 @@ public class TestLibraryModels implements LibraryModels {
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
         methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
         methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
-        methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()"));
+        methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()"),
+        methodRef("com.uber.lib.unannotated.ModeledFI", "apply(java.lang.String)"));
   }
 
   @Override
@@ -261,6 +264,7 @@ public class TestLibraryModels implements LibraryModels {
         "com.uber.lib.unannotated.LambdaBox",
         "com.uber.lib.unannotated.LambdaConsumer",
         "com.uber.lib.unannotated.LambdaModel",
+        "com.uber.lib.unannotated.ModeledFI",
         "com.uber.lib.unannotated.NestedAnnots",
         "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
         "com.uber.lib.unannotated.UnboundWildcards");

@@ -818,6 +818,45 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
+  public void lambdaAndMethodRefUseModeledFunctionalInterfaceMethod() {
+    // see https://github.com/uber/NullAway/issues/1724
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.ModeledFI;
+            import org.jspecify.annotations.*;
+
+            @NullMarked
+            class Test {
+              static String takesNonNull(String s) {
+                return s;
+              }
+              static @Nullable String takesNullable(@Nullable String s) {
+                return s;
+              }
+              void test() {
+                // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                ModeledFI f1 = Test::takesNonNull;
+                ModeledFI f2 = Test::takesNullable;
+                // Modeled @Nullable return, so returning null is fine.
+                ModeledFI f3 = s -> null;
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                ModeledFI f4 = s -> s.toString();
+                // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in functional interface method
+                ModeledFI f5 = (String s) -> s;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void suggestRemovingUnnecessaryCastToNonNullFromLibraryModel() {
     var testHelper =
         BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
