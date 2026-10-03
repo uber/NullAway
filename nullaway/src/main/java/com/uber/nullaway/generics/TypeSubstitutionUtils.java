@@ -470,10 +470,11 @@ public class TypeSubstitutionUtils {
           // while the corresponding declared wildcard remains unbounded. Its `type` field is just
           // an Object placeholder; annotations must be restored from the implicit upper bound of
           // its formal type variable instead.
-          Type.TypeVar formalTypeVariable = wildcardType.bound;
-          if (formalTypeVariable != null) {
-            t = visit(t, formalTypeVariable.getUpperBound());
-          }
+          Type.TypeVar formalTypeVariable =
+              Verify.verifyNotNull(
+                  wildcardType.bound,
+                  "unbounded wildcard has no corresponding formal type variable");
+          t = visit(t, formalTypeVariable.getUpperBound());
         } else if (wildcardType.kind != BoundKind.UNBOUND) {
           t = visit(t, wildcardType.type);
         }
