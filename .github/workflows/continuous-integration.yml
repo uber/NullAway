@@ -47,7 +47,7 @@ jobs:
         run: ./gradlew javaToolchains
       - name: Check formatting
         run: ./gradlew spotlessCheck
-      - name: Compile production and test code
+      - name: Check compilation
         run: ./gradlew assemble compileTestJava
       - name: Build, test, and run remaining verification
         # The preceding Spotless and compilation tasks are up to date, while build still guarantees
