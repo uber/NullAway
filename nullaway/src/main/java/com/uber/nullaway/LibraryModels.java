@@ -140,6 +140,24 @@ public interface LibraryModels {
   }
 
   /**
+   * Get the locations in library method signatures that have linked, polymorphic nullness.
+   *
+   * <p>At a call, NullAway introduces nullability inference variables at the modeled input
+   * locations and generates constraints from invocation arguments, including lambdas and method
+   * references. All input occurrences must infer the same nullness, which is then substituted at
+   * every modeled location. Explicit method type arguments seed the corresponding inference
+   * variables after substitution. This model is used only in JSpecify mode, and the modeled
+   * method's enclosing class is expected to be modeled as {@code @NullMarked}. A PolyNull location
+   * takes precedence over any fixed nullable or non-null library model for the same location.
+   * Receiver locations can be represented but are not yet supported by inference.
+   *
+   * @return map from methods to signature locations with polymorphic nullness
+   */
+  default ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
+    return ImmutableSetMultimap.of();
+  }
+
+  /**
    * Get the (className, type argument index) pairs for library classes where the generic type
    * variable has a {@code @Nullable} upper bound. Only used in JSpecify mode.
    *
@@ -337,6 +355,37 @@ public interface LibraryModels {
           + '\''
           + '}';
     }
+  }
+
+  /**
+   * A location within a method signature whose nullness is linked to other locations for the same
+   * method.
+   *
+   * @param position receiver, parameter, or return position in the method signature
+   * @param typePath path within the receiver, parameter, or return type; an empty path denotes its
+   *     top level
+   */
+  public record PolyNullLocation(
+      Position position, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath) {
+
+    /** A component of a method signature that may carry polymorphic nullness. */
+    public sealed interface Position permits Receiver, Parameter, Return {}
+
+    /** The method receiver. */
+    public record Receiver() implements Position {}
+
+    /** A zero-based method parameter. */
+    public record Parameter(int index) implements Position {
+      /** Rejects negative parameter indexes. */
+      public Parameter {
+        if (index < 0) {
+          throw new IllegalArgumentException("parameter index must be non-negative");
+        }
+      }
+    }
+
+    /** The method return type. */
+    public record Return() implements Position {}
   }
 
   /** Representation of a field as a qualified class name + a field name */
