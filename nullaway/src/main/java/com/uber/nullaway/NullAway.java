@@ -2877,6 +2877,13 @@ public class NullAway extends BugChecker
         .anyMatch(excludedClassAnnotations::contains);
   }
 
+  /**
+   * Returns whether evaluating an expression may produce {@code null}.
+   *
+   * @param state visitor state
+   * @param expr the expression tree
+   * @return {@code true} if evaluating the expression may produce {@code null}
+   */
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
     expr = NullabilityUtil.stripParensAndCasts(expr);
     if (ASTHelpers.constValue(expr) != null) {
@@ -2965,8 +2972,13 @@ public class NullAway extends BugChecker
           throw new IllegalStateException(
               "unexpected null symbol for dereference expression " + state.getSourceForNode(expr));
         }
-        exprMayBeNull =
-            NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, handler, codeAnnotationInfo);
+        if (exprSymbol.getKind() == ElementKind.FIELD) {
+          exprMayBeNull = mayBeNullField((Symbol.VarSymbol) exprSymbol, expr, state);
+        } else {
+          exprMayBeNull =
+              NullabilityUtil.mayBeNullFieldFromType(
+                  exprSymbol, config, handler, codeAnnotationInfo);
+        }
       }
       case IDENTIFIER -> {
         if (exprSymbol == null) {
@@ -2974,9 +2986,7 @@ public class NullAway extends BugChecker
               "unexpected null symbol for identifier " + state.getSourceForNode(expr));
         }
         if (exprSymbol.getKind() == ElementKind.FIELD) {
-          exprMayBeNull =
-              NullabilityUtil.mayBeNullFieldFromType(
-                  exprSymbol, config, handler, codeAnnotationInfo);
+          exprMayBeNull = mayBeNullField((Symbol.VarSymbol) exprSymbol, expr, state);
         } else {
           // rely on dataflow analysis for local variables
           exprMayBeNull = true;
@@ -3001,6 +3011,14 @@ public class NullAway extends BugChecker
     return exprMayBeNull && nullnessFromDataflow(state, expr);
   }
 
+  /**
+   * Returns whether a method invocation expression may evaluate to {@code null}.
+   *
+   * @param exprSymbol symbol of the invoked method
+   * @param invocationTree the method invocation expression tree
+   * @param state visitor state
+   * @return {@code true} if the invocation may return {@code null}
+   */
   private boolean mayBeNullMethodCall(
       Symbol.MethodSymbol exprSymbol, MethodInvocationTree invocationTree, VisitorState state) {
     if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config, handler)) {
@@ -3028,6 +3046,42 @@ public class NullAway extends BugChecker
     return false;
   }
 
+  /**
+   * Returns whether reading a field access expression may evaluate to {@code null}.
+   *
+   * @param exprSymbol symbol for the field
+   * @param expr expression tree for the field access
+   * @param state visitor state
+   * @return {@code true} if reading the field may yield {@code null}
+   */
+  private boolean mayBeNullField(
+      Symbol.VarSymbol exprSymbol, ExpressionTree expr, VisitorState state) {
+    if (codeAnnotationInfo.isSymbolUnannotated(exprSymbol, config, handler)) {
+      return false;
+    }
+    if (NullabilityUtil.mayBeNullFieldFromType(exprSymbol, config, handler, codeAnnotationInfo)) {
+      return true;
+    }
+    if (config.isJSpecifyMode() && exprSymbol.type.getKind().equals(TypeKind.TYPEVAR)) {
+      TreePath path = state.getPath();
+      var exprPath = TreePath.getPath(path, expr);
+      if (exprPath == null) {
+        exprPath = new TreePath(path, expr);
+      }
+      return genericsChecks
+          .getGenericFieldAccessNullness(exprSymbol, expr, exprPath, state, false)
+          .equals(Nullness.NULLABLE);
+    }
+    return false;
+  }
+
+  /**
+   * Determines whether an expression may evaluate to {@code null} using dataflow analysis.
+   *
+   * @param state visitor state
+   * @param expr the expression tree
+   * @return {@code true} if dataflow analysis indicates the expression may be {@code null}
+   */
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
     Nullness nullness =
         getNullnessAnalysis(state).getNullness(new TreePath(state.getPath(), expr), state.context);
