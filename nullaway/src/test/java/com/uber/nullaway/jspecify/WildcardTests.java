@@ -40,6 +40,36 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1909FBoundedWildcardTypeDoesNotCrash() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              abstract static class Base<S extends Base<S>> {}
+
+              abstract static class X<S extends X<S>> extends Base<S> {}
+
+              abstract static class Y<S extends Y<S>> extends Base<S> {}
+
+              static <T> T pick(T a, T b, T c) {
+                return a;
+              }
+
+              Base<?> m(X<?> x, Y<?> y) {
+                // Regression for #1909: restoring annotations from an unbounded wildcard with an
+                // F-bounded formal upper bound onto an extends wildcard previously caused a crash.
+                return pick(x, y, y);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nonNullTypeVariableThroughWildcardCapture() {
     // https://github.com/uber/NullAway/issues/1823
     // Reproducer from https://github.com/ben-manes/caffeine/issues/2004#issuecomment-5467003874
