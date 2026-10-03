@@ -47,17 +47,15 @@ jobs:
         run: ./gradlew javaToolchains
       - name: Check formatting
         run: ./gradlew spotlessCheck
-      - name: Run unit tests
-        run: ./gradlew test
-        env:
-          # The Linux tests produce the execution data consumed by the Codecov aggregation step.
-          # Keep ordinary macOS and Windows test runs free of JaCoCo instrumentation overhead.
-          ORG_GRADLE_PROJECT_enableJacoco: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
-      - name: Build and run remaining verification
-        # The preceding Spotless and default test tasks are up to date, while build still guarantees
+      - name: Compile production and test code
+        run: ./gradlew assemble compileTestJava
+      - name: Build, test, and run remaining verification
+        # The preceding Spotless and compilation tasks are up to date, while build still guarantees
         # that every lifecycle and custom verification task runs.
         run: ./gradlew build
         env:
+          # The Linux build produces the execution data consumed by the Codecov aggregation step.
+          # Keep ordinary macOS and Windows test runs free of JaCoCo instrumentation overhead.
           ORG_GRADLE_PROJECT_enableJacoco: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
       - name: Run shellcheck
         run: ./gradlew shellcheck
