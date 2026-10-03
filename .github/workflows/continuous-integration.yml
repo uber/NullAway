@@ -45,7 +45,13 @@ jobs:
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
       - name: List toolchains
         run: ./gradlew javaToolchains
+      - name: Check formatting
+        run: ./gradlew spotlessCheck
+      - name: Check compilation
+        run: ./gradlew assemble compileTestJava
       - name: Build and test
+        # The preceding Spotless and compilation tasks are up to date, while build still guarantees
+        # that every lifecycle and custom verification task runs.
         run: ./gradlew build
         env:
           # The Linux build produces the execution data consumed by the Codecov aggregation step.
@@ -73,7 +79,7 @@ jobs:
         run: |
           # See https://github.com/codecov/codecov-action/issues/1851
           rm -rf codecov codecov.SHA256SUM codecov.SHA256SUM.sig
-        if: steps.jacoco_report.outcome == 'success'        
+        if: steps.jacoco_report.outcome == 'success'
       - name: Test publishToMavenLocal flow
         env:
           ORG_GRADLE_PROJECT_VERSION_NAME: '0.0.0.1-LOCAL'
