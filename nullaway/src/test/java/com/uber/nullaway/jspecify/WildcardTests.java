@@ -1812,6 +1812,21 @@ public class WildcardTests extends NullAwayTestsBase {
                   node.value.hashCode();
                 }
               }
+
+              /**
+               * Returns a nullable node.
+               *
+               * @return a new nullable node
+               */
+              static NullableNode<? super Integer> makeNullableNode() {
+                return new NullableNode<>(null);
+              }
+
+              /** Tests reading field from method call receiver with nullable upper bound. */
+              static void nullableMethodReceiver() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'makeNullableNode().value'
+                takesObject(makeNullableNode().value);
+              }
             }
             """)
         .doTest();

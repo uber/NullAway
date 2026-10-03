@@ -728,8 +728,7 @@ public final class GenericsChecks {
    *     types and other unhandled cases. Arrays with raw component types are returned since their
    *     structure and component annotations are still useful.
    */
-  /* package-private */ @Nullable Type getTreeType(
-      Tree tree, VisitorState state, boolean calledFromDataflow) {
+  public @Nullable Type getTreeType(Tree tree, VisitorState state, boolean calledFromDataflow) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
@@ -3600,7 +3599,11 @@ public final class GenericsChecks {
       TreePath cur = basePath;
       while (cur != null) {
         if (cur.getLeaf() instanceof ClassTree classTree) {
-          Type classType = ASTHelpers.getType(classTree);
+          Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
+          Type classType =
+              classSymbol != null
+                  ? getTypeForSymbol(classSymbol, state.withPath(cur))
+                  : ASTHelpers.getType(classTree);
           if (classType != null
               && fieldSymbol.owner != null
               && state.getTypes().isSubtype(classType, fieldSymbol.owner.type)) {

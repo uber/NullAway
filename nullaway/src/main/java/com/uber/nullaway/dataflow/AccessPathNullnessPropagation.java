@@ -1299,7 +1299,19 @@ public class AccessPathNullnessPropagation
             && varSymbol.getKind() == ElementKind.FIELD
             && varSymbol.type.getKind().equals(TypeKind.TYPEVAR)) {
           Node receiverNode = node.getReceiver();
-          Type enclosingType = receiverNode != null ? (Type) receiverNode.getType() : null;
+          Type enclosingType = null;
+          if (receiverNode instanceof MethodInvocationNode methodInvocationNode) {
+            TreePath pathToInvocation = methodInvocationNode.getTreePath();
+            MethodInvocationTree invocationTree = methodInvocationNode.getTree();
+            if (pathToInvocation != null && invocationTree != null) {
+              VisitorState stateWithUpdatedPath = state.withPath(pathToInvocation);
+              enclosingType =
+                  genericsChecks.getTreeType(invocationTree, stateWithUpdatedPath, true);
+            }
+          }
+          if (enclosingType == null && receiverNode != null) {
+            enclosingType = (Type) receiverNode.getType();
+          }
           if (enclosingType != null) {
             Nullness nullness =
                 genericsChecks.getGenericFieldNullness(varSymbol, enclosingType, state);
