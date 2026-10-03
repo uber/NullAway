@@ -34,6 +34,28 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullableFieldWithModel() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of("-XepOpt:NullAway:AnnotatedPackages=foo")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package foo;
+            import java.io.StreamTokenizer;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              void test(StreamTokenizer tokenizer) {
+                // BUG: Diagnostic contains: dereferenced expression 'tokenizer.sval' is @Nullable
+                tokenizer.sval.length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void listContainingNullsWithModel() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
