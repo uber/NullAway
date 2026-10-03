@@ -373,6 +373,14 @@ public class TypeSubstitutionUtils {
       }
     }
 
+    /**
+     * Restores nullability annotations from {@code other} onto the class type {@code t} and its
+     * enclosing and type argument components when types match.
+     *
+     * @param t the class type to update
+     * @param other the type from which to restore annotations
+     * @return the updated class type with annotations restored
+     */
     @Override
     public Type visitClassType(Type.ClassType t, Type other) {
       if (other instanceof Type.WildcardType wt) {
@@ -404,6 +412,14 @@ public class TypeSubstitutionUtils {
       }
     }
 
+    /**
+     * Restores nullability annotations from {@code other} onto the wildcard type {@code wt} and its
+     * explicit or implicit bounds.
+     *
+     * @param wt the wildcard type to update
+     * @param other the type from which to restore annotations
+     * @return the updated wildcard type with annotations restored
+     */
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
       if (!(other instanceof Type.WildcardType wildcardType)) {

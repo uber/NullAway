@@ -39,6 +39,10 @@ public class WildcardTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Regression test for issue #1909: verifies that restoring annotations with F-bounded wildcard
+   * types does not crash with a NullPointerException.
+   */
   @Test
   public void issue1909FBoundedWildcardTypeDoesNotCrash() {
     makeHelper()
@@ -55,10 +59,12 @@ public class WildcardTests extends NullAwayTestsBase {
 
               abstract static class Y<S extends Y<S>> extends Base<S> {}
 
+              /** Returns the first argument. */
               static <T> T pick(T a, T b, T c) {
                 return a;
               }
 
+              /** Method returning an F-bounded base type. */
               Base<?> m(X<?> x, Y<?> y) {
                 // Regression for #1909: restoring annotations from an unbounded wildcard with an
                 // F-bounded formal upper bound onto an extends wildcard previously caused a crash.
