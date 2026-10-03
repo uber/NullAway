@@ -512,9 +512,31 @@ public class AccessPathNullnessPropagation
     Nullness leftVal =
         leftOperandNullness != null ? leftOperandNullness : inputs.valueOfSubNode(leftOperand);
     Nullness rightVal = inputs.valueOfSubNode(rightOperand);
+    setEqualityComparisonUpdates(
+        leftOperand,
+        leftVal,
+        rightOperand,
+        rightVal,
+        equalTo ? thenUpdates : elseUpdates,
+        equalTo ? elseUpdates : thenUpdates);
+    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
+    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
+    return conditionalResult(
+        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
+  }
+
+  /**
+   * Records the nullability refinements for the operands of an equality comparison in the branch
+   * where the operands are equal and the branch where they are not equal.
+   */
+  private void setEqualityComparisonUpdates(
+      Node leftOperand,
+      Nullness leftVal,
+      Node rightOperand,
+      Nullness rightVal,
+      Updates equalBranchUpdates,
+      Updates notEqualBranchUpdates) {
     Nullness equalBranchValue = leftVal.greatestLowerBound(rightVal);
-    Updates equalBranchUpdates = equalTo ? thenUpdates : elseUpdates;
-    Updates notEqualBranchUpdates = equalTo ? elseUpdates : thenUpdates;
 
     Node realLeftNode = unwrapAssignExpr(leftOperand);
     Node realRightNode = unwrapAssignExpr(rightOperand);
@@ -532,10 +554,6 @@ public class AccessPathNullnessPropagation
       notEqualBranchUpdates.set(
           rightAP, rightVal.greatestLowerBound(leftVal.deducedValueWhenNotEqual()));
     }
-    ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates);
-    ResultingStore elseStore = updateStore(input.getElseStore(), elseUpdates);
-    return conditionalResult(
-        thenStore.store, elseStore.store, thenStore.storeChanged || elseStore.storeChanged);
   }
 
   @Override
@@ -1110,6 +1128,19 @@ public class AccessPathNullnessPropagation
     setReceiverNonnull(bothUpdates, node.getTarget().getReceiver(), callee);
     setNullnessForMapCalls(
         node, callee, node.getArguments(), values(input), thenUpdates, bothUpdates);
+    if (isObjectsEquals(callee)) {
+      // assumes the Object.equals() contract, i.e., x.equals(null) is false for non-null x
+      SubNodeValues inputs = values(input);
+      Node leftArg = node.getArgument(0);
+      Node rightArg = node.getArgument(1);
+      setEqualityComparisonUpdates(
+          leftArg,
+          inputs.valueOfSubNode(leftArg),
+          rightArg,
+          inputs.valueOfSubNode(rightArg),
+          thenUpdates,
+          elseUpdates);
+    }
     NullnessHint nullnessHint =
         handler.onDataflowVisitMethodInvocation(
             node,
@@ -1185,6 +1216,12 @@ public class AccessPathNullnessPropagation
         bothUpdates.set(getAccessPath, NULLABLE);
       }
     }
+  }
+
+  private static boolean isObjectsEquals(Symbol.MethodSymbol callee) {
+    return callee.getSimpleName().contentEquals("equals")
+        && callee.getParameters().size() == 2
+        && callee.owner.getQualifiedName().contentEquals("java.util.Objects");
   }
 
   private static boolean booleanReturnType(Symbol.MethodSymbol methodSymbol) {
