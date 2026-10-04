@@ -1837,7 +1837,7 @@ public final class GenericsChecks {
     return resolveMemberReference(
         memberReferenceTree,
         referencedMethod,
-        getFunctionalInterfaceMethodType(groundTargetType, memberReferenceTree, state),
+        getModeledFunctionalInterfaceMethodType(groundTargetType, memberReferenceTree, state),
         state);
   }
 
