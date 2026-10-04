@@ -6,6 +6,7 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.TypeParameterTree;
+import com.sun.source.tree.VariableTree;
 import com.sun.source.util.JavacTask;
 import com.sun.source.util.Plugin;
 import com.sun.source.util.TreePath;
@@ -29,8 +30,10 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.UUID;
 import javax.lang.model.element.AnnotationMirror;
+import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.Name;
+import javax.lang.model.element.TypeElement;
 import javax.lang.model.type.TypeMirror;
 import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.NullMarked;
@@ -59,13 +62,36 @@ public class NullnessAnnotationSerializer implements Plugin {
       List<TypeParamInfo> typeParams,
       Map<Integer, Set<NestedAnnotationInfo>> nestedAnnotationsList) {}
 
+  /**
+   * Information about a field with a top-level JSpecify {@code @Nullable} annotation.
+   *
+   * @param name simple name of the field
+   * @param type type of the field, as a string (for debugging)
+   * @param enclosingClassFlatName flat name of the enclosing class (uses {@code $} for nested
+   *     classes), which matches the name NullAway uses to look up library model fields
+   */
+  public record FieldInfo(String name, String type, String enclosingClassFlatName) {}
+
   public record ClassInfo(
       String name,
       String type,
       boolean nullMarked,
       boolean nullUnmarked,
       List<TypeParamInfo> typeParams,
-      List<MethodInfo> methods) {}
+      List<MethodInfo> methods,
+      List<FieldInfo> fields) {
+
+    /** Constructor for classes with no nullable fields. */
+    public ClassInfo(
+        String name,
+        String type,
+        boolean nullMarked,
+        boolean nullUnmarked,
+        List<TypeParamInfo> typeParams,
+        List<MethodInfo> methods) {
+      this(name, type, nullMarked, nullUnmarked, typeParams, methods, new ArrayList<>());
+    }
+  }
 
   /** Map from module name to information for classes in that module. */
   private final Map<String, List<ClassInfo>> moduleClasses = new HashMap<>();
@@ -127,6 +153,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                     }
                   }
                   List<MethodInfo> classMethods = new ArrayList<>();
+                  List<FieldInfo> classFields = new ArrayList<>();
                   currentClass =
                       new ClassInfo(
                           simpleName.toString(),
@@ -134,10 +161,13 @@ public class NullnessAnnotationSerializer implements Plugin {
                           hasNullMarked,
                           hasNullUnmarked,
                           classTypeParams,
-                          classMethods);
+                          classMethods,
+                          classFields);
                   super.visitClass(classTree, null);
                   currentClassHasAnnotation =
-                      currentClassHasAnnotation || !currentClass.methods().isEmpty();
+                      currentClassHasAnnotation
+                          || !currentClass.methods().isEmpty()
+                          || !currentClass.fields().isEmpty();
                   // only save classes containing jspecify annotations
                   if (currentClassHasAnnotation) {
                     moduleClasses
@@ -210,6 +240,50 @@ public class NullnessAnnotationSerializer implements Plugin {
                   return super.visitMethod(methodTree, null);
                 }
 
+                @Override
+                public @Nullable Void visitVariable(
+                    VariableTree variableTree, @Nullable Void unused) {
+                  // only handle fields; skip parameters and local variables
+                  if (currentClass == null) {
+                    return super.visitVariable(variableTree, null);
+                  }
+                  Symbol sym = (Symbol) trees.getElement(getCurrentPath());
+                  if (sym == null
+                      || sym.getKind() != ElementKind.FIELD
+                      || sym.getModifiers().contains(Modifier.PRIVATE)) {
+                    return super.visitVariable(variableTree, null);
+                  }
+                  // only the top-level type matters; e.g. @Nullable String[] is a non-null
+                  // array of nullable elements, so we do not record it
+                  if (hasJSpecifyNullable(sym.asType().getAnnotationMirrors())) {
+                    currentClass
+                        .fields()
+                        .add(
+                            new FieldInfo(
+                                sym.getSimpleName().toString(),
+                                sym.asType().toString(),
+                                ((ClassSymbol) sym.owner).flatName().toString()));
+                  }
+                  return super.visitVariable(variableTree, null);
+                }
+
+                /* Returns whether the mirrors contain a JSpecify @Nullable annotation. */
+                private boolean hasJSpecifyNullable(List<? extends AnnotationMirror> mirrors) {
+                  for (AnnotationMirror am : mirrors) {
+                    if (annotationQualifiedName(am).equals(NULLABLE_NAME)) {
+                      return true;
+                    }
+                  }
+                  return false;
+                }
+
+                /* Returns the fully qualified name of an annotation's type. */
+                private String annotationQualifiedName(AnnotationMirror annotation) {
+                  return ((TypeElement) annotation.getAnnotationType().asElement())
+                      .getQualifiedName()
+                      .toString();
+                }
+
                 private TypeParamInfo typeParamInfo(TypeParameterTree tp) {
                   String name = tp.getName().toString();
                   List<String> bounds = new ArrayList<>();
@@ -221,8 +295,7 @@ public class NullnessAnnotationSerializer implements Plugin {
 
                 private boolean hasAnnotation(Symbol sym, String fqn) {
                   return sym.getAnnotationMirrors().stream()
-                      .map(AnnotationMirror::getAnnotationType)
-                      .map(Object::toString)
+                      .map(this::annotationQualifiedName)
                       .anyMatch(fqn::equals);
                 }
 
@@ -255,7 +328,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                 private boolean typeHasJSpecifyAnnotation(
                     List<? extends AnnotationMirror> mirrors) {
                   for (AnnotationMirror am : mirrors) {
-                    String fqn = am.getAnnotationType().toString();
+                    String fqn = annotationQualifiedName(am);
                     if (fqn.equals(NULLABLE_NAME) || fqn.equals(NONNULL_NAME)) {
                       return true;
                     }
