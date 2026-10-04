@@ -206,6 +206,7 @@ public class NullnessAnnotationSerializerTest {
               public @Nullable String a;
               String b = "";
               private @Nullable String c;
+              protected @Nullable String g;
               @Nullable String[] d = new String[0];
               String @Nullable [] e;
               static class Inner {
@@ -222,7 +223,8 @@ public class NullnessAnnotationSerializerTest {
         moduleClasses.get("unnamed").stream().flatMap(c -> c.fields().stream()).toList();
     assertThat(fields)
         .extracting(FieldInfo::name, FieldInfo::enclosingClassFlatName)
-        .containsExactlyInAnyOrder(tuple("a", "Foo"), tuple("e", "Foo"), tuple("f", "Foo$Inner"));
+        .containsExactlyInAnyOrder(
+            tuple("a", "Foo"), tuple("g", "Foo"), tuple("e", "Foo"), tuple("f", "Foo$Inner"));
   }
 
   @Test

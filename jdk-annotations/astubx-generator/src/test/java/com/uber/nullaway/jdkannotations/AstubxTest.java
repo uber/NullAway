@@ -696,6 +696,8 @@ public class AstubxTest {
             @NullMarked
             public class Test {
               public @Nullable String a;
+              protected @Nullable String protectedField;
+              private @Nullable String privateField;
               public String b = "";
               public static class Inner {
                 public @Nullable Object c;
@@ -707,7 +709,7 @@ public class AstubxTest {
         AstubxGenerator.getAstubxData(jsonFolder.getRoot().getAbsolutePath());
     assertThat(
         astubxData.nullableFields(),
-        equalTo(Map.of("Test", Set.of("a"), "Test$Inner", Set.of("c"))));
+        equalTo(Map.of("Test", Set.of("a", "protectedField"), "Test$Inner", Set.of("c"))));
     String astubxOutputDirPath = astubxFolder.getRoot().getAbsolutePath();
     AstubxGenerator.writeToAstubxFile(astubxOutputDirPath, astubxData);
     Assert.assertTrue(Files.exists(Paths.get(astubxOutputDirPath, "output.astubx")));

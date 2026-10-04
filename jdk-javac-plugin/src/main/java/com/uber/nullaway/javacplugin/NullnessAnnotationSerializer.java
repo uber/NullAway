@@ -81,13 +81,6 @@ public class NullnessAnnotationSerializer implements Plugin {
       List<MethodInfo> methods,
       List<FieldInfo> fields) {
 
-    public ClassInfo {
-      // JSON written before fields were supported has no "fields" entry; Gson then passes null
-      if (fields == null) {
-        fields = new ArrayList<>();
-      }
-    }
-
     /** Constructor for classes with no nullable fields. */
     public ClassInfo(
         String name,
@@ -251,10 +244,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                 public @Nullable Void visitVariable(
                     VariableTree variableTree, @Nullable Void unused) {
                   // only handle fields; skip parameters and local variables
-                  TreePath parentPath = getCurrentPath().getParentPath();
-                  if (currentClass == null
-                      || parentPath == null
-                      || !(parentPath.getLeaf() instanceof ClassTree)) {
+                  if (currentClass == null) {
                     return super.visitVariable(variableTree, null);
                   }
                   Symbol sym = (Symbol) trees.getElement(getCurrentPath());
@@ -280,15 +270,18 @@ public class NullnessAnnotationSerializer implements Plugin {
                 /* Returns whether the mirrors contain a JSpecify @Nullable annotation. */
                 private boolean hasJSpecifyNullable(List<? extends AnnotationMirror> mirrors) {
                   for (AnnotationMirror am : mirrors) {
-                    String qualifiedName =
-                        ((TypeElement) am.getAnnotationType().asElement())
-                            .getQualifiedName()
-                            .toString();
-                    if (qualifiedName.equals(NULLABLE_NAME)) {
+                    if (annotationQualifiedName(am).equals(NULLABLE_NAME)) {
                       return true;
                     }
                   }
                   return false;
+                }
+
+                /* Returns the fully qualified name of an annotation's type. */
+                private String annotationQualifiedName(AnnotationMirror annotation) {
+                  return ((TypeElement) annotation.getAnnotationType().asElement())
+                      .getQualifiedName()
+                      .toString();
                 }
 
                 private TypeParamInfo typeParamInfo(TypeParameterTree tp) {
@@ -302,8 +295,7 @@ public class NullnessAnnotationSerializer implements Plugin {
 
                 private boolean hasAnnotation(Symbol sym, String fqn) {
                   return sym.getAnnotationMirrors().stream()
-                      .map(AnnotationMirror::getAnnotationType)
-                      .map(Object::toString)
+                      .map(this::annotationQualifiedName)
                       .anyMatch(fqn::equals);
                 }
 
@@ -336,7 +328,7 @@ public class NullnessAnnotationSerializer implements Plugin {
                 private boolean typeHasJSpecifyAnnotation(
                     List<? extends AnnotationMirror> mirrors) {
                   for (AnnotationMirror am : mirrors) {
-                    String fqn = am.getAnnotationType().toString();
+                    String fqn = annotationQualifiedName(am);
                     if (fqn.equals(NULLABLE_NAME) || fqn.equals(NONNULL_NAME)) {
                       return true;
                     }
