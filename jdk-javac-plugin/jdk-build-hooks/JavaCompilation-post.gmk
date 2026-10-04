@@ -1,0 +1,13 @@
+# Preserve the upstream macro and add plugin arguments after named parameters
+# have been unpacked, but before compiler commands and flags are constructed.
+$(eval define NullAwayOriginalSetupJavaCompilationBody$(NEWLINE)$(value SetupJavaCompilationBody)$(NEWLINE)endef)
+
+define SetupJavaCompilationBody
+  ifneq ($(filter BUILD_java.compiler.interim java.% jdk.%,$1), )
+    $1_JAVAC_FLAGS += -XDaccessInternalAPI=true \
+        -processorpath $$(call PathList, $(NULLAWAY_JDK_PLUGIN_JAR) \
+            $$(if $$(filter true,$$($1_CREATE_API_DIGEST)),$(BUILDTOOLS_OUTPUTDIR)/depend)) \
+        -Xplugin:"NullnessAnnotationSerializer $(NULLAWAY_JDK_JSON_DIR)"
+  endif
+  $(call NullAwayOriginalSetupJavaCompilationBody,$1)
+endef
