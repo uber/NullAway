@@ -1,0 +1,9 @@
+# Include this file from custom-spec.gmk in the configured JDK build directory.
+NULLAWAY_JDK_HOOK_DIR := $(abspath $(dir $(lastword $(MAKEFILE_LIST))))
+NULLAWAY_JDK_PLUGIN_JAR := $(abspath $(NULLAWAY_JDK_HOOK_DIR)/../build/libs/jdk-javac-plugin-all.jar)
+NULLAWAY_JDK_JSON_DIR ?= /tmp
+
+define IncludeCustomExtension
+  $(if $(filter common/JavaCompilation-post.gmk,$1), \
+      include $(NULLAWAY_JDK_HOOK_DIR)/JavaCompilation-post.gmk)
+endef
