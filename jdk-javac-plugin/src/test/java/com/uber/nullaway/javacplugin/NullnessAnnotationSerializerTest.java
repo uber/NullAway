@@ -2,6 +2,7 @@ package com.uber.nullaway.javacplugin;
 
 import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.assertj.core.api.Assertions.tuple;
 
 import com.google.common.collect.ImmutableList;
 import com.google.common.reflect.TypeToken;
@@ -13,6 +14,7 @@ import com.google.gson.JsonArray;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.JsonElement;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.ClassInfo;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.FieldInfo;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.MethodInfo;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.TypeParamInfo;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
@@ -190,6 +192,39 @@ public class NullnessAnnotationSerializerTest {
                 List.of(
                     new ClassInfo("Inner", "Foo.Inner", false, true, List.of(), List.of()),
                     new ClassInfo("Foo", "Foo", true, false, List.of(), List.of()))));
+  }
+
+  @Test
+  public void nullableFields() {
+    compilationTestHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Foo {
+              public @Nullable String a;
+              String b = "";
+              private @Nullable String c;
+              protected @Nullable String g;
+              @Nullable String[] d = new String[0];
+              String @Nullable [] e;
+              static class Inner {
+                @Nullable Object f;
+              }
+              void m(String p) {
+                @Nullable String local = null;
+              }
+            }
+            """)
+        .doTest();
+    Map<String, List<ClassInfo>> moduleClasses = getParsedJSON();
+    List<FieldInfo> fields =
+        moduleClasses.get("unnamed").stream().flatMap(c -> c.fields().stream()).toList();
+    assertThat(fields)
+        .extracting(FieldInfo::name, FieldInfo::enclosingClassFlatName)
+        .containsExactlyInAnyOrder(
+            tuple("a", "Foo"), tuple("g", "Foo"), tuple("e", "Foo"), tuple("f", "Foo$Inner"));
   }
 
   @Test

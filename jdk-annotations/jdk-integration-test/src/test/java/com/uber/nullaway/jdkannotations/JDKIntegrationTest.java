@@ -729,4 +729,33 @@ public class JDKIntegrationTest {
             """)
         .doTest();
   }
+
+  @Test
+  public void libraryModelNullableFieldsTest() {
+    compilationHelper
+        .setArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:JarInferEnabled=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.nullaway.jdkannotations.FieldAnnotation;
+            class Test {
+              static void test(FieldAnnotation f, FieldAnnotation.Inner inner) {
+                // BUG: Diagnostic contains: dereferenced expression 'f.nullableField' is @Nullable
+                f.nullableField.length();
+                // BUG: Diagnostic contains: dereferenced expression 'FieldAnnotation.nullableStaticField' is @Nullable
+                FieldAnnotation.nullableStaticField.length();
+                // BUG: Diagnostic contains: dereferenced expression 'inner.nullableInnerField' is @Nullable
+                inner.nullableInnerField.toString();
+                f.nonNullField.length();
+              }
+            }
+            """)
+        .doTest();
+  }
 }

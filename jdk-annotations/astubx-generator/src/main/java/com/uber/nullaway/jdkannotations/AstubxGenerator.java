@@ -9,6 +9,7 @@ import com.google.gson.GsonBuilder;
 import com.google.gson.JsonDeserializer;
 import com.google.gson.reflect.TypeToken;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.ClassInfo;
+import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.FieldInfo;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.MethodInfo;
 import com.uber.nullaway.javacplugin.NullnessAnnotationSerializer.TypeParamInfo;
 import com.uber.nullaway.libmodel.MethodAnnotationsRecord;
@@ -70,6 +71,8 @@ public class AstubxGenerator {
    * @param nullableUpperBounds Map of fully qualified name to a set of indices of type parameters
    *     that have nullable upper bounds.
    * @param nullMarkedClasses Set of fully qualified name of NullMarked classes
+   * @param nullableFields Map of flat class name (with {@code $} for nested classes) to the names
+   *     of its fields with a top-level {@code @Nullable} annotation
    */
   public record AstubxData(
       ImmutableMap<String, String> importedAnnotations,
@@ -77,7 +80,8 @@ public class AstubxGenerator {
       Map<String, Set<String>> typeAnnotations,
       Map<String, MethodAnnotationsRecord> methodRecords,
       Map<String, Set<Integer>> nullableUpperBounds,
-      Set<String> nullMarkedClasses) {}
+      Set<String> nullMarkedClasses,
+      Map<String, Set<String>> nullableFields) {}
 
   /**
    * This method generates an astubx file from jdk-javac-plugin generated JSON files, which contains
@@ -106,6 +110,7 @@ public class AstubxGenerator {
     Map<String, MethodAnnotationsRecord> methodRecords = new LinkedHashMap<>();
     Set<String> nullMarkedClasses = new LinkedHashSet<>();
     Map<String, Set<Integer>> nullableUpperBounds = new LinkedHashMap<>();
+    Map<String, Set<String>> nullableFields = new LinkedHashMap<>();
 
     for (Map.Entry<String, List<ClassInfo>> entry : parsed.entrySet()) {
       for (ClassInfo clazz : entry.getValue()) {
@@ -133,6 +138,11 @@ public class AstubxGenerator {
           nullableUpperBounds.put(fullyQualifiedClassName, nullableUpperBoundIndices);
         }
         getMethodRecords(clazz, fullyQualifiedClassName, methodRecords);
+        for (FieldInfo field : clazz.fields()) {
+          nullableFields
+              .computeIfAbsent(field.enclosingClassFlatName(), k -> new LinkedHashSet<>())
+              .add(field.name());
+        }
       }
     }
     return new AstubxData(
@@ -141,7 +151,8 @@ public class AstubxGenerator {
         typeAnnotations,
         methodRecords,
         nullableUpperBounds,
-        nullMarkedClasses);
+        nullMarkedClasses,
+        nullableFields);
   }
 
   public static void writeToAstubxFile(String astubxDirPath, AstubxData astubxData) {
@@ -161,7 +172,8 @@ public class AstubxGenerator {
           astubxData.typeAnnotations(),
           astubxData.methodRecords(),
           astubxData.nullMarkedClasses(),
-          astubxData.nullableUpperBounds());
+          astubxData.nullableUpperBounds(),
+          astubxData.nullableFields());
     } catch (IOException e) {
       System.err.println("Error writing JSON file: " + outputFile.getAbsolutePath());
       throw new RuntimeException(e);
