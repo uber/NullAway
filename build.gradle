@@ -135,8 +135,27 @@ subprojects { project ->
         ])
     }
 
-    tasks.withType(Test).configureEach {
+    tasks.withType(Test).configureEach { testTask ->
         maxParallelForks = Runtime.runtime.availableProcessors().intdiv(2) ?: 1
+        // CI passes JVM flags that belong to the test JVM rather than to Gradle: the locale, which
+        // Gradle itself does not run in (https://github.com/gradle/gradle/issues/17361), the
+        // identity-hash mode, and -da.  See .github/workflows/matrix.mjs.
+        def extraJvmArgs = providers.gradleProperty("testExtraJvmArgs").getOrElse("").trim()
+        if (!extraJvmArgs.isEmpty()) {
+            jvmArgs(extraJvmArgs.split(" +").toList())
+        }
+        // -PtestJdks=17,27 runs the JDK-specific test tasks for those JDKs only, and skips the
+        // others; the default test task always runs.  Without the property every task runs.  CI
+        // spreads the JDKs over its jobs this way instead of running each of them on every OS.
+        def jdkTask = testTask.name =~ /^testJdk(\d+)$/
+        def jdk = jdkTask.matches() ? jdkTask.group(1) : (testTask.name == "testErrorProneOldest" ? "17" : null)
+        if (jdk != null) {
+            def assignedJdks = providers.gradleProperty("testJdks")
+            onlyIf("JDK ${jdk} is among -PtestJdks") {
+                def assigned = assignedJdks.getOrElse("").trim()
+                assigned.isEmpty() || assigned.split(",")*.trim().contains(jdk)
+            }
+        }
         // A failed test has to be diagnosable from the console alone: CI runs `./gradlew build`
         // and publishes no test report, so the log is all a reader gets.  Gradle's default logging
         // names the exception class and the line of the test method and drops the message, which
