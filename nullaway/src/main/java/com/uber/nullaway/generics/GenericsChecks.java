@@ -123,9 +123,10 @@ public final class GenericsChecks {
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
   /**
-   * Target-derived types of implicit lambda parameters while generating inference constraints.
-   * These types can contain unsolved inference variables and are scoped to the lambda body, never
-   * stored in the cache of successfully inferred poly-expression types.
+   * Types of implicit lambda parameters to use while generating inference constraints. These types
+   * can contain unsolved inference variables and hence are scoped to the lambda body. Needed since
+   * falling back on javac types for these parameters can miss nullability information, see
+   * https://github.com/uber/NullAway/issues/1919
    */
   private Map<Symbol, Type> lambdaParameterTypesForInference = Map.of();
 
@@ -807,8 +808,8 @@ public final class GenericsChecks {
             }
           }
         } else if (symbol.getKind() == ElementKind.PARAMETER) {
-          // Use the target-derived parameter type during constraint generation, or the inferred
-          // parameter type after inference succeeds.
+          // Use the derived parameter type from lambdaParameterTypesForInference during constraint
+          // generation, or the inferred parameter type after inference succeeds.
           Type lambdaParameterType = getInferredLambdaParameterType(symbol, state);
           if (lambdaParameterType != null) {
             return lambdaParameterType;
@@ -941,8 +942,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the target-derived type of a lambda parameter during constraint generation, or its
-   * inferred type if the lambda was passed to a generic method and inference succeeded.
+   * Gets the temporary type of a lambda parameter during constraint generation (see {@link
+   * #lambdaParameterTypesForInference}), or its inferred type if the lambda was passed to a generic
+   * method and inference succeeded.
    *
    * @param symbol the symbol for the parameter (possibly not of a lambda, just needs kind to be
    *     {@code ElementKind.PARAMETER})
@@ -1073,6 +1075,21 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns whether a newly inferred type for a {@code var}-declared local can be cached.
+   *
+   * <p>Types computed during dataflow may depend on incomplete analysis results. Types computed
+   * while provisional lambda parameter types are available may contain unsolved inference
+   * variables. Skip caching in either context so subsequent checks can recompute the type after
+   * dataflow or generic inference completes.
+   *
+   * @param calledFromDataflow whether the type was computed as part of dataflow analysis
+   * @return whether the inferred local type can be cached in the current context
+   */
+  private boolean okToCacheInferredVarLocalType(boolean calledFromDataflow) {
+    return !calledFromDataflow && lambdaParameterTypesForInference.isEmpty();
+  }
+
+  /**
    * Gets the inferred type for a local variable declared with {@code var}.
    *
    * @param symbol symbol for the local
@@ -1095,7 +1112,7 @@ public final class GenericsChecks {
       Type enhancedForElementType =
           getEnhancedForLoopElementType(symbol, state, calledFromDataflow);
       if (enhancedForElementType != null) {
-        if (!calledFromDataflow && lambdaParameterTypesForInference.isEmpty()) {
+        if (okToCacheInferredVarLocalType(calledFromDataflow)) {
           inferredVarLocalTypes.put(symbol, enhancedForElementType);
         }
         return enhancedForElementType;
@@ -1217,9 +1234,7 @@ public final class GenericsChecks {
             isAssignmentToLocalVariable(varTree),
             state,
             calledFromDataflow);
-    // Do not cache a type based on incomplete dataflow results or provisional lambda parameter
-    // types, which can contain unsolved inference variables. Recompute after inference completes.
-    if (rhsType != null && !calledFromDataflow && lambdaParameterTypesForInference.isEmpty()) {
+    if (rhsType != null && okToCacheInferredVarLocalType(calledFromDataflow)) {
       Symbol symbol = ASTHelpers.getSymbol(varTree);
       if (symbol != null) {
         inferredVarLocalTypes.put(symbol, rhsType);
@@ -1670,9 +1685,14 @@ public final class GenericsChecks {
         TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    // save the previous lambdaParameterTypesForInference map so we can restore it after handling
+    // the lambda body
     Map<Symbol, Type> previousParameterTypes = lambdaParameterTypesForInference;
     try {
       if (((JCTree.JCLambda) lambda).paramKind == JCTree.JCLambda.ParameterKind.IMPLICIT) {
+        // If we have implicitly-typed lambda parameters, update the
+        // lambdaParameterTypesForInference map to have entries for these parameters, with types
+        // based on the parameter types in fiMethodTypeAsMember
         Map<Symbol, Type> parameterTypes = new LinkedHashMap<>(previousParameterTypes);
         var params = lambda.getParameters();
         var fiParameterTypes = fiMethodTypeAsMember.getParameterTypes();
@@ -1927,7 +1947,7 @@ public final class GenericsChecks {
       return returnPaths;
     }
 
-    /** Makes local declarations available before generating constraints for their uses. */
+    /** Makes var-local declarations available before generating constraints for their uses. */
     @Override
     public @Nullable Void visitVariable(VariableTree tree, @Nullable Void unused) {
       genericsChecks.registerVarLocalDeclaration(tree);
