@@ -122,6 +122,13 @@ public final class GenericsChecks {
    */
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
+  /**
+   * Target-derived types of implicit lambda parameters while generating inference constraints.
+   * These types can contain unsolved inference variables and are scoped to the lambda body, never
+   * stored in the cache of successfully inferred poly-expression types.
+   */
+  private Map<Symbol, Type> lambdaParameterTypesForInference = Map.of();
+
   /** Maps each {@code var}-declared local to its inferred NullAway type */
   private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
 
@@ -800,8 +807,8 @@ public final class GenericsChecks {
             }
           }
         } else if (symbol.getKind() == ElementKind.PARAMETER) {
-          // if it's a lambda parameter, and we inferred the type of the lambda, we want the
-          // inferred type of the parameter
+          // Use the target-derived parameter type during constraint generation, or the inferred
+          // parameter type after inference succeeds.
           Type lambdaParameterType = getInferredLambdaParameterType(symbol, state);
           if (lambdaParameterType != null) {
             return lambdaParameterType;
@@ -934,15 +941,19 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the inferred type of lambda parameter, if the lambda was passed to a generic method and
-   * its type was inferred previously
+   * Gets the target-derived type of a lambda parameter during constraint generation, or its
+   * inferred type if the lambda was passed to a generic method and inference succeeded.
    *
    * @param symbol the symbol for the parameter (possibly not of a lambda, just needs kind to be
    *     {@code ElementKind.PARAMETER})
    * @param state the visitor state
-   * @return the inferred type of the lambda parameter, or null if not found
+   * @return the target-derived or inferred type of the lambda parameter, or null if not found
    */
   private @Nullable Type getInferredLambdaParameterType(Symbol symbol, VisitorState state) {
+    Type provisionalType = lambdaParameterTypesForInference.get(symbol);
+    if (provisionalType != null) {
+      return provisionalType;
+    }
     if (symbol.owner != null && symbol.owner.getKind() == ElementKind.METHOD) {
       Symbol.MethodSymbol containingMethodSymbol = (Symbol.MethodSymbol) symbol.owner;
       if (!containingMethodSymbol.getParameters().contains(symbol)) {
@@ -1627,6 +1638,10 @@ public final class GenericsChecks {
    * Generate constraints for any return expression inside lambda argument. If the return expression
    * is a method invocation then recursively call generateConstraintsForCall
    *
+   * <p>Implicit parameter types come from the ground target's descriptor while generating body
+   * constraints. Keep them separate from cached inference results, and restore the enclosing
+   * parameter context on both success and failure.
+   *
    * @param state the visitor state
    * @param path the tree path to the enclosing call if available and possibly distinct from {@code
    *     state.getPath()}
@@ -1655,36 +1670,52 @@ public final class GenericsChecks {
         TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
-    Tree body = lambda.getBody();
-    // Ensure our current TreePath has the lambda as the leaf, in case dataflow analysis needs to be
-    // run within it.
-    TreePath lambdaPath = pathWithLeaf(path != null ? path : state.getPath(), lambda);
-    if (body instanceof ExpressionTree returnedExpression) {
-      // Case 1: Expression body, e.g., () -> null
-      TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
-      generateConstraintsForPseudoAssignment(
-          state.withPath(returnedExpressionPath),
-          solver,
-          allCalls,
-          returnedExpression,
-          fiReturnType,
-          calledFromDataflow);
-    } else if (body instanceof BlockTree) {
-      // Case 2: Block body, e.g., () -> { return null; }
-      TreePath bodyPath = new TreePath(lambdaPath, body);
-      List<TreePath> returnPaths = ReturnFinder.findReturnPaths(bodyPath);
-      for (TreePath returnPath : returnPaths) {
-        ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
-        ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
-        TreePath returnExprPath = new TreePath(returnPath, returnExpr);
+    Map<Symbol, Type> previousParameterTypes = lambdaParameterTypesForInference;
+    try {
+      if (((JCTree.JCLambda) lambda).paramKind == JCTree.JCLambda.ParameterKind.IMPLICIT) {
+        Map<Symbol, Type> parameterTypes = new LinkedHashMap<>(previousParameterTypes);
+        var params = lambda.getParameters();
+        var fiParameterTypes = fiMethodTypeAsMember.getParameterTypes();
+        for (int i = 0; i < params.size(); i++) {
+          parameterTypes.put(
+              castToNonNull(ASTHelpers.getSymbol(params.get(i))), fiParameterTypes.get(i));
+        }
+        lambdaParameterTypesForInference = parameterTypes;
+      }
+      Tree body = lambda.getBody();
+      // Ensure our current TreePath has the lambda as the leaf, in case dataflow analysis needs to
+      // be run within it.
+      TreePath lambdaPath = pathWithLeaf(path != null ? path : state.getPath(), lambda);
+      if (body instanceof ExpressionTree returnedExpression) {
+        // Case 1: Expression body, e.g., () -> null
+        TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
         generateConstraintsForPseudoAssignment(
-            state.withPath(returnExprPath),
+            state.withPath(returnedExpressionPath),
             solver,
             allCalls,
-            returnExpr,
+            returnedExpression,
             fiReturnType,
             calledFromDataflow);
+      } else if (body instanceof BlockTree) {
+        // Case 2: Block body, e.g., () -> { return null; }
+        TreePath bodyPath = new TreePath(lambdaPath, body);
+        List<TreePath> returnPaths = ReturnFinder.findReturnPaths(bodyPath);
+        for (TreePath returnPath : returnPaths) {
+          ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
+          ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
+          TreePath returnExprPath = new TreePath(returnPath, returnExpr);
+          generateConstraintsForPseudoAssignment(
+              state.withPath(returnExprPath),
+              solver,
+              allCalls,
+              returnExpr,
+              fiReturnType,
+              calledFromDataflow);
+        }
       }
+    } finally {
+      // Restore even if constraint generation fails or re-enters inference for a nested lambda.
+      lambdaParameterTypesForInference = previousParameterTypes;
     }
   }
 
