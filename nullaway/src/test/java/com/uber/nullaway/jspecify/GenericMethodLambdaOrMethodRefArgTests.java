@@ -75,6 +75,41 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericCallInLambdaVarInitializerPreservesNestedNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                T get() { throw new UnsupportedOperationException(); }
+              }
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static <P extends @Nullable Object, R extends @Nullable Object> Box<R> map(
+                  Box<P> input, Mapper<Box<P>, Box<R>> mapper) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> Box<U> id(Box<U> input) { return input; }
+              static void test(Box<@Nullable String> input) {
+                var result = map(input, value -> {
+                  var copy = id(value);
+                  // BUG: Diagnostic contains: dereferenced expression 'copy.get()' is @Nullable
+                  copy.get().length();
+                  return copy;
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaReturnsGenericMethodCall() {
     makeHelper()
         .addSourceLines(

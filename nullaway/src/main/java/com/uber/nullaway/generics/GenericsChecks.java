@@ -1075,17 +1075,17 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns whether a newly inferred type for a {@code var}-declared local can be cached.
+   * Returns whether a computed type or generic-call inference result can be cached.
    *
-   * <p>Types computed during dataflow may depend on incomplete analysis results. Types computed
-   * while provisional lambda parameter types are available may contain unsolved inference
-   * variables. Skip caching in either context so subsequent checks can recompute the type after
-   * dataflow or generic inference completes.
+   * <p>Results computed during dataflow may depend on incomplete analysis results. Results computed
+   * while provisional lambda parameter types are available may depend on unsolved outer inference
+   * variables. Skip caching in either context so subsequent checks can recompute the result after
+   * dataflow or the enclosing generic inference completes.
    *
-   * @param calledFromDataflow whether the type was computed as part of dataflow analysis
-   * @return whether the inferred local type can be cached in the current context
+   * @param calledFromDataflow whether the result was computed as part of dataflow analysis
+   * @return whether the inference result can be cached in the current context
    */
-  private boolean okToCacheInferredVarLocalType(boolean calledFromDataflow) {
+  private boolean okToCacheInferenceResult(boolean calledFromDataflow) {
     return !calledFromDataflow && lambdaParameterTypesForInference.isEmpty();
   }
 
@@ -1112,7 +1112,7 @@ public final class GenericsChecks {
       Type enhancedForElementType =
           getEnhancedForLoopElementType(symbol, state, calledFromDataflow);
       if (enhancedForElementType != null) {
-        if (okToCacheInferredVarLocalType(calledFromDataflow)) {
+        if (okToCacheInferenceResult(calledFromDataflow)) {
           inferredVarLocalTypes.put(symbol, enhancedForElementType);
         }
         return enhancedForElementType;
@@ -1234,7 +1234,7 @@ public final class GenericsChecks {
             isAssignmentToLocalVariable(varTree),
             state,
             calledFromDataflow);
-    if (rhsType != null && okToCacheInferredVarLocalType(calledFromDataflow)) {
+    if (rhsType != null && okToCacheInferenceResult(calledFromDataflow)) {
       Symbol symbol = ASTHelpers.getSymbol(varTree);
       if (symbol != null) {
         inferredVarLocalTypes.put(symbol, rhsType);
@@ -1391,9 +1391,7 @@ public final class GenericsChecks {
       }
 
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
-      // don't cache result if we were called from dataflow, since the result may rely on dataflow
-      // facts that do not reflect the fixed point
-      if (!calledFromDataflow) {
+      if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
         }
@@ -1433,9 +1431,7 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(callTree), state, null));
       }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
-      // don't cache result if we were called from dataflow, since the result may rely on dataflow
-      // facts that do not reflect the fixed point
-      if (!calledFromDataflow) {
+      if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, failureResult);
         }
@@ -2385,8 +2381,8 @@ public final class GenericsChecks {
    *
    * <p>If a target/contextual type for the conditional expression has already been cached, returns
    * it. Otherwise, this method tries to recover a target type from the conditional expression's
-   * parent context and caches it, unless called from dataflow. If no target type is available,
-   * falls back to javac's type for the conditional expression.
+   * parent context and caches it when {@link #okToCacheInferenceResult(boolean)} permits it. If no
+   * target type is available, falls back to javac's type for the conditional expression.
    */
   private @Nullable Type getConditionalExpressionType(
       ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
@@ -2398,7 +2394,7 @@ public final class GenericsChecks {
         getTargetTypeForConditionalExpression(tree, state, calledFromDataflow);
     Type typeFromAssignmentContext = targetTypeAndAssignmentKind.typeFromAssignmentContext();
     if (typeFromAssignmentContext != null) {
-      if (!calledFromDataflow) {
+      if (okToCacheInferenceResult(calledFromDataflow)) {
         inferredPolyExpressionTypes.put(tree, typeFromAssignmentContext);
       }
       return typeFromAssignmentContext;
@@ -2411,9 +2407,9 @@ public final class GenericsChecks {
    *
    * <p>If {@code typeFromAssignmentContext} is non-null, it is used as the conditional expression's
    * target type. Otherwise, this method tries to recover a target type from the parent context.
-   * When a target type is found, it is cached unless called from dataflow. If no target type is
-   * available, this method falls back to javac's type for the conditional expression. Returns
-   * {@code null} for raw or otherwise unavailable types.
+   * When a target type is found, it is cached when {@link #okToCacheInferenceResult(boolean)}
+   * permits it. If no target type is available, this method falls back to javac's type for the
+   * conditional expression. Returns {@code null} for raw or otherwise unavailable types.
    */
   private @Nullable Type inferConditionalExpressionType(
       VisitorState state,
@@ -2441,7 +2437,7 @@ public final class GenericsChecks {
     if (condExprType == null || condExprType.isRaw()) {
       return null;
     }
-    if (hasTargetType && !calledFromDataflow) {
+    if (hasTargetType && okToCacheInferenceResult(calledFromDataflow)) {
       inferredPolyExpressionTypes.put(tree, condExprType);
     }
     return condExprType;
