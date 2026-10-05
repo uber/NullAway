@@ -5,6 +5,11 @@ on:
   push:
     branches:
       - master
+  workflow_dispatch:
+    inputs:
+      matrix_rng_seed:
+        description: Seed of an earlier run, to draw the same matrix again
+        required: false
 # Cancel in-progress runs for pull requests, but not for master branch pushes or merge queue
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
@@ -12,16 +17,48 @@ concurrency:
 permissions:
   contents: read
 jobs:
+  matrix_prep:
+    name: "Prepare the build matrix"
+    runs-on: ubuntu-latest
+    outputs:
+      matrix: ${{ steps.set-matrix.outputs.matrix }}
+    env:
+      MATRIX_JOBS: 4
+      # The seed. Without GITHUB_PR_NUMBER every push to a pull request draws a different
+      # matrix, so a failure that lands on an exotic row cannot be told apart from one that
+      # was simply not drawn again. RNG_SEED replays the rows of an earlier run.
+      GITHUB_PR_NUMBER: ${{ github.event.number }}
+      RNG_SEED: ${{ github.event.inputs.matrix_rng_seed }}
+    steps:
+      - name: Check out NullAway sources
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Set up Node
+        uses: actions/setup-node@249970729cb0ef3589644e2896645e5dc5ba9c38 # v6.0.0
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: .github/workflows/package-lock.json
+      - name: Install the matrix generator
+        run: npm ci
+        working-directory: .github/workflows
+      - name: Generate the matrix
+        id: set-matrix
+        run: node matrix.mjs
+        working-directory: .github/workflows
   build:
-    name: "Build and test on ${{ matrix.os }}"
+    needs: matrix_prep
+    name: "Build and test on ${{ matrix.name }}"
     strategy:
-      matrix:
-        include:
-          - os: macos-latest
-          - os: windows-latest
-          - os: ubuntu-latest
+      matrix: ${{ fromJson(needs.matrix_prep.outputs.matrix) }}
       fail-fast: false
     runs-on: ${{ matrix.os }}
+    env:
+      # Flags for the test JVMs only; Gradle itself keeps the runner's default locale.
+      ORG_GRADLE_PROJECT_testExtraJvmArgs: ${{ matrix.testExtraJvmArgs }}
+      # The JDK-specific test tasks this row runs besides `test`; empty runs all of them.
+      ORG_GRADLE_PROJECT_testJdks: ${{ matrix.testJdks }}
     steps:
       - name: Check out NullAway sources
         uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -32,17 +69,43 @@ jobs:
         with:
           website: jdk.java.net
           release: 28
-      - name: 'Set up JDKs'
+      - name: 'Set up the compile toolchain'
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: 25
+          distribution: 'temurin'
+          check-latest: 'true'
+      - name: 'Set up the test toolchains'
+        # testJdk17, testErrorProneOldest and testJdk21 run on these, so the row's distribution
+        # has to reach them for java_distribution to be an axis over the JVM that runs the tests.
+        # testJdk27 comes from the foojay resolver and testJdk28 from the step above.
         uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           java-version: |
             17
             21
-            25
-          distribution: 'temurin'
+          distribution: ${{ matrix.java_distribution }}
+          # Explicit, to work around https://github.com/actions/setup-java/issues/559
+          architecture: ${{ runner.arch == 'ARM64' && 'aarch64' || 'x64' }}
+          check-latest: 'true'
+      - name: 'Set up the JDK that runs Gradle'
+        # setup-java points JAVA_HOME at the last JDK it installs, so this decides which JDK
+        # Gradle and the default test task run on. The toolchains above stay discoverable.
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
+        with:
+          java-version: ${{ matrix.java_version }}
+          distribution: ${{ matrix.java_distribution }}
+          architecture: ${{ runner.arch == 'ARM64' && 'aarch64' || 'x64' }}
           check-latest: 'true'
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        with:
+          # setup-gradle hashes the matrix into its cache key, so a randomized matrix would
+          # write an entry per job per run that no later run can match, filling the
+          # repository's cache budget and evicting what is still useful. Only the pinned row
+          # writes, and only on master: its axis values are the same every run, so its key is
+          # the same every run. Every other job reads.
+          cache-read-only: ${{ !(github.ref == 'refs/heads/master' && matrix.collectCoverage) }}
       - name: List toolchains
         run: ./gradlew javaToolchains
       - name: Check formatting
@@ -54,21 +117,21 @@ jobs:
         # that every lifecycle and custom verification task runs.
         run: ./gradlew build
         env:
-          # The Linux build produces the execution data consumed by the Codecov aggregation step.
-          # Keep ordinary macOS and Windows test runs free of JaCoCo instrumentation overhead.
-          ORG_GRADLE_PROJECT_enableJacoco: ${{ matrix.os == 'ubuntu-latest' && 'true' || 'false' }}
+          # The coverage row produces the execution data consumed by the Codecov aggregation
+          # step. Keep the other test runs free of JaCoCo instrumentation overhead.
+          ORG_GRADLE_PROJECT_enableJacoco: ${{ matrix.collectCoverage && 'true' || 'false' }}
       - name: Run shellcheck
         run: ./gradlew shellcheck
-        if: runner.os == 'Linux'
+        if: matrix.collectCoverage
       - name: Aggregate jacoco coverage
         id: jacoco_report
         run: ./gradlew codeCoverageReport
         env:
-          # Use the same test-task configuration as the preceding Linux build so its JaCoCo
+          # Use the same test-task configuration as the preceding build so its JaCoCo
           # execution data remains up-to-date and is included in the aggregate XML report.
           ORG_GRADLE_PROJECT_enableJacoco: 'true'
         continue-on-error: true
-        if: runner.os == 'Linux' && github.repository == 'uber/NullAway'
+        if: matrix.collectCoverage && github.repository == 'uber/NullAway'
       - name: Upload coverage reports to Codecov
         uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
         with:
@@ -87,6 +150,15 @@ jobs:
         run: ./gradlew publishToMavenLocal
       - name: Check that Git tree is clean after build and test
         run: ./.buildscript/check_git_clean.sh
+      - name: Upload the test reports of a failing job
+        # The rows are drawn per run, so a failure on an exotic combination is a one-shot
+        # event. The job name would need sanitizing to be an artifact name, so index instead.
+        if: failure()
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: test-reports-${{ strategy.job-index }}
+          path: '**/build/reports/tests/**'
+          if-no-files-found: ignore
   suppression-remover-regression-tests:
     name: "Suppression remover regression tests"
     runs-on: ubuntu-latest
