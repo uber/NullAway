@@ -1095,7 +1095,7 @@ public final class GenericsChecks {
       Type enhancedForElementType =
           getEnhancedForLoopElementType(symbol, state, calledFromDataflow);
       if (enhancedForElementType != null) {
-        if (!calledFromDataflow) {
+        if (!calledFromDataflow && lambdaParameterTypesForInference.isEmpty()) {
           inferredVarLocalTypes.put(symbol, enhancedForElementType);
         }
         return enhancedForElementType;
@@ -1217,9 +1217,9 @@ public final class GenericsChecks {
             isAssignmentToLocalVariable(varTree),
             state,
             calledFromDataflow);
-    // do _not_ cache the inferred type if called from dataflow, since it may rely on incomplete
-    // results from the dataflow analysis
-    if (rhsType != null && !calledFromDataflow) {
+    // Do not cache a type based on incomplete dataflow results or provisional lambda parameter
+    // types, which can contain unsolved inference variables. Recompute after inference completes.
+    if (rhsType != null && !calledFromDataflow && lambdaParameterTypesForInference.isEmpty()) {
       Symbol symbol = ASTHelpers.getSymbol(varTree);
       if (symbol != null) {
         inferredVarLocalTypes.put(symbol, rhsType);
@@ -1699,7 +1699,8 @@ public final class GenericsChecks {
       } else if (body instanceof BlockTree) {
         // Case 2: Block body, e.g., () -> { return null; }
         TreePath bodyPath = new TreePath(lambdaPath, body);
-        List<TreePath> returnPaths = ReturnFinder.findReturnPaths(bodyPath);
+        List<TreePath> returnPaths =
+            ReturnAndVarLocalFinder.findReturnPathsAndRegisterVarLocals(bodyPath, this);
         for (TreePath returnPath : returnPaths) {
           ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
           ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
@@ -1881,28 +1882,38 @@ public final class GenericsChecks {
    *
    * <p>This scanner is specifically designed to be "shallow." It will <b>not</b> descend into
    * nested lambdas, local classes, or anonymous classes, ensuring it only finds {@code return}
-   * statements relevant to the *current* function body.
+   * statements relevant to the *current* function body. It also registers var-declared locals so
+   * their initializer types can be resolved when generating constraints for the return expressions.
    *
    * <p>Usage:
    *
    * <pre>{@code
    * Tree lambdaBody = myLambda.getBody();
    * TreePath lambdaBodyPath = new TreePath(lambdaPath, lambdaBody);
-   * List<TreePath> returns = ReturnFinder.findReturnPaths(lambdaBodyPath);
+   * List<TreePath> returns =
+   *     ReturnAndVarLocalFinder.findReturnPathsAndRegisterVarLocals(lambdaBodyPath, genericsChecks);
    * }</pre>
    */
-  static class ReturnFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
+  static class ReturnAndVarLocalFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
 
     private final List<TreePath> returnPaths = new ArrayList<>();
+    private final GenericsChecks genericsChecks;
+
+    ReturnAndVarLocalFinder(GenericsChecks genericsChecks) {
+      this.genericsChecks = genericsChecks;
+    }
 
     /**
-     * Scans the given path and returns all found paths to return statements with expressions.
+     * Scans the given path, registers var-declared locals, and returns all found paths to return
+     * statements with expressions.
      *
      * @param path The path to a tree (e.g., a lambda body) to scan.
+     * @param genericsChecks the checker in which to register var-declared local declarations
      * @return A list of all paths to return statements with expressions found.
      */
-    public static List<TreePath> findReturnPaths(TreePath path) {
-      ReturnFinder finder = new ReturnFinder();
+    public static List<TreePath> findReturnPathsAndRegisterVarLocals(
+        TreePath path, GenericsChecks genericsChecks) {
+      ReturnAndVarLocalFinder finder = new ReturnAndVarLocalFinder(genericsChecks);
       finder.scan(path, null);
       return finder.getReturnPaths();
     }
@@ -1914,6 +1925,13 @@ public final class GenericsChecks {
      */
     public List<TreePath> getReturnPaths() {
       return returnPaths;
+    }
+
+    /** Makes local declarations available before generating constraints for their uses. */
+    @Override
+    public @Nullable Void visitVariable(VariableTree tree, @Nullable Void unused) {
+      genericsChecks.registerVarLocalDeclaration(tree);
+      return super.visitVariable(tree, null);
     }
 
     @Override

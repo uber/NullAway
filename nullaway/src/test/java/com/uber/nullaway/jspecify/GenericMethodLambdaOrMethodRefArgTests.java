@@ -59,6 +59,21 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 acceptsNullable(flat);
               }
 
+              static void localCopy(Box<Box<@Nullable String>> nested) {
+                var flat = nested.flatMap(box -> { var copy = box; return copy; });
+                acceptsNullable(flat);
+              }
+
+              static <P extends @Nullable Object, R extends @Nullable Object> Box<R> map(
+                  Box<P> input, Mapper<Box<P>, Box<R>> mapper) {
+                throw new UnsupportedOperationException();
+              }
+
+              static void localCopyWithInferenceVariable(Box<@Nullable String> box) {
+                var result = map(box, value -> { var copy = value; return copy; });
+                acceptsNullable(result);
+              }
+
               static void nestedInference(Box<Box<Box<@Nullable String>>> nested) {
                 var flat = nested.flatMap(
                     outer -> outer.flatMap(inner -> outer.flatMap(ignored -> inner)));
@@ -109,6 +124,10 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                   Mapper<Box<T>, Box<R>> mapper, Box<T> box) {
                 throw new UnsupportedOperationException();
               }
+              static <T extends @Nullable Object, R> Box<R> reject(
+                  Mapper<Box<T>, Box<R>> mapper, Box<T> box, Box<R> forced) {
+                throw new UnsupportedOperationException();
+              }
 
               static void test(Box<@Nullable String> nullable, Box<String> nonNull) {
                 // BUG: Diagnostic contains: inference failure: type variable R is constrained to be @Nullable, but its upper bound requires it to be @NonNull
@@ -117,6 +136,13 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                   box.get().length();
                   return nullable;
                 }, nonNull);
+                // BUG: Diagnostic contains: inference failure: type variable R is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                reject(box -> {
+                  var copy = box;
+                  return copy;
+                }, nonNull,
+                // BUG: Diagnostic contains: Box<@Nullable String> cannot be converted to Box<String>
+                nullable);
               }
             }
             """)
@@ -124,7 +150,8 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   /**
-   * Checks that failed inference does not expose provisional parameter types during body checks.
+   * Checks that failed inference does not expose provisional parameter or local types during body
+   * checks.
    */
   @BugPattern(summary = "Checks generic inference failure cleanup", severity = WARNING)
   public static final class InferenceFailureCleanupChecker extends NullAway {
@@ -133,11 +160,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
       super(flags);
     }
 
-    /** Verifies the parameter's concrete type when checking the body after inference has failed. */
+    /** Verifies concrete parameter and local types when checking the body after inference fails. */
     @Override
     public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
       Description result = super.matchIdentifier(tree, state);
-      if (tree.getName().contentEquals("box")) {
+      if (tree.getName().contentEquals("box") || tree.getName().contentEquals("copy")) {
         Type parameterType = getGenericsChecks().getTreeType(tree, state);
         assertThat(parameterType).isNotNull();
         assertThat(parameterType.getTypeArguments().get(0).toString())
