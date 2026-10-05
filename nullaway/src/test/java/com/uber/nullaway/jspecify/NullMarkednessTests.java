@@ -5,6 +5,7 @@ import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import java.util.List;
 import org.junit.Test;
 
 public class NullMarkednessTests extends NullAwayTestsBase {
@@ -331,6 +332,64 @@ public class NullMarkednessTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  @Test
+  public void nullMarkedConstructorsInUnmarkedClasses() {
+    for (String scopeFlag :
+        List.of(
+            "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+            "-XepOpt:NullAway:OnlyNullMarked=true")) {
+      for (boolean jspecifyMode : List.of(false, true)) {
+        List<String> args = List.of("-d", temporaryFolder.getRoot().getAbsolutePath(), scopeFlag);
+        if (jspecifyMode) {
+          args = JSpecifyJavacConfig.withJSpecifyModeArgs(args);
+        }
+        makeTestHelperWithArgs(args)
+            .addSourceLines(
+                "Foo.java",
+                """
+                package com.example.thirdparty;
+                import org.jspecify.annotations.NullMarked;
+                import org.jspecify.annotations.Nullable;
+                public class Foo {
+                  private final Object value;
+                  @NullMarked
+                  public Foo(Object value, @Nullable Object maybeNull) {
+                    this.value = value;
+                    this.value.toString();
+                    this.check(value);
+                    // BUG: Diagnostic contains: dereferenced expression 'maybeNull' is @Nullable
+                    maybeNull.toString();
+                  }
+                  @NullMarked
+                  public Foo() {
+                    this(new Object(), null);
+                  }
+                  private void check(Object value) {}
+                  @NullMarked
+                  static class Marked {
+                    private Object value;
+                    Marked() {
+                      // BUG: Diagnostic contains: read of @NonNull field 'value' before
+                      value.toString();
+                      this.value = new Object();
+                    }
+                  }
+                  enum UnmarkedEnum {
+                    INSTANCE;
+                    private final Object value;
+                    @NullMarked
+                    UnmarkedEnum() {
+                      this.value = new Object();
+                      value.toString();
+                    }
+                  }
+                }
+                """)
+            .doTest();
+      }
+    }
   }
 
   @Test
