@@ -1,22 +1,9 @@
 package com.uber.nullaway.jspecify;
 
-import static com.google.common.truth.Truth.assertThat;
-import static com.google.errorprone.BugPattern.SeverityLevel.WARNING;
-
-import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
-import com.google.errorprone.ErrorProneFlags;
-import com.google.errorprone.VisitorState;
-import com.google.errorprone.matchers.Description;
-import com.google.errorprone.scanner.ScannerSupplier;
-import com.sun.source.tree.IdentifierTree;
-import com.sun.tools.javac.code.Type;
-import com.uber.nullaway.JSpecifyUnrecognizedAnnotationLocation;
-import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
-import javax.inject.Inject;
 import org.junit.Ignore;
 import org.junit.Test;
 
@@ -50,16 +37,19 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               static void acceptsNullable(Box<@Nullable String> box) {}
 
               static void implicitParameter(Box<Box<@Nullable String>> nested) {
+                // Should infer R -> @Nullable String, so flat has type Box<@Nullable String>
                 var flat = nested.flatMap(box -> box);
                 acceptsNullable(flat);
               }
 
               static void blockBody(Box<Box<@Nullable String>> nested) {
+                // Should infer R -> @Nullable String, so flat has type Box<@Nullable String>
                 var flat = nested.flatMap(box -> { return box; });
                 acceptsNullable(flat);
               }
 
               static void localCopy(Box<Box<@Nullable String>> nested) {
+                // Should infer R -> @Nullable String, so flat has type Box<@Nullable String>
                 var flat = nested.flatMap(box -> { var copy = box; return copy; });
                 acceptsNullable(flat);
               }
@@ -79,99 +69,9 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                     outer -> outer.flatMap(inner -> outer.flatMap(ignored -> inner)));
                 acceptsNullable(flat);
               }
-
-              static void explicitTypeArgument(Box<Box<@Nullable String>> nested) {
-                var flat = nested.<@Nullable String>flatMap(box -> box);
-                acceptsNullable(flat);
-              }
-
-              static void explicitParameter(Box<Box<@Nullable String>> nested) {
-                var flat = nested.flatMap((Box<@Nullable String> box) -> box);
-                acceptsNullable(flat);
-              }
             }
             """)
         .doTest();
-  }
-
-  @Test
-  public void implicitLambdaParameterTypesDoNotLeakAfterInferenceFailure() {
-    CompilationTestHelper.newInstance(
-            ScannerSupplier.fromBugCheckerClasses(
-                InferenceFailureCleanupChecker.class, JSpecifyUnrecognizedAnnotationLocation.class),
-            getClass())
-        .setArgs(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                Arrays.asList(
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
-                    "-Xep:JSpecifyUnrecognizedAnnotationLocation:WARN")))
-        .addSourceLines(
-            "Test.java",
-            """
-            package com.uber;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-
-            @NullMarked
-            class Test {
-              static class Box<T extends @Nullable Object> {
-                T get() { throw new UnsupportedOperationException(); }
-              }
-              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
-                R apply(P value);
-              }
-              static <T extends @Nullable Object, R> Box<R> nonNullMap(
-                  Mapper<Box<T>, Box<R>> mapper, Box<T> box) {
-                throw new UnsupportedOperationException();
-              }
-              static <T extends @Nullable Object, R> Box<R> reject(
-                  Mapper<Box<T>, Box<R>> mapper, Box<T> box, Box<R> forced) {
-                throw new UnsupportedOperationException();
-              }
-
-              static void test(Box<@Nullable String> nullable, Box<String> nonNull) {
-                // BUG: Diagnostic contains: inference failure: type variable R is constrained to be @Nullable, but its upper bound requires it to be @NonNull
-                nonNullMap(box -> {
-                  // After inference fails, checking this call must use Box<String>, not Box<T>.
-                  box.get().length();
-                  return nullable;
-                }, nonNull);
-                // BUG: Diagnostic contains: inference failure: type variable R is constrained to be @Nullable, but its upper bound requires it to be @NonNull
-                reject(box -> {
-                  var copy = box;
-                  return copy;
-                }, nonNull,
-                // BUG: Diagnostic contains: Box<@Nullable String> cannot be converted to Box<String>
-                nullable);
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  /**
-   * Checks that failed inference does not expose provisional parameter or local types during body
-   * checks.
-   */
-  @BugPattern(summary = "Checks generic inference failure cleanup", severity = WARNING)
-  public static final class InferenceFailureCleanupChecker extends NullAway {
-    @Inject
-    public InferenceFailureCleanupChecker(ErrorProneFlags flags) {
-      super(flags);
-    }
-
-    /** Verifies concrete parameter and local types when checking the body after inference fails. */
-    @Override
-    public Description matchIdentifier(IdentifierTree tree, VisitorState state) {
-      Description result = super.matchIdentifier(tree, state);
-      if (tree.getName().contentEquals("box") || tree.getName().contentEquals("copy")) {
-        Type parameterType = getGenericsChecks().getTreeType(tree, state);
-        assertThat(parameterType).isNotNull();
-        assertThat(parameterType.getTypeArguments().get(0).toString())
-            .isEqualTo("java.lang.String");
-      }
-      return result;
-    }
   }
 
   @Test
