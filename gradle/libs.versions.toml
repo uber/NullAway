@@ -47,7 +47,7 @@ spring-webflux = "7.0.9"
 grpc-core = "1.84.0"
 mockito = "5.21.0"
 javax-annotation = "1.3.2"
-assertj = "3.23.1"
+assertj = "3.27.7"
 amazon-utils = "2.55.7"
 
 # --- Android SDK Versions ---
