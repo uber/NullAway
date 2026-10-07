@@ -42,6 +42,12 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 acceptsNullable(flat);
               }
 
+              static void implicitParameterNonNull(Box<Box<String>> nested) {
+                var flat = nested.flatMap(box -> box);
+                // BUG: Diagnostic contains: incompatible types: Box<String> cannot be converted to Box<@Nullable String>
+                acceptsNullable(flat);
+              }
+
               static void blockBody(Box<Box<@Nullable String>> nested) {
                 // Should infer R -> @Nullable String, so flat has type Box<@Nullable String>
                 var flat = nested.flatMap(box -> { return box; });
