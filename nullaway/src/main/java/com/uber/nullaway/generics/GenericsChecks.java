@@ -122,6 +122,14 @@ public final class GenericsChecks {
    */
   private final Map<Tree, Type> inferredPolyExpressionTypes = new LinkedHashMap<>();
 
+  /**
+   * Types of implicit lambda parameters to use while generating inference constraints. These types
+   * can contain unsolved inference variables and hence are scoped to the lambda body. Needed since
+   * falling back on javac types for these parameters can miss nullability information, see
+   * https://github.com/uber/NullAway/issues/1919
+   */
+  private Map<Symbol, Type> lambdaParameterTypesForInference = Map.of();
+
   /** Maps each {@code var}-declared local to its inferred NullAway type */
   private final Map<Symbol, Type> inferredVarLocalTypes = new LinkedHashMap<>();
 
@@ -800,8 +808,8 @@ public final class GenericsChecks {
             }
           }
         } else if (symbol.getKind() == ElementKind.PARAMETER) {
-          // if it's a lambda parameter, and we inferred the type of the lambda, we want the
-          // inferred type of the parameter
+          // Use the derived parameter type from lambdaParameterTypesForInference during constraint
+          // generation, or the inferred parameter type after inference succeeds.
           Type lambdaParameterType = getInferredLambdaParameterType(symbol, state);
           if (lambdaParameterType != null) {
             return lambdaParameterType;
@@ -934,15 +942,20 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the inferred type of lambda parameter, if the lambda was passed to a generic method and
-   * its type was inferred previously
+   * Gets the temporary type of a lambda parameter during constraint generation (see {@link
+   * #lambdaParameterTypesForInference}), or its inferred type if the lambda was passed to a generic
+   * method and inference succeeded.
    *
    * @param symbol the symbol for the parameter (possibly not of a lambda, just needs kind to be
    *     {@code ElementKind.PARAMETER})
    * @param state the visitor state
-   * @return the inferred type of the lambda parameter, or null if not found
+   * @return the target-derived or inferred type of the lambda parameter, or null if not found
    */
   private @Nullable Type getInferredLambdaParameterType(Symbol symbol, VisitorState state) {
+    Type provisionalType = lambdaParameterTypesForInference.get(symbol);
+    if (provisionalType != null) {
+      return provisionalType;
+    }
     if (symbol.owner != null && symbol.owner.getKind() == ElementKind.METHOD) {
       Symbol.MethodSymbol containingMethodSymbol = (Symbol.MethodSymbol) symbol.owner;
       if (!containingMethodSymbol.getParameters().contains(symbol)) {
@@ -1062,6 +1075,21 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns whether a computed type or generic-call inference result can be cached.
+   *
+   * <p>Results computed during dataflow may depend on incomplete analysis results. Results computed
+   * while provisional lambda parameter types are available may depend on unsolved outer inference
+   * variables. Skip caching in either context so subsequent checks can recompute the result after
+   * dataflow or the enclosing generic inference completes.
+   *
+   * @param calledFromDataflow whether the result was computed as part of dataflow analysis
+   * @return whether the inference result can be cached in the current context
+   */
+  private boolean okToCacheInferenceResult(boolean calledFromDataflow) {
+    return !calledFromDataflow && lambdaParameterTypesForInference.isEmpty();
+  }
+
+  /**
    * Gets the inferred type for a local variable declared with {@code var}.
    *
    * @param symbol symbol for the local
@@ -1084,7 +1112,7 @@ public final class GenericsChecks {
       Type enhancedForElementType =
           getEnhancedForLoopElementType(symbol, state, calledFromDataflow);
       if (enhancedForElementType != null) {
-        if (!calledFromDataflow) {
+        if (okToCacheInferenceResult(calledFromDataflow)) {
           inferredVarLocalTypes.put(symbol, enhancedForElementType);
         }
         return enhancedForElementType;
@@ -1206,9 +1234,7 @@ public final class GenericsChecks {
             isAssignmentToLocalVariable(varTree),
             state,
             calledFromDataflow);
-    // do _not_ cache the inferred type if called from dataflow, since it may rely on incomplete
-    // results from the dataflow analysis
-    if (rhsType != null && !calledFromDataflow) {
+    if (rhsType != null && okToCacheInferenceResult(calledFromDataflow)) {
       Symbol symbol = ASTHelpers.getSymbol(varTree);
       if (symbol != null) {
         inferredVarLocalTypes.put(symbol, rhsType);
@@ -1365,9 +1391,7 @@ public final class GenericsChecks {
       }
 
       InferenceSuccess successResult = new InferenceSuccess(typeVarNullability);
-      // don't cache result if we were called from dataflow, since the result may rely on dataflow
-      // facts that do not reflect the fixed point
-      if (!calledFromDataflow) {
+      if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
         }
@@ -1407,9 +1431,7 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(callTree), state, null));
       }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
-      // don't cache result if we were called from dataflow, since the result may rely on dataflow
-      // facts that do not reflect the fixed point
-      if (!calledFromDataflow) {
+      if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, failureResult);
         }
@@ -1627,6 +1649,10 @@ public final class GenericsChecks {
    * Generate constraints for any return expression inside lambda argument. If the return expression
    * is a method invocation then recursively call generateConstraintsForCall
    *
+   * <p>Implicit parameter types come from the ground target's descriptor while generating body
+   * constraints. Keep them separate from cached inference results, and restore the enclosing
+   * parameter context on both success and failure.
+   *
    * @param state the visitor state
    * @param path the tree path to the enclosing call if available and possibly distinct from {@code
    *     state.getPath()}
@@ -1655,36 +1681,58 @@ public final class GenericsChecks {
         TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
             .asMethodType();
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
-    Tree body = lambda.getBody();
-    // Ensure our current TreePath has the lambda as the leaf, in case dataflow analysis needs to be
-    // run within it.
-    TreePath lambdaPath = pathWithLeaf(path != null ? path : state.getPath(), lambda);
-    if (body instanceof ExpressionTree returnedExpression) {
-      // Case 1: Expression body, e.g., () -> null
-      TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
-      generateConstraintsForPseudoAssignment(
-          state.withPath(returnedExpressionPath),
-          solver,
-          allCalls,
-          returnedExpression,
-          fiReturnType,
-          calledFromDataflow);
-    } else if (body instanceof BlockTree) {
-      // Case 2: Block body, e.g., () -> { return null; }
-      TreePath bodyPath = new TreePath(lambdaPath, body);
-      List<TreePath> returnPaths = ReturnFinder.findReturnPaths(bodyPath);
-      for (TreePath returnPath : returnPaths) {
-        ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
-        ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
-        TreePath returnExprPath = new TreePath(returnPath, returnExpr);
+    // save the previous lambdaParameterTypesForInference map so we can restore it after handling
+    // the lambda body
+    Map<Symbol, Type> previousParameterTypes = lambdaParameterTypesForInference;
+    try {
+      if (((JCTree.JCLambda) lambda).paramKind == JCTree.JCLambda.ParameterKind.IMPLICIT) {
+        // If we have implicitly-typed lambda parameters, update the
+        // lambdaParameterTypesForInference map to have entries for these parameters, with types
+        // based on the parameter types in fiMethodTypeAsMember
+        Map<Symbol, Type> parameterTypes = new LinkedHashMap<>(previousParameterTypes);
+        var params = lambda.getParameters();
+        var fiParameterTypes = fiMethodTypeAsMember.getParameterTypes();
+        for (int i = 0; i < params.size(); i++) {
+          parameterTypes.put(
+              castToNonNull(ASTHelpers.getSymbol(params.get(i))), fiParameterTypes.get(i));
+        }
+        lambdaParameterTypesForInference = parameterTypes;
+      }
+      Tree body = lambda.getBody();
+      // Ensure our current TreePath has the lambda as the leaf, in case dataflow analysis needs to
+      // be run within it.
+      TreePath lambdaPath = pathWithLeaf(path != null ? path : state.getPath(), lambda);
+      if (body instanceof ExpressionTree returnedExpression) {
+        // Case 1: Expression body, e.g., () -> null
+        TreePath returnedExpressionPath = new TreePath(lambdaPath, returnedExpression);
         generateConstraintsForPseudoAssignment(
-            state.withPath(returnExprPath),
+            state.withPath(returnedExpressionPath),
             solver,
             allCalls,
-            returnExpr,
+            returnedExpression,
             fiReturnType,
             calledFromDataflow);
+      } else if (body instanceof BlockTree) {
+        // Case 2: Block body, e.g., () -> { return null; }
+        TreePath bodyPath = new TreePath(lambdaPath, body);
+        List<TreePath> returnPaths =
+            ReturnAndVarLocalFinder.findReturnPathsAndRegisterVarLocals(bodyPath, this);
+        for (TreePath returnPath : returnPaths) {
+          ReturnTree returnTree = (ReturnTree) returnPath.getLeaf();
+          ExpressionTree returnExpr = castToNonNull(returnTree.getExpression());
+          TreePath returnExprPath = new TreePath(returnPath, returnExpr);
+          generateConstraintsForPseudoAssignment(
+              state.withPath(returnExprPath),
+              solver,
+              allCalls,
+              returnExpr,
+              fiReturnType,
+              calledFromDataflow);
+        }
       }
+    } finally {
+      // Restore even if constraint generation fails or re-enters inference for a nested lambda.
+      lambdaParameterTypesForInference = previousParameterTypes;
     }
   }
 
@@ -1850,28 +1898,38 @@ public final class GenericsChecks {
    *
    * <p>This scanner is specifically designed to be "shallow." It will <b>not</b> descend into
    * nested lambdas, local classes, or anonymous classes, ensuring it only finds {@code return}
-   * statements relevant to the *current* function body.
+   * statements relevant to the *current* function body. It also registers var-declared locals so
+   * their initializer types can be resolved when generating constraints for the return expressions.
    *
    * <p>Usage:
    *
    * <pre>{@code
    * Tree lambdaBody = myLambda.getBody();
    * TreePath lambdaBodyPath = new TreePath(lambdaPath, lambdaBody);
-   * List<TreePath> returns = ReturnFinder.findReturnPaths(lambdaBodyPath);
+   * List<TreePath> returns =
+   *     ReturnAndVarLocalFinder.findReturnPathsAndRegisterVarLocals(lambdaBodyPath, genericsChecks);
    * }</pre>
    */
-  static class ReturnFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
+  static class ReturnAndVarLocalFinder extends TreePathScanner<@Nullable Void, @Nullable Void> {
 
     private final List<TreePath> returnPaths = new ArrayList<>();
+    private final GenericsChecks genericsChecks;
+
+    ReturnAndVarLocalFinder(GenericsChecks genericsChecks) {
+      this.genericsChecks = genericsChecks;
+    }
 
     /**
-     * Scans the given path and returns all found paths to return statements with expressions.
+     * Scans the given path, registers var-declared locals, and returns all found paths to return
+     * statements with expressions.
      *
      * @param path The path to a tree (e.g., a lambda body) to scan.
+     * @param genericsChecks the checker in which to register var-declared local declarations
      * @return A list of all paths to return statements with expressions found.
      */
-    public static List<TreePath> findReturnPaths(TreePath path) {
-      ReturnFinder finder = new ReturnFinder();
+    public static List<TreePath> findReturnPathsAndRegisterVarLocals(
+        TreePath path, GenericsChecks genericsChecks) {
+      ReturnAndVarLocalFinder finder = new ReturnAndVarLocalFinder(genericsChecks);
       finder.scan(path, null);
       return finder.getReturnPaths();
     }
@@ -1883,6 +1941,13 @@ public final class GenericsChecks {
      */
     public List<TreePath> getReturnPaths() {
       return returnPaths;
+    }
+
+    /** Makes var-local declarations available before generating constraints for their uses. */
+    @Override
+    public @Nullable Void visitVariable(VariableTree tree, @Nullable Void unused) {
+      genericsChecks.registerVarLocalDeclaration(tree);
+      return super.visitVariable(tree, null);
     }
 
     @Override
@@ -2316,8 +2381,8 @@ public final class GenericsChecks {
    *
    * <p>If a target/contextual type for the conditional expression has already been cached, returns
    * it. Otherwise, this method tries to recover a target type from the conditional expression's
-   * parent context and caches it, unless called from dataflow. If no target type is available,
-   * falls back to javac's type for the conditional expression.
+   * parent context and caches it when {@link #okToCacheInferenceResult(boolean)} permits it. If no
+   * target type is available, falls back to javac's type for the conditional expression.
    */
   private @Nullable Type getConditionalExpressionType(
       ConditionalExpressionTree tree, VisitorState state, boolean calledFromDataflow) {
@@ -2329,7 +2394,7 @@ public final class GenericsChecks {
         getTargetTypeForConditionalExpression(tree, state, calledFromDataflow);
     Type typeFromAssignmentContext = targetTypeAndAssignmentKind.typeFromAssignmentContext();
     if (typeFromAssignmentContext != null) {
-      if (!calledFromDataflow) {
+      if (okToCacheInferenceResult(calledFromDataflow)) {
         inferredPolyExpressionTypes.put(tree, typeFromAssignmentContext);
       }
       return typeFromAssignmentContext;
@@ -2342,9 +2407,9 @@ public final class GenericsChecks {
    *
    * <p>If {@code typeFromAssignmentContext} is non-null, it is used as the conditional expression's
    * target type. Otherwise, this method tries to recover a target type from the parent context.
-   * When a target type is found, it is cached unless called from dataflow. If no target type is
-   * available, this method falls back to javac's type for the conditional expression. Returns
-   * {@code null} for raw or otherwise unavailable types.
+   * When a target type is found, it is cached when {@link #okToCacheInferenceResult(boolean)}
+   * permits it. If no target type is available, this method falls back to javac's type for the
+   * conditional expression. Returns {@code null} for raw or otherwise unavailable types.
    */
   private @Nullable Type inferConditionalExpressionType(
       VisitorState state,
@@ -2372,7 +2437,7 @@ public final class GenericsChecks {
     if (condExprType == null || condExprType.isRaw()) {
       return null;
     }
-    if (hasTargetType && !calledFromDataflow) {
+    if (hasTargetType && okToCacheInferenceResult(calledFromDataflow)) {
       inferredPolyExpressionTypes.put(tree, condExprType);
     }
     return condExprType;

@@ -10,6 +10,112 @@ import org.junit.Test;
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
+  public void issue1919ImplicitLambdaParameterPreservesNestedNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Example.java",
+            """
+            package com.uber;
+
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            public final class Example {
+              public static final class Box<T extends @Nullable Object> {
+                public <R extends @Nullable Object> Box<R> flatMap(
+                    Mapper<? super T, ? extends Box<R>> mapper) {
+                  throw new UnsupportedOperationException();
+                }
+              }
+
+              @FunctionalInterface
+              public interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+
+              static void acceptsNullable(Box<@Nullable String> box) {}
+
+              static void implicitParameter(Box<Box<@Nullable String>> nested) {
+                // Should infer R -> @Nullable String, so flat has type Box<@Nullable String>
+                var flat = nested.flatMap(box -> box);
+                acceptsNullable(flat);
+              }
+
+              static void implicitParameterNonNull(Box<Box<String>> nested) {
+                var flat = nested.flatMap(box -> box);
+                // BUG: Diagnostic contains: incompatible types: Box<String> cannot be converted to Box<@Nullable String>
+                acceptsNullable(flat);
+              }
+
+              static void blockBody(Box<Box<@Nullable String>> nested) {
+                // Should infer R -> @Nullable String, so flat has type Box<@Nullable String>
+                var flat = nested.flatMap(box -> { return box; });
+                acceptsNullable(flat);
+              }
+
+              static void localCopy(Box<Box<@Nullable String>> nested) {
+                // Should infer R -> @Nullable String, so flat has type Box<@Nullable String>
+                var flat = nested.flatMap(box -> { var copy = box; return copy; });
+                acceptsNullable(flat);
+              }
+
+              static <P extends @Nullable Object, R extends @Nullable Object> Box<R> map(
+                  Box<P> input, Mapper<Box<P>, Box<R>> mapper) {
+                throw new UnsupportedOperationException();
+              }
+
+              static void localCopyWithInferenceVariable(Box<@Nullable String> box) {
+                var result = map(box, value -> { var copy = value; return copy; });
+                acceptsNullable(result);
+              }
+
+              static void nestedInference(Box<Box<Box<@Nullable String>>> nested) {
+                var flat = nested.flatMap(
+                    outer -> outer.flatMap(inner -> outer.flatMap(ignored -> inner)));
+                acceptsNullable(flat);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericCallInLambdaVarInitializerPreservesNestedNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {
+                T get() { throw new UnsupportedOperationException(); }
+              }
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static <P extends @Nullable Object, R extends @Nullable Object> Box<R> map(
+                  Box<P> input, Mapper<Box<P>, Box<R>> mapper) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> Box<U> id(Box<U> input) { return input; }
+              static void test(Box<@Nullable String> input) {
+                var result = map(input, value -> {
+                  var copy = id(value);
+                  // BUG: Diagnostic contains: dereferenced expression 'copy.get()' is @Nullable
+                  copy.get().length();
+                  return copy;
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaReturnsGenericMethodCall() {
     makeHelper()
         .addSourceLines(
