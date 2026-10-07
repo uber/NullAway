@@ -1505,10 +1505,6 @@ public class NullAway extends BugChecker
     if (methodLambdaOrBlock instanceof LambdaExpressionTree) {
       return false;
     } else if (methodLambdaOrBlock instanceof MethodTree methodTree) {
-      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
-        return true;
-      }
-
       Symbol.ClassSymbol enclClassSymbol = enclosingClassSymbol(enclosingBlockPath);
 
       // Checking for initialization is only meaningful if the full class is null-annotated, which
@@ -1518,6 +1514,10 @@ public class NullAway extends BugChecker
       if (nullMarkingForTopLevelClass == NullMarking.PARTIALLY_MARKED
           && !codeAnnotationInfo.isClassNullAnnotated(enclClassSymbol, config, handler)) {
         return false;
+      }
+
+      if (isConstructor(methodTree) && !constructorInvokesAnother(methodTree, state)) {
+        return true;
       }
 
       if (ASTHelpers.getSymbol(methodTree).isStatic()) {
