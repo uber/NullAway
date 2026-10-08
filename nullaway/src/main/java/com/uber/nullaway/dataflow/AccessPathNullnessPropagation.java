@@ -830,6 +830,13 @@ public class AccessPathNullnessPropagation
     return updateRegularStore(BOTTOM, input, updates);
   }
 
+  /**
+   * Computes the nullness and updates store for a field access node.
+   *
+   * @param fieldAccessNode the field access node
+   * @param input the transfer input
+   * @return transfer result containing field nullness and updated store
+   */
   @Override
   public TransferResult<Nullness, NullnessStore> visitFieldAccess(
       FieldAccessNode fieldAccessNode, TransferInput<Nullness, NullnessStore> input) {
@@ -851,7 +858,8 @@ public class AccessPathNullnessPropagation
           case FORCE_NONNULL -> false;
           case UNKNOWN ->
               NullabilityUtil.mayBeNullFieldFromType(
-                  symbol, config, handler, getCodeAnnotationInfo(state));
+                      symbol, config, handler, getCodeAnnotationInfo(state))
+                  || genericFieldIsNullable(fieldAccessNode);
         };
     if (!fieldMayBeNull) {
       nullness = NONNULL;
@@ -1331,6 +1339,45 @@ public class AccessPathNullnessPropagation
             genericsChecks.getGenericReturnNullnessAtInvocation(
                 ASTHelpers.getSymbol(tree), tree, pathToInvocation, stateWithUpdatedPath, true);
         return nullness.equals(NULLABLE);
+      }
+    }
+    return false;
+  }
+
+  /**
+   * Computes the nullability of a generic field in the context of the receiver at {@code node}.
+   *
+   * @param node the field access node
+   * @return {@code true} if the field's substituted type is nullable
+   */
+  private boolean genericFieldIsNullable(FieldAccessNode node) {
+    if (node != null && config.isJSpecifyMode()) {
+      Tree tree = node.getTree();
+      if (tree != null) {
+        Symbol symbol = ASTHelpers.getSymbol(tree);
+        if (symbol instanceof Symbol.VarSymbol varSymbol
+            && varSymbol.getKind() == ElementKind.FIELD
+            && varSymbol.type.getKind().equals(TypeKind.TYPEVAR)) {
+          Node receiverNode = node.getReceiver();
+          Type enclosingType = null;
+          if (receiverNode instanceof MethodInvocationNode methodInvocationNode) {
+            TreePath pathToInvocation = methodInvocationNode.getTreePath();
+            MethodInvocationTree invocationTree = methodInvocationNode.getTree();
+            if (pathToInvocation != null && invocationTree != null) {
+              VisitorState stateWithUpdatedPath = state.withPath(pathToInvocation);
+              enclosingType =
+                  genericsChecks.getTreeType(invocationTree, stateWithUpdatedPath, true);
+            }
+          }
+          if (enclosingType == null && receiverNode != null) {
+            enclosingType = (Type) receiverNode.getType();
+          }
+          if (enclosingType != null) {
+            Nullness nullness =
+                genericsChecks.getGenericFieldNullness(varSymbol, enclosingType, state);
+            return nullness.equals(NULLABLE);
+          }
+        }
       }
     }
     return false;

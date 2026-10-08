@@ -740,8 +740,7 @@ public final class GenericsChecks {
    *     types and other unhandled cases. Arrays with raw component types are returned since their
    *     structure and component annotations are still useful.
    */
-  /* package-private */ @Nullable Type getTreeType(
-      Tree tree, VisitorState state, boolean calledFromDataflow) {
+  public @Nullable Type getTreeType(Tree tree, VisitorState state, boolean calledFromDataflow) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
@@ -878,11 +877,21 @@ public final class GenericsChecks {
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
-              // restore explicit annotations from the field's declared type
-              Type fieldType = memberSelectSymbol.type;
+              Type fieldType =
+                  getAccessedFieldType(
+                      (Symbol.VarSymbol) memberSelectSymbol,
+                      memberSelectTree,
+                      state.getPath(),
+                      state,
+                      calledFromDataflow);
+              // If the field type is a wildcard, restore annotations from its upper bound
+              Type annotationSource =
+                  config.handleWildcardGenerics()
+                      ? GenericsUtils.effectiveWildcardUpperBound(fieldType, state, config, handler)
+                      : fieldType;
               result =
                   TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                      fieldType, result, config);
+                      annotationSource, result, config);
             }
           }
         }
@@ -3101,6 +3110,57 @@ public final class GenericsChecks {
     }
   }
 
+  /**
+   * Computes the nullness of reading a generic field at a field access expression.
+   *
+   * @param fieldSymbol symbol for the accessed field
+   * @param tree the field access expression tree
+   * @param path the path to the expression tree, or null if not available
+   * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @return nullness of the field access, or {@code NONNULL} if not a generic field access
+   */
+  public Nullness getGenericFieldAccessNullness(
+      Symbol.VarSymbol fieldSymbol,
+      ExpressionTree tree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    if (!fieldSymbol.type.getKind().equals(TypeKind.TYPEVAR)) {
+      return Nullness.NONNULL;
+    }
+    Type enclosingType =
+        getEnclosingTypeForFieldExpression(fieldSymbol, tree, path, state, calledFromDataflow);
+    if (enclosingType == null) {
+      return Nullness.NONNULL;
+    }
+    return getGenericFieldNullness(fieldSymbol, enclosingType, state);
+  }
+
+  /**
+   * Computes the nullness of a generic field when seen as a member of {@code enclosingType}.
+   *
+   * @param field the field symbol
+   * @param enclosingType the enclosing type containing the field
+   * @param state visitor state
+   * @return nullness of a value read from the field
+   */
+  public Nullness getGenericFieldNullness(
+      Symbol.VarSymbol field, @Nullable Type enclosingType, VisitorState state) {
+    if (enclosingType == null) {
+      return Nullness.NONNULL;
+    }
+    Type memberFieldType =
+        TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, field, config);
+    return getTypeNullnessForRead(memberFieldType, state);
+  }
+
+  /**
+   * Converts a list of type argument trees into a javac list of types.
+   *
+   * @param typeArgumentTrees trees representing type arguments
+   * @return javac list of resolved types
+   */
   private static com.sun.tools.javac.util.List<Type> convertTreesToTypes(
       List<? extends Tree> typeArgumentTrees) {
     List<Type> types = new ArrayList<>();
@@ -3573,6 +3633,89 @@ public final class GenericsChecks {
       enclosingType = getTreeType(tree, state, calledFromDataflow);
     }
     return enclosingType;
+  }
+
+  /**
+   * Computes the type of a field at a member select expression, taking receiver type substitutions
+   * into account.
+   *
+   * @param fieldSymbol symbol for the field
+   * @param memberSelectTree the member select tree for the field access
+   * @param path the path to the member select tree, or null if not available
+   * @param state visitor state
+   * @param calledFromDataflow whether this is being called from dataflow analysis
+   * @return substituted field type as a member of the receiver, or declared field type if receiver
+   *     cannot be determined
+   */
+  private Type getAccessedFieldType(
+      Symbol.VarSymbol fieldSymbol,
+      MemberSelectTree memberSelectTree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    if (fieldSymbol.isStatic()) {
+      return fieldSymbol.type;
+    }
+    Type enclosingType =
+        getEnclosingTypeForFieldExpression(
+            fieldSymbol, memberSelectTree, path, state, calledFromDataflow);
+    if (enclosingType == null) {
+      return fieldSymbol.type;
+    }
+    return TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, fieldSymbol, config);
+  }
+
+  /**
+   * Returns the enclosing type for a field access expression, or null if it cannot be determined or
+   * the field is static.
+   *
+   * @param fieldSymbol the field symbol
+   * @param tree the field access expression
+   * @param path the path to the expression, or null if not available
+   * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @return the enclosing type for the field access, or null if it cannot be determined
+   */
+  private @Nullable Type getEnclosingTypeForFieldExpression(
+      Symbol.VarSymbol fieldSymbol,
+      ExpressionTree tree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    if (fieldSymbol.isStatic()) {
+      return null;
+    }
+    tree = ASTHelpers.stripParentheses(tree);
+    if (tree instanceof MemberSelectTree memberSelectTree) {
+      ExpressionTree receiver = ASTHelpers.stripParentheses(memberSelectTree.getExpression());
+      TreePath curPath = path != null ? path : state.getPath();
+      TreePath receiverPath = pathWithLeaf(curPath, receiver);
+      if (isCallNeedingInference(receiver)) {
+        return inferCallType(
+            state.withPath(receiverPath), receiver, receiverPath, null, false, calledFromDataflow);
+      } else {
+        return getTreeType(receiver, state.withPath(receiverPath), calledFromDataflow);
+      }
+    } else if (tree instanceof IdentifierTree) {
+      TreePath basePath = path != null ? path : state.getPath();
+      TreePath cur = basePath;
+      while (cur != null) {
+        if (cur.getLeaf() instanceof ClassTree classTree) {
+          Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
+          Type classType =
+              classSymbol != null
+                  ? getTypeForSymbol(classSymbol, state.withPath(cur))
+                  : ASTHelpers.getType(classTree);
+          if (classType != null
+              && fieldSymbol.owner != null
+              && state.getTypes().isSubtype(classType, fieldSymbol.owner.type)) {
+            return classType;
+          }
+        }
+        cur = cur.getParentPath();
+      }
+    }
+    return null;
   }
 
   /**
