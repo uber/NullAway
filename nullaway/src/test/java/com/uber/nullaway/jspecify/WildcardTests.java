@@ -10,6 +10,61 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void projectedNullnessTakesPrecedenceOverSuperWildcardLowerBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Sink<T extends @Nullable Object> {
+                void nullable(@Nullable T value);
+                void nonNull(@NonNull T value);
+                void plain(T value);
+              }
+              void test(Sink<? super String> nonNullLower, Sink<? super @Nullable String> nullableLower) {
+                nonNullLower.nullable(null);
+                nullableLower.nullable(null);
+                nullableLower.plain(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nonNullLower.plain(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nonNullLower.nonNull(null);
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nullableLower.nonNull(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void projectedCaptureLowerBoundUsedForContainment() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Box<X extends @Nullable Object> {}
+              interface Holder<T extends @Nullable Object> {
+                Box<@NonNull T> nonNullBox();
+                Box<@Nullable T> nullableBox();
+              }
+              void test(Holder<? super @Nullable String> nullableLower, Holder<? super String> nonNullLower) {
+                Box<? super String> ok = nullableLower.nonNullBox();
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable String> bad = nullableLower.nonNullBox();
+                Box<? super @Nullable String> projected = nonNullLower.nullableBox();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1897WildcardWithRawGenericBoundDoesNotCrash() {
     makeHelper()
         .addSourceLines(
