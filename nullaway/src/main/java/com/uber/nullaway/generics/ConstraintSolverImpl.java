@@ -113,13 +113,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public @Nullable Void visitType(Type subtype, Type supertype) {
-      if (config.handleWildcardGenerics()) {
-        WildcardType supertypeWildcard = GenericsUtils.asWildcard(supertype);
-        if (supertypeWildcard != null) {
-          Verify.verify(!localVariableType, "A local variable should not have a wildcard type");
-          constrainSubtypeToWildcard(subtype, supertypeWildcard);
-          return null;
-        }
+      if (config.handleWildcardGenerics() && supertype instanceof WildcardType supertypeWildcard) {
+        Verify.verify(!localVariableType, "A local variable should not have a wildcard type");
+        constrainSubtypeToWildcard(subtype, supertypeWildcard);
+        return null;
       }
       // handle flow into a type variable. The check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
@@ -205,8 +202,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
         return;
       }
-      WildcardType supertypeWildcard = GenericsUtils.asWildcard(supertypeTypeArg);
-      if (supertypeWildcard != null) {
+      // A captured formal is a type variable, not a wildcard containment target. Expanding
+      // its backing wildcard can repeatedly unfold self-referential bounds (see issue #1934).
+      if (supertypeTypeArg instanceof WildcardType supertypeWildcard) {
         constrainContainedByWildcard(subtypeTypeArg, supertypeWildcard);
         return;
       }
