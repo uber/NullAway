@@ -10,6 +10,37 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void genericCallOnWildcardReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Box<T extends @Nullable Object> {
+                <R extends @Nullable Object> R put(T value, R result);
+              }
+
+              void test(Box<? super String> box, Box<? extends Object> nonNullBox,
+                  @Nullable String nullableValue) {
+                // Substituting Box.T makes put's first parameter a top-level wildcard.
+                String result = box.put("value", "result");
+                result.length();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'null' where @NonNull is required
+                nonNullBox.put(null, "result").length();
+                var nullableResult = box.put("value", nullableValue);
+                // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
+                nullableResult.length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1934GenericCallWithSelfBoundedWildcardTarget() {
     makeHelper()
         .addSourceLines(
