@@ -128,7 +128,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     @Override
     public @Nullable Void visitClassType(ClassType subtype, Type supertype) {
-      if (supertype instanceof ClassType) {
+      if (supertype instanceof ClassType superClassType) {
         Type subtypeAsSuper =
             TypeSubstitutionUtils.asSuper(
                 state.getTypes(), subtype, (Symbol.ClassSymbol) supertype.tsym, config);
@@ -141,12 +141,28 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         com.sun.tools.javac.util.List<Type> subtypeTypeArguments =
             subtypeAsSuper.getTypeArguments();
         com.sun.tools.javac.util.List<Type> supertypeTypeArguments = supertype.getTypeArguments();
+        java.util.List<Type> subtypeUpperBounds = subtypeTypeArguments;
+        java.util.List<Type> supertypeUpperBounds = supertypeTypeArguments;
+        if (config.handleWildcardGenerics()) {
+          // Resolve dependent wildcard bounds in the complete containing type. For example, the
+          // upper bound of U in Pair<String, ?> with U extends T is String, not the declared T.
+          subtypeUpperBounds =
+              GenericsUtils.effectiveUpperBoundsForTypeArguments(
+                  (ClassType) subtypeAsSuper, state, config, handler);
+          supertypeUpperBounds =
+              GenericsUtils.effectiveUpperBoundsForTypeArguments(
+                  superClassType, state, config, handler);
+        }
         int numTypeArgs = supertypeTypeArguments.size();
         Verify.verify(numTypeArgs == subtypeTypeArguments.size());
         for (int i = 0; i < numTypeArgs; i++) {
           Type supertypeTypeArg = supertypeTypeArguments.get(i);
           Type subtypeTypeArg = subtypeTypeArguments.get(i);
-          constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg);
+          constrainTypeArgumentContainment(
+              subtypeTypeArg,
+              supertypeTypeArg,
+              subtypeUpperBounds.get(i),
+              supertypeUpperBounds.get(i));
         }
       }
       // if supertype is not a ClassType, we still call visitType to handle the case where
@@ -195,9 +211,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * Adds nullability constraints for containment of one type argument by another during generic
      * class/interface subtyping. For non-wildcard arguments, NullAway requires identical
      * nullability. When either side is a wildcard, containment is reduced to constraints between
-     * the wildcard bound and the opposing argument.
+     * the wildcard bound and the opposing argument. The supplied upper bounds are resolved in their
+     * containing class types so dependencies on sibling type arguments are preserved.
      */
-    private void constrainTypeArgumentContainment(Type subtypeTypeArg, Type supertypeTypeArg) {
+    private void constrainTypeArgumentContainment(
+        Type subtypeTypeArg,
+        Type supertypeTypeArg,
+        Type subtypeUpperBound,
+        Type supertypeUpperBound) {
       if (!config.handleWildcardGenerics()) {
         equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
         return;
@@ -205,12 +226,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       // A captured formal is a type variable, not a wildcard containment target. Expanding
       // its backing wildcard can repeatedly unfold self-referential bounds (see issue #1934).
       if (supertypeTypeArg instanceof WildcardType supertypeWildcard) {
-        constrainContainedByWildcard(subtypeTypeArg, supertypeWildcard);
+        constrainContainedByWildcard(
+            subtypeTypeArg, supertypeWildcard, subtypeUpperBound, supertypeUpperBound);
         return;
       }
       WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
       if (subtypeWildcard != null) {
-        constrainWildcardOrCaptureToSupertype(subtypeTypeArg, supertypeTypeArg);
+        if (subtypeWildcard.kind == BoundKind.SUPER) {
+          constrainWildcardOrCaptureToSupertype(subtypeTypeArg, supertypeTypeArg);
+        } else {
+          subtypeUpperBound.accept(this, supertypeTypeArg);
+        }
         return;
       }
       equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
@@ -235,7 +261,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      * containment check. Re-entering a check that is already in progress adds no constraints, since
      * the outer visit of that pair is already adding them.
      */
-    private void constrainContainedByWildcard(Type subtypeTypeArg, WildcardType supertypeWildcard) {
+    private void constrainContainedByWildcard(
+        Type subtypeTypeArg,
+        WildcardType supertypeWildcard,
+        Type subtypeUpperBound,
+        Type supertypeUpperBound) {
       Set<Type> activeSubtypeArguments = activeWildcardContainments.get(supertypeWildcard);
       if (activeSubtypeArguments == null) {
         activeSubtypeArguments = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -247,10 +277,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       try {
         switch (supertypeWildcard.kind) {
           case UNBOUND, EXTENDS -> {
-            Type subtypeUpperBound =
-                GenericsUtils.effectiveWildcardUpperBound(subtypeTypeArg, state, config, handler);
-            subtypeUpperBound.accept(
-                this, GenericsUtils.wildcardUpperBound(supertypeWildcard, state, config, handler));
+            subtypeUpperBound.accept(this, supertypeUpperBound);
           }
           case SUPER -> {
             Type supertypeLowerBound = castToNonNull(supertypeWildcard.getSuperBound());
