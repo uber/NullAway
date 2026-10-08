@@ -248,11 +248,6 @@ public class LibraryModelsHandler implements Handler {
     boolean isMethodUnannotated =
         getCodeAnnotationInfo(state.context)
             .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
-    if (!optLibraryModels.polyNullLocations(methodSymbol, state.getTypes()).isEmpty()) {
-      // GenericsChecks has already resolved the call-site return type. A fixed nullable/non-null
-      // return model for the same method must not override that result.
-      return exprMayBeNull;
-    }
     if (exprMayBeNull) {
       // This is the only case in which we may switch the result from @Nullable to @NonNull:
       return !optLibraryModels.hasNonNullReturn(
@@ -329,10 +324,6 @@ public class LibraryModelsHandler implements Handler {
         }
       }
       return anyNull ? NullnessHint.HINT_NULLABLE : NullnessHint.FORCE_NONNULL;
-    }
-    if (!optLibraryModels.polyNullLocations(callee, types).isEmpty()) {
-      // Let the resolved call-site method type computed by GenericsChecks determine the return.
-      return NullnessHint.UNKNOWN;
     }
     if (optLibraryModels.hasNonNullReturn(callee, types, !isMethodAnnotated)) {
       return NullnessHint.FORCE_NONNULL;
@@ -1733,8 +1724,13 @@ public class LibraryModelsHandler implements Handler {
   /**
    * A view of library models optimized to make lookup of {@link
    * com.sun.tools.javac.code.Symbol.MethodSymbol}s fast
+   *
+   * <p>Fixed models are filtered against the effective PolyNull locations during lookup, since an
+   * inherited PolyNull model can conflict with a fixed model on a different declaration.
    */
   private static class OptimizedLibraryModels {
+
+    private final Types types;
 
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
@@ -1775,6 +1771,7 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<ImmutableSet<PolyNullLocation>> polyNullLocations;
 
     OptimizedLibraryModels(LibraryModels models, Context context) {
+      types = Types.instance(context);
       Names names = Names.instance(context);
       failIfNullParams = makeOptimizedSetLookup(names, models.failIfNullParameters());
       explicitlyNullableParams =
@@ -1796,11 +1793,13 @@ public class LibraryModelsHandler implements Handler {
     }
 
     boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
-      return lookupHandlingOverrides(symbol, types, nonNullRet, allowInherited) != null;
+      return lookupHandlingOverrides(symbol, types, nonNullRet, allowInherited) != null
+          && !hasPolyNullReturn(symbol, types);
     }
 
     boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
-      return lookupHandlingOverrides(symbol, types, nullableRet, allowInherited) != null;
+      return lookupHandlingOverrides(symbol, types, nullableRet, allowInherited) != null
+          && !hasPolyNullReturn(symbol, types);
     }
 
     ImmutableSet<Integer> failIfNullParameters(Symbol.MethodSymbol symbol) {
@@ -1808,11 +1807,30 @@ public class LibraryModelsHandler implements Handler {
     }
 
     ImmutableSet<Integer> explicitlyNullableParameters(Symbol.MethodSymbol symbol) {
-      return lookupImmutableSet(symbol, explicitlyNullableParams);
+      return parameterModelsWithoutPolyNull(symbol, explicitlyNullableParams);
     }
 
     ImmutableSet<Integer> nonNullParameters(Symbol.MethodSymbol symbol) {
-      return lookupImmutableSet(symbol, nonNullParams);
+      return parameterModelsWithoutPolyNull(symbol, nonNullParams);
+    }
+
+    /** Removes fixed parameter models covered by an exact or inherited PolyNull location. */
+    private ImmutableSet<Integer> parameterModelsWithoutPolyNull(
+        Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<Integer>> lookup) {
+      ImmutableSet<Integer> fixedModels = lookupImmutableSet(symbol, lookup);
+      if (fixedModels.isEmpty()) {
+        return fixedModels;
+      }
+      ImmutableSet<PolyNullLocation> locations = polyNullLocations(symbol, types);
+      if (locations.isEmpty()) {
+        return fixedModels;
+      }
+      return fixedModels.stream()
+          .filter(
+              index ->
+                  !locations.contains(
+                      new PolyNullLocation(new Parameter(index), ImmutableList.of())))
+          .collect(ImmutableSet.toImmutableSet());
     }
 
     ImmutableSet<Integer> nullImpliesTrueParameters(Symbol.MethodSymbol symbol) {
@@ -1827,11 +1845,14 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, ensuresNonNullIfTrueMethodCalls);
     }
 
+    /** Looks up a conditional return model unless PolyNull covers the top-level return. */
     ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol, Types types) {
       Symbol.MethodSymbol modelSymbol =
           lookupHandlingOverrides(
               symbol, types, nullImpliesNullParams, /* allowInheritedModelLookup= */ true);
-      return modelSymbol == null
+      // This conditional model determines top-level return nullness, so a PolyNull model at
+      // that location takes precedence, just as it does over a fixed return model.
+      return modelSymbol == null || hasPolyNullReturn(symbol, types)
           ? ImmutableSet.of()
           : lookupImmutableSet(modelSymbol, nullImpliesNullParams);
     }
@@ -1844,11 +1865,37 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, methodTypeVariablesWithNullableUpperBounds);
     }
 
+    /**
+     * Filters nested fixed annotations at exact or inherited PolyNull locations before inference.
+     */
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotationsForMethods(
         Symbol.MethodSymbol symbol) {
       ImmutableSetMultimap<Integer, NestedAnnotationInfo> result =
           nestedAnnotationsForMethods.get(symbol);
-      return (result == null) ? ImmutableSetMultimap.of() : result;
+      if (result == null) {
+        return ImmutableSetMultimap.of();
+      }
+      ImmutableSet<PolyNullLocation> locations = polyNullLocations(symbol, types);
+      if (locations.isEmpty()) {
+        return result;
+      }
+      ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> filtered =
+          ImmutableSetMultimap.builder();
+      for (Map.Entry<Integer, NestedAnnotationInfo> entry : result.entries()) {
+        if (!locations.contains(
+            new PolyNullLocation(
+                entry.getKey() == -1 ? new Return() : new Parameter(entry.getKey()),
+                entry.getValue().typePath()))) {
+          filtered.put(entry);
+        }
+      }
+      return filtered.build();
+    }
+
+    /** Returns whether an exact or inherited PolyNull model covers the top-level return. */
+    private boolean hasPolyNullReturn(Symbol.MethodSymbol symbol, Types types) {
+      return polyNullLocations(symbol, types)
+          .contains(new PolyNullLocation(new Return(), ImmutableList.of()));
     }
 
     ImmutableSet<PolyNullLocation> polyNullLocations(Symbol.MethodSymbol symbol, Types types) {

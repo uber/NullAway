@@ -148,8 +148,11 @@ public interface LibraryModels {
    * every modeled location. Explicit method type arguments seed the corresponding inference
    * variables after substitution. This model is used only in JSpecify mode, and the modeled
    * method's enclosing class is expected to be modeled as {@code @NullMarked}. A PolyNull location
-   * takes precedence over any fixed nullable or non-null library model for the same location.
-   * Receiver locations can be represented but are not yet supported by inference.
+   * takes precedence over any fixed nullable or non-null library model for the same location,
+   * including models on overriding methods when the PolyNull model is inherited. Models at other
+   * locations retain their existing behavior. A top-level PolyNull return also takes precedence
+   * over a {@link #nullImpliesNullParameters()} model. Receiver locations can be represented but
+   * are not yet supported by inference.
    *
    * @return map from methods to signature locations with polymorphic nullness
    */
