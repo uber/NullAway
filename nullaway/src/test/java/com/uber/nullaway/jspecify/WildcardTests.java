@@ -10,6 +10,84 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void issue1934GenericCallWithSelfBoundedWildcardTarget() {
+    for (String wildcardFlag :
+        List.of(
+            JSpecifyJavacConfig.HANDLE_WILDCARD_GENERICS_FLAG,
+            JSpecifyJavacConfig.JSPECIFY_EXPERIMENTAL)) {
+      makeTestHelperWithArgs(
+              List.of(
+                  "-XepOpt:NullAway:OnlyNullMarked=true",
+                  JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                  JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
+                  wildcardFlag))
+          .addSourceLines(
+              "Repro.java",
+              """
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Repro {
+              abstract static class Base<SELF extends Base<SELF>> {}
+              static class Impl<A> extends Base<Impl<A>> {}
+
+              static <T> Impl<T> make() {
+                throw new RuntimeException();
+              }
+
+              void m() {
+                Base<?> b = make();
+                Base<?> explicit = Repro.<String>make();
+              }
+
+              Base<?> returnValue() {
+                return make();
+              }
+            }
+            """)
+          .doTest();
+    }
+  }
+
+  @Test
+  public void selfBoundedWildcardTargetPreservesInferenceConstraints() {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Repro {
+              abstract static class Base<SELF extends Base<SELF, ?>, V extends @Nullable Object> {}
+              static class Impl<A extends @Nullable Object> extends Base<Impl<A>, A> {}
+
+              static <T extends @Nullable Object> Impl<T> make(T value) {
+                throw new RuntimeException();
+              }
+
+              void m() {
+                Base<?, @Nullable String> nullable = make(null);
+                Base<?, String> nonNull = make("value");
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                Base<?, String> invalid = make(null);
+              }
+
+              Base<?, @Nullable String> nullableReturn() {
+                return make(null);
+              }
+
+              Base<?, String> invalidReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
+                return make(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1897WildcardWithRawGenericBoundDoesNotCrash() {
     makeHelper()
         .addSourceLines(
