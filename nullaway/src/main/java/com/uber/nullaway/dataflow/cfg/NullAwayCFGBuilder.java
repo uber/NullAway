@@ -117,6 +117,20 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
     }
 
     /**
+     * Computes binary numeric promotion after erasing operand types so that wrapper-bounded type
+     * variables can be unboxed.
+     *
+     * <p>Javac's {@code Types.unboxedType} API only accepts wrapper classes, such as {@code
+     * Integer} and {@code Long}, not type variables. For example, it rejects {@code T} when {@code
+     * T extends Integer}, but erasing {@code T} produces {@code Integer}, which the API can unbox
+     * to {@code int}. Erasure also handles chained type-variable bounds and intersection bounds.
+     */
+    @Override
+    protected TypeMirror binaryPromotedType(TypeMirror left, TypeMirror right) {
+      return super.binaryPromotedType(types.erasure(left), types.erasure(right));
+    }
+
+    /**
      * Obtain the type mirror for a given class, used for exception throwing.
      *
      * <p>We use this method to expose the otherwise protected method {@link #getTypeMirror(Class)}
