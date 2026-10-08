@@ -186,7 +186,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     public @Nullable Void visitWildcardType(WildcardType subtype, Type supertype) {
       if (config.handleWildcardGenerics()) {
         Verify.verify(!localVariableType, "A wildcard type cannot be assigned to a local variable");
-        constrainWildcardToSupertype(subtype, supertype);
+        constrainWildcardOrCaptureToSupertype(subtype, supertype);
       }
       return null;
     }
@@ -210,7 +210,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
       WildcardType subtypeWildcard = GenericsUtils.asWildcard(subtypeTypeArg);
       if (subtypeWildcard != null) {
-        constrainWildcardToSupertype(subtypeWildcard, supertypeTypeArg);
+        constrainWildcardOrCaptureToSupertype(subtypeTypeArg, supertypeTypeArg);
         return;
       }
       equateTypeArguments(subtypeTypeArg, supertypeTypeArg);
@@ -288,15 +288,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
 
     /**
-     * Adds constraints for a top-level subtype relation {@code subtypeWildcard <: supertype}. For
-     * {@code ? extends S} and {@code ?}, this reduces to {@code S <: supertype}. For {@code ? super
-     * S}, use the lower bound and reduce to {@code S <: supertype}.
+     * Adds constraints for a wildcard or capture flowing into {@code supertype}. For {@code ?
+     * extends S} and {@code ?}, this reduces to a constraint on the effective upper bound of the
+     * original type, preserving contextual bounds and nullness projections on captures. For {@code
+     * ? super S}, use the lower bound and reduce to {@code S <: supertype}.
      */
-    private void constrainWildcardToSupertype(WildcardType subtypeWildcard, Type supertype) {
+    private void constrainWildcardOrCaptureToSupertype(Type subtype, Type supertype) {
+      WildcardType subtypeWildcard = Verify.verifyNotNull(GenericsUtils.asWildcard(subtype));
       if (subtypeWildcard.kind == BoundKind.SUPER) {
         castToNonNull(subtypeWildcard.getSuperBound()).accept(this, supertype);
       } else {
-        GenericsUtils.wildcardUpperBound(subtypeWildcard, state, config, handler)
+        GenericsUtils.effectiveWildcardUpperBound(subtype, state, config, handler)
             .accept(this, supertype);
       }
     }
