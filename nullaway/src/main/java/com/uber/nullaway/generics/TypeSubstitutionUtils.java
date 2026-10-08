@@ -403,7 +403,7 @@ public class TypeSubstitutionUtils {
     @Override
     public Type visitWildcardType(Type.WildcardType wt, Type other) {
       if (!(other instanceof Type.WildcardType wildcardType)) {
-        return restoreWildcardBoundAnnotations(wt, wt.bound, other);
+        return restoreWildcardBoundAnnotations(wt, other);
       }
       // Unbounded and super wildcards have an implicit upper bound on the formal type variable.
       if (wt.kind != BoundKind.EXTENDS
@@ -450,10 +450,7 @@ public class TypeSubstitutionUtils {
       if (t == wt.type) {
         return wt;
       } else {
-        Type.WildcardType updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wt, t);
-        // Restoring the lower bound must retain any projection on the implicit upper bound.
-        updatedWildcard.bound = wt.bound;
-        return updatedWildcard;
+        return TYPE_METADATA_BUILDER.createWildcardType(wt, t);
       }
     }
 
@@ -468,32 +465,22 @@ public class TypeSubstitutionUtils {
      * accepted through the wildcard respect explicit {@code @Nullable} and {@code @NonNull} uses.
      *
      * @param wildcard the wildcard type whose bounds should be updated
-     * @param implicitUpperBoundTypeVariable for unbounded or lower bounded wildcard types, the type
-     *     variable from which to obtain an upper bound, or null if not available
      * @param other the other type from which to restore annotations
      */
     private Type.WildcardType restoreWildcardBoundAnnotations(
-        Type.WildcardType wildcard,
-        Type.@Nullable TypeVar implicitUpperBoundTypeVariable,
-        Type other) {
+        Type.WildcardType wildcard, Type other) {
       if (wildcard.kind == BoundKind.SUPER) {
         // A projection such as @NonNull T also applies to the values accepted through a
         // super wildcard. Preserve it on the lower bound before restoring the upper bound.
         Type lowerBound = updateDirectNullabilityAnnotationsForType(wildcard.type, other);
         if (lowerBound != wildcard.type) {
-          Type.WildcardType updatedWildcard =
-              TYPE_METADATA_BUILDER.createWildcardType(wildcard, lowerBound);
-          // The wildcard constructor does not copy the formal supplying the implicit upper bound.
-          updatedWildcard.bound = wildcard.bound;
-          wildcard = updatedWildcard;
+          wildcard = TYPE_METADATA_BUILDER.createWildcardType(wildcard, lowerBound);
         }
       }
       Type upperBound =
           wildcard.kind == BoundKind.EXTENDS
               ? wildcard.type
-              : implicitUpperBoundTypeVariable == null
-                  ? null
-                  : implicitUpperBoundTypeVariable.getUpperBound();
+              : wildcard.bound == null ? null : wildcard.bound.getUpperBound();
       if (upperBound == null) {
         return wildcard;
       }
@@ -505,7 +492,7 @@ public class TypeSubstitutionUtils {
         return TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
       } else { // unbounded or lower-bounded wildcard
         return replaceImplicitWildcardUpperBound(
-            wildcard, Verify.verifyNotNull(implicitUpperBoundTypeVariable), updatedBound);
+            wildcard, Verify.verifyNotNull(wildcard.bound), updatedBound);
       }
     }
 
