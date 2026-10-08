@@ -10,6 +10,35 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void sourceCaptureRetainsSubstitutedUpperBoundDuringInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Box<X extends @Nullable Object> {}
+              interface Pair<T extends @Nullable Object, U extends T> {
+                Box<U> second();
+              }
+              static <X extends @Nullable Object> Box<X> identity(Box<X> box) {
+                return box;
+              }
+              void nonNull(Pair<String, ?> p) {
+                Box<? extends String> ok = identity(p.second());
+              }
+              void nullable(Pair<@Nullable String, ?> p) {
+                Box<? extends @Nullable String> ok = identity(p.second());
+                // BUG: Diagnostic contains: inference failure: type variable X constrained to be both @NonNull and @Nullable
+                Box<? extends String> bad = identity(p.second());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericCallOnWildcardReceiver() {
     makeHelper()
         .addSourceLines(
