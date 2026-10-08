@@ -26,11 +26,8 @@ import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
 
 import java.util.Arrays;
 import org.junit.Test;
-import org.junit.runner.RunWith;
-import org.junit.runners.JUnit4;
 
 /** Unit tests for {@link com.uber.nullaway.NullAway}. */
-@RunWith(JUnit4.class)
 public class CoreTests extends NullAwayTestsBase {
 
   @Test

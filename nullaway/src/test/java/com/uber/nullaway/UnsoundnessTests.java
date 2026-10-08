@@ -1,6 +1,6 @@
 package com.uber.nullaway;
 
-import java.util.Arrays;
+import java.util.List;
 import org.junit.Before;
 import org.junit.Test;
 
@@ -12,7 +12,7 @@ public class UnsoundnessTests extends NullAwayTestsBase {
   public void setup() {
     defaultCompilationHelper =
         makeTestHelperWithArgs(
-            Arrays.asList(
+            List.of(
                 "-d",
                 temporaryFolder.getRoot().getAbsolutePath(),
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber"));

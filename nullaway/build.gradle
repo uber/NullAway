@@ -238,7 +238,7 @@ tasks.named('check').configure {
         filter {
             // On Error Prone 2.46.0 and above, this test will not pass, since CompilationTestHelper passes the
             // -XDaddTypeAnnotationsToSymbol flag by default.  The test is still run on JDK 17.
-            excludeTestsMatching "com.uber.nullaway.ErrorProneCLIFlagsConfigTest.missingTypeAnnotationSymbolFlagForJSpecifyModeOnOlderJDK"
+            excludeTestsMatching "com.uber.nullaway.ErrorProneCLIFlagsConfigTest.missingTypeAnnotationSymbolFlagForJSpecifyModeOnOlderJDK*"
         }
     }
 }

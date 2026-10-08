@@ -1,10 +1,14 @@
 package com.uber.nullaway;
 
+import com.uber.nullaway.tools.SkipBytecodeTestMode;
 import java.util.Arrays;
 import org.junit.Test;
 
 public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
 
+  @SkipBytecodeTestMode(
+      "TreatGeneratedAsUnannotated has no effect on class files, since the generated-code"
+          + " markers have SOURCE retention")
   @Test
   public void generatedAsUnannotatedPlusRestrictive() {
     makeTestHelperWithArgs(
