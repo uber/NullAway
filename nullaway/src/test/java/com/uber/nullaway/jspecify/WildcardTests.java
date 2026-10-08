@@ -11,19 +11,10 @@ public class WildcardTests extends NullAwayTestsBase {
 
   @Test
   public void issue1934GenericCallWithSelfBoundedWildcardTarget() {
-    for (String wildcardFlag :
-        List.of(
-            JSpecifyJavacConfig.HANDLE_WILDCARD_GENERICS_FLAG,
-            JSpecifyJavacConfig.JSPECIFY_EXPERIMENTAL)) {
-      makeTestHelperWithArgs(
-              List.of(
-                  "-XepOpt:NullAway:OnlyNullMarked=true",
-                  JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
-                  JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
-                  wildcardFlag))
-          .addSourceLines(
-              "Repro.java",
-              """
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
             import org.jspecify.annotations.NullMarked;
 
             @NullMarked
@@ -45,8 +36,7 @@ public class WildcardTests extends NullAwayTestsBase {
               }
             }
             """)
-          .doTest();
-    }
+        .doTest();
   }
 
   @Test
