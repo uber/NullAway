@@ -10,6 +10,63 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void inferencePreservesDependentCaptureBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Pair<T extends @Nullable Object, U extends T> {}
+              static <A extends @Nullable Object, B extends A> Pair<A, B> identity(Pair<A, B> p) {
+                return p;
+              }
+              void nonNull(Pair<String, ?> p) {
+                Pair<String, ? extends String> ok = identity(p);
+                Pair<String, ?> implicitTarget = identity(p);
+              }
+              void nullable(Pair<@Nullable String, ?> p) {
+                Pair<@Nullable String, ? extends @Nullable String> ok = identity(p);
+                Pair<@Nullable String, ?> implicitTarget = identity(p);
+                // BUG: Diagnostic contains: inference failure: type variable B constrained to be both @NonNull and @Nullable
+                Pair<@Nullable String, ? extends String> bad = identity(p);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferenceUsesDependentWildcardBoundsThroughSupertype() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static class Pair<T extends @Nullable Object, U extends T> {}
+              static class Child<T extends @Nullable Object, U extends T> extends Pair<T, U> {}
+              static <A extends @Nullable Object, B extends A> Pair<A, B> identity(Pair<A, B> p) {
+                return p;
+              }
+              void nonNull(Child<String, ?> p) {
+                Pair<String, ? extends String> ok = identity(p);
+                Pair<String, ?> implicitTarget = identity(p);
+              }
+              void nullable(Child<@Nullable String, ?> p) {
+                Pair<@Nullable String, ? extends @Nullable String> ok = identity(p);
+                Pair<@Nullable String, ?> implicitTarget = identity(p);
+                // BUG: Diagnostic contains: inference failure: type variable B constrained to be both @NonNull and @Nullable
+                Pair<@Nullable String, ? extends String> bad = identity(p);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void sourceCaptureRetainsSubstitutedUpperBoundDuringInference() {
     makeHelper()
         .addSourceLines(
