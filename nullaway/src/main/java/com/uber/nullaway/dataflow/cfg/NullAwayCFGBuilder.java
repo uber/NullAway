@@ -124,6 +124,9 @@ public final class NullAwayCFGBuilder extends CFGBuilder {
      * Integer} and {@code Long}, not type variables. For example, it rejects {@code T} when {@code
      * T extends Integer}, but erasing {@code T} produces {@code Integer}, which the API can unbox
      * to {@code int}. Erasure also handles chained type-variable bounds and intersection bounds.
+     *
+     * <p>TODO: Remove this override once we use a Checker Framework version with the fix for
+     * https://github.com/typetools/checker-framework/issues/8328.
      */
     @Override
     protected TypeMirror binaryPromotedType(TypeMirror left, TypeMirror right) {
