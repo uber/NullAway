@@ -235,8 +235,8 @@ public class LibraryModelsHandler implements Handler {
     if (isNullableFieldInLibraryModels(exprSymbol)) {
       return true;
     }
-    if (!(expr instanceof MethodInvocationTree)
-        || !(exprSymbol instanceof Symbol.MethodSymbol methodSymbol)) {
+    if (!(expr instanceof MethodInvocationTree
+        && exprSymbol instanceof Symbol.MethodSymbol methodSymbol)) {
       return exprMayBeNull;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
