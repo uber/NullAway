@@ -10,6 +10,31 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void diagnosticUsesStructuralCaptureBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              interface Box<X extends @Nullable Object> {}
+              interface Pair<T extends @Nullable Object, U extends T> {
+                Box<U> second();
+              }
+              void nonNull(Pair<String, ?> p) {
+                Box<? extends String> ok = p.second();
+              }
+              void nullable(Pair<@Nullable String, ?> p) {
+                // BUG: Diagnostic contains: source wildcard upper bound is @Nullable String
+                Box<? extends String> bad = p.second();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1897WildcardWithRawGenericBoundDoesNotCrash() {
     makeHelper()
         .addSourceLines(
