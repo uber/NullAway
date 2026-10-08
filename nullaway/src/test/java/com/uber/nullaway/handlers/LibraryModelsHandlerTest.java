@@ -17,8 +17,25 @@
 package com.uber.nullaway.handlers;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
+import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
+import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
+import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 
+import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.io.ByteStreams;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.LibraryModels.MethodRef;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Receiver;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
+import com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry;
+import com.uber.nullaway.testlibrarymodels.TestLibraryModels;
 import java.io.File;
 import java.io.FileOutputStream;
 import java.io.IOException;
@@ -38,6 +55,88 @@ public class LibraryModelsHandlerTest {
   private static final String RESOURCE_NAME = "model.astubx";
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
+
+  @Test
+  public void polyNullLocationPositionsRepresentReceiverParameterAndReturn() {
+    TypePathEntry typeArgument = new TypePathEntry(TYPE_ARGUMENT, 0);
+    TypePathEntry arrayElement = new TypePathEntry(ARRAY_ELEMENT, 0);
+    assertThat(new PolyNullLocation(new Receiver(), ImmutableList.of(typeArgument)).position())
+        .isInstanceOf(Receiver.class);
+    assertThat(new PolyNullLocation(new Parameter(0), ImmutableList.of()).position())
+        .isEqualTo(new Parameter(0));
+    assertThat(new PolyNullLocation(new Return(), ImmutableList.of(arrayElement)).typePath())
+        .containsExactly(arrayElement);
+    assertThrows(IllegalArgumentException.class, () -> new Parameter(-1));
+  }
+
+  @Test
+  public void rejectsPolyNullReceiverLocationUntilInferenceSupportsIt() {
+    MethodRef method = methodRef("example.Container", "get()");
+    TestLibraryModels provider =
+        new TestLibraryModels() {
+          @Override
+          public ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
+            return ImmutableSetMultimap.of(
+                method,
+                new PolyNullLocation(
+                    new Receiver(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))));
+          }
+        };
+    IllegalArgumentException error =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new LibraryModelsHandler.CombinedLibraryModels(
+                    ImmutableList.of(provider), jspecifyJdkModelsConfig()));
+    assertThat(error).hasMessageThat().contains("receiver locations are not yet supported");
+    assertThat(error).hasMessageThat().contains("example.Container");
+  }
+
+  @Test
+  public void rejectsPolyNullLocationsFromTwoProvidersForSameMethod() {
+    IllegalArgumentException error =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new LibraryModelsHandler.CombinedLibraryModels(
+                    ImmutableList.of(new TestLibraryModels(), new TestLibraryModels()),
+                    jspecifyJdkModelsConfig()));
+    assertThat(error).hasMessageThat().contains("Multiple PolyNull library model providers");
+    assertThat(error).hasMessageThat().contains("PolyNullMethods");
+  }
+
+  @Test
+  public void rejectsPolyNullLocationsFromTwoHandlersForSameMethod() {
+    Handler first = mock(Handler.class);
+    Handler second = mock(Handler.class);
+    PolyNullLocation location = new PolyNullLocation(new Return(), ImmutableList.of());
+    when(first.onGetPolyNullLocations(null, null)).thenReturn(ImmutableSet.of(location));
+    when(second.onGetPolyNullLocations(null, null)).thenReturn(ImmutableSet.of(location));
+    CompositeHandler composite = new CompositeHandler(ImmutableList.of(first, second));
+    IllegalArgumentException error =
+        assertThrows(
+            IllegalArgumentException.class, () -> composite.onGetPolyNullLocations(null, null));
+    assertThat(error).hasMessageThat().contains("Multiple handlers provide PolyNull locations");
+  }
+
+  @Test
+  public void rejectsPolyNullReceiverLocationFromHandler() {
+    Handler handler = mock(Handler.class);
+    PolyNullLocation location = new PolyNullLocation(new Receiver(), ImmutableList.of());
+    when(handler.onGetPolyNullLocations(null, null)).thenReturn(ImmutableSet.of(location));
+    CompositeHandler composite = new CompositeHandler(ImmutableList.of(handler));
+    IllegalArgumentException error =
+        assertThrows(
+            IllegalArgumentException.class, () -> composite.onGetPolyNullLocations(null, null));
+    assertThat(error).hasMessageThat().contains("receiver locations are not yet supported");
+  }
+
+  /** Creates a configuration that enables PolyNull library models. */
+  private static Config jspecifyJdkModelsConfig() {
+    Config config = mock(Config.class);
+    when(config.isJSpecifyJDKModels()).thenReturn(true);
+    return config;
+  }
 
   /**
    * Verifies that closing one classloader cannot invalidate a resource stream opened by a second
