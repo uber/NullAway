@@ -529,6 +529,153 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void inheritedPolyNullOverridesFixedTopLevelModels() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullOverrides.NullableOverride;
+            import com.uber.lib.unannotated.PolyNullOverrides.NonNullOverride;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              private Object field = new Object();
+
+              void test(NullableOverride nullableModel, NonNullOverride nonNullModel,
+                  Object nonNull, @Nullable Object nullable) {
+                // A conditional return model based on another input yields to the PolyNull return.
+                nullableModel.top(nonNull, nullable, nonNull).hashCode();
+                nonNullModel.top(nonNull, nullable, nonNull).hashCode();
+                // BUG: Diagnostic contains: dereferenced expression
+                nullableModel.top(nullable, nonNull, nonNull).hashCode();
+                // BUG: Diagnostic contains: dereferenced expression
+                nonNullModel.top(nullable, nonNull, nonNull).hashCode();
+
+                var nullableResult = nonNullModel.top(nullable, nonNull, nonNull);
+                // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
+                nullableResult.hashCode();
+                var nonNullResult = nullableModel.top(nonNull, nullable, nonNull);
+                nonNullResult.hashCode();
+
+                // Nullable and non-null models on other parameters remain effective.
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nullableModel.top(nonNull, nullable, nullable);
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                nonNullModel.top(nonNull, nullable, nullable);
+
+                // Filter the nullable-return model before ordinary generic result constraints.
+                field = nullableModel.generic(nonNull, nonNull);
+                field = nonNullModel.generic(nonNull, nonNull);
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                field = nullableModel.generic(nonNull, nullable);
+                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                field = nonNullModel.generic(nonNull, nullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inheritedNestedPolyNullPreservesOtherFixedModels() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullOverrides.NullableOverride;
+            import com.uber.lib.unannotated.PolyNullOverrides.NonNullOverride;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(NullableOverride nullableModel, NonNullOverride nonNullModel,
+                  List<Object> nonNull, List<@Nullable Object> nullable) {
+                // The nested input and output models yield to inherited PolyNull, while the
+                // unrelated nullable list contents on parameter 1 remain allowed.
+                var nonNullContents = nullableModel.nested(nonNull, nullable);
+                if (nonNullContents != null) {
+                  nonNullContents.get(0).hashCode();
+                }
+                var nullableContents = nonNullModel.nested(nullable, nullable);
+                // A fixed non-null top-level return remains effective.
+                // BUG: Diagnostic contains: dereferenced expression 'nullableContents.get(0)' is @Nullable
+                nullableContents.get(0).hashCode();
+
+                // A fixed nullable top-level return remains effective too.
+                // BUG: Diagnostic contains: dereferenced expression
+                nullableModel.nested(nonNull, nullable).hashCode();
+                nonNullModel.nested(nonNull, nullable).get(0).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inheritedInputOnlyPolyNullPreservesFixedReturns() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullOverrides.NullableOverride;
+            import com.uber.lib.unannotated.PolyNullOverrides.NonNullOverride;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(NullableOverride nullableModel, NonNullOverride nonNullModel,
+                  List<@Nullable Object> nullable) {
+                // BUG: Diagnostic contains: dereferenced expression
+                nullableModel.inputOnly(nullable).hashCode();
+                nonNullModel.inputOnly(nullable).hashCode();
+                var nullableResult = nullableModel.inputOnly(nullable);
+                // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
+                nullableResult.hashCode();
+                var nonNullResult = nonNullModel.inputOnly(nullable);
+                nonNullResult.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inheritedInputOnlyPolyNullPreservesConditionalReturns() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullOverrides.NullableOverride;
+            import com.uber.lib.unannotated.PolyNullOverrides.NonNullOverride;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(NullableOverride nullableModel, NonNullOverride nonNullModel,
+                  Object nonNull, @Nullable Object nullable) {
+                nullableModel.conditional(nullable, nonNull).hashCode();
+                nonNullModel.conditional(nullable, nonNull).hashCode();
+                // BUG: Diagnostic contains: dereferenced expression
+                nullableModel.conditional(nonNull, nullable).hashCode();
+                // BUG: Diagnostic contains: dereferenced expression
+                nonNullModel.conditional(nonNull, nullable).hashCode();
+                var nullableResult = nonNullModel.conditional(nonNull, nullable);
+                // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
+                nullableResult.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));

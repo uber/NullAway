@@ -77,19 +77,32 @@ public class TestLibraryModels implements LibraryModels {
 
   /** Creates the immutable explicitly-nullable parameter models used by this test provider. */
   private static ImmutableSetMultimap<MethodRef, Integer> createExplicitlyNullableParameters() {
-    return ImmutableSetMultimap.of(
-        methodRef(
-            "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
-            "nullableArray(java.lang.String...)"),
-        0,
-        methodRef(
-            "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
-            "bothNullable(java.lang.String...)"),
-        0,
-        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "isNonNull(java.lang.Object)"),
-        0,
-        methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
-        0);
+    return ImmutableSetMultimap.<MethodRef, Integer>builder()
+        .putAll(
+            ImmutableSetMultimap.of(
+                methodRef(
+                    "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                    "nullableArray(java.lang.String...)"),
+                0,
+                methodRef(
+                    "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
+                    "bothNullable(java.lang.String...)"),
+                0,
+                methodRef(
+                    "com.uber.lib.unannotated.UnannotatedWithModels",
+                    "isNonNull(java.lang.Object)"),
+                0,
+                methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
+                0))
+        .put(polyNullOverrideMethod("NullableOverride", "top"), 0)
+        .put(polyNullOverrideMethod("NullableOverride", "generic"), 1)
+        .put(polyNullOverrideMethod("NullableOverride", "top"), 1)
+        .put(polyNullOverrideMethod("NonNullOverride", "top"), 1)
+        .put(polyNullOverrideMethod("NullableOverride", "conditional"), 0)
+        .put(polyNullOverrideMethod("NullableOverride", "conditional"), 1)
+        .put(polyNullOverrideMethod("NonNullOverride", "conditional"), 0)
+        .put(polyNullOverrideMethod("NonNullOverride", "conditional"), 1)
+        .build();
   }
 
   @Override
@@ -100,6 +113,10 @@ public class TestLibraryModels implements LibraryModels {
   /** Creates the immutable non-null parameter models used by this test provider. */
   private static ImmutableSetMultimap<MethodRef, Integer> createNonNullParameters() {
     return new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+        .put(polyNullOverrideMethod("NonNullOverride", "top"), 0)
+        .put(polyNullOverrideMethod("NonNullOverride", "generic"), 1)
+        .put(polyNullOverrideMethod("NullableOverride", "top"), 2)
+        .put(polyNullOverrideMethod("NonNullOverride", "top"), 2)
         .put(
             methodRef(
                 "com.uber.lib.unannotated.RestrictivelyAnnotatedFIWithModelOverride",
@@ -137,7 +154,11 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
-    return ImmutableSetMultimap.of();
+    return ImmutableSetMultimap.of(
+        polyNullOverrideMethod("NullableOverride", "top"), 1,
+        polyNullOverrideMethod("NonNullOverride", "top"), 1,
+        polyNullOverrideMethod("NullableOverride", "conditional"), 1,
+        polyNullOverrideMethod("NonNullOverride", "conditional"), 1);
   }
 
   @Override
@@ -160,17 +181,30 @@ public class TestLibraryModels implements LibraryModels {
 
   /** Creates the immutable nullable-return models used by this test provider. */
   private static ImmutableSet<MethodRef> createNullableReturns() {
-    return ImmutableSet.of(
-        methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
-        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
-        methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
-        methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
-        methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()"));
+    return ImmutableSet.<MethodRef>builder()
+        .addAll(
+            ImmutableSet.of(
+                methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
+                methodRef(
+                    "com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
+                methodRef(
+                    "com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
+                methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
+                methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()")))
+        .add(polyNullOverrideMethod("NullableOverride", "top"))
+        .add(polyNullOverrideMethod("NullableOverride", "generic"))
+        .add(polyNullOverrideMethod("NullableOverride", "nested"))
+        .add(polyNullOverrideMethod("NullableOverride", "inputOnly"))
+        .build();
   }
 
   @Override
   public ImmutableSet<MethodRef> nonNullReturns() {
-    return ImmutableSet.of();
+    return ImmutableSet.of(
+        polyNullOverrideMethod("NonNullOverride", "top"),
+        polyNullOverrideMethod("NonNullOverride", "generic"),
+        polyNullOverrideMethod("NonNullOverride", "nested"),
+        polyNullOverrideMethod("NonNullOverride", "inputOnly"));
   }
 
   @Override
@@ -269,6 +303,7 @@ public class TestLibraryModels implements LibraryModels {
         "com.uber.lib.unannotated.NestedAnnots",
         "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
         "com.uber.lib.unannotated.PolyNullMethods",
+        "com.uber.lib.unannotated.PolyNullOverrides",
         "com.uber.lib.unannotated.UnboundWildcards");
   }
 
@@ -377,6 +412,33 @@ public class TestLibraryModels implements LibraryModels {
                 "com.uber.lib.unannotated.PolyNullMethods",
                 "<T,U>genericFromSuppliers(java.util.function.Supplier<? extends T>,java.util.function.Supplier<? extends U>)"),
             new PolyNullLocation(new Return(), ImmutableList.of()))
+        .put(
+            polyNullOverrideMethod("Base", "top"),
+            new PolyNullLocation(new Parameter(0), ImmutableList.of()))
+        .put(
+            polyNullOverrideMethod("Base", "top"),
+            new PolyNullLocation(new Return(), ImmutableList.of()))
+        .put(
+            polyNullOverrideMethod("Base", "generic"),
+            new PolyNullLocation(new Parameter(1), ImmutableList.of()))
+        .put(
+            polyNullOverrideMethod("Base", "generic"),
+            new PolyNullLocation(new Return(), ImmutableList.of()))
+        .put(
+            polyNullOverrideMethod("Base", "nested"),
+            new PolyNullLocation(
+                new Parameter(0), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(
+            polyNullOverrideMethod("Base", "nested"),
+            new PolyNullLocation(
+                new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(
+            polyNullOverrideMethod("Base", "inputOnly"),
+            new PolyNullLocation(
+                new Parameter(0), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(
+            polyNullOverrideMethod("Base", "conditional"),
+            new PolyNullLocation(new Parameter(0), ImmutableList.of()))
         .build();
   }
 
@@ -385,6 +447,12 @@ public class TestLibraryModels implements LibraryModels {
       createNestedAnnotationsForMethods() {
     return new ImmutableMap.Builder<
             MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>()
+        .put(
+            polyNullOverrideMethod("NullableOverride", "nested"),
+            polyNullOverrideNestedAnnotations(Annotation.NULLABLE))
+        .put(
+            polyNullOverrideMethod("NonNullOverride", "nested"),
+            polyNullOverrideNestedAnnotations(Annotation.NONNULL))
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
@@ -535,5 +603,35 @@ public class TestLibraryModels implements LibraryModels {
                 new NestedAnnotationInfo(
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
         .build();
+  }
+
+  /**
+   * Creates fixed annotations both at inherited PolyNull locations and at an unrelated location.
+   */
+  private static ImmutableSetMultimap<Integer, NestedAnnotationInfo>
+      polyNullOverrideNestedAnnotations(Annotation annotation) {
+    NestedAnnotationInfo conflicting =
+        new NestedAnnotationInfo(annotation, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)));
+    return ImmutableSetMultimap.of(
+        0, conflicting,
+        -1, conflicting,
+        1,
+            new NestedAnnotationInfo(
+                Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))));
+  }
+
+  /** References a method in the hierarchy used to test inherited PolyNull model precedence. */
+  private static MethodRef polyNullOverrideMethod(String owner, String name) {
+    String signature =
+        switch (name) {
+          case "top" -> "top(java.lang.Object,java.lang.Object,java.lang.Object)";
+          case "generic" -> "<T>generic(T,java.lang.Object)";
+          case "nested" ->
+              "nested(java.util.List<java.lang.Object>,java.util.List<java.lang.Object>)";
+          case "inputOnly" -> "inputOnly(java.util.List<java.lang.Object>)";
+          case "conditional" -> "conditional(java.lang.Object,java.lang.Object)";
+          default -> throw new IllegalArgumentException(name);
+        };
+    return methodRef("com.uber.lib.unannotated.PolyNullOverrides." + owner, signature);
   }
 }
