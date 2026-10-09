@@ -278,20 +278,14 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     UNION_NULL,
     /** The usage is annotated {@code @NonNull}, in the code or by NullAway. */
     MINUS_NULL,
-    /**
-     * The usage carries no nullness annotation and takes the nullness of its base type. A type
-     * variable that carries only the marker of an unconstrained inference counts as one.
-     */
+    /** The usage carries no nullness annotation and takes the nullness of its base type. */
     NO_CHANGE,
     /**
-     * The usage carries no decision this check can read. {@link #operatorOf} assigns it to a type
-     * inference marked {@link ConstraintSolver.InferredNullability#UNCONSTRAINED} where javac
-     * inferred a type other than a type variable, such as a least upper bound: the nullness of that
-     * type is a type variable's that the substitution no longer names. A marked type variable is
-     * {@link #NO_CHANGE} and is judged by its bounds. {@link #boundOperator} assigns it to a bare
-     * class-type bound, or a bare element of an intersection bound, declared in unannotated code;
-     * and {@link #actualOperator} to a bare type variable left by capture conversion, which drops a
-     * written {@code @NonNull}, and to a bare type variable actual against an unbounded {@code ?}.
+     * The usage carries no decision this check can read. {@link #boundOperator} assigns it to a
+     * bare class-type bound, or a bare element of an intersection bound, declared in unannotated
+     * code; and {@link #actualOperator} to a bare type variable left by capture conversion, which
+     * drops a written {@code @NonNull}, and to a bare type variable actual against an unbounded
+     * {@code ?}.
      */
     UNSPECIFIED
   }
@@ -302,12 +296,6 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
     }
     if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
       return NullnessOperator.MINUS_NULL;
-    }
-    // a marked type variable still names the type variable whose nullness the inference left open
-    if (!(type instanceof Type.TypeVar)
-        && type.getAnnotationMirrors().stream()
-            .anyMatch(a -> GenericsChecks.isSyntheticUnconstrainedAnnotation(a.type))) {
-      return NullnessOperator.UNSPECIFIED;
     }
     return NullnessOperator.NO_CHANGE;
   }

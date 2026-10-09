@@ -41,6 +41,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Type variables belonging to the calls participating in this inference problem. */
   private final Set<Element> inferenceVariables = new LinkedHashSet<>();
 
+  /** Inference variables registered more than once, by several calls of one declaration. */
+  private final Set<Element> sharedInferenceVariables = new LinkedHashSet<>();
+
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.handler = analysis.getHandler();
@@ -74,6 +77,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
      */
     boolean parametric;
 
+    /**
+     * Whether one of the type variables that set {@link #parametric} has a bound that is explicitly
+     * nullable, rather than nullable by default in unannotated code.
+     */
+    boolean parametricNullable;
+
     /** Important to use a LinkedHashSet here for determinism in error messages. */
     final Set<Element> supertypes = new LinkedHashSet<>();
 
@@ -95,7 +104,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   @Override
   public void registerInferenceVariable(Element typeVariable) {
-    inferenceVariables.add(typeVariable);
+    if (!inferenceVariables.add(typeVariable)) {
+      sharedInferenceVariables.add(typeVariable);
+    }
   }
 
   @Override
@@ -375,8 +386,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       VarState st = castToNonNull(vars.get(work.removeFirst()));
       for (Element sup : st.supertypes) {
         VarState supState = castToNonNull(vars.get(sup));
-        if (!supState.parametric) {
+        if (!supState.parametric || (st.parametricNullable && !supState.parametricNullable)) {
           supState.parametric = true;
+          supState.parametricNullable |= st.parametricNullable;
           work.add(sup);
         }
       }
@@ -393,8 +405,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                 case NONNULL -> InferredNullability.NONNULL;
                 // nothing pushed the variable toward null, so non-null is the least solution,
                 // unless a type variable that may be null flowed in and decides its nullness
-                case UNKNOWN ->
-                    st.parametric ? InferredNullability.UNCONSTRAINED : InferredNullability.NONNULL;
+                case UNKNOWN -> {
+                  if (!st.parametric) {
+                    yield InferredNullability.NONNULL;
+                  }
+                  // a shared variable may stand for a class type at one call and for the type
+                  // variable at another, so a flag set at one call cannot decide the other
+                  yield st.parametricNullable
+                          && !sharedInferenceVariables.contains(tv)
+                          && GenericsUtils.boundIsExplicitlyNullable(tv, config, handler, state)
+                      ? InferredNullability.TYPE_VARIABLE_OR_NULLABLE
+                      : InferredNullability.TYPE_VARIABLE_OR_NONNULL;
+                }
               });
         });
     return result;
@@ -422,11 +444,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       constrainAsNullable(t);
     }
     if (treatAsTypeVariableForInference(t)
-        && s instanceof TypeVar
+        && s instanceof TypeVar fixedTypeVar
         && !treatAsTypeVariableForInference(s)
         && !isKnownNullable(s)
         && !isKnownNonNull(s)) {
-      getState(t.asElement()).parametric = true;
+      VarState st = getState(t.asElement());
+      st.parametric = true;
+      if (GenericsUtils.boundIsExplicitlyNullable(
+          fixedTypeVar.asElement(), config, handler, state)) {
+        st.parametricNullable = true;
+      }
     }
   }
 

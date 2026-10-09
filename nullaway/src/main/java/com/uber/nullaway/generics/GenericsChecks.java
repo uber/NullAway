@@ -1886,7 +1886,7 @@ public final class GenericsChecks {
     } else if (overridingMethod.asType() instanceof Type.ForAll) {
       // the referenced method is a generic method and there are no explicit type arguments
       // we need to substitute inferred nullability for type arguments if it was inferred
-      result = getInferredMethodTypeForGenericMethodReference(result, state);
+      result = getInferredMethodTypeForGenericMethodReference(memberReferenceTree, result, state);
     }
     // finally, run any handlers
     return handler.onOverrideMethodType(overridingMethod, result, state, null);
@@ -2693,6 +2693,7 @@ public final class GenericsChecks {
    * nullability inference, return the method type with inferred nullability for type parameters.
    * Otherwise, return the original method type.
    *
+   * @param memberReferenceTree the generic method reference
    * @param methodType the original method type
    * @param state the visitor state (generic method reference should be leaf of {@code
    *     state.getPath()})
@@ -2700,19 +2701,28 @@ public final class GenericsChecks {
    *     performed, or the original method type otherwise
    */
   private Type.MethodType getInferredMethodTypeForGenericMethodReference(
-      Type.MethodType methodType, VisitorState state) {
+      MemberReferenceTree memberReferenceTree, Type.MethodType methodType, VisitorState state) {
     TreePath parentPath = state.getPath().getParentPath();
     while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
     }
     Tree parentTree = parentPath != null ? parentPath.getLeaf() : null;
-    if (parentTree instanceof MethodInvocationTree methodInvocationTree
-        && isCallNeedingInference(methodInvocationTree)) {
+    if ((parentTree instanceof MethodInvocationTree || parentTree instanceof NewClassTree)
+        && isCallNeedingInference((ExpressionTree) parentTree)) {
       CallInferenceResult inferenceResult =
-          inferredTypeVarNullabilityForGenericCalls.get(methodInvocationTree);
+          inferredTypeVarNullabilityForGenericCalls.get(parentTree);
       if (inferenceResult instanceof InferenceSuccess successResult) {
+        // the type javac inferred for the referenced method decides what an inference variable
+        // whose nullness depends on it resolves to
+        Type referentType = ((JCTree.JCMemberReference) memberReferenceTree).referentType;
+        Type.MethodType typeToUpdate =
+            referentType instanceof Type.MethodType referentMethodType
+                    && referentMethodType.getParameterTypes().size()
+                        == methodType.getParameterTypes().size()
+                ? referentMethodType
+                : methodType;
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
-            methodType, methodType, successResult.typeVarNullability, state, config);
+            typeToUpdate, methodType, successResult.typeVarNullability, state, config);
       }
     }
     return methodType;
@@ -3410,12 +3420,42 @@ public final class GenericsChecks {
         && invokedMethodType instanceof Type.ForAll forAllType) {
       invokedMethodType =
           substituteTypeArgsInGenericMethodType(tree, forAllType, path, state, calledFromDataflow);
+    } else if (tree instanceof NewClassTree newClassTree
+        && invokedMethodType instanceof Type.ForAll forAllType) {
+      invokedMethodType = substituteInferredConstructorTypeArgs(newClassTree, forAllType, state);
     }
     return handler.onOverrideMethodType(
         methodSymbol,
         invokedMethodType.asMethodType(),
         state,
         tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
+  }
+
+  /**
+   * Returns the type of a generic constructor at a diamond call, with the nullness inferred for the
+   * constructor's own type variables. Returns {@code forAllType} unchanged where the call has
+   * explicit type arguments or no inference result.
+   *
+   * @param tree the constructor call
+   * @param forAllType the constructor's type, with the class type variables already substituted
+   * @param state the visitor state
+   */
+  private Type substituteInferredConstructorTypeArgs(
+      NewClassTree tree, Type.ForAll forAllType, VisitorState state) {
+    if (!tree.getTypeArguments().isEmpty()
+        || !(inferredTypeVarNullabilityForGenericCalls.get(tree)
+            instanceof InferenceSuccess successResult)) {
+      return forAllType;
+    }
+    Type.MethodType declaredMethodType = forAllType.asMethodType();
+    Type constructorTypeAtCallSite = ((JCTree.JCNewClass) tree).constructorType;
+    if (!(constructorTypeAtCallSite instanceof Type.MethodType methodTypeAtCallSite)
+        || methodTypeAtCallSite.getParameterTypes().size()
+            != declaredMethodType.getParameterTypes().size()) {
+      return forAllType;
+    }
+    return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
+        methodTypeAtCallSite, declaredMethodType, successResult.typeVarNullability, state, config);
   }
 
   /**
@@ -3931,23 +3971,31 @@ public final class GenericsChecks {
 
   private static @Nullable Type syntheticNullableAnnotType;
   private static @Nullable Type syntheticNonNullAnnotType;
-  private static @Nullable Type syntheticUnconstrainedAnnotType;
+  private static @Nullable Type syntheticTypeVariableOrNullableAnnotType;
+  private static @Nullable Type syntheticTypeVariableOrNonNullAnnotType;
 
   /** Returns whether {@code annotationType} is one of NullAway's synthetic nullness annotations. */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity checks
   static boolean isSyntheticNullnessAnnotation(Type annotationType) {
     return annotationType == syntheticNullableAnnotType
         || annotationType == syntheticNonNullAnnotType
-        || annotationType == syntheticUnconstrainedAnnotType;
+        || typeVariableMarkerKind(annotationType) != null;
   }
 
   /**
-   * Returns whether {@code annotationType} is the synthetic annotation that marks a type variable
-   * inference left unconstrained.
+   * Returns the inference result that {@code annotationType} marks, or {@code null} if it is not
+   * one of the markers {@link #getSyntheticTypeVariableMarkerAnnotType} returns.
    */
-  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity check
-  static boolean isSyntheticUnconstrainedAnnotation(Type annotationType) {
-    return annotationType == syntheticUnconstrainedAnnotType;
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity checks
+  static ConstraintSolver.@Nullable InferredNullability typeVariableMarkerKind(
+      Type annotationType) {
+    if (annotationType == syntheticTypeVariableOrNullableAnnotType) {
+      return ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE;
+    }
+    if (annotationType == syntheticTypeVariableOrNonNullAnnotType) {
+      return ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL;
+    }
+    return null;
   }
 
   /**
@@ -3998,27 +4046,48 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns a "fake" {@link Type} object for the annotation that marks a type variable inference
-   * left unconstrained ({@link ConstraintSolver.InferredNullability#UNCONSTRAINED}).
+   * Returns a "fake" {@link Type} object for the annotation that marks an inference variable whose
+   * nullness depends on the type javac inferred for it: {@link
+   * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} or {@link
+   * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL}.
    *
-   * <p>Its name matches no nullness annotation, so a check that reads annotations by name sees the
-   * type as unannotated. The wildcard containment check reads it by identity. A marked type
-   * variable is judged as that type variable; any other marked type is one whose nullness the check
-   * cannot decide, since that nullness is a type variable's that the substitution no longer names.
+   * <p>The marker exists only between the substitution of inferred nullness into a declared type
+   * and the copy of that nullness onto javac's type, where {@link
+   * TypeSubstitutionUtils#updateTypeWithInferredNullability} replaces it by what the result names.
+   * No type returned from there carries it.
    *
+   * @param kind one of the two results above
    * @param state the visitor state, used to access javac internals like {@link Names} and {@link
    *     Symtab}.
    * @return a fake {@code Type} for the synthetic annotation
    */
-  public static Type getSyntheticUnconstrainedAnnotType(VisitorState state) {
-    if (syntheticUnconstrainedAnnotType == null) {
-      Names names = Names.instance(state.context);
-      Symtab symtab = Symtab.instance(state.context);
-      Name name = names.fromString("nullaway.synthetic");
-      Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
-      Name simpleName = names.fromString("Unconstrained");
-      syntheticUnconstrainedAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+  static Type getSyntheticTypeVariableMarkerAnnotType(
+      ConstraintSolver.InferredNullability kind, VisitorState state) {
+    Verify.verify(
+        kind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE
+            || kind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL,
+        "no marker for %s",
+        kind);
+    boolean orNullable = kind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE;
+    Type cached =
+        orNullable
+            ? syntheticTypeVariableOrNullableAnnotType
+            : syntheticTypeVariableOrNonNullAnnotType;
+    if (cached != null) {
+      return cached;
     }
-    return syntheticUnconstrainedAnnotType;
+    Names names = Names.instance(state.context);
+    Symtab symtab = Symtab.instance(state.context);
+    Name name = names.fromString("nullaway.synthetic");
+    Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
+    Name simpleName =
+        names.fromString(orNullable ? "TypeVariableOrNullable" : "TypeVariableOrNonNull");
+    Type created = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+    if (orNullable) {
+      syntheticTypeVariableOrNullableAnnotType = created;
+    } else {
+      syntheticTypeVariableOrNonNullAnnotType = created;
+    }
+    return created;
   }
 }

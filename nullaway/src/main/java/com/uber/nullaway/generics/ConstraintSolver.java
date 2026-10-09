@@ -14,6 +14,11 @@ public interface ConstraintSolver {
   /**
    * Registers a type variable whose nullability is being inferred by this solver. Must be called
    * before adding constraints involving that parameter; unregistered parameters are fixed types.
+   *
+   * <p>The solver keys a variable by its declaration, so two calls of one generic method or class
+   * in the same inference problem share one variable. Each call registers its variables, and a
+   * variable registered more than once is never resolved as {@link
+   * InferredNullability#TYPE_VARIABLE_OR_NULLABLE}.
    */
   void registerInferenceVariable(Element typeVariable);
 
@@ -71,12 +76,26 @@ public interface ConstraintSolver {
     /** A constraint fixed the variable to be nullable. */
     NULLABLE,
     /**
-     * No constraint fixed the variable, and a type variable that may be null flowed into it, so its
-     * nullness is that type variable's: {@code T} itself, where javac inferred {@code T}, and an
-     * upper bound of {@code T} where javac inferred one. A variable that no constraint fixed and no
-     * such type variable reached is {@link #NONNULL}, the least solution.
+     * No constraint fixed the variable, a type variable {@code T} whose bound is explicitly
+     * nullable flowed into it, and the variable's own bound is explicitly nullable. Where javac
+     * inferred a type variable, the variable is that type variable as written; where javac inferred
+     * an intersection type, it carries no annotation; where javac inferred any other type, such as
+     * the least upper bound of {@code T} and {@code String}, the variable is {@code @Nullable}, the
+     * least type that holds a null {@code T}.
+     *
+     * <p>A variable that no constraint fixed and no such type variable reached is {@link #NONNULL},
+     * the least solution.
      */
-    UNCONSTRAINED
+    TYPE_VARIABLE_OR_NULLABLE,
+    /**
+     * No constraint fixed the variable and a type variable whose bound admits null flowed into it,
+     * but no type variable whose bound is explicitly nullable did, the variable's own bound is not
+     * explicitly nullable, or the variable is shared by several calls. Where javac inferred a type
+     * variable, the variable is that type variable as written; where javac inferred an intersection
+     * type, it carries no annotation; where javac inferred any other type, the variable is
+     * {@code @NonNull}, as if no type variable had reached it.
+     */
+    TYPE_VARIABLE_OR_NONNULL
   }
 
   /**

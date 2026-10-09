@@ -4,6 +4,7 @@ import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getA
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
+import com.google.common.base.VerifyException;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
@@ -103,7 +104,7 @@ public class TypeSubstitutionUtils {
    */
   public static Type restoreExplicitNullabilityAnnotations(
       Type origType, Type newType, Config config) {
-    return new RestoreNullnessAnnotationsVisitor(config).visit(newType, origType);
+    return new RestoreNullnessAnnotationsVisitor(config, null, null).visit(newType, origType);
   }
 
   /**
@@ -193,7 +194,10 @@ public class TypeSubstitutionUtils {
    *
    * <p>3 . Apply the nullability annotations from the result of 2 to {@code typeToUpdate}. So, if
    * {@code typeToUpdate} is {@code List<String>}, and the result of 2 is {@code List<@Nullable T>},
-   * the final result will be {@code List<@Nullable String>}.
+   * the final result will be {@code List<@Nullable String>}. Step 3 also replaces each marker that
+   * {@link GenericsChecks#getSyntheticTypeVariableMarkerAnnotType} returns: a type variable and an
+   * intersection type stay unannotated, and any other type becomes {@code @Nullable} or
+   * {@code @NonNull}, as the marker's {@link ConstraintSolver.InferredNullability} says.
    *
    * @param typeToUpdate the type to update
    * @param origType the original type with type variables and possibly explicit nullability
@@ -221,8 +225,13 @@ public class TypeSubstitutionUtils {
         restoreExplicitNullabilityAnnotations(origType, inferredNullabilitySubstituted, config);
     // step 3
     // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
-    return restoreExplicitNullabilityAnnotations(
-        origExplicitAnnotationsRestored, typeToUpdate, config);
+    // the only step that sees both the inferred nullness and the type javac inferred, so a marker
+    // from step 1 is resolved here
+    return new RestoreNullnessAnnotationsVisitor(
+            config,
+            GenericsChecks.getSyntheticNullableAnnotType(state),
+            GenericsChecks.getSyntheticNonNullAnnotType(state))
+        .visit(typeToUpdate, origExplicitAnnotationsRestored);
   }
 
   /**
@@ -318,7 +327,9 @@ public class TypeSubstitutionUtils {
                 switch (entry.getValue()) {
                   case NULLABLE -> GenericsChecks.getSyntheticNullableAnnotType(state);
                   case NONNULL -> GenericsChecks.getSyntheticNonNullAnnotType(state);
-                  case UNCONSTRAINED -> GenericsChecks.getSyntheticUnconstrainedAnnotType(state);
+                  case TYPE_VARIABLE_OR_NULLABLE, TYPE_VARIABLE_OR_NONNULL ->
+                      GenericsChecks.getSyntheticTypeVariableMarkerAnnotType(
+                          entry.getValue(), state);
                 }));
       }
     }
@@ -353,8 +364,27 @@ public class TypeSubstitutionUtils {
       return activeImplicitWildcardBounds;
     }
 
-    RestoreNullnessAnnotationsVisitor(Config config) {
+    /**
+     * The synthetic {@code @Nullable} that replaces a {@link
+     * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} marker on a type other than a
+     * type variable or an intersection, or {@code null} where no marker may appear. Set only when
+     * copying inferred nullness onto the type javac inferred, the one step that can tell a type
+     * variable from any other type.
+     */
+    private final @Nullable Type nullableForMarker;
+
+    /**
+     * The synthetic {@code @NonNull} that replaces a {@link
+     * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} marker; set together with
+     * {@link #nullableForMarker}.
+     */
+    private final @Nullable Type nonNullForMarker;
+
+    RestoreNullnessAnnotationsVisitor(
+        Config config, @Nullable Type nullableForMarker, @Nullable Type nonNullForMarker) {
       this.config = config;
+      this.nullableForMarker = nullableForMarker;
+      this.nonNullForMarker = nonNullForMarker;
     }
 
     @Override
@@ -515,6 +545,12 @@ public class TypeSubstitutionUtils {
     public Type visitCapturedType(Type.CapturedType t, Type other) {
       Attribute.TypeCompound syntheticNullnessAnnotation =
           config.handleWildcardGenerics() ? getDirectSyntheticNullnessAnnotation(other) : null;
+      if (nullableForMarker != null
+          && syntheticNullnessAnnotation != null
+          && GenericsChecks.typeVariableMarkerKind(syntheticNullnessAnnotation.type) != null) {
+        // a capture is a type variable, which a marked inference variable takes as written
+        syntheticNullnessAnnotation = null;
+      }
       Type updated;
       if (syntheticNullnessAnnotation != null) {
         // A synthetic annotation records NullAway's inferred nullability for the type variable that
@@ -620,9 +656,25 @@ public class TypeSubstitutionUtils {
           continue;
         }
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
+        ConstraintSolver.InferredNullability markerKind =
+            GenericsChecks.typeVariableMarkerKind(annot.type);
+        if (markerKind != null) {
+          if (nullableForMarker == null || nonNullForMarker == null) {
+            throw new VerifyException(
+                "inference marker " + annot + " reached " + t + " outside step 3");
+          }
+          // the root of an intersection keeps the nullness of its elements
+          if (t instanceof Type.TypeVar || t instanceof Type.IntersectionClassType) {
+            return t;
+          }
+          return TypeSubstitutionUtils.typeWithAnnot(
+              t,
+              markerKind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE
+                  ? nullableForMarker
+                  : nonNullForMarker);
+        }
         if (Nullness.isNullableAnnotation(qualifiedName, config)
-            || Nullness.isNonNullAnnotation(qualifiedName, config)
-            || GenericsChecks.isSyntheticUnconstrainedAnnotation(annot.type)) {
+            || Nullness.isNonNullAnnotation(qualifiedName, config)) {
           return typeWithAnnot(t, annot);
         }
       }
