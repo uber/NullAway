@@ -20,6 +20,7 @@ import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Function;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.DeclaredType;
 import org.jspecify.annotations.Nullable;
@@ -384,6 +385,10 @@ public class TypeSubstitutionUtils {
           return visit(t, wt.getSuperBound());
         }
       }
+      if (t instanceof Type.IntersectionClassType intersectionType
+          && other instanceof Type.IntersectionClassType otherIntersectionType) {
+        return visitIntersectionComponents(intersectionType, otherIntersectionType);
+      }
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
       // A raw source type has no type arguments from which to restore nested annotations.
       if (!(other instanceof Type.ClassType) || other.isRaw()) {
@@ -398,6 +403,35 @@ public class TypeSubstitutionUtils {
       } else {
         return TYPE_METADATA_BUILDER.createClassType(updated, outer1, typarams1);
       }
+    }
+
+    /**
+     * Restores annotations onto each component of {@code t} from the component of {@code other}
+     * with the same symbol. An intersection carries its annotations on its components (see {@link
+     * TypeSubstitutionUtils#typeWithAnnot}). A component of {@code t} with no counterpart in {@code
+     * other} is left unchanged. Returns {@code t} itself if no component changed.
+     */
+    private Type visitIntersectionComponents(
+        Type.IntersectionClassType t, Type.IntersectionClassType other) {
+      Type.IntersectionClassType updated =
+          mapComponents(
+              t,
+              component -> {
+                for (Type otherComponent : other.getComponents()) {
+                  if (otherComponent.tsym == component.tsym) {
+                    return visit(component, otherComponent);
+                  }
+                }
+                return component;
+              });
+      for (List<Type> l = t.getComponents(), l1 = updated.getComponents();
+          l.nonEmpty();
+          l = l.tail, l1 = l1.tail) {
+        if (l.head != l1.head) {
+          return updated;
+        }
+      }
+      return t;
     }
 
     @Override
@@ -672,7 +706,23 @@ public class TypeSubstitutionUtils {
     }
   }
 
+  /**
+   * Returns {@code t} with the type-use annotation {@code annotType} applied to it.
+   *
+   * <p>For an intersection type, returns an intersection of the same components with the annotation
+   * applied to each of them, and no annotation on the intersection itself. JSpecify fixes the
+   * nullness operator of an intersection type as a whole to {@code NO_CHANGE}, and applying an
+   * operator to an intersection applies it to each element (<a
+   * href="https://jspecify.dev/docs/spec/#applying-operator">JSpecify spec</a>).
+   *
+   * @param t the type to annotate
+   * @param annotType the type of the annotation to apply
+   * @return the annotated type
+   */
   public static Type typeWithAnnot(Type t, Type annotType) {
+    if (t instanceof Type.IntersectionClassType intersectionType) {
+      return mapComponents(intersectionType, component -> typeWithAnnot(component, annotType));
+    }
     List<Attribute.TypeCompound> annotationCompound =
         List.from(
             Collections.singletonList(new Attribute.TypeCompound(annotType, List.nil(), null)));
@@ -681,7 +731,24 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Removes the {@code @Nullable} annotation from the given type.
+   * Returns an intersection type with the same symbol as {@code intersectionType} whose components
+   * are those of {@code intersectionType} transformed by {@code mapper}, in the same order.
+   */
+  private static Type.IntersectionClassType mapComponents(
+      Type.IntersectionClassType intersectionType, Function<Type, Type> mapper) {
+    ListBuffer<Type> components = new ListBuffer<>();
+    for (Type component : intersectionType.getComponents()) {
+      components.append(mapper.apply(component));
+    }
+    return new Type.IntersectionClassType(
+        components.toList(),
+        (Symbol.ClassSymbol) intersectionType.tsym,
+        intersectionType.allInterfaces);
+  }
+
+  /**
+   * Removes the {@code @Nullable} annotation from the given type. For an intersection type, removes
+   * it from each component, as {@link #typeWithAnnot} applies it there.
    *
    * @param argumentType the type from which to remove the {@code @Nullable} annotation (it must be
    *     present)
@@ -689,6 +756,10 @@ public class TypeSubstitutionUtils {
    * @return the type without the {@code @Nullable} annotation
    */
   public static Type removeNullableAnnotation(Type argumentType, Config config) {
+    if (argumentType instanceof Type.IntersectionClassType intersectionType) {
+      return mapComponents(
+          intersectionType, component -> removeNullableAnnotation(component, config));
+    }
     ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
     boolean removedNullable = false;
     for (Attribute.TypeCompound annot : argumentType.getAnnotationMirrors()) {

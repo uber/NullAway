@@ -3733,9 +3733,7 @@ public final class GenericsChecks {
    * @return Returns the Nullness of the type based on the Nullability annotation.
    */
   private Nullness getTypeNullness(Type type) {
-    boolean hasNullableAnnotation =
-        Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
-    if (hasNullableAnnotation) {
+    if (Nullness.isNullableAnnotated(type, config)) {
       return Nullness.NULLABLE;
     }
     return Nullness.NONNULL;
@@ -3873,7 +3871,7 @@ public final class GenericsChecks {
   }
 
   public boolean isNullableAnnotated(Type type) {
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    return Nullness.isNullableAnnotated(type, config);
   }
 
   /**
