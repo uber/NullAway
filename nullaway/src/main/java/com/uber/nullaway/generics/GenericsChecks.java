@@ -1330,7 +1330,24 @@ public final class GenericsChecks {
       typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
     }
     Type typeAtCallSite = castToNonNull(ASTHelpers.getType(callTree));
-    if (callTree instanceof MethodInvocationTree) {
+    if (callTree instanceof MethodInvocationTree invocationTree) {
+      if (result instanceof InferenceSuccess) {
+        // Inferred nullability only describes a type variable's top-level nullness. Restore
+        // nested annotations in its substitution from the arguments before updating the result.
+        Type.MethodType methodTypeAtCallSite =
+            castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
+        Type.MethodType repairedMethodType =
+            restoreNestedNullabilityForTypeVarArguments(
+                invocationTree,
+                executableType,
+                methodTypeAtCallSite,
+                path,
+                state,
+                calledFromDataflow);
+        typeAtCallSite =
+            TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                repairedMethodType.getReturnType(), typeAtCallSite, config);
+      }
       return TypeSubstitutionUtils.updateTypeWithInferredNullability(
           typeAtCallSite, executableType.getReturnType(), typeVarNullability, state, config);
     }
@@ -3159,25 +3176,9 @@ public final class GenericsChecks {
       Type.MethodType methodTypeAtCallSite =
           castToNonNull(ASTHelpers.getType(invocationTree.getMethodSelect())).asMethodType();
       if (result instanceof InferenceSuccess successResult) {
-        // Repairing dropped nested nullability annotations can itself inspect actual argument
-        // types. For diamond constructor arguments, that can re-enter method-type computation for
-        // this same invocation while we are still repairing it. In that case, use the already
-        // inferred method type and skip the repair on the recursive call.
-        if (!nestedNullabilityRepairInProgress.contains(invocationTree)) {
-          nestedNullabilityRepairInProgress.add(invocationTree);
-          try {
-            methodTypeAtCallSite =
-                restoreNestedNullabilityForTypeVarArguments(
-                    invocationTree,
-                    methodType,
-                    methodTypeAtCallSite,
-                    path,
-                    state,
-                    calledFromDataflow);
-          } finally {
-            nestedNullabilityRepairInProgress.remove(invocationTree);
-          }
-        }
+        methodTypeAtCallSite =
+            restoreNestedNullabilityForTypeVarArguments(
+                invocationTree, methodType, methodTypeAtCallSite, path, state, calledFromDataflow);
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
             methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
       } else {
@@ -3196,6 +3197,9 @@ public final class GenericsChecks {
    * annotations based on the types of actual parameters. It does not attempt to be a very general
    * fix, as we do not fully understand the scenarios where this can arise.
    *
+   * <p>Repairing argument types can re-enter type computation for the same invocation, for example
+   * through a diamond constructor argument. Skip the repair on recursive calls.
+   *
    * @param invocationTree the method invocation tree for the generic method call
    * @param origMethodType the declared method type for the generic method (to identify formal
    *     parameters whose type is a type variable of the method)
@@ -3204,8 +3208,8 @@ public final class GenericsChecks {
    * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
    * @return a method type based on {@code methodTypeAtCallSite} but with some nested nullability
-   *     annotations on type variables restored to match those on actual parameters passed at the
-   *     call site
+   *     annotations on type variables in parameters and the return type restored to match those on
+   *     actual parameters passed at the call site
    */
   private Type.MethodType restoreNestedNullabilityForTypeVarArguments(
       MethodInvocationTree invocationTree,
@@ -3214,15 +3218,22 @@ public final class GenericsChecks {
       @Nullable TreePath invocationPath,
       VisitorState state,
       boolean calledFromDataflow) {
-    return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
-        this,
-        invocationTree,
-        origMethodType,
-        methodTypeAtCallSite,
-        invocationPath,
-        state,
-        config,
-        calledFromDataflow);
+    if (!nestedNullabilityRepairInProgress.add(invocationTree)) {
+      return methodTypeAtCallSite;
+    }
+    try {
+      return NestedTypeVarSubstitutionRepairVisitor.repairMethodType(
+          this,
+          invocationTree,
+          origMethodType,
+          methodTypeAtCallSite,
+          invocationPath,
+          state,
+          config,
+          calledFromDataflow);
+    } finally {
+      nestedNullabilityRepairInProgress.remove(invocationTree);
+    }
   }
 
   /**

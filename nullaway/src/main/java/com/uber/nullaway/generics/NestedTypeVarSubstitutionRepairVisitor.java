@@ -112,8 +112,8 @@ final class NestedTypeVarSubstitutionRepairVisitor
   }
 
   /**
-   * repairs all parameter types at the call site, and then returns a new method type if any
-   * parameter type was actually repaired. otherwise, returns {@link #methodTypeAtCallSite}.
+   * Repairs parameter types at the call site and propagates their repaired type-variable
+   * substitutions into the return type. Returns {@link #methodTypeAtCallSite} if no repair occurs.
    */
   // suppress since we want to check for a specific identical Type object to check for changes
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
@@ -152,12 +152,20 @@ final class NestedTypeVarSubstitutionRepairVisitor
       }
       updatedArgTypes.append(callSiteParamType);
     }
+    Type returnType = methodTypeAtCallSite.getReturnType();
+    // Reuse substitutions discovered in the arguments when walking the declared return type.
+    // For type variables absent from the arguments, using the call-site return type as the
+    // annotation source leaves their substitutions unchanged.
+    Type repairedReturnType = repairType(origMethodType.getReturnType(), returnType, returnType);
+    if (repairedReturnType != returnType) {
+      changed = true;
+    }
     if (!changed) {
       return methodTypeAtCallSite;
     }
     return new Type.MethodType(
         updatedArgTypes.toList(),
-        methodTypeAtCallSite.getReturnType(),
+        repairedReturnType,
         methodTypeAtCallSite.getThrownTypes(),
         methodTypeAtCallSite.tsym);
   }

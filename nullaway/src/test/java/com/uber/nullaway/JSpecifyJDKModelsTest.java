@@ -555,6 +555,49 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void modeledNestedReturnAnnotationInGenericInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T> T identity(T value) { return value; }
+              void test() {
+                CompletableFuture<@Nullable Void> direct = CompletableFuture.allOf();
+                CompletableFuture<@Nullable Void> inferred =
+                    Optional.of(CompletableFuture.allOf()).get();
+                CompletableFuture<@Nullable Void> identity = identity(CompletableFuture.allOf());
+                Optional<CompletableFuture<@Nullable Void>> optional =
+                    Optional.of(CompletableFuture.allOf());
+                CompletableFuture<@Nullable Void> nested =
+                    Optional.of(Optional.of(CompletableFuture.allOf())).get().get();
+                var future = Optional.of(CompletableFuture.allOf()).get();
+                CompletableFuture<@Nullable Void> fromVar = future;
+                // BUG: Diagnostic contains: dereferenced expression
+                future.join().toString();
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalid = Optional.of(CompletableFuture.allOf()).get();
+                // BUG: Diagnostic contains: incompatible types
+                CompletableFuture<Void> invalidIdentity = identity(CompletableFuture.allOf());
+              }
+              CompletableFuture<@Nullable Void> returned() {
+                return identity(CompletableFuture.allOf());
+              }
+              CompletableFuture<Void> invalidReturn() {
+                // BUG: Diagnostic contains: incompatible types
+                return identity(CompletableFuture.allOf());
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
