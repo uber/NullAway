@@ -2414,7 +2414,7 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void anInferenceVariableFixedByTheTargetExcludesNullAndAnUnconstrainedOneIsNotJudged() {
+  public void anInferenceVariableFixedByTheTargetExcludesNullAndOneLeftToTheArgumentDoesNot() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -2429,7 +2429,9 @@ public class WildcardTests extends NullAwayTestsBase {
               static <U extends @Nullable Object> Box<U> idBox(Box<U> b) {
                 return b;
               }
-              static <T extends @Nullable Object> void variableLeftUnconstrained(Box<T> b) {
+              static <T extends @Nullable Object> void variableFixedByAWildcardTarget(Box<T> b) {
+                // not reported, a known false negative (#1945): the target fixes U as non-null, and
+                // the argument Box<T> is compared with Box<@NonNull U> by annotation only
                 Box<? extends Object> x = idBox(b);
               }
               static <U extends @Nullable Object> U first(Box<? extends U> b) {
@@ -2497,9 +2499,78 @@ public class WildcardTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types
                 Box<? super @Nullable T> sink = inferred;
               }
-              void leftToTheArgument(Box<T> original) {
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A type argument inference left to a type variable, where javac inferred that type variable, is
+   * judged as that type variable, whose declared bound admits null. A null written through {@code
+   * sink} would otherwise reach the {@code Box<T>} passed in, which holds no null when {@code T} is
+   * {@code Object}. Where javac inferred a class type instead, such as the least upper bound of
+   * {@code T} and {@code String}, the result names no type variable and is not judged.
+   */
+  @Test
+  public void anInferenceResultLeftToATypeVariableIsJudgedAsThatTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                void set(E e) {}
+              }
+              static <E extends @Nullable Object> Box<E> id(Box<E> box) {
+                return box;
+              }
+              static <E extends @Nullable Object> Box<Box<E>> nest(Box<E> box) {
+                throw new UnsupportedOperationException();
+              }
+              static <E extends @Nullable Object> List<E> of(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              void intoTheSameTypeVariable(Box<T> original) {
                 var inferred = id(original);
                 Box<? super T> sink = inferred;
+                Box<? extends @Nullable Object> source = inferred;
+              }
+              void intoANullableLowerBound(Box<T> original) {
+                var inferred = id(original);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable T> sink = inferred;
+                sink.set(null);
+              }
+              void intoANonNullUpperBound(Box<T> original) {
+                var inferred = id(original);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? extends Object> source = inferred;
+              }
+              void throughADiamond(List<T> original) {
+                var inferred = new ArrayList<>(original);
+                List<? super T> sink = inferred;
+                // BUG: Diagnostic contains: incompatible types
+                List<? super @Nullable T> nullableSink = inferred;
+              }
+              void inANestedTypeArgument(Box<T> original) {
+                var inferred = nest(original);
+                Box<? extends Box<? super T>> sink = inferred;
+                // BUG: Diagnostic contains: incompatible types
+                Box<? extends Box<? super @Nullable T>> nullableSink = inferred;
+              }
+              void ofACapturedWildcard(Box<? super @Nullable String> original) {
+                var inferred = id(original);
+                Box<? super @Nullable String> sink = inferred;
+              }
+              void inferredAsAClassType(T t) {
+                var inferred = of(t, "x");
+                List<? super @Nullable Object> sink = inferred;
+                List<? extends Object> source = inferred;
               }
             }
             """)

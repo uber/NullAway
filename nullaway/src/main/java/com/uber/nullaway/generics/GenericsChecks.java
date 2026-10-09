@@ -4002,9 +4002,9 @@ public final class GenericsChecks {
    * left unconstrained ({@link ConstraintSolver.InferredNullability#UNCONSTRAINED}).
    *
    * <p>Its name matches no nullness annotation, so a check that reads annotations by name sees the
-   * type as unannotated. The wildcard containment check reads it by identity and treats the type as
-   * one whose nullness it cannot decide, since that nullness is a type variable's that the
-   * substitution no longer names.
+   * type as unannotated. The wildcard containment check reads it by identity. A marked type
+   * variable is judged as that type variable; any other marked type is one whose nullness the check
+   * cannot decide, since that nullness is a type variable's that the substitution no longer names.
    *
    * @param state the visitor state, used to access javac internals like {@link Names} and {@link
    *     Symtab}.
