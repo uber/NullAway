@@ -310,7 +310,7 @@ public class GenericsUtils {
     return upperBound;
   }
 
-  private static boolean hasNullnessAnnotation(Type type, Config config) {
+  static boolean hasNullnessAnnotation(Type type, Config config) {
     return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
         || Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }
@@ -329,7 +329,57 @@ public class GenericsUtils {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
     }
-    // First, check if library model overrides the upper bound nullability.
+    if (libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
+      return true;
+    }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return true;
+    }
+    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
+    if (upperBound.getKind() == TypeKind.TYPEVAR) {
+      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
+    }
+    return false;
+  }
+
+  /**
+   * Returns true if the upper bound of the given type variable is explicitly nullable: the declared
+   * bound is annotated {@code @Nullable}, a library model overrides it, or the declared bound is
+   * another type variable, carrying no nullness annotation, whose bound is explicitly nullable.
+   * Unlike {@link #upperBoundIsNullable}, a type variable declared in unannotated code gets no
+   * nullable default, while a {@code @Nullable} written there still counts, as JSpecify gives
+   * annotations in null-unmarked code their meaning.
+   */
+  static boolean boundIsExplicitlyNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    if (declaredBoundIsExplicitlyNullable(typeVarElement, config, handler, state)) {
+      return true;
+    }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    return !hasNullnessAnnotation(upperBound, config)
+        && upperBound.getKind() == TypeKind.TYPEVAR
+        && boundIsExplicitlyNullable(upperBound.asElement(), config, handler, state);
+  }
+
+  /**
+   * Returns true if the given type variable's own declaration makes its bound explicitly nullable:
+   * the declared bound is annotated {@code @Nullable}, or a library model overrides it. Unlike
+   * {@link #boundIsExplicitlyNullable}, this does not follow a bound that is itself a type
+   * variable.
+   */
+  static boolean declaredBoundIsExplicitlyNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    return Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)
+        || libraryModelMakesBoundNullable(typeVarElement, handler, state);
+  }
+
+  /** Returns true if a library model overrides the upper bound of the given type variable. */
+  static boolean libraryModelMakesBoundNullable(
+      Element typeVarElement, Handler handler, VisitorState state) {
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol
         && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
@@ -349,20 +399,10 @@ public class GenericsUtils {
         return true;
       }
     }
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
-      return true;
-    }
-    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
-      return false;
-    }
-    if (upperBound.getKind() == TypeKind.TYPEVAR) {
-      return upperBoundIsNullable(upperBound.asElement(), config, handler, state);
-    }
     return false;
   }
 
-  private static boolean fromUnannotatedMethodOrClass(
+  static boolean fromUnannotatedMethodOrClass(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (!(enclosingElement instanceof Symbol.MethodSymbol)

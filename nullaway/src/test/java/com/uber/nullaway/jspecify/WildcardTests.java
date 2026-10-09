@@ -1861,4 +1861,819 @@ public class WildcardTests extends NullAwayTestsBase {
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:OnlyNullMarked=true")));
   }
+
+  @Test
+  public void aTypeVariableIsJudgedByItsBoundAgainstAConcreteWildcardRequirement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static void takeNonNull(Box<? extends Object> b) {}
+              static void takeNullable(Box<? extends @Nullable Object> b) {}
+              static void takeAny(Box<?> b) {}
+              static <T extends @Nullable Object> void nullableBoundIntoNonNull(Box<T> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                takeNonNull(b);
+              }
+              static <T> void nonNullBoundIntoNonNull(Box<T> b) {
+                takeNonNull(b);
+              }
+              static <T extends @Nullable Object> void nullableBoundIntoNullable(Box<T> b) {
+                takeNullable(b);
+              }
+              static <T extends @Nullable Object> void nullableBoundIntoUnbounded(Box<T> b) {
+                takeAny(b);
+              }
+              static class NonNullParameter<X> {}
+              static void takeAnyNonNullParameter(NonNullParameter<?> b) {}
+              static <T extends @Nullable Object> void nullableBoundIntoUnboundedNonNullParameter(
+                  NonNullParameter<T> b) {
+                takeAnyNonNullParameter(b);
+              }
+              static <T extends @Nullable Object> boolean nullableBoundIntoClassOfAnything(
+                  Class<?> other, Class<T> type) {
+                return other.isAssignableFrom(type);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullnessWrittenOnATypeVariableUseOverridesItsBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static void takeNonNull(Box<? extends Object> b) {}
+              static void takeNullable(Box<? extends @Nullable Object> b) {}
+              static <T> void nullableUseIntoNonNull(Box<@Nullable T> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<@Nullable T> cannot be converted to Box<? extends Object>
+                takeNonNull(b);
+              }
+              static <T> void nullableUseIntoNullable(Box<@Nullable T> b) {
+                takeNullable(b);
+              }
+              static <T extends @Nullable Object> void nonNullUseIntoNonNull(Box<@NonNull T> b) {
+                takeNonNull(b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aBoundReachedThroughAnotherVariableOrAWildcardDecidesAgainstAConcreteRequirement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static void takeNonNull(Box<? extends Object> b) {}
+              static <T extends @Nullable Object, S extends T> void variableOverNullableBound(
+                  Box<S> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends Object>
+                takeNonNull(b);
+              }
+              static <T, S extends T> void variableOverNonNullBound(Box<S> b) {
+                takeNonNull(b);
+              }
+              static <T extends @Nullable Object, S extends @NonNull T>
+                  void nonNullVariableOverNullableBound(Box<S> b) {
+                takeNonNull(b);
+              }
+              static <T extends @Nullable Object> void wildcardOverNullableBound(Box<? extends T> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<? extends T> cannot be converted to Box<? extends Object>
+                takeNonNull(b);
+              }
+              static <T> void wildcardOverNonNullBound(Box<? extends T> b) {
+                takeNonNull(b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aTypeVariableDeclaredInUnannotatedCodeAdmitsNullOnlyWhenItsBoundSaysSo() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static void takeNonNull(Box<? extends Object> b) {}
+              @NullUnmarked
+              static class Unannotated<T> {
+                @NullMarked
+                void unannotatedDeclarationIntoNonNull(Box<T> b) {
+                  takeNonNull(b);
+                }
+                @NullMarked
+                <U extends T> void variableOverADefaultBound(Box<U> b) {
+                  takeNonNull(b);
+                }
+              }
+              @NullUnmarked
+              static class UnannotatedNullableBound<T extends @Nullable Object> {
+                @NullMarked
+                void explicitNullableBoundIntoNonNull(Box<T> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                  takeNonNull(b);
+                }
+                @NullMarked
+                <U extends T> void variableOverAnExplicitNullableBound(Box<U> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<U> cannot be converted to Box<? extends Object>
+                  takeNonNull(b);
+                }
+              }
+              static class Annotated<T> {
+                void annotatedDeclarationIntoNonNull(Box<T> b) {
+                  takeNonNull(b);
+                }
+              }
+              @NullUnmarked
+              static class UnannotatedNonNullBound<T extends @NonNull Object> {
+                @NullMarked
+                void explicitNonNullBoundIntoNonNull(Box<T> b) {
+                  takeNonNull(b);
+                }
+                @NullMarked
+                <U extends T> void variableOverAnExplicitNonNullBound(Box<U> b) {
+                  takeNonNull(b);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aTypeVariableIsJudgedByItsBoundAgainstAWildcardWithALowerBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {
+                void set(E e) {}
+              }
+              static class NullableBound<T extends @Nullable Object> {
+                void takeSuperT(Box<? super T> b, T t) {
+                  b.set(t);
+                }
+                void nonNullArgument(Box<Object> b, T t) {
+                  // BUG: Diagnostic contains: incompatible types: Box<Object> cannot be converted to Box<? super T>
+                  takeSuperT(b, t);
+                }
+                void nonNullLowerBound(Box<? super Object> b, T t) {
+                  // BUG: Diagnostic contains: incompatible types: Box<? super Object> cannot be converted to Box<? super T>
+                  takeSuperT(b, t);
+                }
+                void sameVariable(Box<T> b, T t) {
+                  takeSuperT(b, t);
+                }
+                void nullableUse(Box<@Nullable T> b, T t) {
+                  takeSuperT(b, t);
+                }
+                void nullableArgument(Box<@Nullable Object> b, T t) {
+                  takeSuperT(b, t);
+                }
+              }
+              static class NonNullBound<T> {
+                void takeSuperT(Box<? super T> b, T t) {
+                  b.set(t);
+                }
+                void nonNullArgument(Box<Object> b, T t) {
+                  takeSuperT(b, t);
+                }
+                void nonNullLowerBound(Box<? super Object> b, T t) {
+                  takeSuperT(b, t);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void theTypeArgumentsOfATypeVariableBoundAreComparedAgainstAConcreteRequirement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static void takeNonNullElements(Box<? extends List<String>> b) {}
+              static <S extends List<@Nullable String>> void nullableElements(Box<S> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends List<String>>
+                takeNonNullElements(b);
+              }
+              static <S extends List<String>> void nonNullElements(Box<S> b) {
+                takeNonNullElements(b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anIntersectionBoundAdmitsNullOnlyWhereEveryElementDoes() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.io.Serializable;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static void takeNonNull(Box<? extends Object> b) {}
+              static <T extends @Nullable Object & @Nullable Serializable> void everyElementNullable(
+                  Box<T> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                takeNonNull(b);
+              }
+              static <T extends @Nullable Object & Serializable> void oneElementNonNull(Box<T> b) {
+                takeNonNull(b);
+              }
+              @NullUnmarked
+              static class Unannotated {
+                @NullMarked
+                static <T extends @Nullable Object & @Nullable Serializable> void everyElementNullable(
+                    Box<T> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                  takeNonNull(b);
+                }
+                @NullMarked
+                static <T extends @Nullable Object & @NonNull Serializable> void oneElementNonNull(
+                    Box<T> b) {
+                  takeNonNull(b);
+                }
+                @NullMarked
+                static <T extends @Nullable Object & Serializable> void oneElementBare(Box<T> b) {
+                  takeNonNull(b);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aTypeVariableIsComparedAsWrittenAgainstAWildcardBoundedByATypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static class NullableBound<T extends @Nullable Object> {
+                void takeExtendsT(Box<? extends T> b) {}
+                Box<? extends T> sameVariable(Box<T> b) {
+                  return b;
+                }
+                <S extends T> void variableThatExtendsIt(Box<S> b) {
+                  takeExtendsT(b);
+                }
+                void nullableUse(Box<@Nullable T> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<@Nullable T> cannot be converted to Box<? extends T>
+                  takeExtendsT(b);
+                }
+                <S extends @Nullable T> void variableThatAdmitsNullBeyondIt(Box<S> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends T>
+                  takeExtendsT(b);
+                }
+                <S extends @Nullable T, R extends S> void variableReachingItThroughANullableLink(
+                    Box<R> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<R> cannot be converted to Box<? extends T>
+                  takeExtendsT(b);
+                }
+                <S extends @NonNull T> void variableReachingItThroughANonNullLink(Box<S> b) {
+                  takeExtendsT(b);
+                }
+                <S extends @Nullable T> void nonNullUseOfAVariableThatAdmitsNull(Box<@NonNull S> b) {
+                  takeExtendsT(b);
+                }
+                <S extends @NonNull T, R extends @Nullable S> void nullableLinkAboveANonNullLink(
+                    Box<R> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<R> cannot be converted to Box<? extends T>
+                  takeExtendsT(b);
+                }
+                void takeExtendsNullableT(Box<? extends @Nullable T> b) {}
+                void nullableUseIntoNullableProjection(Box<@Nullable T> b) {
+                  takeExtendsNullableT(b);
+                }
+                @NullUnmarked
+                class Unannotated<S extends T> {
+                  @NullMarked
+                  void variableDeclaredInUnannotatedCode(Box<S> b) {
+                    takeExtendsT(b);
+                  }
+                }
+                @NullUnmarked
+                class UnannotatedNullableLink<S extends @Nullable T> {
+                  @NullMarked
+                  void explicitNullableLinkDeclaredInUnannotatedCode(Box<S> b) {
+                    // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends T>
+                    takeExtendsT(b);
+                  }
+                }
+                @NullUnmarked
+                class UnannotatedNonNullLink<S extends @NonNull T> {
+                  @NullMarked
+                  void explicitNonNullLinkDeclaredInUnannotatedCode(Box<S> b) {
+                    takeExtendsT(b);
+                  }
+                }
+              }
+              static class NonNullBound<T> {
+                void takeExtendsT(Box<? extends T> b) {}
+                <S extends @Nullable T> void variableThatAdmitsNull(Box<S> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<S> cannot be converted to Box<? extends T>
+                  takeExtendsT(b);
+                }
+                <S extends T> void variableThatAdmitsNoNull(Box<S> b) {
+                  takeExtendsT(b);
+                }
+                <S extends @NonNull T, R extends @Nullable S> void nullableLinkAboveANonNullLink(
+                    Box<R> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<R> cannot be converted to Box<? extends T>
+                  takeExtendsT(b);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aTypeVariableThatMayBeNullFailsANonNullProjectionOfATypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static class NullableBound<T extends @Nullable Object> {
+                void takeExtendsNonNullT(Box<? extends @NonNull T> b) {}
+                void bareUse(Box<T> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends T>
+                  takeExtendsNonNullT(b);
+                }
+                void wildcardUse(Box<? extends T> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<? extends T> cannot be converted to Box<? extends T>
+                  takeExtendsNonNullT(b);
+                }
+              }
+              static class NonNullBound<T> {
+                void takeExtendsNonNullT(Box<? extends @NonNull T> b) {}
+                void bareUse(Box<T> b) {
+                  takeExtendsNonNullT(b);
+                }
+              }
+              @NullUnmarked
+              static class UnannotatedDefaultBound<T> {
+                @NullMarked
+                Box<? extends @NonNull T> bareUse(Box<T> b) {
+                  return b;
+                }
+              }
+              @NullUnmarked
+              static class UnannotatedNullableBound<T extends @Nullable Object> {
+                @NullMarked
+                Box<? extends @NonNull T> bareUse(Box<T> b) {
+                  // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends T>
+                  return b;
+                }
+              }
+              @NullUnmarked
+              static class UnannotatedNonNullBound<T extends @NonNull Object> {
+                @NullMarked
+                Box<? extends @NonNull T> bareUse(Box<T> b) {
+                  return b;
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Resolving the bound of the requirement as well as the actual's once reported a false positive
+   * on this shape, taken from Caffeine's {@code CacheLoader.asyncReload}: {@code
+   * CompletableFuture.supplyAsync} infers {@code CompletableFuture<V>} against {@code
+   * CompletableFuture<? extends V>}.
+   */
+  @Test
+  public void aTypeVariableMeetsAWildcardBoundedByThatSameTypeVariableUnderInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            interface Test<V extends @Nullable Object> {
+              V load();
+              default CompletableFuture<? extends V> asyncLoad() {
+                return CompletableFuture.supplyAsync(() -> load());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anInferredTypeArgumentMeetsAWildcardBoundedByTheSameTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.ArrayList;
+            import java.util.Collection;
+            import java.util.Collections;
+            import java.util.HashSet;
+            import java.util.List;
+            import java.util.Set;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static <E extends @Nullable Object> List<E> copyOf(Collection<? extends E> c) {
+                throw new UnsupportedOperationException();
+              }
+              static <E extends @Nullable Object> List<E> copyNonNull(
+                  Collection<? extends @NonNull E> c) {
+                throw new UnsupportedOperationException();
+              }
+              void genericMethod(List<T> in) {
+                List<T> copy = copyOf(in);
+              }
+              void writtenNonNullProjection(List<T> in) {
+                // BUG: Diagnostic contains: incompatible types
+                List<T> copy = copyNonNull(in);
+              }
+              void diamond(List<T> in) {
+                Set<T> set = new HashSet<>(in);
+              }
+              static <U extends @Nullable Object> void methodTypeVariable(List<U> in) {
+                List<U> copy = new ArrayList<>(in);
+                List<? extends @Nullable Object> view = Collections.unmodifiableList(in);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferenceAddsNoReportAgainstAConcreteWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Map;
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<V extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                Box(E e) {}
+              }
+              static <U extends @Nullable Object> U id(U u) {
+                return u;
+              }
+              static <U extends @Nullable Object> void takeWithValue(U u, Box<? extends U> b) {}
+              List<? extends @NonNull V> nonNullElements() {
+                throw new UnsupportedOperationException();
+              }
+              Map<String, ? extends @NonNull V> nonNullValues() {
+                throw new UnsupportedOperationException();
+              }
+              List<? extends Object> captureThroughGenericMethod() {
+                return id(nonNullElements());
+              }
+              Box<? extends List<? extends Object>> captureThroughDiamond() {
+                return new Box<>(nonNullElements());
+              }
+              CompletableFuture<? extends Map<String, ? extends Object>> captureThroughLambda() {
+                return CompletableFuture.supplyAsync(() -> nonNullValues());
+              }
+              static <T extends @Nullable Object> void boundInferredFromAnotherArgument(Box<T> b) {
+                takeWithValue("x", b);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anInferenceVariableFixedByTheTargetExcludesNullAndAnUnconstrainedOneIsNotJudged() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static <U extends @Nullable Object> Box<U> idBox(Box<U> b) {
+                return b;
+              }
+              static <T extends @Nullable Object> void variableLeftUnconstrained(Box<T> b) {
+                Box<? extends Object> x = idBox(b);
+              }
+              static <U extends @Nullable Object> U first(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <T extends @Nullable Object> Object variableFixedByTheReturnTarget(Box<T> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends T>
+                return first(b);
+              }
+              static <T extends @Nullable Object> void variableLeftToTheArgumentThenDereferenced(
+                  Box<T> b) {
+                first(b).toString();
+              }
+              static <T extends @Nullable Object> void variableFixedByTheTarget(List<T> in) {
+                // BUG: Diagnostic contains: incompatible types
+                List<Object> copy = new ArrayList<>(in);
+              }
+              static <T extends @Nullable Object> void variableLeftToTheArgument(List<T> in) {
+                List<T> copy = new ArrayList<>(in);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anInferenceResultFixedNonNullKeepsNullOutOfALowerBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                E e;
+                Box(E e) { this.e = e; }
+                void set(E e) { this.e = e; }
+                E get() { return e; }
+              }
+              static <E extends @Nullable Object> Box<E> id(Box<E> box) {
+                return box;
+              }
+              static <E extends @Nullable Object> Box<E> wrap(E e) {
+                return new Box<>(e);
+              }
+              static void leastSolutionOfANonNullArgument() {
+                var inferred = wrap(new Object());
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable String> sink = inferred;
+                sink.set(null);
+                inferred.get().toString();
+              }
+              static void fixedByTheArgument(Box<Object> original) {
+                var inferred = id(original);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable String> sink = inferred;
+                sink.set(null);
+                original.get().toString();
+              }
+              void fixedByAProjection(Box<@NonNull T> original) {
+                var inferred = id(original);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable T> sink = inferred;
+              }
+              void leftToTheArgument(Box<T> original) {
+                var inferred = id(original);
+                Box<? super T> sink = inferred;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferenceCannotFitATypeVariableWhoseBoundAdmitsNullIntoANonNullVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static <U> U nonNullVariable(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U nullableVariable(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U> U nonNullVariableWithValue(Box<? extends U> b, U u) {
+                return u;
+              }
+              static <T extends @Nullable Object> void intoNonNullVariable(Box<T> b) {
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                Object o = nonNullVariable(b);
+              }
+              static <T extends @Nullable Object> void intoNullableVariable(Box<T> b) {
+                Object o = nullableVariable(b);
+              }
+              static <T> void nonNullBoundIntoNonNullVariable(Box<T> b) {
+                Object o = nonNullVariable(b);
+              }
+              static <T extends @Nullable Object> void intoNonNullVariableFixedByAnotherArgument(
+                  Box<T> b) {
+                // BUG: Diagnostic contains: incompatible types: Box<T> cannot be converted to Box<? extends Object>
+                Object o = nonNullVariableWithValue(b, new Object());
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOf(List<T> in) {
+                // BUG: Diagnostic contains: inference failure: type variable E is constrained to be @Nullable
+                List<T> copy = List.copyOf(in);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aCapturedTypeVariableIsNotJudgedByItsBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.Set;
+            import java.util.concurrent.CompletableFuture;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              interface ConcreteRequirement<T extends @Nullable Object> {
+                Box<? extends T> get();
+                default Box<? extends Object> pass() {
+                  return get();
+                }
+              }
+              interface BareRequirement<K, V extends @Nullable Object> {
+                Map<? extends K, ? extends V> loadAll();
+                default Map<? extends K, ? extends V> pass() {
+                  return loadAll();
+                }
+              }
+              interface NonNullProjectionOfAnIntermediateVariable<
+                  V extends @Nullable Object, S extends @Nullable V> {
+                Map<String, ? extends @NonNull S> loadAll();
+                default CompletableFuture<? extends Map<String, ? extends V>> loadAllAsync() {
+                  return CompletableFuture.supplyAsync(() -> loadAll());
+                }
+              }
+              interface NonNullProjectionRequirement<K, V extends @Nullable Object> {
+                Map<? extends K, ? extends @NonNull V> loadAll(Set<? extends K> keys);
+                default CompletableFuture<? extends Map<? extends K, ? extends @NonNull V>> asyncLoadAll(
+                    Set<? extends K> keys) {
+                  return CompletableFuture.supplyAsync(() -> loadAll(keys));
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aGenericMethodOverrideMeetsAWildcardBoundedByTheOverriddenMethodTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              interface Mapper<T extends @Nullable Object> {
+                <R extends @Nullable Object> Mapper<R> map(Function<? super T, ? extends R> f);
+                <V extends @Nullable Object> Box<? extends V> wrap(V v);
+              }
+              abstract static class Impl<T extends @Nullable Object> implements Mapper<T> {
+                @Override
+                public abstract <R extends @Nullable Object> Mapper<R> map(
+                    Function<? super T, ? extends R> f);
+                @Override
+                public abstract <V extends @Nullable Object> Box<V> wrap(V v);
+              }
+              abstract static class NonNullProjection<T extends @Nullable Object> implements Mapper<T> {
+                @Override
+                public abstract <R extends @Nullable Object> Mapper<R> map(
+                    // BUG: Diagnostic contains: mismatched type parameter nullability
+                    Function<? super T, ? extends @NonNull R> f);
+                @Override
+                public abstract <V extends @Nullable Object> Box<V> wrap(V v);
+              }
+              abstract static class Narrowed<T extends @Nullable Object> implements Mapper<T> {
+                @Override
+                // BUG: Diagnostic contains: Method type variable R has a non-null upper bound
+                public abstract <R>
+                    // a report on the parameter's own line would fail the test as unexpected
+                    Mapper<R> map(
+                        Function<? super T, ? extends R> f);
+                @Override
+                public abstract <V extends @Nullable Object> Box<V> wrap(V v);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void anOverrideReturnTypeMustKeepANonNullProjection() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            interface Test<V extends @Nullable Object> {
+              List<? extends @NonNull V> get();
+              static <V extends @Nullable Object> Test<V> widened() {
+                return new Test<>() {
+                  // BUG: Diagnostic contains: mismatched type parameter nullability
+                  @Override public List<V> get() {
+                    throw new UnsupportedOperationException();
+                  }
+                };
+              }
+              static <V extends @Nullable Object> Test<V> kept() {
+                return new Test<>() {
+                  @Override public List<@NonNull V> get() {
+                    throw new UnsupportedOperationException();
+                  }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
 }

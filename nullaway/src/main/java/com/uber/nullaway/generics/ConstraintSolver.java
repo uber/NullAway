@@ -64,9 +64,19 @@ public interface ConstraintSolver {
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException;
 
+  /** The nullness the solver found for an inference variable. */
   enum InferredNullability {
+    /** A constraint fixed the variable to be non-null. */
     NONNULL,
-    NULLABLE
+    /** A constraint fixed the variable to be nullable. */
+    NULLABLE,
+    /**
+     * No constraint fixed the variable, and a type variable that may be null flowed into it, so its
+     * nullness is that type variable's: {@code T} itself, where javac inferred {@code T}, and an
+     * upper bound of {@code T} where javac inferred one. A variable that no constraint fixed and no
+     * such type variable reached is {@link #NONNULL}, the least solution.
+     */
+    UNCONSTRAINED
   }
 
   /**

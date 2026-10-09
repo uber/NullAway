@@ -1,7 +1,6 @@
 package com.uber.nullaway.generics;
 
 import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getAnnotatedSupertype;
-import static com.uber.nullaway.generics.ConstraintSolver.InferredNullability.NULLABLE;
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
@@ -316,9 +315,11 @@ public class TypeSubstitutionUtils {
         inferredTypes.append(
             typeWithAnnot(
                 tv,
-                entry.getValue() == NULLABLE
-                    ? GenericsChecks.getSyntheticNullableAnnotType(state)
-                    : GenericsChecks.getSyntheticNonNullAnnotType(state)));
+                switch (entry.getValue()) {
+                  case NULLABLE -> GenericsChecks.getSyntheticNullableAnnotType(state);
+                  case NONNULL -> GenericsChecks.getSyntheticNonNullAnnotType(state);
+                  case UNCONSTRAINED -> GenericsChecks.getSyntheticUnconstrainedAnnotType(state);
+                }));
       }
     }
     List<Type> typeVarsToReplace = typeVars.toList();
@@ -620,7 +621,8 @@ public class TypeSubstitutionUtils {
         }
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
         if (Nullness.isNullableAnnotation(qualifiedName, config)
-            || Nullness.isNonNullAnnotation(qualifiedName, config)) {
+            || Nullness.isNonNullAnnotation(qualifiedName, config)
+            || GenericsChecks.isSyntheticUnconstrainedAnnotation(annot.type)) {
           return typeWithAnnot(t, annot);
         }
       }

@@ -3661,7 +3661,13 @@ public final class GenericsChecks {
       if (overridingMethodParameterType != null) {
         // allow contravariant subtyping
         if (!subtypeParameterNullability(
-            overridingMethodParameterType, overriddenMethodParameterType, state)) {
+            renameMethodTypeVariables(
+                overridingMethodParameterType,
+                ASTHelpers.getSymbol(tree).type,
+                overriddenMethodType,
+                state),
+            overriddenMethodParameterType,
+            state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
@@ -3670,6 +3676,24 @@ public final class GenericsChecks {
         }
       }
     }
+  }
+
+  /**
+   * Renames the overriding method's own type variables in {@code type} to the corresponding type
+   * variables of the overridden method, as javac does when it decides override equivalence, so that
+   * a bound written against one can be compared with a use of the other. The result is for the
+   * comparison only; a diagnostic prints the type as declared.
+   */
+  private Type renameMethodTypeVariables(
+      Type type, Type overridingMethodType, Type overriddenMethodType, VisitorState state) {
+    if (overridingMethodType instanceof Type.ForAll overriding
+        && overriddenMethodType instanceof Type.ForAll overridden
+        && overriding.tvars.size() == overridden.tvars.size()
+        && !overriding.tvars.isEmpty()) {
+      return TypeSubstitutionUtils.subst(
+          state.getTypes(), type, overriding.tvars, overridden.tvars, config);
+    }
+    return type;
   }
 
   /**
@@ -3692,7 +3716,13 @@ public final class GenericsChecks {
     }
     // allow covariant subtyping
     if (!subtypeParameterNullability(
-        overriddenMethodReturnType, overridingMethodReturnType, state)) {
+        overriddenMethodReturnType,
+        renameMethodTypeVariables(
+            overridingMethodReturnType,
+            ASTHelpers.getSymbol(tree).type,
+            overriddenMethodType,
+            state),
+        state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, state);
     }
@@ -3901,12 +3931,23 @@ public final class GenericsChecks {
 
   private static @Nullable Type syntheticNullableAnnotType;
   private static @Nullable Type syntheticNonNullAnnotType;
+  private static @Nullable Type syntheticUnconstrainedAnnotType;
 
   /** Returns whether {@code annotationType} is one of NullAway's synthetic nullness annotations. */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity checks
   static boolean isSyntheticNullnessAnnotation(Type annotationType) {
     return annotationType == syntheticNullableAnnotType
-        || annotationType == syntheticNonNullAnnotType;
+        || annotationType == syntheticNonNullAnnotType
+        || annotationType == syntheticUnconstrainedAnnotType;
+  }
+
+  /**
+   * Returns whether {@code annotationType} is the synthetic annotation that marks a type variable
+   * inference left unconstrained.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity check
+  static boolean isSyntheticUnconstrainedAnnotation(Type annotationType) {
+    return annotationType == syntheticUnconstrainedAnnotType;
   }
 
   /**
@@ -3954,5 +3995,30 @@ public final class GenericsChecks {
       syntheticNonNullAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
     }
     return syntheticNonNullAnnotType;
+  }
+
+  /**
+   * Returns a "fake" {@link Type} object for the annotation that marks a type variable inference
+   * left unconstrained ({@link ConstraintSolver.InferredNullability#UNCONSTRAINED}).
+   *
+   * <p>Its name matches no nullness annotation, so a check that reads annotations by name sees the
+   * type as unannotated. The wildcard containment check reads it by identity and treats the type as
+   * one whose nullness it cannot decide, since that nullness is a type variable's that the
+   * substitution no longer names.
+   *
+   * @param state the visitor state, used to access javac internals like {@link Names} and {@link
+   *     Symtab}.
+   * @return a fake {@code Type} for the synthetic annotation
+   */
+  public static Type getSyntheticUnconstrainedAnnotType(VisitorState state) {
+    if (syntheticUnconstrainedAnnotType == null) {
+      Names names = Names.instance(state.context);
+      Symtab symtab = Symtab.instance(state.context);
+      Name name = names.fromString("nullaway.synthetic");
+      Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
+      Name simpleName = names.fromString("Unconstrained");
+      syntheticUnconstrainedAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
+    }
+    return syntheticUnconstrainedAnnotType;
   }
 }
