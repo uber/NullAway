@@ -244,6 +244,72 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + "but its upper bound requires it to be @NonNull");
   }
 
+  @Test
+  public void scalarInferenceFailureInsideImplicitLambdaReportedOnce() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static <P extends @Nullable Object, R extends @Nullable Object> R map(
+                  P value, Mapper<P, R> mapper) {
+                throw new UnsupportedOperationException();
+              }
+              static <T> T nonNullId(T value) { return value; }
+              static void test() {
+                map("value", x -> nonNullId(null));
+              }
+            }
+            """);
+
+    List<String> diagnostics = compileAndReportDiagnostics(List.of(callerSource));
+    assertThat(
+            diagnostics.stream()
+                .filter(diagnostic -> diagnostic.contains("inference failure:"))
+                .toList())
+        .hasSize(1);
+    assertThat(
+            diagnostics.stream()
+                .anyMatch(diagnostic -> diagnostic.contains("passing @Nullable parameter")))
+        .isTrue();
+  }
+
+  @Test
+  public void scalarInferenceFailureInsideImplicitLambdaSuppressed() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              interface Mapper<P extends @Nullable Object, R extends @Nullable Object> {
+                R apply(P value);
+              }
+              static <P extends @Nullable Object, R extends @Nullable Object> R map(
+                  P value, Mapper<P, R> mapper) {
+                throw new UnsupportedOperationException();
+              }
+              static <T> T nonNullId(T value) { return value; }
+              @SuppressWarnings("NullAway")
+              static void test() {
+                map("value", x -> nonNullId(null));
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource))).isEmpty();
+  }
+
   /**
    * Fails when an explicit {@code @Nullable} annotation on a type-variable use constrains the
    * underlying inference variable, which makes NullAway report one mismatch twice: as an inference
@@ -305,6 +371,70 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " return type",
             "Caller.java:23: [NullAway] passing @Nullable parameter 'value' where @NonNull is"
                 + " required");
+  }
+
+  /** Nested declaration-bound violations are reported once as ordinary incompatibilities. */
+  @Test
+  public void nestedDeclarationBoundViolationReportedOnce() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<T extends @Nullable Object> {}
+              static class Bad extends Box<@Nullable String> {}
+              static <T extends Box<String>> T boundedId(T value) { return value; }
+              static void test(Box<@Nullable String> direct, Bad bad) {
+                boundedId(direct);
+                boundedId(bad);
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource)))
+        .containsExactly(
+            "Caller.java:10: [NullAway] incompatible types: Box<@Nullable String> cannot be"
+                + " converted to Box<String>",
+            "Caller.java:11: [NullAway] incompatible types: Bad cannot be converted to Box<String>"
+                + " (Bad is a subtype of Box<@Nullable String>)");
+  }
+
+  /**
+   * Characterizes a pre-existing false-positive limitation for mixed invariant lower bounds. The
+   * unconstrained type variable T could be inferred as Object, making both calls valid. The current
+   * incompatibilities are not correct full inference; retain their exact diagnostics here without
+   * treating them as desired behavior or allowing additional inference-failure diagnostics.
+   */
+  @Test
+  public void knownLimitationMixedInvariantLowerBoundsReportFalsePositiveIncompatibilities() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<T extends @Nullable Object> {}
+              static <T extends @Nullable Object> void consume(T first, T second) {}
+              static void test(Box<@Nullable String> nullable, Box<String> nonNull) {
+                consume(nullable, nonNull);
+                consume(nonNull, nullable);
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource)))
+        .containsExactly(
+            "Caller.java:9: [NullAway] incompatible types: Box<String> cannot be converted to"
+                + " Box<@Nullable String>",
+            "Caller.java:10: [NullAway] incompatible types: Box<@Nullable String> cannot be"
+                + " converted to Box<String>");
   }
 
   /**
@@ -403,6 +533,74 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
             .filter(line -> !line.startsWith("(see "))
             .collect(Collectors.joining(" "));
     return fileName + ":" + diagnostic.getLineNumber() + ": " + message;
+  }
+
+  /** Each independent nested bound violation gets exactly one diagnostic on its own call line. */
+  @Test
+  public void independentNestedDeclarationBoundViolationsReportedOnceOnDistinctLines() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<E extends @Nullable Object> {}
+              static class Bad extends Box<@Nullable String> {}
+              static class Good extends Box<String> {}
+              static <T extends Box<String>> T boundedId(T value) { return value; }
+              static <A extends @Nullable Object, B extends @Nullable Object> void pair(
+                  A first, B second) {}
+              static void test(Bad firstBad, Bad secondBad, Good good) {
+                pair(
+                    boundedId(firstBad),
+                    boundedId(secondBad));
+                pair(boundedId(good), boundedId(good));
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource)))
+        .containsExactly(
+            "Caller.java:14: [NullAway] incompatible types: Bad cannot be converted to Box<String>"
+                + " (Bad is a subtype of Box<@Nullable String>)",
+            "Caller.java:15: [NullAway] incompatible types: Bad cannot be converted to Box<String>"
+                + " (Bad is a subtype of Box<@Nullable String>)");
+  }
+
+  @Test
+  public void nestedDeclarationBoundViolationInsideLazyInferenceLocallySuppressed() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static class Box<T extends @Nullable Object> {}
+              static class Bad extends Box<@Nullable String> {}
+              interface Factory<R extends @Nullable Object> {
+                R get();
+              }
+              static <R extends @Nullable Object> R supply(Factory<R> factory) {
+                return factory.get();
+              }
+              static <T extends Box<String>> T boundedId(T value) { return value; }
+              @NullMarked
+              static void test(Bad bad) {
+                supply(() -> {
+                  @SuppressWarnings("NullAway") var result = boundedId(bad);
+                  return result;
+                });
+              }
+            }
+            """);
+
+    assertThat(compileAndReportDiagnostics(List.of(callerSource))).isEmpty();
   }
 
   private CompilationTestHelper makeHelper() {
