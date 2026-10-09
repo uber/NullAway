@@ -43,6 +43,11 @@ public class ArrayIndexElement implements AccessPathElement {
     return new ArrayIndexElement(javaElement, indexElement);
   }
 
+  /** Returns the represented index: an {@link Integer} constant or a variable {@link Element}. */
+  public Object getIndex() {
+    return index;
+  }
+
   @Override
   public Element getJavaElement() {
     return this.javaElement;

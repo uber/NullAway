@@ -31,13 +31,17 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.ArrayAccessTree;
 import com.sun.source.tree.BindingPatternTree;
 import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.EnhancedForLoopTree;
 import com.sun.source.tree.ExpressionTree;
+import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
+import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
@@ -58,6 +62,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.function.Predicate;
 import javax.annotation.CheckReturnValue;
+import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.VariableElement;
 import javax.lang.model.type.TypeKind;
@@ -167,6 +172,8 @@ public class AccessPathNullnessPropagation
 
   private VisitorState state;
 
+  private CompilationUnitTree compilationUnit;
+
   private final AccessPath.AccessPathContext apContext;
 
   private final Config config;
@@ -188,9 +195,8 @@ public class AccessPathNullnessPropagation
    * @param stateForNewCompilationUnit the new visitor state
    */
   public void updateForNewCompilationUnit(VisitorState stateForNewCompilationUnit) {
-    this.state =
-        stateForNewCompilationUnit.withPath(
-            new FailingTreePath(stateForNewCompilationUnit.getPath().getCompilationUnit()));
+    this.compilationUnit = stateForNewCompilationUnit.getPath().getCompilationUnit();
+    this.state = stateForNewCompilationUnit.withPath(new FailingTreePath(compilationUnit));
   }
 
   /**
@@ -241,7 +247,8 @@ public class AccessPathNullnessPropagation
     this.defaultAssumption = defaultAssumption;
     this.methodReturnsNonNull = analysis::isMethodUnannotated;
     // Overwrite the TreePath with a FailingTreePath to ensure it never gets used
-    this.state = state.withPath(new FailingTreePath(state.getPath().getCompilationUnit()));
+    this.compilationUnit = state.getPath().getCompilationUnit();
+    this.state = state.withPath(new FailingTreePath(compilationUnit));
     this.apContext = apContext;
     this.config = analysis.getConfig();
     this.handler = analysis.getHandler();
@@ -601,6 +608,7 @@ public class AccessPathNullnessPropagation
     Node rhs = node.getExpression();
     Nullness value = values(input).valueOfSubNode(rhs);
     Node target = node.getTarget();
+    invalidateArrayAccessPaths(input.getRegularStore(), updates, target);
 
     if (target instanceof LocalVariableNode localVariableNode
         && !castToNonNull(ASTHelpers.getType(target.getTree())).isPrimitive()) {
@@ -610,6 +618,17 @@ public class AccessPathNullnessPropagation
 
     if (target instanceof ArrayAccessNode arrayAccessNode) {
       setNonnullIfAnalyzeable(updates, arrayAccessNode.getArray());
+      if (config.isJSpecifyMode()
+          && !arrayAccessNode.getType().getKind().isPrimitive()
+          && isStableArrayAssignmentExpression(arrayAccessNode.getTree())
+          && isStableArrayAssignmentExpression(rhs.getTree())) {
+        // The CFG evaluates the location before the RHS. Only refine paths whose array and index
+        // cannot have changed during operand evaluation.
+        AccessPath elementPath = AccessPath.getAccessPathForNode(arrayAccessNode, state, apContext);
+        if (elementPath != null && hasFaithfullyRepresentedArrayIndices(elementPath)) {
+          updates.set(elementPath, value);
+        }
+      }
     }
 
     if (target instanceof FieldAccessNode fieldAccessNode) {
@@ -629,6 +648,44 @@ public class AccessPathNullnessPropagation
     }
 
     return updateRegularStore(value, input, updates);
+  }
+
+  /**
+   * Conservatively recognizes expressions without explicit calls or assignment side effects.
+   *
+   * <p>Only refine array assignments with stable operands: an RHS call or nested assignment can
+   * change the array/index after the CFG has evaluated the LHS location. Method-based paths can
+   * also refer to a different array on their next evaluation. Unhandled expressions conservatively
+   * receive no assignment refinement. This syntactic check is not complete alias or call-effect
+   * analysis; calls retain the existing NullAway refinement policy.
+   */
+  private static boolean isStableArrayAssignmentExpression(@Nullable Tree tree) {
+    if (tree == null) {
+      return false;
+    }
+    return switch (tree.getKind()) {
+      case IDENTIFIER,
+          NULL_LITERAL,
+          STRING_LITERAL,
+          BOOLEAN_LITERAL,
+          CHAR_LITERAL,
+          INT_LITERAL,
+          LONG_LITERAL,
+          FLOAT_LITERAL,
+          DOUBLE_LITERAL ->
+          true;
+      case MEMBER_SELECT ->
+          isStableArrayAssignmentExpression(((MemberSelectTree) tree).getExpression());
+      case PARENTHESIZED ->
+          isStableArrayAssignmentExpression(((ParenthesizedTree) tree).getExpression());
+      case TYPE_CAST -> isStableArrayAssignmentExpression(((TypeCastTree) tree).getExpression());
+      case ARRAY_ACCESS -> {
+        ArrayAccessTree access = (ArrayAccessTree) tree;
+        yield isStableArrayAssignmentExpression(access.getExpression())
+            && isStableArrayAssignmentExpression(access.getIndex());
+      }
+      default -> false;
+    };
   }
 
   /**
@@ -891,28 +948,12 @@ public class AccessPathNullnessPropagation
     Nullness resultNullness;
     // Unsoundly assume @NonNull, except in JSpecify mode where we check the type
     if (config.isJSpecifyMode()) {
-      Symbol arraySymbol;
-      boolean isElementNullable = false;
-      // For enhanced-for-loops we get the symbol from the array expression as the node is desugared
-      ExpressionTree arrayExpr = node.getArrayExpression();
-      if (arrayExpr != null) {
-        arraySymbol = ASTHelpers.getSymbol(arrayExpr);
-      } else {
-        arraySymbol = ASTHelpers.getSymbol(node.getArray().getTree());
-      }
-      if (arraySymbol != null) {
-        isElementNullable = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
-      }
+      boolean isElementNullable = arrayElementIsNullable(node);
       if (isElementNullable) {
         AccessPath arrayAccessPath = AccessPath.getAccessPathForNode(node, state, apContext);
         if (arrayAccessPath != null) {
-          Nullness accessPathNullness =
-              input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
-          if (accessPathNullness == Nullness.NULLABLE) {
-            resultNullness = Nullness.NULLABLE;
-          } else {
-            resultNullness = Nullness.NONNULL;
-          }
+          // Assignments can store NULL, not just NULLABLE or NONNULL. Preserve the lattice value.
+          resultNullness = input.getRegularStore().getNullnessOfAccessPath(arrayAccessPath);
         } else {
           resultNullness = Nullness.NULLABLE;
         }
@@ -924,6 +965,26 @@ public class AccessPathNullnessPropagation
       resultNullness = Nullness.NONNULL;
     }
     return updateRegularStore(resultNullness, input, updates);
+  }
+
+  /**
+   * Checks an array read's component type without using the transfer's deliberately invalid path.
+   *
+   * <p>For a desugared enhanced-for read, resolves the original loop expression rather than the
+   * synthetic array temporary. If no source path exists, retains the symbol-based behavior.
+   */
+  private boolean arrayElementIsNullable(ArrayAccessNode node) {
+    ExpressionTree arrayExpression = node.getArrayExpression();
+    Tree arrayTree = arrayExpression != null ? arrayExpression : node.getArray().getTree();
+    if (arrayTree instanceof ExpressionTree expression) {
+      TreePath expressionPath = TreePath.getPath(compilationUnit, expression);
+      if (expressionPath != null) {
+        return genericsChecks.isArrayElementNullable(
+            expression, state.withPath(expressionPath), /* calledFromDataflow= */ true);
+      }
+    }
+    Symbol arraySymbol = ASTHelpers.getSymbol(arrayTree);
+    return arraySymbol != null && NullabilityUtil.isArrayElementNullable(arraySymbol, config);
   }
 
   @Override
@@ -1415,6 +1476,94 @@ public class AccessPathNullnessPropagation
   public TransferResult<Nullness, NullnessStore> visitMarker(
       MarkerNode markerNode, TransferInput<Nullness, NullnessStore> input) {
     return noStoreChanges(NULLABLE, input);
+  }
+
+  /**
+   * Invalidates array-dependent facts affected by an assignment in JSpecify mode.
+   *
+   * <p>Array writes may overlap elements reached through aliases, but distinct known integer
+   * indices do not overlap. Rebinding a local or field only invalidates paths referencing that
+   * symbol, including array indices and map keys. Field dependencies are conservatively matched by
+   * symbol because index paths do not encode field receivers. This is not complete alias or
+   * call-effect analysis. Callers add any known post-assignment element value after invalidation.
+   */
+  private void invalidateArrayAccessPaths(
+      NullnessStore store, ReadableUpdates updates, Node target) {
+    if (!config.isJSpecifyMode()) {
+      return;
+    }
+    Predicate<AccessPath> affected;
+    if (target instanceof ArrayAccessNode arrayAccess) {
+      Integer writtenIndex =
+          arrayAccess.getIndex() instanceof IntegerLiteralNode literal ? literal.getValue() : null;
+      affected = path -> mayOverlapArrayWrite(path, writtenIndex);
+    } else {
+      Element changedSymbol;
+      if (target instanceof LocalVariableNode local) {
+        changedSymbol = local.getElement();
+      } else if (target instanceof FieldAccessNode field) {
+        changedSymbol = field.getElement();
+      } else {
+        return;
+      }
+      affected = path -> containsArrayAccess(path) && referencesSymbol(path, changedSymbol);
+    }
+    for (Nullness nullness : Nullness.values()) {
+      for (AccessPath path : store.getAccessPathsWithValue(nullness)) {
+        if (affected.test(path)) {
+          updates.set(path, NULLABLE);
+        }
+      }
+    }
+  }
+
+  /** Checks index fidelity; field indices omit their receiver and cannot justify refinement. */
+  private static boolean hasFaithfullyRepresentedArrayIndices(AccessPath path) {
+    for (AccessPathElement element : path.getElements()) {
+      if (element instanceof ArrayIndexElement arrayIndex
+          && !(arrayIndex.getIndex() instanceof Integer)
+          && !(arrayIndex.getIndex() instanceof Element index && !index.getKind().isField())) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  /**
+   * Checks for possibly overlapping array elements without assuming distinct roots cannot alias.
+   */
+  private static boolean mayOverlapArrayWrite(AccessPath path, @Nullable Integer writtenIndex) {
+    for (AccessPathElement element : path.getElements()) {
+      if (element instanceof ArrayIndexElement arrayIndex
+          && (writtenIndex == null
+              || !(arrayIndex.getIndex() instanceof Integer storedIndex)
+              || writtenIndex.equals(storedIndex))) {
+        return true;
+      }
+    }
+    return path.getMapGetArg() instanceof AccessPath keyPath
+        && mayOverlapArrayWrite(keyPath, writtenIndex);
+  }
+
+  /** Checks roots, path elements, indices, and map-key paths for a rebound symbol dependency. */
+  private static boolean referencesSymbol(AccessPath path, Element symbol) {
+    if (symbol.equals(path.getRoot())) {
+      return true;
+    }
+    for (AccessPathElement element : path.getElements()) {
+      if (symbol.equals(element.getJavaElement())
+          || (element instanceof ArrayIndexElement arrayIndex
+              && symbol.equals(arrayIndex.getIndex()))) {
+        return true;
+      }
+    }
+    return path.getMapGetArg() instanceof AccessPath keyPath && referencesSymbol(keyPath, symbol);
+  }
+
+  /** Returns whether a path depends on an array element, including accesses below that element. */
+  private static boolean containsArrayAccess(AccessPath path) {
+    return path.getElements().stream().anyMatch(element -> element instanceof ArrayIndexElement)
+        || (path.getMapGetArg() instanceof AccessPath keyPath && containsArrayAccess(keyPath));
   }
 
   @CheckReturnValue

@@ -2703,6 +2703,424 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void inferredArrayElementDereferenceInEitherOrder() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T pick(T first, T second) {
+                return first;
+              }
+              static void direct(String[] nonNullElements, @Nullable String[] nullableElements) {
+                // BUG: Diagnostic contains: dereferenced expression 'pick(nonNullElements, nullableElements)[0]' is @Nullable
+                pick(nonNullElements, nullableElements)[0].length();
+                // BUG: Diagnostic contains: dereferenced expression 'pick(nullableElements, nonNullElements)[0]' is @Nullable
+                pick(nullableElements, nonNullElements)[0].length();
+                pick(nonNullElements, nonNullElements)[0].length();
+              }
+              static void inferredLocal(String[] nonNullElements, @Nullable String[] nullableElements) {
+                var forward = pick(nonNullElements, nullableElements);
+                var reverse = pick(nullableElements, nonNullElements);
+                var nonNull = pick(nonNullElements, nonNullElements);
+                // BUG: Diagnostic contains: dereferenced expression 'forward[0]' is @Nullable
+                forward[0].length();
+                // BUG: Diagnostic contains: dereferenced expression 'reverse[0]' is @Nullable
+                reverse[0].length();
+                nonNull[0].length();
+              }
+              static void explicit(@Nullable String[] elements) {
+                // BUG: Diagnostic contains: dereferenced expression 'elements[0]' is @Nullable
+                elements[0].length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferredArrayElementFlowRefinement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T pick(T first, T second) {
+                return first;
+              }
+              static void test(String[] nonNullElements, @Nullable String[] nullableElements) {
+                var forward = pick(nonNullElements, nullableElements);
+                var reverse = pick(nullableElements, nonNullElements);
+                if (forward[0] != null) {
+                  forward[0].length();
+                }
+                if (reverse[0] == null) {
+                  return;
+                }
+                reverse[0].length();
+                // BUG: Diagnostic contains: dereferenced expression 'forward[1]' is @Nullable
+                forward[1].length();
+                forward[2] = "safe";
+                forward[2].length();
+                forward[2] = null;
+                // BUG: Diagnostic contains: dereferenced expression 'forward[2]' is @Nullable
+                forward[2].length();
+              }
+              static void explicit(@Nullable String[] elements) {
+                if (elements[0] != null) {
+                  elements[0].length();
+                }
+              }
+              static void indexed(
+                  String[] nonNullElements, @Nullable String[] nullableElements, int index) {
+                var elements = pick(nullableElements, nonNullElements);
+                if (elements[index] != null) {
+                  elements[index].length();
+                  // BUG: Diagnostic contains: dereferenced expression 'elements[index + 1]' is @Nullable
+                  elements[index + 1].length();
+                }
+              }
+              static void extracted(String[] nonNullElements, @Nullable String[] nullableElements) {
+                var elements = pick(nonNullElements, nullableElements);
+                var element = elements[0];
+                // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                element.length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayElementFieldIndicesHaveDistinctReceivers() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Index {
+                int i;
+              }
+              Index left = new Index();
+              Index right = new Index();
+              void test(@Nullable String[] a) {
+                a[left.i] = "safe";
+                // BUG: Diagnostic contains: dereferenced expression 'a[right.i]' is @Nullable
+                a[right.i].length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayElementRequireNonNullRefinesAccess() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void test(@Nullable String[] a) {
+                Objects.requireNonNull(a[0]);
+                a[0].length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayElementNonNullGuardRefinesAccess() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void test(@Nullable String[] a) {
+                if (Objects.nonNull(a[0])) {
+                  a[0].length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayElementGuardSurvivesUnrelatedStatements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void test(@Nullable String[] a) {
+                if (a[0] != null) {
+                  int unrelated = 1;
+                  new Object();
+                  a[0].length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayElementGuardSurvivesDifferentElementWrite() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void test(@Nullable String[] a) {
+                if (a[0] != null) {
+                  a[1] = "safe";
+                  a[0].length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayElementAliasWriteInvalidatesRefinement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T pick(T first, T second) {
+                return first;
+              }
+              static void explicit(@Nullable String[] a) {
+                if (a[0] != null) {
+                  var b = a;
+                  b[0] = null;
+                  // BUG: Diagnostic contains: dereferenced expression 'a[0]' is @Nullable
+                  a[0].length();
+                }
+              }
+              static void inferred(String[] nonNullElements, @Nullable String[] nullableElements) {
+                var a = pick(nonNullElements, nullableElements);
+                if (a[0] != null) {
+                  var b = a;
+                  b[0] = null;
+                  // BUG: Diagnostic contains: dereferenced expression 'a[0]' is @Nullable
+                  a[0].length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayElementIndexRebindingInvalidatesRefinement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void test(@Nullable String[] a) {
+                int index = 0;
+                a[index] = "safe";
+                a[index].length();
+                index = 1;
+                // BUG: Diagnostic contains: dereferenced expression 'a[index]' is @Nullable
+                a[index].length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableArrayRebindingInvalidatesElementRefinement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void test(@Nullable String[] a, @Nullable String[] nullableElements) {
+                a[0] = "safe";
+                a[0].length();
+                a = nullableElements;
+                // BUG: Diagnostic contains: dereferenced expression 'a[0]' is @Nullable
+                a[0].length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferredArrayAccessAsGenericArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T pick(T first, T second) {
+                return first;
+              }
+              static <T extends @Nullable Object> T id(T value) {
+                return value;
+              }
+              static void test(String[] nonNullElements, @Nullable String[] nullableElements) {
+                // BUG: Diagnostic contains: dereferenced expression 'id(pick(nonNullElements, nullableElements)[0])' is @Nullable
+                id(pick(nonNullElements, nullableElements)[0]).length();
+                // BUG: Diagnostic contains: dereferenced expression 'id(pick(nullableElements, nonNullElements)[0])' is @Nullable
+                id(pick(nullableElements, nonNullElements)[0]).length();
+                id(pick(nonNullElements, nonNullElements)[0]).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferredMultidimensionalArrayElementNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T pick(T first, T second) {
+                return first;
+              }
+              static void acceptsNonNullElements(String[] elements) {}
+              static void acceptsNullableElements(@Nullable String[] elements) {}
+              static void leaves(String[][] nonNull, @Nullable String[][] nullableLeaves) {
+                int length = pick(nonNull, nullableLeaves)[0].length;
+                // BUG: Diagnostic contains: dereferenced expression 'pick(nonNull, nullableLeaves)[1][0]' is @Nullable
+                pick(nonNull, nullableLeaves)[1][0].length();
+                // BUG: Diagnostic contains: dereferenced expression 'pick(nullableLeaves, nonNull)[0][0]' is @Nullable
+                pick(nullableLeaves, nonNull)[0][0].length();
+                var elements = pick(nonNull, nullableLeaves);
+                var row = elements[0];
+                // BUG: Diagnostic contains: dereferenced expression 'row[0]' is @Nullable
+                row[0].length();
+                // BUG: Diagnostic contains: incompatible types
+                acceptsNonNullElements(pick(nonNull, nullableLeaves)[0]);
+                acceptsNullableElements(pick(nonNull, nullableLeaves)[0]);
+                pick(nonNull, nonNull)[0][0].length();
+              }
+              static void rows(String[][] nonNull, String[] @Nullable [] nullableRows) {
+                // BUG: Diagnostic contains: dereferenced expression 'pick(nonNull, nullableRows)[0]' is @Nullable
+                int length = pick(nonNull, nullableRows)[0].length;
+                var elements = pick(nullableRows, nonNull);
+                // BUG: Diagnostic contains: dereferenced expression 'elements[0]' is @Nullable
+                int otherLength = elements[0].length;
+                if (elements[1] != null) {
+                  elements[1][0].length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferredArrayElementsInEnhancedFor() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T pick(T first, T second) {
+                return first;
+              }
+              static void test(String[] nonNullElements, @Nullable String[] nullableElements) {
+                for (var element : pick(nonNullElements, nullableElements)) {
+                  // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                  element.length();
+                }
+                var elements = pick(nullableElements, nonNullElements);
+                for (var element : elements) {
+                  // BUG: Diagnostic contains: dereferenced expression 'element' is @Nullable
+                  element.length();
+                }
+                for (var element : pick(nonNullElements, nonNullElements)) {
+                  element.length();
+                }
+                for (var element : nullableElements) {
+                  if (element != null) {
+                    element.length();
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferredArrayElementsRemainNonNullInLegacyMode() {
+    makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static <T extends @Nullable Object> T pick(T first, T second) {
+                return first;
+              }
+              static void test(String[] nonNullElements, @Nullable String[] nullableElements) {
+                pick(nonNullElements, nullableElements)[0].length();
+                pick(nullableElements, nonNullElements)[0].length();
+                var elements = pick(nonNullElements, nullableElements);
+                elements[0].length();
+                nullableElements[0].length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void receiverInstantiatedMethodVariableBounds() {
     makeHelper()
         .addSourceLines(

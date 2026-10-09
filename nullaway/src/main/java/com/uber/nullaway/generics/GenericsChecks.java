@@ -199,6 +199,9 @@ public final class GenericsChecks {
   /** Ground lambda targets scoped to constraint generation, including parameterless lambdas. */
   private Map<LambdaExpressionTree, Type> lambdaTargetTypesForInference = Map.of();
 
+  /** Scoped array-type recovery from a transfer must not recursively start another analysis. */
+  private int arrayTypeRecoveryFromDataflowDepth = 0;
+
   /**
    * While generating constraints for an inference problem, maps each participating call whose
    * lambda and method reference arguments get their types published after successful inference (see
@@ -790,6 +793,35 @@ public final class GenericsChecks {
   }
 
   /**
+   * Checks the immediate component nullability of an array expression using its enhanced type.
+   *
+   * <p>The symbol check preserves support for declaration annotations and older annotation
+   * encodings. Dataflow callers must pass {@code true} so incomplete inference results are not
+   * cached; type recovery uses the existing running-analysis queries rather than restarting it.
+   *
+   * @param expression the array expression
+   * @param state visitor state whose path points to {@code expression}
+   * @param calledFromDataflow whether this check is part of dataflow analysis
+   * @return whether the array's immediate elements may be null
+   */
+  public boolean isArrayElementNullable(
+      ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
+    if (calledFromDataflow) {
+      arrayTypeRecoveryFromDataflowDepth++;
+    }
+    try {
+      Type arrayType = getTreeType(expression, state, calledFromDataflow);
+      Symbol arraySymbol = ASTHelpers.getSymbol(expression);
+      return NullabilityUtil.isArrayElementNullable(arrayType, config)
+          || (arraySymbol != null && NullabilityUtil.isArrayElementNullable(arraySymbol, config));
+    } finally {
+      if (calledFromDataflow) {
+        arrayTypeRecoveryFromDataflowDepth--;
+      }
+    }
+  }
+
+  /**
    * This method returns the type of the given tree, including any type use annotations.
    *
    * <p>This method is required because in some cases, the type returned by {@link
@@ -871,7 +903,19 @@ public final class GenericsChecks {
       return typeWithPreservedAnnotations(tree);
     } else {
       Type result;
-      if (tree instanceof VariableTree) {
+      if (tree instanceof ArrayAccessTree arrayAccess) {
+        ExpressionTree arrayExpression = arrayAccess.getExpression();
+        TreePath arrayExpressionPath =
+            pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpression);
+        Type arrayType =
+            getTreeType(arrayExpression, state.withPath(arrayExpressionPath), calledFromDataflow);
+        // Project one dimension at a time, including when this access is itself an array
+        // expression or an argument to another generic call.
+        result =
+            arrayType instanceof Type.ArrayType arrayTypeWithComponent
+                ? arrayTypeWithComponent.getComponentType()
+                : ASTHelpers.getType(tree);
+      } else if (tree instanceof VariableTree) {
         // type on the tree itself can be missing nested annotations for arrays; get the type from
         // the symbol for the variable instead
         result = castToNonNull(ASTHelpers.getSymbol(tree)).type;
@@ -2087,7 +2131,9 @@ public final class GenericsChecks {
         // cases it does not handle
         return;
       }
-      argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
+      argumentType =
+          refineArgumentTypeWithDataflow(
+              argumentType, rhsExpr, state, state.getPath(), calledFromDataflow);
       solver.addSubtypeConstraint(argumentType, lhsType, false);
     }
   }
@@ -2510,10 +2556,15 @@ public final class GenericsChecks {
    * @param expr the expression tree
    * @param state the visitor state
    * @param path relevant tree path if available and possibly distinct from {@code state.getPath()}
+   * @param calledFromDataflow whether refinement must avoid starting a new analysis from a transfer
    * @return the refined type of the expression
    */
   private Type refineArgumentTypeWithDataflow(
-      Type exprType, ExpressionTree expr, VisitorState state, @Nullable TreePath path) {
+      Type exprType,
+      ExpressionTree expr,
+      VisitorState state,
+      @Nullable TreePath path,
+      boolean calledFromDataflow) {
     if (!shouldRunDataflowForExpression(exprType, expr)) {
       return exprType;
     }
@@ -2546,6 +2597,9 @@ public final class GenericsChecks {
       // dataflow analysis is already running, so just get the current dataflow value for the
       // argument
       refinedNullness = nullnessAnalysis.getNullnessFromRunning(exprPath, state.context);
+    } else if (calledFromDataflow && arrayTypeRecoveryFromDataflowDepth > 0) {
+      // Array type recovery inside a transfer must not start another dataflow instance.
+      return exprType;
     } else {
       refinedNullness = nullnessAnalysis.getNullness(exprPath, state.context);
     }

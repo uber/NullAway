@@ -2954,10 +2954,11 @@ public class NullAway extends BugChecker
           // In JSpecify mode, we check if the array element type is nullable
           ArrayAccessTree arrayAccess = (ArrayAccessTree) expr;
           ExpressionTree arrayExpr = arrayAccess.getExpression();
-          Symbol arraySymbol = ASTHelpers.getSymbol(arrayExpr);
-          if (arraySymbol != null) {
-            exprMayBeNull = NullabilityUtil.isArrayElementNullable(arraySymbol, config);
-          }
+          TreePath arrayExprPath =
+              pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
+          exprMayBeNull =
+              genericsChecks.isArrayElementNullable(
+                  arrayExpr, state.withPath(arrayExprPath), /* calledFromDataflow= */ false);
         }
       }
       case MEMBER_SELECT -> {
