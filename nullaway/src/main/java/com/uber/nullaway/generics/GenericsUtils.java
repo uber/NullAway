@@ -310,7 +310,16 @@ public class GenericsUtils {
     return upperBound;
   }
 
+  /**
+   * Returns whether {@code type} carries a {@code @Nullable} or {@code @NonNull} type-use
+   * annotation. An intersection type carries one when every one of its components does, as for
+   * {@link Nullness#isNullableAnnotated}.
+   */
   private static boolean hasNullnessAnnotation(Type type, Config config) {
+    if (type instanceof Type.IntersectionClassType intersectionType) {
+      return intersectionType.getComponents().stream()
+          .allMatch(component -> hasNullnessAnnotation(component, config));
+    }
     return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
         || Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
   }

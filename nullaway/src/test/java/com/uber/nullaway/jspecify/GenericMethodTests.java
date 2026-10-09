@@ -2412,6 +2412,160 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nonNullInferenceForIntersectionInstantiation() {
+    // javac instantiates E as the intersection I & J. Applying the inferred @NonNull to it used to
+    // throw AssertionError on JDK 17.
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+              static <E> E first(E a, E b) {
+                return a;
+              }
+              void f(A a, B b) {
+                var x = first(a, b);
+                x.hashCode();
+                I i = first(a, b);
+                i.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonNullInferenceForGenericIntersectionInstantiation() {
+    // javac instantiates E as an intersection of Serializable, Comparable<...> and further
+    // interfaces, whose components have type arguments of their own.
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.io.Serializable;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            class Test {
+              static <E> E first(E a, E b) {
+                return a;
+              }
+              void f() {
+                var x = first(1, "x");
+                x.toString();
+                Serializable s = first(2, "y");
+                s.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableInferenceForIntersectionInstantiationIsNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+              static <E extends @Nullable Object> E first(E a, E b) {
+                return a;
+              }
+              void f(@Nullable A a, B b) {
+                // BUG: Diagnostic contains: dereferenced expression 'first(a, b)' is @Nullable
+                first(a, b).hashCode();
+                var x = first(a, b);
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                x.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullCheckedIntersectionInstantiationIsNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+              static <E extends @Nullable Object> E first(E a, E b) {
+                return a;
+              }
+              static <E extends @Nullable Object> E id(E e) {
+                return e;
+              }
+              void f(@Nullable A a, B b) {
+                var x = first(a, b);
+                if (x != null) {
+                  // The argument type of id is refined to non-null, which removes @Nullable from
+                  // each component of the intersection.
+                  id(x).hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void intersectionTypeArgumentKeepsItsComponentsInErrorMessage() {
+    // NullAway used to attach the annotation to the intersection itself, which on JDK 21 produced a
+    // plain class type that the message printed as an empty name.
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+              static <E extends @Nullable Object> List<E> listOf(E a, E b) {
+                return new ArrayList<>();
+              }
+              void f(@Nullable A a, B b) {
+                var l = listOf(a, b);
+                List<? extends @Nullable I> nullableList = l;
+                // BUG: Diagnostic contains: List<@Nullable I & @Nullable J> cannot be converted to List<? extends I>
+                List<? extends I> nonNullList = l;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
