@@ -4,7 +4,6 @@ import static com.uber.nullaway.generics.ClassDeclarationNullnessAnnotUtils.getA
 import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
 
 import com.google.common.base.Verify;
-import com.google.common.base.VerifyException;
 import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
@@ -194,10 +193,11 @@ public class TypeSubstitutionUtils {
    *
    * <p>3 . Apply the nullability annotations from the result of 2 to {@code typeToUpdate}. So, if
    * {@code typeToUpdate} is {@code List<String>}, and the result of 2 is {@code List<@Nullable T>},
-   * the final result will be {@code List<@Nullable String>}. Step 3 also replaces each marker that
-   * {@link GenericsChecks#getSyntheticTypeVariableMarkerAnnotType} returns: a type variable and an
-   * intersection type stay unannotated, and any other type becomes {@code @Nullable} or
-   * {@code @NonNull}, as the marker's {@link ConstraintSolver.InferredNullability} says.
+   * the final result will be {@code List<@Nullable String>}. Step 1 leaves a variable inferred as
+   * {@link ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} or {@link
+   * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} unannotated, and step 3 resolves
+   * it: a type variable and an intersection type stay unannotated, and any other type becomes
+   * {@code @Nullable} or {@code @NonNull}, as the result says.
    *
    * @param typeToUpdate the type to update
    * @param origType the original type with type variables and possibly explicit nullability
@@ -225,12 +225,9 @@ public class TypeSubstitutionUtils {
         restoreExplicitNullabilityAnnotations(origType, inferredNullabilitySubstituted, config);
     // step 3
     // TODO optimize these steps to avoid doing so many substitutions in the future, if needed
-    // the only step that sees both the inferred nullness and the type javac inferred, so a marker
-    // from step 1 is resolved here
-    return new RestoreNullnessAnnotationsVisitor(
-            config,
-            GenericsChecks.getSyntheticNullableAnnotType(state),
-            GenericsChecks.getSyntheticNonNullAnnotType(state))
+    // the only step that sees both the inferred nullness and the type javac inferred, so a
+    // variable step 1 left unannotated is resolved here
+    return new RestoreNullnessAnnotationsVisitor(config, typeVarNullability, state)
         .visit(typeToUpdate, origExplicitAnnotationsRestored);
   }
 
@@ -313,6 +310,16 @@ public class TypeSubstitutionUtils {
     ListBuffer<Type> inferredTypes = new ListBuffer<>();
     for (Map.Entry<Element, ConstraintSolver.InferredNullability> entry :
         typeVarNullability.entrySet()) {
+      Type annotType =
+          switch (entry.getValue()) {
+            case NULLABLE -> GenericsChecks.getSyntheticNullableAnnotType(state);
+            case NONNULL -> GenericsChecks.getSyntheticNonNullAnnotType(state);
+            // step 3 resolves these against the type javac inferred
+            case TYPE_VARIABLE_OR_NULLABLE, TYPE_VARIABLE_OR_NONNULL -> null;
+          };
+      if (annotType == null) {
+        continue;
+      }
       // find all TypeVars occurring in targetType with the same symbol and substitute for those.
       // we can have multiple such TypeVars due to previous substitutions that modified the type
       // in some way, e.g., by changing its bounds
@@ -321,16 +328,7 @@ public class TypeSubstitutionUtils {
       targetType.accept(tvc, null);
       for (Type.TypeVar tv : tvc.getMatches()) {
         typeVars.append(tv);
-        inferredTypes.append(
-            typeWithAnnot(
-                tv,
-                switch (entry.getValue()) {
-                  case NULLABLE -> GenericsChecks.getSyntheticNullableAnnotType(state);
-                  case NONNULL -> GenericsChecks.getSyntheticNonNullAnnotType(state);
-                  case TYPE_VARIABLE_OR_NULLABLE, TYPE_VARIABLE_OR_NONNULL ->
-                      GenericsChecks.getSyntheticTypeVariableMarkerAnnotType(
-                          entry.getValue(), state);
-                }));
+        inferredTypes.append(typeWithAnnot(tv, annotType));
       }
     }
     List<Type> typeVarsToReplace = typeVars.toList();
@@ -365,26 +363,24 @@ public class TypeSubstitutionUtils {
     }
 
     /**
-     * The synthetic {@code @Nullable} that replaces a {@link
-     * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} marker on a type other than a
-     * type variable or an intersection, or {@code null} where no marker may appear. Set only when
-     * copying inferred nullness onto the type javac inferred, the one step that can tell a type
-     * variable from any other type.
+     * The inferred nullness whose {@link
+     * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} and {@link
+     * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} variables this visitor
+     * resolves against the visited type, or {@code null} to resolve none. Set only when copying
+     * inferred nullness onto the type javac inferred, the one step that can tell a type variable
+     * from any other type; {@link #state} is set with it.
      */
-    private final @Nullable Type nullableForMarker;
+    private final @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
 
-    /**
-     * The synthetic {@code @NonNull} that replaces a {@link
-     * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL} marker; set together with
-     * {@link #nullableForMarker}.
-     */
-    private final @Nullable Type nonNullForMarker;
+    private final @Nullable VisitorState state;
 
     RestoreNullnessAnnotationsVisitor(
-        Config config, @Nullable Type nullableForMarker, @Nullable Type nonNullForMarker) {
+        Config config,
+        @Nullable Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
+        @Nullable VisitorState state) {
       this.config = config;
-      this.nullableForMarker = nullableForMarker;
-      this.nonNullForMarker = nonNullForMarker;
+      this.typeVarNullability = typeVarNullability;
+      this.state = state;
     }
 
     @Override
@@ -545,12 +541,6 @@ public class TypeSubstitutionUtils {
     public Type visitCapturedType(Type.CapturedType t, Type other) {
       Attribute.TypeCompound syntheticNullnessAnnotation =
           config.handleWildcardGenerics() ? getDirectSyntheticNullnessAnnotation(other) : null;
-      if (nullableForMarker != null
-          && syntheticNullnessAnnotation != null
-          && GenericsChecks.typeVariableMarkerKind(syntheticNullnessAnnotation.type) != null) {
-        // a capture is a type variable, which a marked inference variable takes as written
-        syntheticNullnessAnnotation = null;
-      }
       Type updated;
       if (syntheticNullnessAnnotation != null) {
         // A synthetic annotation records NullAway's inferred nullability for the type variable that
@@ -656,27 +646,28 @@ public class TypeSubstitutionUtils {
           continue;
         }
         String qualifiedName = annot.type.tsym.getQualifiedName().toString();
-        ConstraintSolver.InferredNullability markerKind =
-            GenericsChecks.typeVariableMarkerKind(annot.type);
-        if (markerKind != null) {
-          if (nullableForMarker == null || nonNullForMarker == null) {
-            throw new VerifyException(
-                "inference marker " + annot + " reached " + t + " outside step 3");
-          }
-          // the root of an intersection keeps the nullness of its elements
-          if (t instanceof Type.TypeVar || t instanceof Type.IntersectionClassType) {
-            return t;
-          }
-          return TypeSubstitutionUtils.typeWithAnnot(
-              t,
-              markerKind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE
-                  ? nullableForMarker
-                  : nonNullForMarker);
-        }
         if (Nullness.isNullableAnnotation(qualifiedName, config)
             || Nullness.isNonNullAnnotation(qualifiedName, config)) {
           return typeWithAnnot(t, annot);
         }
+      }
+      // a variable step 1 left unannotated takes javac's type variable as written, and the root of
+      // an intersection keeps the nullness of its elements
+      if (typeVarNullability == null
+          || state == null
+          || !(other instanceof Type.TypeVar)
+          || t instanceof Type.TypeVar
+          || t instanceof Type.IntersectionClassType) {
+        return t;
+      }
+      ConstraintSolver.InferredNullability inferred = typeVarNullability.get(other.tsym);
+      if (inferred == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE) {
+        return TypeSubstitutionUtils.typeWithAnnot(
+            t, GenericsChecks.getSyntheticNullableAnnotType(state));
+      }
+      if (inferred == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL) {
+        return TypeSubstitutionUtils.typeWithAnnot(
+            t, GenericsChecks.getSyntheticNonNullAnnotType(state));
       }
       return t;
     }

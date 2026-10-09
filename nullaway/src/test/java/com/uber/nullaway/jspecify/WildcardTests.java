@@ -2575,7 +2575,8 @@ public class WildcardTests extends NullAwayTestsBase {
    * is {@code @Nullable}: no other nullness of {@code Object} holds a null {@code T}. Every reader
    * of the result sees the same {@code @Nullable}, so a list that accepts a null through {@code
    * sink} also reports the null read back from it. Where javac inferred {@code T} itself, the
-   * result is {@code T} and is dereferenced without a report, as {@code t} is (#1727).
+   * result is {@code T} and is dereferenced without a report, as {@code t} is (#1727). A
+   * {@code @NonNull} written on the variable's use keeps that use non-null.
    */
   @Test
   public void anInferenceResultInferredAsAClassTypeHoldsTheNullOfTheTypeVariable() {
@@ -2584,6 +2585,7 @@ public class WildcardTests extends NullAwayTestsBase {
             "Test.java",
             """
             import java.util.List;
+            import org.jspecify.annotations.NonNull;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
@@ -2593,6 +2595,12 @@ public class WildcardTests extends NullAwayTestsBase {
               }
               static <U extends @Nullable Object> U pick(U a, U b) {
                 return a;
+              }
+              static <U extends @Nullable Object> @NonNull U pickNonNull(U a, U b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> List<@NonNull U> ofNonNull(U a, U b) {
+                throw new UnsupportedOperationException();
               }
               static void takeObjects(List<Object> objects) {}
               void throughALocal(T t) {
@@ -2611,6 +2619,10 @@ public class WildcardTests extends NullAwayTestsBase {
                 pick(t, "x").toString();
                 // BUG: Diagnostic contains: dereferenced expression 'of(t, "x").get(0)' is @Nullable
                 of(t, "x").get(0).toString();
+              }
+              void explicitlyNonNull(T t) {
+                pickNonNull(t, "x").toString();
+                ofNonNull(t, "x").get(0).toString();
               }
               void inferredAsTheTypeVariable(T t) {
                 pick(t, t).toString();
@@ -2667,6 +2679,56 @@ public class WildcardTests extends NullAwayTestsBase {
               void receiver(T t) {
                 // BUG: Diagnostic contains: dereferenced expression 'wrap(pick(t, "x")).get()' is @Nullable
                 wrap(pick(t, "x")).get().toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * The {@code @Nullable} inferred for a class-type result reaches a wildcard in the result type
+   * and a wildcard that a member of a diamond's class returns, where javac's type carries a capture
+   * or a wildcard bound that the inferred nullness was never substituted into.
+   */
+  @Test
+  public void aClassTypeResultIsNullableInsideAWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                Box(E a, E b) {}
+                Box<? extends E> self() {
+                  throw new UnsupportedOperationException();
+                }
+                Box<? super E> sink() {
+                  throw new UnsupportedOperationException();
+                }
+                E get() {
+                  throw new UnsupportedOperationException();
+                }
+                void set(E e) {}
+              }
+              static <U extends @Nullable Object> Box<? extends U> wrap(U a, U b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> Box<? super U> sinkOf(U a, U b) {
+                throw new UnsupportedOperationException();
+              }
+              void f(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'wrap(t, "x").get()' is @Nullable
+                wrap(t, "x").get().toString();
+                sinkOf(t, "x").set(null);
+                var box = new Box<>(t, "x");
+                // BUG: Diagnostic contains: dereferenced expression 'box.self().get()' is @Nullable
+                box.self().get().toString();
+                box.sink().set(null);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? extends Object> nonNull = box.self();
               }
             }
             """)

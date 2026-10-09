@@ -3971,31 +3971,12 @@ public final class GenericsChecks {
 
   private static @Nullable Type syntheticNullableAnnotType;
   private static @Nullable Type syntheticNonNullAnnotType;
-  private static @Nullable Type syntheticTypeVariableOrNullableAnnotType;
-  private static @Nullable Type syntheticTypeVariableOrNonNullAnnotType;
 
   /** Returns whether {@code annotationType} is one of NullAway's synthetic nullness annotations. */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity checks
   static boolean isSyntheticNullnessAnnotation(Type annotationType) {
     return annotationType == syntheticNullableAnnotType
-        || annotationType == syntheticNonNullAnnotType
-        || typeVariableMarkerKind(annotationType) != null;
-  }
-
-  /**
-   * Returns the inference result that {@code annotationType} marks, or {@code null} if it is not
-   * one of the markers {@link #getSyntheticTypeVariableMarkerAnnotType} returns.
-   */
-  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate singleton identity checks
-  static ConstraintSolver.@Nullable InferredNullability typeVariableMarkerKind(
-      Type annotationType) {
-    if (annotationType == syntheticTypeVariableOrNullableAnnotType) {
-      return ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE;
-    }
-    if (annotationType == syntheticTypeVariableOrNonNullAnnotType) {
-      return ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL;
-    }
-    return null;
+        || annotationType == syntheticNonNullAnnotType;
   }
 
   /**
@@ -4043,51 +4024,5 @@ public final class GenericsChecks {
       syntheticNonNullAnnotType = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
     }
     return syntheticNonNullAnnotType;
-  }
-
-  /**
-   * Returns a "fake" {@link Type} object for the annotation that marks an inference variable whose
-   * nullness depends on the type javac inferred for it: {@link
-   * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NULLABLE} or {@link
-   * ConstraintSolver.InferredNullability#TYPE_VARIABLE_OR_NONNULL}.
-   *
-   * <p>The marker exists only between the substitution of inferred nullness into a declared type
-   * and the copy of that nullness onto javac's type, where {@link
-   * TypeSubstitutionUtils#updateTypeWithInferredNullability} replaces it by what the result names.
-   * No type returned from there carries it.
-   *
-   * @param kind one of the two results above
-   * @param state the visitor state, used to access javac internals like {@link Names} and {@link
-   *     Symtab}.
-   * @return a fake {@code Type} for the synthetic annotation
-   */
-  static Type getSyntheticTypeVariableMarkerAnnotType(
-      ConstraintSolver.InferredNullability kind, VisitorState state) {
-    Verify.verify(
-        kind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE
-            || kind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NONNULL,
-        "no marker for %s",
-        kind);
-    boolean orNullable = kind == ConstraintSolver.InferredNullability.TYPE_VARIABLE_OR_NULLABLE;
-    Type cached =
-        orNullable
-            ? syntheticTypeVariableOrNullableAnnotType
-            : syntheticTypeVariableOrNonNullAnnotType;
-    if (cached != null) {
-      return cached;
-    }
-    Names names = Names.instance(state.context);
-    Symtab symtab = Symtab.instance(state.context);
-    Name name = names.fromString("nullaway.synthetic");
-    Symbol.PackageSymbol packageSymbol = new Symbol.PackageSymbol(name, symtab.noSymbol);
-    Name simpleName =
-        names.fromString(orNullable ? "TypeVariableOrNullable" : "TypeVariableOrNonNull");
-    Type created = new Type.ErrorType(simpleName, packageSymbol, Type.noType);
-    if (orNullable) {
-      syntheticTypeVariableOrNullableAnnotType = created;
-    } else {
-      syntheticTypeVariableOrNonNullAnnotType = created;
-    }
-    return created;
   }
 }

@@ -355,26 +355,14 @@ public class GenericsUtils {
    */
   static boolean boundIsExplicitlyNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
-    if (declaredBoundIsExplicitlyNullable(typeVarElement, config, handler, state)) {
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)
+        || libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
       return true;
     }
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
     return !hasNullnessAnnotation(upperBound, config)
         && upperBound.getKind() == TypeKind.TYPEVAR
         && boundIsExplicitlyNullable(upperBound.asElement(), config, handler, state);
-  }
-
-  /**
-   * Returns true if the given type variable's own declaration makes its bound explicitly nullable:
-   * the declared bound is annotated {@code @Nullable}, or a library model overrides it. Unlike
-   * {@link #boundIsExplicitlyNullable}, this does not follow a bound that is itself a type
-   * variable.
-   */
-  static boolean declaredBoundIsExplicitlyNullable(
-      Element typeVarElement, Config config, Handler handler, VisitorState state) {
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    return Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)
-        || libraryModelMakesBoundNullable(typeVarElement, handler, state);
   }
 
   /** Returns true if a library model overrides the upper bound of the given type variable. */
