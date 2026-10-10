@@ -44,6 +44,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Inference variables registered more than once, by several calls of one declaration. */
   private final Set<Element> sharedInferenceVariables = new LinkedHashSet<>();
 
+  /** Bounds recorded by {@link #addBoundConstraint}, applied when solving. */
+  private final Map<Element, Type> boundConstraints = new LinkedHashMap<>();
+
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.handler = analysis.getHandler();
@@ -62,11 +65,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private static final class VarState {
     /**
      * Indicates whether the type variable has a @Nullable upper bound, and thus can be @Nullable
-     * itself. Not strictly necessary for constraint solving, but allows us to give a more useful
-     * diagnostic if we get a contradiction due to the @NonNull upper bound, which could be helpful
-     * in the future.
+     * itself. A variable shared by several calls admits null where any of their bounds does.
      */
-    final boolean nullableAllowed;
+    boolean nullableAllowed;
 
     NullnessState nullness = NullnessState.UNKNOWN;
 
@@ -106,6 +107,33 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   public void registerInferenceVariable(Element typeVariable) {
     if (!inferenceVariables.add(typeVariable)) {
       sharedInferenceVariables.add(typeVariable);
+      admitNullIf(
+          typeVariable, GenericsUtils.upperBoundIsNullable(typeVariable, config, handler, state));
+    }
+  }
+
+  /**
+   * Lets a variable registered again, for another call that shares it, admit null where that call's
+   * bound does, so the bound of whichever call registered first does not decide for the others.
+   */
+  private void admitNullIf(Element typeVariable, boolean upperBoundNullable) {
+    if (upperBoundNullable) {
+      getState(typeVariable).nullableAllowed = true;
+    }
+  }
+
+  @Override
+  public void addBoundConstraint(Element typeVariable, Type bound) {
+    boundConstraints.put(typeVariable, bound);
+  }
+
+  @Override
+  public void registerInferenceVariable(Element typeVariable, boolean upperBoundNullable) {
+    if (inferenceVariables.add(typeVariable)) {
+      vars.putIfAbsent(typeVariable, new VarState(upperBoundNullable));
+    } else {
+      sharedInferenceVariables.add(typeVariable);
+      admitNullIf(typeVariable, upperBoundNullable);
     }
   }
 
@@ -338,6 +366,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   @Override
   public Map<Element, InferredNullability> solve() throws UnsatisfiableConstraintsException {
+    for (Map.Entry<Element, Type> boundConstraint : boundConstraints.entrySet()) {
+      Element typeVariable = boundConstraint.getKey();
+      Type bound = boundConstraint.getValue();
+      if (!sharedInferenceVariables.contains(typeVariable)
+          && !sharedInferenceVariables.contains(bound.asElement())) {
+        addSubtypeConstraint((Type) typeVariable.asType(), bound, false);
+      }
+    }
     /* ---------- work-list propagation of nullability ---------- */
     Deque<Element> work = new ArrayDeque<>();
     vars.forEach(

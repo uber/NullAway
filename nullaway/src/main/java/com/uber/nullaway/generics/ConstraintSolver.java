@@ -23,6 +23,28 @@ public interface ConstraintSolver {
   void registerInferenceVariable(Element typeVariable);
 
   /**
+   * Registers a type variable as {@link #registerInferenceVariable(Element)} does, with the
+   * nullability of its upper bound given for this call rather than read from its declaration, as
+   * for {@code <U extends E>} on a receiver or constructed type that fixes {@code E}. A variable
+   * registered by several calls admits null where any of their bounds does.
+   *
+   * @param typeVariable the type variable
+   * @param upperBoundNullable whether the upper bound of the type variable admits null at this call
+   */
+  void registerInferenceVariable(Element typeVariable, boolean upperBoundNullable);
+
+  /**
+   * Records that the inference variable {@code typeVariable} is bounded by {@code bound}, another
+   * inference variable, as in {@code <U extends E>}. The solver applies it as a subtype constraint
+   * when it solves, unless either variable is shared by several calls in the inference problem: a
+   * shared variable stands for several instantiations at once, which one constraint cannot relate.
+   *
+   * @param typeVariable the bounded type variable
+   * @param bound its declared upper bound, a type variable
+   */
+  void addBoundConstraint(Element typeVariable, Type bound);
+
+  /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
    *
    * <p>This is an unchecked exception since in our current solver implementation it needs to be

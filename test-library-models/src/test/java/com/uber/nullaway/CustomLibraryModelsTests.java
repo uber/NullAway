@@ -400,6 +400,10 @@ public class CustomLibraryModelsTests {
                 ProviderNullMarkedViaModel<Object> r = ProviderNullMarkedViaModel.of(new Object());
                 r.get().toString();
               }
+              void aModelOnABoundedByAnother(@Nullable Object value) {
+                // the model makes the bound of B nullable, whatever A is
+                ProviderNullMarkedViaModel<Object> s = ProviderNullMarkedViaModel.upcast(value);
+              }
             }
             """)
         .doTest();
