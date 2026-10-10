@@ -375,7 +375,7 @@ public final class GenericsChecks {
     for (int i = 0; i < baseTypeVariables.size(); i++) {
       if (nullableTypeArguments.containsKey(i)) {
         Type typeVariable = baseTypeVariables.get(i);
-        Type upperBound = typeVariable.getUpperBound();
+        Type upperBound = GenericsUtils.declaredUpperBound((Type.TypeVar) typeVariable, state);
         com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
             upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
@@ -1691,7 +1691,8 @@ public final class GenericsChecks {
   private void addBoundConstraints(
       ConstraintSolver solver, List<Symbol.TypeVariableSymbol> typeVariables, VisitorState state) {
     for (Symbol.TypeVariableSymbol typeVariable : typeVariables) {
-      Type declaredBound = ((Type.TypeVar) typeVariable.type).getUpperBound();
+      Type declaredBound =
+          GenericsUtils.declaredUpperBound((Type.TypeVar) typeVariable.type, state);
       if (declaredBound instanceof Type.TypeVar declaredBoundVariable
           && !GenericsUtils.hasNullnessAnnotation(declaredBound, config)
           && typeVariables.contains(declaredBoundVariable.tsym)
@@ -4216,7 +4217,7 @@ public final class GenericsChecks {
           effectiveUpperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
     }
     if (followUnsubstitutedTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
-      Type upperBound = typeVar.getUpperBound();
+      Type upperBound = GenericsUtils.declaredUpperBound(typeVar, state);
       if (upperBound != null) {
         return getTypeNullnessForRead(
             upperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);

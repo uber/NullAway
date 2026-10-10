@@ -380,7 +380,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       return true;
     }
     if (type instanceof Type.TypeVar typeVar) {
-      Type bound = typeVar.getUpperBound();
+      Type bound = GenericsUtils.declaredUpperBound(typeVar, state);
       NullnessOperator boundOperator = boundOperator(typeVar, bound);
       if (boundOperator == NullnessOperator.UNION_NULL) {
         return false;
@@ -412,7 +412,7 @@ public class CheckIdenticalNullabilityVisitor extends Types.DefaultTypeVisitor<B
       if (typeVar.tsym.equals(target.tsym)) {
         return true;
       }
-      Type bound = typeVar.getUpperBound();
+      Type bound = GenericsUtils.declaredUpperBound(typeVar, state);
       NullnessOperator boundOperator = boundOperator(typeVar, bound);
       if (boundOperator == NullnessOperator.UNION_NULL) {
         return false;

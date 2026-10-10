@@ -6,9 +6,12 @@ import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MemberReferenceTree;
+import com.sun.tools.javac.api.JavacTrees;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Type.CapturedType;
 import com.sun.tools.javac.code.Type.ClassType;
@@ -27,7 +30,6 @@ import java.util.IdentityHashMap;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
-import javax.lang.model.type.TypeVariable;
 import org.jspecify.annotations.Nullable;
 
 /** Utility methods for doing generics-related checking */
@@ -332,7 +334,7 @@ public class GenericsUtils {
     if (libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
       return true;
     }
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    Type upperBound = declaredUpperBound((Type.TypeVar) typeVarElement.asType(), state);
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return true;
     }
@@ -355,7 +357,7 @@ public class GenericsUtils {
    */
   static boolean boundIsExplicitlyNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    Type upperBound = declaredUpperBound((Type.TypeVar) typeVarElement.asType(), state);
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)
         || libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
       return true;
@@ -363,6 +365,101 @@ public class GenericsUtils {
     return !hasNullnessAnnotation(upperBound, config)
         && upperBound.getKind() == TypeKind.TYPEVAR
         && boundIsExplicitlyNullable(upperBound.asElement(), config, handler, state);
+  }
+
+  /**
+   * Returns the upper bound declared for {@code typeVar}, with the type-use annotations written on
+   * it.
+   *
+   * <p>{@link Type.TypeVar#getUpperBound()} is wrong for a type variable of a constructor once an
+   * anonymous class calls that constructor. javac builds the anonymous class's constructor from
+   * type-parameter trees that share the superclass constructor's type variables but carry no
+   * annotations, and attributing them overwrites the bound of each shared variable. This method
+   * reads the bound of a constructor declared in a source file of the current compilation from the
+   * declaration tree, and restores the top-level annotations of each bound of a constructor loaded
+   * from a class file from the constructor's type annotations; nested annotations of the latter
+   * stay lost.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality check
+  static Type declaredUpperBound(Type.TypeVar typeVar, VisitorState state) {
+    Type upperBound = typeVar.getUpperBound();
+    // A copy made by substitution, such as U in <U extends E> for new Foo<String>(...), has a
+    // bound of its own that the declaration does not show.
+    if (typeVar != typeVar.tsym.type
+        || !(typeVar.tsym.owner instanceof Symbol.MethodSymbol owner)
+        || !owner.isConstructor()) {
+      return upperBound;
+    }
+    JCTree.JCMethodDecl decl = JavacTrees.instance(state.context).getTree(owner);
+    return decl != null
+        ? upperBoundFromTree(decl, typeVar, upperBound, state)
+        : upperBoundFromTypeAttributes(owner, typeVar, upperBound, state);
+  }
+
+  /**
+   * Returns the upper bound that {@code decl} declares for {@code typeVar}, or {@code upperBound}
+   * where the tree carries none.
+   */
+  private static Type upperBoundFromTree(
+      JCTree.JCMethodDecl decl, Type.TypeVar typeVar, Type upperBound, VisitorState state) {
+    for (JCTree.JCTypeParameter typeParameter : decl.typarams) {
+      if (typeParameter.type == null || !typeParameter.type.tsym.equals(typeVar.tsym)) {
+        continue;
+      }
+      List<JCTree.JCExpression> bounds = typeParameter.bounds;
+      if (bounds.isEmpty() || bounds.stream().anyMatch(bound -> bound.type == null)) {
+        return upperBound;
+      }
+      return bounds.size() == 1
+          ? bounds.head.type
+          : state.getTypes().makeIntersectionType(bounds.map(bound -> bound.type));
+    }
+    return upperBound;
+  }
+
+  /**
+   * Returns {@code upperBound} with the top-level type annotations that {@code constructor} records
+   * for each bound of {@code typeVar} put back on the bounds that carry none.
+   */
+  private static Type upperBoundFromTypeAttributes(
+      Symbol.MethodSymbol constructor, Type.TypeVar typeVar, Type upperBound, VisitorState state) {
+    int parameterIndex = constructor.getTypeParameters().indexOf(typeVar.tsym);
+    if (parameterIndex < 0) {
+      return upperBound;
+    }
+    List<Type> bounds =
+        upperBound.isIntersection()
+            ? ((Type.IntersectionClassType) upperBound).getExplicitComponents()
+            : List.of(upperBound);
+    // JVMS 4.7.20.1: bound_index 0 is the class bound, so interface bounds are numbered from 1
+    // where the first bound is an interface.
+    int boundIndex = bounds.head.isInterface() ? 1 : 0;
+    ListBuffer<Type> restored = new ListBuffer<>();
+    boolean changed = false;
+    for (Type bound : bounds) {
+      int index = boundIndex++;
+      List<Attribute.TypeCompound> annotations =
+          constructor.getRawTypeAttributes().stream()
+              .filter(
+                  a ->
+                      a.position.type == TargetType.METHOD_TYPE_PARAMETER_BOUND
+                          && a.position.parameter_index == parameterIndex
+                          && a.position.bound_index == index
+                          && a.position.location.isEmpty())
+              .collect(List.collector());
+      if (annotations.isEmpty() || !bound.getAnnotationMirrors().isEmpty()) {
+        restored.add(bound);
+      } else {
+        restored.add(bound.annotatedType(annotations));
+        changed = true;
+      }
+    }
+    if (!changed) {
+      return upperBound;
+    }
+    return restored.size() == 1
+        ? restored.first()
+        : state.getTypes().makeIntersectionType(restored.toList());
   }
 
   /** Returns true if a library model overrides the upper bound of the given type variable. */
