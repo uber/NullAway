@@ -974,7 +974,10 @@ public class NullAway extends BugChecker
         continue;
       }
       int methodParamInd = i - startParam;
-      VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
+      // a varargs method reference can take several parameters as elements of its last one
+      VarSymbol paramSymbol =
+          overridingParamSymbols.get(
+              getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree));
       boolean paramIsNonNull =
           paramOfOverridingMethodIsNonNull(
               paramSymbol,
@@ -1060,7 +1063,8 @@ public class NullAway extends BugChecker
       @Nullable MethodParameterNullness referencedMethodParameterNullnessOverrides) {
     if (referencedMethodParameterNullnessOverrides != null) {
       Nullness parameterNullnessOverride =
-          referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
+          referencedMethodParameterNullnessOverrides.getParameterNullness(
+              getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree));
       if (parameterNullnessOverride != null) {
         // An explicit handler value takes precedence over annotations and generic substitution.
         return parameterNullnessOverride.equals(Nullness.NONNULL);

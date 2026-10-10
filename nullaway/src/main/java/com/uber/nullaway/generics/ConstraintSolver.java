@@ -14,8 +14,35 @@ public interface ConstraintSolver {
   /**
    * Registers a type variable whose nullability is being inferred by this solver. Must be called
    * before adding constraints involving that parameter; unregistered parameters are fixed types.
+   *
+   * <p>The solver keys a variable by its declaration, so two calls of one generic method or class
+   * in the same inference problem share one variable. Each call registers its variables, and a
+   * variable registered more than once is never resolved as {@link
+   * InferredNullability#TYPE_VARIABLE_OR_NULLABLE}.
    */
   void registerInferenceVariable(Element typeVariable);
+
+  /**
+   * Registers a type variable as {@link #registerInferenceVariable(Element)} does, with the
+   * nullability of its upper bound given for this call rather than read from its declaration, as
+   * for {@code <U extends E>} on a receiver or constructed type that fixes {@code E}. A variable
+   * registered by several calls admits null where any of their bounds does.
+   *
+   * @param typeVariable the type variable
+   * @param upperBoundNullable whether the upper bound of the type variable admits null at this call
+   */
+  void registerInferenceVariable(Element typeVariable, boolean upperBoundNullable);
+
+  /**
+   * Records that the inference variable {@code typeVariable} is bounded by {@code bound}, another
+   * inference variable, as in {@code <U extends E>}. The solver applies it as a subtype constraint
+   * when it solves, unless either variable is shared by several calls in the inference problem: a
+   * shared variable stands for several instantiations at once, which one constraint cannot relate.
+   *
+   * @param typeVariable the bounded type variable
+   * @param bound its declared upper bound, a type variable
+   */
+  void addBoundConstraint(Element typeVariable, Type bound);
 
   /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
@@ -64,9 +91,33 @@ public interface ConstraintSolver {
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException;
 
+  /** The nullness the solver found for an inference variable. */
   enum InferredNullability {
+    /** A constraint fixed the variable to be non-null. */
     NONNULL,
-    NULLABLE
+    /** A constraint fixed the variable to be nullable. */
+    NULLABLE,
+    /**
+     * No constraint fixed the variable, a type variable {@code T} whose bound is explicitly
+     * nullable flowed into it, and the variable's own bound is explicitly nullable. Where javac
+     * inferred a type variable, the variable is that type variable as written; where javac inferred
+     * an intersection type, it carries no annotation; where javac inferred any other type, such as
+     * the least upper bound of {@code T} and {@code String}, the variable is {@code @Nullable}, the
+     * least type that holds a null {@code T}.
+     *
+     * <p>A variable that no constraint fixed and no such type variable reached is {@link #NONNULL},
+     * the least solution.
+     */
+    TYPE_VARIABLE_OR_NULLABLE,
+    /**
+     * No constraint fixed the variable and a type variable whose bound admits null flowed into it,
+     * but no type variable whose bound is explicitly nullable did, the variable's own bound is not
+     * explicitly nullable, or the variable is shared by several calls. Where javac inferred a type
+     * variable, the variable is that type variable as written; where javac inferred an intersection
+     * type, it carries no annotation; where javac inferred any other type, the variable is
+     * {@code @NonNull}, as if no type variable had reached it.
+     */
+    TYPE_VARIABLE_OR_NONNULL
   }
 
   /**

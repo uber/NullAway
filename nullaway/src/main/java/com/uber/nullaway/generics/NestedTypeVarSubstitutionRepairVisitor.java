@@ -5,17 +5,20 @@ import static com.uber.nullaway.NullabilityUtil.pathWithLeaf;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
-import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
+import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.Nullness;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
+import java.util.Set;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -26,7 +29,9 @@ final class NestedTypeVarSubstitutionRepairVisitor
     extends Types.DefaultTypeVisitor<Type, NestedTypeVarSubstitutionRepairVisitor.RepairContext> {
 
   private final GenericsChecks genericsChecks;
-  private final MethodInvocationTree invocationTree;
+
+  /** the generic method invocation or constructor call */
+  private final ExpressionTree invocationTree;
 
   /** declared method type for generic method */
   private final Type.MethodType origMethodType;
@@ -34,8 +39,8 @@ final class NestedTypeVarSubstitutionRepairVisitor
   /** method type inferred by javac at the call site */
   private final Type.MethodType methodTypeAtCallSite;
 
-  /** symbol of the invoked generic method */
-  private final Symbol.MethodSymbol methodSymbol;
+  /** symbols of the type variables of the invoked generic method or constructor */
+  private final Set<Symbol.TypeSymbol> methodTypeVariables = new HashSet<>();
 
   /** visitor state whose path points to {@link #invocationTree} */
   private final VisitorState state;
@@ -44,22 +49,32 @@ final class NestedTypeVarSubstitutionRepairVisitor
   private final boolean calledFromDataflow;
 
   /**
-   * use this map to store repaired substitutions for method type variables, to ensure we use the
-   * same repaired substitution for all occurrences of the same type variable
+   * repaired substitutions for method type variables, so that later occurrences of a type variable
+   * take the substitution an earlier argument repaired. Only a substitution that an argument
+   * actually repaired is kept, and an array substitution takes, at every dimension, the
+   * {@code @Nullable} components of every argument's array.
    */
   private final Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions = new HashMap<>();
 
   /**
+   * true while the return type is rebuilt from {@link #repairedSubstitutions}, where a type
+   * variable takes its repaired substitution and is not repaired again
+   */
+  private boolean substituteRepairedOnly = false;
+
+  /**
    * Repairs nested nullability annotations in the inferred call-site method type for a generic
-   * method invocation. In narrow cases, javac drops or misplaces nested type-use nullability
-   * annotations on type variables in its inferred type for a generic method at a call site. See <a
-   * href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This method repairs those
-   * annotations based on the types of actual parameters. It does not attempt to be a very general
-   * fix, as we do not fully understand the scenarios where this can arise.
+   * method invocation or constructor call. In narrow cases, javac drops or misplaces nested
+   * type-use nullability annotations on type variables in its inferred type for a generic method at
+   * a call site. See <a href="https://github.com/uber/NullAway/issues/1455">issue 1455</a>. This
+   * method repairs those annotations based on the types of actual parameters. It does not attempt
+   * to be a very general fix, as we do not fully understand the scenarios where this can arise.
    *
    * @param genericsChecks the owning generics checker, used to compute actual argument types
-   * @param invocationTree the method invocation tree for the generic method call
+   * @param invocationTree the method invocation or constructor call tree for the generic call
    * @param origMethodType the declared method type for the generic method
+   * @param methodTypeVariables the type variables of the generic method, as they appear in {@code
+   *     origMethodType}
    * @param methodTypeAtCallSite the method type inferred by javac at the call site
    * @param invocationPath the path to the invocation tree, or null if not available
    * @param state the visitor state
@@ -70,8 +85,9 @@ final class NestedTypeVarSubstitutionRepairVisitor
    */
   static Type.MethodType repairMethodType(
       GenericsChecks genericsChecks,
-      MethodInvocationTree invocationTree,
+      ExpressionTree invocationTree,
       Type.MethodType origMethodType,
+      List<Type> methodTypeVariables,
       Type.MethodType methodTypeAtCallSite,
       @Nullable TreePath invocationPath,
       VisitorState state,
@@ -81,6 +97,7 @@ final class NestedTypeVarSubstitutionRepairVisitor
             genericsChecks,
             invocationTree,
             origMethodType,
+            methodTypeVariables,
             methodTypeAtCallSite,
             invocationPath,
             state,
@@ -89,10 +106,106 @@ final class NestedTypeVarSubstitutionRepairVisitor
         .repairMethodTypeInternal();
   }
 
+  /**
+   * Repairs nested nullability annotations in javac's instantiation of a generic method at a use
+   * whose argument types are known as types rather than as trees, such as a method reference whose
+   * arguments are the parameters of its functional-interface method. The return type takes the
+   * substitutions repaired from the parameters.
+   *
+   * @param genericsChecks the owning generics checker
+   * @param useTree the tree of the use, such as the method reference
+   * @param origMethodType the declared method type for the generic method
+   * @param methodTypeVariables the type variables of the generic method, as they appear in {@code
+   *     origMethodType}
+   * @param methodTypeAtUse the method type javac inferred at the use
+   * @param actualParamTypes the types passed for the parameters, one for each parameter, or, in
+   *     varargs form, one for each parameter before the last and one for each varargs element
+   * @param varargsForm whether the use passes its last arguments as elements of the varargs
+   *     parameter
+   * @param state the visitor state
+   * @param config the NullAway configuration
+   * @return a method type based on {@code methodTypeAtUse}, with nested nullability annotations on
+   *     method type-variable substitutions restored where possible
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
+  static Type.MethodType repairMethodTypeFromParameterTypes(
+      GenericsChecks genericsChecks,
+      ExpressionTree useTree,
+      Type.MethodType origMethodType,
+      List<Type> methodTypeVariables,
+      Type.MethodType methodTypeAtUse,
+      List<Type> actualParamTypes,
+      boolean varargsForm,
+      VisitorState state,
+      Config config) {
+    NestedTypeVarSubstitutionRepairVisitor visitor =
+        new NestedTypeVarSubstitutionRepairVisitor(
+            genericsChecks,
+            useTree,
+            origMethodType,
+            methodTypeVariables,
+            methodTypeAtUse,
+            null,
+            state,
+            config,
+            false);
+    List<Type> genericParamTypes = origMethodType.getParameterTypes();
+    List<Type> paramTypesAtUse = methodTypeAtUse.getParameterTypes();
+    int lastParamIndex = genericParamTypes.size() - 1;
+    if (paramTypesAtUse.size() != genericParamTypes.size()
+        || (varargsForm
+            ? lastParamIndex < 0
+                || actualParamTypes.size() < lastParamIndex
+                || !(genericParamTypes.get(lastParamIndex) instanceof Type.ArrayType)
+                || !(paramTypesAtUse.get(lastParamIndex) instanceof Type.ArrayType)
+            : actualParamTypes.size() != genericParamTypes.size())) {
+      return methodTypeAtUse;
+    }
+    ListBuffer<Type> updatedParamTypes = new ListBuffer<>();
+    boolean changed = false;
+    for (int i = 0; i < genericParamTypes.size(); i++) {
+      Type paramTypeAtUse = paramTypesAtUse.get(i);
+      Type repairedType;
+      if (varargsForm && i == lastParamIndex) {
+        Type.ArrayType arrayTypeAtUse = (Type.ArrayType) paramTypeAtUse;
+        Type elemTypeAtUse = arrayTypeAtUse.getComponentType();
+        Type repairedElemType = elemTypeAtUse;
+        for (int j = i; j < actualParamTypes.size(); j++) {
+          repairedElemType =
+              visitor.repairType(
+                  ((Type.ArrayType) genericParamTypes.get(i)).getComponentType(),
+                  actualParamTypes.get(j),
+                  repairedElemType);
+        }
+        repairedType =
+            repairedElemType != elemTypeAtUse
+                ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
+                    arrayTypeAtUse, repairedElemType)
+                : paramTypeAtUse;
+      } else {
+        repairedType =
+            visitor.repairType(genericParamTypes.get(i), actualParamTypes.get(i), paramTypeAtUse);
+      }
+      changed |= repairedType != paramTypeAtUse;
+      updatedParamTypes.append(repairedType);
+    }
+    Type returnTypeAtUse = methodTypeAtUse.getReturnType();
+    Type repairedReturnType = visitor.repairReturnType(origMethodType, returnTypeAtUse);
+    changed |= repairedReturnType != returnTypeAtUse;
+    return changed
+        ? new Type.MethodType(
+            updatedParamTypes.toList(),
+            repairedReturnType,
+            methodTypeAtUse.getThrownTypes(),
+            methodTypeAtUse.tsym)
+        : methodTypeAtUse;
+  }
+
   private NestedTypeVarSubstitutionRepairVisitor(
       GenericsChecks genericsChecks,
-      MethodInvocationTree invocationTree,
+      ExpressionTree invocationTree,
       Type.MethodType origMethodType,
+      List<Type> methodTypeVariables,
       Type.MethodType methodTypeAtCallSite,
       @Nullable TreePath invocationPath,
       VisitorState state,
@@ -102,7 +215,9 @@ final class NestedTypeVarSubstitutionRepairVisitor
     this.invocationTree = invocationTree;
     this.origMethodType = origMethodType;
     this.methodTypeAtCallSite = methodTypeAtCallSite;
-    this.methodSymbol = ASTHelpers.getSymbol(invocationTree);
+    for (Type typeVariable : methodTypeVariables) {
+      this.methodTypeVariables.add(typeVariable.tsym);
+    }
     this.state =
         state.withPath(
             pathWithLeaf(
@@ -112,54 +227,111 @@ final class NestedTypeVarSubstitutionRepairVisitor
   }
 
   /**
-   * repairs all parameter types at the call site, and then returns a new method type if any
-   * parameter type was actually repaired. otherwise, returns {@link #methodTypeAtCallSite}.
+   * repairs all parameter types at the call site, and the return type from the substitutions
+   * repaired for them, and then returns a new method type if any type was actually repaired.
+   * otherwise, returns {@link #methodTypeAtCallSite}.
    */
   // suppress since we want to check for a specific identical Type object to check for changes
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   private Type.MethodType repairMethodTypeInternal() {
-    if (methodSymbol.isVarArgs()) {
-      // skip handling of varargs for now
-      return methodTypeAtCallSite;
-    }
     com.sun.tools.javac.util.List<Type> genericMethodParamTypes =
         origMethodType.getParameterTypes();
     com.sun.tools.javac.util.List<Type> callSiteParamTypes =
         methodTypeAtCallSite.getParameterTypes();
-    List<? extends ExpressionTree> actualParams = invocationTree.getArguments();
+    List<? extends ExpressionTree> actualParams;
+    Type varargsElement;
+    if (invocationTree instanceof JCTree.JCMethodInvocation methodInvocation) {
+      actualParams = methodInvocation.getArguments();
+      varargsElement = methodInvocation.varargsElement;
+    } else {
+      JCTree.JCNewClass newClass = (JCTree.JCNewClass) invocationTree;
+      actualParams = newClass.getArguments();
+      varargsElement = newClass.varargsElement;
+    }
+    // in a call in varargs form, each argument from the last parameter's position on is an element
+    // of that parameter's array
+    int lastParamIndex = genericMethodParamTypes.size() - 1;
+    boolean varargsForm =
+        varargsElement != null
+            && lastParamIndex >= 0
+            && genericMethodParamTypes.get(lastParamIndex) instanceof Type.ArrayType
+            && callSiteParamTypes.get(lastParamIndex) instanceof Type.ArrayType;
     ListBuffer<Type> updatedArgTypes = new ListBuffer<>();
     boolean changed = false;
     for (int i = 0; i < genericMethodParamTypes.size(); i++) {
       Type callSiteParamType = callSiteParamTypes.get(i);
       Type genericMethodParamType = genericMethodParamTypes.get(i);
-      ExpressionTree actualParam = actualParams.get(i);
-      // IMPORTANT: actualArgType is the result of getTreeType(), which will apply NullAway's own
-      // reasoning about nullability of nested types, e.g., by running generic method inference at
-      // nested levels of the expression.  This is how actualArgType ends up having the "ground
-      // truth" information about nullability of nested types, which is used to repair the
-      // javac-determined call site type.
-      Type actualArgType =
-          genericsChecks.getTreeType(
-              actualParam,
-              state.withPath(pathWithLeaf(state.getPath(), actualParam)),
-              calledFromDataflow);
-      if (actualArgType != null) {
-        Type repairedType = repairType(genericMethodParamType, actualArgType, callSiteParamType);
-        if (repairedType != callSiteParamType) {
-          changed = true;
-          callSiteParamType = repairedType;
+      Type repairedType;
+      if (varargsForm && i == lastParamIndex) {
+        Type.ArrayType callSiteArrayType = (Type.ArrayType) callSiteParamType;
+        Type callSiteElemType = callSiteArrayType.getComponentType();
+        Type repairedElemType = callSiteElemType;
+        for (int j = i; j < actualParams.size(); j++) {
+          repairedElemType =
+              repairActual(
+                  ((Type.ArrayType) genericMethodParamType).getComponentType(),
+                  actualParams.get(j),
+                  repairedElemType);
         }
+        repairedType =
+            repairedElemType != callSiteElemType
+                ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
+                    callSiteArrayType, repairedElemType)
+                : callSiteParamType;
+      } else {
+        repairedType = repairActual(genericMethodParamType, actualParams.get(i), callSiteParamType);
       }
-      updatedArgTypes.append(callSiteParamType);
+      if (repairedType != callSiteParamType) {
+        changed = true;
+      }
+      updatedArgTypes.append(repairedType);
     }
+    Type returnTypeAtCallSite = methodTypeAtCallSite.getReturnType();
+    Type repairedReturnType = repairReturnType(origMethodType, returnTypeAtCallSite);
+    changed |= repairedReturnType != returnTypeAtCallSite;
     if (!changed) {
       return methodTypeAtCallSite;
     }
     return new Type.MethodType(
         updatedArgTypes.toList(),
-        methodTypeAtCallSite.getReturnType(),
+        repairedReturnType,
         methodTypeAtCallSite.getThrownTypes(),
         methodTypeAtCallSite.tsym);
+  }
+
+  /**
+   * Rebuilds the return type at the use with the substitutions repaired for the parameters, so that
+   * the result {@code U} of {@code <U> U id(U u)} in the repaired method type carries the nested
+   * nullability its argument does. Must be called after the parameters are repaired.
+   */
+  private Type repairReturnType(Type.MethodType origMethodType, Type returnTypeAtCallSite) {
+    substituteRepairedOnly = true;
+    try {
+      return repairType(origMethodType.getReturnType(), returnTypeAtCallSite, returnTypeAtCallSite);
+    } finally {
+      substituteRepairedOnly = false;
+    }
+  }
+
+  /**
+   * Repairs {@code callSiteType}, the javac-determined type of a parameter or of a varargs element,
+   * from the type NullAway determines for {@code actualParam}. Returns {@code callSiteType} where
+   * NullAway determines no type for the argument.
+   */
+  private Type repairActual(Type genericMethodType, ExpressionTree actualParam, Type callSiteType) {
+    // IMPORTANT: actualArgType is the result of getTreeType(), which will apply NullAway's own
+    // reasoning about nullability of nested types, e.g., by running generic method inference at
+    // nested levels of the expression.  This is how actualArgType ends up having the "ground
+    // truth" information about nullability of nested types, which is used to repair the
+    // javac-determined call site type.
+    Type actualArgType =
+        genericsChecks.getTreeType(
+            actualParam,
+            state.withPath(pathWithLeaf(state.getPath(), actualParam)),
+            calledFromDataflow);
+    return actualArgType == null
+        ? callSiteType
+        : repairType(genericMethodType, actualArgType, callSiteType);
   }
 
   private Type repairType(Type genericMethodType, Type actualArgType, Type callSiteType) {
@@ -169,7 +341,11 @@ final class NestedTypeVarSubstitutionRepairVisitor
   @Override
   public Type visitTypeVar(Type.TypeVar typeVar, RepairContext context) {
     // only repair type variables on the invoked method
-    if (Objects.equals(typeVar.tsym.owner, methodSymbol)) {
+    if (methodTypeVariables.contains(typeVar.tsym)) {
+      if (substituteRepairedOnly) {
+        return repairedSubstitutions.getOrDefault(
+            (Symbol.TypeVariableSymbol) typeVar.tsym, context.callSiteType());
+      }
       return repairTypeVarSubstitution(typeVar, context.actualArgType(), context.callSiteType());
     }
     return context.callSiteType();
@@ -268,6 +444,37 @@ final class NestedTypeVarSubstitutionRepairVisitor
         : context.callSiteType();
   }
 
+  /**
+   * when this method is called, {@code genericWildcardType} is a type argument within some level of
+   * a parameter type for the generic method, and {@code context.callSiteType()} is the
+   * javac-determined wildcard at the same position. Recurses into the bound, against the bound of
+   * {@code context.actualArgType()} if it is a wildcard and against the type itself otherwise, as
+   * the type argument of the actual parameter is contained in the wildcard.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
+  @Override
+  public Type visitWildcardType(Type.WildcardType genericWildcardType, RepairContext context) {
+    if (!(context.callSiteType() instanceof Type.WildcardType callSiteWildcardType)
+        || genericWildcardType.type == null
+        || callSiteWildcardType.type == null
+        || genericWildcardType.kind != callSiteWildcardType.kind) {
+      return context.callSiteType();
+    }
+    Type actualBound = context.actualArgType();
+    if (actualBound instanceof Type.WildcardType actualWildcardType) {
+      if (actualWildcardType.kind != callSiteWildcardType.kind || actualWildcardType.type == null) {
+        return context.callSiteType();
+      }
+      actualBound = actualWildcardType.type;
+    }
+    Type callSiteBound = callSiteWildcardType.type;
+    Type repairedBound = repairType(genericWildcardType.type, actualBound, callSiteBound);
+    return repairedBound != callSiteBound
+        ? TypeMetadataBuilder.TYPE_METADATA_BUILDER.createWildcardType(
+            callSiteWildcardType, repairedBound)
+        : context.callSiteType();
+  }
+
   @Override
   public Type visitType(Type type, RepairContext context) {
     return context.callSiteType();
@@ -286,19 +493,98 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * @return updated type to use at the position in the call site, or {@code callSiteType} if no
    *     repair is needed
    */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   private Type repairTypeVarSubstitution(
       Type.TypeVar typeVar, Type actualArgType, Type callSiteType) {
     Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
-    return repairedSubstitutions.computeIfAbsent(
-        typeVarSymbol,
-        (unused) -> {
-          Type repairedSubstitution = callSiteType;
-          if (!actualArgType.isRaw() && !callSiteType.isRaw()) {
-            repairedSubstitution =
-                repairNestedTypeVarSubstitutionFromActual(actualArgType, callSiteType);
-          }
-          return repairedSubstitution;
-        });
+    Type previousSubstitution = repairedSubstitutions.get(typeVarSymbol);
+    Type repairedSubstitution = callSiteType;
+    if (!actualArgType.isRaw() && !callSiteType.isRaw()) {
+      repairedSubstitution = repairNestedTypeVarSubstitutionFromActual(actualArgType, callSiteType);
+    }
+    if (previousSubstitution != null) {
+      // arrays are covariant, so the substitution takes the components every argument's array
+      // admits null in, at every dimension; a class type keeps the first repair, so arguments
+      // that disagree on its type arguments are reported
+      if (previousSubstitution instanceof Type.ArrayType previousArrayType
+          && repairedSubstitution instanceof Type.ArrayType repairedArrayType) {
+        Type joined = joinArrayNullability(previousArrayType, repairedArrayType);
+        repairedSubstitutions.put(typeVarSymbol, joined);
+        return joined;
+      }
+      return previousSubstitution;
+    }
+    // only a repair is kept for the other occurrences of the type variable; an argument that
+    // repairs nothing leaves a later argument at another occurrence free to repair it
+    if (repairedSubstitution != callSiteType) {
+      repairedSubstitutions.put(typeVarSymbol, repairedSubstitution);
+    }
+    return repairedSubstitution;
+  }
+
+  /**
+   * Returns {@code first} with its components, at every dimension, also annotated {@code @Nullable}
+   * where those of {@code second}, an array of the same shape, are. Returns {@code first} where
+   * nothing changes.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
+  private Type joinArrayNullability(Type.ArrayType first, Type.ArrayType second) {
+    Type firstComponent = first.getComponentType();
+    Type secondComponent = second.getComponentType();
+    Type joinedComponent = firstComponent;
+    if (firstComponent instanceof Type.ArrayType firstComponentArray
+        && secondComponent instanceof Type.ArrayType secondComponentArray) {
+      joinedComponent = joinArrayNullability(firstComponentArray, secondComponentArray);
+    }
+    joinedComponent = withNullableFrom(secondComponent, joinedComponent);
+    return joinedComponent == firstComponent
+        ? first
+        : TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(first, joinedComponent);
+  }
+
+  /**
+   * Returns {@code target} annotated {@code @Nullable} where {@code source} is and {@code target}
+   * is not, and {@code target} otherwise.
+   */
+  private Type withNullableFrom(Type source, Type target) {
+    if (Nullness.hasNullableAnnotation(target.getAnnotationMirrors().stream(), config)) {
+      return target;
+    }
+    for (Attribute.TypeCompound annot : source.getAnnotationMirrors()) {
+      if (annot.type.tsym != null
+          && Nullness.isNullableAnnotation(annot.type.tsym.getQualifiedName().toString(), config)) {
+        return TypeSubstitutionUtils.typeWithAnnot(target, annot.type);
+      }
+    }
+    return target;
+  }
+
+  /**
+   * Returns {@code callSiteArrayType} with the nullability of the components of {@code
+   * actualArrayType}, an array of the same or a subtype component type, at every dimension: a class
+   * component takes the type arguments of the actual one as its supertype, and a {@code @Nullable}
+   * component stays {@code @Nullable}. So {@code @Nullable Integer[]} repairs {@code Number[]} to
+   * {@code @Nullable Number[]}.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
+  private Type transferArrayNullability(
+      Type.ArrayType actualArrayType, Type.ArrayType callSiteArrayType) {
+    Type actualComponent = actualArrayType.getComponentType();
+    Type callSiteComponent = callSiteArrayType.getComponentType();
+    Type repairedComponent = callSiteComponent;
+    if (actualComponent instanceof Type.ArrayType actualComponentArray
+        && callSiteComponent instanceof Type.ArrayType callSiteComponentArray) {
+      repairedComponent = transferArrayNullability(actualComponentArray, callSiteComponentArray);
+    } else if (actualComponent instanceof Type.ClassType
+        && callSiteComponent instanceof Type.ClassType) {
+      repairedComponent =
+          repairNestedTypeVarSubstitutionFromActual(actualComponent, callSiteComponent);
+    }
+    repairedComponent = withNullableFrom(actualComponent, repairedComponent);
+    return repairedComponent == callSiteComponent
+        ? callSiteArrayType
+        : TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
+            callSiteArrayType, repairedComponent);
   }
 
   /**
@@ -311,9 +597,26 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * actualArgType}.
    *
    * <p>Similarly, for array types, if {@code actualArgType} is {@code @Nullable Foo []} and {@code
-   * callSiteType} is {@code Foo @Nullable []}, we return {@code @Nullable Foo @Nullable []}.
+   * callSiteType} is {@code Foo @Nullable []}, we return {@code @Nullable Foo @Nullable []}; see
+   * {@link #transferArrayNullability}.
    */
   private Type repairNestedTypeVarSubstitutionFromActual(Type actualArgType, Type callSiteType) {
+    if (actualArgType instanceof Type.ArrayType actualArrayType
+        && callSiteType instanceof Type.ArrayType callSiteArrayType) {
+      return transferArrayNullability(actualArrayType, callSiteArrayType);
+    }
+    // the actual type can be a subtype of the javac-inferred call-site type, so convert to the
+    // supertype
+    if (actualArgType instanceof Type.ClassType
+        && callSiteType instanceof Type.ClassType
+        && callSiteType.tsym instanceof Symbol.ClassSymbol callSiteClassSymbol) {
+      Type actualAsSuper =
+          TypeSubstitutionUtils.asSuper(
+              state.getTypes(), actualArgType, callSiteClassSymbol, config);
+      if (actualAsSuper != null) {
+        actualArgType = actualAsSuper;
+      }
+    }
     // only handle cases where base types are identical for now
     if (!ASTHelpers.isSameType(actualArgType, callSiteType, state)) {
       return callSiteType;
@@ -321,18 +624,19 @@ final class NestedTypeVarSubstitutionRepairVisitor
     if (actualArgType instanceof Type.ClassType actualClassType
         && callSiteType instanceof Type.ClassType callSiteClassType) {
       List<Type> actualTypeArgs = actualClassType.getTypeArguments();
-      if (actualTypeArgs.isEmpty()) {
+      Type actualEnclosingType = actualClassType.getEnclosingType();
+      boolean hasGenericEnclosingType =
+          actualEnclosingType instanceof Type.ClassType
+              && !actualEnclosingType.getTypeArguments().isEmpty();
+      if (actualTypeArgs.isEmpty() && !hasGenericEnclosingType) {
         return callSiteType;
       }
-      // use call site type with type arguments from actual
+      // use call site type with type arguments, and those of an enclosing type such as Outer<E>
+      // in Outer<E>.Inner, from actual
       return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createClassType(
-          callSiteClassType, callSiteClassType.getEnclosingType(), actualTypeArgs);
-    }
-    if (actualArgType instanceof Type.ArrayType actualArrayType
-        && callSiteType instanceof Type.ArrayType callSiteArrayType) {
-      // use call site type with component type from actual
-      return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
-          callSiteArrayType, actualArrayType.getComponentType());
+          callSiteClassType,
+          hasGenericEnclosingType ? actualEnclosingType : callSiteClassType.getEnclosingType(),
+          actualTypeArgs);
     }
     return callSiteType;
   }
