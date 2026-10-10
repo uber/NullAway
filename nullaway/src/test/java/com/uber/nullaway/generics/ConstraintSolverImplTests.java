@@ -26,6 +26,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
+import com.uber.nullaway.generics.ConstraintSolver.NonNullWildcardBoundViolationException;
 import com.uber.nullaway.generics.ConstraintSolver.Solution;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.handlers.Handler;
@@ -136,6 +137,40 @@ public class ConstraintSolverImplTests {
     runFixture("missingShapes", "<T extends @Nullable Object> void inference(String evidence) {}");
   }
 
+  @Test
+  public void nonNullWildcardObligationIsIndependentOfEvidenceOrderAndRepeatedSolves() {
+    runFixture(
+        "wildcardEvidenceOrder",
+        """
+        <E extends @Nullable Object, R extends @Nullable Object, U> void inference(
+            Box<E> inner, Box<R> outer, Box<? extends U> required,
+            OuterT fixed, Object shape) {}
+        """);
+  }
+
+  @Test
+  public void annotatedOccurrencesBlockNonNullWildcardRootEvidence() {
+    runFixture(
+        "wildcardProjectionBarriers",
+        """
+        <E, R extends @Nullable Object, U> void inference(
+            Box<E> inner, Box<R> outer, Box<? extends U> required,
+            OuterT fixed, @Nullable E nullableDestination, @NonNull OuterT nonNullSource,
+            Object shape) {}
+        """);
+  }
+
+  @Test
+  public void modeledUnregisteredFixedSourceProvesNonNullWildcardViolation() {
+    runFixture(
+        "wildcardModeledFixedSource",
+        """
+        static <S, E extends @Nullable Object, R extends @Nullable Object, U> void inference(
+            Box<E> inner, Box<R> outer, Box<? extends U> required,
+            S fixed, @NonNull S nonNullSource, Object shape) {}
+        """);
+  }
+
   /** Compiles one marker-field scenario and verifies its assertions ran exactly once. */
   private void runFixture(String marker, String members) {
     EXECUTED_MARKERS.get().clear();
@@ -149,6 +184,7 @@ public class ConstraintSolverImplTests {
               """
               package com.uber;
               import java.util.function.Supplier;
+              import org.jspecify.annotations.NonNull;
               import org.jspecify.annotations.Nullable;
               class Test<OuterT extends @Nullable Object> {
                 static class Box<E extends @Nullable Object> {}
@@ -183,7 +219,10 @@ public class ConstraintSolverImplTests {
             "sourceIsolation",
             "lateEvidence",
             "modeledBound",
-            "missingShapes");
+            "missingShapes",
+            "wildcardEvidenceOrder",
+            "wildcardProjectionBarriers",
+            "wildcardModeledFixedSource");
 
     @Override
     public Description matchVariable(VariableTree tree, VisitorState state) {
@@ -203,6 +242,9 @@ public class ConstraintSolverImplTests {
         case "lateEvidence" -> checkLateEvidence(context);
         case "modeledBound" -> checkModeledBound(context);
         case "missingShapes" -> checkMissingShapes(context);
+        case "wildcardEvidenceOrder" -> checkWildcardEvidenceOrder(context);
+        case "wildcardProjectionBarriers" -> checkWildcardProjectionBarriers(context);
+        case "wildcardModeledFixedSource" -> checkWildcardModeledFixedSource(context);
         default -> throw new AssertionError("Unhandled marker: " + marker);
       }
       EXECUTED_MARKERS.get().add(marker);
@@ -600,6 +642,190 @@ public class ConstraintSolverImplTests {
       assertThat(solution.inconsistentVariables()).isEmpty();
       assertThat(solution.isComplete()).isFalse();
       assertThat(solution.isCompleteForSite(context.siteA())).isFalse();
+    }
+
+    /** Registers two inner variables at site A and the non-null wildcard variable at site B. */
+    private static Map<Element, Type.TypeVar> registerWildcardChain(
+        TestContext context, ConstraintSolver solver, int firstIndex, Type shape) {
+      Element inner = context.variable(firstIndex);
+      Element outer = context.variable(firstIndex + 1);
+      Element required = context.variable(firstIndex + 2);
+      Map<Element, Type.TypeVar> innerVariables =
+          solver.registerInferenceVariables(
+              context.siteA(),
+              List.of(inner, outer),
+              Map.of(),
+              Set.of(inner, outer),
+              Map.of(inner, shape, outer, shape));
+      Type.TypeVar requiredVariable =
+          solver
+              .registerInferenceVariables(
+                  context.siteB(),
+                  List.of(required),
+                  Map.of(),
+                  Set.of(required),
+                  Map.of(required, shape))
+              .get(required);
+      return Map.of(
+          inner, innerVariables.get(inner),
+          outer, innerVariables.get(outer),
+          required, requiredVariable);
+    }
+
+    /** Substitutes registered occurrences into attributed fixture types, retaining projections. */
+    private static Type wildcardFixtureType(
+        TestContext context, int parameter, Map<Element, ? extends Type> replacements) {
+      return TypeSubstitutionUtils.substituteTypeVariables(
+          context.parameter(parameter), replacements, context.state().getTypes(), context.config());
+    }
+
+    /** Requires the deferred exception, not a contextual scalar contradiction, on every solve. */
+    private static void assertWildcardFailure(
+        TestContext context, ConstraintSolver solver, Element required) {
+      for (int attempt = 0; attempt < 2; attempt++) {
+        NonNullWildcardBoundViolationException exception =
+            assertThrows(NonNullWildcardBoundViolationException.class, solver::solve);
+        assertThat(exception.getClass()).isEqualTo(NonNullWildcardBoundViolationException.class);
+        assertThat(exception.getTypeVariable()).isSameInstanceAs(required);
+        assertThat(exception.getInferenceSite()).isSameInstanceAs(context.siteB());
+        assertThat(exception.isCausedByNonNullUpperBound()).isTrue();
+      }
+    }
+
+    /** Tests both obligation orders, both lower/edge orders, and evidence added after a solve. */
+    private static void checkWildcardEvidenceOrder(TestContext context) {
+      Element inner = context.variable(0);
+      Element outer = context.variable(1);
+      Element required = context.variable(2);
+      for (boolean obligationFirst : List.of(false, true)) {
+        for (boolean lowerFirst : List.of(false, true)) {
+          ConstraintSolver solver = newSolver(context);
+          Map<Element, Type.TypeVar> fresh =
+              registerWildcardChain(context, solver, 0, context.parameter(4));
+          Type actual = wildcardFixtureType(context, 1, fresh);
+          Type formal = wildcardFixtureType(context, 2, fresh);
+          if (obligationFirst) {
+            solver.addSubtypeConstraint(actual, formal, false);
+          }
+          if (lowerFirst) {
+            solver.addSubtypeConstraint(context.parameter(3), fresh.get(inner), false);
+          }
+          solver.addSubtypeConstraint(fresh.get(inner), fresh.get(outer), false);
+          if (!lowerFirst) {
+            solver.addSubtypeConstraint(context.parameter(3), fresh.get(inner), false);
+          }
+          if (!obligationFirst) {
+            solver.addSubtypeConstraint(actual, formal, false);
+          }
+          assertWildcardFailure(context, solver, required);
+        }
+      }
+      ConstraintSolver late = newSolver(context);
+      Map<Element, Type.TypeVar> fresh =
+          registerWildcardChain(context, late, 0, context.parameter(4));
+      late.addSubtypeConstraint(
+          wildcardFixtureType(context, 1, fresh), wildcardFixtureType(context, 2, fresh), false);
+      late.addSubtypeConstraint(fresh.get(inner), fresh.get(outer), false);
+      for (int attempt = 0; attempt < 2; attempt++) {
+        assertComplete(
+            late.solve(),
+            new InferenceVariable(inner, context.siteA()),
+            new InferenceVariable(outer, context.siteA()),
+            new InferenceVariable(required, context.siteB()));
+      }
+      late.addSubtypeConstraint(context.parameter(3), fresh.get(inner), false);
+      assertWildcardFailure(context, late, required);
+    }
+
+    /** Keeps structural evidence while blocking scalar provenance at annotated occurrences. */
+    private static void checkWildcardProjectionBarriers(TestContext context) {
+      Element inner = context.variable(0);
+      Element outer = context.variable(1);
+      Element required = context.variable(2);
+      List<InferenceVariable> keys =
+          List.of(
+              new InferenceVariable(inner, context.siteA()),
+              new InferenceVariable(outer, context.siteA()),
+              new InferenceVariable(required, context.siteB()));
+      for (boolean nullableDestination : List.of(true, false)) {
+        ConstraintSolver solver = newSolver(context);
+        Map<Element, Type.TypeVar> fresh =
+            registerWildcardChain(context, solver, 0, context.parameter(6));
+        solver.addSubtypeConstraint(
+            wildcardFixtureType(context, 1, fresh), wildcardFixtureType(context, 2, fresh), false);
+        solver.addSubtypeConstraint(fresh.get(inner), fresh.get(outer), false);
+        if (nullableDestination) {
+          Type destination = wildcardFixtureType(context, 4, fresh);
+          assertNullness(destination, true, context);
+          solver.addSubtypeConstraint(context.parameter(3), destination, false);
+        } else {
+          assertNullness(context.parameter(5), false, context);
+          solver.addSubtypeConstraint(context.parameter(5), fresh.get(inner), false);
+        }
+        Solution solution = solver.solve();
+        assertThat(solution.inferredTypes().keySet()).containsExactlyElementsIn(keys);
+        // Structural validation excludes root occurrence checks. Both explicit projections allow
+        // the non-null Java shape, without leaking the fixed variable's nullable bound into E.
+        assertComplete(solution, keys.toArray(new InferenceVariable[0]));
+        for (InferenceVariable key : keys) {
+          Type result = solution.inferredTypes().get(key);
+          assertThat(result.tsym).isSameInstanceAs(context.parameter(6).tsym);
+          assertNullness(result, false, context);
+          assertNoFreshVariables(result, List.copyOf(fresh.values()));
+        }
+      }
+    }
+
+    /** Checks a real unregistered method variable with model, no-model, and source projections. */
+    private static void checkWildcardModeledFixedSource(TestContext context) {
+      Element fixed = context.variable(0);
+      Element inner = context.variable(1);
+      Element outer = context.variable(2);
+      Element required = context.variable(3);
+      Handler modeledHandler =
+          new Handler() {
+            @Override
+            public boolean onOverrideMethodTypeVariableUpperBound(
+                Symbol.MethodSymbol methodSymbol, int index, VisitorState state) {
+              return methodSymbol.equals(context.declaration()) && index == 0;
+            }
+          };
+      assertThat(context.parameter(3).tsym).isSameInstanceAs(fixed);
+      assertThat(context.parameter(3).getAnnotationMirrors()).isEmpty();
+      for (boolean transitive : List.of(false, true)) {
+        for (int control = 0; control < 3; control++) {
+          ConstraintSolver solver =
+              control == 1 ? newSolver(context) : newSolver(context, modeledHandler);
+          Map<Element, Type.TypeVar> fresh =
+              registerWildcardChain(context, solver, 1, context.parameter(5));
+          assertThat(fresh).doesNotContainKey(fixed);
+          Type source = context.parameter(control == 2 ? 4 : 3);
+          Type formal = wildcardFixtureType(context, 2, fresh);
+          if (transitive) {
+            solver.addSubtypeConstraint(wildcardFixtureType(context, 1, fresh), formal, false);
+            solver.addSubtypeConstraint(fresh.get(inner), fresh.get(outer), false);
+            solver.addSubtypeConstraint(source, fresh.get(inner), false);
+          } else {
+            Type actual = wildcardFixtureType(context, 0, Map.of(inner, source));
+            solver.addSubtypeConstraint(actual, formal, false);
+          }
+          if (control == 0) {
+            assertWildcardFailure(context, solver, required);
+          } else {
+            Solution solution = solver.solve();
+            assertComplete(
+                solution,
+                new InferenceVariable(inner, context.siteA()),
+                new InferenceVariable(outer, context.siteA()),
+                new InferenceVariable(required, context.siteB()));
+            for (Type result : solution.inferredTypes().values()) {
+              assertThat(result.tsym).isSameInstanceAs(context.parameter(5).tsym);
+              assertNullness(result, false, context);
+              assertNoFreshVariables(result, List.copyOf(fresh.values()));
+            }
+          }
+        }
+      }
     }
 
     /** Checks exact result coverage and both independent certification status sets. */
