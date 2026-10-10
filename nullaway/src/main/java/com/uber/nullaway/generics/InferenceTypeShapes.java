@@ -54,6 +54,17 @@ final class InferenceTypeShapes {
     return matcher.instantiations;
   }
 
+  /**
+   * Returns whether a variable occurs in the executable shape itself, excluding declaration bounds.
+   * A variable mentioned only in a peer's bound has no observable attributed occurrence to match.
+   */
+  static boolean containsVariable(Type type, Element variable, VisitorState state, Config config) {
+    Matcher matcher = new Matcher(List.of(variable), state.getTypes(), config);
+    Set<Element> occurrences = new LinkedHashSet<>();
+    matcher.collectVariables(type, occurrences, Collections.newSetFromMap(new IdentityHashMap<>()));
+    return !occurrences.isEmpty();
+  }
+
   /** Stateful matching for one pair of attributed and declaration shapes. */
   private static final class Matcher {
     private final Set<Element> variables;

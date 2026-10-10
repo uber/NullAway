@@ -234,11 +234,20 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       if (variablesWithNullnessMarkedBounds.contains(entry.getKey())) {
         nullnessMarkedDeclarationBounds.add(inferenceVariable);
       }
+      Type effectiveBound = freshVar.getUpperBound();
+      boolean inferredDependency =
+          effectiveBound instanceof TypeVar
+              && !Nullness.hasNullableAnnotation(
+                  effectiveBound.getAnnotationMirrors().stream(), config)
+              && !Nullness.hasNonNullAnnotation(
+                  effectiveBound.getAnnotationMirrors().stream(), config)
+              && fresh.values().stream()
+                  .anyMatch(variable -> variable.tsym.equals(effectiveBound.tsym));
       if (variablesWithNullnessMarkedBounds.contains(entry.getKey())
-          && receiverInstantiatedBounds.contains(entry.getKey())) {
+          && receiverInstantiatedBounds.contains(entry.getKey())
+          && !inferredDependency) {
         nullableAllowedForInferenceVariable.put(
-            inferenceVariable,
-            modeledNullable || upperBoundAllowsNullable(freshVar.getUpperBound()));
+            inferenceVariable, modeledNullable || upperBoundAllowsNullable(effectiveBound));
       }
     }
     freshTypeVariablesForSite.put(site, fresh);
@@ -630,7 +639,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       } else {
         sources = bounds.lower();
       }
-      Type candidate = null;
+      List<Type> resolvedSources = new ArrayList<>();
       for (Type source : sources) {
         Map<Element, Type> replacements = new LinkedHashMap<>();
         for (Map.Entry<Element, InferenceVariable> entry : inferenceVariables.entrySet()) {
@@ -644,6 +653,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         Type resolved =
             TypeSubstitutionUtils.substituteTypeVariables(
                 source, replacements, state.getTypes(), config);
+        resolvedSources.add(resolved);
+      }
+      if (declarationFallback == null && bounds.lower().isEmpty()) {
+        // A broad upper bound supplies no nested positions in a more specific Java shape.
+        // Select compatible upper evidence before projection so Object cannot invent nested
+        // non-null defaults that conflict with a contextual bound. Validate all bounds below.
+        Type mostSpecificUpper = validatedUpperBoundFallback(resolvedSources);
+        if (mostSpecificUpper != null) {
+          resolvedSources = List.of(mostSpecificUpper);
+        }
+      }
+      Type candidate = null;
+      for (Type resolved : resolvedSources) {
         Type evidence = inferredRoot(resolved, st);
         Type projected;
         if (shape == null) {
@@ -1305,8 +1327,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     } else {
       return null;
     }
-    if (!canOverlayBound(first, chosen)
-        || !canOverlayBound(second, chosen)
+    // Align a subtype before comparing generic slots; covariant array leaves may have different
+    // nominal classes while sharing the chosen supertype's structure.
+    if (!canOverlayBound(otherAligned, chosen)
         || sameInvariantStructure(chosen, otherAligned, false) != BoundRelation.SATISFIED) {
       return null;
     }
@@ -1989,8 +2012,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Returns whether an instantiated upper bound permits a nullable inference result. */
   private boolean upperBoundAllowsNullable(Type upperBound) {
+    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+      return false;
+    }
     if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return true;
+    }
+    if (upperBound instanceof WildcardType || upperBound instanceof CapturedType) {
+      Type effective =
+          GenericsUtils.effectiveWildcardUpperBound(upperBound, state, config, handler);
+      return !(effective instanceof WildcardType)
+          && !(effective instanceof CapturedType)
+          && upperBoundAllowsNullable(effective);
     }
     return upperBound instanceof TypeVar typeVariable
         && GenericsUtils.upperBoundIsNullable(typeVariable.asElement(), config, handler, state);

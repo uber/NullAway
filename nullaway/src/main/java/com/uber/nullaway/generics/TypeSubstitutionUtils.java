@@ -17,6 +17,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.Nullness;
 import java.util.Collections;
 import java.util.IdentityHashMap;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
 import javax.lang.model.element.Element;
@@ -89,7 +90,149 @@ public class TypeSubstitutionUtils {
     // instantiated in memberType.  So, as a final step, restore the annotations from
     // annotationSource onto memberType.
     Type result = restoreExplicitNullabilityAnnotations(annotationSource, memberType, config);
-    return result;
+    return restoreReceiverInstantiatedMethodBounds(types, t, sym, origType, result, config);
+  }
+
+  /**
+   * Restores receiver argument annotations in a generic member's dependent bounds. javac's member
+   * substitution can erase them in bounds such as {@code U extends E}. Detach the method variables
+   * before restoring bounds and remap their occurrences without mutating compiler-owned types.
+   */
+  private static Type restoreReceiverInstantiatedMethodBounds(
+      Types types,
+      Type receiver,
+      Symbol member,
+      Type declaration,
+      Type instantiated,
+      Config config) {
+    if (!(declaration instanceof Type.ForAll original)
+        || !(instantiated instanceof Type.ForAll resolved)
+        || !(member.owner instanceof Symbol.ClassSymbol owner)
+        || original.tvars.size() != resolved.tvars.size()) {
+      return instantiated;
+    }
+    Type ownerView = asSuper(types, receiver, owner, config);
+    if (!(ownerView instanceof Type.ClassType)) {
+      return instantiated;
+    }
+    List<Type> parameters = owner.type.allparams();
+    List<Type> arguments = ownerView.allparams();
+    if (parameters.size() != arguments.size() || parameters.isEmpty()) {
+      return instantiated;
+    }
+    Map<Element, Type> replacements = new LinkedHashMap<>();
+    for (int i = 0; i < parameters.size(); i++) {
+      replacements.put(parameters.get(i).asElement(), arguments.get(i));
+    }
+    ListBuffer<Type> detachedVariables = new ListBuffer<>();
+    Map<Element, Type.TypeVar> methodVariables = new LinkedHashMap<>();
+    for (Type variable : resolved.tvars) {
+      Type.TypeVar detached =
+          TYPE_METADATA_BUILDER.createDetachedTypeVar(
+              (Type.TypeVar) variable, ((Type.TypeVar) variable).getUpperBound());
+      detachedVariables.append(detached);
+      methodVariables.put(variable.asElement(), detached);
+      replacements.put(variable.asElement(), detached);
+    }
+    List<Type> variables = detachedVariables.toList();
+    for (int i = 0; i < original.tvars.size(); i++) {
+      ((Type.TypeVar) variables.get(i))
+          .setUpperBound(
+              restoreReceiverInstantiatedBound(
+                  ((Type.TypeVar) original.tvars.get(i)).getUpperBound(),
+                  ((Type.TypeVar) resolved.tvars.get(i)).getUpperBound(),
+                  replacements,
+                  types,
+                  config));
+    }
+    Type methodType = substituteTypeVariables(resolved.qtype, replacements, types, config);
+    // Annotated peer occurrences are detached copies whose bounds may have been copied before
+    // the peer's bound was restored. Synchronize them only after all canonical bounds are complete.
+    Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+    for (Type variable : variables) {
+      synchronizeReceiverInstantiatedBounds(
+          ((Type.TypeVar) variable).getUpperBound(), methodVariables, visited);
+    }
+    synchronizeReceiverInstantiatedBounds(methodType, methodVariables, visited);
+    return new Type.ForAll(variables, methodType);
+  }
+
+  /**
+   * Restores a dependent bound, pairing intersection components before substituting annotations.
+   *
+   * <p>Intersection types have no ordinary class type arguments. Restore their constituent bounds
+   * explicitly and rebuild the intersection, preserving javac's implicit Object representation
+   * rather than treating the synthetic class as an annotation source or mutating shared bounds.
+   */
+  private static Type restoreReceiverInstantiatedBound(
+      Type declaration,
+      Type instantiated,
+      Map<Element, Type> replacements,
+      Types types,
+      Config config) {
+    if (declaration instanceof Type.IntersectionClassType originalIntersection
+        && instantiated instanceof Type.IntersectionClassType resolvedIntersection) {
+      // javac substitution may expose an originally implicit Object bound as an explicit one.
+      List<Type> originals = originalIntersection.getComponents();
+      List<Type> resolved = resolvedIntersection.getComponents();
+      Verify.verify(originals.size() == resolved.size(), "intersection component arity changed");
+      ListBuffer<Type> components = new ListBuffer<>();
+      for (; originals.nonEmpty(); originals = originals.tail, resolved = resolved.tail) {
+        components.append(
+            restoreReceiverInstantiatedBound(
+                originals.head, resolved.head, replacements, types, config));
+      }
+      List<Type> restored = components.toList();
+      return types.makeIntersectionType(
+          resolvedIntersection.allInterfaces ? restored.tail : restored,
+          resolvedIntersection.allInterfaces);
+    }
+    Type bound = substituteTypeVariables(declaration, replacements, types, config);
+    Type restored = restoreExplicitNullabilityAnnotations(bound, instantiated, config);
+    return substituteTypeVariables(restored, replacements, types, config);
+  }
+
+  /**
+   * Gives detached method-variable occurrences their completed receiver-instantiated bounds.
+   *
+   * <p>The roots must have already been substituted with the detached method variables, so every
+   * syntactic occurrence of a listed variable is safe to update. Do not follow variable bounds:
+   * those may still reference compiler-owned types, and each completed bound is visited separately.
+   */
+  private static void synchronizeReceiverInstantiatedBounds(
+      Type type, Map<Element, Type.TypeVar> variables, Set<Type> visited) {
+    if (!visited.add(type)) {
+      return;
+    }
+    if (type instanceof Type.TypeVar variable) {
+      Type.TypeVar canonical = variables.get(variable.asElement());
+      if (canonical != null) {
+        variable.setUpperBound(canonical.getUpperBound());
+      }
+    } else if (type instanceof Type.MethodType method) {
+      for (Type parameter : method.getParameterTypes()) {
+        synchronizeReceiverInstantiatedBounds(parameter, variables, visited);
+      }
+      synchronizeReceiverInstantiatedBounds(method.getReturnType(), variables, visited);
+      for (Type thrown : method.getThrownTypes()) {
+        synchronizeReceiverInstantiatedBounds(thrown, variables, visited);
+      }
+    } else if (type instanceof Type.ArrayType array) {
+      synchronizeReceiverInstantiatedBounds(array.getComponentType(), variables, visited);
+    } else if (type instanceof Type.WildcardType wildcard) {
+      if (!wildcard.isUnbound()) {
+        synchronizeReceiverInstantiatedBounds(wildcard.type, variables, visited);
+      }
+    } else if (type instanceof Type.IntersectionClassType intersection) {
+      for (Type component : intersection.getExplicitComponents()) {
+        synchronizeReceiverInstantiatedBounds(component, variables, visited);
+      }
+    } else if (type instanceof Type.ClassType clazz) {
+      synchronizeReceiverInstantiatedBounds(clazz.getEnclosingType(), variables, visited);
+      for (Type argument : clazz.getTypeArguments()) {
+        synchronizeReceiverInstantiatedBounds(argument, variables, visited);
+      }
+    }
   }
 
   /**
@@ -516,8 +659,9 @@ public class TypeSubstitutionUtils {
               != targetClassType.getTypeArguments().size()) {
         return target;
       }
+      // A supertype view supplies argument positions, not the nullness of the original value.
       Type updated =
-          preserveRoot ? target : copyDirectNullabilityAnnotations(aligned, target, config);
+          preserveRoot ? target : copyDirectNullabilityAnnotations(inferredType, target, config);
       ListBuffer<Type> newTypeArgs = new ListBuffer<>();
       boolean changed = false;
       for (List<Type> a = alignedClassType.getTypeArguments(),
@@ -608,7 +752,9 @@ public class TypeSubstitutionUtils {
    * List<@Nullable S>}.
    *
    * <p>Occurrences are found by symbol, since a type can contain several {@link Type.TypeVar}
-   * objects for the same symbol, e.g., due to annotations on type variable uses.
+   * objects for the same symbol, e.g., due to annotations on type variable uses. Intersection
+   * bounds are handled component-wise because their synthetic class has no type arguments for the
+   * collector to traverse.
    *
    * @param targetType type in which to replace type variables
    * @param replacements map from type variable symbols to their replacement types
@@ -622,6 +768,18 @@ public class TypeSubstitutionUtils {
       Map<? extends Element, ? extends Type> replacements,
       Types types,
       Config config) {
+    if (targetType instanceof Type.IntersectionClassType intersection) {
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (Type component : intersection.getExplicitComponents()) {
+        Type substituted = substituteTypeVariables(component, replacements, types, config);
+        components.append(substituted);
+        changed |= substituted != component;
+      }
+      return changed
+          ? types.makeIntersectionType(components.toList(), intersection.allInterfaces)
+          : targetType;
+    }
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> replacementTypes = new ListBuffer<>();
     for (Map.Entry<? extends Element, ? extends Type> entry : replacements.entrySet()) {
@@ -760,7 +918,9 @@ public class TypeSubstitutionUtils {
       if (t == wt.type) {
         return wt;
       } else {
-        return TYPE_METADATA_BUILDER.createWildcardType(wt, t);
+        Type.WildcardType restored = TYPE_METADATA_BUILDER.createWildcardType(wt, t);
+        restored.bound = wt.bound;
+        return restored;
       }
     }
 
