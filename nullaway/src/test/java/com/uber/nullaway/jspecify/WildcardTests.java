@@ -3119,6 +3119,20 @@ public class WildcardTests extends NullAwayTestsBase {
                 new Varargs(nonNull, nullable);
                 new Varargs(nullable, nonNull);
               }
+              void arraysOfASubtypeComponent(Number[] numbers, @Nullable Integer[] integers) {
+                pair(numbers, integers);
+                pair(integers, numbers);
+                new Pair(numbers, integers);
+                new Pair(integers, numbers);
+              }
+              void arraysNullableAtDifferentDimensions(
+                  String[][] nonNull, @Nullable String[][] innermost, String[] @Nullable [] inner) {
+                pair(nonNull, innermost);
+                new Pair(nonNull, innermost);
+                new Pair(innermost, nonNull);
+                new Pair(inner, innermost);
+                new Pair(innermost, inner);
+              }
               void argumentsThatDisagree(List<@Nullable String> nullable, List<String> nonNull) {
                 // BUG: Diagnostic contains: List<String> cannot be converted to List<@Nullable String>
                 new Pair(nullable, nonNull);
@@ -3173,6 +3187,7 @@ public class WildcardTests extends NullAwayTestsBase {
             class Test {
               static class Box<E extends @Nullable Object> {}
               static class Holder<E extends @Nullable Object> {
+                Holder() {}
                 <U extends E> Holder(U element) {}
                 <U extends E> Holder(Box<U> box, int unused) {}
                 <U extends E> void set(U element) {}
@@ -3214,6 +3229,19 @@ public class WildcardTests extends NullAwayTestsBase {
               void aDeclarationInUnannotatedCode(Unannotated<String> unannotated, @Nullable String value) {
                 String result = unannotated.pass(value);
                 List<String> wrapped = Unannotated.wrap(value);
+              }
+              void anImplicitThisInAnAnonymousClass(@Nullable String value) {
+                new Holder<@Nullable String>() {
+                  void call() {
+                    set(value);
+                  }
+                };
+                new Holder<String>() {
+                  void call() {
+                    // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                    set(value);
+                  }
+                };
               }
               void aBoundReachedThroughAnotherVariable(
                   Holder<String> nonNullHolder, @Nullable String value) {
@@ -3259,6 +3287,88 @@ public class WildcardTests extends NullAwayTestsBase {
                 new Holder<String>(box, 0);
                 // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
                 holder.set(value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * The implicit receiver of a call is the innermost enclosing class that has the method as a
+   * member, as javac resolves it, and an anonymous class supplies its supertype as the class
+   * instance creation writes it, so {@code E} takes the type argument that class gives it. A
+   * private method is not a member of a subclass, so it binds to the declaring class.
+   */
+  @Test
+  public void anImplicitReceiverIsTheInnermostClassWithTheMethodAsAMember() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<E extends @Nullable Object> {
+                void put(E element) {}
+                <U extends E> void set(U element) {}
+              }
+              static class Other<F extends @Nullable Object> {}
+              static class WithPrivate<E extends @Nullable Object> {
+                E value;
+                WithPrivate(E value) {
+                  this.value = value;
+                }
+                private E get() {
+                  return value;
+                }
+                void fromAnAnonymousSubclass() {
+                  new WithPrivate<@Nullable String>(null) {
+                    void call() {
+                      // a private method binds to the declaring class's E, not to @Nullable String
+                      get().hashCode();
+                    }
+                  };
+                }
+              }
+              static class NullableSub extends Base<@Nullable String> {
+                void fromAnAnonymousClassOfAnotherType(@Nullable String value) {
+                  new Other<String>() {
+                    void call() {
+                      put(value);
+                      set(value);
+                    }
+                  };
+                }
+              }
+              static class NonNullSub extends Base<String> {
+                void fromAnAnonymousClassOfAnotherType(@Nullable String value) {
+                  new Other<String>() {
+                    void call() {
+                      // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                      put(value);
+                    }
+                  };
+                }
+              }
+              void fromTheAnonymousClass(@Nullable String value) {
+                new Base<@Nullable String>() {
+                  void call() {
+                    put(value);
+                    set(value);
+                    Runnable r = () -> set(value);
+                  }
+                };
+              }
+              void fromAClassNestedInTheAnonymousClass(@Nullable String value) {
+                new Base<@Nullable String>() {
+                  class Inner {
+                    void call() {
+                      put(value);
+                      set(value);
+                    }
+                  }
+                };
               }
             }
             """)

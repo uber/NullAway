@@ -6,6 +6,7 @@ import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.util.TreePath;
+import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
@@ -50,8 +51,8 @@ final class NestedTypeVarSubstitutionRepairVisitor
   /**
    * repaired substitutions for method type variables, so that later occurrences of a type variable
    * take the substitution an earlier argument repaired. Only a substitution that an argument
-   * actually repaired is kept, and one whose array components are {@code @Nullable} replaces an
-   * earlier one whose components are not.
+   * actually repaired is kept, and an array substitution takes, at every dimension, the
+   * {@code @Nullable} components of every argument's array.
    */
   private final Map<Symbol.TypeVariableSymbol, Type> repairedSubstitutions = new HashMap<>();
 
@@ -497,25 +498,21 @@ final class NestedTypeVarSubstitutionRepairVisitor
       Type.TypeVar typeVar, Type actualArgType, Type callSiteType) {
     Symbol.TypeVariableSymbol typeVarSymbol = (Symbol.TypeVariableSymbol) typeVar.tsym;
     Type previousSubstitution = repairedSubstitutions.get(typeVarSymbol);
-    if (previousSubstitution != null
-        && !(previousSubstitution instanceof Type.ArrayType previousArrayType
-            && !hasNullableComponents(previousArrayType))) {
-      return previousSubstitution;
-    }
     Type repairedSubstitution = callSiteType;
     if (!actualArgType.isRaw() && !callSiteType.isRaw()) {
       repairedSubstitution = repairNestedTypeVarSubstitutionFromActual(actualArgType, callSiteType);
     }
     if (previousSubstitution != null) {
-      // arrays are covariant, so an array whose components admit null also takes the arrays of
-      // non-null components that another argument passed; a later argument with @Nullable
-      // components replaces an earlier one without
-      if (!(repairedSubstitution instanceof Type.ArrayType repairedArrayType)
-          || !hasNullableComponents(repairedArrayType)) {
-        return previousSubstitution;
+      // arrays are covariant, so the substitution takes the components every argument's array
+      // admits null in, at every dimension; a class type keeps the first repair, so arguments
+      // that disagree on its type arguments are reported
+      if (previousSubstitution instanceof Type.ArrayType previousArrayType
+          && repairedSubstitution instanceof Type.ArrayType repairedArrayType) {
+        Type joined = joinArrayNullability(previousArrayType, repairedArrayType);
+        repairedSubstitutions.put(typeVarSymbol, joined);
+        return joined;
       }
-      repairedSubstitutions.put(typeVarSymbol, repairedSubstitution);
-      return repairedSubstitution;
+      return previousSubstitution;
     }
     // only a repair is kept for the other occurrences of the type variable; an argument that
     // repairs nothing leaves a later argument at another occurrence free to repair it
@@ -525,10 +522,69 @@ final class NestedTypeVarSubstitutionRepairVisitor
     return repairedSubstitution;
   }
 
-  /** Returns whether the components of {@code arrayType} are annotated {@code @Nullable}. */
-  private boolean hasNullableComponents(Type.ArrayType arrayType) {
-    return Nullness.hasNullableAnnotation(
-        arrayType.getComponentType().getAnnotationMirrors().stream(), config);
+  /**
+   * Returns {@code first} with its components, at every dimension, also annotated {@code @Nullable}
+   * where those of {@code second}, an array of the same shape, are. Returns {@code first} where
+   * nothing changes.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
+  private Type joinArrayNullability(Type.ArrayType first, Type.ArrayType second) {
+    Type firstComponent = first.getComponentType();
+    Type secondComponent = second.getComponentType();
+    Type joinedComponent = firstComponent;
+    if (firstComponent instanceof Type.ArrayType firstComponentArray
+        && secondComponent instanceof Type.ArrayType secondComponentArray) {
+      joinedComponent = joinArrayNullability(firstComponentArray, secondComponentArray);
+    }
+    joinedComponent = withNullableFrom(secondComponent, joinedComponent);
+    return joinedComponent == firstComponent
+        ? first
+        : TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(first, joinedComponent);
+  }
+
+  /**
+   * Returns {@code target} annotated {@code @Nullable} where {@code source} is and {@code target}
+   * is not, and {@code target} otherwise.
+   */
+  private Type withNullableFrom(Type source, Type target) {
+    if (Nullness.hasNullableAnnotation(target.getAnnotationMirrors().stream(), config)) {
+      return target;
+    }
+    for (Attribute.TypeCompound annot : source.getAnnotationMirrors()) {
+      if (annot.type.tsym != null
+          && Nullness.isNullableAnnotation(annot.type.tsym.getQualifiedName().toString(), config)) {
+        return TypeSubstitutionUtils.typeWithAnnot(target, annot.type);
+      }
+    }
+    return target;
+  }
+
+  /**
+   * Returns {@code callSiteArrayType} with the nullability of the components of {@code
+   * actualArrayType}, an array of the same or a subtype component type, at every dimension: a class
+   * component takes the type arguments of the actual one as its supertype, and a {@code @Nullable}
+   * component stays {@code @Nullable}. So {@code @Nullable Integer[]} repairs {@code Number[]} to
+   * {@code @Nullable Number[]}.
+   */
+  @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
+  private Type transferArrayNullability(
+      Type.ArrayType actualArrayType, Type.ArrayType callSiteArrayType) {
+    Type actualComponent = actualArrayType.getComponentType();
+    Type callSiteComponent = callSiteArrayType.getComponentType();
+    Type repairedComponent = callSiteComponent;
+    if (actualComponent instanceof Type.ArrayType actualComponentArray
+        && callSiteComponent instanceof Type.ArrayType callSiteComponentArray) {
+      repairedComponent = transferArrayNullability(actualComponentArray, callSiteComponentArray);
+    } else if (actualComponent instanceof Type.ClassType
+        && callSiteComponent instanceof Type.ClassType) {
+      repairedComponent =
+          repairNestedTypeVarSubstitutionFromActual(actualComponent, callSiteComponent);
+    }
+    repairedComponent = withNullableFrom(actualComponent, repairedComponent);
+    return repairedComponent == callSiteComponent
+        ? callSiteArrayType
+        : TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
+            callSiteArrayType, repairedComponent);
   }
 
   /**
@@ -541,9 +597,14 @@ final class NestedTypeVarSubstitutionRepairVisitor
    * actualArgType}.
    *
    * <p>Similarly, for array types, if {@code actualArgType} is {@code @Nullable Foo []} and {@code
-   * callSiteType} is {@code Foo @Nullable []}, we return {@code @Nullable Foo @Nullable []}.
+   * callSiteType} is {@code Foo @Nullable []}, we return {@code @Nullable Foo @Nullable []}; see
+   * {@link #transferArrayNullability}.
    */
   private Type repairNestedTypeVarSubstitutionFromActual(Type actualArgType, Type callSiteType) {
+    if (actualArgType instanceof Type.ArrayType actualArrayType
+        && callSiteType instanceof Type.ArrayType callSiteArrayType) {
+      return transferArrayNullability(actualArrayType, callSiteArrayType);
+    }
     // the actual type can be a subtype of the javac-inferred call-site type, so convert to the
     // supertype
     if (actualArgType instanceof Type.ClassType
@@ -576,12 +637,6 @@ final class NestedTypeVarSubstitutionRepairVisitor
           callSiteClassType,
           hasGenericEnclosingType ? actualEnclosingType : callSiteClassType.getEnclosingType(),
           actualTypeArgs);
-    }
-    if (actualArgType instanceof Type.ArrayType actualArrayType
-        && callSiteType instanceof Type.ArrayType callSiteArrayType) {
-      // use call site type with component type from actual
-      return TypeMetadataBuilder.TYPE_METADATA_BUILDER.createArrayType(
-          callSiteArrayType, actualArrayType.getComponentType());
     }
     return callSiteType;
   }
