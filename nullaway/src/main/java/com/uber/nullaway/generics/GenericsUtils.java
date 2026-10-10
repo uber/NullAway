@@ -377,7 +377,7 @@ public class GenericsUtils {
     return upperBound;
   }
 
-  private static boolean hasNullnessAnnotation(Type type, Config config) {
+  static boolean hasNullnessAnnotation(Type type, Config config) {
     return isAnnotatedAsNonNull(type, config) || isAnnotatedAsNullable(type, config);
   }
 
@@ -417,8 +417,38 @@ public class GenericsUtils {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
     }
-    // Models use declaration indices, which fresh inference symbols do not have. Keep looking at
-    // the fresh bound below, but consult its original declaration for library-model overrides.
+    if (libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
+      return true;
+    }
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    return isAnnotatedAsNullable(upperBound, config);
+  }
+
+  /**
+   * Returns true if the upper bound of the given type variable is explicitly nullable: the declared
+   * bound is annotated {@code @Nullable}, a library model overrides it, or the declared bound is
+   * another type variable, carrying no nullness annotation, whose bound is explicitly nullable.
+   * Unlike {@link #upperBoundIsNullable}, a type variable declared in unannotated code gets no
+   * nullable default, while a {@code @Nullable} written there still counts, as JSpecify gives
+   * annotations in null-unmarked code their meaning.
+   */
+  static boolean boundIsExplicitlyNullable(
+      Element typeVarElement, Config config, Handler handler, VisitorState state) {
+    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
+    if (isAnnotatedAsNullable(upperBound, config)
+        || libraryModelMakesBoundNullable(typeVarElement, handler, state)) {
+      return true;
+    }
+    return !hasNullnessAnnotation(upperBound, config)
+        && upperBound.getKind() == TypeKind.TYPEVAR
+        && boundIsExplicitlyNullable(upperBound.asElement(), config, handler, state);
+  }
+
+  /** Returns true if a library model overrides the upper bound of the given type variable. */
+  static boolean libraryModelMakesBoundNullable(
+      Element typeVarElement, Handler handler, VisitorState state) {
+    // Models use declaration indices, which fresh inference symbols do not have, so consult the
+    // original declaration of a fresh symbol.
     Element modeledTypeVariable = typeVarElement;
     while (modeledTypeVariable instanceof FreshTypeVariableSymbol freshSymbol) {
       modeledTypeVariable = freshSymbol.declaredSymbol;
@@ -442,11 +472,10 @@ public class GenericsUtils {
         return true;
       }
     }
-    Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    return isAnnotatedAsNullable(upperBound, config);
+    return false;
   }
 
-  private static boolean fromUnannotatedMethodOrClass(
+  static boolean fromUnannotatedMethodOrClass(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     Element enclosingElement = typeVarElement.getEnclosingElement();
     if (!(enclosingElement instanceof Symbol.MethodSymbol)
