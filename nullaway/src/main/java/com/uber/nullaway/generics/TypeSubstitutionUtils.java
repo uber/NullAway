@@ -733,6 +733,9 @@ public class TypeSubstitutionUtils {
    */
   private static Type substituteInferredNullabilityForTypeVariables(
       Type targetType, Map<Element, Type> inferredTypes, VisitorState state, Config config) {
+    if (inferredTypes.isEmpty()) {
+      return targetType;
+    }
     if (targetType instanceof Type.IntersectionClassType intersection) {
       ListBuffer<Type> components = new ListBuffer<>();
       boolean changed = false;
@@ -746,21 +749,16 @@ public class TypeSubstitutionUtils {
     }
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> inferredNullabilityTypes = new ListBuffer<>();
-    for (Map.Entry<Element, Type> entry : inferredTypes.entrySet()) {
-      // find all TypeVars occurring in targetType with the same symbol and substitute for those.
-      // we can have multiple such TypeVars due to previous substitutions that modified the type
-      // in some way, e.g., by changing its bounds
-      Element symbol = entry.getKey();
+    TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(inferredTypes.keySet());
+    targetType.accept(collector, null);
+    for (Type.TypeVar occurrence : collector.getMatches()) {
+      Type inferred = Verify.verifyNotNull(inferredTypes.get(occurrence.asElement()));
       Type nullnessAnnotType =
-          hasNullableRoot(entry.getValue(), config)
+          hasNullableRoot(inferred, config)
               ? GenericsChecks.getSyntheticNullableAnnotType(state)
               : GenericsChecks.getSyntheticNonNullAnnotType(state);
-      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(symbol);
-      targetType.accept(tvc, null);
-      for (Type.TypeVar tv : tvc.getMatches()) {
-        typeVars.append(tv);
-        inferredNullabilityTypes.append(typeWithAnnot(tv, nullnessAnnotType));
-      }
+      typeVars.append(occurrence);
+      inferredNullabilityTypes.append(typeWithAnnot(occurrence, nullnessAnnotType));
     }
     List<Type> typeVarsToReplace = typeVars.toList();
     if (!typeVarsToReplace.isEmpty()) {
@@ -1100,6 +1098,9 @@ public class TypeSubstitutionUtils {
       Map<? extends Element, ? extends Type> replacements,
       Types types,
       Config config) {
+    if (replacements.isEmpty()) {
+      return targetType;
+    }
     if (targetType instanceof Type.IntersectionClassType intersection) {
       ListBuffer<Type> components = new ListBuffer<>();
       boolean changed = false;
@@ -1112,13 +1113,13 @@ public class TypeSubstitutionUtils {
     }
     ListBuffer<Type> typeVars = new ListBuffer<>();
     ListBuffer<Type> replacementTypes = new ListBuffer<>();
-    for (Map.Entry<? extends Element, ? extends Type> entry : replacements.entrySet()) {
-      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(entry.getKey());
-      targetType.accept(tvc, null);
-      for (Type.TypeVar tv : tvc.getMatches()) {
-        typeVars.append(tv);
-        replacementTypes.append(entry.getValue());
-      }
+    TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(replacements.keySet());
+    targetType.accept(collector, null);
+    for (Type.TypeVar occurrence : collector.getMatches()) {
+      // Keep actual, annotation-distinct occurrences, not the symbol's declaration type or any
+      // caller's private canonical variable. Each matched symbol belongs to the supplied map.
+      typeVars.append(occurrence);
+      replacementTypes.append(Verify.verifyNotNull(replacements.get(occurrence.asElement())));
     }
     List<Type> typeVarsToReplace = typeVars.toList();
     if (typeVarsToReplace.isEmpty()) {

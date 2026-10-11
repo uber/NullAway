@@ -12,13 +12,12 @@ import com.sun.tools.javac.code.Types;
 import java.util.Collections;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashSet;
-import java.util.Objects;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Visitor that collects every TypeVar whose symbol is the given Element.
+ * Visitor that collects every TypeVar whose symbol belongs to a given set of Elements.
  *
  * <p>Usage:
  *
@@ -33,11 +32,23 @@ import org.jspecify.annotations.Nullable;
 public final class TypeVarWithSymbolCollector
     extends Types.DefaultTypeVisitor<@Nullable Void, @Nullable Void> {
 
-  private final Element symbol;
+  private final Set<? extends Element> symbols;
   private final Set<TypeVar> matches = new LinkedHashSet<>();
 
+  /** Creates a collector for occurrences of a single type variable symbol. */
   public TypeVarWithSymbolCollector(Element symbol) {
-    this.symbol = symbol;
+    this(Collections.singleton(symbol));
+  }
+
+  /**
+   * Creates a collector for occurrences of any of the supplied type variable symbols in one
+   * traversal, including occurrences in variable bounds and intersection components. Matches retain
+   * traversal order and include distinct annotated occurrences of the same symbol.
+   *
+   * @param symbols symbols to match; their set must not be modified while this collector is in use
+   */
+  public TypeVarWithSymbolCollector(Set<? extends Element> symbols) {
+    this.symbols = symbols;
   }
 
   private final Set<Type> seen = java.util.Collections.newSetFromMap(new IdentityHashMap<>());
@@ -57,7 +68,7 @@ public final class TypeVarWithSymbolCollector
   // ---- Core matching logic ----
   @Override
   public @Nullable Void visitTypeVar(TypeVar t, @Nullable Void p) {
-    if (Objects.equals(t.tsym, symbol)) {
+    if (symbols.contains(t.tsym)) {
       matches.add(t);
     }
     scan(t.getUpperBound());

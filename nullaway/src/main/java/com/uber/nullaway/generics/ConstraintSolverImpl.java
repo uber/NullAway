@@ -23,6 +23,7 @@ import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.Comparator;
 import java.util.Deque;
 import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
@@ -148,6 +149,25 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Incremented whenever a variable, structured bound, or variable edge is added. */
   private int structuredConstraintVersion = 0;
 
+  /**
+   * Solver-local bound snapshots; preparation invalidates them when the structural version changes.
+   */
+  private final Map<InferenceVariable, StructuredBounds> structuredBoundsMemo =
+      new LinkedHashMap<>();
+
+  private int structuredBoundsMemoVersion = -1;
+
+  /**
+   * Only structural evidence is memoized after preparation, never nullness or validation outcomes.
+   */
+  private final Map<InferenceVariable, Set<InferenceVariable>> structuredDependenciesMemo =
+      new LinkedHashMap<>();
+
+  private int preparedStructuredConstraintVersion = -1;
+
+  /** Keeps batched source resolution in the previous registered-symbol order. */
+  private final Map<Element, Integer> inferenceSymbolOrder = new LinkedHashMap<>();
+
   /** Variables currently being structurally resolved for invariant comparison. */
   private final Set<InferenceVariable> invariantResolutionInProgress = new LinkedHashSet<>();
 
@@ -230,6 +250,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                     : GenericsChecks.getSyntheticNonNullAnnotType(state)));
       }
       InferenceVariable inferenceVariable = new InferenceVariable(entry.getKey(), site);
+      inferenceSymbolOrder.put(freshVar.tsym, inferenceVariables.size());
       inferenceVariables.put(freshVar.tsym, inferenceVariable);
       freshTypeVariableForInferenceVariable.put(inferenceVariable, freshVar);
       if (variablesWithNullnessMarkedBounds.contains(entry.getKey())) {
@@ -655,13 +676,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       List<Type> resolvedSources = new ArrayList<>();
       for (Type source : sources) {
         Map<Element, Type> replacements = new LinkedHashMap<>();
-        for (Map.Entry<Element, InferenceVariable> entry : inferenceVariables.entrySet()) {
-          TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(entry.getKey());
-          source.accept(collector, null);
-          if (!collector.getMatches().isEmpty()) {
-            replacements.put(
-                entry.getKey(), inferredType(entry.getValue(), memo, inProgress, incomplete));
-          }
+        for (Element symbol : referencedInferenceSymbols(List.of(source))) {
+          replacements.put(
+              symbol,
+              inferredType(
+                  castToNonNull(inferenceVariables.get(symbol)), memo, inProgress, incomplete));
         }
         Type resolved =
             TypeSubstitutionUtils.substituteTypeVariables(
@@ -948,7 +967,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     do {
       changed = false;
       for (Map.Entry<InferenceVariable, VarState> entry : vars.entrySet()) {
-        Set<InferenceVariable> dependencies = directStructuredDependencies(entry.getKey());
+        Set<InferenceVariable> dependencies =
+            new LinkedHashSet<>(directStructuredDependencies(entry.getKey()));
         dependencies.addAll(entry.getValue().structuralSubtypes);
         dependencies.addAll(entry.getValue().structuralSupertypes);
         for (InferenceVariable dependency : dependencies) {
@@ -993,8 +1013,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return false;
   }
 
-  /** Returns inference variables occurring directly in this variable's structured evidence. */
+  /**
+   * Returns immutable direct dependencies. Preparation can still add bounds or edges, so only the
+   * frozen structural version permits memoization; scalar propagation does not invalidate it.
+   */
   private Set<InferenceVariable> directStructuredDependencies(InferenceVariable inferenceVar) {
+    boolean prepared = preparedStructuredConstraintVersion == structuredConstraintVersion;
+    if (prepared) {
+      Set<InferenceVariable> memoized = structuredDependenciesMemo.get(inferenceVar);
+      if (memoized != null) {
+        return memoized;
+      }
+    }
     Set<InferenceVariable> dependencies = new LinkedHashSet<>();
     List<Type> evidence = new ArrayList<>();
     VarState st = vars.get(inferenceVar);
@@ -1006,17 +1036,39 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (freshTypeVariable != null && nullnessMarkedDeclarationBounds.contains(inferenceVar)) {
       evidence.add(freshTypeVariable.getUpperBound());
     }
-    for (Map.Entry<Element, InferenceVariable> entry : inferenceVariables.entrySet()) {
-      for (Type type : evidence) {
-        TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(entry.getKey());
-        type.accept(collector, null);
-        if (!collector.getMatches().isEmpty()) {
-          dependencies.add(entry.getValue());
-          break;
-        }
+    for (Element symbol : referencedInferenceSymbols(evidence)) {
+      dependencies.add(castToNonNull(inferenceVariables.get(symbol)));
+    }
+    Set<InferenceVariable> result = Collections.unmodifiableSet(dependencies);
+    if (prepared) {
+      structuredDependenciesMemo.put(inferenceVar, result);
+    }
+    return result;
+  }
+
+  /**
+   * Collects registered symbols with one traversal per evidence root, including variable bounds and
+   * intersections. Only symbol-level resolution is deduplicated here; substitution still collects
+   * every annotation-distinct occurrence. Registration order preserves recursive resolution and
+   * diagnostic ordering without scanning every registered symbol for every source.
+   */
+  private List<Element> referencedInferenceSymbols(List<Type> evidence) {
+    if (inferenceVariables.isEmpty()) {
+      return List.of();
+    }
+    Set<Element> symbols = new LinkedHashSet<>();
+    for (Type type : evidence) {
+      TypeVarWithSymbolCollector collector =
+          new TypeVarWithSymbolCollector(inferenceVariables.keySet());
+      type.accept(collector, null);
+      for (Type.TypeVar occurrence : collector.getMatches()) {
+        symbols.add(occurrence.asElement());
       }
     }
-    return dependencies;
+    List<Element> ordered = new ArrayList<>(symbols);
+    ordered.sort(
+        Comparator.comparingInt(symbol -> castToNonNull(inferenceSymbolOrder.get(symbol))));
+    return ordered;
   }
 
   private enum BoundRelation {
@@ -1047,6 +1099,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * is checked.
    */
   private void prepareStructuredConstraints() {
+    // No dependency snapshot is reusable while preparation is extending the graph. Bounds use
+    // their versioned memo during these passes; afterward both structural snapshots are stable.
+    preparedStructuredConstraintVersion = -1;
+    structuredDependenciesMemo.clear();
     int versionBeforePass;
     do {
       versionBeforePass = structuredConstraintVersion;
@@ -1060,6 +1116,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         }
       }
     } while (structuredConstraintVersion != versionBeforePass);
+    preparedStructuredConstraintVersion = structuredConstraintVersion;
   }
 
   /** Adds a variable edge for a declared dependent upper bound such as {@code U extends T}. */
@@ -1328,12 +1385,22 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /**
    * Collects all structured bounds flowing to and from {@code inferenceVar} in breadth-first order.
+   * Snapshots are keyed solely by structural version: preparation's graph additions invalidate the
+   * memo, while later nullness propagation and diagnostic fallback selection do not affect these
+   * lists. No annotation comparison or solved outcome is cached.
    */
   private StructuredBounds structuredBounds(InferenceVariable inferenceVar) {
-    return new StructuredBounds(
-        collectStructuredBounds(inferenceVar, true),
-        collectStructuredBounds(inferenceVar, false),
-        collectDeclaredUpperBounds(inferenceVar));
+    if (structuredBoundsMemoVersion != structuredConstraintVersion) {
+      structuredBoundsMemo.clear();
+      structuredBoundsMemoVersion = structuredConstraintVersion;
+    }
+    return structuredBoundsMemo.computeIfAbsent(
+        inferenceVar,
+        variable ->
+            new StructuredBounds(
+                List.copyOf(collectStructuredBounds(variable, true)),
+                List.copyOf(collectStructuredBounds(variable, false)),
+                List.copyOf(collectDeclaredUpperBounds(variable))));
   }
 
   /** Collects declaration/model structured upper bounds reachable through supertype edges. */

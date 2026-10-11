@@ -94,28 +94,43 @@ public final class GenericsChecks {
 
   /** Complete solutions and diagnostic fallback evidence share only their substitution view. */
   private interface InferenceWithTypes extends CallInferenceResult {
-    Solution solution();
+    Map<Tree, Map<Element, Type>> typesBySite();
 
     /** Selects substitutions belonging to one call or reference, never a sibling's variables. */
     default Map<Element, Type> inferredTypesForSite(Tree site) {
-      Map<Element, Type> result = new LinkedHashMap<>();
-      solution()
-          .inferredTypes()
-          .forEach(
-              (variable, type) -> {
-                if (variable.site().equals(site)) {
-                  result.put(variable.typeVariable(), type);
-                }
-              });
-      return result;
+      return typesBySite().getOrDefault(site, Map.of());
     }
   }
 
   /** A completed, consistent solution eligible for publication subject to lifecycle guards. */
-  private record InferenceSuccess(Solution solution) implements InferenceWithTypes {}
+  private record InferenceSuccess(Solution solution, Map<Tree, Map<Element, Type>> typesBySite)
+      implements InferenceWithTypes {
+    InferenceSuccess(Solution solution) {
+      this(solution, indexInferredTypesBySite(solution));
+    }
+  }
 
   /** Uncertified or contradictory evidence used for ordinary checking, never success caching. */
-  private record InferencePartial(Solution solution) implements InferenceWithTypes {}
+  private record InferencePartial(Solution solution, Map<Tree, Map<Element, Type>> typesBySite)
+      implements InferenceWithTypes {
+    InferencePartial(Solution solution) {
+      this(solution, indexInferredTypesBySite(solution));
+    }
+  }
+
+  /** Indexes immutable site-scoped substitution views once, without changing certification. */
+  private static Map<Tree, Map<Element, Type>> indexInferredTypesBySite(Solution solution) {
+    Map<Tree, Map<Element, Type>> bySite = new LinkedHashMap<>();
+    solution
+        .inferredTypes()
+        .forEach(
+            (variable, type) ->
+                bySite
+                    .computeIfAbsent(variable.site(), unused -> new LinkedHashMap<>())
+                    .put(variable.typeVariable(), type));
+    bySite.replaceAll((site, types) -> Map.copyOf(types));
+    return Map.copyOf(bySite);
+  }
 
   /**
    * Tracks which participating calls can safely share a persisted inference result. Once any call
