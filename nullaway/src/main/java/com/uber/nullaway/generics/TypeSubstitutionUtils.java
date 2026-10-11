@@ -986,6 +986,21 @@ public class TypeSubstitutionUtils {
           ? TYPE_METADATA_BUILDER.createClassType(updated, newEnclosingType, newTypeArgs.toList())
           : updated;
     }
+    if (target instanceof Type.WildcardType targetWildcard
+        && !(inferredType instanceof Type.WildcardType)
+        && targetWildcard.kind != BoundKind.UNBOUND
+        && targetWildcard.type != null) {
+      // A concrete argument is contained by an existing wildcard slot. Copy its annotations to
+      // the bound, without inventing a wildcard or changing javac's selected variance.
+      Type newBound =
+          overlayInferredTypeAnnotations(inferredType, targetWildcard.type, types, config, false);
+      if (newBound == targetWildcard.type) {
+        return target;
+      }
+      Type.WildcardType result = TYPE_METADATA_BUILDER.createWildcardType(targetWildcard, newBound);
+      result.bound = targetWildcard.bound;
+      return result;
+    }
     if (inferredType instanceof Type.WildcardType inferredWildcard
         && target instanceof Type.WildcardType targetWildcard) {
       if (inferredWildcard.kind != targetWildcard.kind) {

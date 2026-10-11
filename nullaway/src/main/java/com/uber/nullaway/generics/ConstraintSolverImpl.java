@@ -697,7 +697,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         }
       }
       if (shape != null && declarationFallback == null && !bounds.lower().isEmpty()) {
-        validateLowerAnnotationsAtShape(inferenceVar, resolvedSources, shape);
+        validateLowerAnnotationsAtShape(inferenceVar, sources, resolvedSources, shape);
       }
       Type candidate = null;
       for (Type resolved : resolvedSources) {
@@ -749,10 +749,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * bounds. This check does not supply a Java shape or certify an otherwise incomplete solution.
    */
   private void validateLowerAnnotationsAtShape(
-      InferenceVariable variable, List<Type> lowers, Type shape) {
+      InferenceVariable variable, List<Type> sources, List<Type> lowers, Type shape) {
     for (int i = 0; i < lowers.size(); i++) {
       for (int j = i + 1; j < lowers.size(); j++) {
-        validateLowerAnnotationsAtShape(variable, lowers.get(i), lowers.get(j), shape);
+        validateLowerAnnotationsAtShape(
+            variable, lowers.get(i), lowers.get(j), shape, sources.get(i), sources.get(j));
       }
     }
   }
@@ -765,7 +766,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * raw, unresolved, and otherwise unknown evidence remains for conservative solution validation.
    */
   private void validateLowerAnnotationsAtShape(
-      InferenceVariable variable, Type first, Type second, Type shape) {
+      InferenceVariable variable,
+      Type first,
+      Type second,
+      Type shape,
+      Type firstSource,
+      Type secondSource) {
     if (first instanceof ClassType
         && second instanceof ClassType
         && first.tsym.equals(second.tsym)) {
@@ -781,13 +787,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         if (first instanceof Type.ArrayType firstArray
             && second instanceof Type.ArrayType secondArray) {
           validateLowerAnnotationsAtShape(
-              variable, firstArray.elemtype, secondArray.elemtype, array.elemtype);
+              variable,
+              firstArray.elemtype,
+              secondArray.elemtype,
+              array.elemtype,
+              firstSource,
+              secondSource);
         }
         return;
       }
       if (shape instanceof Type.IntersectionClassType intersection) {
         for (Type component : intersection.getExplicitComponents()) {
-          validateLowerAnnotationsAtShape(variable, first, second, component);
+          validateLowerAnnotationsAtShape(
+              variable, first, second, component, firstSource, secondSource);
         }
         return;
       }
@@ -806,11 +818,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
       Type firstProjected = projectLowerAnnotations(variable, firstAligned, shape);
       Type secondProjected = projectLowerAnnotations(variable, secondAligned, shape);
-      if (sameInvariantStructure(firstProjected, secondProjected, false)
+      if (compatibleProjectedLowerBounds(firstProjected, secondProjected)
           == BoundRelation.VIOLATED) {
-        // Report the corresponding nominal component, never the synthetic intersection symbol.
-        throw new NestedUpperBoundViolationException(
-            variable.typeVariable(), variable.site(), secondProjected, firstProjected);
+        throw new LowerBoundConflictException(variable, firstSource, secondSource, shape);
       }
     } finally {
       endBoundComparison("lower-at-shape", first, shape);
@@ -1109,6 +1119,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       for (InferenceVariable inferenceVar : new ArrayList<>(vars.keySet())) {
         addDeclaredUpperBoundEdge(inferenceVar);
         StructuredBounds bounds = structuredBounds(inferenceVar);
+        Type shape = javacInstantiations.get(inferenceVar);
+        if (shape != null) {
+          for (int i = 0; i < bounds.lower().size(); i++) {
+            for (int j = i + 1; j < bounds.lower().size(); j++) {
+              constrainSharedLowerSlots(bounds.lower().get(i), bounds.lower().get(j), shape);
+            }
+          }
+        }
         for (Type lower : bounds.lower()) {
           for (Type upper : bounds.upper()) {
             lower.accept(new AddSubtypeConstraintsVisitor(false), upper);
@@ -1117,6 +1135,56 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     } while (structuredConstraintVersion != versionBeforePass);
     preparedStructuredConstraintVersion = structuredConstraintVersion;
+  }
+
+  /**
+   * Relates lower-bound slots that javac has selected as concrete invariant arguments. In
+   * particular, a sibling diamond still contains its fresh variables here, so another lower can
+   * constrain them before candidate construction applies defaults. Wildcard slots are not equated:
+   * their bounds admit variance, and javac's shape alone is not nullness evidence.
+   */
+  private void constrainSharedLowerSlots(Type first, Type second, Type shape) {
+    if (!beginBoundComparison("shared-lower-slots", first, shape)) {
+      return;
+    }
+    try {
+      if (shape instanceof Type.ArrayType array
+          && first instanceof Type.ArrayType firstArray
+          && second instanceof Type.ArrayType secondArray) {
+        constrainSharedLowerSlots(firstArray.elemtype, secondArray.elemtype, array.elemtype);
+      } else if (shape instanceof Type.IntersectionClassType intersection) {
+        for (Type component : intersection.getExplicitComponents()) {
+          constrainSharedLowerSlots(first, second, component);
+        }
+      } else if (shape instanceof ClassType shapeClass
+          && !shapeClass.isRaw()
+          && shape.tsym instanceof Symbol.ClassSymbol symbol) {
+        Type firstAligned = TypeSubstitutionUtils.asSuper(state.getTypes(), first, symbol, config);
+        Type secondAligned =
+            TypeSubstitutionUtils.asSuper(state.getTypes(), second, symbol, config);
+        if (!(firstAligned instanceof ClassType firstClass)
+            || !(secondAligned instanceof ClassType secondClass)
+            || firstClass.isRaw()
+            || secondClass.isRaw()
+            || firstClass.getTypeArguments().size() != shapeClass.getTypeArguments().size()
+            || secondClass.getTypeArguments().size() != shapeClass.getTypeArguments().size()) {
+          return;
+        }
+        for (int i = 0; i < shapeClass.getTypeArguments().size(); i++) {
+          if (GenericsUtils.asWildcard(shapeClass.getTypeArguments().get(i)) != null) {
+            continue;
+          }
+          Type firstArgument = firstClass.getTypeArguments().get(i);
+          Type secondArgument = secondClass.getTypeArguments().get(i);
+          if (!referencedInferenceSymbols(List.of(firstArgument, secondArgument)).isEmpty()) {
+            firstArgument.accept(new AddSubtypeConstraintsVisitor(false), secondArgument);
+            secondArgument.accept(new AddSubtypeConstraintsVisitor(false), firstArgument);
+          }
+        }
+      }
+    } finally {
+      endBoundComparison("shared-lower-slots", first, shape);
+    }
   }
 
   /** Adds a variable edge for a declared dependent upper bound such as {@code U extends T}. */
@@ -1491,9 +1559,22 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /**
    * Merges annotations already projected onto the same attributed Java shape, including independent
    * intersection components. Component symbols must correspond; this cannot manufacture a new
-   * nominal common type. The legacy unshaped lower-bound merge is deliberately left unchanged.
+   * nominal common type. Existing wildcard slots merge extends bounds covariantly and super bounds
+   * contravariantly; concrete generic slots remain invariant. The legacy unshaped lower-bound merge
+   * is deliberately left unchanged.
    */
   private @Nullable Type mergeProjectedLowerBounds(Type first, Type second, boolean mergeTopLevel) {
+    return mergeProjectedBounds(first, second, mergeTopLevel, true);
+  }
+
+  /**
+   * Merges aligned annotation evidence with the supplied variance. Arrays preserve that variance,
+   * wildcard super bounds reverse it, and concrete generic arguments always require equality. This
+   * also computes a meet for incomparable super-bound array annotations without choosing an
+   * argument-order-dependent bound or inventing new Java structure.
+   */
+  private @Nullable Type mergeProjectedBounds(
+      Type first, Type second, boolean mergeTopLevel, boolean covariant) {
     if (first instanceof Type.IntersectionClassType firstIntersection
         && second instanceof Type.IntersectionClassType secondIntersection) {
       List<Type> firstComponents = firstIntersection.getComponents();
@@ -1508,7 +1589,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           return null;
         }
         Type component =
-            mergeProjectedLowerBounds(firstComponents.get(i), secondComponents.get(i), false);
+            mergeProjectedBounds(firstComponents.get(i), secondComponents.get(i), false, covariant);
         if (component == null) {
           return null;
         }
@@ -1519,18 +1600,154 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
               com.sun.tools.javac.util.List.from(components),
               (Symbol.ClassSymbol) firstIntersection.tsym,
               firstIntersection.allInterfaces);
-      return mergeTopLevel ? mergeLowerBoundTopLevel(merged, first, second) : merged;
+      return mergeTopLevel ? mergeProjectedBoundRoot(merged, first, second, covariant) : merged;
     }
     if (first instanceof Type.ArrayType firstArray
         && second instanceof Type.ArrayType secondArray) {
-      Type component = mergeProjectedLowerBounds(firstArray.elemtype, secondArray.elemtype, true);
+      Type component =
+          mergeProjectedBounds(firstArray.elemtype, secondArray.elemtype, true, covariant);
       if (component == null) {
         return null;
       }
       Type merged = TYPE_METADATA_BUILDER.createArrayType(firstArray, component);
-      return mergeTopLevel ? mergeLowerBoundTopLevel(merged, first, second) : merged;
+      return mergeTopLevel ? mergeProjectedBoundRoot(merged, first, second, covariant) : merged;
     }
-    return mergeCovariantLowerBounds(first, second, mergeTopLevel);
+    if (first instanceof WildcardType firstWildcard
+        && second instanceof WildcardType secondWildcard) {
+      if (!config.handleWildcardGenerics()
+          || firstWildcard.kind != secondWildcard.kind
+          || firstWildcard.type == null
+          || secondWildcard.type == null) {
+        return null;
+      }
+      if (firstWildcard.kind == BoundKind.UNBOUND) {
+        return first;
+      }
+      Type bound =
+          mergeProjectedBounds(
+              firstWildcard.type,
+              secondWildcard.type,
+              true,
+              firstWildcard.kind == BoundKind.EXTENDS ? covariant : !covariant);
+      if (bound == null) {
+        return null;
+      }
+      WildcardType merged = TYPE_METADATA_BUILDER.createWildcardType(firstWildcard, bound);
+      merged.bound = firstWildcard.bound;
+      return merged;
+    }
+    if (first instanceof ClassType firstClass && second instanceof ClassType secondClass) {
+      if (firstClass.isRaw()
+          || secondClass.isRaw()
+          || !firstClass.tsym.equals(secondClass.tsym)
+          || firstClass.getTypeArguments().size() != secondClass.getTypeArguments().size()
+          || sameInvariantStructure(
+                  firstClass.getEnclosingType(), secondClass.getEnclosingType(), true)
+              != BoundRelation.SATISFIED) {
+        return null;
+      }
+      List<Type> arguments = new ArrayList<>();
+      for (int i = 0; i < firstClass.getTypeArguments().size(); i++) {
+        Type firstArgument = firstClass.getTypeArguments().get(i);
+        Type secondArgument = secondClass.getTypeArguments().get(i);
+        Type argument;
+        if (firstArgument instanceof WildcardType && secondArgument instanceof WildcardType) {
+          argument = mergeProjectedBounds(firstArgument, secondArgument, false, covariant);
+        } else {
+          argument =
+              sameInvariantStructure(firstArgument, secondArgument, true) == BoundRelation.SATISFIED
+                  ? firstArgument
+                  : null;
+        }
+        if (argument == null) {
+          return null;
+        }
+        arguments.add(argument);
+      }
+      Type merged =
+          TYPE_METADATA_BUILDER.createClassType(
+              firstClass,
+              firstClass.getEnclosingType(),
+              com.sun.tools.javac.util.List.from(arguments));
+      return mergeTopLevel ? mergeProjectedBoundRoot(merged, first, second, covariant) : merged;
+    }
+    Type merged = mergeCovariantLowerBounds(first, second, false);
+    return merged == null || !mergeTopLevel
+        ? merged
+        : mergeProjectedBoundRoot(merged, first, second, covariant);
+  }
+
+  /** Applies the join or meet of known bound roots without changing the projected Java shape. */
+  private @Nullable Type mergeProjectedBoundRoot(
+      Type base, Type first, Type second, boolean covariant) {
+    if (covariant) {
+      return mergeLowerBoundTopLevel(base, first, second);
+    }
+    BoundNullness firstNullness = boundNullness(first);
+    BoundNullness secondNullness = boundNullness(second);
+    if (firstNullness == BoundNullness.UNKNOWN || secondNullness == BoundNullness.UNKNOWN) {
+      return sameInferenceVariable(first, second) ? base : null;
+    }
+    return TypeSubstitutionUtils.typeWithAnnot(
+        base,
+        firstNullness == BoundNullness.NULLABLE && secondNullness == BoundNullness.NULLABLE
+            ? GenericsChecks.getSyntheticNullableAnnotType(state)
+            : GenericsChecks.getSyntheticNonNullAnnotType(state));
+  }
+
+  /**
+   * Checks projected lower compatibility without requiring equality of wildcard-bound root
+   * nullness. Bounds can merge with the wildcard's variance, but concrete arguments inside those
+   * bounds remain invariant. Unknown slots do not hide a proven conflict in another slot.
+   */
+  private BoundRelation compatibleProjectedLowerBounds(Type first, Type second) {
+    if (!beginBoundComparison("projected-lower-compatibility", first, second)) {
+      return BoundRelation.UNKNOWN;
+    }
+    try {
+      if (first instanceof WildcardType firstWildcard
+          && second instanceof WildcardType secondWildcard) {
+        if (!config.handleWildcardGenerics()
+            || firstWildcard.kind != secondWildcard.kind
+            || firstWildcard.type == null
+            || secondWildcard.type == null) {
+          return BoundRelation.UNKNOWN;
+        }
+        return firstWildcard.kind == BoundKind.UNBOUND
+            ? BoundRelation.SATISFIED
+            : compatibleProjectedLowerBounds(firstWildcard.type, secondWildcard.type);
+      }
+      if (first instanceof Type.ArrayType firstArray
+          && second instanceof Type.ArrayType secondArray) {
+        return compatibleProjectedLowerBounds(firstArray.elemtype, secondArray.elemtype);
+      }
+      if (first instanceof ClassType firstClass && second instanceof ClassType secondClass) {
+        if (firstClass.isRaw() || secondClass.isRaw()) {
+          return BoundRelation.UNKNOWN;
+        }
+        if (!firstClass.tsym.equals(secondClass.tsym)
+            || firstClass.getTypeArguments().size() != secondClass.getTypeArguments().size()) {
+          return BoundRelation.VIOLATED;
+        }
+        BoundRelation relation =
+            sameInvariantStructure(
+                firstClass.getEnclosingType(), secondClass.getEnclosingType(), true);
+        for (int i = 0; i < firstClass.getTypeArguments().size(); i++) {
+          Type firstArgument = firstClass.getTypeArguments().get(i);
+          Type secondArgument = secondClass.getTypeArguments().get(i);
+          relation =
+              combineBoundRelations(
+                  relation,
+                  firstArgument instanceof WildcardType && secondArgument instanceof WildcardType
+                      ? compatibleProjectedLowerBounds(firstArgument, secondArgument)
+                      : sameInvariantStructure(firstArgument, secondArgument, true));
+        }
+        return relation;
+      }
+      return sameInvariantStructure(first, second, false);
+    } finally {
+      endBoundComparison("projected-lower-compatibility", first, second);
+    }
   }
 
   /**

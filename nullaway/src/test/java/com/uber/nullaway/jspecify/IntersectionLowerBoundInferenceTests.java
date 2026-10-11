@@ -124,9 +124,9 @@ public class IntersectionLowerBoundInferenceTests extends NullAwayTestsBase {
               static <X extends @Nullable Object> X pick(X a, X b) { return a; }
               void conflict(A<@Nullable String> a, B<String> b) {
                 // The agreeing First component must not hide the conflicting Second component.
-                // BUG: Diagnostic contains: Second<String> cannot be converted to Second<@Nullable String>
+                // BUG: Diagnostic contains: arguments 'b' (B<String>) and 'a' (A<@Nullable String>) have conflicting nullability
                 pick(a, b).second().length();
-                // BUG: Diagnostic contains: Second<@Nullable String> cannot be converted to Second<String>
+                // BUG: Diagnostic contains: arguments 'a' (A<@Nullable String>) and 'b' (B<String>) have conflicting nullability
                 pick(b, a).second().length();
               }
               void agrees(A<String> a, B<String> b) {

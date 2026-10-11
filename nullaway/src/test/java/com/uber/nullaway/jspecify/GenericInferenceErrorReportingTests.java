@@ -102,6 +102,210 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 + " @NonNull and @Nullable");
   }
 
+  @Test
+  public void distinctLowerConflictReportsSourceArgumentsOnceInEitherOrder() {
+    checkDistinctLowerConflict(false);
+    checkDistinctLowerConflict(true);
+  }
+
+  /** Checks one source-level conflict at the later argument, without result or bound cascades. */
+  private void checkDistinctLowerConflict(boolean reverse) {
+    String first = reverse ? "b" : "a";
+    String second = reverse ? "a" : "b";
+    String firstType = reverse ? "LinkedList<String>" : "ArrayList<@Nullable String>";
+    String secondType = reverse ? "ArrayList<@Nullable String>" : "LinkedList<String>";
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X pick(X a, X b) { return a; }
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b) {
+                List<String> result = pick(
+                    %s,
+                    %s);
+              }
+            }
+            """
+                .formatted(first, second));
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:13: [NullAway] incompatible types: arguments '"
+                + second
+                + "' ("
+                + secondType
+                + ") and '"
+                + first
+                + "' ("
+                + firstType
+                + ") have conflicting nullability for type variable X");
+  }
+
+  @Test
+  public void threeDistinctLowerSourcesReportOneSourceLevelConflict() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import java.util.Vector;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X pick3(X a, X b, X c) { return a; }
+              void test(ArrayList<String> a, LinkedList<String> b, Vector<@Nullable String> c) {
+                List<String> result = pick3(
+                    a,
+                    b,
+                    c);
+              }
+            }
+            """);
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:15: [NullAway] incompatible types: arguments 'c' (Vector<@Nullable String>)"
+                + " and 'a' (ArrayList<String>) have conflicting nullability for type variable X");
+  }
+
+  @Test
+  public void lowerProvenanceDistinguishesAnnotationVariantsOfTheSameClass() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X pick3(X a, X b, X c) { return a; }
+              void test(ArrayList<String> a, ArrayList<@Nullable String> b, LinkedList<String> c) {
+                List<String> result = pick3(
+                    a,
+                    b,
+                    c);
+              }
+            }
+            """);
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:14: [NullAway] incompatible types: arguments 'c' (LinkedList<String>)"
+                + " and 'b' (ArrayList<@Nullable String>) have conflicting nullability for type"
+                + " variable X");
+  }
+
+  @Test
+  public void lowerConflictDoesNotHideFixedAnnotationsOnArrayResultDimensions() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X[] @Nullable [] pickArrays(X a, X b) {
+                throw new RuntimeException();
+              }
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b) {
+                List<String>[][] result = pickArrays(a, b);
+              }
+            }
+            """);
+    List<String> diagnostics = compileAndReportDiagnostics(List.of(source));
+    assertThat(diagnostics).hasSize(2);
+    assertThat(diagnostics.stream().filter(message -> message.contains("arguments 'b'")).toList())
+        .hasSize(1);
+    assertThat(
+            diagnostics.stream()
+                .filter(message -> message.contains("cannot be converted"))
+                .toList())
+        .hasSize(1);
+  }
+
+  @Test
+  public void lowerConflictDoesNotHideDefaultNonNullArrayDimensionContracts() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> void mixed(X a, X b, X[][] other) {}
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b,
+                  List<String>[] @Nullable [] other) {
+                mixed(a, b, other);
+              }
+            }
+            """);
+    List<String> diagnostics = compileAndReportDiagnostics(List.of(source));
+    assertThat(diagnostics).hasSize(2);
+    assertThat(diagnostics.stream().filter(message -> message.contains("arguments 'b'")).toList())
+        .hasSize(1);
+    assertThat(
+            diagnostics.stream()
+                .filter(message -> message.contains("cannot be converted"))
+                .toList())
+        .hasSize(1);
+  }
+
+  @Test
+  public void lowerConflictDoesNotHideAnIndependentParameterMismatch() {
+    JavaFileObject source =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> void mixed(X a, X b, List<String> other) {}
+              void test(ArrayList<@Nullable String> a, LinkedList<String> b,
+                  List<@Nullable String> other) {
+                mixed(
+                    a,
+                    b,
+                    other);
+              }
+            }
+            """);
+    assertThat(compileAndReportDiagnostics(List.of(source)))
+        .containsExactly(
+            "Caller.java:14: [NullAway] incompatible types: arguments 'b' (LinkedList<String>)"
+                + " and 'a' (ArrayList<@Nullable String>) have conflicting nullability for type"
+                + " variable X",
+            "Caller.java:15: [NullAway] incompatible types: List<@Nullable String> cannot be"
+                + " converted to List<String>");
+  }
+
   /**
    * Source compiled before each call site, padded so a misattributed diagnostic lands on an
    * existing line and cannot be dropped by the test framework.

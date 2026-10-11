@@ -189,6 +189,49 @@ public interface ConstraintSolver {
   }
 
   /**
+   * Indicates incompatible invariant annotations from distinct lower sources at javac's common
+   * shape, rather than a declaration upper-bound violation. The original sources retain their
+   * nominal types and fresh-variable ownership; the shape identifies the view proving the conflict.
+   */
+  class LowerBoundConflictException extends UnsatisfiableConstraintsException {
+    private final InferenceVariable variable;
+    private final Type firstLowerSource;
+    private final Type secondLowerSource;
+    private final Type shape;
+
+    /** Records the owning variable, original sources in solver order, and common shape. */
+    public LowerBoundConflictException(
+        InferenceVariable variable, Type firstLowerSource, Type secondLowerSource, Type shape) {
+      super(variable.typeVariable(), false, variable.site());
+      this.variable = variable;
+      this.firstLowerSource = firstLowerSource;
+      this.secondLowerSource = secondLowerSource;
+      this.shape = shape;
+    }
+
+    public InferenceVariable getVariable() {
+      return variable;
+    }
+
+    @Override
+    public Tree getInferenceSite() {
+      return variable.site();
+    }
+
+    public Type getFirstLowerSource() {
+      return firstLowerSource;
+    }
+
+    public Type getSecondLowerSource() {
+      return secondLowerSource;
+    }
+
+    public Type getShape() {
+      return shape;
+    }
+  }
+
+  /**
    * Add a subtype constraint between two types. Also constrains nested types appropriately (e.g.,
    * generic type parameters of the two types must have identical nullability). Inference variables
    * must appear in the types as the fresh type variables returned by {@link
@@ -229,6 +272,8 @@ public interface ConstraintSolver {
    * successful inference.
    *
    * @return inferred types and explicit incomplete/inconsistent variable sets
+   * @throws LowerBoundConflictException if original lower sources disagree at a concrete invariant
+   *     slot of javac's common shape
    * @throws NestedUpperBoundViolationException if a declaration-bound violation is proven but no
    *     recursively shape-compatible annotation source can preserve ordinary diagnostics
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
