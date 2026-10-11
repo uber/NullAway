@@ -514,8 +514,10 @@ public final class GenericsChecks {
             ? constructorCall(construction).symbol
             : castToNonNull((Symbol.MethodSymbol) ASTHelpers.getSymbol(tree));
 
-    // Check the constructor declaration selected by the shared call description.
-    Type baseType = methodSymbol.asType();
+    // Check the restored declaration, not bounds stripped by anonymous-class attribution.
+    Type baseType =
+        TypeSubstitutionUtils.restoreMemberDeclarationBounds(
+            state.getTypes(), methodSymbol, config);
     List<Type> baseTypeVariables = baseType.getTypeArguments();
     for (int i = 0; i < baseTypeVariables.size(); i++) {
       if (nullableTypeArguments.containsKey(i)) {

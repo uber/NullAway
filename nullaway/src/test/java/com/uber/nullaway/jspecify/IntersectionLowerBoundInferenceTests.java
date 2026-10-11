@@ -1,13 +1,35 @@
 package com.uber.nullaway.jspecify;
 
+import static org.junit.Assert.assertEquals;
+import static org.junit.Assert.assertFalse;
+import static org.junit.Assert.assertNotSame;
+import static org.junit.Assert.assertSame;
+import static org.junit.Assert.assertTrue;
+
+import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.ErrorProneFlags;
+import com.google.errorprone.VisitorState;
+import com.google.errorprone.bugpatterns.BugChecker;
+import com.google.errorprone.matchers.Description;
+import com.google.errorprone.util.ASTHelpers;
+import com.sun.source.tree.MethodTree;
+import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import java.util.List;
+import java.util.Map;
 import org.junit.Test;
 
 /** Regression coverage for lower annotations at javac's inferred common intersection shape. */
 public class IntersectionLowerBoundInferenceTests extends NullAwayTestsBase {
+
+  private static final ThreadLocal<Integer> DETACHMENT_ASSERTIONS =
+      ThreadLocal.withInitial(() -> 0);
 
   @Test
   public void arrayLowerConflictsInBothOrders() {
@@ -338,6 +360,303 @@ public class IntersectionLowerBoundInferenceTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  @Test
+  public void constructorIntersectionDeclarationBoundsSurviveAnonymousAttribution() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface First<T extends @Nullable Object> {}
+              interface Second<T extends @Nullable Object> {}
+              abstract static class Both implements First<@Nullable String>, Second<String> {}
+              static class InterfaceBounds {
+                <U extends @Nullable First<@Nullable String> & @Nullable Second<String>>
+                    InterfaceBounds(U value) {}
+              }
+              static class ClassBounds {
+                <U extends @Nullable Object & @Nullable First<@Nullable String> & @Nullable Second<String>>
+                    ClassBounds(U value) {}
+              }
+              static class MixedBounds {
+                <U extends @Nullable First<@Nullable String> & Second<String>>
+                    MixedBounds(U value) {}
+              }
+              void ordinaryFirst(Both value) {
+                new InterfaceBounds(null);
+                new InterfaceBounds(null) {};
+                new InterfaceBounds(value);
+                new InterfaceBounds(value) {};
+                new ClassBounds(null);
+                new ClassBounds(null) {};
+                new ClassBounds(value);
+                new ClassBounds(value) {};
+                // One nullable bound does not relax the other non-null component.
+                // BUG: Diagnostic contains: @Nullable
+                new MixedBounds(null);
+                // BUG: Diagnostic contains: @Nullable
+                new MixedBounds(null) {};
+              }
+              void anonymousFirst(Both value) {
+                new InterfaceBounds(null) {};
+                new InterfaceBounds(null);
+                new ClassBounds(null) {};
+                new ClassBounds(null);
+                new InterfaceBounds(value) {};
+                new InterfaceBounds(value);
+                new ClassBounds(value) {};
+                new ClassBounds(value);
+                // BUG: Diagnostic contains: @Nullable
+                new MixedBounds(null) {};
+                // BUG: Diagnostic contains: @Nullable
+                new MixedBounds(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constructorNestedDeclarationAnnotationsDoNotRelaxTheBoundRoot() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Elements {
+                <U extends List<@Nullable String>> Elements(U value) {}
+              }
+              static class Arrays {
+                <U extends List<@Nullable String[]>> Arrays(U value) {}
+              }
+              static class Indexed {
+                <A extends @Nullable Object, U extends List<@Nullable String>>
+                    Indexed(A optional, U value) {}
+              }
+              void ordinaryFirst(List<@Nullable String> elements, List<@Nullable String[]> arrays) {
+                new Elements(elements);
+                new Elements(elements) {};
+                new Arrays(arrays);
+                new Arrays(arrays) {};
+                new Indexed(null, elements);
+                new Indexed(null, elements) {};
+                // Each parameter_index has its own root and nested annotation positions.
+                // BUG: Diagnostic contains: @Nullable
+                new Indexed(null, null);
+                // BUG: Diagnostic contains: @Nullable
+                new Indexed(null, null) {};
+                // TYPE_ARGUMENT and ARRAY paths must not be applied to the List root.
+                // BUG: Diagnostic contains: @Nullable
+                new Elements(null);
+                // BUG: Diagnostic contains: @Nullable
+                new Elements(null) {};
+                // BUG: Diagnostic contains: @Nullable
+                new Arrays(null);
+                // BUG: Diagnostic contains: @Nullable
+                new Arrays(null) {};
+              }
+              void anonymousFirst(List<@Nullable String> elements, List<@Nullable String[]> arrays) {
+                new Elements(elements) {};
+                new Elements(elements);
+                new Arrays(arrays) {};
+                new Arrays(arrays);
+                new Indexed(null, elements) {};
+                new Indexed(null, elements);
+                // BUG: Diagnostic contains: @Nullable
+                new Indexed(null, null) {};
+                // BUG: Diagnostic contains: @Nullable
+                new Indexed(null, null);
+                // BUG: Diagnostic contains: @Nullable
+                new Elements(null) {};
+                // BUG: Diagnostic contains: @Nullable
+                new Elements(null);
+              }
+              void invariantConflicts(List<String> elements, List<String[]> arrays) {
+                // BUG: Diagnostic contains: incompatible types
+                new Elements(elements);
+                // BUG: Diagnostic contains: incompatible types
+                new Elements(elements) {};
+                // BUG: Diagnostic contains: incompatible types
+                new Arrays(arrays);
+                // BUG: Diagnostic contains: incompatible types
+                new Arrays(arrays) {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constructorQualifiedAndWildcardDeclarationPathsStayDistinct() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    JSpecifyJavacConfig.HANDLE_WILDCARD_GENERICS_FLAG)))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Outer<T extends @Nullable Object> {
+                class Inner<S extends @Nullable Object> {}
+              }
+              static class OuterArgument {
+                <U extends Outer<@Nullable String>.Inner<String>> OuterArgument(U value) {}
+              }
+              static class InnerArgument {
+                <U extends Outer<String>.Inner<@Nullable String>> InnerArgument(U value) {}
+              }
+              static class InnerRoot {
+                <U extends Outer<String>.@Nullable Inner<String>> InnerRoot(U value) {}
+              }
+              static class WildcardBound {
+                <U extends List<? extends @Nullable String>> WildcardBound(U value) {}
+              }
+              void ordinaryFirst(Outer<@Nullable String>.Inner<String> outer,
+                  Outer<String>.Inner<@Nullable String> inner, List<@Nullable String> elements) {
+                new OuterArgument(outer);
+                new OuterArgument(outer) {};
+                new InnerArgument(inner);
+                new InnerArgument(inner) {};
+                new InnerRoot(null);
+                new InnerRoot(null) {};
+                new WildcardBound(elements);
+                new WildcardBound(elements) {};
+                // A WILDCARD-bound annotation does not annotate the surrounding List.
+                // BUG: Diagnostic contains: @Nullable
+                new WildcardBound(null);
+                // BUG: Diagnostic contains: @Nullable
+                new WildcardBound(null) {};
+              }
+              void anonymousFirst(Outer<@Nullable String>.Inner<String> outer,
+                  Outer<String>.Inner<@Nullable String> inner, List<@Nullable String> elements) {
+                new OuterArgument(outer) {};
+                new OuterArgument(outer);
+                new InnerArgument(inner) {};
+                new InnerArgument(inner);
+                new InnerRoot(null) {};
+                new InnerRoot(null);
+                new WildcardBound(elements) {};
+                new WildcardBound(elements);
+                // An outer or inner argument annotation does not annotate the Inner root.
+                // BUG: Diagnostic contains: @Nullable
+                new OuterArgument(null) {};
+                // BUG: Diagnostic contains: @Nullable
+                new OuterArgument(null);
+                // BUG: Diagnostic contains: @Nullable
+                new InnerArgument(null) {};
+                // BUG: Diagnostic contains: @Nullable
+                new InnerArgument(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void declarationRestorationDoesNotMutateConstructorSymbolsOrVariables() {
+    DETACHMENT_ASSERTIONS.set(0);
+    try {
+      CompilationTestHelper.newInstance(DeclarationBoundsAssertionsChecker.class, getClass())
+          .setArgs(
+              JSpecifyJavacConfig.withJSpecifyModeArgs(
+                  List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+          .addSourceLines(
+              "Test.java",
+              """
+              package com.uber;
+              import java.util.List;
+              import org.jspecify.annotations.Nullable;
+              class Test {
+                static class DetachedBounds {
+                  <A extends @Nullable Object, U extends List<@Nullable String>>
+                      DetachedBounds(A optional, U value) {}
+                }
+                void ordinaryFirst(List<@Nullable String> value) {
+                  new DetachedBounds(null, value);
+                  new DetachedBounds(null, value) {};
+                }
+                void anonymousFirst(List<@Nullable String> value) {
+                  new DetachedBounds(null, value) {};
+                  new DetachedBounds(null, value);
+                }
+              }
+              """)
+          .doTest();
+      assertEquals(1, DETACHMENT_ASSERTIONS.get().intValue());
+    } finally {
+      DETACHMENT_ASSERTIONS.remove();
+    }
+  }
+
+  /** Checks original symbol identity and detached bounds during a real javac compilation. */
+  @BugPattern(
+      summary = "Checks detached declaration bound restoration",
+      severity = BugPattern.SeverityLevel.SUGGESTION)
+  public static final class DeclarationBoundsAssertionsChecker extends BugChecker
+      implements BugChecker.MethodTreeMatcher {
+
+    /**
+     * Verifies repeated member adaptation restores exact bound positions without source mutation.
+     */
+    @Override
+    public Description matchMethod(MethodTree tree, VisitorState state) {
+      Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(tree);
+      if (!symbol.isConstructor()
+          || !symbol.owner.name.contentEquals("DetachedBounds")
+          || !(symbol.type instanceof Type.ForAll original)) {
+        return Description.NO_MATCH;
+      }
+      Config config =
+          new NullAway(
+                  ErrorProneFlags.fromMap(
+                      Map.of(
+                          "NullAway:AnnotatedPackages", "com.uber",
+                          "NullAway:JSpecifyMode", "true",
+                          "NullAway:JSpecifyExperimental", "true")))
+              .getConfig();
+      Type firstBound = ((Type.TypeVar) original.tvars.get(0)).getUpperBound();
+      Type secondBound = ((Type.TypeVar) original.tvars.get(1)).getUpperBound();
+      Object rawAttributes = symbol.getRawTypeAttributes();
+      for (int iteration = 0; iteration < 2; iteration++) {
+        Type.ForAll restored =
+            (Type.ForAll)
+                TypeSubstitutionUtils.memberType(
+                    state.getTypes(), symbol.owner.type, symbol, config);
+        assertNotSame(original.tvars.get(0), restored.tvars.get(0));
+        assertNotSame(original.tvars.get(1), restored.tvars.get(1));
+        assertSame(original.tvars.get(0).tsym, restored.tvars.get(0).tsym);
+        assertSame(original.tvars.get(1).tsym, restored.tvars.get(1).tsym);
+        assertTrue(
+            TypeSubstitutionUtils.hasNullableRoot(
+                ((Type.TypeVar) restored.tvars.get(0)).getUpperBound(), config));
+        Type nestedBound = ((Type.TypeVar) restored.tvars.get(1)).getUpperBound();
+        assertFalse(TypeSubstitutionUtils.hasNullableRoot(nestedBound, config));
+        assertTrue(
+            TypeSubstitutionUtils.hasNullableRoot(nestedBound.getTypeArguments().get(0), config));
+        assertSame(restored.tvars.get(0), restored.qtype.getParameterTypes().get(0));
+        assertSame(restored.tvars.get(1), restored.qtype.getParameterTypes().get(1));
+        assertSame(original, symbol.type);
+        assertSame(firstBound, ((Type.TypeVar) original.tvars.get(0)).getUpperBound());
+        assertSame(secondBound, ((Type.TypeVar) original.tvars.get(1)).getUpperBound());
+        assertSame(rawAttributes, symbol.getRawTypeAttributes());
+      }
+      DETACHMENT_ASSERTIONS.set(DETACHMENT_ASSERTIONS.get() + 1);
+      return Description.NO_MATCH;
+    }
   }
 
   /** Creates a helper with the same JSpecify inference configuration as the other regressions. */

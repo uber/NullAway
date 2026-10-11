@@ -10,6 +10,37 @@ import org.junit.Test;
 public class ConstructorCallInferenceTests extends NullAwayTestsBase {
 
   @Test
+  public void anonymousConstructorDoesNotChangeOrdinaryConstructorBounds() {
+    checkAnonymousConstructorBounds(false);
+  }
+
+  @Test
+  public void ordinaryConstructorAfterAnonymousCallKeepsDeclarationBounds() {
+    checkAnonymousConstructorBounds(true);
+  }
+
+  /** Checks both declaration orders without changing the constructor's nullable upper bound. */
+  private void checkAnonymousConstructorBounds(boolean anonymousFirst) {
+    String ordinary = "void ordinary() { new NullableBound(null); }\n";
+    String anonymous = "void anonymous() { new NullableBound(null) {}; }\n";
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class NullableBound {
+                <U extends @Nullable Object> NullableBound(U value) {}
+              }
+            """
+                + (anonymousFirst ? anonymous + ordinary : ordinary + anonymous)
+                + "}\n")
+        .doTest();
+  }
+
+  @Test
   public void fixedClassArgumentsSurviveNestedMethodAndLambdaCalls() {
     makeHelper()
         .addSourceLines(

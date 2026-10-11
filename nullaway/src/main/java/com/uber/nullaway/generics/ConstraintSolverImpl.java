@@ -197,9 +197,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
               .isSymbolUnannotated(declaredSymbol.owner, config, handler);
       if (instantiatedUpperBound != null
           && !ownerIsUnannotated
-          && !types.isSameType(instantiatedUpperBound, declared.getUpperBound())) {
+          && hasSuppliedBoundChange(instantiatedUpperBound, declared.getUpperBound())) {
         receiverInstantiatedBounds.add(entry.getKey());
       }
+
       entry
           .getValue()
           .setUpperBound(
@@ -256,6 +257,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       getState(new InferenceVariable(variable, site));
     }
     return fresh;
+  }
+
+  /**
+   * Detects authoritative supplied-bound changes, including annotations that javac's nominal
+   * isSameType comparison ignores. Detached peer variables can also carry restored root contracts
+   * under unchanged symbols. Neither nested nullable positions nor unknown shapes establish root
+   * permissiveness; the same root-bound reader used for validation decides that comparison.
+   */
+  private boolean hasSuppliedBoundChange(Type supplied, Type declared) {
+    return !state.getTypes().isSameType(supplied, declared)
+        || !structuredTypeKey(supplied).equals(structuredTypeKey(declared))
+        || upperBoundAllowsNullable(supplied) != upperBoundAllowsNullable(declared);
   }
 
   /** Records supplied shapes without discarding earlier shapes on repeated registration. */
@@ -2210,6 +2223,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Returns whether an instantiated upper bound permits a nullable inference result. */
   private boolean upperBoundAllowsNullable(Type upperBound) {
+    return upperBoundAllowsNullable(upperBound, new IdentityHashMap<>());
+  }
+
+  /**
+   * Reads actual detached bound roots without consulting stale symbol-owned bounds exclusively.
+   * Declaration handlers and unannotated-code policy retain their existing precedence for symbolic
+   * variables. An unresolved cycle cannot supply a nullable contract.
+   */
+  private boolean upperBoundAllowsNullable(
+      Type upperBound, IdentityHashMap<Type, Boolean> visiting) {
+    if (visiting.put(upperBound, Boolean.TRUE) != null) {
+      return false;
+    }
     if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return false;
     }
@@ -2221,10 +2247,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           GenericsUtils.effectiveWildcardUpperBound(upperBound, state, config, handler);
       return !(effective instanceof WildcardType)
           && !(effective instanceof CapturedType)
-          && upperBoundAllowsNullable(effective);
+          && upperBoundAllowsNullable(effective, visiting);
     }
     return upperBound instanceof TypeVar typeVariable
-        && GenericsUtils.upperBoundIsNullable(typeVariable.asElement(), config, handler, state);
+        && (GenericsUtils.upperBoundIsNullable(typeVariable.asElement(), config, handler, state)
+            || upperBoundAllowsNullable(typeVariable.getUpperBound(), visiting));
   }
 
   /** Creates scalar state once, including for registered variables without constraints. */
@@ -2233,12 +2260,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (existing != null) {
       return existing;
     }
+    Type.TypeVar fresh = freshTypeVariableForInferenceVariable.get(inferenceVar);
+    boolean declarationAllowsNullable =
+        GenericsUtils.upperBoundIsNullable(inferenceVar.typeVariable(), config, handler, state)
+            || (fresh != null && upperBoundAllowsNullable(fresh.getUpperBound()));
+
+    // An explicit receiver-bound restriction still wins. Otherwise use the actual fresh contract,
+    // including structurally annotated intersections and restored detached peer bounds.
     VarState created =
         new VarState(
             nullableAllowedForInferenceVariable.getOrDefault(
-                inferenceVar,
-                GenericsUtils.upperBoundIsNullable(
-                    inferenceVar.typeVariable(), config, handler, state)));
+                inferenceVar, declarationAllowsNullable));
     vars.put(inferenceVar, created);
     structuredConstraintVersion++;
     return created;
@@ -2296,6 +2328,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         && !treatAsTypeVariableForInference(t)
         && (!(t instanceof TypeVar tv)
             || Nullness.hasNonNullAnnotation(t.getAnnotationMirrors().stream(), config)
-            || !GenericsUtils.upperBoundIsNullable(tv.asElement(), config, handler, state));
+            || (!GenericsUtils.upperBoundIsNullable(tv.asElement(), config, handler, state)
+                && !upperBoundAllowsNullable(tv.getUpperBound())));
   }
 }

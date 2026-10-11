@@ -8,7 +8,10 @@ import com.google.errorprone.VisitorState;
 import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
+import com.sun.tools.javac.code.TargetType;
 import com.sun.tools.javac.code.Type;
+import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntry;
+import com.sun.tools.javac.code.TypeAnnotationPosition.TypePathEntryKind;
 import com.sun.tools.javac.code.TypeMetadata;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.List;
@@ -119,7 +122,7 @@ public class TypeSubstitutionUtils {
    * @return the type of {@code sym} as a member of {@code t}
    */
   public static Type memberType(Types types, Type t, Symbol sym, Config config) {
-    Type origType = sym.type;
+    Type origType = restoreMemberDeclarationBounds(types, sym, config);
     Type memberType = types.memberType(t, sym);
     Type annotationSource = origType;
     if (sym.owner instanceof Symbol.ClassSymbol owner) {
@@ -148,6 +151,209 @@ public class TypeSubstitutionUtils {
   }
 
   /**
+   * Restores missing declaration-bound nullness from a method's authoritative raw type attributes.
+   * Anonymous-class attribution can strip annotations from constructor type-variable bounds before
+   * inference starts. Raw bound indices and type paths identify the exact annotated positions; a
+   * nested nullable annotation must not make the entire bound nullable. Changed variables, their
+   * peer occurrences, and the executable type are detached without modifying the member symbol.
+   *
+   * @return the member's declaration type, with detached variables if bound annotations were lost
+   */
+  public static Type restoreMemberDeclarationBounds(Types types, Symbol member, Config config) {
+    if (!(member instanceof Symbol.MethodSymbol)
+        || !(member.type instanceof Type.ForAll declaration)) {
+      return member.type;
+    }
+    java.util.List<Type> bounds = new java.util.ArrayList<>();
+    for (Type variable : declaration.tvars) {
+      bounds.add(((Type.TypeVar) variable).getUpperBound());
+    }
+    boolean changed = false;
+    for (Attribute.TypeCompound annotation : member.getRawTypeAttributes()) {
+
+      if (annotation.position.type != TargetType.METHOD_TYPE_PARAMETER_BOUND
+          || annotation.type.tsym == null) {
+        continue;
+      }
+      String name = annotation.type.tsym.getQualifiedName().toString();
+      if (!Nullness.isNullableAnnotation(name, config)
+          && !Nullness.isNonNullAnnotation(name, config)) {
+        continue;
+      }
+      int parameterIndex = annotation.position.parameter_index;
+      if (parameterIndex < 0 || parameterIndex >= bounds.size()) {
+        continue;
+      }
+      Type previous = bounds.get(parameterIndex);
+      Type restored = restoreDeclarationBoundAnnotation(previous, annotation, config);
+      bounds.set(parameterIndex, restored);
+
+      changed |= restored != previous;
+    }
+    if (!changed) {
+      return declaration;
+    }
+    Map<Element, Type> replacements = new LinkedHashMap<>();
+    Map<Element, Type.TypeVar> methodVariables = new LinkedHashMap<>();
+    ListBuffer<Type> variables = new ListBuffer<>();
+    for (Type variable : declaration.tvars) {
+      Type.TypeVar detached =
+          TYPE_METADATA_BUILDER.createDetachedTypeVar(
+              (Type.TypeVar) variable, ((Type.TypeVar) variable).getUpperBound());
+      variables.append(detached);
+      replacements.put(variable.asElement(), detached);
+      methodVariables.put(variable.asElement(), detached);
+    }
+    List<Type> detached = variables.toList();
+    for (int i = 0; i < detached.size(); i++) {
+      ((Type.TypeVar) detached.get(i))
+          .setUpperBound(substituteTypeVariables(bounds.get(i), replacements, types, config));
+    }
+    Type executable = substituteTypeVariables(declaration.qtype, replacements, types, config);
+    Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+    for (Type variable : detached) {
+      synchronizeReceiverInstantiatedBounds(
+          ((Type.TypeVar) variable).getUpperBound(), methodVariables, visited);
+    }
+    synchronizeReceiverInstantiatedBounds(executable, methodVariables, visited);
+    return new Type.ForAll(detached, executable);
+  }
+
+  /**
+   * Selects a JVMS bound index, including index zero's implicit Object slot for interface-only
+   * bounds. Invalid or unavailable positions are left untouched rather than creating Java shapes.
+   */
+  private static Type restoreDeclarationBoundAnnotation(
+      Type bound, Attribute.TypeCompound annotation, Config config) {
+    if (!(bound instanceof Type.IntersectionClassType)
+        && bound.baseType() instanceof Type.IntersectionClassType intersection) {
+      // Recover a genuine Java shape retained by a metadata wrapper, never one inferred from attrs.
+      bound = intersection;
+    }
+    int boundIndex = annotation.position.bound_index;
+    if (bound instanceof Type.IntersectionClassType intersection) {
+      List<Type> original = intersection.getComponents();
+      if (boundIndex < 0 || boundIndex >= original.size()) {
+        return bound;
+      }
+      ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
+      for (int i = 0; i < original.size(); i++) {
+        Type component = original.get(i);
+        Type restored =
+            i == boundIndex
+                ? restoreBoundAnnotationAtPath(
+                    component, annotation.position.location, annotation, config)
+                : component;
+        components.append(restored);
+        changed |= restored != component;
+      }
+      return changed ? rebuildIntersection(intersection, components.toList()) : bound;
+    }
+    // A sole interface occupies bound_index 1 despite having no IntersectionClassType wrapper.
+    int expectedIndex = bound.isInterface() ? 1 : 0;
+    return boundIndex == expectedIndex
+        ? restoreBoundAnnotationAtPath(bound, annotation.position.location, annotation, config)
+        : bound;
+  }
+
+  /**
+   * Restores a raw annotation along its type path. Class paths start at the outermost class
+   * segment, not at javac's innermost ClassType object, so enclosing arguments and INNER_TYPE
+   * annotations cannot be confused with the inner class's root or arguments.
+   */
+  private static Type restoreBoundAnnotationAtPath(
+      Type type, List<TypePathEntry> path, Attribute.TypeCompound annotation, Config config) {
+    if (type instanceof Type.ClassType classType && !(type instanceof Type.IntersectionClassType)) {
+      List<Type.ClassType> segments = List.of(classType);
+      Type enclosing = classType.getEnclosingType();
+      while (enclosing instanceof Type.ClassType outer) {
+        segments = segments.prepend(outer);
+        enclosing = outer.getEnclosingType();
+      }
+      int segmentIndex = 0;
+      while (path.nonEmpty() && path.head.tag == TypePathEntryKind.INNER_TYPE) {
+        segmentIndex++;
+        path = path.tail;
+      }
+      if (segmentIndex >= segments.size()) {
+        return type;
+      }
+      Type restored =
+          restoreBoundAnnotationAtNode(segments.get(segmentIndex), path, annotation, config);
+      if (restored == segments.get(segmentIndex)) {
+        return type;
+      }
+      for (int i = segmentIndex + 1; i < segments.size(); i++) {
+        Type.ClassType inner = segments.get(i);
+        restored = TYPE_METADATA_BUILDER.createClassType(inner, restored, inner.getTypeArguments());
+      }
+      return restored;
+    }
+    return restoreBoundAnnotationAtNode(type, path, annotation, config);
+  }
+
+  /** Applies an annotation only at an existing root, array, wildcard, or type-argument position. */
+  private static Type restoreBoundAnnotationAtNode(
+      Type type, List<TypePathEntry> path, Attribute.TypeCompound annotation, Config config) {
+    if (path.isEmpty()) {
+      if (type instanceof Type.IntersectionClassType
+          || type.isErroneous()
+          || (type.tsym != null && type.tsym.type instanceof Type.IntersectionClassType)) {
+        // Raw bounds select a nominal component, never a synthetic intersection root.
+        return type;
+      }
+      if (hasNullableRoot(type, config)
+          || Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
+        return type;
+      }
+      ListBuffer<Attribute.TypeCompound> annotations = new ListBuffer<>();
+      annotations.appendList(type.getAnnotationMirrors());
+      annotations.append(annotation);
+      return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+          type, TYPE_METADATA_BUILDER.create(annotations.toList()));
+    }
+    if (path.head.tag == TypePathEntryKind.ARRAY && type instanceof Type.ArrayType array) {
+      Type component = restoreBoundAnnotationAtPath(array.elemtype, path.tail, annotation, config);
+      return component == array.elemtype
+          ? type
+          : TYPE_METADATA_BUILDER.createArrayType(array, component);
+    }
+    if (path.head.tag == TypePathEntryKind.WILDCARD
+        && type instanceof Type.WildcardType wildcard
+        && !wildcard.isUnbound()) {
+      Type bound = restoreBoundAnnotationAtPath(wildcard.type, path.tail, annotation, config);
+      if (bound == wildcard.type) {
+        return type;
+      }
+      Type.WildcardType updated = TYPE_METADATA_BUILDER.createWildcardType(wildcard, bound);
+      updated.bound = wildcard.bound;
+      return updated;
+    }
+    if (path.head.tag == TypePathEntryKind.TYPE_ARGUMENT
+        && type instanceof Type.ClassType classType
+        && !(type instanceof Type.IntersectionClassType)) {
+      List<Type> arguments = classType.getTypeArguments();
+      int argumentIndex = path.head.arg;
+      if (classType.isRaw() || argumentIndex < 0 || argumentIndex >= arguments.size()) {
+        return type;
+      }
+      Type previous = arguments.get(argumentIndex);
+      Type restored = restoreBoundAnnotationAtPath(previous, path.tail, annotation, config);
+      if (restored == previous) {
+        return type;
+      }
+      ListBuffer<Type> updated = new ListBuffer<>();
+      for (int i = 0; i < arguments.size(); i++) {
+        updated.append(i == argumentIndex ? restored : arguments.get(i));
+      }
+      return TYPE_METADATA_BUILDER.createClassType(
+          classType, classType.getEnclosingType(), updated.toList());
+    }
+    return type;
+  }
+
+  /**
    * Restores receiver argument annotations in a generic member's dependent bounds. javac's member
    * substitution can erase them in bounds such as {@code U extends E}. Detach the method variables
    * before restoring bounds and remap their occurrences without mutating compiler-owned types.
@@ -166,18 +372,18 @@ public class TypeSubstitutionUtils {
       return instantiated;
     }
     Type ownerView = asSuper(types, receiver, owner, config);
-    if (!(ownerView instanceof Type.ClassType)) {
-      return instantiated;
-    }
-    List<Type> parameters = owner.type.allparams();
-    List<Type> arguments = ownerView.allparams();
-    if (parameters.size() != arguments.size() || parameters.isEmpty()) {
-      return instantiated;
-    }
     Map<Element, Type> replacements = new LinkedHashMap<>();
-    for (int i = 0; i < parameters.size(); i++) {
-      replacements.put(parameters.get(i).asElement(), arguments.get(i));
+    if (ownerView instanceof Type.ClassType) {
+      List<Type> parameters = owner.type.allparams();
+      List<Type> arguments = ownerView.allparams();
+      if (parameters.size() == arguments.size()) {
+        for (int i = 0; i < parameters.size(); i++) {
+          replacements.put(parameters.get(i).asElement(), arguments.get(i));
+        }
+      }
     }
+    // Declaration-bound restoration is independent of receiver parameters, including constructors
+    // of non-generic classes whose bounds were stripped during anonymous-class attribution.
     ListBuffer<Type> detachedVariables = new ListBuffer<>();
     Map<Element, Type.TypeVar> methodVariables = new LinkedHashMap<>();
     for (Type variable : resolved.tvars) {
