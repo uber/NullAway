@@ -68,6 +68,40 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void nestedScalarFailurePointsAtTheConstrainedCall() {
+    JavaFileObject callerSource =
+        FileObjects.forSourceLines(
+            "Caller.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Caller {
+              static <X extends @Nullable Object> X id(X value) { return value; }
+              static <U extends @Nullable Object> List<U> one(U value) { throw new RuntimeException(); }
+              static void takeList(List<String> values) {}
+              void test(@Nullable String value) {
+                takeList(id(
+                    id(id(id(id(id(
+                        one(value)
+                    )))))
+                ));
+              }
+            }
+            """);
+
+    assertThat(
+            compileAndReportDiagnostics(List.of(callerSource)).stream()
+                .filter(diagnostic -> diagnostic.contains("inference failure:"))
+                .toList())
+        .containsExactly(
+            "Caller.java:13: [NullAway] inference failure: type variable U constrained to be both"
+                + " @NonNull and @Nullable");
+  }
+
   /**
    * Source compiled before each call site, padded so a misattributed diagnostic lands on an
    * existing line and cannot be dropped by the test framework.

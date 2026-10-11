@@ -1625,16 +1625,17 @@ public final class GenericsChecks {
       return failureResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e);
+      Tree inferenceSite = e.getInferenceSite() != null ? e.getInferenceSite() : callTree;
       if (config.warnOnGenericInferenceFailure()
-          && callsWithReportedInferenceFailures.add(
-              e.getInferenceSite() != null ? e.getInferenceSite() : callTree)) {
+          && callsWithReportedInferenceFailures.add(inferenceSite)) {
         ErrorBuilder errorBuilder = analysis.getErrorBuilder();
         ErrorMessage errorMessage =
             new ErrorMessage(
                 ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, inferenceFailureMessage);
+        VisitorState reportingState = stateForInferenceDiagnostic(inferenceSite, state);
         state.reportMatch(
             errorBuilder.createErrorDescription(
-                errorMessage, analysis.buildDescription(callTree), state, null));
+                errorMessage, analysis.buildDescription(inferenceSite), reportingState, null));
       }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
