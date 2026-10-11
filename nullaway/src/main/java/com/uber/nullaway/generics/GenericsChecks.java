@@ -210,6 +210,66 @@ public final class GenericsChecks {
   /** Never published: these local types may contain unsolved variables of the owning solver. */
   private @Nullable LambdaVarLocalInference lambdaVarLocalInference = null;
 
+  /** One syntax description shared by every inference and ordinary-checking constructor path. */
+  private final Map<NewClassTree, ConstructorCall> constructorCalls = new LinkedHashMap<>();
+
+  /** Constructor declaration and fixed-versus-inferred class arguments for one allocation site. */
+  private final class ConstructorCall {
+    final NewClassTree tree;
+    final Symbol.MethodSymbol symbol;
+    final Type attributedType;
+    final boolean diamond;
+    final List<Symbol.TypeVariableSymbol> variables;
+
+    /** Resolves anonymous forwarding once and records precisely the omitted type arguments. */
+    ConstructorCall(NewClassTree tree) {
+      this.tree = tree;
+      symbol = resolveConstructorSymbol(tree);
+      attributedType = getConstructedTypeAtCallSite(tree);
+      diamond = TreeInfo.isDiamond((JCTree) tree);
+      List<Symbol.TypeVariableSymbol> inferred = new ArrayList<>();
+      if (diamond) {
+        inferred.addAll(attributedType.tsym.getTypeParameters());
+      }
+      if (tree.getTypeArguments().isEmpty()) {
+        inferred.addAll(symbol.getTypeParameters());
+      }
+      variables = List.copyOf(inferred);
+    }
+
+    /** Builds the annotated result template, keeping qualifier types in their current owner. */
+    Type constructedType(VisitorState state, boolean calledFromDataflow) {
+      Type template =
+          diamond ? attributedType.tsym.type : typeWithPreservedAnnotations(tree.getIdentifier());
+      return withEnclosingTypeFromQualifier(template, tree, state, calledFromDataflow);
+    }
+
+    /**
+     * Resolves the signature against the same result template and explicit constructor witnesses.
+     */
+    Type executableType(VisitorState state, boolean calledFromDataflow) {
+      Type signature =
+          TypeSubstitutionUtils.memberType(
+              state.getTypes(), constructedType(state, calledFromDataflow), symbol, config);
+      if (!tree.getTypeArguments().isEmpty() && signature instanceof Type.ForAll quantified) {
+        return TypeSubstitutionUtils.subst(
+            state.getTypes(),
+            quantified.asMethodType(),
+            quantified.tvars,
+            convertTreesToTypes(tree.getTypeArguments()),
+            config);
+      }
+      return signature;
+    }
+  }
+
+  /**
+   * Returns the allocation site's single constructor description, without caching receiver state.
+   */
+  private ConstructorCall constructorCall(NewClassTree tree) {
+    return constructorCalls.computeIfAbsent(tree, ConstructorCall::new);
+  }
+
   /**
    * While generating constraints for an inference problem, maps each participating call whose
    * lambda and method reference arguments get their types published after successful inference (see
@@ -453,19 +513,19 @@ public final class GenericsChecks {
       }
     }
     Symbol.MethodSymbol methodSymbol =
-        castToNonNull((Symbol.MethodSymbol) ASTHelpers.getSymbol(tree));
+        tree instanceof NewClassTree construction
+            ? constructorCall(construction).symbol
+            : castToNonNull((Symbol.MethodSymbol) ASTHelpers.getSymbol(tree));
 
-    // check if type variables are allowed to be Nullable
+    // Check the constructor declaration selected by the shared call description.
     Type baseType = methodSymbol.asType();
     List<Type> baseTypeVariables = baseType.getTypeArguments();
     for (int i = 0; i < baseTypeVariables.size(); i++) {
       if (nullableTypeArguments.containsKey(i)) {
         Type typeVariable = baseTypeVariables.get(i);
         Type upperBound = typeVariable.getUpperBound();
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+            Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)
                 || handler.onOverrideClassTypeVariableUpperBound(baseType.tsym.toString(), i);
         // if type variable's upper bound does not have @Nullable annotation then the instantiation
         // is invalid
@@ -1016,11 +1076,6 @@ public final class GenericsChecks {
     return formalParamTypeRef.get();
   }
 
-  /** Returns true for constructor calls using the diamond operator. */
-  private static boolean isDiamondConstructorCall(NewClassTree newClassTree) {
-    return TreeInfo.isDiamond((JCTree) newClassTree);
-  }
-
   /**
    * Returns the instantiated type named by a constructor call, excluding any synthetic anonymous
    * class type introduced by javac.
@@ -1482,37 +1537,17 @@ public final class GenericsChecks {
       return TypeSubstitutionUtils.updateTypeWithInferredNullability(
           typeAtCallSite, executableType.getReturnType(), typeVarNullability, state, config);
     }
-    Verify.verify(callTree instanceof NewClassTree);
-    NewClassTree construction = (NewClassTree) callTree;
-    if (!isDiamondConstructorCall(construction)) {
-      // Constructor variables do not change a non-diamond result's fixed class arguments or its
-      // anonymous-class identity.
-      return construction.getIdentifier() instanceof ParameterizedTypeTree parameterizedType
-          ? withEnclosingTypeFromQualifier(
-              typeWithPreservedAnnotations(parameterizedType),
-              construction,
-              state,
-              calledFromDataflow)
-          : typeAtCallSite;
+    ConstructorCall constructor = constructorCall((NewClassTree) callTree);
+    Type constructedType = constructor.constructedType(state, calledFromDataflow);
+    if (result instanceof InferenceSuccess complete) {
+      return TypeSubstitutionUtils.substituteTypeVariables(
+          constructedType, complete.inferredTypesForSite(callTree), state.getTypes(), config);
     }
-    Type constructedTypeAtCallSite = getConstructedTypeAtCallSite(construction);
-    if (result instanceof InferenceSuccess complete
-        && constructedTypeAtCallSite instanceof Type.ClassType classType) {
-      Map<Element, Type> inferred = complete.inferredTypesForSite(callTree);
-      List<Symbol.TypeVariableSymbol> parameters = classType.tsym.getTypeParameters();
-      if (parameters.size() == classType.getTypeArguments().size()) {
-        List<Type> arguments = new ArrayList<>();
-        for (int i = 0; i < parameters.size(); i++) {
-          arguments.add(
-              inferred.getOrDefault(parameters.get(i), classType.getTypeArguments().get(i)));
-        }
-        return TYPE_METADATA_BUILDER.createClassType(
-            classType, classType.getEnclosingType(), arguments);
-      }
+    if (!constructor.diamond) {
+      return constructedType;
     }
-    Type constructedTypeWithTypeVars = constructedTypeAtCallSite.tsym.type;
     return TypeSubstitutionUtils.updateTypeWithInferredNullability(
-        constructedTypeAtCallSite, constructedTypeWithTypeVars, typeVarNullability, state, config);
+        constructor.attributedType, constructedType, typeVarNullability, state, config);
   }
 
   /**
@@ -1831,16 +1866,7 @@ public final class GenericsChecks {
     if (callTree instanceof MethodInvocationTree invocationTree) {
       return ASTHelpers.getSymbol(invocationTree).getTypeParameters();
     }
-    Verify.verify(callTree instanceof NewClassTree);
-    NewClassTree newClassTree = (NewClassTree) callTree;
-    List<Symbol.TypeVariableSymbol> typeParameters = new ArrayList<>();
-    if (isDiamondConstructorCall(newClassTree)) {
-      typeParameters.addAll(getConstructedTypeAtCallSite(newClassTree).tsym.getTypeParameters());
-    }
-    if (newClassTree.getTypeArguments().isEmpty()) {
-      typeParameters.addAll(getMethodSymbolForCall(newClassTree).getTypeParameters());
-    }
-    return typeParameters;
+    return constructorCall((NewClassTree) callTree).variables;
   }
 
   /** Returns variables whose owning declaration is in a nullness-marked context. */
@@ -1875,7 +1901,7 @@ public final class GenericsChecks {
                 declaration, attributed.asMethodType(), variables, state, config));
       }
     } else if (call instanceof NewClassTree construction) {
-      Type constructed = getConstructedTypeAtCallSite(construction);
+      Type constructed = constructorCall(construction).attributedType;
       result.putAll(
           InferenceTypeShapes.inferInstantiations(
               constructed.tsym.type, constructed, variables, state, config));
@@ -1958,6 +1984,7 @@ public final class GenericsChecks {
       VisitorState state,
       boolean calledFromDataflow) {
     Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
+
     Type executableType = methodSymbol.type;
     if (callTree instanceof MethodInvocationTree invocationTree) {
       Type enclosingType =
@@ -1968,28 +1995,7 @@ public final class GenericsChecks {
             TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
       }
     } else if (callTree instanceof NewClassTree construction) {
-      if (!isDiamondConstructorCall(construction)) {
-        Type constructedType =
-            construction.getIdentifier() instanceof ParameterizedTypeTree parameterizedType
-                ? typeWithPreservedAnnotations(parameterizedType)
-                : getConstructedTypeAtCallSite(construction);
-        constructedType =
-            withEnclosingTypeFromQualifier(
-                constructedType, construction, state, calledFromDataflow);
-        executableType =
-            TypeSubstitutionUtils.memberType(
-                state.getTypes(), constructedType, methodSymbol, config);
-      }
-      if (!construction.getTypeArguments().isEmpty()
-          && executableType instanceof Type.ForAll quantified) {
-        executableType =
-            TypeSubstitutionUtils.subst(
-                state.getTypes(),
-                quantified.asMethodType(),
-                quantified.tvars,
-                convertTreesToTypes(construction.getTypeArguments()),
-                config);
-      }
+      executableType = constructorCall(construction).executableType(state, calledFromDataflow);
     }
     return handler.onOverrideMethodType(
         methodSymbol,
@@ -2002,13 +2008,17 @@ public final class GenericsChecks {
    * Returns the invoked declaration, following an anonymous constructor's synthetic forwarding
    * call. Its own symbol has no generic constructor variables and may omit declaration annotations.
    */
-  private static Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
-    Verify.verify(
-        callTree instanceof MethodInvocationTree || callTree instanceof NewClassTree,
-        "Expected a MethodInvocationTree or a NewClassTree");
+  private Symbol.MethodSymbol getMethodSymbolForCall(ExpressionTree callTree) {
+    return callTree instanceof NewClassTree construction
+        ? constructorCall(construction).symbol
+        : (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
+  }
+
+  /** Resolves an anonymous allocation's synthetic constructor to its forwarding declaration. */
+  private static Symbol.MethodSymbol resolveConstructorSymbol(NewClassTree construction) {
     Symbol.MethodSymbol symbol =
-        (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(callTree));
-    if (callTree instanceof NewClassTree construction && construction.getClassBody() != null) {
+        (Symbol.MethodSymbol) castToNonNull(ASTHelpers.getSymbol(construction));
+    if (construction.getClassBody() != null) {
       for (Tree member : construction.getClassBody().getMembers()) {
         if (member instanceof MethodTree constructor
             && symbol.equals(ASTHelpers.getSymbol(constructor))
@@ -2092,9 +2102,7 @@ public final class GenericsChecks {
         (callTree instanceof MethodInvocationTree)
             ? methodTypeForSite.getReturnType()
             : TypeSubstitutionUtils.substituteTypeVariables(
-                isDiamondConstructorCall((NewClassTree) callTree)
-                    ? getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.type
-                    : getConstructedTypeAtCallSite((NewClassTree) callTree),
+                constructorCall((NewClassTree) callTree).constructedType(state, calledFromDataflow),
                 inferenceVariables,
                 state.getTypes(),
                 config);
@@ -2343,16 +2351,7 @@ public final class GenericsChecks {
                 context.cacheState(),
                 context.calledFromDataflow())
             : getTreeType(initializer, initializerState, context.calledFromDataflow());
-    if (initializer instanceof NewClassTree construction
-        && !isDiamondConstructorCall(construction)
-        && construction.getIdentifier() instanceof ParameterizedTypeTree parameterizedType) {
-      initializerType =
-          withEnclosingTypeFromQualifier(
-              typeWithPreservedAnnotations(parameterizedType),
-              construction,
-              initializerState,
-              context.calledFromDataflow());
-    }
+
     if (initializerType != null) {
       context.types().put(symbol, initializerType);
     } else {
@@ -2830,7 +2829,7 @@ public final class GenericsChecks {
    * calls using the diamond operator or omitting generic constructor type arguments, including
    * anonymous-class constructor calls.
    */
-  private static boolean isCallNeedingInference(ExpressionTree argument) {
+  private boolean isCallNeedingInference(ExpressionTree argument) {
     if (argument instanceof MethodInvocationTree methodInvocation) {
       Symbol.MethodSymbol methodSymbol = ASTHelpers.getSymbol(methodInvocation);
       // true for generic method calls with no explicit type arguments
@@ -2838,10 +2837,8 @@ public final class GenericsChecks {
           && methodSymbol.type instanceof Type.ForAll
           && methodInvocation.getTypeArguments().isEmpty();
     }
-    return argument instanceof NewClassTree newClassTree
-        && (isDiamondConstructorCall(newClassTree)
-            || (newClassTree.getTypeArguments().isEmpty()
-                && getMethodSymbolForCall(newClassTree).type instanceof Type.ForAll));
+    return argument instanceof NewClassTree construction
+        && !constructorCall(construction).variables.isEmpty();
   }
 
   /**
@@ -3997,8 +3994,13 @@ public final class GenericsChecks {
         (tree instanceof MethodInvocationTree methodInvocationTree)
             ? methodInvocationTree.getTypeArguments()
             : ((NewClassTree) tree).getTypeArguments();
-    com.sun.tools.javac.util.List<Type> explicitTypeArgs = convertTreesToTypes(typeArgumentTrees);
+    com.sun.tools.javac.util.List<Type> explicitTypeArgs =
+        tree instanceof NewClassTree construction && isCallNeedingInference(construction)
+            ? com.sun.tools.javac.util.List.nil()
+            : convertTreesToTypes(typeArgumentTrees);
 
+    // Constructor witnesses are already substituted in their shared signature. A diamond may
+    // still leave class variables to infer even when constructor witnesses were supplied.
     // There are no explicit type arguments, so use the inferred types
     if (explicitTypeArgs.isEmpty()
         && tree instanceof ExpressionTree invocationTree
@@ -4298,15 +4300,26 @@ public final class GenericsChecks {
       @Nullable TreePath path,
       VisitorState state,
       boolean calledFromDataflow) {
+    Type invokedMethodType;
     if (tree instanceof NewClassTree construction) {
-      methodSymbol = getMethodSymbolForCall(construction);
-    }
-    Type invokedMethodType = methodSymbol.type;
-    Type enclosingType =
-        getEnclosingTypeForCallExpression(methodSymbol, tree, path, state, calledFromDataflow);
-    if (enclosingType != null) {
-      invokedMethodType =
-          TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+      ConstructorCall constructor = constructorCall(construction);
+      methodSymbol = constructor.symbol;
+      invokedMethodType = constructor.executableType(state, calledFromDataflow);
+      if (!constructor.variables.isEmpty()) {
+        invokedMethodType =
+            new Type.ForAll(
+                com.sun.tools.javac.util.List.from(
+                    constructor.variables.stream().map(variable -> variable.type).toList()),
+                invokedMethodType.asMethodType());
+      }
+    } else {
+      invokedMethodType = methodSymbol.type;
+      Type enclosingType =
+          getEnclosingTypeForCallExpression(methodSymbol, tree, path, state, calledFromDataflow);
+      if (enclosingType != null) {
+        invokedMethodType =
+            TypeSubstitutionUtils.memberType(state.getTypes(), enclosingType, methodSymbol, config);
+      }
     }
     if (invokedMethodType instanceof Type.ForAll forAllType) {
       invokedMethodType =
@@ -4771,6 +4784,7 @@ public final class GenericsChecks {
    */
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
+    constructorCalls.clear();
     completedCallContexts.clear();
     inferredResultsForGenericMethodReferences.clear();
     methodReferenceInferenceInProgress.clear();
