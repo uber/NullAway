@@ -68,6 +68,11 @@ public final class TypeVarWithSymbolCollector
   // ---- Common container types ----
   @Override
   public @Nullable Void visitClassType(ClassType t, @Nullable Void p) {
+    if (t instanceof Type.IntersectionClassType intersection) {
+      for (Type component : intersection.getExplicitComponents()) {
+        scan(component);
+      }
+    }
     for (Type arg : t.getTypeArguments()) {
       scan(arg);
     }

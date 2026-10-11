@@ -38,7 +38,6 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WildcardTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -469,9 +468,7 @@ public final class GenericsChecks {
     for (int i = 0; i < baseTypeArgs.size(); i++) {
       Type typeVariable = baseTypeArgs.get(i);
       Type upperBound = typeVariable.getUpperBound();
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          upperBound.getAnnotationMirrors();
-      if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+      if (TypeSubstitutionUtils.hasNullableRoot(upperBound, config)
           || handler.onOverrideClassTypeVariableUpperBound(type.tsym.toString(), i)) {
         result[i] = true;
       }
@@ -525,7 +522,7 @@ public final class GenericsChecks {
         Type typeVariable = baseTypeVariables.get(i);
         Type upperBound = typeVariable.getUpperBound();
         boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)
+            TypeSubstitutionUtils.hasNullableRoot(upperBound, config)
                 || handler.onOverrideClassTypeVariableUpperBound(baseType.tsym.toString(), i);
         // if type variable's upper bound does not have @Nullable annotation then the instantiation
         // is invalid
@@ -3728,7 +3725,7 @@ public final class GenericsChecks {
       return true;
     }
     Type upperBound = substitutedTypeVar.getUpperBound();
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (TypeSubstitutionUtils.hasNullableRoot(upperBound, config)) {
       return true;
     }
     if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
@@ -3745,7 +3742,7 @@ public final class GenericsChecks {
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     Type originalBound =
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-    if (Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+    if (TypeSubstitutionUtils.hasNullableRoot(originalBound, config)) {
       return true;
     }
     if (Nullness.hasNonNullAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
@@ -4652,12 +4649,7 @@ public final class GenericsChecks {
    * @return Returns the Nullness of the type based on the Nullability annotation.
    */
   private Nullness getTypeNullness(Type type) {
-    boolean hasNullableAnnotation =
-        Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
-    if (hasNullableAnnotation) {
-      return Nullness.NULLABLE;
-    }
-    return Nullness.NONNULL;
+    return isNullableAnnotated(type) ? Nullness.NULLABLE : Nullness.NONNULL;
   }
 
   /**
@@ -4797,7 +4789,7 @@ public final class GenericsChecks {
   }
 
   public boolean isNullableAnnotated(Type type) {
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    return TypeSubstitutionUtils.hasNullableRoot(type, config);
   }
 
   /**

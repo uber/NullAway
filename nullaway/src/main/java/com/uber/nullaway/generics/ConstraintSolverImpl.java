@@ -664,6 +664,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           resolvedSources = List.of(mostSpecificUpper);
         }
       }
+      if (shape != null && declarationFallback == null && !bounds.lower().isEmpty()) {
+        validateLowerAnnotationsAtShape(inferenceVar, resolvedSources, shape);
+      }
       Type candidate = null;
       for (Type resolved : resolvedSources) {
         Type evidence = inferredRoot(resolved, st);
@@ -686,9 +689,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         if (candidate == null) {
           candidate = projected;
         } else {
-          Type merged = mergeCovariantLowerBounds(candidate, projected, false);
+          Type merged = mergeProjectedLowerBounds(candidate, projected, false);
           if (merged == null) {
-            // Keep the first diagnostic source; validation visits all sources independently.
+            // Proven invariant conflicts at the attributed shape were rejected before projection.
+            // Unknown merges remain incomplete; validation still visits every bound independently.
             incomplete.add(inferenceVar);
           } else {
             candidate = merged;
@@ -696,11 +700,99 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         }
       }
       Type result = candidate == null ? scalarSource : inferredRoot(candidate, st);
+      if (shape != null && !canOverlayBound(result, shape)) {
+        // Annotation copying must not certify a flattened intersection or another changed shape.
+        incomplete.add(inferenceVar);
+      }
       memo.put(inferenceVar, result);
       return result;
     } finally {
       inProgress.remove(inferenceVar);
     }
+  }
+
+  /**
+   * Compares lower annotations at javac's authoritative common shape before projection can erase
+   * evidence. Every pair participates: an opaque first bound must not hide a conflict between later
+   * bounds. This check does not supply a Java shape or certify an otherwise incomplete solution.
+   */
+  private void validateLowerAnnotationsAtShape(
+      InferenceVariable variable, List<Type> lowers, Type shape) {
+    for (int i = 0; i < lowers.size(); i++) {
+      for (int j = i + 1; j < lowers.size(); j++) {
+        validateLowerAnnotationsAtShape(variable, lowers.get(i), lowers.get(j), shape);
+      }
+    }
+  }
+
+  /**
+   * Checks corresponding invariant slots in a common Java shape. Arrays descend covariantly, so
+   * differing component-root nullness is not a conflict. An intersection supplies independent
+   * nominal views of both lowers, not a synthetic class whose empty argument list can hide their
+   * annotations. Only a concrete disagreement after projection onto a real component is rejected;
+   * raw, unresolved, and otherwise unknown evidence remains for conservative solution validation.
+   */
+  private void validateLowerAnnotationsAtShape(
+      InferenceVariable variable, Type first, Type second, Type shape) {
+    if (first instanceof ClassType
+        && second instanceof ClassType
+        && first.tsym.equals(second.tsym)) {
+      // Ordinary parameter checking already retains same-nominal invariant disagreements. Only
+      // report here when alignment through a common supertype could otherwise hide the evidence.
+      return;
+    }
+    if (!beginBoundComparison("lower-at-shape", first, shape)) {
+      return;
+    }
+    try {
+      if (shape instanceof Type.ArrayType array) {
+        if (first instanceof Type.ArrayType firstArray
+            && second instanceof Type.ArrayType secondArray) {
+          validateLowerAnnotationsAtShape(
+              variable, firstArray.elemtype, secondArray.elemtype, array.elemtype);
+        }
+        return;
+      }
+      if (shape instanceof Type.IntersectionClassType intersection) {
+        for (Type component : intersection.getExplicitComponents()) {
+          validateLowerAnnotationsAtShape(variable, first, second, component);
+        }
+        return;
+      }
+      if (!(shape instanceof ClassType shapeClass)
+          || shapeClass.isRaw()
+          || !(shape.tsym instanceof Symbol.ClassSymbol symbol)) {
+        return;
+      }
+      Type firstAligned = TypeSubstitutionUtils.asSuper(state.getTypes(), first, symbol, config);
+      Type secondAligned = TypeSubstitutionUtils.asSuper(state.getTypes(), second, symbol, config);
+      if (!(firstAligned instanceof ClassType firstClass)
+          || !(secondAligned instanceof ClassType secondClass)
+          || firstClass.isRaw()
+          || secondClass.isRaw()) {
+        return;
+      }
+      Type firstProjected = projectLowerAnnotations(variable, firstAligned, shape);
+      Type secondProjected = projectLowerAnnotations(variable, secondAligned, shape);
+      if (sameInvariantStructure(firstProjected, secondProjected, false)
+          == BoundRelation.VIOLATED) {
+        // Report the corresponding nominal component, never the synthetic intersection symbol.
+        throw new NestedUpperBoundViolationException(
+            variable.typeVariable(), variable.site(), secondProjected, firstProjected);
+      }
+    } finally {
+      endBoundComparison("lower-at-shape", first, shape);
+    }
+  }
+
+  /** Projects annotations without using a lower bound's nominal type as an inferred Java shape. */
+  private Type projectLowerAnnotations(InferenceVariable variable, Type lower, Type shape) {
+    return TypeSubstitutionUtils.updateTypeWithInferredNullability(
+        markNestedTypesNonNull(shape),
+        (Type) variable.typeVariable().asType(),
+        Map.of(variable.typeVariable(), markNestedTypesNonNull(lower)),
+        state,
+        config);
   }
 
   /** Applies solved root nullness without imposing a default on symbolic fixed variables. */
@@ -1119,6 +1211,25 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Checks array components, class arguments, and enclosing types for safe positional overlay. */
   private boolean hasCorrespondingOverlayStructure(Type target, Type source) {
+    if (target instanceof Type.IntersectionClassType
+        || source instanceof Type.IntersectionClassType) {
+      if (!(target instanceof Type.IntersectionClassType targetIntersection)
+          || !(source instanceof Type.IntersectionClassType sourceIntersection)
+          || targetIntersection.allInterfaces != sourceIntersection.allInterfaces) {
+        return false;
+      }
+      List<Type> targetComponents = targetIntersection.getExplicitComponents();
+      List<Type> sourceComponents = sourceIntersection.getExplicitComponents();
+      if (targetComponents.size() != sourceComponents.size()) {
+        return false;
+      }
+      for (int i = 0; i < targetComponents.size(); i++) {
+        if (!canOverlayBound(targetComponents.get(i), sourceComponents.get(i))) {
+          return false;
+        }
+      }
+      return true;
+    }
     if (target instanceof Type.ArrayType targetArray
         && source instanceof Type.ArrayType sourceArray) {
       return canOverlayBound(targetArray.elemtype, sourceArray.elemtype);
@@ -1298,6 +1409,51 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   }
 
   /**
+   * Merges annotations already projected onto the same attributed Java shape, including independent
+   * intersection components. Component symbols must correspond; this cannot manufacture a new
+   * nominal common type. The legacy unshaped lower-bound merge is deliberately left unchanged.
+   */
+  private @Nullable Type mergeProjectedLowerBounds(Type first, Type second, boolean mergeTopLevel) {
+    if (first instanceof Type.IntersectionClassType firstIntersection
+        && second instanceof Type.IntersectionClassType secondIntersection) {
+      List<Type> firstComponents = firstIntersection.getComponents();
+      List<Type> secondComponents = secondIntersection.getComponents();
+      if (firstIntersection.allInterfaces != secondIntersection.allInterfaces
+          || firstComponents.size() != secondComponents.size()) {
+        return null;
+      }
+      List<Type> components = new ArrayList<>();
+      for (int i = 0; i < firstComponents.size(); i++) {
+        if (!firstComponents.get(i).tsym.equals(secondComponents.get(i).tsym)) {
+          return null;
+        }
+        Type component =
+            mergeProjectedLowerBounds(firstComponents.get(i), secondComponents.get(i), false);
+        if (component == null) {
+          return null;
+        }
+        components.add(component);
+      }
+      Type merged =
+          new Type.IntersectionClassType(
+              com.sun.tools.javac.util.List.from(components),
+              (Symbol.ClassSymbol) firstIntersection.tsym,
+              firstIntersection.allInterfaces);
+      return mergeTopLevel ? mergeLowerBoundTopLevel(merged, first, second) : merged;
+    }
+    if (first instanceof Type.ArrayType firstArray
+        && second instanceof Type.ArrayType secondArray) {
+      Type component = mergeProjectedLowerBounds(firstArray.elemtype, secondArray.elemtype, true);
+      if (component == null) {
+        return null;
+      }
+      Type merged = TYPE_METADATA_BUILDER.createArrayType(firstArray, component);
+      return mergeTopLevel ? mergeLowerBoundTopLevel(merged, first, second) : merged;
+    }
+    return mergeCovariantLowerBounds(first, second, mergeTopLevel);
+  }
+
+  /**
    * Merges two lower bounds at a covariant position. Arrays recurse covariantly into their
    * components; class type arguments must have identical nullability because Java generics are
    * invariant. Returns {@code null} when no safe, order-independent annotation source is known.
@@ -1451,6 +1607,13 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           resolvedSupertype != null ? resolvedSupertype : supertype,
           compareTopLevel);
     }
+    if (supertype instanceof Type.IntersectionClassType intersection) {
+      BoundRelation result = BoundRelation.SATISFIED;
+      for (Type component : intersection.getExplicitComponents()) {
+        result = combineBoundRelations(result, nullabilitySubtype(subtype, component, false));
+      }
+      return result;
+    }
     if (subtype instanceof Type.ArrayType subtypeArray
         && supertype instanceof Type.ArrayType supertypeArray) {
       return nullabilitySubtype(subtypeArray.elemtype, supertypeArray.elemtype, true);
@@ -1597,6 +1760,26 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (first instanceof TypeVar || second instanceof TypeVar) {
       return combineBoundRelations(
           result, compareTypeVariableStructure(first, second, compareTopLevel));
+    }
+    if (first instanceof Type.IntersectionClassType
+        || second instanceof Type.IntersectionClassType) {
+      if (!(first instanceof Type.IntersectionClassType firstIntersection)
+          || !(second instanceof Type.IntersectionClassType secondIntersection)
+          || firstIntersection.allInterfaces != secondIntersection.allInterfaces) {
+        return combineBoundRelations(result, BoundRelation.VIOLATED);
+      }
+      List<Type> firstComponents = firstIntersection.getExplicitComponents();
+      List<Type> secondComponents = secondIntersection.getExplicitComponents();
+      if (firstComponents.size() != secondComponents.size()) {
+        return combineBoundRelations(result, BoundRelation.VIOLATED);
+      }
+      for (int i = 0; i < firstComponents.size(); i++) {
+        result =
+            combineBoundRelations(
+                result,
+                sameInvariantStructure(firstComponents.get(i), secondComponents.get(i), false));
+      }
+      return result;
     }
     if (first instanceof Type.ArrayType firstArray
         && second instanceof Type.ArrayType secondArray) {
@@ -1865,6 +2048,21 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"})
   private Type markNestedTypesNonNull(Type type) {
+    if (type instanceof Type.IntersectionClassType intersection) {
+      List<Type> components = new ArrayList<>();
+      boolean changed = false;
+      for (Type component : intersection.getComponents()) {
+        Type updated = markNestedTypesNonNull(component);
+        components.add(updated);
+        changed |= updated != component;
+      }
+      return changed
+          ? new Type.IntersectionClassType(
+              com.sun.tools.javac.util.List.from(components),
+              (Symbol.ClassSymbol) intersection.tsym,
+              intersection.allInterfaces)
+          : type;
+    }
     if (type instanceof WildcardType wildcard
         && wildcard.kind != BoundKind.UNBOUND
         && wildcard.type != null) {
@@ -1913,7 +2111,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return type;
     }
     Type result = type;
-    if (!Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config)
+    if (!TypeSubstitutionUtils.hasNullableRoot(type, config)
         && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
       result =
           TypeSubstitutionUtils.typeWithAnnot(
@@ -2015,7 +2213,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
       return false;
     }
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (TypeSubstitutionUtils.hasNullableRoot(upperBound, config)) {
       return true;
     }
     if (upperBound instanceof WildcardType || upperBound instanceof CapturedType) {
@@ -2080,8 +2278,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Returns whether a type is explicitly nullable or is the null type. */
   private boolean isKnownNullable(Type t) {
-    return t instanceof NullType
-        || Nullness.hasNullableAnnotation(t.getAnnotationMirrors().stream(), config);
+    return t instanceof NullType || TypeSubstitutionUtils.hasNullableRoot(t, config);
   }
 
   /**
