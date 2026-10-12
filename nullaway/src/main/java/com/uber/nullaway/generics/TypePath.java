@@ -89,6 +89,11 @@ final class TypePath {
     return new TypePath(ImmutableList.<Step>builder().addAll(steps).add(step).build());
   }
 
+  /** Returns the descents from the root, in order. */
+  ImmutableList<Step> steps() {
+    return steps;
+  }
+
   boolean isRoot() {
     return steps.isEmpty();
   }

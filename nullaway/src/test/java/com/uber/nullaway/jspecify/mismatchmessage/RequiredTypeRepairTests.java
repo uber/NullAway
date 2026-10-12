@@ -95,6 +95,24 @@ public class RequiredTypeRepairTests extends MismatchMessageTestBase {
   }
 
   @Test
+  public void aRequiredTypeWithNoOtherTypeUseAnnotationGetsTheRepair() {
+    assertMessage(
+        """
+        incompatible nullability: found @Nullable String, required String
+            found:    Map<String, @Nullable String>
+                                  ^^^^^^^^^^^^^^^^
+            required: Map<String, String>
+                                  ^^^^^^
+            path: Map type argument V
+            consider changing the required type to:
+              Map<String, @Nullable String>
+        """,
+        mapDeclaredWithKeysOfType("String"));
+  }
+
+  // The printer drops @Tainted from both printed types, so the message differs from the one in
+  // aRequiredTypeWithNoOtherTypeUseAnnotationGetsTheRepair only by the missing repair lines.
+  @Test
   public void noSuggestedRequiredTypeWhereItsPrintedFormWouldDropAnnotations() {
     assertMessage(
         """

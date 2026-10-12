@@ -1,5 +1,7 @@
 package com.uber.nullaway.generics;
 
+import static com.uber.nullaway.generics.TypeMetadataBuilder.TYPE_METADATA_BUILDER;
+
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.tools.javac.code.Attribute;
@@ -551,18 +553,20 @@ final class NullabilityMismatchMessage {
    */
   private @Nullable String suggestedTargetType(
       Type targetType, Type sourceType, List<NullabilityMismatches.Mismatch> mismatches) {
-    IdentityHashMap<Type, Type> replacements = new IdentityHashMap<>();
+    if (mismatches.isEmpty()) {
+      return null;
+    }
+    Type rewrittenTargetType = targetType;
     for (NullabilityMismatches.Mismatch mismatch : mismatches) {
       Type rewritten = withNullableAddedFrom(mismatch.sourceNode(), mismatch.targetNode());
       if (rewritten == null) {
         return null;
       }
-      replacements.put(mismatch.targetNode(), rewritten);
+      rewrittenTargetType = replaceAt(rewrittenTargetType, mismatch.path().steps(), 0, rewritten);
+      if (rewrittenTargetType == null) {
+        return null;
+      }
     }
-    if (replacements.isEmpty()) {
-      return null;
-    }
-    Type rewrittenTargetType = replaceNodes(targetType, replacements);
     if (!printsEveryAnnotation(rewrittenTargetType)
         || !isDenotable(rewrittenTargetType)
         || !checks.subtypeParameterNullability(rewrittenTargetType, sourceType, state)) {
@@ -592,36 +596,64 @@ final class NullabilityMismatchMessage {
     return null;
   }
 
-  /** Returns {@code type} with each node in {@code replacements} replaced by its new form. */
-  private static Type replaceNodes(Type type, IdentityHashMap<Type, Type> replacements) {
-    return type.accept(
-        new Type.StructuralTypeMapping<@Nullable Void>() {
-          private Type replaced(Type t, java.util.function.Supplier<Type> otherwise) {
-            Type replacement = replacements.get(t);
-            return replacement != null ? replacement : otherwise.get();
-          }
-
-          @Override
-          public Type visitClassType(Type.ClassType t, @Nullable Void unused) {
-            return replaced(t, () -> super.visitClassType(t, null));
-          }
-
-          @Override
-          public Type visitWildcardType(Type.WildcardType t, @Nullable Void unused) {
-            return replaced(t, () -> super.visitWildcardType(t, null));
-          }
-
-          @Override
-          public Type visitArrayType(Type.ArrayType t, @Nullable Void unused) {
-            return replaced(t, () -> super.visitArrayType(t, null));
-          }
-
-          @Override
-          public Type visitTypeVar(Type.TypeVar t, @Nullable Void unused) {
-            return replaced(t, () -> super.visitTypeVar(t, null));
-          }
-        },
-        null);
+  /**
+   * Returns {@code type} with the node that {@code steps} reach, starting at {@code from}, replaced
+   * by {@code replacement}, or {@code null} where {@code type} prints no node there, as for the
+   * bound an unbounded wildcard leaves implicit.
+   *
+   * <p>A path names the node because one {@code Type} instance can fill several positions, as one
+   * {@code String} does in {@code Map<String, String>}, and only one of them is to change.
+   */
+  private static @Nullable Type replaceAt(
+      Type type, List<TypePath.Step> steps, int from, Type replacement) {
+    if (from == steps.size()) {
+      return replacement;
+    }
+    TypePath.Step step = steps.get(from);
+    switch (step.kind()) {
+      case TYPE_ARGUMENT -> {
+        if (!(type instanceof Type.ClassType classType)
+            || step.index() >= classType.getTypeArguments().size()) {
+          return null;
+        }
+        List<Type> typeArguments = new ArrayList<>(classType.getTypeArguments());
+        Type typeArgument =
+            replaceAt(typeArguments.get(step.index()), steps, from + 1, replacement);
+        if (typeArgument == null) {
+          return null;
+        }
+        typeArguments.set(step.index(), typeArgument);
+        return TYPE_METADATA_BUILDER.createClassType(
+            classType, classType.getEnclosingType(), typeArguments);
+      }
+      case ENCLOSING_TYPE -> {
+        if (!(type instanceof Type.ClassType classType)) {
+          return null;
+        }
+        Type enclosingType = replaceAt(classType.getEnclosingType(), steps, from + 1, replacement);
+        return enclosingType == null
+            ? null
+            : TYPE_METADATA_BUILDER.createClassType(
+                classType, enclosingType, classType.getTypeArguments());
+      }
+      case WILDCARD_BOUND -> {
+        if (!(type instanceof Type.WildcardType wildcard) || wildcard.kind != BoundKind.EXTENDS) {
+          return null;
+        }
+        Type bound = replaceAt(wildcard.type, steps, from + 1, replacement);
+        return bound == null ? null : TYPE_METADATA_BUILDER.createWildcardType(wildcard, bound);
+      }
+      case ARRAY_ELEMENT -> {
+        if (!(type instanceof Type.ArrayType arrayType)) {
+          return null;
+        }
+        Type elementType = replaceAt(arrayType.elemtype, steps, from + 1, replacement);
+        return elementType == null
+            ? null
+            : TYPE_METADATA_BUILDER.createArrayType(arrayType, elementType);
+      }
+    }
+    throw new AssertionError(step.kind());
   }
 
   /**
