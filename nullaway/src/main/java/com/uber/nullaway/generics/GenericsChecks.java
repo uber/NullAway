@@ -58,9 +58,11 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.dataflow.NullnessStore;
-import com.uber.nullaway.generics.ConstraintSolver.LowerBoundConflictException;
+import com.uber.nullaway.generics.ConstraintSolver.BoundEvidence;
+import com.uber.nullaway.generics.ConstraintSolver.LowerBoundConflict;
 import com.uber.nullaway.generics.ConstraintSolver.NestedUpperBoundViolationException;
 import com.uber.nullaway.generics.ConstraintSolver.Solution;
+import com.uber.nullaway.generics.ConstraintSolver.SourceOrigin;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.handlers.Handler;
@@ -113,10 +115,16 @@ public final class GenericsChecks {
   }
 
   /** Uncertified or contradictory evidence used for ordinary checking, never success caching. */
-  private record InferencePartial(Solution solution, Map<Tree, Map<Element, Type>> typesBySite)
+  private record InferencePartial(
+      Solution solution, Map<Tree, Map<Element, Type>> typesBySite, Map<Tree, InferenceCall> calls)
       implements InferenceWithTypes {
     InferencePartial(Solution solution) {
-      this(solution, indexInferredTypesBySite(solution));
+      this(solution, Map.of());
+    }
+
+    /** Retains the exact resolved signatures that produced the uncertified outcome. */
+    InferencePartial(Solution solution, Map<Tree, InferenceCall> calls) {
+      this(solution, indexInferredTypesBySite(solution), Map.copyOf(calls));
     }
   }
 
@@ -142,14 +150,7 @@ public final class GenericsChecks {
   private static final class InferenceCacheState {
     final Set<Tree> cacheableCalls = new LinkedHashSet<>();
     final Set<MemberReferenceTree> methodReferences = new LinkedHashSet<>();
-    final Map<ExpressionTree, Type> lowerSources = new LinkedHashMap<>();
-    final IdentityHashMap<Type, Set<ExpressionTree>> lowerOrigins = new IdentityHashMap<>();
-
-    /** Retains exact annotation-bearing provenance even if an expression is revisited later. */
-    void recordLowerSource(ExpressionTree expression, Type type) {
-      lowerSources.put(expression, type);
-      lowerOrigins.computeIfAbsent(type, unused -> new LinkedHashSet<>()).add(expression);
-    }
+    final Map<Tree, InferenceCall> calls = new LinkedHashMap<>();
 
     boolean provisionalLambdaTypesSeen = false;
 
@@ -207,11 +208,14 @@ public final class GenericsChecks {
   /** Sites for which a nested declaration-upper-bound violation has already been reported. */
   private final Set<Tree> reportedNestedUpperBoundViolations = new LinkedHashSet<>();
 
-  /** Already diagnosed lower conflicts, restricted to dependent arguments and result positions. */
-  private final Map<Tree, ReportedLowerConflict> reportedLowerConflicts = new LinkedHashMap<>();
+  /**
+   * Completed uncertified outcomes, distinct from reusable inference and diagnostic deduplication.
+   */
+  private final Map<Tree, InferencePartial> diagnosticInferenceResults = new LinkedHashMap<>();
 
-  /** A reported conflict makes only these wholly dependent positions unavailable for checking. */
-  private record ReportedLowerConflict(Set<ExpressionTree> arguments, boolean result) {}
+  /** Reporting history has no role in determining which type positions remain checkable. */
+  private final Set<ConstraintSolver.InferenceVariable> reportedLowerConflicts =
+      new LinkedHashSet<>();
 
   /**
    * Maps poly expressions for which we have computed a context-derived type to that type, if
@@ -1306,7 +1310,7 @@ public final class GenericsChecks {
             ? getInferredTypeForVarLocalDeclaration(
                 (VariableTree) tree, rhsTree, pathToRhs, state, false)
             : getTypeForRhsOfAssignment(rhsTree, pathToRhs, lhsType, assignedToLocal, state, false);
-    if (rhsType != null && !hasReportedLowerResultConflict(rhsTree)) {
+    if (rhsType != null && !hasUnavailableLowerResult(rhsTree)) {
       if (varLocalDeclaration) {
         lhsType = rhsType;
       }
@@ -1685,6 +1689,7 @@ public final class GenericsChecks {
             solver,
             inferenceCall,
             inferenceCacheState,
+            callTree,
             calledFromDataflow);
       } finally {
         callTypesForPolyArguments = enclosingCallTypesForPolyArgs;
@@ -1692,7 +1697,13 @@ public final class GenericsChecks {
       Solution solution = solver.solve();
 
       InferenceWithTypes result =
-          solution.isComplete() ? new InferenceSuccess(solution) : new InferencePartial(solution);
+          solution.isComplete()
+              ? new InferenceSuccess(solution)
+              : new InferencePartial(solution, inferenceCacheState.calls);
+      boolean publishOutcome =
+          canPublishDiagnosticInferenceOutcome(inferenceCacheState, calledFromDataflow);
+      // Temporary lambda types during generation do not invalidate certified poly targets from
+      // the completed solution. Only diagnostic or contradictory outcomes require this guard.
       if (result instanceof InferenceSuccess successResult
           && okToCacheInferenceResult(calledFromDataflow)) {
         if (typeFromAssignmentContext != null) {
@@ -1727,21 +1738,15 @@ public final class GenericsChecks {
           && !solution.inconsistentVariables().isEmpty()
           && solution.inconsistentVariables().containsAll(solution.incompleteVariables())
           && hasShapedDiagnosticTypes(callTree, executableType, result, state)
-          && !inferenceCacheState.provisionalLambdaTypesSeen
-          && okToCacheInferenceResult(calledFromDataflow)) {
+          && publishOutcome) {
         // Preserve the final root's target-derived evidence for ordinary parameter diagnostics.
         // This is not a successful result and must not certify nested calls or poly expressions.
         inferredTypeVarNullabilityForGenericCalls.put(callTree, result);
       }
-      return result;
-    } catch (LowerBoundConflictException e) {
-      String message = reportLowerBoundConflict(e, inferenceCacheState, state);
-      InferenceFailure failureResult = new InferenceFailure(message);
-      if (okToCacheInferenceResult(calledFromDataflow)) {
-        invalidateMethodReferenceResults(inferenceCacheState);
-        inferredTypeVarNullabilityForGenericCalls.put(e.getInferenceSite(), failureResult);
+      if (publishOutcome) {
+        publishDiagnosticInferenceOutcomes(inferenceCacheState, result, state);
       }
-      return failureResult;
+      return result;
     } catch (NestedUpperBoundViolationException e) {
       String message =
           errorMessageForIncompatibleTypesAtPseudoAssignment(
@@ -1757,10 +1762,11 @@ public final class GenericsChecks {
                     errorMessage, analysis.buildDescription(e.getSite()), reportingState, null));
       }
       InferenceFailure failureResult = new InferenceFailure(message);
-      if (okToCacheInferenceResult(calledFromDataflow)) {
+      if (canPublishDiagnosticInferenceOutcome(inferenceCacheState, calledFromDataflow)) {
         invalidateMethodReferenceResults(inferenceCacheState);
         // Solving stopped at this site. Other participating calls still need independent checking.
         inferredTypeVarNullabilityForGenericCalls.put(e.getSite(), failureResult);
+        diagnosticInferenceResults.remove(e.getSite());
       }
       return failureResult;
     } catch (UnsatisfiableConstraintsException e) {
@@ -1778,11 +1784,12 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(inferenceSite), reportingState, null));
       }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
-      if (okToCacheInferenceResult(calledFromDataflow)) {
+      if (canPublishDiagnosticInferenceOutcome(inferenceCacheState, calledFromDataflow)) {
         invalidateMethodReferenceResults(inferenceCacheState);
         // Contextual scalar contradictions complete only this root problem. Nested calls must
         // still infer their own arguments and contexts independently.
         inferredTypeVarNullabilityForGenericCalls.put(callTree, failureResult);
+        diagnosticInferenceResults.remove(callTree);
       }
       return failureResult;
     }
@@ -1814,123 +1821,179 @@ public final class GenericsChecks {
   }
 
   /**
-   * Reports one lower-source conflict at a source argument, retaining no synthetic intersection in
-   * the message. Only positions wholly determined by the failed variable are marked unavailable;
-   * parameters and results involving another variable still receive ordinary compatibility checks.
+   * Rejects diagnostic availability and contradictory call persistence for problems with dataflow
+   * or provisional-lambda inputs. Certified poly targets use their separate publication checks.
    */
-  private String reportLowerBoundConflict(
-      LowerBoundConflictException failure, InferenceCacheState inputs, VisitorState state) {
-    ExpressionTree site = (ExpressionTree) failure.getInferenceSite();
-    VisitorState reportingState = stateForInferenceDiagnostic(site, state);
-    CallSite syntax = callSite(site);
-    InferenceCall call = syntax.resolve(reportingState.getPath(), reportingState, false);
-    List<? extends ExpressionTree> arguments =
-        site instanceof MethodInvocationTree invocation
-            ? invocation.getArguments()
-            : ((NewClassTree) site).getArguments();
-    int first =
-        lowerSourceArgument(arguments, failure.getFirstLowerSource(), inputs, reportingState);
-    int second =
-        lowerSourceArgument(arguments, failure.getSecondLowerSource(), inputs, reportingState);
-    if (first > second && second >= 0) {
-      int temporary = first;
+  private boolean canPublishDiagnosticInferenceOutcome(
+      InferenceCacheState inputs, boolean calledFromDataflow) {
+    return okToCacheInferenceResult(calledFromDataflow) && !inputs.provisionalLambdaTypesSeen;
+  }
+
+  /**
+   * Replaces participating calls' diagnostic outcomes only after an eligible solve and its caching
+   * decisions finish. A retained cached result takes precedence over newly computed evidence, just
+   * as it does when supplying types. Reporting happens after the replacement, so reentrant checks
+   * cannot observe a mixture of the old and new availability snapshots.
+   */
+  @SuppressWarnings("ReferenceEquality") // availability must belong to this exact outcome
+  private void publishDiagnosticInferenceOutcomes(
+      InferenceCacheState inputs, InferenceWithTypes result, VisitorState state) {
+    Map<Tree, InferencePartial> outcomes = new LinkedHashMap<>();
+    for (Tree site : inputs.calls.keySet()) {
+      CallInferenceResult cached = inferredTypeVarNullabilityForGenericCalls.get(site);
+      if (cached instanceof InferencePartial partial) {
+        outcomes.put(site, partial);
+      } else if (cached == null && result instanceof InferencePartial partial) {
+        outcomes.put(site, partial);
+      }
+    }
+    inputs.calls.keySet().forEach(diagnosticInferenceResults::remove);
+    diagnosticInferenceResults.putAll(outcomes);
+    for (InferencePartial partial : new LinkedHashSet<>(outcomes.values())) {
+      for (LowerBoundConflict conflict : partial.solution.lowerConflicts()) {
+        if (outcomes.get(conflict.variable().site()) == partial
+            && usesDirectConflictDiagnostic(conflict)) {
+          reportLowerBoundConflict(conflict, state);
+        }
+      }
+    }
+  }
+
+  /**
+   * Uses the same cached outcome that supplies checked types when one exists; otherwise uses the
+   * last eligible completed diagnostic outcome. Speculative inference never changes either source.
+   */
+  private @Nullable InferencePartial diagnosticInferenceOutcome(Tree site) {
+    CallInferenceResult cached = inferredTypeVarNullabilityForGenericCalls.get(site);
+    return cached instanceof InferencePartial partial
+        ? partial
+        : cached == null ? diagnosticInferenceResults.get(site) : null;
+  }
+
+  /** Keeps established ordinary same-nominal checking as presentation policy, not solver policy. */
+  private boolean usesDirectConflictDiagnostic(LowerBoundConflict conflict) {
+    if (!(conflict.variable().site() instanceof MethodInvocationTree)
+        && !(conflict.variable().site() instanceof NewClassTree)) {
+      return false;
+    }
+    Type first = conflict.first().type();
+    Type second = conflict.second().type();
+    while (first instanceof Type.ArrayType a && second instanceof Type.ArrayType b) {
+      first = a.elemtype;
+      second = b.elemtype;
+    }
+    return !(first instanceof Type.ClassType
+        && second instanceof Type.ClassType
+        && first.tsym.equals(second.tsym));
+  }
+
+  /** Selects explicit ownership carried by the bound, preferring the receiving call's argument. */
+  private @Nullable SourceOrigin sourceAtSite(BoundEvidence evidence, Tree site) {
+    for (SourceOrigin origin : evidence.origins()) {
+      if (origin.ownerSite().equals(site)) {
+        return origin;
+      }
+    }
+    return evidence.origins().isEmpty() ? null : evidence.origins().get(0);
+  }
+
+  /**
+   * Reports source evidence directly; no type-to-AST matching or signature reconstruction occurs.
+   */
+  private void reportLowerBoundConflict(LowerBoundConflict conflict, VisitorState state) {
+    SourceOrigin first = sourceAtSite(conflict.first(), conflict.variable().site());
+    SourceOrigin second = sourceAtSite(conflict.second(), conflict.variable().site());
+    BoundEvidence firstEvidence = conflict.first();
+    BoundEvidence secondEvidence = conflict.second();
+    if (first != null
+        && second != null
+        && ASTHelpers.getStartPosition(first.expression())
+            > ASTHelpers.getStartPosition(second.expression())) {
+      SourceOrigin temporary = first;
       first = second;
       second = temporary;
+      firstEvidence = conflict.second();
+      secondEvidence = conflict.first();
     }
-    Type firstType =
-        first >= 0
-            ? inputs.lowerSources.get(ASTHelpers.stripParentheses(arguments.get(first)))
-            : null;
-    Type secondType =
-        second >= 0
-            ? inputs.lowerSources.get(ASTHelpers.stripParentheses(arguments.get(second)))
-            : null;
     String message =
         String.format(
             "incompatible types: arguments '%s' (%s) and '%s' (%s) have conflicting nullability"
                 + " for type variable %s",
-            second >= 0 ? arguments.get(second) : "lower source",
+            second != null ? second.expression() : "lower source",
             prettyTypeForError(
-                secondType != null ? secondType : failure.getSecondLowerSource(), state),
-            first >= 0 ? arguments.get(first) : "lower source",
-            prettyTypeForError(
-                firstType != null ? firstType : failure.getFirstLowerSource(), state),
-            failure.getVariable().typeVariable().getSimpleName());
-    Set<ExpressionTree> affected = new LinkedHashSet<>();
-    new InvocationArguments(site, call.signature)
-        .forEach(
-            (argument, position, formal, unused) -> {
-              if (isOnlyFailedVariable(formal, failure.getVariable().typeVariable())) {
-                affected.add(ASTHelpers.stripParentheses(argument));
-              }
-            });
-    boolean resultAffected =
-        isOnlyFailedVariable(call.resultTemplate, failure.getVariable().typeVariable());
-    if (reportedLowerConflicts.putIfAbsent(
-            site, new ReportedLowerConflict(Set.copyOf(affected), resultAffected))
-        == null) {
-      Tree errorSite = second >= 0 ? arguments.get(second) : site;
-      VisitorState errorState = stateForInferenceDiagnostic(errorSite, reportingState);
-      ErrorMessage errorMessage =
+                second != null ? second.originalType() : secondEvidence.type(), state),
+            first != null ? first.expression() : "lower source",
+            prettyTypeForError(first != null ? first.originalType() : firstEvidence.type(), state),
+            conflict.variable().typeVariable().getSimpleName());
+    if (reportedLowerConflicts.add(conflict.variable())) {
+      Tree site = second != null ? second.expression() : conflict.variable().site();
+      VisitorState reportingState = stateForInferenceDiagnostic(site, state);
+      ErrorMessage error =
           new ErrorMessage(ErrorMessage.MessageTypes.PASS_NULLABLE_GENERIC, message);
       state.reportMatch(
           analysis
               .getErrorBuilder()
               .createErrorDescription(
-                  errorMessage, analysis.buildDescription(errorSite), errorState, null));
+                  error, analysis.buildDescription(site), reportingState, null));
     }
-    return message;
   }
 
-  /**
-   * Matches retained lower provenance to an argument or a nested input, without rerunning
-   * inference.
-   */
-  private int lowerSourceArgument(
-      List<? extends ExpressionTree> arguments,
-      Type source,
-      InferenceCacheState inputs,
-      VisitorState state) {
-    Set<ExpressionTree> exactOrigins = inputs.lowerOrigins.getOrDefault(source, Set.of());
-    for (int position = 0; position < arguments.size(); position++) {
-      TreePath argumentPath = pathWithLeaf(state.getPath(), arguments.get(position));
-      for (ExpressionTree origin : exactOrigins) {
-        if (TreePath.getPath(argumentPath, origin) != null) {
-          return position;
-        }
-      }
-    }
-    for (int position = 0; position < arguments.size(); position++) {
-      TreePath argumentPath = pathWithLeaf(state.getPath(), arguments.get(position));
-      for (Map.Entry<ExpressionTree, Type> input : inputs.lowerSources.entrySet()) {
-        if (state.getTypes().isSameType(input.getValue(), source)
-            && getTypeNullness(input.getValue()) == getTypeNullness(source)
-            && subtypeParameterNullability(input.getValue(), source, state)
-            && subtypeParameterNullability(source, input.getValue(), state)
-            && TreePath.getPath(argumentPath, input.getKey()) != null) {
-          return position;
-        }
-      }
-    }
-    return -1;
-  }
-
-  /**
-   * Reads a wholly dependent position, preserving checks of fixed annotations and other variables.
-   */
+  /** Reads unavailable variable positions from a completed outcome, independently of reporting. */
   private boolean isOnlyFailedVariable(Type type, Element variable) {
-    if (!type.getAnnotationMirrors().isEmpty()) {
+    return type instanceof Type.TypeVar
+        && type.asElement().equals(variable)
+        && type.getAnnotationMirrors().isEmpty();
+  }
+
+  /**
+   * Determines result availability from conflict facts and the exact signature used to infer it.
+   */
+  private boolean hasUnavailableLowerResult(ExpressionTree expression) {
+    Tree site = ASTHelpers.stripParentheses(expression);
+    InferencePartial outcome = diagnosticInferenceOutcome(site);
+    if (outcome == null) {
       return false;
     }
-    // Even unannotated array dimensions have independent non-null contracts in marked code.
-    return type instanceof Type.TypeVar && type.asElement().equals(variable);
+    InferenceCall call = outcome.calls.get(site);
+    return call != null
+        && outcome.solution.lowerConflicts().stream()
+            .anyMatch(
+                conflict ->
+                    conflict.variable().site().equals(site)
+                        && usesDirectConflictDiagnostic(conflict)
+                        && isOnlyFailedVariable(
+                            call.resultTemplate, conflict.variable().typeVariable()));
   }
 
-  /** Avoids secondary result mismatches only after that result's sole variable was diagnosed. */
-  private boolean hasReportedLowerResultConflict(ExpressionTree expression) {
-    ReportedLowerConflict conflict =
-        reportedLowerConflicts.get(ASTHelpers.stripParentheses(expression));
-    return conflict != null && conflict.result();
+  /**
+   * Keeps fixed annotations, array dimensions, and unrelated parameters independently checkable.
+   */
+  private boolean hasUnavailableLowerArgument(Tree site, ExpressionTree argument) {
+    InferencePartial outcome = diagnosticInferenceOutcome(site);
+    if (outcome == null) {
+      return false;
+    }
+    InferenceCall call = outcome.calls.get(site);
+    if (call == null) {
+      return false;
+    }
+    AtomicReference<Boolean> unavailable = new AtomicReference<>(false);
+    new InvocationArguments(site, call.signature)
+        .forEach(
+            (actual, position, formal, unused) -> {
+              if (ASTHelpers.stripParentheses(actual)
+                  .equals(ASTHelpers.stripParentheses(argument))) {
+                unavailable.set(
+                    outcome.solution.lowerConflicts().stream()
+                        .anyMatch(
+                            conflict ->
+                                conflict.variable().site().equals(site)
+                                    && usesDirectConflictDiagnostic(conflict)
+                                    && isOnlyFailedVariable(
+                                        formal, conflict.variable().typeVariable())));
+              }
+            });
+    return unavailable.get();
   }
 
   /** Recovers the diagnostic site's real ancestors, including local-variable suppressions. */
@@ -2242,10 +2305,12 @@ public final class GenericsChecks {
       ConstraintSolver solver,
       InferenceCall inferenceCall,
       InferenceCacheState inferenceCacheState,
+      Tree resultOwner,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
     ExpressionTree callTree = inferenceCall.site.tree;
     Type.MethodType methodType = inferenceCall.signature;
+    inferenceCacheState.calls.put(callTree, inferenceCall);
     // Register all type variables whose nullability is inferred for this call, and use the
     // call-specific inference variables returned by the solver in place of the declared type
     // variables. This keeps the constraints for different calls to the same generic method
@@ -2278,9 +2343,12 @@ public final class GenericsChecks {
     Type callResultType =
         TypeSubstitutionUtils.substituteTypeVariables(
             inferenceCall.resultTemplate, inferenceVariables, state.getTypes(), config);
-    inferenceCacheState.recordLowerSource(callTree, callResultType);
     if (typeFromAssignmentContext != null) {
-      solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
+      solver.addSubtypeConstraint(
+          callResultType,
+          typeFromAssignmentContext,
+          assignedToLocal,
+          new SourceOrigin(callTree, resultOwner, inferenceCall.site.attributedResult));
     }
     // then, handle parameters
     TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
@@ -2294,6 +2362,7 @@ public final class GenericsChecks {
                   inferenceCacheState,
                   argument,
                   formalParamType,
+                  callTree,
                   calledFromDataflow);
             });
     return callResultType;
@@ -2316,6 +2385,7 @@ public final class GenericsChecks {
       InferenceCacheState inferenceCacheState,
       ExpressionTree rhsExpr,
       Type lhsType,
+      Tree ownerSite,
       boolean calledFromDataflow) {
     NullabilityUtil.ExprTreeAndState exprTreeAndState =
         NullabilityUtil.stripParensAndUpdateTreePath(rhsExpr, state);
@@ -2332,6 +2402,7 @@ public final class GenericsChecks {
           solver,
           getCallForInference(rhsExpr, state.getPath(), state, calledFromDataflow),
           inferenceCacheState,
+          ownerSite,
           calledFromDataflow);
     } else if (rhsExpr instanceof ConditionalExpressionTree conditionalExpressionTree) {
       // generate constraints for both the true and false sub-expressions of the conditional
@@ -2344,6 +2415,7 @@ public final class GenericsChecks {
           inferenceCacheState,
           trueExpression,
           lhsType,
+          ownerSite,
           calledFromDataflow);
       ExpressionTree falseExpression = conditionalExpressionTree.getFalseExpression();
       TreePath pathToFalseExpression = new TreePath(state.getPath(), falseExpression);
@@ -2353,13 +2425,21 @@ public final class GenericsChecks {
           inferenceCacheState,
           falseExpression,
           lhsType,
+          ownerSite,
           calledFromDataflow);
     } else if (rhsExpr instanceof LambdaExpressionTree lambda) {
       handleLambdaInGenericMethodInference(
-          state, state.getPath(), solver, inferenceCacheState, lhsType, lambda, calledFromDataflow);
+          state,
+          state.getPath(),
+          solver,
+          inferenceCacheState,
+          lhsType,
+          lambda,
+          ownerSite,
+          calledFromDataflow);
     } else if (rhsExpr instanceof MemberReferenceTree memberReferenceTree) {
       handleMethodRefInGenericMethodInference(
-          state, solver, inferenceCacheState, lhsType, memberReferenceTree);
+          state, solver, inferenceCacheState, lhsType, memberReferenceTree, ownerSite);
     } else { // all other cases
       Type argumentType = getTreeType(rhsExpr, state, calledFromDataflow);
       if (argumentType == null) {
@@ -2368,8 +2448,8 @@ public final class GenericsChecks {
         return;
       }
       argumentType = refineArgumentTypeWithDataflow(argumentType, rhsExpr, state, state.getPath());
-      inferenceCacheState.recordLowerSource(rhsExpr, argumentType);
-      solver.addSubtypeConstraint(argumentType, lhsType, false);
+      solver.addSubtypeConstraint(
+          argumentType, lhsType, false, new SourceOrigin(rhsExpr, ownerSite, argumentType));
     }
   }
 
@@ -2398,6 +2478,7 @@ public final class GenericsChecks {
       InferenceCacheState inferenceCacheState,
       Type lhsType,
       LambdaExpressionTree lambda,
+      Tree ownerSite,
       boolean calledFromDataflow) {
     Symbol.MethodSymbol fiMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(lambda, state.getTypes());
@@ -2461,6 +2542,7 @@ public final class GenericsChecks {
                 getCallForInference(
                     returnedExpression, returnedExpressionPath, state, calledFromDataflow),
                 inferenceCacheState,
+                ownerSite,
                 calledFromDataflow);
           }
         } else {
@@ -2470,6 +2552,7 @@ public final class GenericsChecks {
               inferenceCacheState,
               returnedExpression,
               fiReturnType,
+              ownerSite,
               calledFromDataflow);
         }
       } else if (body instanceof BlockTree) {
@@ -2494,6 +2577,7 @@ public final class GenericsChecks {
               inferenceCacheState,
               returnExpr,
               fiReturnType,
+              ownerSite,
               calledFromDataflow);
         }
       }
@@ -2540,6 +2624,7 @@ public final class GenericsChecks {
                     initializerState,
                     context.calledFromDataflow()),
                 context.cacheState(),
+                declarationPath.getLeaf(),
                 context.calledFromDataflow())
             : getTreeType(initializer, initializerState, context.calledFromDataflow());
 
@@ -2598,13 +2683,15 @@ public final class GenericsChecks {
    * @param inferenceCacheState cache and method-reference sites for the enclosing inference problem
    * @param lhsType the type to which the method reference is being assigned
    * @param memberReferenceTree the method reference argument
+   * @param ownerSite the call receiving the reference, or the independently inferred reference
    */
   private void handleMethodRefInGenericMethodInference(
       VisitorState state,
       ConstraintSolver solver,
       InferenceCacheState inferenceCacheState,
       Type lhsType,
-      MemberReferenceTree memberReferenceTree) {
+      MemberReferenceTree memberReferenceTree,
+      Tree ownerSite) {
     inferenceCacheState.methodReferences.add(memberReferenceTree);
     // if we have a reference to a generic method, and the call site does not pass explicit type
     // arguments, register the referenced method's type variables as inference variables
@@ -2656,7 +2743,14 @@ public final class GenericsChecks {
                   ? supertype
                   : TypeSubstitutionUtils.substituteTypeVariables(
                       supertype, referenceInferenceVariables, state.getTypes(), config);
-          solver.addSubtypeConstraint(subtypeForReference, supertypeForReference, false);
+          solver.addSubtypeConstraint(
+              subtypeForReference,
+              supertypeForReference,
+              false,
+              new SourceOrigin(
+                  memberReferenceTree,
+                  ownerSite,
+                  referencedMethodTypeIsSubtype ? subtype : supertype));
         });
   }
 
@@ -3061,7 +3155,7 @@ public final class GenericsChecks {
     checkTargetTypedMethodReference(retExpr, formalReturnType, pathToRetExpr, state);
     Type returnExpressionType =
         getTypeForRhsOfAssignment(retExpr, pathToRetExpr, formalReturnType, false, state, false);
-    if (returnExpressionType != null && !hasReportedLowerResultConflict(retExpr)) {
+    if (returnExpressionType != null && !hasUnavailableLowerResult(retExpr)) {
       boolean isReturnTypeValid =
           subtypeParameterNullability(formalReturnType, returnExpressionType, state);
       if (!isReturnTypeValid) {
@@ -3552,11 +3646,7 @@ public final class GenericsChecks {
                 return;
               }
 
-              ReportedLowerConflict conflict = reportedLowerConflicts.get(tree);
-              if (conflict != null
-                  && conflict
-                      .arguments()
-                      .contains(ASTHelpers.stripParentheses(currentActualParam))) {
+              if (hasUnavailableLowerArgument(tree, currentActualParam)) {
                 return;
               }
               TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
@@ -3605,7 +3695,7 @@ public final class GenericsChecks {
                 actualParameterType = getTreeType(currentActualParam, state.withPath(pathToParam));
               }
               if (actualParameterType != null) {
-                if (hasReportedLowerResultConflict(actualParameterWithoutParentheses)) {
+                if (hasUnavailableLowerResult(actualParameterWithoutParentheses)) {
                   return;
                 }
                 if (isCallNeedingInference(currentActualParam)) {
@@ -3731,7 +3821,7 @@ public final class GenericsChecks {
       ConstraintSolver solver = makeSolver(state, analysis);
       InferenceCacheState inferenceCacheState = new InferenceCacheState();
       handleMethodRefInGenericMethodInference(
-          state, solver, inferenceCacheState, targetType, reference);
+          state, solver, inferenceCacheState, targetType, reference, reference);
       Solution solution = solver.solve();
       InferenceWithTypes result =
           solution.isComplete() ? new InferenceSuccess(solution) : new InferencePartial(solution);
@@ -4932,6 +5022,7 @@ public final class GenericsChecks {
     callsWithReportedInferenceFailures.clear();
     reportedNestedUpperBoundViolations.clear();
     reportedLowerConflicts.clear();
+    diagnosticInferenceResults.clear();
     inferredPolyExpressionTypes.clear();
     inferredVarLocalTypes.clear();
     varLocalDeclarations.clear();

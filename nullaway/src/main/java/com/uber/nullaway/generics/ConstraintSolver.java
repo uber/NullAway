@@ -31,6 +31,36 @@ public interface ConstraintSolver {
   record InferenceVariable(Element typeVariable, Tree site) {}
 
   /**
+   * Explicit source expression, the site receiving its constraint, and its original attributed
+   * type. For a call argument, {@code ownerSite} is that call, including when {@code expression} is
+   * a nested invocation. For a lambda return, it is the root call receiving the lambda argument
+   * when available, otherwise the lambda itself. Neither ownership nor {@code originalType} is
+   * rewritten when evidence propagates through another inference variable.
+   */
+  record SourceOrigin(Tree expression, Tree ownerSite, Type originalType) {}
+
+  /**
+   * A solver bound and immutable, deduplicated source origins, independent of projection. Origin
+   * order is provenance insertion order, not diagnostic priority; transitive origins remain
+   * present.
+   */
+  record BoundEvidence(Type type, List<SourceOrigin> origins) {
+    /** Deduplicates origins without losing source order. */
+    public BoundEvidence {
+      origins = List.copyOf(new LinkedHashSet<>(origins));
+    }
+  }
+
+  /**
+   * A proven invariant disagreement at javac's shape, retaining both original solver bounds. A
+   * frontend reporting at {@code variable.site()} should prefer origins with that exact {@code
+   * ownerSite}, rather than substituting a transitive inner-leaf expression for a direct argument.
+   * This choice requires only explicit owner identity, not AST recovery or type-to-source matching.
+   */
+  record LowerBoundConflict(
+      InferenceVariable variable, BoundEvidence first, BoundEvidence second, Type shape) {}
+
+  /**
    * Inferred annotation sources and their certification status. Sources for incomplete or
    * inconsistent variables are retained for ordinary compatibility diagnostics, not for caching as
    * successful inference. All collections are immutable snapshots in insertion order.
@@ -38,13 +68,24 @@ public interface ConstraintSolver {
   record Solution(
       Map<InferenceVariable, Type> inferredTypes,
       Set<InferenceVariable> incompleteVariables,
-      Set<InferenceVariable> inconsistentVariables) {
+      Set<InferenceVariable> inconsistentVariables,
+      List<LowerBoundConflict> lowerConflicts) {
+    /** Preserves callers that do not supply lower-bound conflict facts. */
+    public Solution(
+        Map<InferenceVariable, Type> inferredTypes,
+        Set<InferenceVariable> incompleteVariables,
+        Set<InferenceVariable> inconsistentVariables) {
+      this(inferredTypes, incompleteVariables, inconsistentVariables, List.of());
+    }
+
     /** Takes immutable, insertion-ordered snapshots of the supplied inference result. */
     public Solution {
       inferredTypes = Collections.unmodifiableMap(new LinkedHashMap<>(inferredTypes));
       incompleteVariables = Collections.unmodifiableSet(new LinkedHashSet<>(incompleteVariables));
-      inconsistentVariables =
-          Collections.unmodifiableSet(new LinkedHashSet<>(inconsistentVariables));
+      Set<InferenceVariable> inconsistent = new LinkedHashSet<>(inconsistentVariables);
+      lowerConflicts = List.copyOf(lowerConflicts);
+      lowerConflicts.forEach(conflict -> inconsistent.add(conflict.variable()));
+      inconsistentVariables = Collections.unmodifiableSet(inconsistent);
     }
 
     /** Returns whether every registered variable has a certified, consistent inferred type. */
@@ -189,49 +230,6 @@ public interface ConstraintSolver {
   }
 
   /**
-   * Indicates incompatible invariant annotations from distinct lower sources at javac's common
-   * shape, rather than a declaration upper-bound violation. The original sources retain their
-   * nominal types and fresh-variable ownership; the shape identifies the view proving the conflict.
-   */
-  class LowerBoundConflictException extends UnsatisfiableConstraintsException {
-    private final InferenceVariable variable;
-    private final Type firstLowerSource;
-    private final Type secondLowerSource;
-    private final Type shape;
-
-    /** Records the owning variable, original sources in solver order, and common shape. */
-    public LowerBoundConflictException(
-        InferenceVariable variable, Type firstLowerSource, Type secondLowerSource, Type shape) {
-      super(variable.typeVariable(), false, variable.site());
-      this.variable = variable;
-      this.firstLowerSource = firstLowerSource;
-      this.secondLowerSource = secondLowerSource;
-      this.shape = shape;
-    }
-
-    public InferenceVariable getVariable() {
-      return variable;
-    }
-
-    @Override
-    public Tree getInferenceSite() {
-      return variable.site();
-    }
-
-    public Type getFirstLowerSource() {
-      return firstLowerSource;
-    }
-
-    public Type getSecondLowerSource() {
-      return secondLowerSource;
-    }
-
-    public Type getShape() {
-      return shape;
-    }
-  }
-
-  /**
    * Add a subtype constraint between two types. Also constrains nested types appropriately (e.g.,
    * generic type parameters of the two types must have identical nullability). Inference variables
    * must appear in the types as the fresh type variables returned by {@link
@@ -245,6 +243,14 @@ public interface ConstraintSolver {
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
   void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
+      throws UnsatisfiableConstraintsException;
+
+  /**
+   * Adds a constraint with an explicit source owner. Origins survive bound deduplication,
+   * substitution, projection, and derived constraints; no type-to-source lookup is performed.
+   */
+  void addSubtypeConstraint(
+      Type subtype, Type supertype, boolean localVariableType, SourceOrigin origin)
       throws UnsatisfiableConstraintsException;
 
   /**
@@ -271,9 +277,12 @@ public interface ConstraintSolver {
    * type variables remain symbolic. Diagnostic sources in either status must not be cached as
    * successful inference.
    *
-   * @return inferred types and explicit incomplete/inconsistent variable sets
-   * @throws LowerBoundConflictException if original lower sources disagree at a concrete invariant
-   *     slot of javac's common shape
+   * <p>Invariant lower disagreements are returned as {@link Solution#lowerConflicts()} rather than
+   * thrown. Their owning and dependent variables are inconsistent; independent variables continue
+   * to be solved and certified. Reporting policy, including ordinary same-nominal diagnostics,
+   * belongs to the caller.
+   *
+   * @return inferred types, incomplete/inconsistent variable sets, and lower conflict facts
    * @throws NestedUpperBoundViolationException if a declaration-bound violation is proven but no
    *     recursively shape-compatible annotation source can preserve ordinary diagnostics
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable

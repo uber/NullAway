@@ -1,9 +1,22 @@
 package com.uber.nullaway.jspecify;
 
+import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
+
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.ErrorProneJavaCompiler;
+import com.google.errorprone.FileManagers;
+import com.google.errorprone.FileObjects;
+import com.google.errorprone.scanner.ScannerSupplier;
+import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
+import javax.tools.Diagnostic;
+import javax.tools.DiagnosticCollector;
+import javax.tools.JavaFileObject;
 import org.junit.Test;
 
 /** Regression coverage for wildcard-shaped lowers and sibling diamond inference ownership. */
@@ -328,6 +341,132 @@ public class InferenceLowerBoundRegressionTests extends NullAwayTestsBase {
             }
             """)
         .doTest();
+  }
+
+  @Test
+  public void ordinaryReferenceConflictsRetainBothSourcesInEitherOrder() {
+    for (boolean reverse : List.of(false, true)) {
+      String first = reverse ? "Test::clean" : "Test::nullable";
+      String second = reverse ? "Test::nullable" : "Test::clean";
+      List<String> diagnostics =
+          compileDiagnostics(
+              """
+              package com.uber;
+              import java.util.ArrayList;
+              import java.util.LinkedList;
+              import java.util.List;
+              import java.util.function.Supplier;
+              import org.jspecify.annotations.NullMarked;
+              import org.jspecify.annotations.Nullable;
+              @NullMarked
+              class Test {
+                static ArrayList<@Nullable String> nullable() { throw new RuntimeException(); }
+                static LinkedList<String> clean() { throw new RuntimeException(); }
+                static <T> T from(Supplier<? extends T> a, Supplier<? extends T> b) { return a.get(); }
+                void test() {
+                  List<String> result = from(
+                      %s,
+                      %s);
+                }
+              }
+              """
+                  .formatted(first, second));
+      List<String> conflicts =
+          diagnostics.stream()
+              .filter(message -> message.contains("have conflicting nullability"))
+              .toList();
+      assertThat(conflicts).hasSize(1);
+      assertThat(conflicts.get(0)).startsWith("16:");
+      assertThat(conflicts.get(0)).contains("arguments '" + second + "'");
+      assertThat(conflicts.get(0)).contains("and '" + first + "'");
+      assertThat(conflicts.get(0)).contains("ArrayList<@Nullable String>");
+      assertThat(conflicts.get(0)).contains("LinkedList<String>");
+      assertThat(conflicts.get(0)).doesNotContain("lower source");
+    }
+  }
+
+  @Test
+  public void provisionalLambdaReferenceConflictsDoNotHideFinalChecks() {
+    List<String> diagnostics =
+        compileDiagnostics(
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static ArrayList<@Nullable String> nullable() { throw new RuntimeException(); }
+              static LinkedList<String> clean() { throw new RuntimeException(); }
+              static <T> T from(Supplier<? extends T> a, Supplier<? extends T> b) { return a.get(); }
+              static <A, R> R map(A value, Function<A, R> function) { return function.apply(value); }
+              static <T> T id(T value) { return value; }
+              void test() {
+                List<String> result = map("input", value -> from(
+                    Test::nullable,
+                    Test::clean));
+                List<String> independent = id(nullable());
+              }
+            }
+            """);
+    // The nested call participates in provisional lambda inference and is checked again against
+    // the final descriptor. Neither the provisional pass nor diagnostic dedup may hide that check.
+    List<String> conflicts =
+        diagnostics.stream()
+            .filter(message -> message.contains("have conflicting nullability"))
+            .toList();
+    assertThat(conflicts).hasSize(1);
+    assertThat(conflicts.get(0)).startsWith("19:");
+    assertThat(conflicts.get(0)).contains("arguments 'Test::clean' (LinkedList<String>)");
+    assertThat(conflicts.get(0)).contains("and 'Test::nullable' (ArrayList<@Nullable String>)");
+    assertThat(
+            diagnostics.stream()
+                .filter(
+                    message -> message.startsWith("20:") && message.contains("incompatible types"))
+                .toList())
+        .hasSize(1);
+  }
+
+  /**
+   * Compiles a frontend fixture and retains positioned diagnostics, including ordinary reference
+   * checks alongside the source-conflict diagnostic. NullAway runs at warning severity, so compiler
+   * errors still fail the test rather than being mistaken for inference diagnostics.
+   */
+  private List<String> compileDiagnostics(String source) {
+    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+    List<String> args =
+        new ArrayList<>(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")));
+    args.add("-proc:none");
+    ErrorProneJavaCompiler compiler =
+        new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
+    boolean success =
+        compiler
+            .getTask(
+                null,
+                FileManagers.testFileManager(),
+                diagnostics,
+                args,
+                null,
+                List.of(FileObjects.forSourceLines("Test.java", source)))
+            .call();
+    assertWithMessage("compilation failed: %s", diagnostics.getDiagnostics())
+        .that(success)
+        .isTrue();
+    return diagnostics.getDiagnostics().stream()
+        .filter(
+            diagnostic ->
+                diagnostic.getSource() != null && diagnostic.getLineNumber() != Diagnostic.NOPOS)
+        .map(diagnostic -> diagnostic.getLineNumber() + ":" + diagnostic.getMessage(Locale.ROOT))
+        .toList();
   }
 
   /** Creates a helper for nullness-marked inference with wildcard containment enabled. */
