@@ -50,7 +50,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Explicit source context, scoped around direct and derived constraint generation. */
   private List<SourceOrigin> currentOrigins = List.of();
 
-  private SourceSupport currentSupport = new SourceSupport(List.of(List.of()));
+  /** One canonical proof scope for all direct, derived, and cyclic evidence in this solver. */
+  private final SourceSupport.Factory sourceSupports = new SourceSupport.Factory();
+
+  private SourceSupport currentSupport = sourceSupports.conjunction(List.of());
 
   /** Flattened diagnostic context and finite alternative proofs on the existing graph edges. */
   private record SourceEvidence(List<SourceOrigin> origins, SourceSupport support) {
@@ -64,6 +67,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       return new SourceEvidence(
           combinedOrigins(origins, other.origins), support.and(other.support));
     }
+  }
+
+  /** Counts solver-scoped decision nodes for provenance growth and lazy-conflict proof tests. */
+  int sourceSupportNodeCount() {
+    return sourceSupports.allocatedNodeCount();
   }
 
   /** Per-solve facts, collected independently of diagnostic annotation-source selection. */
@@ -516,7 +524,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Restores source context even when scalar or declaration constraint generation throws. */
   private void withOrigins(List<SourceOrigin> origins, Runnable action) {
-    withSources(origins, new SourceSupport(List.of(origins)), action);
+    withSources(origins, sourceSupports.conjunction(origins), action);
   }
 
   /** Scopes both flattened context and supporting alternatives through derived constraints. */
@@ -1090,7 +1098,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         StructuredBounds bounds = structuredBounds(variable);
         validateLowerAnnotationsAtShape(
             variable,
-            bounds.lowerEvidence().stream().map(this::withReferencedValueSupport).toList(),
+            bounds.lowerEvidence(),
             substituteBounds(bounds.lower(), replacements),
             shape);
       }
@@ -1175,7 +1183,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
                 structuredTypeKey(secondSource.type()),
                 structuredTypeKey(shape));
         if (lowerConflictKeys.add(key)) {
-          lowerConflicts.add(new LowerBoundConflict(variable, firstSource, secondSource, shape));
+          // Resolving value premises can combine many independent alternatives. Do it only for
+          // a proven conflict, never for successful pairs or variables with a single lower.
+          lowerConflicts.add(
+              new LowerBoundConflict(
+                  variable,
+                  withReferencedValueSupport(firstSource),
+                  withReferencedValueSupport(secondSource),
+                  shape));
         }
       }
     } finally {
@@ -1978,7 +1993,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * Collects structured lower bounds through subtype edges or upper bounds through supertype edges.
    * Declared structured upper bounds, including each component of an intersection bound, are added
    * while collecting upper bounds. Alternative paths and conjunctive edge premises propagate to a
-   * finite antichain fixed point, including across cycles. Diagnostic context propagates
+   * canonical Boolean fixed point, including across cycles. Diagnostic context propagates
    * separately. Both semantic and provenance additions invalidate snapshots.
    */
   private List<BoundEvidence> collectStructuredEvidence(InferenceVariable start, boolean lower) {
@@ -2050,7 +2065,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     Deque<InferenceVariable> worklist = new ArrayDeque<>();
     Map<InferenceVariable, SourceEvidence> pathOrigins = new LinkedHashMap<>();
     worklist.add(start);
-    pathOrigins.put(start, new SourceEvidence(List.of(), new SourceSupport(List.of(List.of()))));
+    pathOrigins.put(start, new SourceEvidence(List.of(), sourceSupports.conjunction(List.of())));
     while (!worklist.isEmpty()) {
       InferenceVariable current = worklist.removeFirst();
       VarState st = vars.get(current);

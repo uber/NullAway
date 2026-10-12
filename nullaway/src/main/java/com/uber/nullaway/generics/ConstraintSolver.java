@@ -2,12 +2,15 @@ package com.uber.nullaway.generics;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Predicate;
@@ -43,48 +46,280 @@ public interface ConstraintSolver {
   record SourceOrigin(Tree expression, Tree ownerSite, Type originalType) {}
 
   /**
-   * Alternative proofs, each requiring all of its origins. A minimal antichain of origin sets
-   * bounds cyclic propagation: duplicate proofs and proofs requiring a superset are redundant. An
-   * empty derivation is valid source-less support; no derivations means no support.
+   * Immutable monotone source proof, represented by a reduced ordered decision DAG rather than
+   * distributed alternatives. Canonical roots give semantic equality and finite fixed points even
+   * when provenance traverses cycles. Origin order is diagnostic preference, not Boolean identity.
+   * Factoring avoids enumerating independent choices; arbitrary decision DAGs can still be large.
    */
-  record SourceSupport(List<List<SourceOrigin>> derivations) {
-    /** Takes immutable snapshots and normalizes alternatives without changing origin order. */
-    public SourceSupport {
-      List<List<SourceOrigin>> minimal = new ArrayList<>();
-      for (List<SourceOrigin> derivation : derivations) {
-        List<SourceOrigin> candidate = List.copyOf(new LinkedHashSet<>(derivation));
-        if (minimal.stream().anyMatch(candidate::containsAll)) {
-          continue;
-        }
-        minimal.removeIf(existing -> existing.containsAll(candidate));
-        minimal.add(candidate);
+  final class SourceSupport {
+    private final Factory factory;
+    private final int root;
+    private final List<SourceOrigin> origins;
+
+    /** Accepts legacy alternatives without distributing subsequent conjunctions. */
+    public SourceSupport(List<List<SourceOrigin>> alternatives) {
+      this.factory = new Factory();
+      int proof = 0;
+      Set<SourceOrigin> context = new LinkedHashSet<>();
+      for (List<SourceOrigin> alternative : alternatives) {
+        context.addAll(alternative);
+        proof = factory.apply(proof, factory.conjunction(alternative).root, false);
       }
-      derivations = List.copyOf(minimal);
+      this.root = proof;
+      this.origins = List.copyOf(context);
     }
 
-    /** Returns alternatives from either proof, discarding redundant supersets. */
+    /** Takes a snapshot of a canonical root and its independently ordered diagnostic context. */
+    private SourceSupport(Factory factory, int root, List<SourceOrigin> origins) {
+      this.factory = factory;
+      this.root = root;
+      this.origins = List.copyOf(new LinkedHashSet<>(origins));
+    }
+
+    /** Returns flattened origin context, never an enumeration of satisfying proofs. */
+    public List<SourceOrigin> origins() {
+      return origins;
+    }
+
+    /** Returns the exact disjunction, sharing canonical nodes in this support's factory. */
     public SourceSupport or(SourceSupport other) {
-      List<List<SourceOrigin>> alternatives = new ArrayList<>(derivations);
-      alternatives.addAll(other.derivations);
-      return new SourceSupport(alternatives);
+      return combine(other, false);
     }
 
-    /** Combines every pair of alternatives as conjunctive premises of one derived proof. */
+    /** Returns the exact conjunction without a Cartesian product of proofs. */
     public SourceSupport and(SourceSupport other) {
-      List<List<SourceOrigin>> products = new ArrayList<>();
-      for (List<SourceOrigin> first : derivations) {
-        for (List<SourceOrigin> second : other.derivations) {
-          Set<SourceOrigin> premises = new LinkedHashSet<>(first);
-          premises.addAll(second);
-          products.add(List.copyOf(premises));
+      return combine(other, true);
+    }
+
+    /** Imports only when compatibility callers combine supports from different factories. */
+    private SourceSupport combine(SourceSupport other, boolean conjunction) {
+      int combined = factory.apply(root, factory.importRoot(other), conjunction);
+      Set<SourceOrigin> context = new LinkedHashSet<>(origins);
+      context.addAll(other.origins);
+      return new SourceSupport(factory, combined, List.copyOf(context));
+    }
+
+    /**
+     * Selects one wholly available witness in origin insertion order. Empty support is a present
+     * empty witness; impossible support is absent. Memoization visits shared nodes only once and
+     * never enumerates alternative proofs. The predicate is evaluated once per encountered origin.
+     */
+    public Optional<List<SourceOrigin>> availableSupport(Predicate<SourceOrigin> available) {
+      Map<SourceOrigin, Integer> priority = new HashMap<>();
+      for (int i = 0; i < origins.size(); i++) {
+        priority.put(origins.get(i), i);
+      }
+      return witness(root, available, priority, new HashMap<>(), new HashMap<>());
+    }
+
+    /** Chooses the insertion-preferred satisfying branch and retains only its required premises. */
+    private Optional<List<SourceOrigin>> witness(
+        int node,
+        Predicate<SourceOrigin> available,
+        Map<SourceOrigin, Integer> priority,
+        Map<Integer, Boolean> availability,
+        Map<Integer, Optional<List<SourceOrigin>>> memo) {
+      if (node == 0) {
+        return Optional.empty();
+      }
+      if (node == 1) {
+        return Optional.of(List.of());
+      }
+      Optional<List<SourceOrigin>> previous = memo.get(node);
+      if (previous != null) {
+        return previous;
+      }
+      Factory.Decision decision = factory.decision(node);
+      SourceOrigin origin = factory.variables.get(decision.variable());
+      Optional<List<SourceOrigin>> low =
+          witness(decision.low(), available, priority, availability, memo);
+      Optional<List<SourceOrigin>> result = low;
+      if (availability.computeIfAbsent(decision.variable(), unused -> available.test(origin))) {
+        Optional<List<SourceOrigin>> high =
+            witness(decision.high(), available, priority, availability, memo);
+        if (high.isPresent()) {
+          List<SourceOrigin> premises = new ArrayList<>(high.get());
+          premises.add(origin);
+          premises.sort(
+              java.util.Comparator.comparingInt(
+                  source -> Objects.requireNonNull(priority.get(source))));
+          List<SourceOrigin> candidate = List.copyOf(premises);
+          if (low.isEmpty() || prefer(candidate, low.get(), priority)) {
+            result = Optional.of(candidate);
+          }
         }
       }
-      return new SourceSupport(products);
+      memo.put(node, result);
+      return result;
     }
 
-    /** Returns the first wholly available proof, including an empty source-less proof. */
-    public Optional<List<SourceOrigin>> availableSupport(Predicate<SourceOrigin> available) {
-      return derivations.stream().filter(proof -> proof.stream().allMatch(available)).findFirst();
+    /** Compares witnesses lexicographically by insertion priority, preferring a shorter prefix. */
+    private static boolean prefer(
+        List<SourceOrigin> first, List<SourceOrigin> second, Map<SourceOrigin, Integer> priority) {
+      for (int i = 0; i < Math.min(first.size(), second.size()); i++) {
+        int comparison =
+            Integer.compare(
+                Objects.requireNonNull(priority.get(first.get(i))),
+                Objects.requireNonNull(priority.get(second.get(i))));
+        if (comparison != 0) {
+          return comparison < 0;
+        }
+      }
+      return first.size() < second.size();
+    }
+
+    /** Counts reachable nonterminal nodes for solver proof tests, without expanding witnesses. */
+    int nodeCount() {
+      Set<Integer> visited = new LinkedHashSet<>();
+      ArrayDeque<Integer> work = new ArrayDeque<>();
+      work.add(root);
+      while (!work.isEmpty()) {
+        int node = work.removeFirst();
+        if (node > 1 && visited.add(node)) {
+          Factory.Decision decision = factory.decision(node);
+          work.add(decision.low());
+          work.add(decision.high());
+        }
+      }
+      return visited.size();
+    }
+
+    /** Compares Boolean meaning, not construction history or diagnostic preference. */
+    @Override
+    public boolean equals(@Nullable Object other) {
+      return other instanceof SourceSupport support && root == factory.importRoot(support);
+    }
+
+    /** Factory-local node IDs cannot provide a hash stable across compatibility factories. */
+    @Override
+    public int hashCode() {
+      return 0;
+    }
+
+    /**
+     * Solver-scoped interning and apply cache for monotone source proofs only. Variable order is
+     * first source insertion; terminals 0/1 contain no compiler objects. Nothing is interned in a
+     * global table, and adding nodes never changes an existing support's root or witness order.
+     */
+    static final class Factory {
+      private final List<SourceOrigin> variables = new ArrayList<>();
+      private final Map<SourceOrigin, Integer> variableIndices = new LinkedHashMap<>();
+      private final List<Decision> nodes = new ArrayList<>();
+      private final Map<Decision, Integer> unique = new HashMap<>();
+      private final Map<Combination, Integer> applications = new HashMap<>();
+
+      private record Decision(int variable, int low, int high) {}
+
+      private record Combination(int first, int second, boolean conjunction) {}
+
+      /** Builds one conjunctive premise in this factory, including the source-less identity. */
+      SourceSupport conjunction(List<SourceOrigin> origins) {
+        int root = 1;
+        for (SourceOrigin origin : origins) {
+          root = apply(root, atom(origin), true);
+        }
+        return new SourceSupport(this, root, origins);
+      }
+
+      /** Counts all allocated decision nodes, including shared intermediate roots, for tests. */
+      int allocatedNodeCount() {
+        return nodes.size();
+      }
+
+      /** Interns an origin in stable insertion order and returns its single-variable decision. */
+      private int atom(SourceOrigin origin) {
+        Integer variable = variableIndices.get(origin);
+        if (variable == null) {
+          variable = variables.size();
+          variableIndices.put(origin, variable);
+          variables.add(origin);
+        }
+        return node(variable, 0, 1);
+      }
+
+      /** Eliminates irrelevant tests and interns every remaining ordered decision. */
+      private int node(int variable, int low, int high) {
+        if (low == high) {
+          return low;
+        }
+        Decision key = new Decision(variable, low, high);
+        Integer existing = unique.get(key);
+        if (existing != null) {
+          return existing;
+        }
+        int id = nodes.size() + 2;
+        nodes.add(key);
+        unique.put(key, id);
+        return id;
+      }
+
+      /** Reads an immutable nonterminal; terminal IDs are handled before this call. */
+      private Decision decision(int id) {
+        return nodes.get(id - 2);
+      }
+
+      /** Applies AND/OR by ordered Shannon decomposition, memoizing shared subproblems. */
+      private int apply(int first, int second, boolean conjunction) {
+        if (first > second) {
+          return apply(second, first, conjunction);
+        }
+        if (first == second || (conjunction && first == 0) || (!conjunction && first == 1)) {
+          return first;
+        }
+        if (conjunction && first == 1) {
+          return second;
+        }
+        if (!conjunction && first == 0) {
+          return second;
+        }
+        Combination key = new Combination(first, second, conjunction);
+        Integer previous = applications.get(key);
+        if (previous != null) {
+          return previous;
+        }
+        Decision a = decision(first);
+        Decision b = decision(second);
+        int variable = Math.min(a.variable(), b.variable());
+        int low =
+            apply(
+                a.variable() == variable ? a.low() : first,
+                b.variable() == variable ? b.low() : second,
+                conjunction);
+        int high =
+            apply(
+                a.variable() == variable ? a.high() : first,
+                b.variable() == variable ? b.high() : second,
+                conjunction);
+        int result = node(variable, low, high);
+        applications.put(key, result);
+        return result;
+      }
+
+      /** Reuses solver-local roots; compatibility imports preserve semantics under this order. */
+      @SuppressWarnings("ReferenceEquality") // identity defines an interning scope
+      private int importRoot(SourceSupport support) {
+        return support.factory == this
+            ? support.root
+            : importNode(support.factory, support.root, new HashMap<>());
+      }
+
+      /** Transfers a monotone decision as low OR (origin AND high), without negation or DNF. */
+      private int importNode(Factory source, int root, Map<Integer, Integer> memo) {
+        if (root <= 1) {
+          return root;
+        }
+        Integer previous = memo.get(root);
+        if (previous != null) {
+          return previous;
+        }
+        Decision decision = source.decision(root);
+        int origin = atom(source.variables.get(decision.variable()));
+        int low = importNode(source, decision.low(), memo);
+        int high = importNode(source, decision.high(), memo);
+        int result = apply(low, apply(origin, high, true), false);
+        memo.put(root, result);
+        return result;
+      }
     }
   }
 
@@ -101,7 +336,7 @@ public interface ConstraintSolver {
     /** Deduplicates diagnostic context without changing the supporting alternatives. */
     public BoundEvidence {
       Set<SourceOrigin> context = new LinkedHashSet<>(origins);
-      support.derivations().forEach(context::addAll);
+      context.addAll(support.origins());
       origins = List.copyOf(context);
     }
 

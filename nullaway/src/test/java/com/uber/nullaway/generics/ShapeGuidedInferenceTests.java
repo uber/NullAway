@@ -35,6 +35,8 @@ import com.uber.nullaway.generics.ConstraintSolver.SourceOrigin;
 import com.uber.nullaway.generics.ConstraintSolver.SourceSupport;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -79,7 +81,9 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
     List<SourceOrigin> mutable = new ArrayList<>(List.of(unavailable, edge, unavailable));
     BoundEvidence conjunction = new BoundEvidence(type, mutable);
     mutable.clear();
-    assertThat(conjunction.support().derivations()).containsExactly(List.of(unavailable, edge));
+    assertThat(conjunction.availableSupport(origin -> true).orElseThrow())
+        .containsExactly(unavailable, edge)
+        .inOrder();
     assertThat(conjunction.availableSupport(origin -> !origin.equals(unavailable))).isEmpty();
     assertThat(conjunction.availableSupport(origin -> !origin.equals(edge))).isEmpty();
     SourceSupport alternatives =
@@ -96,15 +100,160 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
     SourceSupport minimal =
         new SourceSupport(
             List.of(List.of(unavailable, edge), List.of(edge, unavailable), List.of(unavailable)));
-    assertThat(minimal.derivations()).containsExactly(List.of(unavailable));
+    assertThat(minimal).isEqualTo(new SourceSupport(List.of(List.of(unavailable))));
+    assertThat(minimal.availableSupport(origin -> true).orElseThrow()).containsExactly(unavailable);
     BoundEvidence sourceLess = new BoundEvidence(type, List.of());
     assertThat(sourceLess.availableSupport(origin -> false).orElseThrow()).isEmpty();
-    assertThat(alternatives.or(sourceLess.support()).derivations()).containsExactly(List.of());
+    assertThat(
+            alternatives.or(sourceLess.support()).availableSupport(origin -> false).orElseThrow())
+        .isEmpty();
     assertThat(new SourceSupport(List.of()).availableSupport(origin -> true)).isEmpty();
-    assertThrows(UnsupportedOperationException.class, () -> alternatives.derivations().clear());
+    assertThrows(UnsupportedOperationException.class, () -> alternatives.origins().clear());
     assertThrows(
         UnsupportedOperationException.class,
-        () -> conjunction.support().derivations().get(0).clear());
+        () -> conjunction.availableSupport(origin -> true).orElseThrow().clear());
+  }
+
+  @Test
+  public void sourceProofEqualityIsSemanticAcrossOrdersAndFactories() {
+    Tree site = mock(Tree.class);
+    Type type = mock(Type.class);
+    SourceOrigin a = new SourceOrigin(mock(Tree.class), site, type);
+    SourceOrigin b = new SourceOrigin(mock(Tree.class), site, type);
+    SourceOrigin c = new SourceOrigin(mock(Tree.class), site, type);
+    SourceSupport.Factory factory = new SourceSupport.Factory();
+    SourceSupport first = factory.conjunction(List.of(a));
+    SourceSupport second = factory.conjunction(List.of(b));
+    SourceSupport third = factory.conjunction(List.of(c));
+    SourceSupport factored = first.and(second.or(third));
+    SourceSupport distributed = first.and(second).or(third.and(first));
+    SourceSupport imported = new SourceSupport(List.of(List.of(c, a), List.of(b, a)));
+    assertThat(factored).isEqualTo(distributed);
+    assertThat(factored).isEqualTo(imported);
+    assertThat(imported).isEqualTo(factored);
+    assertThat(imported.hashCode()).isEqualTo(factored.hashCode());
+    assertThat(first.or(first.and(second))).isEqualTo(first);
+    assertThat(first.and(first.or(second))).isEqualTo(first);
+    assertThat(first.or(second)).isEqualTo(second.or(first));
+    assertThat(first.and(second)).isEqualTo(second.and(first));
+    assertThat(imported.availableSupport(origin -> true).orElseThrow())
+        .containsExactly(c, a)
+        .inOrder();
+    for (int mask = 0; mask < 8; mask++) {
+      Set<SourceOrigin> available = new LinkedHashSet<>();
+      if ((mask & 1) != 0) {
+        available.add(a);
+      }
+      if ((mask & 2) != 0) {
+        available.add(b);
+      }
+      if ((mask & 4) != 0) {
+        available.add(c);
+      }
+      boolean expected = (mask & 1) != 0 && (mask & 6) != 0;
+      assertThat(factored.availableSupport(available::contains).isPresent()).isEqualTo(expected);
+      assertThat(imported.availableSupport(available::contains).isPresent()).isEqualTo(expected);
+      factored
+          .availableSupport(available::contains)
+          .ifPresent(
+              witness -> {
+                assertThat(available).containsAtLeastElementsIn(witness);
+                assertThat(witness).contains(a);
+                assertThat(witness.contains(b) || witness.contains(c)).isTrue();
+              });
+    }
+  }
+
+  @Test(timeout = 60000)
+  public void twentyIndependentAlternativesStayFactoredAndSnapshotStable() {
+    Tree site = mock(Tree.class);
+    Type type = mock(Type.class);
+    SourceSupport.Factory factory = new SourceSupport.Factory();
+    SourceSupport proof = factory.conjunction(List.of());
+    List<SourceOrigin> first = new ArrayList<>();
+    List<SourceOrigin> second = new ArrayList<>();
+    for (int i = 0; i < 20; i++) {
+      SourceOrigin a = new SourceOrigin(mock(Tree.class), site, type);
+      SourceOrigin b = new SourceOrigin(mock(Tree.class), site, type);
+      first.add(a);
+      second.add(b);
+      proof = proof.and(factory.conjunction(List.of(a)).or(factory.conjunction(List.of(b))));
+    }
+    assertThat(proof.nodeCount()).isEqualTo(40);
+    assertThat(factory.allocatedNodeCount()).isLessThan(1000);
+    assertThat(proof.availableSupport(first::contains).orElseThrow())
+        .containsExactlyElementsIn(first)
+        .inOrder();
+    assertThat(proof.availableSupport(second::contains).orElseThrow())
+        .containsExactlyElementsIn(second)
+        .inOrder();
+    Map<SourceOrigin, Integer> checks = new LinkedHashMap<>();
+    assertThat(
+            proof
+                .availableSupport(
+                    origin -> {
+                      checks.merge(origin, 1, Integer::sum);
+                      return true;
+                    })
+                .orElseThrow())
+        .containsExactlyElementsIn(first)
+        .inOrder();
+    assertThat(checks.values()).containsExactlyElementsIn(java.util.Collections.nCopies(40, 1));
+    for (int i = 0; i < 20; i++) {
+      SourceOrigin a = first.get(i);
+      SourceOrigin b = second.get(i);
+      assertThat(proof.availableSupport(origin -> !origin.equals(a) && !origin.equals(b)))
+          .isEmpty();
+    }
+    SourceSupport snapshot = proof;
+    List<SourceOrigin> oldWitness = proof.availableSupport(first::contains).orElseThrow();
+    SourceOrigin late = new SourceOrigin(mock(Tree.class), site, type);
+    SourceSupport extended = proof.or(factory.conjunction(List.of(late)));
+    assertThat(extended.availableSupport(late::equals).orElseThrow()).containsExactly(late);
+    assertThat(snapshot.availableSupport(late::equals)).isEmpty();
+    assertThat(oldWitness).containsExactlyElementsIn(first).inOrder();
+    assertThat(snapshot.origins()).doesNotContain(late);
+    assertThat(snapshot.and(extended)).isEqualTo(snapshot);
+  }
+
+  @Test(timeout = 120000)
+  public void singleStructuredLowerDoesNotBuildReferencedValueProofs() {
+    runProof(factoredProofDeclaration(false));
+  }
+
+  @Test(timeout = 120000)
+  public void concreteConflictRetainsTwentyIndependentAlternativePremises() {
+    runProof(factoredProofDeclaration(true));
+  }
+
+  /** Generates a compiler-owned twenty-slot shape with an independently conflicting final slot. */
+  private static String factoredProofDeclaration(boolean conflict) {
+    List<String> declarations = new ArrayList<>();
+    List<String> variables = new ArrayList<>();
+    List<String> concrete = new ArrayList<>();
+    for (int i = 0; i < 20; i++) {
+      variables.add("E" + i);
+      declarations.add("E" + i + " extends @Nullable Object");
+      concrete.add("String");
+    }
+    String methodVariables = String.join(", ", declarations);
+    declarations.add("F extends @Nullable Object");
+    variables.add("@Nullable String");
+    concrete.add("String");
+    String shape = "Tuple<" + String.join(", ", concrete) + ">";
+    return "static class Tuple<"
+        + String.join(", ", declarations)
+        + "> {}\n<R extends @Nullable Object, "
+        + methodVariables
+        + "> void inference(String value, "
+        + shape
+        + " shape, Tuple<"
+        + String.join(", ", variables)
+        + "> symbolic, "
+        + shape
+        + " concrete, Object "
+        + (conflict ? "conflictProof" : "singleProof")
+        + ") {}";
   }
 
   @Test
@@ -396,7 +545,16 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
                           "NullAway:JSpecifyExperimental", "true")))
               .getConfig();
       for (boolean reverse : List.of(false, true)) {
-        if (method.getTypeParameters().size() == 3) {
+        if (method.getTypeParameters().size() == 21) {
+          checkFactoredSupportProof(
+              method,
+              Objects.requireNonNull(declaration),
+              Objects.requireNonNull(siteA),
+              Objects.requireNonNull(siteB),
+              state,
+              config,
+              reverse);
+        } else if (method.getTypeParameters().size() == 3) {
           checkConflictProof(
               method,
               Objects.requireNonNull(declaration),
@@ -424,6 +582,122 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
       }
       PROOF_COUNT.set(PROOF_COUNT.get() + 1);
       return NO_MATCH;
+    }
+
+    /**
+     * Exercises the solver path, not just the proof algebra: one structured lower requires no value
+     * proof, while a concrete last-slot conflict needs all twenty independently supported values.
+     */
+    @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // select the original retained bound
+    private static void checkFactoredSupportProof(
+        Symbol.MethodSymbol method,
+        MethodTree declaration,
+        Tree site,
+        Tree slotSite,
+        VisitorState state,
+        Config config,
+        boolean reverse) {
+      NullAway analysis = mock(NullAway.class);
+      when(analysis.getHandler()).thenReturn(new Handler() {});
+      ConstraintSolverImpl solver = new ConstraintSolverImpl(config, state, analysis);
+      Type value = method.getParameters().get(0).type;
+      Type shape = method.getParameters().get(1).type;
+      Type template = method.getParameters().get(2).type;
+      Type concrete = method.getParameters().get(3).type;
+      Element r = method.getTypeParameters().get(0);
+      List<Symbol.TypeVariableSymbol> slots =
+          new ArrayList<>(method.getTypeParameters().subList(1, 21));
+      Map<Element, Type> shapes = new LinkedHashMap<>();
+      slots.forEach(slot -> shapes.put(slot, value));
+      Map<Element, Type.TypeVar> fresh =
+          solver.registerInferenceVariables(slotSite, slots, Map.of(), Set.copyOf(slots), shapes);
+      List<SourceOrigin> first = new ArrayList<>();
+      List<SourceOrigin> second = new ArrayList<>();
+      for (Element slot : slots) {
+        // Declaration trees give distinct compiler-owned origins even though every bound is String.
+        SourceOrigin a =
+            new SourceOrigin(
+                declaration.getTypeParameters().get(first.size() + 1), slotSite, value);
+        SourceOrigin b =
+            new SourceOrigin(declaration.getTypeParameters().get(second.size() + 1), site, value);
+        first.add(a);
+        second.add(b);
+        solver.addSubtypeConstraint(
+            value, Objects.requireNonNull(fresh.get(slot)), false, reverse ? b : a);
+        solver.addSubtypeConstraint(
+            value, Objects.requireNonNull(fresh.get(slot)), false, reverse ? a : b);
+      }
+      Type root =
+          Objects.requireNonNull(
+              solver
+                  .registerInferenceVariables(
+                      site, List.of(r), Map.of(), Set.of(r), Map.of(r, shape))
+                  .get(r));
+      Type symbolic =
+          TypeSubstitutionUtils.substituteTypeVariables(template, fresh, state.getTypes(), config);
+      SourceOrigin symbolicOrigin =
+          new SourceOrigin(declaration.getParameters().get(2), site, template);
+      SourceOrigin concreteOrigin =
+          new SourceOrigin(declaration.getParameters().get(3), site, concrete);
+      solver.addSubtypeConstraint(symbolic, root, false, symbolicOrigin);
+      boolean conflict =
+          method.getParameters().get(4).getSimpleName().contentEquals("conflictProof");
+      if (conflict) {
+        solver.addSubtypeConstraint(concrete, root, false, concreteOrigin);
+      }
+      int beforeSolve = solver.sourceSupportNodeCount();
+      Solution solution = solver.solve();
+      if (!conflict) {
+        assertThat(solution.isComplete()).isTrue();
+        assertThat(solution.lowerConflicts()).isEmpty();
+        assertThat(solver.sourceSupportNodeCount()).isEqualTo(beforeSolve);
+        assertThat(solver.solve().lowerConflicts()).isEmpty();
+        assertThat(solver.sourceSupportNodeCount()).isEqualTo(beforeSolve);
+      } else {
+        LowerBoundConflict fact =
+            solution.lowerConflicts().stream()
+                .filter(candidate -> candidate.variable().equals(new InferenceVariable(r, site)))
+                .findFirst()
+                .orElseThrow();
+        BoundEvidence evidence = fact.first().type() == symbolic ? fact.first() : fact.second();
+        assertThat(evidence.support().nodeCount()).isLessThan(200);
+        assertThat(solver.sourceSupportNodeCount()).isLessThan(5000);
+        List<SourceOrigin> firstWitness = new ArrayList<>(first);
+        firstWitness.add(symbolicOrigin);
+        List<SourceOrigin> secondWitness = new ArrayList<>(second);
+        secondWitness.add(symbolicOrigin);
+        assertThat(evidence.availableSupport(firstWitness::contains).orElseThrow())
+            .containsExactlyElementsIn(firstWitness);
+        assertThat(evidence.availableSupport(secondWitness::contains).orElseThrow())
+            .containsExactlyElementsIn(secondWitness);
+        for (int i = 0; i < 20; i++) {
+          SourceOrigin a = first.get(i);
+          SourceOrigin b = second.get(i);
+          assertThat(
+                  evidence.availableSupport(
+                      origin ->
+                          !origin.equals(a) && !origin.equals(b) && !origin.equals(concreteOrigin)))
+              .isEmpty();
+        }
+        SourceOrigin late = new SourceOrigin(declaration.getParameters().get(4), slotSite, value);
+        solver.addSubtypeConstraint(
+            value, Objects.requireNonNull(fresh.get(slots.get(0))), false, late);
+        List<SourceOrigin> lateWitness = new ArrayList<>(firstWitness);
+        lateWitness.remove(first.get(0));
+        lateWitness.add(late);
+        assertThat(evidence.availableSupport(lateWitness::contains)).isEmpty();
+        Solution updated = solver.solve();
+        LowerBoundConflict updatedFact =
+            updated.lowerConflicts().stream()
+                .filter(candidate -> candidate.variable().equals(new InferenceVariable(r, site)))
+                .findFirst()
+                .orElseThrow();
+        BoundEvidence updatedEvidence =
+            updatedFact.first().type() == symbolic ? updatedFact.first() : updatedFact.second();
+        assertThat(updatedEvidence.availableSupport(lateWitness::contains).orElseThrow())
+            .containsExactlyElementsIn(lateWitness);
+        assertThat(solver.solve().lowerConflicts()).isEqualTo(updated.lowerConflicts());
+      }
     }
 
     /**
@@ -603,9 +877,11 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
         assertThat(firstEvidence.origins())
             .containsExactly(firstOrigin, repeatedOrigin, resultOrigin);
         assertThat(secondEvidence.origins()).containsExactly(secondOrigin);
-        assertThat(firstEvidence.support().derivations())
-            .containsExactly(
-                List.of(firstOrigin, resultOrigin), List.of(repeatedOrigin, resultOrigin));
+        assertThat(
+                firstEvidence
+                    .availableSupport(origin -> !origin.equals(repeatedOrigin))
+                    .orElseThrow())
+            .containsExactly(firstOrigin, resultOrigin);
         assertThat(firstEvidence.availableSupport(origin -> !origin.equals(resultOrigin)))
             .isEmpty();
         assertThat(
@@ -733,8 +1009,7 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
         assertThat(
                 Objects.requireNonNull(previous).lowerConflicts().stream()
                     .flatMap(fact -> java.util.stream.Stream.of(fact.first(), fact.second()))
-                    .flatMap(bound -> bound.support().derivations().stream())
-                    .flatMap(List::stream)
+                    .flatMap(bound -> bound.support().origins().stream())
                     .toList())
             .doesNotContain(outerFirst);
         assertThat(solver.solve().lowerConflicts()).isEqualTo(supported.lowerConflicts());
