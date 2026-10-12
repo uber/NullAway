@@ -460,9 +460,15 @@ public class TypeSubstitutionUtils {
         components.append(restored);
         changed |= restored != resolved.head;
       }
-      return changed
-          ? rebuildIntersection(resolvedIntersection, components.toList())
-          : instantiated;
+      boolean implicitObjectExposed =
+          originalIntersection.allInterfaces && !resolvedIntersection.allInterfaces;
+      if (!changed && !implicitObjectExposed) {
+        return instantiated;
+      }
+      return new Type.IntersectionClassType(
+          components.toList(),
+          (Symbol.ClassSymbol) resolvedIntersection.tsym,
+          originalIntersection.allInterfaces);
     }
     Type bound = substituteTypeVariables(declaration, replacements, types, config);
     return restoreExplicitNullabilityAnnotations(bound, instantiated, config);

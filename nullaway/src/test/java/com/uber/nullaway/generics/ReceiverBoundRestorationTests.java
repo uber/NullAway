@@ -62,12 +62,44 @@ public class ReceiverBoundRestorationTests {
           <T extends Number & Comparable<T>> T classFirst(T value) { return value; }
           <T extends @Nullable Serializable & @Nullable Comparable<T>> T nullableIntersection(T value) { return value; }
           <T extends @NonNull Serializable & @NonNull Comparable<T>> T nonNullIntersection(T value) { return value; }
-          <T extends Serializable & Comparable<E>> T dependent(T value) { return value; }
+
         }
         """,
         ctx -> {
           Type.ForAll instantiated = ctx.memberType(ctx.receiver());
           assertThat(ctx.restoreBounds(instantiated)).isSameInstanceAs(instantiated);
+        });
+  }
+
+  @Test
+  public void receiverDependentIntersectionsPreserveImplicitAndExplicitObjectBounds() {
+    compile(
+        """
+        class Test<E> {
+          Test<String> receiver;
+          <T extends @Nullable Serializable & @Nullable Comparable<E>> T nullableDependent(T value) { return value; }
+          <T extends Serializable & Comparable<E>> T dependent(T value) { return value; }
+          <T extends Object & @Nullable Serializable & @Nullable Comparable<E>> T explicitObject(T value) { return value; }
+          <T extends @Nullable Object & @Nullable Serializable & @Nullable Comparable<E>> T nullableExplicitObject(T value) { return value; }
+        }
+        """,
+        ctx -> {
+          Type.IntersectionClassType declared =
+              (Type.IntersectionClassType) upper(((Type.ForAll) ctx.method().type).tvars.head);
+          Type.ForAll instantiated = ctx.memberType(ctx.receiver());
+          Type.IntersectionClassType resolved =
+              (Type.IntersectionClassType) upper(instantiated.tvars.head);
+          boolean resolvedAllInterfaces = resolved.allInterfaces;
+          Type.IntersectionClassType restored =
+              (Type.IntersectionClassType) upper(ctx.restoreBounds(instantiated).tvars.head);
+          assertThat(restored.allInterfaces).isEqualTo(declared.allInterfaces);
+          assertThat(hasNullableRoot(restored, ctx.config()))
+              .isEqualTo(hasNullableRoot(declared, ctx.config()));
+          assertThat(restored.tsym).isSameInstanceAs(resolved.tsym);
+          assertThat(restored.getComponents())
+              .containsExactlyElementsIn(resolved.getComponents())
+              .inOrder();
+          assertThat(resolved.allInterfaces).isEqualTo(resolvedAllInterfaces);
         });
   }
 
