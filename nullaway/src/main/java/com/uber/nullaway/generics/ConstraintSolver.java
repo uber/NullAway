@@ -2,12 +2,15 @@ package com.uber.nullaway.generics;
 
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Type;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
+import java.util.function.Predicate;
 import javax.lang.model.element.Element;
 import org.jspecify.annotations.Nullable;
 
@@ -40,25 +43,102 @@ public interface ConstraintSolver {
   record SourceOrigin(Tree expression, Tree ownerSite, Type originalType) {}
 
   /**
-   * A solver bound and immutable, deduplicated source origins, independent of projection. Origin
-   * order is provenance insertion order, not diagnostic priority; transitive origins remain
-   * present.
+   * Alternative proofs, each requiring all of its origins. A minimal antichain of origin sets
+   * bounds cyclic propagation: duplicate proofs and proofs requiring a superset are redundant. An
+   * empty derivation is valid source-less support; no derivations means no support.
    */
-  record BoundEvidence(Type type, List<SourceOrigin> origins) {
-    /** Deduplicates origins without losing source order. */
+  record SourceSupport(List<List<SourceOrigin>> derivations) {
+    /** Takes immutable snapshots and normalizes alternatives without changing origin order. */
+    public SourceSupport {
+      List<List<SourceOrigin>> minimal = new ArrayList<>();
+      for (List<SourceOrigin> derivation : derivations) {
+        List<SourceOrigin> candidate = List.copyOf(new LinkedHashSet<>(derivation));
+        if (minimal.stream().anyMatch(candidate::containsAll)) {
+          continue;
+        }
+        minimal.removeIf(existing -> existing.containsAll(candidate));
+        minimal.add(candidate);
+      }
+      derivations = List.copyOf(minimal);
+    }
+
+    /** Returns alternatives from either proof, discarding redundant supersets. */
+    public SourceSupport or(SourceSupport other) {
+      List<List<SourceOrigin>> alternatives = new ArrayList<>(derivations);
+      alternatives.addAll(other.derivations);
+      return new SourceSupport(alternatives);
+    }
+
+    /** Combines every pair of alternatives as conjunctive premises of one derived proof. */
+    public SourceSupport and(SourceSupport other) {
+      List<List<SourceOrigin>> products = new ArrayList<>();
+      for (List<SourceOrigin> first : derivations) {
+        for (List<SourceOrigin> second : other.derivations) {
+          Set<SourceOrigin> premises = new LinkedHashSet<>(first);
+          premises.addAll(second);
+          products.add(List.copyOf(premises));
+        }
+      }
+      return new SourceSupport(products);
+    }
+
+    /** Returns the first wholly available proof, including an empty source-less proof. */
+    public Optional<List<SourceOrigin>> availableSupport(Predicate<SourceOrigin> available) {
+      return derivations.stream().filter(proof -> proof.stream().allMatch(available)).findFirst();
+    }
+  }
+
+  /**
+   * A solver bound with alternative supporting proofs and flattened diagnostic context. Flattened
+   * origins retain insertion order and transitive context; they are not conjunctive requirements.
+   */
+  record BoundEvidence(Type type, List<SourceOrigin> origins, SourceSupport support) {
+    /** Treats the supplied origins as one conjunctive proof, including source-less evidence. */
+    public BoundEvidence(Type type, List<SourceOrigin> origins) {
+      this(type, origins, new SourceSupport(List.of(origins)));
+    }
+
+    /** Deduplicates diagnostic context without changing the supporting alternatives. */
     public BoundEvidence {
-      origins = List.copyOf(new LinkedHashSet<>(origins));
+      Set<SourceOrigin> context = new LinkedHashSet<>(origins);
+      support.derivations().forEach(context::addAll);
+      origins = List.copyOf(context);
+    }
+
+    /** Selects a wholly available supporting derivation, not arbitrary diagnostic context. */
+    public Optional<List<SourceOrigin>> availableSupport(Predicate<SourceOrigin> available) {
+      return support.availableSupport(available);
     }
   }
 
   /**
    * A proven invariant disagreement at javac's shape, retaining both original solver bounds. A
-   * frontend reporting at {@code variable.site()} should prefer origins with that exact {@code
-   * ownerSite}, rather than substituting a transitive inner-leaf expression for a direct argument.
-   * This choice requires only explicit owner identity, not AST recovery or type-to-source matching.
+   * frontend must select an available support for each bound rather than vetoing all evidence on an
+   * unavailable flattened context origin. When reporting at {@code variable.site()}, prefer origins
+   * in that chosen support with that exact {@code ownerSite}, rather than substituting a transitive
+   * inner-leaf expression for a direct argument. This choice requires only explicit owner identity,
+   * not AST recovery or type-to-source matching.
    */
   record LowerBoundConflict(
       InferenceVariable variable, BoundEvidence first, BoundEvidence second, Type shape) {}
+
+  /**
+   * External unresolved inputs affecting variable values or raw/fixed site inputs. Site provenance
+   * does not imply that unrelated variables at that site depend on those inputs.
+   */
+  record InputDependencies(Set<InferenceVariable> variables, Set<Tree> sites) {
+    /** Takes immutable, insertion-ordered snapshots of both dependency sets. */
+    public InputDependencies {
+      variables = Collections.unmodifiableSet(new LinkedHashSet<>(variables));
+      sites = Collections.unmodifiableSet(new LinkedHashSet<>(sites));
+    }
+
+    /** Returns whether neither variable values nor raw/fixed inputs depend on foreign inference. */
+    public boolean isIndependentForSite(Tree site) {
+      return !sites.contains(site)
+          && variables.stream().noneMatch(variable -> variable.site().equals(site));
+    }
+  }
 
   /**
    * Inferred annotation sources and their certification status. Sources for incomplete or
@@ -69,7 +149,22 @@ public interface ConstraintSolver {
       Map<InferenceVariable, Type> inferredTypes,
       Set<InferenceVariable> incompleteVariables,
       Set<InferenceVariable> inconsistentVariables,
-      List<LowerBoundConflict> lowerConflicts) {
+      List<LowerBoundConflict> lowerConflicts,
+      InputDependencies inputDependencies) {
+    /** Preserves callers that do not supply external-input dependencies. */
+    public Solution(
+        Map<InferenceVariable, Type> inferredTypes,
+        Set<InferenceVariable> incompleteVariables,
+        Set<InferenceVariable> inconsistentVariables,
+        List<LowerBoundConflict> lowerConflicts) {
+      this(
+          inferredTypes,
+          incompleteVariables,
+          inconsistentVariables,
+          lowerConflicts,
+          new InputDependencies(Set.of(), Set.of()));
+    }
+
     /** Preserves callers that do not supply lower-bound conflict facts. */
     public Solution(
         Map<InferenceVariable, Type> inferredTypes,
@@ -148,6 +243,30 @@ public interface ConstraintSolver {
       Map<? extends Element, ? extends Type> instantiatedUpperBounds,
       Set<? extends Element> variablesWithNullnessMarkedBounds,
       Map<? extends Element, ? extends Type> javacInstantiations);
+
+  /** Returns an immutable snapshot of the fresh symbols currently owned by this solver. */
+  Set<Element> inferenceVariableSymbols();
+
+  /**
+   * Registers explicitly foreign unresolved inference symbols before consuming their types. Stable
+   * caller type parameters must not be registered. Owned fresh symbols are never external.
+   */
+  void registerExternalInferenceSymbols(Set<? extends Element> symbols);
+
+  /** Returns whether the type, including nested positions and bounds, consumes foreign symbols. */
+  boolean hasExternalInputDependency(Type type);
+
+  /**
+   * Records a raw signature/result input consuming foreign symbols at a site, without seeding
+   * unrelated variable values merely because they share that site.
+   */
+  void recordInferenceSiteInput(Tree site, Type type);
+
+  /**
+   * Returns a live immutable dependency snapshot, also usable after constraint generation throws.
+   * This status is independent of completeness and consistency.
+   */
+  InputDependencies inputDependencies();
 
   /**
    * Exception thrown when the constraints added to the solver are determined to be unsatisfiable.
@@ -234,6 +353,10 @@ public interface ConstraintSolver {
    * generic type parameters of the two types must have identical nullability). Inference variables
    * must appear in the types as the fresh type variables returned by {@link
    * #registerInferenceVariables(Tree, List, Map, Set)}.
+   *
+   * <p>External-input dependencies are seeded at reduced pairs and whole-variable bounds before
+   * scalar updates or bound deduplication. Independent slots do not share dependencies merely
+   * because they appear in the same structured relation.
    *
    * @param subtype the subtype
    * @param supertype the supertype

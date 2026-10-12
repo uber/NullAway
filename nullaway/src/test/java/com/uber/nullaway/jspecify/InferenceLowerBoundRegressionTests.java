@@ -386,6 +386,154 @@ public class InferenceLowerBoundRegressionTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void independentOuterConflictSurvivesUnavailableSupportAlternative() {
+    for (boolean suppliers : List.of(false, true)) {
+      for (boolean reverse : List.of(false, true)) {
+        String firstInner = reverse ? "Test::clean" : "Test::nullable";
+        String secondInner = reverse ? "Test::nullable" : "Test::clean";
+        String nullableSource = suppliers ? "Test::nullable" : "nullable()";
+        String cleanSource = suppliers ? "Test::clean" : "clean()";
+        String firstOuter = reverse ? cleanSource : nullableSource;
+        String secondOuter = reverse ? nullableSource : cleanSource;
+        List<String> diagnostics =
+            compileDiagnostics(
+                """
+                package com.uber;
+                import java.util.ArrayList;
+                import java.util.LinkedList;
+                import java.util.List;
+                import java.util.function.Supplier;
+                import org.jspecify.annotations.NullMarked;
+                import org.jspecify.annotations.Nullable;
+                @NullMarked
+                class Test {
+                  static ArrayList<@Nullable String> nullable() { throw new RuntimeException(); }
+                  static LinkedList<String> clean() { throw new RuntimeException(); }
+                  static <T> T from(Supplier<? extends T> a, Supplier<? extends T> b) { return a.get(); }
+                  static <U> U from3(U a, Supplier<? extends U> b, Supplier<? extends U> c) { return a; }
+                  static <U> U pick3(U a, U b, U c) { return a; }
+                  void test() {
+                    List<String> result = %s(
+                        from(%s, %s),
+                        %s,
+                        %s);
+                  }
+                }
+                """
+                    .formatted(
+                        suppliers ? "from3" : "pick3",
+                        firstInner,
+                        secondInner,
+                        firstOuter,
+                        secondOuter));
+        List<String> conflicts =
+            diagnostics.stream()
+                .filter(message -> message.contains("have conflicting nullability"))
+                .toList();
+        assertThat(conflicts).hasSize(2);
+        List<String> inner =
+            conflicts.stream().filter(message -> message.contains("for type variable T")).toList();
+        List<String> outer =
+            conflicts.stream().filter(message -> message.contains("for type variable U")).toList();
+        assertThat(inner).hasSize(1);
+        assertThat(outer).hasSize(1);
+        assertThat(inner.get(0)).startsWith("17:");
+        assertThat(inner.get(0)).contains("arguments '" + secondInner + "'");
+        assertThat(inner.get(0)).contains("and '" + firstInner + "'");
+        assertThat(outer.get(0)).startsWith("19:");
+        assertThat(outer.get(0)).contains("arguments '" + secondOuter + "'");
+        assertThat(outer.get(0)).contains("and '" + firstOuter + "'");
+        assertThat(outer.get(0)).contains("ArrayList<@Nullable String>");
+        assertThat(outer.get(0)).contains("LinkedList<String>");
+        assertThat(outer.get(0)).doesNotContain("from(");
+        assertThat(outer.get(0)).doesNotContain("lower source");
+      }
+    }
+  }
+
+  @Test
+  public void failedNestedResultDoesNotPublishTransitiveConflict() {
+    List<String> diagnostics =
+        compileDiagnostics(
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static ArrayList<@Nullable String> nullable() { throw new RuntimeException(); }
+              static LinkedList<String> clean() { throw new RuntimeException(); }
+              static <T> T from(Supplier<? extends T> a, Supplier<? extends T> b) { return a.get(); }
+              static <R> R identity(R input) { return input; }
+              void test() {
+                List<String> nested = identity(from(Test::nullable, Test::clean));
+                List<String> independent = from(Test::nullable, Test::clean);
+              }
+            }
+            """);
+    List<String> conflicts =
+        diagnostics.stream()
+            .filter(message -> message.contains("have conflicting nullability"))
+            .toList();
+    assertThat(conflicts).hasSize(2);
+    for (String conflict : conflicts) {
+      assertThat(conflict).contains("arguments 'Test::clean' (LinkedList<String>)");
+      assertThat(conflict).contains("and 'Test::nullable' (ArrayList<@Nullable String>)");
+      assertThat(conflict).contains("for type variable T");
+    }
+    assertThat(conflicts.stream().filter(message -> message.startsWith("15:")).toList()).hasSize(1);
+    assertThat(conflicts.stream().filter(message -> message.startsWith("16:")).toList()).hasSize(1);
+  }
+
+  @Test
+  public void ownedLambdaConflictsDoNotHideIndependentFinalChecks() {
+    List<String> diagnostics =
+        compileDiagnostics(
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.LinkedList;
+            import java.util.List;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static ArrayList<@Nullable String> nullable() { throw new RuntimeException(); }
+              static LinkedList<String> clean() { throw new RuntimeException(); }
+              static <T> T from(Supplier<? extends T> a, Supplier<? extends T> b) { return a.get(); }
+              static <A, R> R map(A value, Function<A, R> function) { return function.apply(value); }
+              static <T> T id(T value) { return value; }
+              void test() {
+                List<String> result = map("input", value -> {
+                  var copy = id(value);
+                  return from(Test::nullable, Test::clean);
+                });
+                List<String> independent = id(nullable());
+              }
+            }
+            """);
+    List<String> conflicts =
+        diagnostics.stream()
+            .filter(message -> message.contains("have conflicting nullability"))
+            .toList();
+    assertThat(conflicts).hasSize(1);
+    assertThat(conflicts.get(0)).contains("Test::nullable");
+    assertThat(conflicts.get(0)).contains("Test::clean");
+    assertThat(
+            diagnostics.stream()
+                .filter(
+                    message -> message.startsWith("21:") && message.contains("incompatible types"))
+                .toList())
+        .hasSize(1);
+  }
+
+  @Test
   public void provisionalLambdaReferenceConflictsDoNotHideFinalChecks() {
     List<String> diagnostics =
         compileDiagnostics(

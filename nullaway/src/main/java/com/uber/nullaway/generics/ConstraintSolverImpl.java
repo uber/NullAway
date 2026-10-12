@@ -50,6 +50,22 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /** Explicit source context, scoped around direct and derived constraint generation. */
   private List<SourceOrigin> currentOrigins = List.of();
 
+  private SourceSupport currentSupport = new SourceSupport(List.of(List.of()));
+
+  /** Flattened diagnostic context and finite alternative proofs on the existing graph edges. */
+  private record SourceEvidence(List<SourceOrigin> origins, SourceSupport support) {
+    /** Merges independently sufficient edge/path proofs without conjoining their origins. */
+    SourceEvidence or(SourceEvidence other) {
+      return new SourceEvidence(combinedOrigins(origins, other.origins), support.or(other.support));
+    }
+
+    /** Combines the required premises of a path while retaining all diagnostic context. */
+    SourceEvidence and(SourceEvidence other) {
+      return new SourceEvidence(
+          combinedOrigins(origins, other.origins), support.and(other.support));
+    }
+  }
+
   /** Per-solve facts, collected independently of diagnostic annotation-source selection. */
   private final List<LowerBoundConflict> lowerConflicts = new ArrayList<>();
 
@@ -65,6 +81,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * symbols are treated as inference variables; all other type variables are fixed.
    */
   private final Map<Element, InferenceVariable> inferenceVariables = new LinkedHashMap<>();
+
+  /** Explicit foreign unresolved symbols, never generic caller type parameters by default. */
+  private final Set<Element> externalInferenceSymbols = new LinkedHashSet<>();
+
+  /** Seeds retained before scalar reduction or structural deduplication can discard evidence. */
+  private final Set<InferenceVariable> externalInputVariables = new LinkedHashSet<>();
+
+  private final Set<Tree> externalInputSites = new LinkedHashSet<>();
+
+  /** Per-variable registration inputs, retaining bounds and shapes across repeated registration. */
+  private final Map<InferenceVariable, List<Type>> registrationInputs = new LinkedHashMap<>();
 
   /** Fresh type variables created for each site, keyed by declared type variable. */
   private final Map<Tree, Map<Element, Type.TypeVar>> freshTypeVariablesForSite =
@@ -121,12 +148,10 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
     final Set<InferenceVariable> structuralSubtypes = new LinkedHashSet<>();
 
-    /** Origins on directed structural edges, shared by both endpoints. */
-    final Map<InferenceVariable, Set<SourceOrigin>> structuralSupertypeOrigins =
-        new LinkedHashMap<>();
+    /** Alternative proofs on directed structural edges, shared by both endpoints. */
+    final Map<InferenceVariable, SourceEvidence> structuralSupertypeOrigins = new LinkedHashMap<>();
 
-    final Map<InferenceVariable, Set<SourceOrigin>> structuralSubtypeOrigins =
-        new LinkedHashMap<>();
+    final Map<InferenceVariable, SourceEvidence> structuralSubtypeOrigins = new LinkedHashMap<>();
 
     /**
      * Structured evidence {@code S} with a constraint {@code S <: var}, including arrays, non-raw
@@ -215,6 +240,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       Map<? extends Element, ? extends Type> javacInstantiations) {
     Map<Element, Type.TypeVar> existing = freshTypeVariablesForSite.get(site);
     if (existing != null) {
+      recordRegistrationInputs(site, existing, instantiatedUpperBounds, javacInstantiations);
       recordJavacInstantiations(site, existing.keySet(), javacInstantiations);
       return existing;
     }
@@ -296,6 +322,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
     }
     freshTypeVariablesForSite.put(site, fresh);
+    recordRegistrationInputs(site, fresh, instantiatedUpperBounds, javacInstantiations);
     recordJavacInstantiations(site, fresh.keySet(), javacInstantiations);
     for (Element variable : fresh.keySet()) {
       getState(new InferenceVariable(variable, site));
@@ -315,6 +342,155 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         || upperBoundAllowsNullable(supplied) != upperBoundAllowsNullable(declared);
   }
 
+  /** Retains raw and substituted registration inputs under their specific variable owner. */
+  private void recordRegistrationInputs(
+      Tree site,
+      Map<Element, Type.TypeVar> fresh,
+      Map<? extends Element, ? extends Type> bounds,
+      Map<? extends Element, ? extends Type> shapes) {
+    for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
+      InferenceVariable variable = new InferenceVariable(entry.getKey(), site);
+      List<Type> inputs = registrationInputs.computeIfAbsent(variable, unused -> new ArrayList<>());
+      inputs.add(entry.getValue().getUpperBound());
+      Type bound = bounds.get(entry.getKey());
+      if (bound != null) {
+        inputs.add(bound);
+        inputs.add(
+            TypeSubstitutionUtils.substituteTypeVariables(bound, fresh, state.getTypes(), config));
+      }
+      Type shape = shapes.get(entry.getKey());
+      if (shape != null) {
+        inputs.add(shape);
+      }
+      if (inputs.stream().anyMatch(this::hasExternalInputDependency)) {
+        externalInputVariables.add(variable);
+      }
+    }
+  }
+
+  @Override
+  public Set<Element> inferenceVariableSymbols() {
+    return Collections.unmodifiableSet(new LinkedHashSet<>(inferenceVariables.keySet()));
+  }
+
+  @Override
+  public void registerExternalInferenceSymbols(Set<? extends Element> symbols) {
+    externalInferenceSymbols.addAll(symbols);
+  }
+
+  @Override
+  public boolean hasExternalInputDependency(Type type) {
+    if (externalInferenceSymbols.isEmpty()) {
+      return false;
+    }
+    Set<Element> foreign = new LinkedHashSet<>(externalInferenceSymbols);
+    foreign.removeAll(inferenceVariables.keySet());
+    if (foreign.isEmpty()) {
+      return false;
+    }
+    TypeVarWithSymbolCollector collector = new TypeVarWithSymbolCollector(foreign);
+    type.accept(collector, null);
+    return !collector.getMatches().isEmpty();
+  }
+
+  @Override
+  public void recordInferenceSiteInput(Tree site, Type type) {
+    if (hasExternalInputDependency(type)) {
+      externalInputSites.add(site);
+    }
+  }
+
+  /**
+   * Closes retained seeds over the current root, structural, and nested dependencies without
+   * preparing constraints or changing certification. Repeated snapshots also see registration
+   * inputs supplied after the first registration, even when semantic bounds remain unchanged.
+   */
+  @Override
+  public InputDependencies inputDependencies() {
+    if (externalInferenceSymbols.isEmpty()) {
+      return new InputDependencies(Set.of(), Set.of());
+    }
+    Set<InferenceVariable> dependent = new LinkedHashSet<>(externalInputVariables);
+    boolean changed;
+    do {
+      changed = false;
+      for (Map.Entry<InferenceVariable, VarState> entry : vars.entrySet()) {
+        InferenceVariable variable = entry.getKey();
+        List<Type> inputs = registrationInputs.getOrDefault(variable, List.of());
+        if (inputs.stream().anyMatch(this::hasExternalInputDependency)) {
+          changed |= dependent.add(variable);
+        }
+        Set<InferenceVariable> dependencies =
+            new LinkedHashSet<>(directStructuredDependencies(variable));
+        for (Element symbol : referencedInferenceSymbols(inputs)) {
+          dependencies.add(castToNonNull(inferenceVariables.get(symbol)));
+        }
+        VarState st = entry.getValue();
+        dependencies.addAll(st.subtypes);
+        dependencies.addAll(st.supertypes);
+        dependencies.addAll(st.structuralSubtypes);
+        dependencies.addAll(st.structuralSupertypes);
+        // Nested owner/slot relationships are conservatively bidirectional. No second graph is
+        // maintained, and this also preserves dependencies before preparation or after failure.
+        for (InferenceVariable dependency : dependencies) {
+          if (dependent.contains(dependency)) {
+            changed |= dependent.add(variable);
+          }
+          if (dependent.contains(variable)) {
+            changed |= dependent.add(dependency);
+          }
+        }
+      }
+    } while (changed);
+    return new InputDependencies(dependent, externalInputSites);
+  }
+
+  /**
+   * Records fixed/no-variable site inputs, then reduces the relation using the existing visitor.
+   * Variable dependencies are seeded only at reduced pairs and bound registration, so unrelated
+   * container slots do not share foreign-input provenance.
+   */
+  private void constrainSubtype(Type subtype, Type supertype, boolean localVariableType) {
+    if (hasExternalInputDependency(subtype) || hasExternalInputDependency(supertype)) {
+      List<Element> local = referencedInferenceSymbols(List.of(subtype, supertype));
+      if (local.isEmpty()) {
+        for (SourceOrigin origin : currentOrigins) {
+          externalInputSites.add(origin.ownerSite());
+        }
+      }
+    }
+    subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype);
+  }
+
+  /**
+   * Seeds only owned endpoints of a reduced pair before scalar changes, bound deduplication, or
+   * failure. Foreign fixed-bound expansion can carry provenance even when the reduced types no
+   * longer contain the foreign symbol. Origins identify fixed-input owners, not dependency proof.
+   */
+  private void recordReducedPairInputDependencies(
+      Type subtype, Type supertype, boolean foreignBoundInput) {
+    if (!foreignBoundInput
+        && !hasExternalInputDependency(subtype)
+        && !hasExternalInputDependency(supertype)) {
+      return;
+    }
+    InferenceVariable subtypeVariable = inferenceVariableForStructure(subtype);
+    InferenceVariable supertypeVariable = inferenceVariableForStructure(supertype);
+    if (subtypeVariable != null) {
+      externalInputVariables.add(subtypeVariable);
+    }
+    if (supertypeVariable != null) {
+      externalInputVariables.add(supertypeVariable);
+    }
+    if (subtypeVariable == null
+        && supertypeVariable == null
+        && referencedInferenceSymbols(List.of(subtype, supertype)).isEmpty()) {
+      for (SourceOrigin origin : currentOrigins) {
+        externalInputSites.add(origin.ownerSite());
+      }
+    }
+  }
+
   /** Records supplied shapes without discarding earlier shapes on repeated registration. */
   private void recordJavacInstantiations(
       Tree site, Set<Element> variables, Map<? extends Element, ? extends Type> instantiations) {
@@ -329,27 +505,31 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public void addSubtypeConstraint(Type subtype, Type supertype, boolean localVariableType)
       throws UnsatisfiableConstraintsException {
-    withOrigins(
-        List.of(),
-        () -> subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype));
+    withOrigins(List.of(), () -> constrainSubtype(subtype, supertype, localVariableType));
   }
 
   @Override
   public void addSubtypeConstraint(
       Type subtype, Type supertype, boolean localVariableType, SourceOrigin origin) {
-    withOrigins(
-        List.of(origin),
-        () -> subtype.accept(new AddSubtypeConstraintsVisitor(localVariableType), supertype));
+    withOrigins(List.of(origin), () -> constrainSubtype(subtype, supertype, localVariableType));
   }
 
   /** Restores source context even when scalar or declaration constraint generation throws. */
   private void withOrigins(List<SourceOrigin> origins, Runnable action) {
+    withSources(origins, new SourceSupport(List.of(origins)), action);
+  }
+
+  /** Scopes both flattened context and supporting alternatives through derived constraints. */
+  private void withSources(List<SourceOrigin> origins, SourceSupport support, Runnable action) {
     List<SourceOrigin> previous = currentOrigins;
+    SourceSupport previousSupport = currentSupport;
     currentOrigins = origins;
+    currentSupport = support;
     try {
       action.run();
     } finally {
       currentOrigins = previous;
+      currentSupport = previousSupport;
     }
   }
 
@@ -363,6 +543,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   class AddSubtypeConstraintsVisitor extends Types.DefaultTypeVisitor<@Nullable Void, Type> {
     private boolean localVariableType;
+
+    /** Scoped provenance while reducing an explicitly foreign fixed variable's upper bound. */
+    private boolean foreignBoundInput;
 
     /**
      * Wildcard containment checks currently in progress, keyed by the formal wildcard. Used to stop
@@ -388,7 +571,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       // handle flow into a type variable. The check for !(subtype instanceof TypeVar) is a
       // small optimization, as that case should be handled in visitTypeVar.
       if (!localVariableType && (supertype instanceof TypeVar) && !(subtype instanceof TypeVar)) {
-        directlyConstrainTypePair(subtype, supertype);
+        directlyConstrainTypePair(subtype, supertype, foreignBoundInput);
       }
       return null;
     }
@@ -441,16 +624,19 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     @Override
     public @Nullable Void visitTypeVar(TypeVar subtype, Type supertype) {
       if (!localVariableType) {
-        directlyConstrainTypePair(subtype, supertype);
+        directlyConstrainTypePair(subtype, supertype, foreignBoundInput);
         if (inferenceVariableForStructure(subtype) == null
             && !(subtype instanceof CapturedType)
             && isStructuredType(supertype)
             && beginBoundComparison("fixed-constraints", subtype, supertype)) {
+          boolean previousForeignBoundInput = foreignBoundInput;
+          foreignBoundInput |= hasExternalInputDependency(subtype);
           try {
             // A fixed caller variable can constrain nested inference through its declaration
             // contract, without ever using that contract as its replacement shape.
             subtype.getUpperBound().accept(this, supertype);
           } finally {
+            foreignBoundInput = previousForeignBoundInput;
             endBoundComparison("fixed-constraints", subtype, supertype);
           }
         }
@@ -661,7 +847,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     }
     propagateUncertifiedDependencies(incomplete, inconsistent);
 
-    return new Solution(result, incomplete, inconsistent, lowerConflicts);
+    return new Solution(result, incomplete, inconsistent, lowerConflicts, inputDependencies());
   }
 
   /**
@@ -904,7 +1090,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         StructuredBounds bounds = structuredBounds(variable);
         validateLowerAnnotationsAtShape(
             variable,
-            bounds.lowerEvidence(),
+            bounds.lowerEvidence().stream().map(this::withReferencedValueSupport).toList(),
             substituteBounds(bounds.lower(), replacements),
             shape);
       }
@@ -1305,16 +1491,17 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
               BoundEvidence second = bounds.lowerEvidence().get(j);
               constrainSharedLowerSlots(
                   new LowerSlot(first.type(), second.type(), shape, LowerVariance.COVARIANT, false),
-                  first.origins(),
-                  second.origins());
+                  first,
+                  second);
             }
           }
         }
         for (BoundEvidence lower : bounds.lowerEvidence()) {
           for (BoundEvidence upper : bounds.upperEvidence()) {
-            withOrigins(
+            withSources(
                 combinedOrigins(lower.origins(), upper.origins()),
-                () -> lower.type().accept(new AddSubtypeConstraintsVisitor(false), upper.type()));
+                lower.support().and(upper.support()),
+                () -> constrainSubtype(lower.type(), upper.type(), false));
           }
         }
       }
@@ -1438,7 +1625,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Traverses variant roots without equating them; equality retains both source premises. */
   private void constrainSharedLowerSlots(
-      LowerSlot slot, List<SourceOrigin> firstOrigins, List<SourceOrigin> secondOrigins) {
+      LowerSlot slot, BoundEvidence firstSource, BoundEvidence secondSource) {
     String mode = "shared-lower-slots-" + slot.variance();
     if (!beginBoundComparison(mode, slot.first(), slot.shape())) {
       return;
@@ -1446,12 +1633,14 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     try {
       if (slot.variance() == LowerVariance.INVARIANT) {
         if (!referencedInferenceSymbols(List.of(slot.first(), slot.second())).isEmpty()) {
-          List<SourceOrigin> premises = combinedOrigins(firstOrigins, secondOrigins);
-          withOrigins(
+          List<SourceOrigin> premises =
+              combinedOrigins(firstSource.origins(), secondSource.origins());
+          withSources(
               premises,
+              firstSource.support().and(secondSource.support()),
               () -> {
-                slot.first().accept(new AddSubtypeConstraintsVisitor(false), slot.second());
-                slot.second().accept(new AddSubtypeConstraintsVisitor(false), slot.first());
+                constrainSubtype(slot.first(), slot.second(), false);
+                constrainSubtype(slot.second(), slot.first(), false);
               });
         }
         return;
@@ -1460,7 +1649,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           lowerShapeSlots(slot.first(), slot.second(), slot.shape(), slot.variance());
       if (children != null) {
         for (LowerSlot child : children) {
-          constrainSharedLowerSlots(child, firstOrigins, secondOrigins);
+          constrainSharedLowerSlots(child, firstSource, secondSource);
         }
       }
     } finally {
@@ -1504,11 +1693,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     VarState supertypeState = getState(supertype);
     boolean changed = subtypeState.structuralSupertypes.add(supertype);
     changed |= supertypeState.structuralSubtypes.add(subtype);
-    Set<SourceOrigin> origins =
-        subtypeState.structuralSupertypeOrigins.computeIfAbsent(
-            supertype, unused -> new LinkedHashSet<>());
-    supertypeState.structuralSubtypeOrigins.put(subtype, origins);
-    changed |= origins.addAll(currentOrigins);
+    SourceEvidence previous = subtypeState.structuralSupertypeOrigins.get(supertype);
+    SourceEvidence sources = new SourceEvidence(currentOrigins, currentSupport);
+    SourceEvidence merged = previous == null ? sources : previous.or(sources);
+    subtypeState.structuralSupertypeOrigins.put(supertype, merged);
+    supertypeState.structuralSubtypeOrigins.put(subtype, merged);
+    changed |= !merged.equals(previous);
     if (changed) {
       structuredConstraintVersion++;
     }
@@ -1787,8 +1977,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /**
    * Collects structured lower bounds through subtype edges or upper bounds through supertype edges.
    * Declared structured upper bounds, including each component of an intersection bound, are added
-   * while collecting upper bounds. Path origins propagate to a finite set fixed point, including
-   * across cycles and repeated paths. Both semantic and provenance additions invalidate snapshots.
+   * while collecting upper bounds. Alternative paths and conjunctive edge premises propagate to a
+   * finite antichain fixed point, including across cycles. Diagnostic context propagates
+   * separately. Both semantic and provenance additions invalidate snapshots.
    */
   private List<BoundEvidence> collectStructuredEvidence(InferenceVariable start, boolean lower) {
     List<BoundEvidence> result = new ArrayList<>();
@@ -1801,7 +1992,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /**
    * Collects origins of nested generic-call evidence without unfolding its type. Each referenced
    * variable is visited once, including cyclic dependencies; only provenance, never a resolved
-   * nullness outcome or a recursive default, is collected here.
+   * nullness outcome or a recursive default, is collected here. These transitive sources are
+   * diagnostic context, not additional premises of the original constraint.
    */
   private BoundEvidence withReferencedOrigins(BoundEvidence bound) {
     Set<SourceOrigin> origins = new LinkedHashSet<>(bound.origins());
@@ -1818,27 +2010,62 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         worklist.addAll(referencedInferenceSymbols(List.of(source.type())));
       }
     }
-    return new BoundEvidence(bound.type(), List.copyOf(origins));
+    return new BoundEvidence(bound.type(), List.copyOf(origins), bound.support());
   }
 
-  /** Collects root-edge evidence and its path origins to a finite, cycle-safe fixed point. */
+  /**
+   * Adds premises used to resolve symbolic positions when a bound becomes a conflict source. Unlike
+   * diagnostic context collection, only evidence for actual referenced values participates. Each
+   * distinct bound used by value resolution is required; deduplicated proofs for that bound remain
+   * alternatives. Visiting each symbol once closes cyclic value dependencies without a proof DAG.
+   * Constraint preparation deliberately uses the original relation support instead: deriving a
+   * constraint on a slot does not require first solving that slot's value.
+   */
+  private BoundEvidence withReferencedValueSupport(BoundEvidence bound) {
+    SourceSupport support = bound.support();
+    Deque<Element> worklist = new ArrayDeque<>(referencedInferenceSymbols(List.of(bound.type())));
+    Set<Element> visited = new LinkedHashSet<>();
+    while (!worklist.isEmpty()) {
+      Element symbol = worklist.removeFirst();
+      if (!visited.add(symbol)) {
+        continue;
+      }
+      StructuredBounds values = structuredBounds(castToNonNull(inferenceVariables.get(symbol)));
+      List<BoundEvidence> sources =
+          values.lowerEvidence().isEmpty() ? values.upperEvidence() : values.lowerEvidence();
+      for (BoundEvidence source : sources) {
+        support = support.and(source.support());
+        worklist.addAll(referencedInferenceSymbols(List.of(source.type())));
+      }
+    }
+    return new BoundEvidence(bound.type(), bound.origins(), support);
+  }
+
+  /**
+   * Collects root-edge evidence and its alternative path proofs to a finite, cycle-safe fixed
+   * point.
+   */
   private List<BoundEvidence> collectReachableEvidence(InferenceVariable start, boolean lower) {
     Map<String, BoundEvidence> result = new LinkedHashMap<>();
     Deque<InferenceVariable> worklist = new ArrayDeque<>();
-    Map<InferenceVariable, Set<SourceOrigin>> pathOrigins = new LinkedHashMap<>();
+    Map<InferenceVariable, SourceEvidence> pathOrigins = new LinkedHashMap<>();
     worklist.add(start);
-    pathOrigins.put(start, new LinkedHashSet<>());
+    pathOrigins.put(start, new SourceEvidence(List.of(), new SourceSupport(List.of(List.of()))));
     while (!worklist.isEmpty()) {
       InferenceVariable current = worklist.removeFirst();
       VarState st = vars.get(current);
       if (st == null) {
         continue;
       }
-      List<SourceOrigin> path = List.copyOf(castToNonNull(pathOrigins.get(current)));
+      SourceEvidence path = castToNonNull(pathOrigins.get(current));
       Map<String, BoundEvidence> bounds = lower ? st.lowerBoundEvidence : st.upperBoundEvidence;
       for (BoundEvidence bound : bounds.values()) {
         mergeBoundEvidence(
-            result, new BoundEvidence(bound.type(), combinedOrigins(bound.origins(), path)));
+            result,
+            new BoundEvidence(
+                bound.type(),
+                combinedOrigins(bound.origins(), path.origins()),
+                bound.support().and(path.support())));
       }
       if (!lower) {
         Type.TypeVar freshTypeVariable = freshTypeVariableForInferenceVariable.get(current);
@@ -1846,20 +2073,18 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           List<Type> declared = new ArrayList<>();
           addStructuredDeclaredUpperBounds(declared, freshTypeVariable.getUpperBound());
           for (Type bound : declared) {
-            mergeBoundEvidence(result, new BoundEvidence(bound, path));
+            mergeBoundEvidence(result, new BoundEvidence(bound, path.origins(), path.support()));
           }
         }
       }
-      Map<InferenceVariable, Set<SourceOrigin>> edges =
+      Map<InferenceVariable, SourceEvidence> edges =
           lower ? st.structuralSubtypeOrigins : st.structuralSupertypeOrigins;
       for (InferenceVariable next : lower ? st.structuralSubtypes : st.structuralSupertypes) {
-        Set<SourceOrigin> propagated = new LinkedHashSet<>(path);
-        propagated.addAll(castToNonNull(edges.get(next)));
-        Set<SourceOrigin> previous = pathOrigins.get(next);
-        if (previous == null) {
-          pathOrigins.put(next, propagated);
-          worklist.add(next);
-        } else if (previous.addAll(propagated)) {
+        SourceEvidence propagated = path.and(castToNonNull(edges.get(next)));
+        SourceEvidence previous = pathOrigins.get(next);
+        SourceEvidence merged = previous == null ? propagated : previous.or(propagated);
+        if (!merged.equals(previous)) {
+          pathOrigins.put(next, merged);
           worklist.add(next);
         }
       }
@@ -1876,7 +2101,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         previous == null
             ? bound
             : new BoundEvidence(
-                previous.type(), combinedOrigins(previous.origins(), bound.origins())));
+                previous.type(),
+                combinedOrigins(previous.origins(), bound.origins()),
+                previous.support().or(bound.support())));
   }
 
   /** Adds the structured components of a declared upper bound to {@code result}. */
@@ -2554,6 +2781,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    */
   private void recordStructuredBound(
       InferenceVariable inferenceVar, Type boundType, boolean lower) {
+    if (hasExternalInputDependency(boundType)) {
+      externalInputVariables.add(inferenceVar);
+    }
     VarState st = getState(inferenceVar);
     if (lower && boundType instanceof TypeVar && inferenceVariableForStructure(boundType) == null) {
       if (st.fixedTypeVariableLowerBoundKeys.add(structuredTypeKey(boundType))) {
@@ -2577,8 +2807,12 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     BoundEvidence previous = evidence.get(key);
     List<SourceOrigin> origins =
         previous == null ? currentOrigins : combinedOrigins(previous.origins(), currentOrigins);
-    if (previous == null || !origins.equals(previous.origins())) {
-      evidence.put(key, new BoundEvidence(previous == null ? boundType : previous.type(), origins));
+    SourceSupport support =
+        previous == null ? currentSupport : previous.support().or(currentSupport);
+    BoundEvidence merged =
+        new BoundEvidence(previous == null ? boundType : previous.type(), origins, support);
+    if (!merged.equals(previous)) {
+      evidence.put(key, merged);
       changed = true;
     }
     if (changed) {
@@ -2757,7 +2991,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * Adds scalar and structural constraints separately. Explicit occurrence annotations can disable
    * scalar inference without changing structural ownership or the nested declaration contract.
    */
-  private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
+  private void directlyConstrainTypePair(Type s, Type t, boolean foreignBoundInput)
+      throws UnsatisfiableConstraintsException {
+    recordReducedPairInputDependencies(s, t, foreignBoundInput);
     Verify.verify(
         s instanceof TypeVariable || t instanceof TypeVariable,
         "At least one argument must be a type variable but got %s and %s",

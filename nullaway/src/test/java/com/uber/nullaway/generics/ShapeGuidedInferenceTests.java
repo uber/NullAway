@@ -32,6 +32,7 @@ import com.uber.nullaway.generics.ConstraintSolver.InferenceVariable;
 import com.uber.nullaway.generics.ConstraintSolver.LowerBoundConflict;
 import com.uber.nullaway.generics.ConstraintSolver.Solution;
 import com.uber.nullaway.generics.ConstraintSolver.SourceOrigin;
+import com.uber.nullaway.generics.ConstraintSolver.SourceSupport;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.List;
@@ -66,6 +67,66 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
     Solution legacy = new Solution(Map.of(variable, type), Set.of(), Set.of());
     assertThat(legacy.lowerConflicts()).isEmpty();
     assertThat(legacy.isComplete()).isTrue();
+  }
+
+  @Test
+  public void sourceSupportNormalizesAlternativesAndConjunctivePremises() {
+    Tree site = mock(Tree.class);
+    Type type = mock(Type.class);
+    SourceOrigin unavailable = new SourceOrigin(mock(Tree.class), site, type);
+    SourceOrigin edge = new SourceOrigin(mock(Tree.class), site, type);
+    SourceOrigin independent = new SourceOrigin(mock(Tree.class), site, type);
+    List<SourceOrigin> mutable = new ArrayList<>(List.of(unavailable, edge, unavailable));
+    BoundEvidence conjunction = new BoundEvidence(type, mutable);
+    mutable.clear();
+    assertThat(conjunction.support().derivations()).containsExactly(List.of(unavailable, edge));
+    assertThat(conjunction.availableSupport(origin -> !origin.equals(unavailable))).isEmpty();
+    assertThat(conjunction.availableSupport(origin -> !origin.equals(edge))).isEmpty();
+    SourceSupport alternatives =
+        conjunction.support().or(new SourceSupport(List.of(List.of(independent))));
+    BoundEvidence evidence = new BoundEvidence(type, List.of(unavailable, edge), alternatives);
+    assertThat(evidence.availableSupport(origin -> !origin.equals(unavailable)).orElseThrow())
+        .containsExactly(independent);
+    assertThat(evidence.origins()).containsExactly(unavailable, edge, independent).inOrder();
+    assertThat(
+            alternatives
+                .and(new SourceSupport(List.of(List.of(edge))))
+                .availableSupport(origin -> !origin.equals(edge)))
+        .isEmpty();
+    SourceSupport minimal =
+        new SourceSupport(
+            List.of(List.of(unavailable, edge), List.of(edge, unavailable), List.of(unavailable)));
+    assertThat(minimal.derivations()).containsExactly(List.of(unavailable));
+    BoundEvidence sourceLess = new BoundEvidence(type, List.of());
+    assertThat(sourceLess.availableSupport(origin -> false).orElseThrow()).isEmpty();
+    assertThat(alternatives.or(sourceLess.support()).derivations()).containsExactly(List.of());
+    assertThat(new SourceSupport(List.of()).availableSupport(origin -> true)).isEmpty();
+    assertThrows(UnsupportedOperationException.class, () -> alternatives.derivations().clear());
+    assertThrows(
+        UnsupportedOperationException.class,
+        () -> conjunction.support().derivations().get(0).clear());
+  }
+
+  @Test
+  public void deduplicatedOuterSuppliersRemainAvailableAcrossFailedInnerPathsAndCycles() {
+    runProof(
+        """
+        <R, U, D> void inference(
+            Box<@Nullable String> first, Box<String> second, Box<String> shape,
+            String independentShape, Box<R> dependentTemplate, Box<Box<String>> dependentShape,
+            Box raw, String supportProof) { pick(id(first), second); id(second); id(first); }
+        """);
+  }
+
+  @Test
+  public void symbolicConflictSourcesRequireTheirNestedValueSupport() {
+    runProof(
+        """
+        <R extends @Nullable Object, E extends @Nullable Object> void inference(
+            Box<@Nullable String> first, Box<String> second, Pair<Box<String>, String> shape,
+            Box<String> slotShape, Pair<E, @Nullable String> symbolic, String flatShape,
+            Pair<E, String> concrete) {}
+        """);
   }
 
   @Test
@@ -269,6 +330,7 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
               import org.jspecify.annotations.Nullable;
               class Test {
                 static class Box<E extends @Nullable Object> {}
+                static class Pair<A extends @Nullable Object, B extends @Nullable Object> {}
                 static class Base<E extends @Nullable Object> {}
                 static class Nested extends Base<Box<@Nullable String>> {}
                 interface View<E extends @Nullable Object> {}
@@ -342,6 +404,9 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
               state,
               config,
               reverse);
+        } else if (method.getParameters().size() == 7) {
+          checkNestedSupportProof(
+              method, Objects.requireNonNull(siteA), Objects.requireNonNull(siteB), state, config);
         } else if (method.getParameters().size() == 3) {
           checkInheritedEvidenceProof(method, Objects.requireNonNull(siteA), state, config);
         } else if (method.getParameters().size() == 5) {
@@ -538,6 +603,16 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
         assertThat(firstEvidence.origins())
             .containsExactly(firstOrigin, repeatedOrigin, resultOrigin);
         assertThat(secondEvidence.origins()).containsExactly(secondOrigin);
+        assertThat(firstEvidence.support().derivations())
+            .containsExactly(
+                List.of(firstOrigin, resultOrigin), List.of(repeatedOrigin, resultOrigin));
+        assertThat(firstEvidence.availableSupport(origin -> !origin.equals(resultOrigin)))
+            .isEmpty();
+        assertThat(
+                firstEvidence.availableSupport(origin -> !origin.equals(firstOrigin)).orElseThrow())
+            .containsExactly(repeatedOrigin, resultOrigin);
+        assertThat(secondEvidence.availableSupport(origin -> true).orElseThrow())
+            .containsExactly(secondOrigin);
         assertThat(firstOrigin.originalType()).isSameInstanceAs(first);
         assertThat(resultOrigin.expression()).isSameInstanceAs(nestedCall);
         assertThat(resultOrigin.ownerSite()).isSameInstanceAs(owner);
@@ -602,6 +677,68 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
       LowerBoundConflict legacyConflict = legacySolution.lowerConflicts().get(0);
       assertThat(legacyConflict.first().origins()).isEmpty();
       assertThat(legacyConflict.second().origins()).isEmpty();
+      assertThat(legacyConflict.first().availableSupport(origin -> false).orElseThrow()).isEmpty();
+      if (method.getParameters().size() > 7) {
+        SourceOrigin alternativeEdge =
+            new SourceOrigin(declaration.getParameters().get(4), owner, nestedResultType);
+        solver.addSubtypeConstraint(nested, root, false, alternativeEdge);
+        LowerBoundConflict edgeConflict =
+            solver.solve().lowerConflicts().stream()
+                .filter(fact -> fact.variable().equals(rootKey))
+                .findFirst()
+                .orElseThrow();
+        BoundEvidence edgeFirst =
+            edgeConflict.first().type() == first ? edgeConflict.first() : edgeConflict.second();
+        assertThat(edgeFirst.availableSupport(origin -> !origin.equals(resultOrigin)).orElseThrow())
+            .containsExactly(firstOrigin, alternativeEdge);
+        SourceOrigin outerFirst =
+            new SourceOrigin(declaration.getParameters().get(0), owner, first);
+        SourceOrigin innerSecond =
+            new SourceOrigin(declaration.getParameters().get(1), nestedCall, second);
+        solver.addSubtypeConstraint(first, root, false, outerFirst);
+        solver.addSubtypeConstraint(second, nested, false, innerSecond);
+        SourceOrigin cycle =
+            new SourceOrigin(declaration.getParameters().get(2), nestedCall, shape);
+        solver.addSubtypeConstraint(root, nested, false, cycle);
+        Solution supported = solver.solve();
+        LowerBoundConflict outerConflict =
+            supported.lowerConflicts().stream()
+                .filter(fact -> fact.variable().equals(rootKey))
+                .findFirst()
+                .orElseThrow();
+        BoundEvidence outerNullable =
+            outerConflict.first().type() == first ? outerConflict.first() : outerConflict.second();
+        BoundEvidence outerClean =
+            outerConflict.first().type() == second ? outerConflict.first() : outerConflict.second();
+        assertThat(outerNullable.origins()).containsAtLeast(resultOrigin, outerFirst, cycle);
+        assertThat(
+                outerNullable
+                    .availableSupport(
+                        origin -> !origin.equals(resultOrigin) && !origin.equals(alternativeEdge))
+                    .orElseThrow())
+            .containsExactly(outerFirst);
+        assertThat(
+                outerClean
+                    .availableSupport(
+                        origin -> !origin.equals(resultOrigin) && !origin.equals(alternativeEdge))
+                    .orElseThrow())
+            .containsExactly(secondOrigin);
+        assertThat(
+                outerNullable.availableSupport(
+                    origin ->
+                        !origin.equals(resultOrigin)
+                            && !origin.equals(alternativeEdge)
+                            && !origin.equals(outerFirst)))
+            .isEmpty();
+        assertThat(
+                Objects.requireNonNull(previous).lowerConflicts().stream()
+                    .flatMap(fact -> java.util.stream.Stream.of(fact.first(), fact.second()))
+                    .flatMap(bound -> bound.support().derivations().stream())
+                    .flatMap(List::stream)
+                    .toList())
+            .doesNotContain(outerFirst);
+        assertThat(solver.solve().lowerConflicts()).isEqualTo(supported.lowerConflicts());
+      }
     }
 
     /** Checks provenance on a lower bound generated beneath a wildcard, not supplied directly. */
@@ -675,6 +812,10 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
                   derived.type().getTypeArguments().head.getAnnotationMirrors().stream(), config))
           .isTrue();
       assertThat(derived.origins()).containsAtLeast(firstOrigin, nestedOrigin);
+      assertThat(derived.availableSupport(origin -> !origin.equals(firstOrigin))).isEmpty();
+      assertThat(derived.availableSupport(origin -> !origin.equals(nestedOrigin))).isEmpty();
+      assertThat(derived.availableSupport(origin -> !origin.equals(initialOrigin)).orElseThrow())
+          .containsExactly(firstOrigin, nestedOrigin);
       assertThat(firstOrigin.originalType()).isSameInstanceAs(first);
       assertThat(nestedOrigin.originalType()).isSameInstanceAs(template);
       assertThat(
@@ -683,6 +824,109 @@ public class ShapeGuidedInferenceTests extends NullAwayTestsBase {
                   .flatMap(bound -> bound.origins().stream())
                   .toList())
           .contains(initialOrigin);
+      ConstraintSolver upperSolver = new ConstraintSolverImpl(config, state, analysis);
+      Type upperRoot =
+          upperSolver
+              .registerInferenceVariables(
+                  rootCall, List.of(r), Map.of(), Set.of(r), Map.of(r, shape))
+              .get(r);
+      Type upperSlot =
+          upperSolver
+              .registerInferenceVariables(
+                  slotCall, List.of(e), Map.of(), Set.of(e), Map.of(e, slotShape))
+              .get(e);
+      Type upperTemplate =
+          TypeSubstitutionUtils.substituteTypeVariables(
+              template, Map.of(e, upperSlot), state.getTypes(), config);
+      upperSolver.addSubtypeConstraint(initial, upperSlot, false, initialOrigin);
+      upperSolver.addSubtypeConstraint(first, upperRoot, false, firstOrigin);
+      upperSolver.addSubtypeConstraint(upperRoot, upperTemplate, false, nestedOrigin);
+      LowerBoundConflict upperConflict =
+          upperSolver.solve().lowerConflicts().stream()
+              .filter(fact -> fact.variable().equals(slotKey))
+              .findFirst()
+              .orElseThrow();
+      BoundEvidence upperDerived =
+          upperConflict.first().origins().contains(firstOrigin)
+              ? upperConflict.first()
+              : upperConflict.second();
+      assertThat(upperDerived.availableSupport(origin -> !origin.equals(firstOrigin))).isEmpty();
+      assertThat(upperDerived.availableSupport(origin -> !origin.equals(nestedOrigin))).isEmpty();
+      assertThat(
+              upperDerived.availableSupport(origin -> !origin.equals(initialOrigin)).orElseThrow())
+          .containsExactly(firstOrigin, nestedOrigin);
+    }
+
+    /** Checks that symbolic conflict values need their own nested premises, not just context. */
+    @SuppressWarnings({
+      "ReferenceEquality",
+      "TypeEquals"
+    }) // select the retained original bound object
+    private static void checkNestedSupportProof(
+        Symbol.MethodSymbol method, Tree site, Tree slotSite, VisitorState state, Config config) {
+      NullAway analysis = mock(NullAway.class);
+      when(analysis.getHandler()).thenReturn(new Handler() {});
+      ConstraintSolver solver = new ConstraintSolverImpl(config, state, analysis);
+      Element r = method.getTypeParameters().get(0);
+      Element e = method.getTypeParameters().get(1);
+      Type nestedValue = method.getParameters().get(1).type;
+      Type shape = method.getParameters().get(2).type;
+      Type slotShape = method.getParameters().get(3).type;
+      Type template = method.getParameters().get(4).type;
+      Type concreteTemplate = method.getParameters().get(6).type;
+      Type root =
+          solver
+              .registerInferenceVariables(site, List.of(r), Map.of(), Set.of(r), Map.of(r, shape))
+              .get(r);
+      Type slot =
+          solver
+              .registerInferenceVariables(
+                  slotSite, List.of(e), Map.of(), Set.of(e), Map.of(e, slotShape))
+              .get(e);
+      Type symbolic =
+          TypeSubstitutionUtils.substituteTypeVariables(
+              template, Map.of(e, slot), state.getTypes(), config);
+      Type concrete =
+          TypeSubstitutionUtils.substituteTypeVariables(
+              concreteTemplate, Map.of(e, slot), state.getTypes(), config);
+      SourceOrigin nestedOrigin = new SourceOrigin(slotSite, slotSite, nestedValue);
+      SourceOrigin symbolicOrigin = new SourceOrigin(slotSite, site, template);
+      SourceOrigin concreteOrigin = new SourceOrigin(site, site, concrete);
+      solver.addSubtypeConstraint(nestedValue, slot, false, nestedOrigin);
+      solver.addSubtypeConstraint(symbolic, root, false, symbolicOrigin);
+      solver.addSubtypeConstraint(concrete, root, false, concreteOrigin);
+      Solution before = solver.solve();
+      LowerBoundConflict conflict =
+          before.lowerConflicts().stream()
+              .filter(fact -> fact.variable().equals(new InferenceVariable(r, site)))
+              .findFirst()
+              .orElseThrow();
+      BoundEvidence symbolicEvidence =
+          conflict.first().type() == symbolic ? conflict.first() : conflict.second();
+      assertThat(symbolicEvidence.availableSupport(origin -> !origin.equals(nestedOrigin)))
+          .isEmpty();
+      assertThat(symbolicEvidence.availableSupport(origin -> !origin.equals(symbolicOrigin)))
+          .isEmpty();
+      assertThat(symbolicEvidence.availableSupport(origin -> true).orElseThrow())
+          .containsExactly(symbolicOrigin, nestedOrigin);
+      SourceOrigin alternative = new SourceOrigin(site, slotSite, nestedValue);
+      solver.addSubtypeConstraint(nestedValue, slot, false, alternative);
+      Solution after = solver.solve();
+      LowerBoundConflict updated =
+          after.lowerConflicts().stream()
+              .filter(fact -> fact.variable().equals(new InferenceVariable(r, site)))
+              .findFirst()
+              .orElseThrow();
+      BoundEvidence updatedSymbolic =
+          updated.first().type() == symbolic ? updated.first() : updated.second();
+      assertThat(
+              updatedSymbolic
+                  .availableSupport(origin -> !origin.equals(nestedOrigin))
+                  .orElseThrow())
+          .containsExactly(symbolicOrigin, alternative);
+      assertThat(symbolicEvidence.availableSupport(origin -> !origin.equals(nestedOrigin)))
+          .isEmpty();
+      assertThat(solver.solve().lowerConflicts()).isEqualTo(after.lowerConflicts());
     }
 
     /** Registers sibling owners separately; only shared lower slots can constrain the fresh E. */
