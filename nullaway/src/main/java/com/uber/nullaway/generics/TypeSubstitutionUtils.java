@@ -193,30 +193,8 @@ public class TypeSubstitutionUtils {
     if (!changed) {
       return declaration;
     }
-    Map<Element, Type> replacements = new LinkedHashMap<>();
-    Map<Element, Type.TypeVar> methodVariables = new LinkedHashMap<>();
-    ListBuffer<Type> variables = new ListBuffer<>();
-    for (Type variable : declaration.tvars) {
-      Type.TypeVar detached =
-          TYPE_METADATA_BUILDER.createDetachedTypeVar(
-              (Type.TypeVar) variable, ((Type.TypeVar) variable).getUpperBound());
-      variables.append(detached);
-      replacements.put(variable.asElement(), detached);
-      methodVariables.put(variable.asElement(), detached);
-    }
-    List<Type> detached = variables.toList();
-    for (int i = 0; i < detached.size(); i++) {
-      ((Type.TypeVar) detached.get(i))
-          .setUpperBound(substituteTypeVariables(bounds.get(i), replacements, types, config));
-    }
-    Type executable = substituteTypeVariables(declaration.qtype, replacements, types, config);
-    Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
-    for (Type variable : detached) {
-      synchronizeReceiverInstantiatedBounds(
-          ((Type.TypeVar) variable).getUpperBound(), methodVariables, visited);
-    }
-    synchronizeReceiverInstantiatedBounds(executable, methodVariables, visited);
-    return new Type.ForAll(detached, executable);
+    return detachMethodVariables(
+        declaration.tvars, List.from(bounds), declaration.qtype, types, config);
   }
 
   /**
@@ -402,11 +380,25 @@ public class TypeSubstitutionUtils {
     if (!changed) {
       return instantiated;
     }
-    // Declaration-bound restoration is independent of receiver parameters, including constructors
-    // of non-generic classes whose bounds were stripped during anonymous-class attribution.
+    return detachMethodVariables(
+        resolved.tvars, repairedBounds.toList(), resolved.qtype, types, config);
+  }
+
+  /**
+   * Detaches method variables and remaps completed bounds and executable occurrences without
+   * mutating javac-owned types. All detached variables are created before substituting dependent
+   * bounds, and annotated peer occurrences are synchronized only after every bound is complete.
+   */
+  private static Type.ForAll detachMethodVariables(
+      List<Type> typeVariables,
+      List<Type> completedBounds,
+      Type executable,
+      Types types,
+      Config config) {
+    Verify.verify(typeVariables.size() == completedBounds.size(), "method bound arity changed");
     ListBuffer<Type> detachedVariables = new ListBuffer<>();
     Map<Element, Type.TypeVar> methodVariables = new LinkedHashMap<>();
-    for (Type variable : resolved.tvars) {
+    for (Type variable : typeVariables) {
       Type.TypeVar detached =
           TYPE_METADATA_BUILDER.createDetachedTypeVar(
               (Type.TypeVar) variable, ((Type.TypeVar) variable).getUpperBound());
@@ -414,14 +406,12 @@ public class TypeSubstitutionUtils {
       methodVariables.put(variable.asElement(), detached);
     }
     List<Type> variables = detachedVariables.toList();
-    List<Type> bounds = repairedBounds.toList();
     for (int i = 0; i < variables.size(); i++) {
       ((Type.TypeVar) variables.get(i))
-          .setUpperBound(substituteTypeVariables(bounds.get(i), methodVariables, types, config));
+          .setUpperBound(
+              substituteTypeVariables(completedBounds.get(i), methodVariables, types, config));
     }
-    Type methodType = substituteTypeVariables(resolved.qtype, methodVariables, types, config);
-    // Annotated peer occurrences are detached copies whose bounds may have been copied before
-    // the peer's bound was restored. Synchronize them only after all canonical bounds are complete.
+    Type methodType = substituteTypeVariables(executable, methodVariables, types, config);
     Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
     for (Type variable : variables) {
       synchronizeReceiverInstantiatedBounds(
