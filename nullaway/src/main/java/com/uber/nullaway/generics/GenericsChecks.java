@@ -144,8 +144,9 @@ public final class GenericsChecks {
 
   /**
    * Tracks which participating calls can safely share a persisted inference result. Once any call
-   * is analyzed with provisional lambda parameter types, no result from that inference problem is
-   * persisted, since all participating calls can be connected through the shared constraint graph.
+   * is analyzed with provisional lambda parameter types, reusable call caching is disabled for the
+   * inference problem. Completed method-reference results and certified poly targets can still be
+   * published after the provisional lambda maps are restored.
    */
   private static final class InferenceCacheState {
     final Set<Tree> cacheableCalls = new LinkedHashSet<>();
@@ -170,6 +171,28 @@ public final class GenericsChecks {
       }
     }
   }
+
+  /** Mutually exclusive type-publication categories for a completed inference attempt. */
+  private enum InferenceTypePublication {
+    NONE,
+    COMPLETE_SOLUTION,
+    CERTIFIED_PARTIAL_TARGETS,
+    CONTRADICTORY_ROOT,
+    FAILURE_SITE
+  }
+
+  /** Diagnostic snapshots can be replaced independently of reusable type publication. */
+  private enum InferenceDiagnosticPublication {
+    NONE,
+    COMPLETED_OUTCOMES
+  }
+
+  /**
+   * Immutable publication policy for one completed attempt, evaluated after provisional lambda maps
+   * are restored. Type publication and diagnostic replacement have distinct lifecycle guards.
+   */
+  private record InferencePublicationDecision(
+      InferenceTypePublication types, InferenceDiagnosticPublication diagnostics) {}
 
   /** Indicates failed inference of nullability of type variables at a call */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
@@ -1672,7 +1695,6 @@ public final class GenericsChecks {
       boolean assignedToLocal,
       boolean calledFromDataflow) {
     ExpressionTree callTree = inferenceCall.site.tree;
-    Type.MethodType executableType = inferenceCall.signature;
     ConstraintSolver solver = makeSolver(state, analysis);
     InferenceCacheState inferenceCacheState = new InferenceCacheState();
     // calls whose lambda and method reference arguments get published types on success
@@ -1700,12 +1722,11 @@ public final class GenericsChecks {
           solution.isComplete()
               ? new InferenceSuccess(solution)
               : new InferencePartial(solution, inferenceCacheState.calls);
-      boolean publishOutcome =
-          canPublishDiagnosticInferenceOutcome(inferenceCacheState, calledFromDataflow);
-      // Temporary lambda types during generation do not invalidate certified poly targets from
-      // the completed solution. Only diagnostic or contradictory outcomes require this guard.
-      if (result instanceof InferenceSuccess successResult
-          && okToCacheInferenceResult(calledFromDataflow)) {
+      InferencePublicationDecision publication =
+          inferencePublicationDecision(
+              result, inferenceCacheState, calledFromDataflow, path, inferenceCall, state);
+      if (publication.types() == InferenceTypePublication.COMPLETE_SOLUTION
+          && result instanceof InferenceSuccess successResult) {
         if (typeFromAssignmentContext != null) {
           completedCallContexts.put(
               callTree, new CallAndContext(callTree, typeFromAssignmentContext, assignedToLocal));
@@ -1725,25 +1746,19 @@ public final class GenericsChecks {
                     callExecutableType.signature,
                     successResult.inferredTypesForSite(call),
                     state));
-      } else if (result instanceof InferencePartial partial
-          && solution.inconsistentVariables().isEmpty()
-          && okToCacheInferenceResult(calledFromDataflow)) {
+      } else if (publication.types() == InferenceTypePublication.CERTIFIED_PARTIAL_TARGETS
+          && result instanceof InferencePartial partial) {
         // Certify each target independently: an unrelated unused variable may remain opaque.
         callTypesForPolyArgs.forEach(
             (call, callExecutableType) ->
                 storeCertifiedPolyArgumentTypes(
                     call, callExecutableType.signature, partial, state));
-      } else if (result instanceof InferencePartial
-          && path != null
-          && !solution.inconsistentVariables().isEmpty()
-          && solution.inconsistentVariables().containsAll(solution.incompleteVariables())
-          && hasShapedDiagnosticTypes(callTree, executableType, result, state)
-          && publishOutcome) {
+      } else if (publication.types() == InferenceTypePublication.CONTRADICTORY_ROOT) {
         // Preserve the final root's target-derived evidence for ordinary parameter diagnostics.
         // This is not a successful result and must not certify nested calls or poly expressions.
         inferredTypeVarNullabilityForGenericCalls.put(callTree, result);
       }
-      if (publishOutcome) {
+      if (publication.diagnostics() == InferenceDiagnosticPublication.COMPLETED_OUTCOMES) {
         publishDiagnosticInferenceOutcomes(inferenceCacheState, result, state);
       }
       return result;
@@ -1762,7 +1777,10 @@ public final class GenericsChecks {
                     errorMessage, analysis.buildDescription(e.getSite()), reportingState, null));
       }
       InferenceFailure failureResult = new InferenceFailure(message);
-      if (canPublishDiagnosticInferenceOutcome(inferenceCacheState, calledFromDataflow)) {
+      InferencePublicationDecision publication =
+          inferencePublicationDecision(
+              failureResult, inferenceCacheState, calledFromDataflow, path, inferenceCall, state);
+      if (publication.types() == InferenceTypePublication.FAILURE_SITE) {
         invalidateMethodReferenceResults(inferenceCacheState);
         // Solving stopped at this site. Other participating calls still need independent checking.
         inferredTypeVarNullabilityForGenericCalls.put(e.getSite(), failureResult);
@@ -1784,7 +1802,10 @@ public final class GenericsChecks {
                 errorMessage, analysis.buildDescription(inferenceSite), reportingState, null));
       }
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
-      if (canPublishDiagnosticInferenceOutcome(inferenceCacheState, calledFromDataflow)) {
+      InferencePublicationDecision publication =
+          inferencePublicationDecision(
+              failureResult, inferenceCacheState, calledFromDataflow, path, inferenceCall, state);
+      if (publication.types() == InferenceTypePublication.FAILURE_SITE) {
         invalidateMethodReferenceResults(inferenceCacheState);
         // Contextual scalar contradictions complete only this root problem. Nested calls must
         // still infer their own arguments and contexts independently.
@@ -1821,12 +1842,51 @@ public final class GenericsChecks {
   }
 
   /**
-   * Rejects diagnostic availability and contradictory call persistence for problems with dataflow
-   * or provisional-lambda inputs. Certified poly targets use their separate publication checks.
+   * Classifies publication from a completed outcome and the restored inference lifecycle.
+   *
+   * <p>Provisional lambda participation empties {@link InferenceCacheState#cacheableCalls}, but
+   * does not prevent complete method-reference results, root contexts, or certified poly targets
+   * from being published once the lambda maps are restored. Diagnostic snapshots, contradictory
+   * root substitutions, and failure cache updates additionally require no provisional inputs.
+   * Partial target certification itself remains the responsibility of each target's publisher.
    */
-  private boolean canPublishDiagnosticInferenceOutcome(
-      InferenceCacheState inputs, boolean calledFromDataflow) {
-    return okToCacheInferenceResult(calledFromDataflow) && !inputs.provisionalLambdaTypesSeen;
+  private InferencePublicationDecision inferencePublicationDecision(
+      CallInferenceResult result,
+      InferenceCacheState inputs,
+      boolean calledFromDataflow,
+      @Nullable TreePath path,
+      InferenceCall inferenceCall,
+      VisitorState state) {
+    if (!okToCacheInferenceResult(calledFromDataflow)) {
+      return new InferencePublicationDecision(
+          InferenceTypePublication.NONE, InferenceDiagnosticPublication.NONE);
+    }
+    boolean stableInputs = !inputs.provisionalLambdaTypesSeen;
+    if (result instanceof InferenceFailure) {
+      return new InferencePublicationDecision(
+          stableInputs ? InferenceTypePublication.FAILURE_SITE : InferenceTypePublication.NONE,
+          InferenceDiagnosticPublication.NONE);
+    }
+    InferenceDiagnosticPublication diagnostics =
+        stableInputs
+            ? InferenceDiagnosticPublication.COMPLETED_OUTCOMES
+            : InferenceDiagnosticPublication.NONE;
+    InferenceTypePublication types = InferenceTypePublication.NONE;
+    if (result instanceof InferenceSuccess) {
+      types = InferenceTypePublication.COMPLETE_SOLUTION;
+    } else if (result instanceof InferencePartial partial) {
+      Solution solution = partial.solution();
+      if (solution.inconsistentVariables().isEmpty()) {
+        types = InferenceTypePublication.CERTIFIED_PARTIAL_TARGETS;
+      } else if (stableInputs
+          && path != null
+          && solution.inconsistentVariables().containsAll(solution.incompleteVariables())
+          && hasShapedDiagnosticTypes(
+              inferenceCall.site.tree, inferenceCall.signature, partial, state)) {
+        types = InferenceTypePublication.CONTRADICTORY_ROOT;
+      }
+    }
+    return new InferencePublicationDecision(types, diagnostics);
   }
 
   /**
