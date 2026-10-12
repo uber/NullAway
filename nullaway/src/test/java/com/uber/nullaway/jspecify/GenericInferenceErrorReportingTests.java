@@ -1,23 +1,17 @@
 package com.uber.nullaway.jspecify;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
+import static org.junit.Assert.assertThrows;
 
 import com.google.errorprone.CompilationTestHelper;
-import com.google.errorprone.ErrorProneJavaCompiler;
-import com.google.errorprone.FileManagers;
 import com.google.errorprone.FileObjects;
-import com.google.errorprone.scanner.ScannerSupplier;
-import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 import java.util.stream.Collectors;
 import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
 import javax.tools.JavaFileObject;
 import org.junit.Test;
 
@@ -706,6 +700,14 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
     assertThat(compileAndReportDiagnostics(List.of(uncheckedSource))).isEmpty();
   }
 
+  @Test
+  public void compilerErrorsAreNotReportedAsInferenceDiagnostics() {
+    JavaFileObject invalidSource =
+        FileObjects.forSourceLines("Invalid.java", "class Invalid { MissingType value; }");
+    List<JavaFileObject> sources = List.of(invalidSource);
+    assertThrows(AssertionError.class, () -> compileAndCollectJSpecifyDiagnostics(sources));
+  }
+
   /**
    * Compiles {@code sources} with NullAway in JSpecify mode and reports every diagnostic that names
    * a position in them, as {@code <file>:<line>: <message>}. A caller asserts the returned list,
@@ -724,30 +726,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
    * @return the rendered diagnostics, in the order javac emitted them
    */
   private List<String> compileAndReportDiagnostics(List<JavaFileObject> sources) {
-    DiagnosticCollector<JavaFileObject> diagnosticCollector = new DiagnosticCollector<>();
-    List<String> args =
-        new ArrayList<>(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                Arrays.asList(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")));
-    args.add("-proc:none");
-    ErrorProneJavaCompiler compiler =
-        new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
-
-    boolean compilationSucceeded =
-        compiler
-            .getTask(null, FileManagers.testFileManager(), diagnosticCollector, args, null, sources)
-            .call();
-
-    assertWithMessage("compilation failed: %s", diagnosticCollector.getDiagnostics())
-        .that(compilationSucceeded)
-        .isTrue();
-    return diagnosticCollector.getDiagnostics().stream()
-        .filter(
-            diagnostic ->
-                diagnostic.getSource() != null && diagnostic.getLineNumber() != Diagnostic.NOPOS)
+    return compileAndCollectJSpecifyDiagnostics(sources).stream()
         .map(GenericInferenceErrorReportingTests::render)
         .toList();
   }

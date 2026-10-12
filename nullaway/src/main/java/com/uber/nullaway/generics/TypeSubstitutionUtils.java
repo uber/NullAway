@@ -355,8 +355,9 @@ public class TypeSubstitutionUtils {
 
   /**
    * Restores receiver argument annotations in a generic member's dependent bounds. javac's member
-   * substitution can erase them in bounds such as {@code U extends E}. Detach the method variables
-   * before restoring bounds and remap their occurrences without mutating compiler-owned types.
+   * substitution can erase them in bounds such as {@code U extends E}. Probe annotation repair
+   * before detaching method variables, then remap changed bounds and variable occurrences without
+   * mutating compiler-owned types.
    */
   private static Type restoreReceiverInstantiatedMethodBounds(
       Types types,
@@ -382,6 +383,25 @@ public class TypeSubstitutionUtils {
         }
       }
     }
+    // Repair annotations only, before detaching method variables. An unchanged bound retains its
+    // identity even for intersections. Keep repaired bounds so the changed path need not redo them.
+    ListBuffer<Type> repairedBounds = new ListBuffer<>();
+    boolean changed = false;
+    for (int i = 0; i < original.tvars.size(); i++) {
+      Type bound = ((Type.TypeVar) resolved.tvars.get(i)).getUpperBound();
+      Type restored =
+          restoreReceiverInstantiatedBound(
+              ((Type.TypeVar) original.tvars.get(i)).getUpperBound(),
+              bound,
+              replacements,
+              types,
+              config);
+      repairedBounds.append(restored);
+      changed |= restored != bound;
+    }
+    if (!changed) {
+      return instantiated;
+    }
     // Declaration-bound restoration is independent of receiver parameters, including constructors
     // of non-generic classes whose bounds were stripped during anonymous-class attribution.
     ListBuffer<Type> detachedVariables = new ListBuffer<>();
@@ -392,20 +412,14 @@ public class TypeSubstitutionUtils {
               (Type.TypeVar) variable, ((Type.TypeVar) variable).getUpperBound());
       detachedVariables.append(detached);
       methodVariables.put(variable.asElement(), detached);
-      replacements.put(variable.asElement(), detached);
     }
     List<Type> variables = detachedVariables.toList();
-    for (int i = 0; i < original.tvars.size(); i++) {
+    List<Type> bounds = repairedBounds.toList();
+    for (int i = 0; i < variables.size(); i++) {
       ((Type.TypeVar) variables.get(i))
-          .setUpperBound(
-              restoreReceiverInstantiatedBound(
-                  ((Type.TypeVar) original.tvars.get(i)).getUpperBound(),
-                  ((Type.TypeVar) resolved.tvars.get(i)).getUpperBound(),
-                  replacements,
-                  types,
-                  config));
+          .setUpperBound(substituteTypeVariables(bounds.get(i), methodVariables, types, config));
     }
-    Type methodType = substituteTypeVariables(resolved.qtype, replacements, types, config);
+    Type methodType = substituteTypeVariables(resolved.qtype, methodVariables, types, config);
     // Annotated peer occurrences are detached copies whose bounds may have been copied before
     // the peer's bound was restored. Synchronize them only after all canonical bounds are complete.
     Set<Type> visited = Collections.newSetFromMap(new IdentityHashMap<>());
@@ -421,8 +435,9 @@ public class TypeSubstitutionUtils {
    * Restores a dependent bound, pairing intersection components before substituting annotations.
    *
    * <p>Intersection types have no ordinary class type arguments. Restore their constituent bounds
-   * explicitly and rebuild the intersection, preserving javac's implicit Object representation
-   * rather than treating the synthetic class as an annotation source or mutating shared bounds.
+   * explicitly and rebuild only changed intersections, preserving javac's implicit Object
+   * representation. Receiver substitutions affect only the annotation source, never the
+   * authoritative instantiated bound's Java shape.
    */
   private static Type restoreReceiverInstantiatedBound(
       Type declaration,
@@ -437,17 +452,20 @@ public class TypeSubstitutionUtils {
       List<Type> resolved = resolvedIntersection.getComponents();
       Verify.verify(originals.size() == resolved.size(), "intersection component arity changed");
       ListBuffer<Type> components = new ListBuffer<>();
+      boolean changed = false;
       for (; originals.nonEmpty(); originals = originals.tail, resolved = resolved.tail) {
-        components.append(
+        Type restored =
             restoreReceiverInstantiatedBound(
-                originals.head, resolved.head, replacements, types, config));
+                originals.head, resolved.head, replacements, types, config);
+        components.append(restored);
+        changed |= restored != resolved.head;
       }
-      List<Type> restored = components.toList();
-      return rebuildIntersection(resolvedIntersection, restored);
+      return changed
+          ? rebuildIntersection(resolvedIntersection, components.toList())
+          : instantiated;
     }
     Type bound = substituteTypeVariables(declaration, replacements, types, config);
-    Type restored = restoreExplicitNullabilityAnnotations(bound, instantiated, config);
-    return substituteTypeVariables(restored, replacements, types, config);
+    return restoreExplicitNullabilityAnnotations(bound, instantiated, config);
   }
 
   /**
@@ -1049,7 +1067,8 @@ public class TypeSubstitutionUtils {
   /**
    * Copies a source's root nullability, retaining the target's other annotations without mutating
    * shared javac types. Ordinary unannotated sources leave the target unchanged. Intersection roots
-   * are read and written structurally. Absent component annotations are not explicit overrides and
+   * are read and written structurally. Matching explicit nullness retains target identity; default
+   * non-null is not an explicit marker. Absent component annotations are not explicit overrides and
    * must not erase root evidence already restored from authoritative declaration attributes.
    */
   private static Type copyDirectNullabilityAnnotations(Type source, Type target, Config config) {
@@ -1085,6 +1104,17 @@ public class TypeSubstitutionUtils {
       if (!Nullness.isNullableAnnotation(name, config)
           && !Nullness.isNonNullAnnotation(name, config)) {
         continue;
+      }
+      boolean nullable = Nullness.isNullableAnnotation(name, config);
+      if (Nullness.hasNullableAnnotation(target.getAnnotationMirrors().stream(), config) == nullable
+          && Nullness.hasNonNullAnnotation(target.getAnnotationMirrors().stream(), config)
+              == !nullable
+          // Synthetic markers also certify inferred nullness; an explicit annotation alone does
+          // not.
+          && (!GenericsChecks.isSyntheticNullnessAnnotation(annotation.type)
+              || target.getAnnotationMirrors().stream()
+                  .anyMatch(existing -> existing.type == annotation.type))) {
+        return target;
       }
       ListBuffer<Attribute.TypeCompound> annotations = new ListBuffer<>();
       for (Attribute.TypeCompound targetAnnotation : target.getAnnotationMirrors()) {
@@ -1370,9 +1400,12 @@ public class TypeSubstitutionUtils {
         // A synthetic annotation records NullAway's inferred nullability for the type variable that
         // javac instantiated as this capture. It constrains the capture itself, so represent it on
         // the capture's structural upper bound rather than as a use-site projection of the capture.
-        Type updatedUpperBound = typeWithAnnot(t.getUpperBound(), syntheticNullnessAnnotation);
+        Type updatedUpperBound = copyDirectNullabilityAnnotations(other, t.getUpperBound(), config);
         updated =
-            TYPE_METADATA_BUILDER.createDetachedCapturedType(t, t.wildcard, updatedUpperBound);
+            updatedUpperBound == t.getUpperBound()
+                ? t
+                : TYPE_METADATA_BUILDER.createDetachedCapturedType(
+                    t, t.wildcard, updatedUpperBound);
       } else {
         // An explicit annotation on a type-variable use remains a use-site annotation after the
         // type variable is instantiated as a capture.
@@ -1475,27 +1508,7 @@ public class TypeSubstitutionUtils {
      * @return the updated type, or {@code t} if no updates were made
      */
     private Type updateDirectNullabilityAnnotationsForType(Type t, Type other) {
-      if (t instanceof Type.IntersectionClassType || other instanceof Type.IntersectionClassType) {
-        return copyDirectNullabilityAnnotations(other, t, config);
-      }
-      // first check for annotations directly on the type variable
-      for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
-        if (annot.type.tsym == null) {
-          continue;
-        }
-        String qualifiedName = annot.type.tsym.getQualifiedName().toString();
-        if (Nullness.isNullableAnnotation(qualifiedName, config)
-            || Nullness.isNonNullAnnotation(qualifiedName, config)) {
-          return typeWithAnnot(t, annot);
-        }
-      }
-      return t;
-    }
-
-    private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
-      // Construct and return an updated version of t with annotation annot.
-      Type annotType = annot.type;
-      return TypeSubstitutionUtils.typeWithAnnot(t, annotType);
+      return copyDirectNullabilityAnnotations(other, t, config);
     }
 
     @Override

@@ -1,22 +1,13 @@
 package com.uber.nullaway.jspecify;
 
 import static com.google.common.truth.Truth.assertThat;
-import static com.google.common.truth.Truth.assertWithMessage;
 
 import com.google.errorprone.CompilationTestHelper;
-import com.google.errorprone.ErrorProneJavaCompiler;
-import com.google.errorprone.FileManagers;
 import com.google.errorprone.FileObjects;
-import com.google.errorprone.scanner.ScannerSupplier;
-import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Locale;
-import javax.tools.Diagnostic;
-import javax.tools.DiagnosticCollector;
-import javax.tools.JavaFileObject;
 import org.junit.Test;
 
 /** Regression coverage for wildcard-shaped lowers and sibling diamond inference ownership. */
@@ -585,34 +576,9 @@ public class InferenceLowerBoundRegressionTests extends NullAwayTestsBase {
    * errors still fail the test rather than being mistaken for inference diagnostics.
    */
   private List<String> compileDiagnostics(String source) {
-    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-    List<String> args =
-        new ArrayList<>(
-            JSpecifyJavacConfig.withJSpecifyModeArgs(
-                List.of(
-                    "-d",
-                    temporaryFolder.getRoot().getAbsolutePath(),
-                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")));
-    args.add("-proc:none");
-    ErrorProneJavaCompiler compiler =
-        new ErrorProneJavaCompiler(ScannerSupplier.fromBugCheckerClasses(NullAway.class));
-    boolean success =
-        compiler
-            .getTask(
-                null,
-                FileManagers.testFileManager(),
-                diagnostics,
-                args,
-                null,
-                List.of(FileObjects.forSourceLines("Test.java", source)))
-            .call();
-    assertWithMessage("compilation failed: %s", diagnostics.getDiagnostics())
-        .that(success)
-        .isTrue();
-    return diagnostics.getDiagnostics().stream()
-        .filter(
-            diagnostic ->
-                diagnostic.getSource() != null && diagnostic.getLineNumber() != Diagnostic.NOPOS)
+    return compileAndCollectJSpecifyDiagnostics(
+            List.of(FileObjects.forSourceLines("Test.java", source)))
+        .stream()
         .map(diagnostic -> diagnostic.getLineNumber() + ":" + diagnostic.getMessage(Locale.ROOT))
         .toList();
   }
