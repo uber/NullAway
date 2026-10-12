@@ -54,6 +54,95 @@ public class BalancedInferenceCallsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void dataflowReuseTracksAssignmentsWithinAnInferenceRoot() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            source(
+                """
+                void test(@Nullable String value) {
+                  if (value == null) { return; }
+                  var nonNull = %s;
+                  nonNull.length();
+                  var nullable = pick(%s, pick(value = null, value));
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nullable.length();
+                }
+                """
+                    .formatted(
+                        balancedPick(31, "value", "value"), balancedPick(31, "value", "value"))))
+        .doTest();
+  }
+
+  @Test
+  public void dataflowReuseTracksLoopStoreChangesAtTheSameCallSite() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            source(
+                """
+                void test(@Nullable String value, boolean repeat) {
+                  if (value == null) { return; }
+                  while (repeat) {
+                    // BUG: Diagnostic contains: dereferenced expression
+                    %s.length();
+                    value = null;
+                  }
+                }
+                """
+                    .formatted(balancedPick(31, "value", "value"))))
+        .doTest();
+  }
+
+  @Test
+  public void dataflowReuseTracksReceiverInputsAtTheSameCallSite() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            receiverSource(
+                """
+                void test(@Nullable String value, boolean repeat) {
+                  if (value == null) { return; }
+                  while (repeat) {
+                    // BUG: Diagnostic contains: dereferenced expression
+                    box(value).list(0).get(0).length();
+                    value = null;
+                  }
+                }
+                """))
+        .doTest();
+  }
+
+  @Test
+  public void dataflowReuseTracksReceiverInputsForInferredLocals() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            receiverSource(
+                """
+                void loop(@Nullable String value, boolean repeat) {
+                  if (value == null) { return; }
+                  while (repeat) {
+                    var values = box(value).list(0);
+                    // BUG: Diagnostic contains: dereferenced expression
+                    values.get(0).length();
+                    value = null;
+                  }
+                }
+                void assignment(@Nullable String value) {
+                  if (value == null) { return; }
+                  var nonNull = box(value).list(0);
+                  nonNull.get(0).length();
+                  value = null;
+                  var nullable = box(value).list(0);
+                  // BUG: Diagnostic contains: dereferenced expression
+                  nullable.get(0).length();
+                }
+                """))
+        .doTest();
+  }
+
+  @Test
   public void provisionalLambdaParametersPreserveEachFinalNestedType() {
     makeHelper()
         .addSourceLines(
@@ -160,6 +249,24 @@ public class BalancedInferenceCallsTests extends NullAwayTestsBase {
         + ", "
         + balancedPick(childCallCount, secondLeaf, firstLeaf)
         + ")";
+  }
+
+  /** Adds a generic receiver whose fixed element type depends on its inferred factory input. */
+  private static String receiverSource(String members) {
+    return source(
+        """
+        static class Box<T extends @Nullable Object> {
+          final T value;
+          Box(T value) { this.value = value; }
+          <U> List<T> list(U ignored) {
+            return java.util.Collections.singletonList(value);
+          }
+        }
+        static <T extends @Nullable Object> Box<T> box(T value) {
+          return new Box<>(value);
+        }
+        """
+            + members);
   }
 
   /** Wraps generated test members in a self-contained nullness-marked class. */

@@ -901,7 +901,8 @@ public class TypeSubstitutionUtils {
    * Overlays inferred nullability only at recursively aligned positions. Class types must name the
    * same class after viewing the source as the target's supertype; equal argument counts alone do
    * not establish alignment. Arrays and wildcard bounds are checked recursively rather than passed
-   * to the positional annotation-restoration visitor.
+   * to the positional annotation-restoration visitor. Matching captures permit only a root
+   * annotation overlay, never replacement of their backing wildcards or structural bounds.
    *
    * @param inferredType the annotation source
    * @param target the type whose structure and unrelated metadata are preserved
@@ -914,7 +915,20 @@ public class TypeSubstitutionUtils {
   private static Type overlayInferredTypeAnnotations(
       Type inferredType, Type target, Types types, Config config, boolean preserveRoot) {
     if (inferredType instanceof Type.CapturedType || target instanceof Type.CapturedType) {
-      return target;
+      if (preserveRoot
+          || !(inferredType instanceof Type.CapturedType inferredCapture)
+          || !(target instanceof Type.CapturedType targetCapture)
+          || inferredCapture.tsym != targetCapture.tsym) {
+        return target;
+      }
+      // A structured inferred array is authoritative about its component's use-site nullness.
+      // javac may have dropped that annotation or moved an array-root annotation here. Restore
+      // only this aligned capture's root; copying bounds would change the caller's capture.
+      Type updated =
+          hasNullableRoot(inferredType, config)
+              ? target
+              : withoutNullableRootAnnotations(target, config);
+      return copyDirectNullabilityAnnotations(inferredType, updated, config);
     }
     if (target instanceof Type.IntersectionClassType) {
       Type.IntersectionClassType updated =

@@ -200,6 +200,33 @@ public final class GenericsChecks {
   /** Solvers whose owned symbols are external inputs to a newly nested inference problem. */
   private final List<ConstraintSolver> activeInferenceSolvers = new ArrayList<>();
 
+  /** A scalar input observed while solving against a running analysis, including its fallback. */
+  private record DataflowInferenceInput(TreePath path, Type type, Nullness nullness) {}
+
+  /** A completed outcome valid only for the observed flow inputs and symbolic lambda context. */
+  private record DataflowInferenceOutcome(
+      InferenceSuccess result,
+      Map<Tree, DataflowInferenceInput> inputs,
+      Map<Symbol, Type> lambdaParameters,
+      Map<LambdaExpressionTree, Type> lambdaTargets) {}
+
+  /** Analysis-local reuse, separate from certification and persistent type publication. */
+  private static final class DataflowInferenceScope {
+    final Tree enclosingTree;
+    final Map<Tree, DataflowInferenceOutcome> outcomes = new LinkedHashMap<>();
+    final List<Map<Tree, DataflowInferenceInput>> activeInputs = new ArrayList<>();
+
+    /** Identifies the exact method, lambda, or initializer whose analysis owns these outcomes. */
+    DataflowInferenceScope(Tree enclosingTree) {
+      this.enclosingTree = enclosingTree;
+    }
+  }
+
+  /**
+   * Installed only around an analysis initiated by refinement, then discarded in a finally block.
+   */
+  private @Nullable DataflowInferenceScope dataflowInferenceScope;
+
   /** Indicates failed inference of nullability of type variables at a call */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
       implements CallInferenceResult {
@@ -1642,8 +1669,31 @@ public final class GenericsChecks {
       @Nullable Type typeFromAssignmentContext,
       boolean assignedToLocal,
       boolean calledFromDataflow) {
+    return withDataflowInferenceInputs(
+        calledFromDataflow,
+        () ->
+            inferCallTypeWithInputs(
+                state,
+                callTree,
+                path,
+                typeFromAssignmentContext,
+                assignedToLocal,
+                calledFromDataflow));
+  }
+
+  /** Resolves and solves a call while its receiver observations belong to the same request. */
+  private Type inferCallTypeWithInputs(
+      VisitorState state,
+      ExpressionTree callTree,
+      @Nullable TreePath path,
+      @Nullable Type typeFromAssignmentContext,
+      boolean assignedToLocal,
+      boolean calledFromDataflow) {
     Verify.verify(isCallNeedingInference(callTree));
-    CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
+    CallInferenceResult result = getDataflowInferenceOutcome(callTree, state, calledFromDataflow);
+    if (result == null) {
+      result = inferredTypeVarNullabilityForGenericCalls.get(callTree);
+    }
     InferenceCall inferenceCall =
         result instanceof InferenceSuccess complete ? complete.calls().get(callTree) : null;
     // Computing the executable type also computes the receiver, which may require inference.
@@ -1712,6 +1762,15 @@ public final class GenericsChecks {
     ExpressionTree callTree = inferenceCall.site.tree;
     ConstraintSolver solver = makeSolver(state, analysis);
     InferenceCacheState inferenceCacheState = new InferenceCacheState();
+    DataflowInferenceScope flowScope = calledFromDataflow ? dataflowInferenceScope : null;
+    // Resolution precedes solver creation and may itself infer a generic receiver.
+    Map<Tree, DataflowInferenceInput> flowInputs =
+        flowScope == null || flowScope.activeInputs.isEmpty()
+            ? new LinkedHashMap<>()
+            : new LinkedHashMap<>(flowScope.activeInputs.get(flowScope.activeInputs.size() - 1));
+    if (flowScope != null) {
+      flowScope.activeInputs.add(flowInputs);
+    }
     // calls whose lambda and method reference arguments get published types on success
     Map<Tree, InferenceCall> callTypesForPolyArgs = new LinkedHashMap<>();
     activeInferenceSolvers.add(solver);
@@ -1735,6 +1794,15 @@ public final class GenericsChecks {
       Solution solution = solver.solve();
 
       InferenceWithTypes result = completedInferenceOutcome(solution, inferenceCacheState, state);
+      if (flowScope != null && result instanceof InferenceSuccess success) {
+        DataflowInferenceOutcome outcome =
+            new DataflowInferenceOutcome(
+                success,
+                Map.copyOf(flowInputs),
+                Map.copyOf(lambdaParameterTypesForInference),
+                Map.copyOf(lambdaTargetTypesForInference));
+        success.calls().keySet().forEach(site -> flowScope.outcomes.put(site, outcome));
+      }
       InferencePublicationDecision publication =
           inferencePublicationDecision(
               result,
@@ -1834,6 +1902,9 @@ public final class GenericsChecks {
       return failureResult;
     } finally {
       activeInferenceSolvers.remove(activeInferenceSolvers.size() - 1);
+      if (flowScope != null) {
+        flowScope.activeInputs.remove(flowScope.activeInputs.size() - 1);
+      }
     }
   }
 
@@ -3305,7 +3376,17 @@ public final class GenericsChecks {
       // argument
       refinedNullness = nullnessAnalysis.getNullnessFromRunning(exprPath, state.context);
     } else {
-      refinedNullness = nullnessAnalysis.getNullness(exprPath, state.context);
+      refinedNullness =
+          withDataflowInferenceScope(
+              enclosingPath.getLeaf(), () -> nullnessAnalysis.getNullness(exprPath, state.context));
+    }
+    if (dataflowInferenceScope != null) {
+      DataflowInferenceInput input =
+          new DataflowInferenceInput(
+              exprPath, exprType, dataflowInferenceInputNullness(exprType, refinedNullness));
+      for (Map<Tree, DataflowInferenceInput> inputs : dataflowInferenceScope.activeInputs) {
+        inputs.put(expr, input);
+      }
     }
     if (refinedNullness == null) {
       return exprType;
@@ -3323,6 +3404,84 @@ public final class GenericsChecks {
               : getSyntheticNonNullAnnotType(state));
     }
     return updateTypeWithNullness(state, exprType, refinedNullness);
+  }
+
+  /**
+   * Retains completed inference only for the dynamic extent of one dataflow analysis. Nested
+   * analyses have their own scopes; neither their outcomes nor provisional caller symbols escape.
+   */
+  private <T extends @Nullable Object> T withDataflowInferenceScope(
+      Tree enclosingTree, java.util.function.Supplier<T> action) {
+    DataflowInferenceScope previous = dataflowInferenceScope;
+    dataflowInferenceScope = new DataflowInferenceScope(enclosingTree);
+    try {
+      return action.get();
+    } finally {
+      dataflowInferenceScope = previous;
+    }
+  }
+
+  /**
+   * Collects inputs before receiver and target resolution, composing nested observations with the
+   * existing parent collectors. The solve copies this request's observations into its snapshot.
+   */
+  private <T extends @Nullable Object> T withDataflowInferenceInputs(
+      boolean calledFromDataflow, java.util.function.Supplier<T> action) {
+    DataflowInferenceScope scope = calledFromDataflow ? dataflowInferenceScope : null;
+    if (scope == null) {
+      return action.get();
+    }
+    scope.activeInputs.add(new LinkedHashMap<>());
+    try {
+      return action.get();
+    } finally {
+      scope.activeInputs.remove(scope.activeInputs.size() - 1);
+    }
+  }
+
+  /** Normalizes an unavailable flow fact to the same declared-root fallback used by refinement. */
+  private Nullness dataflowInferenceInputNullness(Type type, @Nullable Nullness flowNullness) {
+    return flowNullness == null
+        ? getTypeNullness(type)
+        : (NullabilityUtil.nullnessToBool(flowNullness) ? Nullness.NULLABLE : Nullness.NONNULL);
+  }
+
+  /**
+   * Reuses a completed local solve only while all its scalar observations and lambda inputs still
+   * agree with the running analysis. In particular, a newly visited leaf or a changed loop store
+   * invalidates an outcome when it changes the nullness actually supplied to its constraints.
+   */
+  private @Nullable InferenceSuccess getDataflowInferenceOutcome(
+      Tree tree, VisitorState state, boolean calledFromDataflow) {
+    DataflowInferenceScope scope = dataflowInferenceScope;
+    if (!calledFromDataflow || scope == null) {
+      return null;
+    }
+    DataflowInferenceOutcome outcome = scope.outcomes.get(tree);
+    if (outcome == null
+        || !outcome.lambdaParameters().equals(lambdaParameterTypesForInference)
+        || !outcome.lambdaTargets().equals(lambdaTargetTypesForInference)) {
+      return null;
+    }
+    AccessPathNullnessAnalysis nullnessAnalysis = analysis.getNullnessAnalysis(state);
+    for (DataflowInferenceInput input : outcome.inputs().values()) {
+      TreePath enclosingPath =
+          NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(input.path());
+      if (enclosingPath == null
+          || !enclosingPath.getLeaf().equals(scope.enclosingTree)
+          || !nullnessAnalysis.isRunning(enclosingPath, state.context)) {
+        return null;
+      }
+      Nullness current = nullnessAnalysis.getNullnessFromRunning(input.path(), state.context);
+      if (dataflowInferenceInputNullness(input.type(), current) != input.nullness()) {
+        return null;
+      }
+    }
+    // A receiver solved by a nested request is also an input of every suspended enclosing solve.
+    for (Map<Tree, DataflowInferenceInput> inputs : scope.activeInputs) {
+      inputs.putAll(outcome.inputs());
+    }
+    return outcome.result();
   }
 
   /**
@@ -3353,7 +3512,11 @@ public final class GenericsChecks {
               lambdaPath, state, handler);
     } else {
       storeBeforeLambda =
-          nullnessAnalysis.getNullnessInfoBeforeNestedMethodNode(lambdaPath, state, handler);
+          withDataflowInferenceScope(
+              enclosingForLambda.getLeaf(),
+              () ->
+                  nullnessAnalysis.getNullnessInfoBeforeNestedMethodNode(
+                      lambdaPath, state, handler));
     }
     EnclosingEnvironmentNullness.instance(state.context)
         .addEnvironmentMapping(lambdaPath.getLeaf(), storeBeforeLambda);
@@ -4509,12 +4672,7 @@ public final class GenericsChecks {
     if (!invokedMethodSymbol.getTypeParameters().isEmpty()) {
       // Substitute type arguments inside the return type
       Type substitutedReturnType =
-          getResolvedCallSignature(
-                  callSite(tree).resolve(path, state, calledFromDataflow),
-                  path,
-                  state,
-                  calledFromDataflow)
-              .getReturnType();
+          getResolvedCallSignature(tree, path, state, calledFromDataflow).getReturnType();
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
@@ -4544,6 +4702,22 @@ public final class GenericsChecks {
     return com.sun.tools.javac.util.List.from(types);
   }
 
+  /** Resolves a signature with receiver observations owned before any scoped cache lookup. */
+  private Type.MethodType getResolvedCallSignature(
+      ExpressionTree tree,
+      @Nullable TreePath path,
+      VisitorState state,
+      boolean calledFromDataflow) {
+    return withDataflowInferenceInputs(
+        calledFromDataflow,
+        () ->
+            getResolvedCallSignature(
+                callSite(tree).resolve(path, state, calledFromDataflow),
+                path,
+                state,
+                calledFromDataflow));
+  }
+
   /**
    * Substitutes site-scoped inferred arguments into a receiver- and witness-resolved signature.
    * Method and class inference variables use the same path without inventing a quantified
@@ -4558,7 +4732,11 @@ public final class GenericsChecks {
   private Type.MethodType getResolvedCallSignature(
       InferenceCall call, @Nullable TreePath path, VisitorState state, boolean calledFromDataflow) {
     ExpressionTree invocationTree = call.site.tree;
-    CallInferenceResult cached = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
+    CallInferenceResult cached =
+        getDataflowInferenceOutcome(invocationTree, state, calledFromDataflow);
+    if (cached == null) {
+      cached = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
+    }
     if (cached instanceof InferenceSuccess complete) {
       InferenceCall completedCall = complete.calls().get(invocationTree);
       if (completedCall != null) {
@@ -4567,7 +4745,7 @@ public final class GenericsChecks {
     }
     Type.MethodType methodType = call.signature;
     if (!call.site.variables.isEmpty()) {
-      CallInferenceResult result = inferredTypeVarNullabilityForGenericCalls.get(invocationTree);
+      CallInferenceResult result = cached;
       if (result == null) {
         // have not yet attempted inference for this call
         CallAndContext invocationAndType =
@@ -4856,11 +5034,11 @@ public final class GenericsChecks {
    */
   private Type.MethodType getInvokedMethodTypeAtCall(
       Tree tree, @Nullable TreePath path, VisitorState state, boolean calledFromDataflow) {
-    InferenceCall call = callSite((ExpressionTree) tree).resolve(path, state, calledFromDataflow);
+    CallSite site = callSite((ExpressionTree) tree);
     Type.MethodType invokedMethodType =
-        getResolvedCallSignature(call, path, state, calledFromDataflow);
+        getResolvedCallSignature((ExpressionTree) tree, path, state, calledFromDataflow);
     return handler.onOverrideMethodType(
-        call.site.symbol,
+        site.symbol,
         invokedMethodType,
         state,
         tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
@@ -5192,7 +5370,8 @@ public final class GenericsChecks {
    * Returns the nullness of a value read from {@code type}. For wildcard and javac captured
    * wildcard types, uses the effective upper bound: a read from {@code Foo<? extends @Nullable
    * Object>} or {@code Foo<? super String>} can produce any value permitted by the capture's upper
-   * bound.
+   * bound. This read nullness is independent of whether wildcard-aware generic containment checks
+   * are enabled: completed functional targets can retain modeled wildcards even in that mode.
    *
    * @param type type from which a value is read
    * @param state visitor state
@@ -5217,7 +5396,7 @@ public final class GenericsChecks {
     if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
-    if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
+    if (GenericsUtils.asWildcard(type) != null) {
       Type effectiveUpperBound =
           GenericsUtils.effectiveWildcardUpperBound(type, state, config, handler);
       return getTypeNullnessForRead(
