@@ -1611,9 +1611,13 @@ public class LibraryModelsHandler implements Handler {
      * annotations.
      *
      * @param <T> the type of the associated state.
+     * @param state model state indexed first by method name, then by full method reference
+     * @param symbolToMethodRefCache bounded symbol conversion cache shared across all model
+     *     categories in this compilation
      */
     private record NameIndexedMap<T>(
-        Map<Name, Map<MethodRef, T>> state, Cache<Symbol.MethodSymbol, MethodRef> methodRefs) {
+        Map<Name, Map<MethodRef, T>> state,
+        Cache<Symbol.MethodSymbol, MethodRef> symbolToMethodRefCache) {
 
       /** Looks up a model, reusing a cached symbol conversion when the method name is modeled. */
       @Nullable T get(Symbol.MethodSymbol symbol) {
@@ -1621,10 +1625,10 @@ public class LibraryModelsHandler implements Handler {
         if (methodRefTMap == null) {
           return null;
         }
-        MethodRef ref = methodRefs.getIfPresent(symbol);
+        MethodRef ref = symbolToMethodRefCache.getIfPresent(symbol);
         if (ref == null) {
           ref = MethodRef.fromSymbol(symbol);
-          methodRefs.put(symbol, ref);
+          symbolToMethodRefCache.put(symbol, ref);
         }
         return methodRefTMap.get(ref);
       }
@@ -1636,10 +1640,9 @@ public class LibraryModelsHandler implements Handler {
 
     /**
      * Shares symbol conversions across model categories within this compilation's optimized models.
-     * Only symbols whose names occur in a model are cached. The size bound limits retained symbols
-     * and signatures in large compilations; evicted conversions are recomputed on demand.
+     * Only symbols whose names occur in a model are cached.
      */
-    private final Cache<Symbol.MethodSymbol, MethodRef> methodRefs =
+    private final Cache<Symbol.MethodSymbol, MethodRef> symbolToMethodRefCache =
         CacheBuilder.newBuilder()
             .concurrencyLevel(1)
             .maximumSize(MAX_METHOD_REF_CACHE_SIZE)
@@ -1767,7 +1770,7 @@ public class LibraryModelsHandler implements Handler {
             nameMapping.computeIfAbsent(methodName, k -> new LinkedHashMap<>());
         mapForName.put(ref, getValForRef.apply(ref));
       }
-      return new NameIndexedMap<>(nameMapping, methodRefs);
+      return new NameIndexedMap<>(nameMapping, symbolToMethodRefCache);
     }
 
     /**
