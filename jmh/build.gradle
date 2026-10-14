@@ -29,6 +29,7 @@ configurations {
 
     nullawayReleaseSources
     nullawayReleaseDeps
+    nullawayReleaseProcessors
 }
 dependencies {
 
@@ -50,20 +51,21 @@ dependencies {
     autodisposeSources('com.uber.autodispose2:autodispose:2.1.0:sources') {
         transitive = false
     }
-    nullawayReleaseSources('com.uber.nullaway:nullaway:0.14.2:sources') {
+    nullawayReleaseSources('com.uber.nullaway:nullaway:0.9.7:sources') {
         transitive = false
     }
 
     caffeineDeps 'com.github.ben-manes.caffeine:caffeine:3.3.0'
     autodisposeDeps 'com.uber.autodispose2:autodispose:2.1.0'
-    nullawayReleaseDeps 'com.uber.nullaway:nullaway:0.14.2'
+    nullawayReleaseDeps 'com.uber.nullaway:nullaway:0.9.7'
     // Add in the compile-only dependencies of NullAway
     // Use fixed versions here since we are compiling a particular version of NullAway
-    nullawayReleaseDeps "com.google.errorprone:error_prone_core:2.50.0"
-    nullawayReleaseDeps "com.uber.nullaway:nullaway-annotations:0.14.2"
-    nullawayReleaseDeps "com.google.auto.service:auto-service-annotations:1.1.1"
-    nullawayReleaseDeps "javax.inject:javax.inject:1"
-    nullawayReleaseDeps "org.jetbrains:annotations:24.1.0"
+    nullawayReleaseDeps "com.google.errorprone:error_prone_core:2.13.1"
+    nullawayReleaseDeps "com.facebook.infer.annotation:infer-annotation:0.11.0"
+    nullawayReleaseDeps "org.jetbrains:annotations:13.0"
+
+    // To run AutoValue during NullAway compilation
+    nullawayReleaseProcessors "com.google.auto.value:auto-value:1.9"
 
     testImplementation libs.junit4
 }
@@ -103,8 +105,10 @@ def autodisposeClasspath = configurations.autodisposeDeps.filter({f ->
     !f.toString().contains("autodispose-2.1.0")
 }).asPath
 def nullawayReleaseClasspath = configurations.nullawayReleaseDeps.filter({f ->
-    !f.toString().contains("nullaway-0.14.2")
+    !f.toString().contains("nullaway-0.9.7")
 }).asPath
+
+def nullawayReleaseProcessorpath = configurations.nullawayReleaseProcessors.asPath
 
 def extraJVMArgs = [
     // needed exports for Error Prone to run
@@ -125,6 +129,7 @@ def extraJVMArgs = [
     "-Dnullaway.autodispose.classpath=$autodisposeClasspath",
     "-Dnullaway.nullawayRelease.sources=${nullawayReleaseSourceDir.get()}",
     "-Dnullaway.nullawayRelease.classpath=$nullawayReleaseClasspath",
+    "-Dnullaway.nullawayRelease.processorpath=$nullawayReleaseProcessorpath",
 ]
 
 jmh {
