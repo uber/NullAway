@@ -33,6 +33,8 @@ import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind
 
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
+import com.google.common.cache.Cache;
+import com.google.common.cache.CacheBuilder;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
@@ -1597,21 +1599,33 @@ public class LibraryModelsHandler implements Handler {
    */
   private static class OptimizedLibraryModels {
 
+    private static final int MAX_METHOD_REF_CACHE_SIZE = 1000;
+
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
      * name as an optimization. The {@link Name} data structure is used to avoid unnecessary String
      * conversions when looking up {@link Symbol.MethodSymbol}s.
      *
+     * <p>Symbol-to-MethodRef conversions are cached across all model categories, after the name
+     * check, to avoid repeatedly formatting the same method signature and stripping its
+     * annotations.
+     *
      * @param <T> the type of the associated state.
      */
-    private record NameIndexedMap<T>(Map<Name, Map<MethodRef, T>> state) {
+    private record NameIndexedMap<T>(
+        Map<Name, Map<MethodRef, T>> state, Cache<Symbol.MethodSymbol, MethodRef> methodRefs) {
 
+      /** Looks up a model, reusing a cached symbol conversion when the method name is modeled. */
       @Nullable T get(Symbol.MethodSymbol symbol) {
         Map<MethodRef, T> methodRefTMap = state.get(symbol.name);
         if (methodRefTMap == null) {
           return null;
         }
-        MethodRef ref = MethodRef.fromSymbol(symbol);
+        MethodRef ref = methodRefs.getIfPresent(symbol);
+        if (ref == null) {
+          ref = MethodRef.fromSymbol(symbol);
+          methodRefs.put(symbol, ref);
+        }
         return methodRefTMap.get(ref);
       }
 
@@ -1619,6 +1633,17 @@ public class LibraryModelsHandler implements Handler {
         return state.get(symbol.name) == null;
       }
     }
+
+    /**
+     * Shares symbol conversions across model categories within this compilation's optimized models.
+     * Only symbols whose names occur in a model are cached. The size bound limits retained symbols
+     * and signatures in large compilations; evicted conversions are recomputed on demand.
+     */
+    private final Cache<Symbol.MethodSymbol, MethodRef> methodRefs =
+        CacheBuilder.newBuilder()
+            .concurrencyLevel(1)
+            .maximumSize(MAX_METHOD_REF_CACHE_SIZE)
+            .build();
 
     private final NameIndexedMap<ImmutableSet<Integer>> failIfNullParams;
     private final NameIndexedMap<ImmutableSet<Integer>> explicitlyNullableParams;
@@ -1742,7 +1767,7 @@ public class LibraryModelsHandler implements Handler {
             nameMapping.computeIfAbsent(methodName, k -> new LinkedHashMap<>());
         mapForName.put(ref, getValForRef.apply(ref));
       }
-      return new NameIndexedMap<>(nameMapping);
+      return new NameIndexedMap<>(nameMapping, methodRefs);
     }
 
     /**
