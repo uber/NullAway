@@ -590,6 +590,151 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericConstructorBoundSurvivesAnonymousSubclass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static class Consumer {
+                <U extends @Nullable Object> Consumer(Box<? extends U> b) {}
+              }
+              static class Pair<T extends @Nullable Object> {
+                <U extends @Nullable Object> Pair(Box<? extends U> b, T t) {}
+              }
+              static class StrictPair<T extends @Nullable Object> {
+                <U> StrictPair(Box<? extends U> b, T t) {}
+              }
+              static class StrictConsumer {
+                <U extends Object> StrictConsumer(Box<? extends U> b) {}
+              }
+              void plain(Box<@Nullable String> bn) {
+                new Consumer(bn);
+              }
+              void anon(Box<@Nullable String> bn) {
+                new Consumer(bn) {};
+              }
+              void diamondPlain(Box<@Nullable String> bn) {
+                Pair<String> p = new Pair<>(bn, "x");
+              }
+              void diamondAnon(Box<@Nullable String> bn) {
+                Pair<String> p = new Pair<>(bn, "x") {};
+              }
+              void strictDiamondPlain(Box<@Nullable String> bn) {
+                // BUG: Diagnostic contains: upper bound requires it to be @NonNull
+                StrictPair<String> p = new StrictPair<>(bn, "x");
+              }
+              void strictDiamondAnon(Box<@Nullable String> bn) {
+                // BUG: Diagnostic contains: upper bound requires it to be @NonNull
+                StrictPair<String> p = new StrictPair<>(bn, "x") {};
+              }
+              void strictPlain(Box<@Nullable String> bn) {
+                // BUG: Diagnostic contains: upper bound requires it to be @NonNull
+                new StrictConsumer(bn);
+              }
+              void strictAnon(Box<@Nullable String> bn) {
+                // BUG: Diagnostic contains: upper bound requires it to be @NonNull
+                new StrictConsumer(bn) {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericConstructorBoundSurvivesAnonymousSubclassInConstructorBody() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static class Consumer {
+                <U extends @Nullable Object> Consumer(Box<U> b) {
+                  // BUG: Diagnostic contains: Box<U> cannot be converted to Box<? extends Object>
+                  Box<? extends Object> widened = b;
+                }
+              }
+              static class StrictConsumer {
+                <U> StrictConsumer(Box<U> b) {
+                  Box<? extends Object> widened = b;
+                }
+              }
+              static class Narrowing {
+                <T, S extends @Nullable T> Narrowing(Box<S> s, Box<T> t) {
+                  // BUG: Diagnostic contains: Box<S> cannot be converted to Box<? extends T>
+                  Box<? extends T> narrowed = s;
+                }
+              }
+              static class Iterating {
+                <U extends @Nullable Object> Iterating(java.util.List<? extends U> items) {
+                  for (Object item : items) {
+                    // BUG: Diagnostic contains: dereferenced expression 'item' is @Nullable
+                    item.hashCode();
+                  }
+                }
+              }
+              static class Bounded {
+                <A, B extends @Nullable A> Bounded(Box<A> a, Box<? extends B> b) {}
+              }
+              void anon(Box<@Nullable String> bn, Box<String> b) {
+                new Consumer(bn) {};
+                new StrictConsumer(b) {};
+                new Narrowing(bn, b) {};
+                new Iterating(java.util.List.of()) {};
+                new Bounded(b, bn) {};
+              }
+              void plain(Box<@Nullable String> bn, Box<String> b) {
+                new Bounded(b, bn);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void genericConstructorBoundSurvivesAnonymousSubclassWithExplicitTypeArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static class Consumer {
+                <U extends @Nullable Object> Consumer(Box<? extends U> b) {}
+              }
+              static class StrictConsumer {
+                <U> StrictConsumer(Box<? extends U> b) {}
+              }
+              void plain(Box<@Nullable String> bn) {
+                new <@Nullable String>Consumer(bn);
+              }
+              void anon(Box<@Nullable String> bn) {
+                new <@Nullable String>Consumer(bn) {};
+              }
+              void strictAnon(Box<String> b) {
+                // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                new <@Nullable String>StrictConsumer(b) {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableAnnotOnMethodTypeVarUse() {
     makeHelper()
         .addSourceLines(
