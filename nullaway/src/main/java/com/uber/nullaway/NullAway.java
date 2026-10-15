@@ -974,7 +974,10 @@ public class NullAway extends BugChecker
         continue;
       }
       int methodParamInd = i - startParam;
-      VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
+      // a varargs method reference can take several parameters as elements of its last one
+      VarSymbol paramSymbol =
+          overridingParamSymbols.get(
+              getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree));
       boolean paramIsNonNull =
           paramOfOverridingMethodIsNonNull(
               paramSymbol,
@@ -1037,8 +1040,10 @@ public class NullAway extends BugChecker
    * Checks if the parameter of the overriding method is {@code @NonNull}
    *
    * @param paramSymbol the symbol for the parameter of the overriding method
-   * @param methodParamInd the index of the parameter in the method signature of the overriding
-   *     method (adjusted for unbound member references)
+   * @param methodParamInd the index of the parameter in the functional-interface method, adjusted
+   *     for unbound member references; for a member reference to a varargs method that takes
+   *     several parameters as elements of its varargs parameter, it can exceed the index of the
+   *     overriding method's last parameter
    * @param overridingMethod if available, the symbol for the overriding method
    * @param isMethodAnnotated whether the overriding method is annotated
    * @param memberReferenceTree if the overriding method is a member reference, the tree for the
@@ -1060,7 +1065,8 @@ public class NullAway extends BugChecker
       @Nullable MethodParameterNullness referencedMethodParameterNullnessOverrides) {
     if (referencedMethodParameterNullnessOverrides != null) {
       Nullness parameterNullnessOverride =
-          referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
+          referencedMethodParameterNullnessOverrides.getParameterNullness(
+              getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree));
       if (parameterNullnessOverride != null) {
         // An explicit handler value takes precedence over annotations and generic substitution.
         return parameterNullnessOverride.equals(Nullness.NONNULL);

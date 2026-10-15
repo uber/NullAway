@@ -52,6 +52,44 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void aMethodReferencePassingSeveralParametersAsVarargsElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiConsumer;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test {
+              interface TriConsumer<
+                  A extends @Nullable Object, B extends @Nullable Object, C extends @Nullable Object> {
+                void accept(A a, B b, C c);
+              }
+              static void nonNullElements(String... elements) {}
+              static void nullableElements(@Nullable String... elements) {}
+              static void nonNullAfterAFixedParameter(String first, String... rest) {}
+              static void nullableAfterAFixedParameter(String first, @Nullable String... rest) {}
+              void test() {
+                BiConsumer<String, @Nullable String> nullable = Test::nullableElements;
+                // BUG: Diagnostic contains: parameter elements of referenced method is @NonNull
+                BiConsumer<String, @Nullable String> nonNull = Test::nonNullElements;
+                TriConsumer<String, String, @Nullable String> nullableAfterFixed =
+                    Test::nullableAfterAFixedParameter;
+                TriConsumer<String, String, @Nullable String> nonNullAfterFixed =
+                    // BUG: Diagnostic contains: parameter rest of referenced method is @NonNull
+                    Test::nonNullAfterAFixedParameter;
+                TriConsumer<@Nullable String, String, String> nullableIntoTheFixed =
+                    // BUG: Diagnostic contains: parameter first of referenced method is @NonNull
+                    Test::nullableAfterAFixedParameter;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testNullableVarargs() {
     makeHelper()
         .addSourceLines(

@@ -56,6 +56,37 @@ public class VarargsLibraryModelsTests {
   }
 
   @Test
+  public void methodReferencePassingSeveralParametersAsElements() {
+    makeLibraryModelsTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.NullMarkedVarargsWithModel;
+            import java.util.function.BiConsumer;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            public class Test {
+              void test() {
+                BiConsumer<@Nullable String, @Nullable String> contents =
+                    NullMarkedVarargsWithModel::nullableContents;
+                BiConsumer<@Nullable String, @Nullable String> both =
+                    NullMarkedVarargsWithModel::bothNullable;
+                // the model makes the array nullable, not its elements
+                BiConsumer<@Nullable String, @Nullable String> array =
+                    // BUG: Diagnostic contains: parameter args of referenced method is @NonNull
+                    NullMarkedVarargsWithModel::nullableArray;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void jspecifyModeRestrictive() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(

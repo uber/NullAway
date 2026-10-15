@@ -54,6 +54,30 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void aMethodReferencePassingSeveralParametersAsVarargsElements() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              interface TwoStrings {
+                void accept(String first, @Nullable String second);
+              }
+              static void nonNullElements(String... elements) {}
+              static void nullableElements(@Nullable String... elements) {}
+              void test() {
+                TwoStrings nullable = Test::nullableElements;
+                // BUG: Diagnostic contains: parameter elements of referenced method is @NonNull
+                TwoStrings nonNull = Test::nonNullElements;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testNullableVarargs() {
     defaultCompilationHelper
         .addSourceLines(
