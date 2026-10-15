@@ -5,6 +5,7 @@ import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import java.util.List;
+import org.junit.Assume;
 import org.junit.Test;
 
 public class WildcardTests extends NullAwayTestsBase {
@@ -1860,5 +1861,493 @@ public class WildcardTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:OnlyNullMarked=true")));
+  }
+
+  @Test
+  public void anInferenceResultFixedNonNullKeepsNullOutOfALowerBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                E e;
+                Box(E e) { this.e = e; }
+                void set(E e) { this.e = e; }
+                E get() { return e; }
+              }
+              static <E extends @Nullable Object> Box<E> id(Box<E> box) {
+                return box;
+              }
+              static <E extends @Nullable Object> Box<E> wrap(E e) {
+                return new Box<>(e);
+              }
+              static void leastSolutionOfANonNullArgument() {
+                var inferred = wrap(new Object());
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable String> sink = inferred;
+                sink.set(null);
+                inferred.get().toString();
+              }
+              static void fixedByTheArgument(Box<Object> original) {
+                var inferred = id(original);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable String> sink = inferred;
+                sink.set(null);
+                original.get().toString();
+              }
+              void fixedByAProjection(Box<@NonNull T> original) {
+                var inferred = id(original);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? super @Nullable T> sink = inferred;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Where javac inferred a class type, such as {@code Object} for the least upper bound of {@code
+   * T} and {@code String}, an inference variable that a {@code T} whose bound admits null reached
+   * is {@code @Nullable}: no other nullness of {@code Object} holds a null {@code T}. Every reader
+   * of the result sees the same {@code @Nullable}, so a list that accepts a null through {@code
+   * sink} also reports the null read back from it. Where javac inferred {@code T} itself, the
+   * result is {@code T} and is dereferenced without a report, as {@code t} is (#1727). A
+   * {@code @NonNull} written on the variable's use keeps that use non-null.
+   */
+  @Test
+  public void anInferenceResultInferredAsAClassTypeHoldsTheNullOfTheTypeVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static <E extends @Nullable Object> List<E> of(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
+              static <U extends @Nullable Object> @NonNull U pickNonNull(U a, U b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> List<@NonNull U> ofNonNull(U a, U b) {
+                throw new UnsupportedOperationException();
+              }
+              static void takeObjects(List<Object> objects) {}
+              void throughALocal(T t) {
+                var inferred = of(t, "x");
+                List<? super @Nullable Object> sink = inferred;
+                sink.add(null);
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable Object> cannot be converted to List<? extends Object>
+                List<? extends Object> source = inferred;
+                // BUG: Diagnostic contains: dereferenced expression 'inferred.get(0)' is @Nullable
+                inferred.get(0).toString();
+                // BUG: Diagnostic contains: incompatible types
+                takeObjects(inferred);
+              }
+              void throughTheCall(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'pick(t, "x")' is @Nullable
+                pick(t, "x").toString();
+                // BUG: Diagnostic contains: dereferenced expression 'of(t, "x").get(0)' is @Nullable
+                of(t, "x").get(0).toString();
+              }
+              void explicitlyNonNull(T t) {
+                pickNonNull(t, "x").toString();
+                ofNonNull(t, "x").get(0).toString();
+              }
+              void inferredAsTheTypeVariable(T t) {
+                pick(t, t).toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * The {@code @Nullable} inferred for a class-type result reaches a lambda parameter, an
+   * enhanced-for variable, and the receiver of a call on the result, which read the inferred type
+   * rather than the call's return nullness.
+   */
+  @Test
+  public void aClassTypeResultIsNullableInLambdasLoopsAndReceivers() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Consumer;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                E get() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <E extends @Nullable Object> List<E> of(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
+              static <E extends @Nullable Object> Box<E> wrap(E e) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> void with(U a, U b, Consumer<U> c) {}
+              void lambdaParameter(T t) {
+                with(t, "x", u -> {
+                  // BUG: Diagnostic contains: dereferenced expression 'u' is @Nullable
+                  u.toString();
+                });
+              }
+              void loopVariable(T t) {
+                for (Object o : of(t, "x")) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
+                  o.hashCode();
+                }
+              }
+              void receiver(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'wrap(pick(t, "x")).get()' is @Nullable
+                wrap(pick(t, "x")).get().toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * The {@code @Nullable} inferred for a class-type result reaches a wildcard in the result type
+   * and a wildcard that a member of a diamond's class returns, where javac's type carries a capture
+   * or a wildcard bound that the inferred nullness was never substituted into.
+   */
+  @Test
+  public void aClassTypeResultIsNullableInsideAWildcard() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                Box(E a, E b) {}
+                Box<? extends E> self() {
+                  throw new UnsupportedOperationException();
+                }
+                Box<? super E> sink() {
+                  throw new UnsupportedOperationException();
+                }
+                E get() {
+                  throw new UnsupportedOperationException();
+                }
+                void set(E e) {}
+              }
+              static <U extends @Nullable Object> Box<? extends U> wrap(U a, U b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> Box<? super U> sinkOf(U a, U b) {
+                throw new UnsupportedOperationException();
+              }
+              void f(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'wrap(t, "x").get()' is @Nullable
+                wrap(t, "x").get().toString();
+                sinkOf(t, "x").set(null);
+                var box = new Box<>(t, "x");
+                // BUG: Diagnostic contains: dereferenced expression 'box.self().get()' is @Nullable
+                box.self().get().toString();
+                box.sink().set(null);
+                // BUG: Diagnostic contains: incompatible types
+                Box<? extends Object> nonNull = box.self();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A class-type result is {@code @Nullable} only where the bound of the type variable that reached
+   * it and the bound of the inference variable itself are explicitly nullable, directly or through
+   * another type variable. Elsewhere it is non-null, the least solution: a type variable from
+   * unannotated code and an unannotated callee are read optimistically, and a {@code @NonNull}
+   * written in unannotated code still excludes null.
+   */
+  @Test
+  public void aClassTypeResultIsNullableOnlyThroughExplicitlyNullableBounds() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <E extends @Nullable Object> List<E> of(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              static <E extends F, F extends @Nullable Object> List<E> ofThroughAVariable(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              static <E> List<E> nonNullOf(E a, E b) {
+                throw new UnsupportedOperationException();
+              }
+              @NullUnmarked
+              static class Lib {
+                static <E> List<E> unannotatedOf(E a, E b) {
+                  throw new UnsupportedOperationException();
+                }
+                static <E extends @NonNull Object> List<E> nonNullOf(E a, E b) {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static <T extends @Nullable Object> void boundNullableThroughAVariable(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'ofThroughAVariable(t, "x").get(0)' is @Nullable
+                ofThroughAVariable(t, "x").get(0).toString();
+              }
+              static <T extends @Nullable Object> void ownBoundExcludesNull(T t) {
+                nonNullOf(t, "x").get(0).toString();
+              }
+              static <T extends @Nullable Object> void unannotatedCallee(T t) {
+                Lib.unannotatedOf(t, "x").get(0).toString();
+                var inferred = Lib.nonNullOf(t, "x");
+                inferred.get(0).toString();
+                // BUG: Diagnostic contains: incompatible types
+                List<? super @Nullable Object> sink = inferred;
+              }
+              @NullUnmarked
+              static class Unmarked<T> {
+                @NullMarked
+                void unannotatedTypeVariable(T t) {
+                  var inferred = of(t, "x");
+                  inferred.get(0).toString();
+                  // BUG: Diagnostic contains: incompatible types
+                  List<? super @Nullable Object> sink = inferred;
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A generic method reference and a generic constructor are judged against the types javac
+   * inferred for them, as a generic method call is, so the {@code @Nullable} inferred for {@code U}
+   * on the referenced method and on the constructor is the one its parameters are checked with.
+   */
+  @Test
+  public void aGenericMethodReferenceAndAGenericConstructorTakeTheInferredClassType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                <U extends @Nullable Object> Box(Box<? extends U> input, U hint) {}
+              }
+              static class Holder<E extends @Nullable Object> {
+                Holder(E a, E b, Function<E, List<E>> function) {}
+              }
+              static <U extends @Nullable Object> void use(U a, U b, Function<U, List<U>> function) {}
+              static <V extends @Nullable Object> List<V> singleton(V value) {
+                throw new UnsupportedOperationException();
+              }
+              void methodReference(T t) {
+                use(t, new Object(), Test::singleton);
+              }
+              void methodReferenceIntoADiamond(T t) {
+                var holder = new Holder<>(t, new Object(), Test::singleton);
+              }
+              void constructor(Box<T> input) {
+                var result = new Box<>(input, new Object());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Nested calls of one generic class or method share its type variable during inference, so the
+   * class-type result of the outer call cannot take the {@code @Nullable} that the inner call's
+   * argument implies. Such a result stays non-null, the least solution.
+   */
+  @Test
+  public void aTypeVariableSharedByNestedCallsLeavesAClassTypeResultNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static class Box<E extends @Nullable Object> {
+                final E value;
+                Box(E value) {
+                  this.value = value;
+                }
+                E get() {
+                  return value;
+                }
+              }
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
+              void nestedDiamonds(T t) {
+                new Box<>(new Box<>(t)).get().toString();
+              }
+              void nestedCallsOfOneMethod(T t) {
+                pick(pick(t, "x"), "y").toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Dataflow reads a {@code T} whose bound admits null as non-null whether or not the code checked
+   * it (#1727), so inference cannot tell a checked {@code t} from an unchecked one, and a
+   * class-type result is {@code @Nullable} after a null check too. This is a false positive.
+   */
+  @Test
+  public void aNullCheckOfATypeVariableDoesNotReachInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              static <U extends @Nullable Object> U pick(U a, U b) {
+                return a;
+              }
+              void f(T t) {
+                if (t != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'pick(t, "x")' is @Nullable
+                  pick(t, "x").toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Where javac inferred an intersection type, such as the least upper bound of two classes that
+   * implement {@code Runnable} and {@code Serializable}, the result carries no annotation, since
+   * the root of an intersection takes the nullness of its elements, so it stays non-null even where
+   * a {@code T} that admits null reached it.
+   */
+  @Test
+  public void aClassTypeResultInferredAsAnIntersectionStaysNonNull() {
+    // on JDK 17, javac refuses to annotate an intersection type, and NullAway fails on this source
+    // whether or not this change is applied
+    Assume.assumeTrue(Runtime.version().feature() > 17);
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.io.Serializable;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends Test.@Nullable A> {
+              static class A implements Runnable, Serializable {
+                public void run() {}
+              }
+              static class B implements Runnable, Serializable {
+                public void run() {}
+              }
+              static <E extends @Nullable Object> E pick(E a, E b) {
+                return a;
+              }
+              void f(T t) {
+                pick(t, new B()).run();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * The JSpecify JDK models decide the bound of the inference variable: {@code Arrays.asList}
+   * admits null and {@code List.of} does not.
+   */
+  @Test
+  public void aClassTypeResultFromTheJdkFollowsTheModelsBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Arrays;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<T extends @Nullable Object> {
+              void f(T t) {
+                // BUG: Diagnostic contains: dereferenced expression 'Arrays.asList(t, "x").get(0)' is @Nullable
+                Arrays.asList(t, "x").get(0).toString();
+                List.of(t, "x").get(0).toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inferenceCannotFitATypeVariableWhoseBoundAdmitsNullIntoANonNullVariable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<E extends @Nullable Object> {}
+              static <U> U nonNullVariable(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <U extends @Nullable Object> U nullableVariable(Box<? extends U> b) {
+                throw new UnsupportedOperationException();
+              }
+              static <T extends @Nullable Object> void intoNonNullVariable(Box<T> b) {
+                // BUG: Diagnostic contains: inference failure: type variable U is constrained to be @Nullable
+                Object o = nonNullVariable(b);
+              }
+              static <T extends @Nullable Object> void intoNullableVariable(Box<T> b) {
+                Object o = nullableVariable(b);
+              }
+              static <T> void nonNullBoundIntoNonNullVariable(Box<T> b) {
+                Object o = nonNullVariable(b);
+              }
+              static <T extends @Nullable Object> void intoJdkCopyOf(List<T> in) {
+                // BUG: Diagnostic contains: inference failure: type variable E is constrained to be @Nullable
+                List<T> copy = List.copyOf(in);
+              }
+            }
+            """)
+        .doTest();
   }
 }
