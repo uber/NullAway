@@ -3304,6 +3304,127 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void anImplicitReceiverIsTheInnermostClassWithTheMethodAsAMember() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Base<E extends @Nullable Object> {
+                void put(E element) {}
+              }
+              static class Other<F extends @Nullable Object> {}
+              static class WithPrivate<E extends @Nullable Object> {
+                E value;
+                WithPrivate(E value) {
+                  this.value = value;
+                }
+                private E get() {
+                  return value;
+                }
+                void fromAnAnonymousSubclass() {
+                  new WithPrivate<@Nullable String>(null) {
+                    void call() {
+                      // a private method binds to the declaring class's E, not to @Nullable String
+                      get().hashCode();
+                    }
+                  };
+                }
+              }
+              static class NullableSub extends Base<@Nullable String> {
+                void fromAnAnonymousClassOfAnotherType(@Nullable String value) {
+                  new Other<String>() {
+                    void call() {
+                      put(value);
+                    }
+                  };
+                }
+              }
+              static class NonNullSub extends Base<String> {
+                void fromAnAnonymousClassOfAnotherType(@Nullable String value) {
+                  new Other<String>() {
+                    void call() {
+                      // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                      put(value);
+                    }
+                  };
+                }
+              }
+              void fromTheAnonymousClass(@Nullable String value) {
+                new Base<@Nullable String>() {
+                  void call() {
+                    put(value);
+                    Runnable r = () -> put(value);
+                  }
+                };
+              }
+              void fromAClassNestedInTheAnonymousClass(@Nullable String value) {
+                new Base<@Nullable String>() {
+                  class Inner {
+                    void call() {
+                      put(value);
+                    }
+                  }
+                };
+              }
+              void fromADiamondAnonymousClass(@Nullable String value) {
+                Base<@Nullable String> base =
+                    new Base<>() {
+                      private void call() {
+                        put(value);
+                      }
+                    };
+              }
+              void fromAnAnonymousClassWithANonNullTypeArgument(@Nullable String value) {
+                new Base<String>() {
+                  void call() {
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                    put(value);
+                  }
+                  class Inner {
+                    void call() {
+                      // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                      put(value);
+                    }
+                  }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void aConstructorCallTakesTheCallingClassAsItsReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test<E extends @Nullable Object> {
+              private Test(E element) {}
+              static class NullableSub extends Test<@Nullable String> {
+                NullableSub() {
+                  super(null);
+                }
+              }
+              static class NonNullSub extends Test<String> {
+                NonNullSub() {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                  super(null);
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(

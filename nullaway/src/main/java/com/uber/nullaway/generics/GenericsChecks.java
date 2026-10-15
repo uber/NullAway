@@ -2974,6 +2974,48 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns the type of the implicit receiver of a call of {@code method} at {@code path}. For a
+   * method, this is the innermost enclosing class that has the method as a member, as javac
+   * resolves the call, so a private method binds to the class that declares it rather than to an
+   * anonymous subclass. Where that class is an anonymous class that does not declare the method,
+   * this is its supertype as the class instance creation writes it, so the annotations on its type
+   * arguments are kept. For a {@code super(...)} or {@code this(...)} constructor call, this is the
+   * innermost enclosing class.
+   *
+   * @param method the invoked method or constructor
+   * @param path the path to the call
+   * @param state the visitor state
+   * @return the receiver type, or the innermost enclosing class's type if no enclosing class has
+   *     the method as a member, or {@code null} outside a class
+   */
+  private @Nullable Type getImplicitReceiverType(
+      Symbol.MethodSymbol method, TreePath path, VisitorState state) {
+    Symbol.TypeSymbol owner = ASTHelpers.enclosingClass(method);
+    Type innermostType = null;
+    for (TreePath p = path; p != null; p = p.getParentPath()) {
+      if (!(p.getLeaf() instanceof ClassTree classTree)) {
+        continue;
+      }
+      Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
+      Type classType = castToNonNull(ASTHelpers.getType(classTree));
+      if (innermostType == null) {
+        innermostType = classType;
+        if (method.isConstructor()) {
+          return innermostType;
+        }
+      }
+      if (owner != null && method.isMemberOf(classSymbol, state.getTypes())) {
+        if (classSymbol.isAnonymous() && !owner.equals(classSymbol)) {
+          Type supertype = getTypeForSymbol(classSymbol, state.withPath(p));
+          return supertype != null ? supertype : classType;
+        }
+        return classType;
+      }
+    }
+    return innermostType;
+  }
+
+  /**
    * Get the type for the symbol, accounting for anonymous classes
    *
    * @param symbol the symbol
@@ -3542,13 +3584,9 @@ public final class GenericsChecks {
       ExpressionTree methodSelect =
           ASTHelpers.stripParentheses(methodInvocationTree.getMethodSelect());
       if (methodSelect instanceof IdentifierTree) {
-        // implicit this parameter, or a super call.  in either case, use the type of the enclosing
-        // class.
+        // implicit this parameter, or a super call
         TreePath basePath = (path != null) ? path : state.getPath();
-        ClassTree enclosingClassTree = ASTHelpers.findEnclosingNode(basePath, ClassTree.class);
-        if (enclosingClassTree != null) {
-          enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
-        }
+        enclosingType = getImplicitReceiverType(invokedMethodSymbol, basePath, state);
       } else if (methodSelect instanceof MemberSelectTree memberSelectTree) {
         ExpressionTree receiver = ASTHelpers.stripParentheses(memberSelectTree.getExpression());
         TreePath curPath = path != null ? path : state.getPath();
