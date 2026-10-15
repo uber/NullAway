@@ -34,9 +34,9 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 Bar<@Nullable Void> b = new Bar<>(Foo.make());
               }
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 Bar<String> b = new Bar<>(Foo.makeNullableStr());
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable Void> cannot be converted to Foo<Void>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Void, required Void
                 Bar<Void> b2 = new Bar<>(Foo.make());
               }
             }
@@ -99,7 +99,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 return new Bar<>(Foo.make());
               }
               Bar<String> testPositive() {
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return new Bar<>(Foo.makeNullableStr());
               }
             }
@@ -135,7 +135,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 takeNullableVoid(new Bar<>(Foo.make()));
               }
               void testPositive() {
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 takeStr(new Bar<>(Foo.makeNullableStr()));
               }
             }
@@ -168,7 +168,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 return (new Bar<>(Foo.make()));
               }
               Bar<String> testPositive() {
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return (new Bar<>(Foo.makeNullableStr()));
               }
             }
@@ -205,7 +205,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 return new Baz<>(new Bar<>(Foo.make()));
               }
               Baz<String> testPositive() {
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return new Baz<>(new Bar<>(Foo.makeNullableStr()));
               }
             }
@@ -338,14 +338,14 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 return new Bar<>(Foo.make()) {};
               }
               Bar<String> returnPositive() {
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return new Bar<>(Foo.makeNullableStr()) {};
               }
               void paramNegative() {
                 takeNullableVoid(new Bar<>(Foo.make()) {});
               }
               void paramPositive() {
-                // BUG: Diagnostic contains: incompatible types: Foo<@Nullable String> cannot be converted to Foo<String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 takeStr(new Bar<>(Foo.makeNullableStr()) {});
               }
             }
@@ -434,7 +434,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 new Bar<>(f1, f2);
               }
               static void testPositive(Foo<String> f1, Foo<@Nullable String> f2) {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 new Bar<>(f1, f2);
               }
             }
@@ -467,7 +467,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 takeFooNullableString(id(new FooImpl<>(makeNullableFoo())));
               }
               static void testPositive() {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 takeFooString(id(new FooImpl<>(makeNullableFoo())));
               }
             }
@@ -498,7 +498,7 @@ public class GenericDiamondTests extends NullAwayTestsBase {
                 return new Box<>(id(makeNullableFoo()));
               }
               static Box<String> testPositive() {
-                // BUG: Diagnostic contains: incompatible types
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 return new Box<>(id(makeNullableFoo()));
               }
             }

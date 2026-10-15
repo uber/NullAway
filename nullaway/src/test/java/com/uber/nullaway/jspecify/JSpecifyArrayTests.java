@@ -360,7 +360,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 takesParameterized(array);
               }
               static void passNullableElements(@Nullable Test[] array) {
-                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Test, required Test<String>
                 takesParameterized(array);
               }
               static Test<String>[] returnNonNullElements(Test[] array) {
@@ -368,7 +368,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 return array;
               }
               static Test<String>[] returnNullableElements(@Nullable Test[] array) {
-                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Test, required Test<String>
                 return array;
               }
               static void assignNonNullElements(Test[] array) {
@@ -376,7 +376,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 Test<String>[] assigned = array;
               }
               static void assignNullableElements(@Nullable Test[] array) {
-                // BUG: Diagnostic contains: incompatible types: @Nullable Test [] cannot be converted to Test<String> []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Test, required Test<String>
                 Test<String>[] assigned = array;
               }
               static void passNonNullElementsThroughTernary(boolean b, Test[] array) {
@@ -464,7 +464,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 @Nullable Integer[] x2 = nullableIntArr;
                 // legal (covariant array subtypes)
                 x2 = nonnullIntArr;
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 x1 = nullableIntArr;
               }
             }
@@ -488,7 +488,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 @Nullable Integer[] x2 = new Integer[0];
                 // legal
                 x2 = new @Nullable Integer[0];
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 x1 = new @Nullable Integer[0];
               }
             }
@@ -510,12 +510,12 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // dimension of the creation expression
                 @Nullable Integer[][] x1 = new @Nullable Integer[3][4];
                 @Nullable Integer[][][] x2 = new @Nullable Integer[1][2][3];
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[][] x3 = new @Nullable Integer[3][4];
                 // an array creation with an initializer has no explicit dimension expressions, but
                 // still creates a single-dimension array
                 @Nullable Integer[] x4 = new @Nullable Integer[]{null};
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] cannot be converted to Integer []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[] x5 = new @Nullable Integer[]{null};
                 // the reverse direction is legal by covariant array subtyping
                 @Nullable Integer[] y1 = new Integer[3];
@@ -553,13 +553,13 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // the declared type and the type computed for the creation expression made
                 // CheckIdenticalNullabilityVisitor#visitArrayType bail out, so the innermost
                 // element types were never compared
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer @Nullable [] []
+                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found @Nullable Integer [], required Integer @Nullable []
                 Integer[] @Nullable [] y4 = new @Nullable Integer[3][4];
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] cannot be converted to Integer [] []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[][] y1 = nullableElems2D;
-                // BUG: Diagnostic contains: incompatible types: @Nullable Integer [] [] [] cannot be converted to Integer [] [] []
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable Integer, required Integer
                 Integer[][][] y2 = nullableElems3D;
-                // BUG: Diagnostic contains: incompatible types: Integer @Nullable [] [] cannot be converted to Integer [] []
+                // BUG: Diagnostic contains: incompatible nullability: found Integer @Nullable [], required Integer []
                 Integer[][] y3 = nullableInner;
               }
             }
@@ -579,7 +579,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             class Test {
               void foo(List<@Nullable Integer[]> l) {}
               void testPositive(List<Integer[]> p) {
-                // BUG: Diagnostic contains: incompatible types: List<Integer []>
+                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found Integer, required @Nullable Integer
                 foo(p);
               }
               void testNegative(List<@Nullable Integer[]> p) {
@@ -603,7 +603,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static class Bar<T> {
                 Foo<T>[] getFoosPositive() {
                   @Nullable Foo<T>[] result = new Foo[0];
-                  // BUG: Diagnostic contains: incompatible types:
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Foo<T>, required Foo<T>
                   return result;
                 }
                 Foo<T>[] getFoosNegative() {
@@ -612,7 +612,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 }
                 void takeFoos(Foo<T>[] foos) {}
                 void callTakeFoosPositive(@Nullable Foo<T>[] p) {
-                  // BUG: Diagnostic contains: incompatible types: @Nullable Foo<T> []
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Foo<T>, required Foo<T>
                   takeFoos(p);
                 }
                 void callTakeFoosNegative(Foo<T>[] p) {
@@ -622,9 +622,9 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 void callTakeFoosVarargsPositive(@Nullable Foo<T>[] p, Foo<T>[] p2) {
                   // Under the hood, a @Nullable Foo<T>[][] is passed, which is not a subtype
                   // of the formal parameter type Foo<T>[][]
-                  // BUG: Diagnostic contains: incompatible types: @Nullable Foo<T> []
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Foo<T>, required Foo<T>
                   takeFoosVarargs(p);
-                  // BUG: Diagnostic contains: incompatible types: @Nullable Foo<T> []
+                  // BUG: Diagnostic contains: incompatible nullability: found @Nullable Foo<T>, required Foo<T>
                   takeFoosVarargs(p2, p);
                 }
                 void callTakeFoosVarargsNegative(Foo<T>[] p) {
@@ -1195,7 +1195,7 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
               static void nullableTypeArgumentRejectedFromNonNullBoundedWildcardArray(
                   CompletableFuture<? extends String>[] futures,
                   CompletableFuture<@Nullable String> value) {
-                // BUG: Diagnostic contains: incompatible types: CompletableFuture<@Nullable String> cannot be converted to CompletableFuture<? extends String>
+                // BUG: Diagnostic contains: incompatible nullability: found @Nullable String, required String
                 futures[0] = value;
               }
             }
