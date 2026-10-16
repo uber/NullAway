@@ -21,15 +21,15 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   }
 
   private final ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath;
-  private final Type updateType;
+  private final Type annotationOrReplacementType;
   private final UpdateKind updateKind;
 
   private NestedTypePathUpdater(
       ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath,
-      Type updateType,
+      Type annotationOrReplacementType,
       UpdateKind updateKind) {
     this.typePath = typePath;
-    this.updateType = updateType;
+    this.annotationOrReplacementType = annotationOrReplacementType;
     this.updateKind = updateKind;
   }
 
@@ -52,8 +52,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
 
   private Type updateLeaf(Type type) {
     return updateKind == UpdateKind.ADD_ANNOTATION
-        ? TypeSubstitutionUtils.typeWithAnnot(type, updateType)
-        : updateType;
+        ? TypeSubstitutionUtils.typeWithAnnot(type, annotationOrReplacementType)
+        : annotationOrReplacementType;
   }
 
   @Override
@@ -162,11 +162,13 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
             Verify.verifyNotNull(
                 wildcard.bound, "unbounded wildcard has no corresponding formal type variable");
         Type updatedUpperBound =
-            TypeSubstitutionUtils.typeWithAnnot(formalTypeVariable.getUpperBound(), updateType);
+            TypeSubstitutionUtils.typeWithAnnot(
+                formalTypeVariable.getUpperBound(), annotationOrReplacementType);
         updatedWildcard =
             TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(wildcard, updatedUpperBound);
       } else {
-        Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(wildcard.type, updateType);
+        Type updatedBound =
+            TypeSubstitutionUtils.typeWithAnnot(wildcard.type, annotationOrReplacementType);
         updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
       }
     }
