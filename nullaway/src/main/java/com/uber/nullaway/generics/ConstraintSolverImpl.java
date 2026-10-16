@@ -132,8 +132,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       boolean declaredNullable =
           GenericsUtils.upperBoundIsNullable(entry.getKey(), config, handler, state);
       Type upperBound = freshVar.getUpperBound();
-      // Do not annotate synthetic intersection bounds: javac's metadata cloning can assert or
-      // replace them with an ordinary ClassType, losing the intersection structure.
+      // Do not annotate synthetic intersection bounds (checked with the upperBound.isCompound()
+      // call): javac's metadata cloning can assert or replace them with an ordinary ClassType,
+      // losing the intersection structure.
       if (declaredNullable
               != GenericsUtils.upperBoundIsNullable(freshVar.tsym, config, handler, state)
           && !upperBound.isCompound()) {
