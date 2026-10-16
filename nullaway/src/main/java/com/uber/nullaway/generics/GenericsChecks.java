@@ -100,9 +100,7 @@ public final class GenericsChecks {
       implements CallInferenceResult {
 
     /**
-     * Returns the inferred nullability of the type variables inferred at {@code site}. The result
-     * excludes type variables inferred at other sites in the same inference problem, including
-     * other calls to the same generic method.
+     * Returns the inferred nullability of the type variables inferred at {@code site}.
      *
      * @param site a call or method reference participating in the inference problem
      * @return a map from declared type variables to their inferred nullability at {@code site}
