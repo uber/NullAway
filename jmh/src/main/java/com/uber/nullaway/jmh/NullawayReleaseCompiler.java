@@ -38,24 +38,23 @@ public class NullawayReleaseCompiler extends AbstractBenchmarkCompiler {
 
   @Override
   protected List<String> getExtraErrorProneArgs() {
+    // Keep these checks and options in sync with :nullaway:buildWithNullAway.
     return Arrays.asList(
+        "-Xep:JSpecifyUnrecognizedAnnotationLocation:ERROR",
         "-XepOpt:NullAway:CheckOptionalEmptiness=true",
-        "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true",
+        "-XepOpt:NullAway:CheckContracts=true",
+        "-XepOpt:NullAway:JSpecifyMode=true",
+        "-XepOpt:NullAway:JSpecifyExperimental=true",
         "-XepOpt:NullAway:CastToNonNullMethod=com.uber.nullaway.NullabilityUtil.castToNonNull");
   }
 
   @Override
   protected String getAnnotatedPackages() {
-    return "com.uber,org.checkerframework.nullaway";
+    return "com.uber,org.checkerframework.nullaway,com.google.common";
   }
 
   @Override
   protected String getClasspath() {
     return System.getProperty("nullaway.nullawayRelease.classpath");
-  }
-
-  @Override
-  protected String getExtraProcessorPath() {
-    return System.getProperty("nullaway.nullawayRelease.processorpath");
   }
 }

@@ -3178,6 +3178,53 @@ public class CoreTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void numericPromotionOfWrapperBoundedTypeVariables() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            class Test<T extends Integer> {
+              int add(T t) {
+                return t + 1;
+              }
+              static <T extends Long> long subtract(T t) {
+                return 1 - t;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullableWrapperBoundedTypeVariables() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test<T extends Integer> {
+              int add(@Nullable T t) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                return t + 1;
+              }
+              long subtract(@Nullable T t) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                return 1L - t;
+              }
+              int checked(@Nullable T t) {
+                if (t != null) {
+                  return t + 1;
+                }
+                return 0;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void primitiveCastsRememberNullChecks() {
     defaultCompilationHelper
         .addSourceLines(
