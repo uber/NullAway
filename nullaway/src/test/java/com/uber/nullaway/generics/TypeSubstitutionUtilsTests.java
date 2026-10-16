@@ -1,6 +1,7 @@
 package com.uber.nullaway.generics;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 
@@ -14,6 +15,9 @@ import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.DummyOptionsConfig;
+import com.uber.nullaway.Nullness;
+import java.util.List;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
@@ -69,13 +73,42 @@ public class TypeSubstitutionUtilsTests {
         .doTest();
   }
 
+  @Test
+  public void typeWithAnnotAnnotatesTheComponentsOfAnIntersection() {
+    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            class Test<T extends Number & Comparable<T>> {
+              Test<?> intersectionMetadataField;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void intersectionIsNullableOnlyWhenEveryComponentIs() {
+    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            class Test<T extends Number & Comparable<T>> {
+              Test<?> intersectionNullnessField;
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Checker that exercises the mutable javac types used by the replacement helpers.
    *
    * <p>The fields named {@code typeVarField} and {@code capturedTypeField} exercise the two public
    * replacement helpers. The fields named {@code typeVarMetadataField} and {@code
    * capturedTypeMetadataField} exercise the metadata-copying path used by {@link
-   * TypeSubstitutionUtils#typeWithAnnot}. Other variable declarations are ignored.
+   * TypeSubstitutionUtils#typeWithAnnot}. The field named {@code intersectionMetadataField}
+   * exercises the same method on an intersection-typed upper bound, and the field named {@code
+   * intersectionNullnessField} exercises {@link Nullness#isNullableAnnotated} on such a bound.
+   * Other variable declarations are ignored.
    */
   @BugPattern(summary = "Checks that copied javac types are detached", severity = SUGGESTION)
   public static final class TypeCopyIsolationChecker extends BugChecker
@@ -85,6 +118,8 @@ public class TypeSubstitutionUtilsTests {
     private static final String CAPTURED_TYPE_FIELD = "capturedTypeField";
     private static final String TYPE_VAR_METADATA_FIELD = "typeVarMetadataField";
     private static final String CAPTURED_TYPE_METADATA_FIELD = "capturedTypeMetadataField";
+    private static final String INTERSECTION_METADATA_FIELD = "intersectionMetadataField";
+    private static final String INTERSECTION_NULLNESS_FIELD = "intersectionNullnessField";
 
     @Override
     public Description matchVariable(VariableTree tree, VisitorState state) {
@@ -96,6 +131,8 @@ public class TypeSubstitutionUtilsTests {
         case TYPE_VAR_METADATA_FIELD -> checkTypeVariableMetadataCopy(testTypeContext);
         case CAPTURED_TYPE_METADATA_FIELD ->
             checkCapturedTypeMetadataCopy(testTypeContext, tree, state);
+        case INTERSECTION_METADATA_FIELD -> checkIntersectionMetadataCopy(testTypeContext);
+        case INTERSECTION_NULLNESS_FIELD -> checkIntersectionNullness(testTypeContext);
         default -> {
           throw new RuntimeException("Unknown field name: " + fieldName);
         }
@@ -104,8 +141,7 @@ public class TypeSubstitutionUtilsTests {
     }
 
     /**
-     * Extracts the compiler types shared by all four scenarios from a synthetic {@code Test<?>}
-     * field.
+     * Extracts the compiler types shared by all scenarios from a synthetic {@code Test<?>} field.
      */
     private static TestTypeContext createTestTypeContext(VariableTree tree, VisitorState state) {
       Type.ClassType fieldType = (Type.ClassType) ASTHelpers.getType(tree);
@@ -158,6 +194,63 @@ public class TypeSubstitutionUtilsTests {
           .isSameInstanceAs(context.formalTypeVariable().baseType());
       assertThat(context.formalTypeVariable().getAnnotationMirrors()).isEmpty();
       assertThat(updatedTypeVariable.getAnnotationMirrors()).isNotEmpty();
+    }
+
+    /**
+     * Checks that annotating an intersection annotates each of its components and leaves the
+     * intersection itself unannotated, as JSpecify requires. NullAway used to attach the annotation
+     * to the intersection itself, which threw {@code AssertionError} on JDK 17 and produced a plain
+     * class type on JDK 21.
+     */
+    private static void checkIntersectionMetadataCopy(TestTypeContext context) {
+      Type originalBound = context.originalUpperBound();
+      Type updatedBound = context.updatedUpperBound();
+      assertThat(updatedBound).isInstanceOf(Type.IntersectionClassType.class);
+      assertThat(updatedBound.getAnnotationMirrors()).isEmpty();
+      assertThat(componentNames(updatedBound)).containsExactly("Number", "Comparable").inOrder();
+      assertThat(componentAnnotations(updatedBound))
+          .containsExactly(
+              List.of(context.nullableAnnotationType()), List.of(context.nullableAnnotationType()))
+          .inOrder();
+      assertThat(componentAnnotations(originalBound)).containsExactly(List.of(), List.of());
+    }
+
+    /**
+     * Checks that an intersection is nullable when every component is annotated {@code @Nullable},
+     * and is not when only some of them are.
+     */
+    private static void checkIntersectionNullness(TestTypeContext context) {
+      Type.IntersectionClassType bound = (Type.IntersectionClassType) context.originalUpperBound();
+      Type nullableNumber =
+          TypeSubstitutionUtils.typeWithAnnot(
+              bound.getComponents().head, context.nullableAnnotationType());
+      Type.IntersectionClassType partlyNullableBound =
+          new Type.IntersectionClassType(
+              com.sun.tools.javac.util.List.of(nullableNumber, bound.getComponents().tail.head),
+              (Symbol.ClassSymbol) bound.tsym,
+              bound.allInterfaces);
+      // A name ending in ".Nullable" is recognized without consulting the configuration.
+      DummyOptionsConfig config = new DummyOptionsConfig();
+      assertWithMessage("isNullableAnnotated(@Nullable Number & @Nullable Comparable<T>)")
+          .that(Nullness.isNullableAnnotated(context.updatedUpperBound(), config))
+          .isTrue();
+      assertWithMessage("isNullableAnnotated(@Nullable Number & Comparable<T>)")
+          .that(Nullness.isNullableAnnotated(partlyNullableBound, config))
+          .isFalse();
+    }
+
+    /** Returns the simple names of the components of an intersection type, in order. */
+    private static List<String> componentNames(Type intersectionType) {
+      return ((Type.IntersectionClassType) intersectionType)
+          .getComponents().stream().map(c -> c.tsym.getSimpleName().toString()).toList();
+    }
+
+    /** Returns the annotation types on each component of an intersection type, in order. */
+    private static List<List<Type>> componentAnnotations(Type intersectionType) {
+      return ((Type.IntersectionClassType) intersectionType)
+          .getComponents().stream()
+              .map(c -> c.getAnnotationMirrors().stream().map(a -> (Type) a.type).toList())
+              .toList();
     }
 
     /** Checks that replacing a capture's backing wildcard returns a fully detached capture. */

@@ -900,8 +900,7 @@ public class NullAway extends BugChecker
                 ? null
                 : modeledOverriddenMethodType.getParameterTypes().get(i);
         if (modeledParameterType != null
-            && Nullness.hasNullableAnnotation(
-                modeledParameterType.getAnnotationMirrors().stream(), config)) {
+            && Nullness.isNullableAnnotated(modeledParameterType, config)) {
           paramNullness = Nullness.NULLABLE;
         } else if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
           // For a varargs position, we need to check if the array itself is @Nullable
@@ -1094,7 +1093,7 @@ public class NullAway extends BugChecker
             paramType);
         paramType = ((Type.ArrayType) paramType).getComponentType();
       }
-      result = !Nullness.hasNullableAnnotation(paramType.getAnnotationMirrors().stream(), config);
+      result = !Nullness.isNullableAnnotated(paramType, config);
     }
     return result;
   }
@@ -1382,8 +1381,7 @@ public class NullAway extends BugChecker
     }
     if (modeledOverriddenMethodType != null) {
       Type modeledReturnType = modeledOverriddenMethodType.getReturnType();
-      if (Nullness.hasNullableAnnotation(
-          modeledReturnType.getAnnotationMirrors().stream(), config)) {
+      if (Nullness.isNullableAnnotated(modeledReturnType, config)) {
         return false;
       }
     }

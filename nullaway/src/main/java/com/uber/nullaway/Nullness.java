@@ -151,6 +151,23 @@ public enum Nullness implements AbstractValue<Nullness> {
         .anyMatch(anno -> isNullableAnnotation(anno, config));
   }
 
+  /**
+   * Returns whether the type {@code type} is {@code @Nullable} by its type-use annotations.
+   *
+   * <p>An intersection type carries no annotation of its own: NullAway applies a nullness
+   * annotation to each of its components instead, as JSpecify requires. An intersection type is
+   * therefore nullable when every component returned by {@link
+   * Type.IntersectionClassType#getComponents()} is, including the implicit {@code Object} that
+   * javac adds before the components of an intersection of interfaces.
+   */
+  public static boolean isNullableAnnotated(Type type, Config config) {
+    if (type instanceof Type.IntersectionClassType intersectionType) {
+      return intersectionType.getComponents().stream()
+          .allMatch(component -> isNullableAnnotated(component, config));
+    }
+    return hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+  }
+
   public static boolean hasNonNullAnnotation(
       Stream<? extends AnnotationMirror> annotations, Config config) {
     return annotations

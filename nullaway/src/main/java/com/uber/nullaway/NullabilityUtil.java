@@ -594,9 +594,7 @@ public class NullabilityUtil {
   public static boolean isArrayElementNullable(@Nullable Type arrayType, Config config) {
     return arrayType != null
         && arrayType.getKind() == TypeKind.ARRAY
-        && Nullness.hasNullableAnnotation(
-            ((Type.ArrayType) arrayType).getComponentType().getAnnotationMirrors().stream(),
-            config);
+        && Nullness.isNullableAnnotated(((Type.ArrayType) arrayType).getComponentType(), config);
   }
 
   /**

@@ -1204,8 +1204,7 @@ public class AccessPathNullnessPropagation
         // Unfortunately, functionReturnType.tsym seems to elide annotation info, so we can't call
         // the Nullness.* methods that deal with Symbol. We might have better APIs for this kind of
         // check once we have real generics support.
-        if (!Nullness.hasNullableAnnotation(
-            functionReturnType.getAnnotationMirrors().stream(), config)) {
+        if (!Nullness.isNullableAnnotated(functionReturnType, config)) {
           bothUpdates.set(getAccessPath, NONNULL);
         }
       }

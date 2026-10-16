@@ -366,8 +366,7 @@ class StreamNullabilityPropagator implements Handler {
       return type;
     }
     Type streamElementType = typeArgs.get(0);
-    if (!Nullness.hasNullableAnnotation(
-        streamElementType.getAnnotationMirrors().stream(), castToNonNull(analysis).getConfig())) {
+    if (!Nullness.isNullableAnnotated(streamElementType, castToNonNull(analysis).getConfig())) {
       return type;
     }
     // Rather than just stripping the @Nullable annotation, use an explicit @NonNull annotation, as
