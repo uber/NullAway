@@ -23,8 +23,8 @@ import java.util.List;
 import java.util.Map;
 import org.junit.Test;
 
-/** Regression coverage for fresh-variable registration with modeled intersection bounds. */
-public class IntersectionBoundRegistrationTest {
+/** Compiler-backed regressions for call-specific inference variables. */
+public class CallSpecificInferenceTests {
 
   private static final ThreadLocal<Boolean> CHECKED = ThreadLocal.withInitial(() -> false);
 
