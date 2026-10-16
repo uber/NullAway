@@ -1788,15 +1788,16 @@ public final class GenericsChecks {
     // arguments, register the referenced method's type variables as inference variables
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
-    Map<Element, Type.TypeVar> inferenceVariables = Map.of();
+    Map<Element, Type.TypeVar> inferenceVariables;
     if (referencedMethod != null
         && !referencedMethod.getTypeParameters().isEmpty()
         && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
       inferenceVariables =
           solver.registerInferenceVariables(
               memberReferenceTree, referencedMethod.getTypeParameters());
+    } else {
+      inferenceVariables = Map.of();
     }
-    Map<Element, Type.TypeVar> referenceInferenceVariables = inferenceVariables;
     Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
     GenericsUtils.processMethodRefTypeRelations(
         this,
@@ -1814,13 +1815,13 @@ public final class GenericsChecks {
           Type subtypeForReference =
               referencedMethodTypeIsSubtype
                   ? TypeSubstitutionUtils.substituteTypeVariables(
-                      subtype, referenceInferenceVariables, state.getTypes(), config)
+                      subtype, inferenceVariables, state.getTypes(), config)
                   : subtype;
           Type supertypeForReference =
               referencedMethodTypeIsSubtype
                   ? supertype
                   : TypeSubstitutionUtils.substituteTypeVariables(
-                      supertype, referenceInferenceVariables, state.getTypes(), config);
+                      supertype, inferenceVariables, state.getTypes(), config);
           solver.addSubtypeConstraint(subtypeForReference, supertypeForReference, false);
         });
   }
