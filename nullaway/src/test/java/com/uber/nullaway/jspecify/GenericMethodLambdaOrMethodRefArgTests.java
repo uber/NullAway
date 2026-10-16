@@ -1007,6 +1007,36 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void recursiveMethodReferenceKeepsCallerTypeVariableFixed() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T recursive(T value) {
+                class Local {
+                  <U extends @Nullable Object> void accept(Function<T, T> function, U ignored) {}
+                }
+                new Local().accept(Test::recursive, value);
+                new Local().accept(Test::<T>recursive, value);
+                return value;
+              }
+              void test(String value, @Nullable String nullableValue) {
+                recursive(value).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                recursive(nullableValue).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inferFromGenericInstanceMethodRef() {
     makeHelper()
         .addSourceLines(

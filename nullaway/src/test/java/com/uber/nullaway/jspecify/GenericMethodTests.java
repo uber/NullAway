@@ -61,6 +61,37 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void modeledNullableIntersectionBound() {
+    makeHelper()
+        .addSourceLines(
+            "ModeledIntersectionBounds.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class ModeledIntersectionBounds {
+              interface A { void a(); }
+              interface B { void b(); }
+              static class Both implements A, B {
+                public void a() {}
+                public void b() {}
+              }
+              // The test library model permits nullable instantiations of T.
+              static <T extends A & B> T identity(T value) { return value; }
+              void test(Both value, @Nullable Both nullableValue) {
+                var result = identity(value);
+                result.a();
+                result.b();
+                // BUG: Diagnostic contains: dereferenced expression
+                identity(nullableValue).a();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void multipleTypeVariablesMethodCall() {
     makeHelper()
         .addSourceLines(
