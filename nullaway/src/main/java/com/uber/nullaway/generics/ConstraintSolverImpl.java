@@ -45,7 +45,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
    * List)} to the inference variable it represents. Only type variables with these symbols are
    * treated as inference variables; all other type variables are fixed.
    */
-  private final Map<Element, InferenceVariable> inferenceVariables = new LinkedHashMap<>();
+  private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
+      new IdentityHashMap<>();
 
   /** Fresh type variables created for each site, keyed by declared type variable. */
   private final Map<Tree, Map<Element, Type.TypeVar>> freshTypeVariablesForSite =
