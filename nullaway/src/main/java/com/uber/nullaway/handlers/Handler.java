@@ -511,7 +511,8 @@ public interface Handler {
    *
    * <p>The generic type-checking machinery uses these locations when resolving an invocation. A
    * handler should only provide model metadata here; substitution and call-site reasoning belong in
-   * {@code GenericsChecks}.
+   * {@code GenericsChecks}. A non-empty result must include at least one location with a non-empty
+   * type path.
    */
   default ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {

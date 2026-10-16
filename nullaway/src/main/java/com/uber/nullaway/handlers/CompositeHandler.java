@@ -381,7 +381,7 @@ class CompositeHandler implements Handler {
   @Override
   public ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
-    ImmutableSet.Builder<PolyNullLocation> result = ImmutableSet.builder();
+    ImmutableSet<PolyNullLocation> result = ImmutableSet.of();
     Handler previousOwner = null;
     for (Handler h : handlers) {
       ImmutableSet<PolyNullLocation> locations = h.onGetPolyNullLocations(methodSymbol, state);
@@ -401,10 +401,14 @@ class CompositeHandler implements Handler {
                 + " and "
                 + h.getClass().getName());
       }
+      if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
+        throw new IllegalArgumentException(
+            "PolyNull models must include at least one nested location for " + methodSymbol);
+      }
       previousOwner = h;
-      result.addAll(locations);
+      result = locations;
     }
-    return result.build();
+    return result;
   }
 
   @Override

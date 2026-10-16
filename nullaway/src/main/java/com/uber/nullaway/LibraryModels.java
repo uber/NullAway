@@ -154,6 +154,10 @@ public interface LibraryModels {
    * over a {@link #nullImpliesNullParameters()} model. Receiver locations can be represented but
    * are not yet supported by inference.
    *
+   * <p>Each modeled method must include at least one location with a non-empty type path. Use
+   * existing contract-style models like {@link #nullImpliesNullParameters()} for relationships
+   * involving only top-level nullness.
+   *
    * @return map from methods to signature locations with polymorphic nullness
    */
   default ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {

@@ -1227,12 +1227,6 @@ public class LibraryModelsHandler implements Handler {
     private static final ImmutableSetMultimap<MethodRef, PolyNullLocation> POLY_NULL_LOCATIONS =
         new ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation>()
             .put(
-                methodRef("java.util.Optional", "orElse(T)"),
-                new PolyNullLocation(new Parameter(0), ImmutableList.of()))
-            .put(
-                methodRef("java.util.Optional", "orElse(T)"),
-                new PolyNullLocation(new Return(), ImmutableList.of()))
-            .put(
                 methodRef(
                     "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"),
                 new PolyNullLocation(
@@ -1531,30 +1525,31 @@ public class LibraryModelsHandler implements Handler {
           builder.putAll(entry.getValue());
         }
         if (config.isJSpecifyJDKModels()) {
-          Set<MethodRef> methodsFromThisProvider = new HashSet<>();
-          for (Map.Entry<MethodRef, PolyNullLocation> entry :
-              libraryModels.polyNullLocations().entries()) {
-            if (shouldSkipModel(entry.getKey())) {
-              continue;
-            }
-            if (entry.getValue().position() instanceof Receiver) {
+          ImmutableSetMultimap<MethodRef, PolyNullLocation> providerPolyNullLocations =
+              libraryModels.polyNullLocations();
+          for (MethodRef method : providerPolyNullLocations.keySet()) {
+            ImmutableSet<PolyNullLocation> locations = providerPolyNullLocations.get(method);
+            if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
               throw new IllegalArgumentException(
-                  "PolyNull receiver locations are not yet supported for " + entry.getKey());
+                  "PolyNull receiver locations are not yet supported for " + method);
             }
-            if (methodsFromThisProvider.add(entry.getKey())) {
-              LibraryModels previousOwner =
-                  polyNullModelOwners.putIfAbsent(entry.getKey(), libraryModels);
-              if (previousOwner != null) {
-                throw new IllegalArgumentException(
-                    "Multiple PolyNull library model providers for "
-                        + entry.getKey()
-                        + ": "
-                        + previousOwner.getClass().getName()
-                        + " and "
-                        + libraryModels.getClass().getName());
-              }
+            LibraryModels previousOwner = polyNullModelOwners.putIfAbsent(method, libraryModels);
+            if (previousOwner != null) {
+              throw new IllegalArgumentException(
+                  "Multiple PolyNull library model providers for "
+                      + method
+                      + ": "
+                      + previousOwner.getClass().getName()
+                      + " and "
+                      + libraryModels.getClass().getName());
             }
-            polyNullLocationsBuilder.put(entry);
+            if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
+              throw new IllegalArgumentException(
+                  "PolyNull models must include at least one nested location for " + method);
+            }
+            if (!shouldSkipModel(method)) {
+              polyNullLocationsBuilder.putAll(method, locations);
+            }
           }
         }
       }

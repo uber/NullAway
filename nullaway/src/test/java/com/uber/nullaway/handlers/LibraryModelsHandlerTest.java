@@ -93,6 +93,55 @@ public class LibraryModelsHandlerTest {
   }
 
   @Test
+  public void rejectsTopLevelOnlyPolyNullModelsPerMethod() {
+    MethodRef method = methodRef("example.Container", "identity(java.lang.Object)");
+    MethodRef nestedMethod = methodRef("example.Container", "nested()");
+    PolyNullLocation parameter = new PolyNullLocation(new Parameter(0), ImmutableList.of());
+    PolyNullLocation result = new PolyNullLocation(new Return(), ImmutableList.of());
+    for (ImmutableSet<PolyNullLocation> locations :
+        ImmutableList.of(
+            ImmutableSet.of(parameter),
+            ImmutableSet.of(result),
+            ImmutableSet.of(parameter, result))) {
+      ImmutableSetMultimap<MethodRef, PolyNullLocation> models =
+          ImmutableSetMultimap.<MethodRef, PolyNullLocation>builder()
+              .putAll(method, locations)
+              .put(
+                  nestedMethod,
+                  new PolyNullLocation(
+                      new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+              .build();
+      IllegalArgumentException error =
+          assertThrows(
+              IllegalArgumentException.class,
+              () ->
+                  new LibraryModelsHandler.CombinedLibraryModels(
+                      ImmutableList.of(polyNullProvider(models)), jspecifyJdkModelsConfig()));
+      assertThat(error).hasMessageThat().contains("must include at least one nested location");
+      assertThat(error).hasMessageThat().contains("identity");
+    }
+  }
+
+  @Test
+  public void rejectsTopLevelOnlyPolyNullModelsEvenWhenSkipped() {
+    MethodRef method = methodRef("example.Container", "identity(java.lang.Object)");
+    Config config = jspecifyJdkModelsConfig();
+    when(config.isSkippedLibraryModel("example.Container.identity")).thenReturn(true);
+    IllegalArgumentException error =
+        assertThrows(
+            IllegalArgumentException.class,
+            () ->
+                new LibraryModelsHandler.CombinedLibraryModels(
+                    ImmutableList.of(
+                        polyNullProvider(
+                            ImmutableSetMultimap.of(
+                                method, new PolyNullLocation(new Return(), ImmutableList.of())))),
+                    config));
+    assertThat(error).hasMessageThat().contains("must include at least one nested location");
+    assertThat(error).hasMessageThat().contains("identity");
+  }
+
+  @Test
   public void rejectsPolyNullLocationsFromTwoProvidersForSameMethod() {
     IllegalArgumentException error =
         assertThrows(
@@ -109,7 +158,8 @@ public class LibraryModelsHandlerTest {
   public void rejectsPolyNullLocationsFromTwoHandlersForSameMethod() {
     Handler first = mock(Handler.class);
     Handler second = mock(Handler.class);
-    PolyNullLocation location = new PolyNullLocation(new Return(), ImmutableList.of());
+    PolyNullLocation location =
+        new PolyNullLocation(new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)));
     when(first.onGetPolyNullLocations(null, null)).thenReturn(ImmutableSet.of(location));
     when(second.onGetPolyNullLocations(null, null)).thenReturn(ImmutableSet.of(location));
     CompositeHandler composite = new CompositeHandler(ImmutableList.of(first, second));
@@ -117,6 +167,21 @@ public class LibraryModelsHandlerTest {
         assertThrows(
             IllegalArgumentException.class, () -> composite.onGetPolyNullLocations(null, null));
     assertThat(error).hasMessageThat().contains("Multiple handlers provide PolyNull locations");
+  }
+
+  @Test
+  public void rejectsTopLevelOnlyPolyNullLocationsFromHandler() {
+    Handler handler = mock(Handler.class);
+    when(handler.onGetPolyNullLocations(null, null))
+        .thenReturn(
+            ImmutableSet.of(
+                new PolyNullLocation(new Parameter(0), ImmutableList.of()),
+                new PolyNullLocation(new Return(), ImmutableList.of())));
+    CompositeHandler composite = new CompositeHandler(ImmutableList.of(handler));
+    IllegalArgumentException error =
+        assertThrows(
+            IllegalArgumentException.class, () -> composite.onGetPolyNullLocations(null, null));
+    assertThat(error).hasMessageThat().contains("must include at least one nested location");
   }
 
   @Test
@@ -129,6 +194,17 @@ public class LibraryModelsHandlerTest {
         assertThrows(
             IllegalArgumentException.class, () -> composite.onGetPolyNullLocations(null, null));
     assertThat(error).hasMessageThat().contains("receiver locations are not yet supported");
+  }
+
+  /** Creates a provider with the given PolyNull models. */
+  private static TestLibraryModels polyNullProvider(
+      ImmutableSetMultimap<MethodRef, PolyNullLocation> models) {
+    return new TestLibraryModels() {
+      @Override
+      public ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
+        return models;
+      }
+    };
   }
 
   /** Creates a configuration that enables PolyNull library models. */

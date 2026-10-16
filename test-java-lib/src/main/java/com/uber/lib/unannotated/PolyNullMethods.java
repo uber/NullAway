@@ -14,18 +14,17 @@ public final class PolyNullMethods {
     return first.isEmpty() ? second.get(0) : first.get(0);
   }
 
-  /** Accepts two independently typed arguments. */
-  public static <T, U> void twoTypeVariables(/* @PolyNull */ T first, /* @PolyNull */ U second) {}
-
-  /** Returns the first of two independently typed arguments. */
+  /**
+   * Returns the first argument, with nullness linked to the independently typed supplier result.
+   */
   public static <T, U> /* @PolyNull */ T genericFirst(
-      /* @PolyNull */ T first, /* @PolyNull */ U second) {
+      /* @PolyNull */ T first, Supplier<? extends /* @PolyNull */ U> second) {
     return first;
   }
 
-  /** Returns the first argument as an object. */
+  /** Returns the first argument as an object, with nullness linked to the supplier result. */
   public static <T, U> /* @PolyNull */ Object genericObject(
-      /* @PolyNull */ T first, /* @PolyNull */ U second) {
+      /* @PolyNull */ T first, Supplier<? extends /* @PolyNull */ U> second) {
     return first;
   }
 

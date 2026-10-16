@@ -17,30 +17,6 @@ import org.junit.Test;
 public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
   @Test
-  public void optionalOrElseUsesFallbackNullness() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            import java.util.Optional;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-
-            @NullMarked
-            class Test {
-              private String field = "initial";
-
-              void test(Optional<String> optional, String nonNull, @Nullable String nullable) {
-                optional.orElse(nonNull).hashCode();
-                // BUG: Diagnostic contains: dereferenced expression 'optional.orElse(nullable)' is @Nullable
-                optional.orElse(nullable).hashCode();
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void polyNullModelsRequireJSpecifyJdkModels() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
@@ -59,7 +35,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               private Object field = new Object();
 
               void test(@Nullable Object nullable) {
-                field = PolyNullMethods.genericObject(nullable, nullable);
+                field = PolyNullMethods.genericObject(nullable, () -> nullable);
               }
             }
             """)
@@ -87,29 +63,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
                 // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(nullableSupplier)' is @Nullable
                 optional.orElseGet(nullableSupplier).hashCode();
-              }
-            }
-            """)
-        .doTest();
-  }
 
-  @Test
-  public void optionalOrElseGetWithExplicitSupplierTypeArgumentAndVarResult() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            import java.util.Optional;
-            import java.util.function.Supplier;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-
-            @NullMarked
-            class Test {
-              void test(
-                  Optional<String> optional,
-                  Supplier<String> nonNullSupplier,
-                  Supplier<@Nullable String> nullableSupplier) {
                 var nonNullResult = optional.orElseGet(nonNullSupplier);
                 nonNullResult.hashCode();
 
@@ -172,29 +126,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
                 // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", nullableFunction)' is @Nullable
                 map.computeIfAbsent("key", nullableFunction).hashCode();
-              }
-            }
-            """)
-        .doTest();
-  }
 
-  @Test
-  public void mapComputeIfAbsentWithExplicitFunctionTypeArgumentAndVarResult() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            import java.util.Map;
-            import java.util.function.Function;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-
-            @NullMarked
-            class Test {
-              void test(
-                  Map<String, String> map,
-                  Function<String, String> nonNullFunction,
-                  Function<String, @Nullable String> nullableFunction) {
                 var nonNullResult = map.computeIfAbsent("key", nonNullFunction);
                 nonNullResult.hashCode();
 
@@ -410,13 +342,13 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test(String nonNull, @Nullable String nullable) {
-                PolyNullMethods.<String, String>twoTypeVariables(nonNull, nonNull);
-                PolyNullMethods.<@Nullable String, @Nullable String>twoTypeVariables(
-                    nonNull, nonNull);
-                PolyNullMethods.<String, @Nullable String>twoTypeVariables(nonNull, nonNull);
-                PolyNullMethods.<@Nullable String, String>twoTypeVariables(nonNull, nonNull);
-                PolyNullMethods.<String, @Nullable String>twoTypeVariables(nonNull, nullable);
-                PolyNullMethods.<@Nullable String, String>twoTypeVariables(nullable, nonNull);
+                PolyNullMethods.<String, String>genericFirst(nonNull, () -> nonNull);
+                PolyNullMethods.<@Nullable String, @Nullable String>genericFirst(
+                    nonNull, () -> nonNull);
+                PolyNullMethods.<String, @Nullable String>genericFirst(nonNull, () -> nonNull);
+                PolyNullMethods.<@Nullable String, String>genericFirst(nonNull, () -> nonNull);
+                PolyNullMethods.<String, @Nullable String>genericFirst(nonNull, () -> nullable);
+                PolyNullMethods.<@Nullable String, String>genericFirst(nullable, () -> nonNull);
               }
             }
             """)
@@ -436,25 +368,23 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test(String nonNull, @Nullable String nullable) {
-                PolyNullMethods.genericFirst(nonNull, nonNull).hashCode();
+                PolyNullMethods.genericFirst(nonNull, () -> nonNull).hashCode();
 
-                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nullable, nullable)' is @Nullable
-                PolyNullMethods.genericFirst(nullable, nullable).hashCode();
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nullable, () -> nullable)' is @Nullable
+                PolyNullMethods.genericFirst(nullable, () -> nullable).hashCode();
 
-                var nonNullResult = PolyNullMethods.genericFirst(nonNull, nonNull);
+                var nonNullResult = PolyNullMethods.genericFirst(nonNull, () -> nonNull);
                 nonNullResult.hashCode();
 
-                var nullableResult = PolyNullMethods.genericFirst(nullable, nullable);
+                var nullableResult = PolyNullMethods.genericFirst(nullable, () -> nullable);
                 // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
                 nullableResult.hashCode();
 
-                PolyNullMethods.twoTypeVariables(nonNull, nullable);
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nonNull, () -> nullable)' is @Nullable
+                PolyNullMethods.genericFirst(nonNull, () -> nullable).hashCode();
 
-                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nonNull, nullable)' is @Nullable
-                PolyNullMethods.genericFirst(nonNull, nullable).hashCode();
-
-                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nullable, nonNull)' is @Nullable
-                PolyNullMethods.genericFirst(nullable, nonNull).hashCode();
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.genericFirst(nullable, () -> nonNull)' is @Nullable
+                PolyNullMethods.genericFirst(nullable, () -> nonNull).hashCode();
               }
             }
             """)
@@ -476,10 +406,10 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               private Object field = new Object();
 
               void test(Object nonNull, @Nullable Object nullable) {
-                field = PolyNullMethods.genericObject(nonNull, nonNull);
+                field = PolyNullMethods.genericObject(nonNull, () -> nonNull);
 
                 // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
-                field = PolyNullMethods.genericObject(nullable, nullable);
+                field = PolyNullMethods.genericObject(nullable, () -> nullable);
               }
             }
             """)
@@ -547,32 +477,32 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               void test(NullableOverride nullableModel, NonNullOverride nonNullModel,
                   Object nonNull, @Nullable Object nullable) {
                 // A conditional return model based on another input yields to the PolyNull return.
-                nullableModel.top(nonNull, nullable, nonNull).hashCode();
-                nonNullModel.top(nonNull, nullable, nonNull).hashCode();
+                nullableModel.top(nonNull, nullable, nonNull, () -> nonNull).hashCode();
+                nonNullModel.top(nonNull, nullable, nonNull, () -> nonNull).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression
-                nullableModel.top(nullable, nonNull, nonNull).hashCode();
+                nullableModel.top(nullable, nonNull, nonNull, () -> nonNull).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression
-                nonNullModel.top(nullable, nonNull, nonNull).hashCode();
+                nonNullModel.top(nullable, nonNull, nonNull, () -> nonNull).hashCode();
 
-                var nullableResult = nonNullModel.top(nullable, nonNull, nonNull);
+                var nullableResult = nonNullModel.top(nullable, nonNull, nonNull, () -> nonNull);
                 // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
                 nullableResult.hashCode();
-                var nonNullResult = nullableModel.top(nonNull, nullable, nonNull);
+                var nonNullResult = nullableModel.top(nonNull, nullable, nonNull, () -> nonNull);
                 nonNullResult.hashCode();
 
                 // Nullable and non-null models on other parameters remain effective.
                 // BUG: Diagnostic contains: passing @Nullable parameter
-                nullableModel.top(nonNull, nullable, nullable);
+                nullableModel.top(nonNull, nullable, nullable, () -> nonNull);
                 // BUG: Diagnostic contains: passing @Nullable parameter
-                nonNullModel.top(nonNull, nullable, nullable);
+                nonNullModel.top(nonNull, nullable, nullable, () -> nonNull);
 
                 // Filter the nullable-return model before ordinary generic result constraints.
-                field = nullableModel.generic(nonNull, nonNull);
-                field = nonNullModel.generic(nonNull, nonNull);
+                field = nullableModel.generic(() -> nonNull, nonNull);
+                field = nonNullModel.generic(() -> nonNull, nonNull);
                 // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
-                field = nullableModel.generic(nonNull, nullable);
+                field = nullableModel.generic(() -> nonNull, nullable);
                 // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
-                field = nonNullModel.generic(nonNull, nullable);
+                field = nonNullModel.generic(() -> nonNull, nullable);
               }
             }
             """)
@@ -661,13 +591,13 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             class Test {
               void test(NullableOverride nullableModel, NonNullOverride nonNullModel,
                   Object nonNull, @Nullable Object nullable) {
-                nullableModel.conditional(nullable, nonNull).hashCode();
-                nonNullModel.conditional(nullable, nonNull).hashCode();
+                nullableModel.conditional(() -> nullable, nonNull).hashCode();
+                nonNullModel.conditional(() -> nullable, nonNull).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression
-                nullableModel.conditional(nonNull, nullable).hashCode();
+                nullableModel.conditional(() -> nonNull, nullable).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression
-                nonNullModel.conditional(nonNull, nullable).hashCode();
-                var nullableResult = nonNullModel.conditional(nonNull, nullable);
+                nonNullModel.conditional(() -> nonNull, nullable).hashCode();
+                var nullableResult = nonNullModel.conditional(() -> nonNull, nullable);
                 // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
                 nullableResult.hashCode();
               }
