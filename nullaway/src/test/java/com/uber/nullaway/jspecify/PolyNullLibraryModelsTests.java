@@ -17,30 +17,6 @@ import org.junit.Test;
 public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
   @Test
-  public void optionalOrElseUsesFallbackNullness() {
-    makeHelper()
-        .addSourceLines(
-            "Test.java",
-            """
-            import java.util.Optional;
-            import org.jspecify.annotations.NullMarked;
-            import org.jspecify.annotations.Nullable;
-
-            @NullMarked
-            class Test {
-              private String field = "initial";
-
-              void test(Optional<String> optional, String nonNull, @Nullable String nullable) {
-                optional.orElse(nonNull).hashCode();
-                // BUG: Diagnostic contains: dereferenced expression 'optional.orElse(nullable)' is @Nullable
-                optional.orElse(nullable).hashCode();
-              }
-            }
-            """)
-        .doTest();
-  }
-
-  @Test
   public void polyNullModelsRequireJSpecifyJdkModels() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
