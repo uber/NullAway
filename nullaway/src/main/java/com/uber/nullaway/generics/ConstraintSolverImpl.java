@@ -135,6 +135,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       // Do not annotate synthetic intersection bounds (checked with the upperBound.isCompound()
       // call): javac's metadata cloning can assert or replace them with an ordinary ClassType,
       // losing the intersection structure.
+      // This only skips copying nullability onto the fresh bound: getState() still reads modeled
+      // upper-bound nullability from the original declared type variable for this inference
+      // problem.
       if (declaredNullable
               != GenericsUtils.upperBoundIsNullable(freshVar.tsym, config, handler, state)
           && !upperBound.isCompound()) {
