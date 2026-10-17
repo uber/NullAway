@@ -1572,18 +1572,14 @@ public class LibraryModelsHandler implements Handler {
       polyNullLocationsByMethod.forEach(polyNullLocationsBuilder::putAll);
       polyNullLocations = polyNullLocationsBuilder.build();
       failIfNullParameters = failIfNullParametersBuilder.build();
-      explicitlyNullableParameters =
-          removePolyNullParameterModels(
-              explicitlyNullableParametersBuilder.build(), polyNullLocations);
-      nonNullParameters =
-          removePolyNullParameterModels(nonNullParametersBuilder.build(), polyNullLocations);
+      explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
+      nonNullParameters = nonNullParametersBuilder.build();
       nullImpliesTrueParameters = nullImpliesTrueParametersBuilder.build();
       nullImpliesFalseParameters = nullImpliesFalseParametersBuilder.build();
       ensuresNonNullIfTrueMethodCalls = ensuresNonNullIfTrueMethodCallsBuilder.build();
       nullImpliesNullParameters = nullImpliesNullParametersBuilder.build();
-      nullableReturns =
-          removePolyNullReturnModels(nullableReturnsBuilder.build(), polyNullLocations);
-      nonNullReturns = removePolyNullReturnModels(nonNullReturnsBuilder.build(), polyNullLocations);
+      nullableReturns = nullableReturnsBuilder.build();
+      nonNullReturns = nonNullReturnsBuilder.build();
       castToNonNullMethods = castToNonNullMethodsBuilder.build();
       customStreamNullabilitySpecs = customStreamNullabilitySpecsBuilder.build();
       nullableFields = nullableFieldsBuilder.build();
@@ -1595,53 +1591,9 @@ public class LibraryModelsHandler implements Handler {
           nestedAnnotationsForMethodsBuilder = new ImmutableMap.Builder<>();
       for (Map.Entry<MethodRef, ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo>> entry :
           nestedAnnotationsBuilder.entrySet()) {
-        ImmutableSetMultimap<Integer, NestedAnnotationInfo> annotations = entry.getValue().build();
-        ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> filteredAnnotations =
-            ImmutableSetMultimap.builder();
-        for (Map.Entry<Integer, NestedAnnotationInfo> annotation : annotations.entries()) {
-          if (!polyNullLocations.containsEntry(
-              entry.getKey(),
-              new PolyNullLocation(
-                  annotation.getKey() == -1 ? new Return() : new Parameter(annotation.getKey()),
-                  annotation.getValue().typePath()))) {
-            filteredAnnotations.put(annotation);
-          }
-        }
-        ImmutableSetMultimap<Integer, NestedAnnotationInfo> filtered = filteredAnnotations.build();
-        if (!filtered.isEmpty()) {
-          nestedAnnotationsForMethodsBuilder.put(entry.getKey(), filtered);
-        }
+        nestedAnnotationsForMethodsBuilder.put(entry.getKey(), entry.getValue().build());
       }
       nestedAnnotationsForMethods = nestedAnnotationsForMethodsBuilder.build();
-    }
-
-    /** Removes fixed top-level parameter models overridden by PolyNull locations. */
-    private static ImmutableSetMultimap<MethodRef, Integer> removePolyNullParameterModels(
-        ImmutableSetMultimap<MethodRef, Integer> fixedModels,
-        ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations) {
-      ImmutableSetMultimap.Builder<MethodRef, Integer> result = ImmutableSetMultimap.builder();
-      for (Map.Entry<MethodRef, Integer> entry : fixedModels.entries()) {
-        if (!polyNullLocations.containsEntry(
-            entry.getKey(),
-            new PolyNullLocation(new Parameter(entry.getValue()), ImmutableList.of()))) {
-          result.put(entry);
-        }
-      }
-      return result.build();
-    }
-
-    /** Removes fixed top-level return models overridden by PolyNull locations. */
-    private static ImmutableSet<MethodRef> removePolyNullReturnModels(
-        ImmutableSet<MethodRef> fixedModels,
-        ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations) {
-      ImmutableSet.Builder<MethodRef> result = ImmutableSet.builder();
-      PolyNullLocation returnLocation = new PolyNullLocation(new Return(), ImmutableList.of());
-      for (MethodRef method : fixedModels) {
-        if (!polyNullLocations.containsEntry(method, returnLocation)) {
-          result.add(method);
-        }
-      }
-      return result.build();
     }
 
     private boolean shouldSkipModel(MethodRef key) {
