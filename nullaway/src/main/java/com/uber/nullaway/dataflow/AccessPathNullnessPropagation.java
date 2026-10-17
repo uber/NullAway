@@ -1187,8 +1187,17 @@ public class AccessPathNullnessPropagation
     } else if (AccessPath.isMapComputeIfAbsent(callee, state)) {
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
-        // TODO: For now, Function<K, V> implies a @NonNull V. We need to revisit this once we
-        // support generics, but we do include a couple defensive tests below.
+        if (config.isJSpecifyMode() && genericsChecks.hasPolyNullModel(callee, state)) {
+          // PolyNull inference accounts for nullable lambda and method-reference results that
+          // are not reflected in javac's type arguments for the callback. A non-null result
+          // guarantees that the key is mapped to a non-null value after the call.
+          if (!genericReturnIsNullable(node)) {
+            bothUpdates.set(getAccessPath, NONNULL);
+          }
+          return;
+        }
+        // Without a PolyNull model, approximate the callback's return nullness using its type
+        // argument, assuming non-null unless explicitly annotated @Nullable.
         if (arguments.size() < 2) {
           return;
         }

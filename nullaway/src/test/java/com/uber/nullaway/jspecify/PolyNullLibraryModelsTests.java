@@ -273,6 +273,40 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mapComputeIfAbsentAndKeyPresence() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static String nonNullMapping(String unused) {
+                return "value";
+              }
+              static @Nullable String nullableMapping(String unused) {
+                return null;
+              }
+              void testPresent(Map<String, String> map) {
+                map.computeIfAbsent("k", unused -> "hello");
+                map.get("k").hashCode();
+              }
+
+              void testMayNotBePresent(Map<String, String> map) {
+                map.computeIfAbsent("k", unused -> null);
+                // key may be absent, so map.get("k") may still return null
+                // BUG: Diagnostic contains: dereferenced expression 'map.get("k")' is @Nullable
+                map.get("k").hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void customLibraryModelWithMultipleExplicitTypeArguments() {
     makeHelper()
         .addSourceLines(

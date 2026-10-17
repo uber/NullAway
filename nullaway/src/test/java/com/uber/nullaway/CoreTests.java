@@ -2400,7 +2400,8 @@ public class CoreTests extends NullAwayTestsBase {
                  // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
                  return m.get(key);
                }
-               // ToDo: should error somewhere, but doesn't, due to limited checking of generics
+               // No error here, but we have a separate test PolyNullLibraryModelsTests.mapComputeIfAbsentAndKeyPresence
+               // that shows an error is reported for a similar test in JSpecify mode
                Object testComputeIfAbsentNullLambda(String key, Map<String, Object> m){
                  m.computeIfAbsent(key, k -> null);
                  return m.get(key);
