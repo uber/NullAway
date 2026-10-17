@@ -61,6 +61,37 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void modeledNullableIntersectionBound() {
+    makeHelper()
+        .addSourceLines(
+            "ModeledIntersectionBounds.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class ModeledIntersectionBounds {
+              interface A { void a(); }
+              interface B { void b(); }
+              static class Both implements A, B {
+                public void a() {}
+                public void b() {}
+              }
+              // The test library model permits nullable instantiations of T.
+              static <T extends A & B> T identity(T value) { return value; }
+              void test(Both value, @Nullable Both nullableValue) {
+                var result = identity(value);
+                result.a();
+                result.b();
+                // BUG: Diagnostic contains: dereferenced expression
+                identity(nullableValue).a();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void multipleTypeVariablesMethodCall() {
     makeHelper()
         .addSourceLines(
@@ -2406,6 +2437,86 @@ public class GenericMethodTests extends NullAwayTestsBase {
                     arg.hashCode();
                   }
                 }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void repeatedCallsToOneGenericMethodAreInferredSeparately() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test {
+              static <T extends @Nullable Object> T id(T t) {
+                return t;
+              }
+              static <T extends @Nullable Object, U extends @Nullable Object> T chooseFirst(T t, U u) {
+                return t;
+              }
+              static void takesNonNull(String s) {}
+              static void test(@Nullable String s, String t) {
+                String u = chooseFirst(id(t), id(s));
+                // this is safe since each call to id gets its own inference variable
+                u.hashCode();
+              }
+              static void reversed(@Nullable String s, String t) {
+                String u = chooseFirst(id(s), id(t));
+                // BUG: Diagnostic contains: dereferenced expression 'u' is @Nullable
+                u.hashCode();
+              }
+              static void deeperNesting(@Nullable String s, String t) {
+                String u = chooseFirst(id(id(t)), id(id(s)));
+                u.hashCode();
+              }
+              static void deeperNestingReversed(@Nullable String s, String t) {
+                String u = chooseFirst(id(id(s)), id(id(t)));
+                // BUG: Diagnostic contains: dereferenced expression 'u' is @Nullable
+                u.hashCode();
+              }
+              static void nonLocalContext(@Nullable String s, String t) {
+                takesNonNull(chooseFirst(id(t), id(s)));
+              }
+              static void nonLocalContextReversed(@Nullable String s, String t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+                takesNonNull(chooseFirst(id(s), id(t)));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1291RepeatedDiamond() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            public class Test {
+              static class Box<T extends @Nullable Object> {
+                Box(T t) {}
+              }
+              static <A extends @Nullable Object, B extends @Nullable Object> A first(
+                  Box<A> a, Box<B> b) {
+                throw new UnsupportedOperationException();
+              }
+              static void test(@Nullable String s, String t) {
+                String u = first(new Box<>(t), new Box<>(s));
+                // safe, since each diamond gets its own inference variables
+                u.hashCode();
+              }
+              static void reversed(@Nullable String s, String t) {
+                String u = first(new Box<>(s), new Box<>(t));
+                // BUG: Diagnostic contains: dereferenced expression 'u' is @Nullable
+                u.hashCode();
               }
             }
             """)

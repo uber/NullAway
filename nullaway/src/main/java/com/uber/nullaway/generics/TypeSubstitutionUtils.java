@@ -330,6 +330,44 @@ public class TypeSubstitutionUtils {
   }
 
   /**
+   * Replaces every occurrence of the given type variables in {@code targetType}, preserving
+   * explicit nullability annotations on the replaced occurrences. So, if {@code targetType} is
+   * {@code List<@Nullable T>} and {@code T} is replaced with {@code S}, the result is {@code
+   * List<@Nullable S>}.
+   *
+   * <p>Occurrences are found by symbol, since a type can contain several {@link Type.TypeVar}
+   * objects for the same symbol, e.g., due to annotations on type variable uses.
+   *
+   * @param targetType type in which to replace type variables
+   * @param replacements map from type variable symbols to their replacement types
+   * @param types the javac types instance
+   * @param config the NullAway config
+   * @return the type with replacements applied, or {@code targetType} itself if it contains none of
+   *     the type variables
+   */
+  static Type substituteTypeVariables(
+      Type targetType,
+      Map<? extends Element, ? extends Type> replacements,
+      Types types,
+      Config config) {
+    ListBuffer<Type> typeVars = new ListBuffer<>();
+    ListBuffer<Type> replacementTypes = new ListBuffer<>();
+    for (Map.Entry<? extends Element, ? extends Type> entry : replacements.entrySet()) {
+      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(entry.getKey());
+      targetType.accept(tvc, null);
+      for (Type.TypeVar tv : tvc.getMatches()) {
+        typeVars.append(tv);
+        replacementTypes.append(entry.getValue());
+      }
+    }
+    List<Type> typeVarsToReplace = typeVars.toList();
+    if (typeVarsToReplace.isEmpty()) {
+      return targetType;
+    }
+    return subst(types, targetType, typeVarsToReplace, replacementTypes.toList(), config);
+  }
+
+  /**
    * A visitor that restores explicit nullability annotations on types nested within another type to
    * the corresponding positions in the visited type. If no annotations need to be restored, returns
    * the visited type object itself.
