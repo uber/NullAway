@@ -365,7 +365,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void genericMethodAcceptsCompatibleExplicitTypeArguments() {
+  public void genericMethodResolvesNullnessWithExplicitTypeArguments() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -377,13 +377,21 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test(String nonNull, @Nullable String nullable) {
-                PolyNullMethods.<String, String>genericFirst(nonNull, () -> nonNull);
+                PolyNullMethods.<String, String>genericFirst(nonNull, () -> nonNull).hashCode();
                 PolyNullMethods.<@Nullable String, @Nullable String>genericFirst(
-                    nonNull, () -> nonNull);
-                PolyNullMethods.<String, @Nullable String>genericFirst(nonNull, () -> nonNull);
-                PolyNullMethods.<@Nullable String, String>genericFirst(nonNull, () -> nonNull);
-                PolyNullMethods.<String, @Nullable String>genericFirst(nonNull, () -> nullable);
-                PolyNullMethods.<@Nullable String, String>genericFirst(nullable, () -> nonNull);
+                    nonNull, () -> nonNull).hashCode();
+                PolyNullMethods.<String, @Nullable String>genericFirst(nonNull, () -> nonNull).hashCode();
+                PolyNullMethods.<@Nullable String, String>genericFirst(nonNull, () -> nonNull).hashCode();
+
+                var nullableSupplierResult =
+                    PolyNullMethods.<String, @Nullable String>genericFirst(nonNull, () -> nullable);
+                // BUG: Diagnostic contains: dereferenced expression 'nullableSupplierResult' is @Nullable
+                nullableSupplierResult.hashCode();
+
+                var nullableArgumentResult =
+                    PolyNullMethods.<@Nullable String, String>genericFirst(nullable, () -> nonNull);
+                // BUG: Diagnostic contains: dereferenced expression 'nullableArgumentResult' is @Nullable
+                nullableArgumentResult.hashCode();
               }
             }
             """)
