@@ -31,6 +31,7 @@ import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
@@ -55,6 +56,10 @@ import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Receiver;
+import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -65,7 +70,7 @@ import com.uber.nullaway.generics.GenericsChecks;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo.Annotation;
-import com.uber.nullaway.librarymodel.AddAnnotationToNestedTypeVisitor;
+import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.UncheckedIOException;
@@ -174,6 +179,14 @@ public class LibraryModelsHandler implements Handler {
                 methodSymbol.getQualifiedName().toString(), nonNullParam.toString()));
       }
       argumentNullness.setParameterNullness(nonNullParam, NONNULL);
+    }
+    // The PolyNull solver checks whether a nullable argument is compatible with the result target.
+    // The ordinary top-level argument check must allow that argument through to the solver.
+    for (PolyNullLocation location :
+        optimizedLibraryModels.polyNullLocations(methodSymbol, Types.instance(context))) {
+      if (location.position() instanceof Parameter parameter && location.typePath().isEmpty()) {
+        argumentNullness.setParameterNullness(parameter.index(), NULLABLE);
+      }
     }
     if (varArgsMethod) {
       ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
@@ -503,6 +516,12 @@ public class LibraryModelsHandler implements Handler {
   }
 
   @Override
+  public ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return getOptLibraryModels(state.context).polyNullLocations(methodSymbol, state.getTypes());
+  }
+
+  @Override
   public boolean isSingleArgNullImpliesFalseMethod(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
     return methodSymbol.getParameters().size() == 1
@@ -590,9 +609,8 @@ public class LibraryModelsHandler implements Handler {
    * represented as {@link NestedAnnotationInfo} library models.
    */
   private static Type applyTopLevelNullableAnnotation(Type type, VisitorState state) {
-    return new AddAnnotationToNestedTypeVisitor(
-            ImmutableList.of(), GenericsChecks.getSyntheticNullableAnnotType(state))
-        .apply(type);
+    return NestedTypePathUpdater.addAnnotation(
+        type, ImmutableList.of(), GenericsChecks.getSyntheticNullableAnnotType(state));
   }
 
   /**
@@ -611,9 +629,7 @@ public class LibraryModelsHandler implements Handler {
           info.annotation() == Annotation.NULLABLE
               ? GenericsChecks.getSyntheticNullableAnnotType(state)
               : GenericsChecks.getSyntheticNonNullAnnotType(state);
-      AddAnnotationToNestedTypeVisitor addAnnotationToNestedTypeVisitor =
-          new AddAnnotationToNestedTypeVisitor(info.typePath(), annotType);
-      updated = addAnnotationToNestedTypeVisitor.apply(updated);
+      updated = NestedTypePathUpdater.addAnnotation(updated, info.typePath(), annotType);
     }
     return updated;
   }
@@ -655,7 +671,8 @@ public class LibraryModelsHandler implements Handler {
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
 
-  private static class DefaultLibraryModels implements LibraryModels {
+  @VisibleForTesting
+  static class DefaultLibraryModels implements LibraryModels {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> FAIL_IF_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
@@ -1207,19 +1224,37 @@ public class LibraryModelsHandler implements Handler {
                             ImmutableList.of(
                                 new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 1),
                                 new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0)))))
-                // https://github.com/uber/NullAway/issues/1616
-                /*.put(
-                methodRef(
-                    "java.util.Optional",
-                    "orElseGet(java.util.function.Supplier<? extends T>)"),
-                ImmutableSetMultimap.of(
-                    0,
-                    new NestedAnnotationInfo(
-                        Annotation.NULLABLE,
-                        ImmutableList.of(
-                            new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0),
-                            new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0)))))*/
                 .build();
+
+    private static final ImmutableSetMultimap<MethodRef, PolyNullLocation> POLY_NULL_LOCATIONS =
+        new ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation>()
+            .put(
+                methodRef(
+                    "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"),
+                new PolyNullLocation(
+                    new Parameter(0),
+                    ImmutableList.of(
+                        new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 0),
+                        new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0))))
+            .put(
+                methodRef(
+                    "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"),
+                new PolyNullLocation(new Return(), ImmutableList.of()))
+            .put(
+                methodRef(
+                    "java.util.Map",
+                    "computeIfAbsent(K,java.util.function.Function<? super K,? extends V>)"),
+                new PolyNullLocation(
+                    new Parameter(1),
+                    ImmutableList.of(
+                        new NestedAnnotationInfo.TypePathEntry(TYPE_ARGUMENT, 1),
+                        new NestedAnnotationInfo.TypePathEntry(WILDCARD_BOUND, 0))))
+            .put(
+                methodRef(
+                    "java.util.Map",
+                    "computeIfAbsent(K,java.util.function.Function<? super K,? extends V>)"),
+                new PolyNullLocation(new Return(), ImmutableList.of()))
+            .build();
 
     private static final ImmutableSet<String> NULLMARKED_CLASSES =
         new ImmutableSet.Builder<String>()
@@ -1308,6 +1343,11 @@ public class LibraryModelsHandler implements Handler {
     }
 
     @Override
+    public ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
+      return POLY_NULL_LOCATIONS;
+    }
+
+    @Override
     public ImmutableSet<String> nullMarkedClasses() {
       return NULLMARKED_CLASSES;
     }
@@ -1324,7 +1364,7 @@ public class LibraryModelsHandler implements Handler {
     }
   }
 
-  private static class CombinedLibraryModels implements LibraryModels {
+  static class CombinedLibraryModels implements LibraryModels {
 
     private final Config config;
 
@@ -1362,6 +1402,8 @@ public class LibraryModelsHandler implements Handler {
     private final ImmutableMap<MethodRef, ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
         nestedAnnotationsForMethods;
 
+    private final ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations;
+
     CombinedLibraryModels(Iterable<LibraryModels> models, Config config) {
       this.config = config;
       ImmutableSetMultimap.Builder<MethodRef, Integer> failIfNullParametersBuilder =
@@ -1392,6 +1434,9 @@ public class LibraryModelsHandler implements Handler {
       ImmutableSet.Builder<FieldRef> nullableFieldsBuilder = new ImmutableSet.Builder<>();
       Map<MethodRef, ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo>>
           nestedAnnotationsBuilder = new LinkedHashMap<>();
+      Map<MethodRef, ImmutableSet<PolyNullLocation>> polyNullLocationsByMethod =
+          new LinkedHashMap<>();
+      Map<MethodRef, LibraryModels> polyNullModelOwners = new LinkedHashMap<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
           if (shouldSkipModel(entry.getKey())) {
@@ -1481,7 +1526,51 @@ public class LibraryModelsHandler implements Handler {
                   entry.getKey(), key -> new ImmutableSetMultimap.Builder<>());
           builder.putAll(entry.getValue());
         }
+        if (config.isPolyNullLibraryModelsEnabled()) {
+          ImmutableSetMultimap<MethodRef, PolyNullLocation> providerPolyNullLocations =
+              libraryModels.polyNullLocations();
+          for (MethodRef method : providerPolyNullLocations.keySet()) {
+            ImmutableSet<PolyNullLocation> locations = providerPolyNullLocations.get(method);
+            if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
+              throw new IllegalArgumentException(
+                  "PolyNull receiver locations are not yet supported for " + method);
+            }
+            if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
+              throw new IllegalArgumentException(
+                  "PolyNull models must include at least one nested location for " + method);
+            }
+            if (shouldSkipModel(method)) {
+              continue;
+            }
+            LibraryModels previousOwner = polyNullModelOwners.get(method);
+            if (previousOwner != null) {
+              // User providers replace the whole built-in relationship, regardless of load order.
+              // Unioning location sets could introduce unintended links between nullness values.
+              if (libraryModels instanceof DefaultLibraryModels) {
+                continue;
+              }
+              if (!(previousOwner instanceof DefaultLibraryModels)) {
+                if (!locations.equals(polyNullLocationsByMethod.get(method))) {
+                  throw new IllegalArgumentException(
+                      "Conflicting PolyNull library model providers for "
+                          + method
+                          + ": "
+                          + previousOwner.getClass().getName()
+                          + " and "
+                          + libraryModels.getClass().getName());
+                }
+                continue;
+              }
+            }
+            polyNullModelOwners.put(method, libraryModels);
+            polyNullLocationsByMethod.put(method, locations);
+          }
+        }
       }
+      ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation> polyNullLocationsBuilder =
+          ImmutableSetMultimap.builder();
+      polyNullLocationsByMethod.forEach(polyNullLocationsBuilder::putAll);
+      polyNullLocations = polyNullLocationsBuilder.build();
       failIfNullParameters = failIfNullParametersBuilder.build();
       explicitlyNullableParameters = explicitlyNullableParametersBuilder.build();
       nonNullParameters = nonNullParametersBuilder.build();
@@ -1591,15 +1680,25 @@ public class LibraryModelsHandler implements Handler {
         nestedAnnotationsForMethods() {
       return nestedAnnotationsForMethods;
     }
+
+    @Override
+    public ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
+      return polyNullLocations;
+    }
   }
 
   /**
    * A view of library models optimized to make lookup of {@link
    * com.sun.tools.javac.code.Symbol.MethodSymbol}s fast
+   *
+   * <p>Fixed models are filtered against the effective PolyNull locations during lookup, since an
+   * inherited PolyNull model can conflict with a fixed model on a different declaration.
    */
   private static class OptimizedLibraryModels {
 
     private static final int MAX_METHOD_REF_CACHE_SIZE = 1000;
+
+    private final Types types;
 
     /**
      * Mapping from {@link MethodRef} to some state, where lookups first check for a matching method
@@ -1661,8 +1760,10 @@ public class LibraryModelsHandler implements Handler {
     private final NameIndexedMap<ImmutableSet<Integer>> methodTypeVariablesWithNullableUpperBounds;
     private final NameIndexedMap<ImmutableSetMultimap<Integer, NestedAnnotationInfo>>
         nestedAnnotationsForMethods;
+    private final NameIndexedMap<ImmutableSet<PolyNullLocation>> polyNullLocations;
 
     OptimizedLibraryModels(LibraryModels models, Context context) {
+      types = Types.instance(context);
       Names names = Names.instance(context);
       failIfNullParams = makeOptimizedSetLookup(names, models.failIfNullParameters());
       explicitlyNullableParams =
@@ -1680,14 +1781,17 @@ public class LibraryModelsHandler implements Handler {
           makeOptimizedSetLookup(names, models.methodTypeVariablesWithNullableUpperBounds());
       nestedAnnotationsForMethods =
           makeOptimizedNestedAnnotationLookup(names, models.nestedAnnotationsForMethods());
+      polyNullLocations = makeOptimizedSetLookup(names, models.polyNullLocations());
     }
 
     boolean hasNonNullReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
-      return lookupHandlingOverrides(symbol, types, nonNullRet, allowInherited) != null;
+      return lookupHandlingOverrides(symbol, types, nonNullRet, allowInherited) != null
+          && !hasPolyNullReturn(symbol, types);
     }
 
     boolean hasNullableReturn(Symbol.MethodSymbol symbol, Types types, boolean allowInherited) {
-      return lookupHandlingOverrides(symbol, types, nullableRet, allowInherited) != null;
+      return lookupHandlingOverrides(symbol, types, nullableRet, allowInherited) != null
+          && !hasPolyNullReturn(symbol, types);
     }
 
     ImmutableSet<Integer> failIfNullParameters(Symbol.MethodSymbol symbol) {
@@ -1695,11 +1799,30 @@ public class LibraryModelsHandler implements Handler {
     }
 
     ImmutableSet<Integer> explicitlyNullableParameters(Symbol.MethodSymbol symbol) {
-      return lookupImmutableSet(symbol, explicitlyNullableParams);
+      return parameterModelsWithoutPolyNull(symbol, explicitlyNullableParams);
     }
 
     ImmutableSet<Integer> nonNullParameters(Symbol.MethodSymbol symbol) {
-      return lookupImmutableSet(symbol, nonNullParams);
+      return parameterModelsWithoutPolyNull(symbol, nonNullParams);
+    }
+
+    /** Removes fixed parameter models covered by an exact or inherited PolyNull location. */
+    private ImmutableSet<Integer> parameterModelsWithoutPolyNull(
+        Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<Integer>> lookup) {
+      ImmutableSet<Integer> fixedModels = lookupImmutableSet(symbol, lookup);
+      if (fixedModels.isEmpty()) {
+        return fixedModels;
+      }
+      ImmutableSet<PolyNullLocation> locations = polyNullLocations(symbol, types);
+      if (locations.isEmpty()) {
+        return fixedModels;
+      }
+      return fixedModels.stream()
+          .filter(
+              index ->
+                  !locations.contains(
+                      new PolyNullLocation(new Parameter(index), ImmutableList.of())))
+          .collect(ImmutableSet.toImmutableSet());
     }
 
     ImmutableSet<Integer> nullImpliesTrueParameters(Symbol.MethodSymbol symbol) {
@@ -1714,11 +1837,14 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, ensuresNonNullIfTrueMethodCalls);
     }
 
+    /** Looks up a conditional return model unless PolyNull covers the top-level return. */
     ImmutableSet<Integer> nullImpliesNullParameters(Symbol.MethodSymbol symbol, Types types) {
       Symbol.MethodSymbol modelSymbol =
           lookupHandlingOverrides(
               symbol, types, nullImpliesNullParams, /* allowInheritedModelLookup= */ true);
-      return modelSymbol == null
+      // This conditional model determines top-level return nullness, so a PolyNull model at
+      // that location takes precedence, just as it does over a fixed return model.
+      return modelSymbol == null || hasPolyNullReturn(symbol, types)
           ? ImmutableSet.of()
           : lookupImmutableSet(modelSymbol, nullImpliesNullParams);
     }
@@ -1731,11 +1857,50 @@ public class LibraryModelsHandler implements Handler {
       return lookupImmutableSet(symbol, methodTypeVariablesWithNullableUpperBounds);
     }
 
+    /**
+     * Filters nested fixed annotations at exact or inherited PolyNull locations before inference.
+     */
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotationsForMethods(
         Symbol.MethodSymbol symbol) {
       ImmutableSetMultimap<Integer, NestedAnnotationInfo> result =
           nestedAnnotationsForMethods.get(symbol);
-      return (result == null) ? ImmutableSetMultimap.of() : result;
+      if (result == null) {
+        return ImmutableSetMultimap.of();
+      }
+      ImmutableSet<PolyNullLocation> locations = polyNullLocations(symbol, types);
+      if (locations.isEmpty()) {
+        return result;
+      }
+      ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo> filtered =
+          ImmutableSetMultimap.builder();
+      for (Map.Entry<Integer, NestedAnnotationInfo> entry : result.entries()) {
+        if (!locations.contains(
+            new PolyNullLocation(
+                entry.getKey() == -1 ? new Return() : new Parameter(entry.getKey()),
+                entry.getValue().typePath()))) {
+          filtered.put(entry);
+        }
+      }
+      return filtered.build();
+    }
+
+    /** Returns whether an exact or inherited PolyNull model covers the top-level return. */
+    private boolean hasPolyNullReturn(Symbol.MethodSymbol symbol, Types types) {
+      return polyNullLocations(symbol, types)
+          .contains(new PolyNullLocation(new Return(), ImmutableList.of()));
+    }
+
+    /**
+     * Returns PolyNull locations for the method, preferring an exact model over an inherited one.
+     * The exact model replaces the inherited location set. Returns an empty set if no model exists.
+     */
+    ImmutableSet<PolyNullLocation> polyNullLocations(Symbol.MethodSymbol symbol, Types types) {
+      Symbol.MethodSymbol modelSymbol =
+          lookupHandlingOverrides(
+              symbol, types, polyNullLocations, /* allowInheritedModelLookup= */ true);
+      return modelSymbol == null
+          ? ImmutableSet.of()
+          : lookupImmutableSet(modelSymbol, polyNullLocations);
     }
 
     private <T> ImmutableSet<T> lookupImmutableSet(

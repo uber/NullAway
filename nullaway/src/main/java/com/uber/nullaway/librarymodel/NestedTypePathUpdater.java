@@ -11,43 +11,63 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 
-/**
- * A visitor to add an annotation to a type at a specified type path. The desired annotation and
- * type path are specified in the constructor. Then, calling {@link #apply(Type)} on a type will
- * return a new type with the annotation added at the specified nested location, or the original
- * type if no change was made.
- */
+/** Updates a type at a nested location identified by a library-model type path. */
 @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
-public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Integer> {
-  private final ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath;
-  private final Type annotationType;
+public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
 
-  /**
-   * Constructor.
-   *
-   * @param typePath the type path to the nested type where the annotation should be added
-   * @param annotationType the annotation type to add
-   */
-  public AddAnnotationToNestedTypeVisitor(
-      ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type annotationType) {
+  private enum UpdateKind {
+    ADD_ANNOTATION,
+    REPLACE_TYPE
+  }
+
+  private final ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath;
+  private final Type annotationOrReplacementType;
+  private final UpdateKind updateKind;
+
+  private NestedTypePathUpdater(
+      ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath,
+      Type annotationOrReplacementType,
+      UpdateKind updateKind) {
     this.typePath = typePath;
-    this.annotationType = annotationType;
+    this.annotationOrReplacementType = annotationOrReplacementType;
+    this.updateKind = updateKind;
   }
 
   /**
-   * Applies this visitor to the given type.
+   * Adds {@code annotationType} to {@code type} at {@code typePath}.
    *
-   * @param type the type to apply the visitor to
-   * @return the resulting type with the annotation added at the specified nested location
+   * @return the updated type, or the original {@code type} instance if no change was made
    */
-  public Type apply(Type type) {
+  public static Type addAnnotation(
+      Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type annotationType) {
+    return new NestedTypePathUpdater(typePath, annotationType, UpdateKind.ADD_ANNOTATION)
+        .apply(type);
+  }
+
+  /**
+   * Replaces the nested type at {@code typePath} with {@code replacement}.
+   *
+   * @return the updated type, or the original {@code type} instance if no change was made
+   */
+  public static Type replaceType(
+      Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type replacement) {
+    return new NestedTypePathUpdater(typePath, replacement, UpdateKind.REPLACE_TYPE).apply(type);
+  }
+
+  private Type apply(Type type) {
     return type.accept(this, 0);
+  }
+
+  private Type updateLeaf(Type type) {
+    return updateKind == UpdateKind.ADD_ANNOTATION
+        ? TypeSubstitutionUtils.typeWithAnnot(type, annotationOrReplacementType)
+        : annotationOrReplacementType;
   }
 
   @Override
   public Type visitClassType(Type.ClassType t, Integer pathIndex) {
     if (pathIndex == typePath.size()) {
-      return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
+      return updateLeaf(t);
     }
     NestedAnnotationInfo.TypePathEntry entry = typePath.get(pathIndex);
     if (entry.kind() != NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT) {
@@ -75,7 +95,7 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
   @Override
   public Type visitArrayType(Type.ArrayType t, Integer pathIndex) {
     if (pathIndex == typePath.size()) {
-      return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
+      return updateLeaf(t);
     }
     NestedAnnotationInfo.TypePathEntry entry = typePath.get(pathIndex);
     if (entry.kind() != NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT) {
@@ -91,10 +111,10 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
   @Override
   public Type visitWildcardType(Type.WildcardType t, Integer pathIndex) {
     if (pathIndex == typePath.size()) {
-      // Nullness annotations directly on wildcards are not legal under JSpecify.  This case can
+      // Nullness annotations directly on wildcards are not legal under JSpecify. This case can
       // arise when member-type substitution replaces an annotated type variable with a wildcard;
       // leave the wildcard unchanged and rely on the dedicated top-level parameter/return model.
-      return t;
+      return updateKind == UpdateKind.ADD_ANNOTATION ? t : updateLeaf(t);
     }
     NestedAnnotationInfo.TypePathEntry entry = typePath.get(pathIndex);
     if (entry.kind() != NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND) {
@@ -127,15 +147,17 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
   }
 
   /**
-   * Updates a captured type while preserving the backing wildcard used by NullAway's wildcard-bound
-   * reasoning.
+   * Updates a captured type while preserving its backing wildcard when adding an annotation.
    *
-   * <p>javac represents a captured wildcard as a type variable plus its original wildcard. A direct
-   * annotation on the capture is insufficient because effective-bound computations unwrap the
-   * backing wildcard, so updates must be reflected there.
+   * <p>javac represents a captured wildcard as a type variable plus its original wildcard.
+   * NullAway's effective-bound computations inspect the backing wildcard, so annotating only the
+   * capture is insufficient: annotation updates must also be reflected in that wildcard.
    */
   @Override
   public Type visitCapturedType(Type.CapturedType t, Integer pathIndex) {
+    if (updateKind == UpdateKind.REPLACE_TYPE && pathIndex == typePath.size()) {
+      return updateLeaf(t);
+    }
     Type.WildcardType wildcard = t.wildcard;
     if (wildcard.kind == BoundKind.UNBOUND && wildcard.bound == null) {
       // javac can omit the formal type variable on a captured wildcard. Use the capture's upper
@@ -154,11 +176,13 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
             Verify.verifyNotNull(
                 wildcard.bound, "unbounded wildcard has no corresponding formal type variable");
         Type updatedUpperBound =
-            TypeSubstitutionUtils.typeWithAnnot(formalTypeVariable.getUpperBound(), annotationType);
+            TypeSubstitutionUtils.typeWithAnnot(
+                formalTypeVariable.getUpperBound(), annotationOrReplacementType);
         updatedWildcard =
             TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(wildcard, updatedUpperBound);
       } else {
-        Type updatedBound = TypeSubstitutionUtils.typeWithAnnot(wildcard.type, annotationType);
+        Type updatedBound =
+            TypeSubstitutionUtils.typeWithAnnot(wildcard.type, annotationOrReplacementType);
         updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
       }
     }
@@ -171,7 +195,7 @@ public final class AddAnnotationToNestedTypeVisitor extends Types.MapVisitor<Int
   @Override
   public Type visitType(Type t, Integer pathIndex) {
     if (pathIndex == typePath.size()) {
-      return TypeSubstitutionUtils.typeWithAnnot(t, annotationType);
+      return updateLeaf(t);
     }
     return t;
   }
