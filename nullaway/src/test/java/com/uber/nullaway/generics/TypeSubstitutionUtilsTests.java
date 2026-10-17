@@ -6,6 +6,7 @@ import static com.google.errorprone.matchers.Description.NO_MATCH;
 
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
+import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
 import com.google.errorprone.matchers.Description;
@@ -14,12 +15,15 @@ import com.sun.source.tree.VariableTree;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
+import com.uber.nullaway.Config;
+import com.uber.nullaway.NullAway;
+import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
 import org.junit.runners.JUnit4;
 
 /**
- * Tests operations that copy mutable javac type variables and captured types.
+ * Tests copying mutable javac types and restoring their nullability annotations.
  *
  * <p>These behaviors require types created by an active javac compilation, so each test compiles a
  * small source file with {@link TypeCopyIsolationChecker}. Special field names in that source
@@ -69,15 +73,45 @@ public class TypeSubstitutionUtilsTests {
         .doTest();
   }
 
+  @Test
+  public void restoreWildcardAnnotationsFromImplicitUpperBound() {
+    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            class Test<T extends Test<T>> {
+              Test<?> wildcardAnnotationField;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void restoreWildcardAnnotationsWithoutFormalLeavesWildcardUnchanged() {
+    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            class Test<T extends Test<T>> {
+              Test<?> wildcardWithoutFormalField;
+            }
+            """)
+        .doTest();
+  }
+
   /**
-   * Checker that exercises the mutable javac types used by the replacement helpers.
+   * Checker that exercises javac type copying and annotation restoration.
    *
    * <p>The fields named {@code typeVarField} and {@code capturedTypeField} exercise the two public
    * replacement helpers. The fields named {@code typeVarMetadataField} and {@code
    * capturedTypeMetadataField} exercise the metadata-copying path used by {@link
-   * TypeSubstitutionUtils#typeWithAnnot}. Other variable declarations are ignored.
+   * TypeSubstitutionUtils#typeWithAnnot}. The fields named {@code wildcardAnnotationField} and
+   * {@code wildcardWithoutFormalField} exercise annotation restoration from unbounded wildcards,
+   * with and without a corresponding formal type variable.
    */
-  @BugPattern(summary = "Checks that copied javac types are detached", severity = SUGGESTION)
+  @BugPattern(
+      summary = "Checks javac type copying and annotation restoration",
+      severity = SUGGESTION)
   public static final class TypeCopyIsolationChecker extends BugChecker
       implements BugChecker.VariableTreeMatcher {
 
@@ -85,6 +119,8 @@ public class TypeSubstitutionUtilsTests {
     private static final String CAPTURED_TYPE_FIELD = "capturedTypeField";
     private static final String TYPE_VAR_METADATA_FIELD = "typeVarMetadataField";
     private static final String CAPTURED_TYPE_METADATA_FIELD = "capturedTypeMetadataField";
+    private static final String WILDCARD_ANNOTATION_FIELD = "wildcardAnnotationField";
+    private static final String WILDCARD_WITHOUT_FORMAL_FIELD = "wildcardWithoutFormalField";
 
     @Override
     public Description matchVariable(VariableTree tree, VisitorState state) {
@@ -96,6 +132,10 @@ public class TypeSubstitutionUtilsTests {
         case TYPE_VAR_METADATA_FIELD -> checkTypeVariableMetadataCopy(testTypeContext);
         case CAPTURED_TYPE_METADATA_FIELD ->
             checkCapturedTypeMetadataCopy(testTypeContext, tree, state);
+        case WILDCARD_ANNOTATION_FIELD ->
+            checkWildcardAnnotationRestoration(testTypeContext, false);
+        case WILDCARD_WITHOUT_FORMAL_FIELD ->
+            checkWildcardAnnotationRestoration(testTypeContext, true);
         default -> {
           throw new RuntimeException("Unknown field name: " + fieldName);
         }
@@ -104,7 +144,7 @@ public class TypeSubstitutionUtilsTests {
     }
 
     /**
-     * Extracts the compiler types shared by all four scenarios from a synthetic {@code Test<?>}
+     * Extracts the compiler types shared by the test scenarios from a synthetic {@code Test<?>}
      * field.
      */
     private static TestTypeContext createTestTypeContext(VariableTree tree, VisitorState state) {
@@ -158,6 +198,49 @@ public class TypeSubstitutionUtilsTests {
           .isSameInstanceAs(context.formalTypeVariable().baseType());
       assertThat(context.formalTypeVariable().getAnnotationMirrors()).isEmpty();
       assertThat(updatedTypeVariable.getAnnotationMirrors()).isNotEmpty();
+    }
+
+    /**
+     * Checks that an extends wildcard receives annotations from an unbounded wildcard's implicit
+     * upper bound, leaving compiler-owned types intact. Without a formal, restoration is skipped.
+     */
+    private static void checkWildcardAnnotationRestoration(
+        TestTypeContext context, boolean missingFormal) {
+      Config config =
+          new NullAway(
+                  ErrorProneFlags.fromMap(
+                      Map.of(
+                          "NullAway:OnlyNullMarked", "true",
+                          "NullAway:JSpecifyMode", "true",
+                          "NullAway:HandleWildcardGenerics", "true")))
+              .getConfig();
+      Type.TypeVar annotatedFormal =
+          TypeMetadataBuilder.TYPE_METADATA_BUILDER.createDetachedTypeVar(
+              context.formalTypeVariable(), context.updatedUpperBound());
+      Type.WildcardType source =
+          new Type.WildcardType(
+              context.sourceWildcard().type,
+              BoundKind.UNBOUND,
+              context.sourceWildcard().tsym,
+              missingFormal ? null : annotatedFormal);
+      Type.WildcardType target =
+          new Type.WildcardType(
+              context.originalUpperBound(), BoundKind.EXTENDS, context.sourceWildcard().tsym);
+      Type.WildcardType restored =
+          (Type.WildcardType)
+              TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
+      if (missingFormal) {
+        assertThat(restored).isSameInstanceAs(target);
+      } else {
+        assertThat(restored).isNotSameInstanceAs(target);
+        assertThat(restored.type.getAnnotationMirrors()).hasSize(1);
+        assertThat(restored.type.getAnnotationMirrors().head.type)
+            .isSameInstanceAs(context.nullableAnnotationType());
+      }
+      assertThat(target.type.getAnnotationMirrors()).isEmpty();
+      assertThat(annotatedFormal.getUpperBound()).isSameInstanceAs(context.updatedUpperBound());
+      assertThat(context.formalTypeVariable().getUpperBound())
+          .isSameInstanceAs(context.originalUpperBound());
     }
 
     /** Checks that replacing a capture's backing wildcard returns a fully detached capture. */
