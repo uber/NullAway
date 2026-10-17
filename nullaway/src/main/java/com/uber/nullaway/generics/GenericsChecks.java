@@ -1485,8 +1485,10 @@ public final class GenericsChecks {
       UnsatisfiableConstraintsException e,
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts) {
     Element typeVariable = e.getTypeVariable();
-    if (PolyNullInference.containsInferenceVariable(polyNullContexts, typeVariable)) {
-      return PolyNullInference.INFERENCE_FAILURE_MESSAGE;
+    MethodInvocationTree polyNullInvocation =
+        PolyNullInference.getInvocationForInferenceVariable(polyNullContexts, typeVariable);
+    if (polyNullInvocation != null) {
+      return PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(polyNullInvocation));
     }
     if (e.isCausedByNonNullUpperBound()) {
       return String.format(
@@ -3699,7 +3701,7 @@ public final class GenericsChecks {
     ErrorMessage errorMessage =
         new ErrorMessage(
             ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
-            PolyNullInference.INFERENCE_FAILURE_MESSAGE);
+            PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)));
     state.reportMatch(
         analysis
             .getErrorBuilder()

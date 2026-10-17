@@ -19,13 +19,17 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Objects;
 import javax.lang.model.element.Element;
+import org.jspecify.annotations.Nullable;
 
 /** Constructs and applies polymorphic-nullness constraints for modeled method locations. */
 final class PolyNullInference {
 
-  /** Diagnostic for incompatible constraints on modeled PolyNull locations. */
-  static final String INFERENCE_FAILURE_MESSAGE =
-      "inference failure: polymorphic nullness constrained to both @NonNull and @Nullable";
+  /** Formats a diagnostic for incompatible linked-nullness constraints on a modeled method. */
+  static String inferenceFailureMessage(Symbol.MethodSymbol methodSymbol) {
+    return String.format(
+        "inference failure: linked nullness for call to %s constrained to be both @NonNull and @Nullable",
+        methodSymbol.getSimpleName());
+  }
 
   /** The modeled method-type overlay and shared PolyNull variable for one call. */
   record PolyNullInferenceContext(
@@ -174,12 +178,16 @@ final class PolyNullInference {
         inferenceContext.inferenceMethodType().getReturnType(), targetType, assignedToLocal);
   }
 
-  /** Returns whether {@code typeVariable} is a PolyNull variable from one of {@code contexts}. */
-  static boolean containsInferenceVariable(
+  /** Returns the invocation whose PolyNull variable is {@code typeVariable}, or null if absent. */
+  static @Nullable MethodInvocationTree getInvocationForInferenceVariable(
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> contexts,
       Element typeVariable) {
-    return contexts.values().stream()
-        .anyMatch(context -> Objects.equals(context.inferenceVariable().asElement(), typeVariable));
+    for (Map.Entry<MethodInvocationTree, PolyNullInferenceContext> entry : contexts.entrySet()) {
+      if (Objects.equals(entry.getValue().inferenceVariable().asElement(), typeVariable)) {
+        return entry.getKey();
+      }
+    }
+    return null;
   }
 
   /** Creates the nullable-bounded synthetic type variable for one PolyNull invocation. */

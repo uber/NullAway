@@ -97,7 +97,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                   Supplier<@Nullable String> nullableSupplier) {
                 field = optional.orElseGet(nonNullSupplier);
 
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                // BUG: Diagnostic contains: linked nullness for call to orElseGet constrained to be both @NonNull and @Nullable
                 field = optional.orElseGet(nullableSupplier);
               }
             }
@@ -233,7 +233,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               void test(Map<String, @Nullable String> map) {
                 field = map.computeIfAbsent("nonNull", unused -> "value");
 
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                // BUG: Diagnostic contains: linked nullness for call to computeIfAbsent constrained to be both @NonNull and @Nullable
                 field = map.computeIfAbsent("nullable", unused -> null);
               }
             }
@@ -355,7 +355,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test(List<Object> nonNull, List<@Nullable Object> nullable) {
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                // BUG: Diagnostic contains: linked nullness for call to first constrained to be both @NonNull and @Nullable
                 PolyNullMethods.first(nonNull, nullable);
               }
             }
@@ -442,7 +442,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               void test(Object nonNull, @Nullable Object nullable) {
                 field = PolyNullMethods.genericObject(nonNull, () -> nonNull);
 
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                // BUG: Diagnostic contains: linked nullness for call to genericObject constrained to be both @NonNull and @Nullable
                 field = PolyNullMethods.genericObject(nullable, () -> nullable);
               }
             }
@@ -533,9 +533,9 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 // Filter the nullable-return model before ordinary generic result constraints.
                 field = nullableModel.generic(() -> nonNull, nonNull);
                 field = nonNullModel.generic(() -> nonNull, nonNull);
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                // BUG: Diagnostic contains: linked nullness for call to generic constrained to be both @NonNull and @Nullable
                 field = nullableModel.generic(() -> nonNull, nullable);
-                // BUG: Diagnostic contains: polymorphic nullness constrained to both @NonNull and @Nullable
+                // BUG: Diagnostic contains: linked nullness for call to generic constrained to be both @NonNull and @Nullable
                 field = nonNullModel.generic(() -> nonNull, nullable);
               }
             }
