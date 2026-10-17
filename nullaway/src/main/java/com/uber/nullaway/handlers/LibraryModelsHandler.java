@@ -31,6 +31,7 @@ import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND;
 
+import com.google.common.annotations.VisibleForTesting;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.common.cache.Cache;
@@ -670,7 +671,8 @@ public class LibraryModelsHandler implements Handler {
     return new CombinedLibraryModels(libModelsBuilder.build(), config);
   }
 
-  private static class DefaultLibraryModels implements LibraryModels {
+  @VisibleForTesting
+  static class DefaultLibraryModels implements LibraryModels {
 
     private static final ImmutableSetMultimap<MethodRef, Integer> FAIL_IF_NULL_PARAMETERS =
         new ImmutableSetMultimap.Builder<MethodRef, Integer>()
@@ -1432,8 +1434,8 @@ public class LibraryModelsHandler implements Handler {
       ImmutableSet.Builder<FieldRef> nullableFieldsBuilder = new ImmutableSet.Builder<>();
       Map<MethodRef, ImmutableSetMultimap.Builder<Integer, NestedAnnotationInfo>>
           nestedAnnotationsBuilder = new LinkedHashMap<>();
-      ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation> polyNullLocationsBuilder =
-          new ImmutableSetMultimap.Builder<>();
+      Map<MethodRef, ImmutableSet<PolyNullLocation>> polyNullLocationsByMethod =
+          new LinkedHashMap<>();
       Map<MethodRef, LibraryModels> polyNullModelOwners = new LinkedHashMap<>();
       for (LibraryModels libraryModels : models) {
         for (Map.Entry<MethodRef, Integer> entry : libraryModels.failIfNullParameters().entries()) {
@@ -1533,26 +1535,41 @@ public class LibraryModelsHandler implements Handler {
               throw new IllegalArgumentException(
                   "PolyNull receiver locations are not yet supported for " + method);
             }
-            LibraryModels previousOwner = polyNullModelOwners.putIfAbsent(method, libraryModels);
-            if (previousOwner != null) {
-              throw new IllegalArgumentException(
-                  "Multiple PolyNull library model providers for "
-                      + method
-                      + ": "
-                      + previousOwner.getClass().getName()
-                      + " and "
-                      + libraryModels.getClass().getName());
-            }
             if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
               throw new IllegalArgumentException(
                   "PolyNull models must include at least one nested location for " + method);
             }
-            if (!shouldSkipModel(method)) {
-              polyNullLocationsBuilder.putAll(method, locations);
+            if (shouldSkipModel(method)) {
+              continue;
             }
+            LibraryModels previousOwner = polyNullModelOwners.get(method);
+            if (previousOwner != null) {
+              // User providers replace the whole built-in relationship, regardless of load order.
+              // Unioning location sets could introduce unintended links between nullness values.
+              if (libraryModels instanceof DefaultLibraryModels) {
+                continue;
+              }
+              if (!(previousOwner instanceof DefaultLibraryModels)) {
+                if (!locations.equals(polyNullLocationsByMethod.get(method))) {
+                  throw new IllegalArgumentException(
+                      "Conflicting PolyNull library model providers for "
+                          + method
+                          + ": "
+                          + previousOwner.getClass().getName()
+                          + " and "
+                          + libraryModels.getClass().getName());
+                }
+                continue;
+              }
+            }
+            polyNullModelOwners.put(method, libraryModels);
+            polyNullLocationsByMethod.put(method, locations);
           }
         }
       }
+      ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation> polyNullLocationsBuilder =
+          ImmutableSetMultimap.builder();
+      polyNullLocationsByMethod.forEach(polyNullLocationsBuilder::putAll);
       polyNullLocations = polyNullLocationsBuilder.build();
       failIfNullParameters = failIfNullParametersBuilder.build();
       explicitlyNullableParameters =

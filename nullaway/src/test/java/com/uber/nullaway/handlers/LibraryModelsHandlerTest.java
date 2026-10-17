@@ -20,6 +20,7 @@ import static com.google.common.truth.Truth.assertThat;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
+import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -29,6 +30,7 @@ import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.ImmutableSetMultimap;
 import com.google.common.io.ByteStreams;
 import com.uber.nullaway.Config;
+import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
@@ -53,6 +55,15 @@ import org.junit.rules.TemporaryFolder;
 public class LibraryModelsHandlerTest {
 
   private static final String RESOURCE_NAME = "model.astubx";
+
+  private static final MethodRef OPTIONAL_OR_ELSE_GET =
+      methodRef("java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)");
+
+  private static final PolyNullLocation OPTIONAL_SUPPLIER_RESULT =
+      new PolyNullLocation(
+          new Parameter(0),
+          ImmutableList.of(
+              new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 0)));
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
@@ -142,16 +153,122 @@ public class LibraryModelsHandlerTest {
   }
 
   @Test
-  public void rejectsPolyNullLocationsFromTwoProvidersForSameMethod() {
-    IllegalArgumentException error =
-        assertThrows(
-            IllegalArgumentException.class,
-            () ->
-                new LibraryModelsHandler.CombinedLibraryModels(
-                    ImmutableList.of(new TestLibraryModels(), new TestLibraryModels()),
-                    polyNullModelsConfig()));
-    assertThat(error).hasMessageThat().contains("Multiple PolyNull library model providers");
-    assertThat(error).hasMessageThat().contains("PolyNullMethods");
+  public void acceptsIdenticalPolyNullLocationsFromTwoProvidersForSameMethod() {
+    TestLibraryModels first = new TestLibraryModels();
+    TestLibraryModels second =
+        polyNullProvider(
+            ImmutableSetMultimap.<MethodRef, PolyNullLocation>builder()
+                .putAll(ImmutableList.copyOf(first.polyNullLocations().entries()).reverse())
+                .build());
+    LibraryModelsHandler.CombinedLibraryModels combined =
+        new LibraryModelsHandler.CombinedLibraryModels(
+            ImmutableList.of(first, second), polyNullModelsConfig());
+    assertThat(combined.polyNullLocations()).containsExactlyEntriesIn(first.polyNullLocations());
+  }
+
+  @Test
+  public void rejectsConflictingPolyNullLocationsFromTwoProvidersForSameMethod() {
+    MethodRef method =
+        methodRef(
+            "com.uber.lib.unannotated.PolyNullMethods",
+            "first(java.util.List<java.lang.Object>,java.util.List<java.lang.Object>)");
+    TestLibraryModels first = new TestLibraryModels();
+    TestLibraryModels second =
+        polyNullProvider(
+            ImmutableSetMultimap.of(
+                method,
+                new PolyNullLocation(
+                    new Parameter(0), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))));
+    for (ImmutableList<LibraryModels> providers :
+        ImmutableList.of(
+            ImmutableList.<LibraryModels>of(first, second),
+            ImmutableList.<LibraryModels>of(second, first))) {
+      IllegalArgumentException error =
+          assertThrows(
+              IllegalArgumentException.class,
+              () ->
+                  new LibraryModelsHandler.CombinedLibraryModels(
+                      providers, polyNullModelsConfig()));
+      assertThat(error).hasMessageThat().contains("Conflicting PolyNull library model providers");
+      assertThat(error).hasMessageThat().contains("PolyNullMethods");
+      assertThat(error).hasMessageThat().contains(first.getClass().getName());
+      assertThat(error).hasMessageThat().contains(second.getClass().getName());
+    }
+  }
+
+  @Test
+  public void userPolyNullModelsReplaceWholeBuiltInModelRegardlessOfProviderOrder() {
+    Config config = polyNullModelsConfig();
+    LibraryModelsHandler.DefaultLibraryModels defaults =
+        new LibraryModelsHandler.DefaultLibraryModels(config);
+    // Omit the built-in return location to check replacement rather than union.
+    ImmutableSetMultimap<MethodRef, PolyNullLocation> userLocations =
+        ImmutableSetMultimap.of(OPTIONAL_OR_ELSE_GET, OPTIONAL_SUPPLIER_RESULT);
+    TestLibraryModels user = polyNullProvider(userLocations);
+    for (ImmutableList<LibraryModels> providers :
+        ImmutableList.of(ImmutableList.of(defaults, user), ImmutableList.of(user, defaults))) {
+      LibraryModelsHandler.CombinedLibraryModels combined =
+          new LibraryModelsHandler.CombinedLibraryModels(providers, config);
+      ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation> expected =
+          ImmutableSetMultimap.builder();
+      for (MethodRef method : defaults.polyNullLocations().keySet()) {
+        if (!method.equals(OPTIONAL_OR_ELSE_GET)) {
+          expected.putAll(method, defaults.polyNullLocations().get(method));
+        }
+      }
+      expected.putAll(userLocations);
+      assertThat(combined.polyNullLocations()).containsExactlyEntriesIn(expected.build());
+    }
+  }
+
+  @Test
+  public void skipsConflictingPolyNullModelsFromBuiltInAndUserProviders() {
+    Config config = polyNullModelsConfig();
+    when(config.isSkippedLibraryModel("java.util.Optional.orElseGet")).thenReturn(true);
+    LibraryModelsHandler.DefaultLibraryModels defaults =
+        new LibraryModelsHandler.DefaultLibraryModels(config);
+    TestLibraryModels first =
+        polyNullProvider(ImmutableSetMultimap.of(OPTIONAL_OR_ELSE_GET, OPTIONAL_SUPPLIER_RESULT));
+    TestLibraryModels second =
+        polyNullProvider(
+            ImmutableSetMultimap.<MethodRef, PolyNullLocation>builder()
+                .putAll(
+                    OPTIONAL_OR_ELSE_GET, defaults.polyNullLocations().get(OPTIONAL_OR_ELSE_GET))
+                .build());
+    LibraryModelsHandler.CombinedLibraryModels combined =
+        new LibraryModelsHandler.CombinedLibraryModels(
+            ImmutableList.of(defaults, first, second), config);
+    assertThat(combined.polyNullLocations().get(OPTIONAL_OR_ELSE_GET)).isEmpty();
+  }
+
+  @Test
+  public void rejectsConflictingUserPolyNullModelsEvenWhenOneMatchesBuiltInModel() {
+    Config config = polyNullModelsConfig();
+    LibraryModelsHandler.DefaultLibraryModels defaults =
+        new LibraryModelsHandler.DefaultLibraryModels(config);
+    TestLibraryModels first =
+        polyNullProvider(ImmutableSetMultimap.of(OPTIONAL_OR_ELSE_GET, OPTIONAL_SUPPLIER_RESULT));
+    TestLibraryModels second =
+        polyNullProvider(
+            ImmutableSetMultimap.<MethodRef, PolyNullLocation>builder()
+                .putAll(
+                    OPTIONAL_OR_ELSE_GET, defaults.polyNullLocations().get(OPTIONAL_OR_ELSE_GET))
+                .build());
+    for (ImmutableList<LibraryModels> providers :
+        ImmutableList.of(
+            ImmutableList.of(defaults, first, second),
+            ImmutableList.of(defaults, second, first),
+            ImmutableList.of(first, defaults, second),
+            ImmutableList.of(second, defaults, first),
+            ImmutableList.of(first, second, defaults),
+            ImmutableList.of(second, first, defaults))) {
+      IllegalArgumentException error =
+          assertThrows(
+              IllegalArgumentException.class,
+              () -> new LibraryModelsHandler.CombinedLibraryModels(providers, config));
+      assertThat(error).hasMessageThat().contains("Conflicting PolyNull library model providers");
+      assertThat(error).hasMessageThat().contains("orElseGet");
+    }
   }
 
   @Test

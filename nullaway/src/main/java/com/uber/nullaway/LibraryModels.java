@@ -158,6 +158,11 @@ public interface LibraryModels {
    * existing contract-style models like {@link #nullImpliesNullParameters()} for relationships
    * involving only top-level nullness.
    *
+   * <p>A user provider's location set replaces the entire built-in PolyNull model for the same
+   * method. Multiple user providers may supply identical location sets, but differing sets for the
+   * same method are rejected. Methods excluded by {@code IgnoreLibraryModelsFor} do not participate
+   * in conflict detection. Each provider's models are still validated when excluded.
+   *
    * @return map from methods to signature locations with polymorphic nullness
    */
   default ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
