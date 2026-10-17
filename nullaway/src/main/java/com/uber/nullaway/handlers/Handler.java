@@ -511,8 +511,12 @@ public interface Handler {
    *
    * <p>The generic type-checking machinery uses these locations when resolving an invocation. A
    * handler should only provide model metadata here; substitution and call-site reasoning belong in
-   * {@code GenericsChecks}. A non-empty result must include at least one location with a non-empty
-   * type path.
+   * {@code GenericsChecks}.
+   *
+   * <p>A non-empty result must include at least one location with a non-empty type path and must
+   * not contain receiver locations. {@link CompositeHandler} enforces these restrictions by
+   * throwing {@link IllegalArgumentException}. It also throws if multiple handlers return non-empty
+   * results for the same method, even if their location sets are identical.
    */
   default ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
       Symbol.MethodSymbol methodSymbol, VisitorState state) {
