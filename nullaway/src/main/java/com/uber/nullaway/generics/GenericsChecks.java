@@ -3692,7 +3692,8 @@ public final class GenericsChecks {
   /** Reports unsatisfiable constraints on a PolyNull invocation. */
   private void reportPolyNullInferenceFailure(
       MethodInvocationTree invocationTree, VisitorState state) {
-    if (!callsWithReportedInferenceFailures.add(invocationTree)) {
+    if (!config.warnOnGenericInferenceFailure()
+        || !callsWithReportedInferenceFailures.add(invocationTree)) {
       return;
     }
     ErrorMessage errorMessage =
