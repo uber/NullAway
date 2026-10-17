@@ -2477,6 +2477,15 @@ public class GenericMethodTests extends NullAwayTestsBase {
               static void nonLocalContext(@Nullable String s, String t) {
                 takesNonNull(chooseFirst(id(t), id(s)));
               }
+              static void deeperNestingReversed(@Nullable String s, String t) {
+                String u = chooseFirst(id(id(s)), id(id(t)));
+                // BUG: Diagnostic contains: dereferenced expression 'u' is @Nullable
+                u.hashCode();
+              }
+              static void nonLocalContextReversed(@Nullable String s, String t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+                takesNonNull(chooseFirst(id(s), id(t)));
+              }
             }
             """)
         .doTest();
