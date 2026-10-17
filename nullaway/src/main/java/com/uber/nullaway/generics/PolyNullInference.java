@@ -105,7 +105,13 @@ final class PolyNullInference {
         : Nullness.NONNULL;
   }
 
-  /** Creates a method-type overlay with one shared variable at every modeled PolyNull location. */
+  /**
+   * Creates a method-type overlay with one shared variable at applicable modeled PolyNull
+   * locations.
+   *
+   * <p>Locations whose parameter index or type path does not exist in the method type are skipped.
+   * The returned context's {@code locations()} contains only locations that were replaced.
+   */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   static PolyNullInferenceContext createContext(
       Symbol.MethodSymbol methodSymbol,

@@ -3266,7 +3266,8 @@ public final class GenericsChecks {
                 methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
         jointlyInferredPolyNullness = successResult.polyNullnessByInvocation().get(invocationTree);
       } else {
-        // inference failed; just return the method type at the call site with no substitutions
+        // Inference failed; use the call-site type without inferred nullability substitutions.
+        // Still apply onOverrideMethodType below, but skip the PolyNull step.
         substitutedMethodType = methodTypeAtCallSite;
         genericInferenceFailed = true;
       }

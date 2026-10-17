@@ -145,14 +145,19 @@ public interface LibraryModels {
    * <p>At a call, NullAway introduces nullability inference variables at the modeled input
    * locations and generates constraints from invocation arguments, including lambdas and method
    * references. All input occurrences must infer the same nullness, which is then substituted at
-   * every modeled location. Explicit method type arguments seed the corresponding inference
-   * variables after substitution. This model is used only when {@code JSpecifyMode} and {@code
-   * JSpecifyExperimental} are enabled, and the modeled method's enclosing class is expected to be
-   * modeled as {@code @NullMarked}. A PolyNull location takes precedence over any fixed nullable or
-   * non-null library model for the same location, including models on overriding methods when the
-   * PolyNull model is inherited. Models at other locations retain their existing behavior. A
-   * top-level PolyNull return also takes precedence over a {@link #nullImpliesNullParameters()}
-   * model. Receiver locations can be represented but are not yet supported by inference.
+   * every modeled location. If the linked nullness is unconstrained, it resolves to
+   * {@code @NonNull}. A top-level parameter location allows {@code null} and other nullable
+   * arguments, whose nullness still constrains the linked nullness. Explicit method type arguments
+   * seed the corresponding inference variables after substitution.
+   *
+   * <p>This model is used only when {@code JSpecifyMode} and {@code JSpecifyExperimental} are
+   * enabled, and the modeled method's enclosing class is expected to be modeled as
+   * {@code @NullMarked}. A PolyNull location takes precedence over any fixed nullable or non-null
+   * library model for the same location, including models on overriding methods when the PolyNull
+   * model is inherited. Models at other locations retain their existing behavior. A top-level
+   * PolyNull return also takes precedence over a {@link #nullImpliesNullParameters()} model. A
+   * PolyNull model on an overriding method replaces the inherited model's entire location set.
+   * Receiver locations are not supported and are rejected with {@link IllegalArgumentException}.
    *
    * <p>Each modeled method must include at least one location with a non-empty type path. Use
    * existing contract-style models like {@link #nullImpliesNullParameters()} for relationships

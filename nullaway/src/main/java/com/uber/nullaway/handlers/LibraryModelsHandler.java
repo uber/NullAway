@@ -1938,6 +1938,10 @@ public class LibraryModelsHandler implements Handler {
           .contains(new PolyNullLocation(new Return(), ImmutableList.of()));
     }
 
+    /**
+     * Returns PolyNull locations for the method, preferring an exact model over an inherited one.
+     * The exact model replaces the inherited location set. Returns an empty set if no model exists.
+     */
     ImmutableSet<PolyNullLocation> polyNullLocations(Symbol.MethodSymbol symbol, Types types) {
       Symbol.MethodSymbol modelSymbol =
           lookupHandlingOverrides(
