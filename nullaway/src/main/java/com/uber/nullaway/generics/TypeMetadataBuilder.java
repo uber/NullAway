@@ -38,6 +38,11 @@ public interface TypeMetadataBuilder {
 
   Type.ArrayType createArrayType(Type.ArrayType baseType, Type elementType);
 
+  /**
+   * Copies a wildcard with a replacement bound, retaining its metadata and the formal type variable
+   * supplying its implicit upper bound. For {@code super} wildcards, changing the lower bound must
+   * not discard that independent upper bound.
+   */
   Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType);
 
   /**
@@ -309,8 +314,11 @@ public interface TypeMetadataBuilder {
     public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
       try {
         TypeMetadata metadata = (TypeMetadata) getMetadataHandleV17.invoke(baseType);
-        return (Type.WildcardType)
-            wildcardTypeCtorHandleV17.invoke(boundType, baseType.kind, baseType.tsym, metadata);
+        Type.WildcardType wildcard =
+            (Type.WildcardType)
+                wildcardTypeCtorHandleV17.invoke(boundType, baseType.kind, baseType.tsym, metadata);
+        wildcard.bound = baseType.bound;
+        return wildcard;
       } catch (Throwable e) {
         throw new RuntimeException(e);
       }
@@ -381,7 +389,10 @@ public interface TypeMetadataBuilder {
     @Override
     public Type.WildcardType createWildcardType(Type.WildcardType baseType, Type boundType) {
       com.sun.tools.javac.util.List<TypeMetadata> metadata = baseType.getMetadata();
-      return new Type.WildcardType(boundType, baseType.kind, baseType.tsym, metadata);
+      Type.WildcardType wildcard =
+          new Type.WildcardType(boundType, baseType.kind, baseType.tsym, metadata);
+      wildcard.bound = baseType.bound;
+      return wildcard;
     }
 
     @Override
