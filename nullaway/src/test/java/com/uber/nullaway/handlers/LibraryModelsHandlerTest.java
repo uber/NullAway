@@ -87,7 +87,7 @@ public class LibraryModelsHandlerTest {
             IllegalArgumentException.class,
             () ->
                 new LibraryModelsHandler.CombinedLibraryModels(
-                    ImmutableList.of(provider), jspecifyJdkModelsConfig()));
+                    ImmutableList.of(provider), polyNullModelsConfig()));
     assertThat(error).hasMessageThat().contains("receiver locations are not yet supported");
     assertThat(error).hasMessageThat().contains("example.Container");
   }
@@ -116,7 +116,7 @@ public class LibraryModelsHandlerTest {
               IllegalArgumentException.class,
               () ->
                   new LibraryModelsHandler.CombinedLibraryModels(
-                      ImmutableList.of(polyNullProvider(models)), jspecifyJdkModelsConfig()));
+                      ImmutableList.of(polyNullProvider(models)), polyNullModelsConfig()));
       assertThat(error).hasMessageThat().contains("must include at least one nested location");
       assertThat(error).hasMessageThat().contains("identity");
     }
@@ -125,7 +125,7 @@ public class LibraryModelsHandlerTest {
   @Test
   public void rejectsTopLevelOnlyPolyNullModelsEvenWhenSkipped() {
     MethodRef method = methodRef("example.Container", "identity(java.lang.Object)");
-    Config config = jspecifyJdkModelsConfig();
+    Config config = polyNullModelsConfig();
     when(config.isSkippedLibraryModel("example.Container.identity")).thenReturn(true);
     IllegalArgumentException error =
         assertThrows(
@@ -149,7 +149,7 @@ public class LibraryModelsHandlerTest {
             () ->
                 new LibraryModelsHandler.CombinedLibraryModels(
                     ImmutableList.of(new TestLibraryModels(), new TestLibraryModels()),
-                    jspecifyJdkModelsConfig()));
+                    polyNullModelsConfig()));
     assertThat(error).hasMessageThat().contains("Multiple PolyNull library model providers");
     assertThat(error).hasMessageThat().contains("PolyNullMethods");
   }
@@ -208,9 +208,9 @@ public class LibraryModelsHandlerTest {
   }
 
   /** Creates a configuration that enables PolyNull library models. */
-  private static Config jspecifyJdkModelsConfig() {
+  private static Config polyNullModelsConfig() {
     Config config = mock(Config.class);
-    when(config.isJSpecifyJDKModels()).thenReturn(true);
+    when(config.isPolyNullLibraryModelsEnabled()).thenReturn(true);
     return config;
   }
 

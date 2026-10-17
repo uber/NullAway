@@ -1,6 +1,7 @@
 package com.uber.nullaway;
 
 import static com.uber.nullaway.ErrorProneCLIFlagsConfig.ANNOTATED_PACKAGES_ONLY_NULLMARKED_ERROR_MSG;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
@@ -121,5 +122,25 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
 
     assertTrue(config.isJSpecifyJDKModels());
     assertTrue(config.handleWildcardGenerics());
+    assertTrue(config.isPolyNullLibraryModelsEnabled());
+
+    // PolyNull follows the experimental opt-in independently of the JDK model override.
+    for (boolean experimental : List.of(false, true)) {
+      for (boolean jdkModels : List.of(false, true)) {
+        ErrorProneCLIFlagsConfig overriddenConfig =
+            new ErrorProneCLIFlagsConfig(
+                ErrorProneFlags.fromMap(
+                    Map.of(
+                        "NullAway:AnnotatedPackages",
+                        "foo",
+                        "NullAway:JSpecifyMode",
+                        "true",
+                        "NullAway:JSpecifyExperimental",
+                        Boolean.toString(experimental),
+                        "NullAway:JSpecifyJDKModels",
+                        Boolean.toString(jdkModels))));
+        assertEquals(experimental, overriddenConfig.isPolyNullLibraryModelsEnabled());
+      }
+    }
   }
 }

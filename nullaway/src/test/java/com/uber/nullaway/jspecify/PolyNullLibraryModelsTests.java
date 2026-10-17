@@ -17,7 +17,7 @@ import org.junit.Test;
 public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
   @Test
-  public void polyNullModelsRequireJSpecifyJdkModels() {
+  public void polyNullModelsDoNotRequireJSpecifyJdkModels() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 List.of(
@@ -35,6 +35,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               private Object field = new Object();
 
               void test(@Nullable Object nullable) {
+                // BUG: Diagnostic contains: linked nullness for call to genericObject constrained to be both @NonNull and @Nullable
                 field = PolyNullMethods.genericObject(nullable, () -> nullable);
               }
             }

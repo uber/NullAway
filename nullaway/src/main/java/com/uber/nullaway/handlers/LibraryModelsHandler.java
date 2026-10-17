@@ -1524,7 +1524,7 @@ public class LibraryModelsHandler implements Handler {
                   entry.getKey(), key -> new ImmutableSetMultimap.Builder<>());
           builder.putAll(entry.getValue());
         }
-        if (config.isJSpecifyJDKModels()) {
+        if (config.isPolyNullLibraryModelsEnabled()) {
           ImmutableSetMultimap<MethodRef, PolyNullLocation> providerPolyNullLocations =
               libraryModels.polyNullLocations();
           for (MethodRef method : providerPolyNullLocations.keySet()) {
