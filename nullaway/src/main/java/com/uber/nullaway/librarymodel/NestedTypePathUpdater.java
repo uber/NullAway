@@ -33,14 +33,22 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
     this.updateKind = updateKind;
   }
 
-  /** Adds {@code annotationType} to {@code type} at {@code typePath}. */
+  /**
+   * Adds {@code annotationType} to {@code type} at {@code typePath}.
+   *
+   * @return the updated type, or the original {@code type} instance if no change was made
+   */
   public static Type addAnnotation(
       Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type annotationType) {
     return new NestedTypePathUpdater(typePath, annotationType, UpdateKind.ADD_ANNOTATION)
         .apply(type);
   }
 
-  /** Replaces the nested type at {@code typePath} with {@code replacement}. */
+  /**
+   * Replaces the nested type at {@code typePath} with {@code replacement}.
+   *
+   * @return the updated type, or the original {@code type} instance if no change was made
+   */
   public static Type replaceType(
       Type type, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath, Type replacement) {
     return new NestedTypePathUpdater(typePath, replacement, UpdateKind.REPLACE_TYPE).apply(type);
@@ -138,7 +146,13 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
     return t;
   }
 
-  /** Updates a captured type while preserving its backing wildcard when adding an annotation. */
+  /**
+   * Updates a captured type while preserving its backing wildcard when adding an annotation.
+   *
+   * <p>javac represents a captured wildcard as a type variable plus its original wildcard.
+   * NullAway's effective-bound computations inspect the backing wildcard, so annotating only the
+   * capture is insufficient: annotation updates must also be reflected in that wildcard.
+   */
   @Override
   public Type visitCapturedType(Type.CapturedType t, Integer pathIndex) {
     if (updateKind == UpdateKind.REPLACE_TYPE && pathIndex == typePath.size()) {
