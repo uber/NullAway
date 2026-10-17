@@ -48,10 +48,6 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   private final IdentityHashMap<Element, InferenceVariable> inferenceVariables =
       new IdentityHashMap<>();
 
-  /** Fresh type variables created for each site, keyed by declared type variable. */
-  private final Map<Tree, Map<Element, Type.TypeVar>> freshTypeVariablesForSite =
-      new LinkedHashMap<>();
-
   public ConstraintSolverImpl(Config config, VisitorState state, NullAway analysis) {
     this.config = config;
     this.handler = analysis.getHandler();
@@ -100,10 +96,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   @Override
   public Map<Element, Type.TypeVar> registerInferenceVariables(
       Tree site, List<? extends Element> typeVariables) {
-    Map<Element, Type.TypeVar> existing = freshTypeVariablesForSite.get(site);
-    if (existing != null) {
-      return existing;
-    }
+
     // First create all the fresh type variables, since the upper bound of one type variable can
     // refer to others, e.g., <T extends Comparable<T>> or <T, U extends T>.
     Map<Element, Type.TypeVar> fresh = new LinkedHashMap<>();
@@ -113,6 +106,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       fresh.put(
           typeVariable, new Type.TypeVar(symbol.name, symbol.owner, declared.getLowerBound()));
     }
+    // Rebind references in upper bounds as well: following a bound such as V extends Box<T>
+    // must lead to this site's fresh T, not back to the fixed declaration variable.
     Types types = state.getTypes();
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
       Type.TypeVar declared = (Type.TypeVar) ((Symbol) entry.getKey()).type;
@@ -133,8 +128,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
           GenericsUtils.upperBoundIsNullable(entry.getKey(), config, handler, state);
       Type upperBound = freshVar.getUpperBound();
       // Do not annotate synthetic intersection bounds (checked with the upperBound.isCompound()
-      // call): javac's metadata cloning can assert or replace them with an ordinary ClassType,
-      // losing the intersection structure.
+      // call): JDK 17's metadata cloning rejects them with an AssertionError, and newer javac
+      // versions can replace them with an ordinary ClassType, losing the intersection structure.
       // This only skips copying nullability onto the fresh bound: getState() still reads modeled
       // upper-bound nullability from the original declared type variable for this inference
       // problem.
@@ -150,7 +145,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       }
       inferenceVariables.put(freshVar.tsym, new InferenceVariable(entry.getKey(), site));
     }
-    freshTypeVariablesForSite.put(site, fresh);
+
     return fresh;
   }
 
@@ -420,6 +415,16 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     return result;
   }
 
+  /**
+   * Adds the top-level nullability constraints implied by {@code s <: t}.
+   *
+   * <p>Only a registered inference variable with no explicit nullness annotation takes a
+   * constraint; see {@link #inferenceVariableForUse(Type)}. For other types, including enclosing
+   * type parameters and explicitly annotated type-variable uses, no constraint is introduced, and
+   * the normal type compatibility checks report any incompatibility.
+   *
+   * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
+   */
   private void directlyConstrainTypePair(Type s, Type t) throws UnsatisfiableConstraintsException {
     Verify.verify(
         s instanceof TypeVariable || t instanceof TypeVariable,
@@ -446,12 +451,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
   /* ───────────────────── nullability bookkeeping ───────────────────── */
 
   /**
-   * Force {@code var} to {@code n}. Returns true if state changed.
-   *
-   * <p>Only a registered inference variable with no explicit nullness annotation takes a
-   * constraint; see {@link #inferenceVariableForUse(Type)}. For other types, including enclosing
-   * type parameters and explicitly annotated type-variable uses, no constraint is introduced, and
-   * the normal type compatibility checks report any incompatibility.
+   * Force {@code inferenceVar} to {@code n}. Returns true if state changed.
    *
    * @throws UnsatisfiableConstraintsException if the constraint leads to a contradiction
    */

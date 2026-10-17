@@ -63,6 +63,7 @@ import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
@@ -94,10 +95,25 @@ public final class GenericsChecks {
    * nullability of every inference variable in the inference problem, which may span several calls
    * (nested calls, generic method references, etc.).
    */
-  private record InferenceSuccess(
-      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability>
-          inferenceVariableNullability)
-      implements CallInferenceResult {
+  private static final class InferenceSuccess implements CallInferenceResult {
+
+    private final IdentityHashMap<Tree, Map<Element, ConstraintSolver.InferredNullability>>
+        typeVarNullabilityBySite = new IdentityHashMap<>();
+
+    /**
+     * Groups the solution by tree identity, preserving solution iteration order within each site's
+     * type variable map.
+     *
+     * @param solution the inferred nullability of every inference variable in the problem
+     */
+    private InferenceSuccess(
+        Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
+      solution.forEach(
+          (inferenceVar, nullability) ->
+              typeVarNullabilityBySite
+                  .computeIfAbsent(inferenceVar.site(), unused -> new LinkedHashMap<>())
+                  .put(inferenceVar.typeVariable(), nullability));
+    }
 
     /**
      * Returns the inferred nullability of the type variables inferred at {@code site}.
@@ -106,14 +122,7 @@ public final class GenericsChecks {
      * @return a map from declared type variables to their inferred nullability at {@code site}
      */
     Map<Element, ConstraintSolver.InferredNullability> typeVarNullabilityForSite(Tree site) {
-      Map<Element, ConstraintSolver.InferredNullability> result = new LinkedHashMap<>();
-      inferenceVariableNullability.forEach(
-          (inferenceVar, nullability) -> {
-            if (inferenceVar.site().equals(site)) {
-              result.put(inferenceVar.typeVariable(), nullability);
-            }
-          });
-      return result;
+      return typeVarNullabilityBySite.getOrDefault(site, Map.of());
     }
   }
 

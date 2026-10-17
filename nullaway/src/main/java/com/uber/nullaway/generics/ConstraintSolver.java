@@ -33,9 +33,14 @@ public interface ConstraintSolver {
    * <p>Returns a fresh type variable for each declared type variable. Callers must substitute these
    * fresh type variables for the declared ones in all types used to generate constraints for {@code
    * site}, so that each occurrence of a type variable in a constraint identifies the site it
-   * belongs to. The fresh type variables have the same name, owner, and upper bound nullability as
-   * the declared type variables. Calling this method again for the same site returns the same fresh
-   * type variables.
+   * belongs to. The fresh type variables have the same name and owner as the declared type
+   * variables, with references in their upper bounds rebound to the fresh variables. Upper-bound
+   * nullability is preserved except for library-modeled intersection bounds, whose synthetic javac
+   * types cannot be annotated safely. The solver still consults the declared variables for modeled
+   * bound nullability when solving their constraints.
+   *
+   * <p>Register each site once per inference problem. Constraint generation visits each call or
+   * method-reference tree once; separate inference problems use separate solvers.
    *
    * @param site the tree whose type arguments are inferred
    * @param typeVariables the declared type variables inferred at {@code site}

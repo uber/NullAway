@@ -2444,7 +2444,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void issue1291() {
+  public void repeatedCallsToOneGenericMethodAreInferredSeparately() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -2474,8 +2474,17 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 String u = chooseFirst(id(id(t)), id(id(s)));
                 u.hashCode();
               }
+              static void deeperNestingReversed(@Nullable String s, String t) {
+                String u = chooseFirst(id(id(s)), id(id(t)));
+                // BUG: Diagnostic contains: dereferenced expression 'u' is @Nullable
+                u.hashCode();
+              }
               static void nonLocalContext(@Nullable String s, String t) {
                 takesNonNull(chooseFirst(id(t), id(s)));
+              }
+              static void nonLocalContextReversed(@Nullable String s, String t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 's' where @NonNull is required
+                takesNonNull(chooseFirst(id(s), id(t)));
               }
             }
             """)
