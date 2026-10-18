@@ -101,10 +101,9 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
     // refer to others, e.g., <T extends Comparable<T>> or <T, U extends T>.
     Map<Element, Type.TypeVar> fresh = new LinkedHashMap<>();
     for (Element typeVariable : typeVariables) {
-      Symbol.TypeVariableSymbol symbol = (Symbol.TypeVariableSymbol) typeVariable;
-      Type.TypeVar declared = (Type.TypeVar) symbol.type;
-      fresh.put(
-          typeVariable, new Type.TypeVar(symbol.name, symbol.owner, declared.getLowerBound()));
+      FreshTypeVariableSymbol symbol =
+          new FreshTypeVariableSymbol((Symbol.TypeVariableSymbol) typeVariable);
+      fresh.put(typeVariable, (Type.TypeVar) symbol.type);
     }
     // Rebind references in upper bounds as well: following a bound such as V extends Box<T>
     // must lead to this site's fresh T, not back to the fixed declaration variable.
@@ -117,30 +116,8 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
               TypeSubstitutionUtils.substituteTypeVariables(
                   declared.getUpperBound(), fresh, types, config));
     }
-    // The fresh type variables are not among their owner's type parameters, so upper bound
-    // nullability coming from library models (which are keyed on type parameter index) is not
-    // visible on them. When the declared and fresh upper bound nullability differ, make the fresh
-    // upper bound nullability explicit. This matters when a fresh type variable is later seen as a
-    // fixed type, e.g., by a separate inference problem for a call inside a lambda body.
     for (Map.Entry<Element, Type.TypeVar> entry : fresh.entrySet()) {
-      Type.TypeVar freshVar = entry.getValue();
-      boolean declaredNullable =
-          GenericsUtils.upperBoundIsNullable(entry.getKey(), config, handler, state);
-      Type upperBound = freshVar.getUpperBound();
-      // Do not annotate synthetic intersection bounds (checked with the upperBound.isCompound()
-      // call): JDK 17's metadata cloning rejects them with an AssertionError, and newer javac
-      // versions can replace them with an ordinary ClassType, losing the intersection structure.
-      // This only skips copying nullability onto the fresh bound: getState() still reads modeled
-      // upper-bound nullability from the original declared type variable for this inference
-      // problem.
-      if (declaredNullable
-          && !GenericsUtils.upperBoundIsNullable(freshVar.tsym, config, handler, state)
-          && !upperBound.isCompound()) {
-        freshVar.setUpperBound(
-            TypeSubstitutionUtils.typeWithAnnot(
-                upperBound, GenericsChecks.getSyntheticNullableAnnotType(state)));
-      }
-      inferenceVariables.put(freshVar.tsym, new InferenceVariable(entry.getKey(), site));
+      inferenceVariables.put(entry.getValue().tsym, new InferenceVariable(entry.getKey(), site));
     }
 
     return fresh;
@@ -509,8 +486,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Returns whether a type is explicitly nullable or is the null type. */
   private boolean isKnownNullable(Type t) {
-    return t instanceof NullType
-        || Nullness.hasNullableAnnotation(t.getAnnotationMirrors().stream(), config);
+    return t instanceof NullType || TypeSubstitutionUtils.hasNullableRoot(t, config);
   }
 
   /**

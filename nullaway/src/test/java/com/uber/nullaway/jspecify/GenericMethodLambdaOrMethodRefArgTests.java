@@ -37,6 +37,46 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void modeledIntersectionBoundPreservedForSeparateInferenceInLambdaBody() {
+    makeHelper()
+        .addSourceLines(
+            "NestedAnnots.java",
+            """
+            package com.uber.lib.unannotated;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class NestedAnnots<T extends NestedAnnots.A & NestedAnnots.B> {
+              interface A {}
+              interface B {}
+              static class Both implements A, B {}
+              // The test library model makes T's intersection upper bound nullable.
+              NestedAnnots(T value, Function<List<T>, Integer> function) {}
+              static <U extends @Nullable Object> List<U> append(List<U> values, U value) {
+                return values;
+              }
+              static <U extends @Nullable Object> List<? extends U> appendWildcard(
+                  List<U> values, U value) {
+                return values;
+              }
+              static void test() {
+                new NestedAnnots<>(null, values -> append(values, null).size());
+              }
+              static void nullableElementRead() {
+                // BUG: Diagnostic contains: dereferenced expression
+                new NestedAnnots<>(null, values -> append(values, null).get(0).hashCode());
+              }
+              static void nonNullCapturedElementRead(Both value) {
+                new NestedAnnots<>(value, values -> appendWildcard(values, value).get(0).hashCode());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void modeledBoundPreservedForSeparateInferenceInLambdaBody() {
     makeHelper()
         .addSourceLines(

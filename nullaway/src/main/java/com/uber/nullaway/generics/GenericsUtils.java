@@ -20,7 +20,6 @@ import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullabilityUtil;
-import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -295,7 +294,7 @@ public class GenericsUtils {
     // An explicit @NonNull declaration bound narrows the computed bound. A nullable declaration
     // bound only permits nullable instantiations, so it is fallback information and must not widen
     // an already-qualified computed bound.
-    if (Nullness.hasNonNullAnnotation(declarationUpperBound.getAnnotationMirrors().stream(), config)
+    if (TypeSubstitutionUtils.hasExplicitNonNullRoot(declarationUpperBound, config)
         || !upperBoundHasExplicitNullnessAnnotation) {
       upperBound =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
@@ -311,8 +310,8 @@ public class GenericsUtils {
   }
 
   private static boolean hasNullnessAnnotation(Type type, Config config) {
-    return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
-        || Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    return TypeSubstitutionUtils.hasExplicitNonNullRoot(type, config)
+        || TypeSubstitutionUtils.hasNullableRoot(type, config);
   }
 
   /**
@@ -329,10 +328,15 @@ public class GenericsUtils {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
     }
-    // First, check if library model overrides the upper bound nullability.
-    Element enclosingElement = typeVarElement.getEnclosingElement();
+    // Models use declaration indices, which fresh inference symbols do not have. Keep looking at
+    // the fresh bound below, but consult its original declaration for library-model overrides.
+    Element modeledTypeVariable = typeVarElement;
+    while (modeledTypeVariable instanceof FreshTypeVariableSymbol freshSymbol) {
+      modeledTypeVariable = freshSymbol.declaredSymbol;
+    }
+    Element enclosingElement = modeledTypeVariable.getEnclosingElement();
     if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol
-        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+        && modeledTypeVariable instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
       int typeVarIndex = methodSymbol.getTypeParameters().indexOf(typeVariableSymbol);
       // TODO typeVarIndex is -1 in some cases; see test
       //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
@@ -342,7 +346,7 @@ public class GenericsUtils {
         return true;
       }
     } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol
-        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+        && modeledTypeVariable instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
       int typeVarIndex = classSymbol.getTypeParameters().indexOf(typeVariableSymbol);
       if (typeVarIndex >= 0
           && handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {
@@ -350,10 +354,10 @@ public class GenericsUtils {
       }
     }
     Type upperBound = (Type) ((TypeVariable) typeVarElement.asType()).getUpperBound();
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (TypeSubstitutionUtils.hasNullableRoot(upperBound, config)) {
       return true;
     }
-    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (TypeSubstitutionUtils.hasExplicitNonNullRoot(upperBound, config)) {
       return false;
     }
     if (upperBound.getKind() == TypeKind.TYPEVAR) {
