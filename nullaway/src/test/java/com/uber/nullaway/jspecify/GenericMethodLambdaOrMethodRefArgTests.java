@@ -10,6 +10,34 @@ import org.junit.Test;
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
+  public void modeledBoundPreservedForSeparateInferenceInLambdaBody() {
+    makeHelper()
+        .addSourceLines(
+            "NestedAnnots.java",
+            """
+            package com.uber.lib.unannotated;
+            import java.util.List;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class NestedAnnots<T> {
+              // The test library model makes T's upper bound nullable.
+              NestedAnnots(T value, Function<List<T>, Integer> function) {}
+              static <U extends @Nullable Object> List<U> append(List<U> values, U value) {
+                return values;
+              }
+              static void test() {
+                // The receiver call starts a separate inference problem while the lambda
+                // parameter still contains the constructor's unsolved fresh T.
+                new NestedAnnots<>(null, values -> append(values, null).size());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1919ImplicitLambdaParameterPreservesNestedNullness() {
     makeHelper()
         .addSourceLines(
@@ -1000,6 +1028,64 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 // should not be legal due to restrictive annotation
                 // BUG: Diagnostic contains: passing @Nullable parameter 'sNullable' where @NonNull is required
                 consume(Util::takeRestrictive, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodRefsToOneGenericMethodInOneCallAreInferredSeparately() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T id(T value) {
+                return value;
+              }
+              static <T extends @Nullable Object, R extends @Nullable Object> R apply(
+                  Function<T, R> function, T value) {
+                return function.apply(value);
+              }
+              static <T extends @Nullable Object, U extends @Nullable Object> T first(
+                  T first, U second) {
+                return first;
+              }
+              void test(String s, @Nullable String n) {
+                first(apply(Test::id, s), apply(Test::id, n)).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                first(apply(Test::id, n), apply(Test::id, s)).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void recursiveMethodReferenceKeepsCallerTypeVariableFixed() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> Object recursive(T value, Object other) {
+                class Local {
+                  <U extends @Nullable Object> void accept(
+                      BiFunction<@Nullable String, T, Object> f, U ignored) {}
+                }
+                new Local().accept(Test::recursive, value);
+                return other;
               }
             }
             """)

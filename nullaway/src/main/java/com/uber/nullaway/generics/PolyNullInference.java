@@ -7,6 +7,7 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.ListBuffer;
+import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Position;
@@ -84,21 +85,24 @@ final class PolyNullInference {
   /** Resolves PolyNull nullness by invocation after a shared generic-inference solver run. */
   static IdentityHashMap<MethodInvocationTree, Nullness> resolveNullnessByInvocation(
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> contexts,
-      Map<Element, ConstraintSolver.InferredNullability> solution) {
+      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
     IdentityHashMap<MethodInvocationTree, Nullness> nullnessByInvocation = new IdentityHashMap<>();
     for (Map.Entry<MethodInvocationTree, PolyNullInferenceContext> entry : contexts.entrySet()) {
-      nullnessByInvocation.put(entry.getKey(), resolveContext(entry.getValue(), solution));
+      nullnessByInvocation.put(
+          entry.getKey(), resolveContext(entry.getKey(), entry.getValue(), solution));
     }
     return nullnessByInvocation;
   }
 
   /** Resolves the shared PolyNull variable for one invocation. */
   static Nullness resolveContext(
+      MethodInvocationTree invocationTree,
       PolyNullInferenceContext inferenceContext,
-      Map<Element, ConstraintSolver.InferredNullability> solution) {
+      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution) {
     ConstraintSolver.InferredNullability inferred =
         solution.getOrDefault(
-            inferenceContext.inferenceVariable().asElement(),
+            new ConstraintSolver.InferenceVariable(
+                inferenceContext.inferenceVariable().asElement(), invocationTree),
             ConstraintSolver.InferredNullability.NONNULL);
     return inferred == ConstraintSolver.InferredNullability.NULLABLE
         ? Nullness.NULLABLE
@@ -169,6 +173,23 @@ final class PolyNullInference {
             updatedParameterTypes.toList(), updatedReturnType, methodType.thrown, methodType.tsym),
         appliedLocations.build(),
         inferenceVariable);
+  }
+
+  /**
+   * Substitutes call-specific variables into the overlay while retaining the original PolyNull
+   * variable as the key used to look up its solution and identify inference failures.
+   */
+  static PolyNullInferenceContext substituteInferenceVariables(
+      PolyNullInferenceContext context,
+      Map<Element, Type.TypeVar> inferenceVariables,
+      VisitorState state,
+      Config config) {
+    return new PolyNullInferenceContext(
+        (Type.MethodType)
+            TypeSubstitutionUtils.substituteTypeVariables(
+                context.inferenceMethodType(), inferenceVariables, state.getTypes(), config),
+        context.locations(),
+        context.inferenceVariable());
   }
 
   /** Adds a call-result subtype constraint using the invocation's shared PolyNull variable. */

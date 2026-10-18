@@ -330,6 +330,44 @@ public class TypeSubstitutionUtils {
   }
 
   /**
+   * Replaces every occurrence of the given type variables in {@code targetType}, preserving
+   * explicit nullability annotations on the replaced occurrences. So, if {@code targetType} is
+   * {@code List<@Nullable T>} and {@code T} is replaced with {@code S}, the result is {@code
+   * List<@Nullable S>}.
+   *
+   * <p>Occurrences are found by symbol, since a type can contain several {@link Type.TypeVar}
+   * objects for the same symbol, e.g., due to annotations on type variable uses.
+   *
+   * @param targetType type in which to replace type variables
+   * @param replacements map from type variable symbols to their replacement types
+   * @param types the javac types instance
+   * @param config the NullAway config
+   * @return the type with replacements applied, or {@code targetType} itself if it contains none of
+   *     the type variables
+   */
+  static Type substituteTypeVariables(
+      Type targetType,
+      Map<? extends Element, ? extends Type> replacements,
+      Types types,
+      Config config) {
+    ListBuffer<Type> typeVars = new ListBuffer<>();
+    ListBuffer<Type> replacementTypes = new ListBuffer<>();
+    for (Map.Entry<? extends Element, ? extends Type> entry : replacements.entrySet()) {
+      TypeVarWithSymbolCollector tvc = new TypeVarWithSymbolCollector(entry.getKey());
+      targetType.accept(tvc, null);
+      for (Type.TypeVar tv : tvc.getMatches()) {
+        typeVars.append(tv);
+        replacementTypes.append(entry.getValue());
+      }
+    }
+    List<Type> typeVarsToReplace = typeVars.toList();
+    if (typeVarsToReplace.isEmpty()) {
+      return targetType;
+    }
+    return subst(types, targetType, typeVarsToReplace, replacementTypes.toList(), config);
+  }
+
+  /**
    * A visitor that restores explicit nullability annotations on types nested within another type to
    * the corresponding positions in the visited type. If no annotations need to be restored, returns
    * the visited type object itself.
@@ -443,9 +481,21 @@ public class TypeSubstitutionUtils {
           return wt;
         }
       }
+      Type otherBound = wildcardType.type;
+      if (wt.kind == BoundKind.EXTENDS && wildcardType.kind == BoundKind.UNBOUND) {
+        // Substitution can introduce an explicit extends wildcard while the corresponding
+        // declared wildcard remains unbounded. Its `type` field is just an Object placeholder;
+        // annotations must be restored from the implicit upper bound of its formal type variable
+        // instead. This also applies to wildcards nested within a captured type's upper bound.
+        Type.TypeVar formalTypeVariable = wildcardType.bound;
+        if (formalTypeVariable == null) {
+          return wt;
+        }
+        otherBound = formalTypeVariable.getUpperBound();
+      }
       Type t = wt.type;
       if (t != null) {
-        t = visit(t, wildcardType.type);
+        t = visit(t, otherBound);
       }
       if (t == wt.type) {
         return wt;
@@ -530,23 +580,7 @@ public class TypeSubstitutionUtils {
       Type.WildcardType otherWildcard = GenericsUtils.asWildcard(other);
       Type.WildcardType updatedWildcard;
       if (otherWildcard != null) {
-        if (t.wildcard.kind == BoundKind.EXTENDS && otherWildcard.kind == BoundKind.UNBOUND) {
-          // Substitution can turn the capture's backing wildcard into an explicit extends
-          // wildcard while the corresponding declared wildcard remains unbounded. Its `type`
-          // field is just an Object placeholder; annotations must be restored from the implicit
-          // upper bound of its formal type variable instead.
-          Type.TypeVar formalTypeVariable = otherWildcard.bound;
-          if (formalTypeVariable == null) {
-            return updated;
-          }
-          Type updatedBound = t.wildcard.type.accept(this, formalTypeVariable.getUpperBound());
-          if (updatedBound == t.wildcard.type) {
-            return updated;
-          }
-          updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(t.wildcard, updatedBound);
-        } else {
-          updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
-        }
+        updatedWildcard = (Type.WildcardType) t.wildcard.accept(this, otherWildcard);
       } else if (t.wildcard.kind == BoundKind.EXTENDS) {
         Type updatedBound = t.wildcard.type.accept(this, other);
         if (updatedBound == t.wildcard.type) {

@@ -435,6 +435,39 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void repeatedGenericPolyNullCallsAreInferredSeparately() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object, U extends @Nullable Object> T chooseFirst(T t, U u) {
+                return t;
+              }
+
+              void test(String nonNull, @Nullable String nullable) {
+                var nonNullResult = chooseFirst(
+                    PolyNullMethods.genericFirst(nonNull, () -> nonNull),
+                    PolyNullMethods.genericFirst(nullable, () -> nullable));
+                nonNullResult.hashCode();
+
+                var nullableResult = chooseFirst(
+                    PolyNullMethods.genericFirst(nullable, () -> nullable),
+                    PolyNullMethods.genericFirst(nonNull, () -> nonNull));
+                // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
+                nullableResult.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericMethodUsesFieldAssignmentTargetForPolyNull() {
     makeHelper()
         .addSourceLines(

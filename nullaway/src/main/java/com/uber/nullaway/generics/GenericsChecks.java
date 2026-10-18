@@ -95,12 +95,45 @@ public final class GenericsChecks {
 
   /**
    * Indicates successful inference of nullability of type variables at a call. Stores the inferred
-   * type variable nullability and any PolyNull nullability computed by the same solver run.
+   * nullability of every inference variable in the inference problem, which may span several calls
+   * (nested calls, generic method references, etc.), and any PolyNull nullability computed by the
+   * same solver run.
    */
-  private record InferenceSuccess(
-      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability,
-      IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation)
-      implements CallInferenceResult {}
+  private static final class InferenceSuccess implements CallInferenceResult {
+
+    private final IdentityHashMap<Tree, Map<Element, ConstraintSolver.InferredNullability>>
+        typeVarNullabilityBySite = new IdentityHashMap<>();
+
+    private final IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation;
+
+    /**
+     * Groups the solution by tree identity, preserving solution iteration order within each site's
+     * type variable map.
+     *
+     * @param solution the inferred nullability of every inference variable in the problem
+     * @param polyNullnessByInvocation the PolyNull nullness inferred for each modeled invocation
+     */
+    private InferenceSuccess(
+        Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution,
+        IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation) {
+      this.polyNullnessByInvocation = polyNullnessByInvocation;
+      solution.forEach(
+          (inferenceVar, nullability) ->
+              typeVarNullabilityBySite
+                  .computeIfAbsent(inferenceVar.site(), unused -> new LinkedHashMap<>())
+                  .put(inferenceVar.typeVariable(), nullability));
+    }
+
+    /**
+     * Returns the inferred nullability of the type variables inferred at {@code site}.
+     *
+     * @param site a call or method reference participating in the inference problem
+     * @return a map from declared type variables to their inferred nullability at {@code site}
+     */
+    Map<Element, ConstraintSolver.InferredNullability> typeVarNullabilityForSite(Tree site) {
+      return typeVarNullabilityBySite.getOrDefault(site, Map.of());
+    }
+  }
 
   /** Indicates failed inference of nullability of type variables at a call */
   private record InferenceFailure(@SuppressWarnings("UnusedVariable") @Nullable String errorMessage)
@@ -1338,8 +1371,8 @@ public final class GenericsChecks {
               assignedToLocal,
               calledFromDataflow);
     }
-    if (result instanceof InferenceSuccess) {
-      typeVarNullability = ((InferenceSuccess) result).typeVarNullability;
+    if (result instanceof InferenceSuccess successResult) {
+      typeVarNullability = successResult.typeVarNullabilityForSite(callTree);
     }
     Type typeAtCallSite = castToNonNull(ASTHelpers.getType(callTree));
     if (callTree instanceof MethodInvocationTree invocationTree) {
@@ -1347,7 +1380,7 @@ public final class GenericsChecks {
           TypeSubstitutionUtils.updateTypeWithInferredNullability(
               typeAtCallSite, executableType.getReturnType(), typeVarNullability, state, config);
       if (result instanceof InferenceSuccess successResult) {
-        Nullness polyNullness = successResult.polyNullnessByInvocation().get(invocationTree);
+        Nullness polyNullness = successResult.polyNullnessByInvocation.get(invocationTree);
         if (polyNullness != null) {
           inferredCallType =
               PolyNullInference.applyToReturnType(
@@ -1396,7 +1429,6 @@ public final class GenericsChecks {
     allCalls.add(callTree);
     IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts =
         new IdentityHashMap<>();
-    Map<Element, ConstraintSolver.InferredNullability> typeVarNullability;
     try {
       generateConstraintsForCall(
           state,
@@ -1409,18 +1441,22 @@ public final class GenericsChecks {
           allCalls,
           polyNullContexts,
           calledFromDataflow);
-      typeVarNullability = new LinkedHashMap<>(solver.solve());
+      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution =
+          new LinkedHashMap<>(solver.solve());
       // The solver only computes a solution for variables that appear in constraints. For
-      // unconstrained variables, treat them as NONNULL, consistent with solver behavior for
-      // unconstrained variables that do appear in the constraint graph.
+      // unconstrained variables of the top-level call, treat them as NONNULL, consistent with
+      // solver behavior for unconstrained variables that do appear in the constraint graph.
       for (Symbol.TypeVariableSymbol typeVar : getCallTypeParameters(callTree)) {
-        typeVarNullability.putIfAbsent(typeVar, ConstraintSolver.InferredNullability.NONNULL);
+        solution.putIfAbsent(
+            new ConstraintSolver.InferenceVariable(typeVar, callTree),
+            ConstraintSolver.InferredNullability.NONNULL);
       }
 
-      IdentityHashMap<MethodInvocationTree, Nullness> polyNullnessByInvocation =
-          PolyNullInference.resolveNullnessByInvocation(polyNullContexts, typeVarNullability);
       InferenceSuccess successResult =
-          new InferenceSuccess(typeVarNullability, polyNullnessByInvocation);
+          new InferenceSuccess(
+              solution, PolyNullInference.resolveNullnessByInvocation(polyNullContexts, solution));
+      Map<Element, ConstraintSolver.InferredNullability> typeVarNullability =
+          successResult.typeVarNullabilityForSite(callTree);
       if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
           inferredTypeVarNullabilityForGenericCalls.put(inferredCall, successResult);
@@ -1593,10 +1629,6 @@ public final class GenericsChecks {
       IdentityHashMap<MethodInvocationTree, PolyNullInferenceContext> polyNullContexts,
       boolean calledFromDataflow)
       throws UnsatisfiableConstraintsException {
-    // Register all type variables whose nullability is inferred for this call.
-    for (Symbol.TypeVariableSymbol typeVariable : getCallTypeParameters(callTree)) {
-      solver.registerInferenceVariable(typeVariable);
-    }
     PolyNullInferenceContext polyNullContext = null;
     ImmutableSet<PolyNullLocation> polyNullLocations = ImmutableSet.of();
     if (callTree instanceof MethodInvocationTree invocationTree) {
@@ -1614,15 +1646,35 @@ public final class GenericsChecks {
                         locations,
                         getSyntheticNullableAnnotType(state),
                         state));
-        solver.registerInferenceVariable(polyNullContext.inferenceVariable().asElement());
       }
+    }
+    // Use call-specific variables for both generic parameters and the shared PolyNull variable.
+    // This keeps different invocations of the same method independent.
+    List<Element> typeParameters = new ArrayList<>(getCallTypeParameters(callTree));
+    if (polyNullContext != null) {
+      typeParameters.add(polyNullContext.inferenceVariable().asElement());
+    }
+    Map<Element, Type.TypeVar> inferenceVariables =
+        solver.registerInferenceVariables(callTree, typeParameters);
+    Type.MethodType methodTypeForSite =
+        (Type.MethodType)
+            TypeSubstitutionUtils.substituteTypeVariables(
+                methodType, inferenceVariables, state.getTypes(), config);
+    if (polyNullContext != null) {
+      polyNullContext =
+          PolyNullInference.substituteInferenceVariables(
+              polyNullContext, inferenceVariables, state, config);
     }
     // first, handle the call result flow
     if (typeFromAssignmentContext != null) {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
-              ? methodType.getReturnType()
-              : getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.type;
+              ? methodTypeForSite.getReturnType()
+              : TypeSubstitutionUtils.substituteTypeVariables(
+                  getConstructedTypeAtCallSite((NewClassTree) callTree).tsym.type,
+                  inferenceVariables,
+                  state.getTypes(),
+                  config);
       solver.addSubtypeConstraint(callResultType, typeFromAssignmentContext, assignedToLocal);
       if (polyNullContext != null) {
         PolyNullInference.addResultConstraints(
@@ -1631,7 +1683,14 @@ public final class GenericsChecks {
     }
     // then, handle parameters
     generateArgumentConstraintsForCall(
-        state, path, solver, callTree, methodType, allCalls, polyNullContexts, calledFromDataflow);
+        state,
+        path,
+        solver,
+        callTree,
+        methodTypeForSite,
+        allCalls,
+        polyNullContexts,
+        calledFromDataflow);
     if (callTree instanceof MethodInvocationTree invocationTree
         && polyNullContext != null
         && polyNullContext.hasInputLocations()) {
@@ -1847,11 +1906,15 @@ public final class GenericsChecks {
     // arguments, register the referenced method's type variables as inference variables
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
     List<? extends ExpressionTree> explicitTypeArguments = memberReferenceTree.getTypeArguments();
+    Map<Element, Type.TypeVar> inferenceVariables;
     if (referencedMethod != null
+        && !referencedMethod.getTypeParameters().isEmpty()
         && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())) {
-      for (Symbol.TypeVariableSymbol typeVariable : referencedMethod.getTypeParameters()) {
-        solver.registerInferenceVariable(typeVariable);
-      }
+      inferenceVariables =
+          solver.registerInferenceVariables(
+              memberReferenceTree, referencedMethod.getTypeParameters());
+    } else {
+      inferenceVariables = Map.of();
     }
     Type groundTargetType = GenericsUtils.groundTargetType(lhsType, state, config, handler);
     GenericsUtils.processMethodRefTypeRelations(
@@ -1859,8 +1922,25 @@ public final class GenericsChecks {
         groundTargetType,
         memberReferenceTree,
         state,
-        (subtype, supertype, unused) -> {
-          solver.addSubtypeConstraint(subtype, supertype, false);
+        (subtype, supertype, relationKind) -> {
+          // Use the reference-specific inference variables in place of the referenced method's
+          // declared type variables. Only the side of the relation coming from the referenced
+          // method can mention those type variables as inference variables; the other side comes
+          // from the functional interface type, which may mention the same type variables as
+          // fixed types (e.g., in a recursive reference to an enclosing generic method).
+          boolean referencedMethodTypeIsSubtype =
+              relationKind == GenericsUtils.MethodRefTypeRelationKind.RETURN;
+          Type subtypeForReference =
+              referencedMethodTypeIsSubtype
+                  ? TypeSubstitutionUtils.substituteTypeVariables(
+                      subtype, inferenceVariables, state.getTypes(), config)
+                  : subtype;
+          Type supertypeForReference =
+              referencedMethodTypeIsSubtype
+                  ? supertype
+                  : TypeSubstitutionUtils.substituteTypeVariables(
+                      supertype, inferenceVariables, state.getTypes(), config);
+          solver.addSubtypeConstraint(subtypeForReference, supertypeForReference, false);
         });
   }
 
@@ -2804,8 +2884,14 @@ public final class GenericsChecks {
       CallInferenceResult inferenceResult =
           inferredTypeVarNullabilityForGenericCalls.get(methodInvocationTree);
       if (inferenceResult instanceof InferenceSuccess successResult) {
+        // the referenced method's type variables are inferred at the method reference itself
+        Tree memberReferenceTree = state.getPath().getLeaf();
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
-            methodType, methodType, successResult.typeVarNullability, state, config);
+            methodType,
+            methodType,
+            successResult.typeVarNullabilityForSite(memberReferenceTree),
+            state,
+            config);
       }
     }
     return methodType;
@@ -3263,8 +3349,12 @@ public final class GenericsChecks {
         }
         substitutedMethodType =
             TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
-                methodTypeAtCallSite, methodType, successResult.typeVarNullability, state, config);
-        jointlyInferredPolyNullness = successResult.polyNullnessByInvocation().get(invocationTree);
+                methodTypeAtCallSite,
+                methodType,
+                successResult.typeVarNullabilityForSite(invocationTree),
+                state,
+                config);
+        jointlyInferredPolyNullness = successResult.polyNullnessByInvocation.get(invocationTree);
       } else {
         // Inference failed; use the call-site type without inferred nullability substitutions.
         // Still apply onOverrideMethodType below, but skip the PolyNull step.
@@ -3596,7 +3686,12 @@ public final class GenericsChecks {
       return null;
     }
     ConstraintSolver solver = makeSolver(state, analysis);
-    solver.registerInferenceVariable(inferenceContext.inferenceVariable().asElement());
+    Map<Element, Type.TypeVar> inferenceVariables =
+        solver.registerInferenceVariables(
+            invocationTree, List.of(inferenceContext.inferenceVariable().asElement()));
+    inferenceContext =
+        PolyNullInference.substituteInferenceVariables(
+            inferenceContext, inferenceVariables, state, config);
     Set<Tree> nestedCalls = new LinkedHashSet<>();
     try {
       addPolyNullResultConstraintsFromDirectAssignmentContext(
@@ -3610,8 +3705,10 @@ public final class GenericsChecks {
           nestedCalls,
           new IdentityHashMap<>(),
           calledFromDataflow);
-      Map<Element, ConstraintSolver.InferredNullability> solution = solver.solve();
-      Nullness resolved = PolyNullInference.resolveContext(inferenceContext, solution);
+      Map<ConstraintSolver.InferenceVariable, ConstraintSolver.InferredNullability> solution =
+          solver.solve();
+      Nullness resolved =
+          PolyNullInference.resolveContext(invocationTree, inferenceContext, solution);
       if (resolved != null && !calledFromDataflow) {
         separatelyInferredPolyNullness.put(invocationTree, resolved);
       }
