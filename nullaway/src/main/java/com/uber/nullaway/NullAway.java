@@ -1322,7 +1322,7 @@ public class NullAway extends BugChecker
             modeledOverriddenMethodType,
             memberReferenceTree,
             state)
-        && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
+        && getOverridingMethodReturnNullness(overridingMethod, memberReferenceTree, state)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
             || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
@@ -1369,6 +1369,37 @@ public class NullAway extends BugChecker
         modeledOverriddenMethodType,
         state,
         overridingMethod);
+  }
+
+  /**
+   * Gets the return nullness of an overriding method, accounting for handler-provided conditional
+   * return models when the override is a method reference.
+   *
+   * @param overridingMethod the overriding or referenced method
+   * @param memberReferenceTree the method reference, or {@code null} for an ordinary override
+   * @param state the current visitor state
+   * @return the effective return nullness
+   */
+  private Nullness getOverridingMethodReturnNullness(
+      Symbol.MethodSymbol overridingMethod,
+      @Nullable MemberReferenceTree memberReferenceTree,
+      VisitorState state) {
+    Nullness result = getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL);
+    if (memberReferenceTree == null) {
+      return result;
+    }
+    Type functionalInterfaceType =
+        genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
+    if (functionalInterfaceType == null) {
+      functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
+    }
+    if (functionalInterfaceType == null) {
+      return result;
+    }
+    Handler.NullnessHint hint =
+        genericsChecks.getMethodReferenceReturnNullnessHint(
+            memberReferenceTree, functionalInterfaceType, state);
+    return hint.equals(Handler.NullnessHint.UNKNOWN) ? result : hint.toNullness();
   }
 
   private boolean overriddenMethodReturnsNonNull(

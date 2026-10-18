@@ -513,6 +513,14 @@ public class GenericsUtils {
     // method reference return type <: functional interface return type
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
+    Handler.NullnessHint returnNullnessHint =
+        genericsChecks.getMethodReferenceReturnNullnessHint(
+            referencedMethod, fiMethod, fiMethodTypeAsMember, unbound, state);
+    if (!returnNullnessHint.equals(Handler.NullnessHint.UNKNOWN)) {
+      referencedReturnType =
+          genericsChecks.updateTypeWithNullness(
+              state, referencedReturnType, returnNullnessHint.toNullness());
+    }
     if (fiReturnType.getKind() != TypeKind.VOID
         && referencedReturnType.getKind() != TypeKind.VOID) {
       relationHandler.handle(referencedReturnType, fiReturnType, MethodRefTypeRelationKind.RETURN);

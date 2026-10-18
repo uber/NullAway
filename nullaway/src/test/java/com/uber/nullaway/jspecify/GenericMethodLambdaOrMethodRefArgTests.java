@@ -413,6 +413,90 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1808ClassCastStreamPipeline() {
+    makeHelper()
+        .addSourceLines(
+            "Tester.java",
+            """
+            import java.io.Serializable;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            public class Tester {
+              public static void main(String[] args) {
+                List<Serializable> list = List.of("Hello", 100);
+                List<String> stringsLongerThanThree = list.stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(s -> s.length() > 3)
+                    .toList();
+                System.out.println(stringsLongerThanThree);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithNonNullArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Stream<String> methodReference(Stream<Object> input) {
+                return input.map(String.class::cast);
+              }
+
+              Stream<String> lambda(Stream<Object> input) {
+                return input.map(value -> String.class.cast(value));
+              }
+
+              Stream<@Nullable String> nullableMethodReference(
+                  Stream<@Nullable Object> input) {
+                return input.map(String.class::cast);
+              }
+
+              Function<Object, String> nonNullFunction() {
+                return String.class::cast;
+              }
+
+              Function<@Nullable Object, @Nullable String> nullableFunction() {
+                return String.class::cast;
+              }
+
+              Function<@Nullable Object, String> invalidFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return String.class::cast;
+              }
+
+              BiFunction<Class<String>, Object, String> unboundNonNullFunction() {
+                return Class::cast;
+              }
+
+              BiFunction<Class<String>, @Nullable Object, @Nullable String>
+                  unboundNullableFunction() {
+                return Class::cast;
+              }
+
+              BiFunction<Class<String>, @Nullable Object, String> invalidUnboundFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void methodRefWithDifferentReturnNullability() {
     makeHelper()
         .addSourceLines(
