@@ -1,6 +1,12 @@
 Changelog
 =========
 
+Unreleased
+----------
+
+* Maintenance
+  - Report diff coverage after each test run, quoting the changed lines the run did not execute and the branches it took one way, and writing the whole report to `<module>/build/reports/diff-coverage/test.txt`; a `// diff-coverage: ignore` comment moves a line out of that list without changing the counts by @vlsi (#1833)
+
 Version 0.14.2
 --------------
 
