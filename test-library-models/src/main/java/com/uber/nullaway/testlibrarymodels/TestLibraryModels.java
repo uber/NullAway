@@ -277,6 +277,8 @@ public class TestLibraryModels implements LibraryModels {
     return ImmutableSetMultimap.of(
         methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"),
         0,
+        methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<A,B>upcast(B)"),
+        1,
         methodRef("com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),
         0);
   }

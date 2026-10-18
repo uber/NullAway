@@ -139,6 +139,42 @@ public class BytecodeGenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericConstructorBoundSurvivesAnonymousSubclass() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.uber.lib.generics.GenericConstructor;
+            import com.uber.lib.generics.NullableTypeParam;
+            class Test {
+              void plain(NullableTypeParam<@Nullable String> bn) {
+                new GenericConstructor(bn);
+              }
+              void anon(NullableTypeParam<@Nullable String> bn) {
+                new GenericConstructor(bn) {};
+              }
+              void interfacePlain(NullableTypeParam<@Nullable String> bn) {
+                new GenericConstructor(bn, 1);
+              }
+              void interfaceAnon(NullableTypeParam<@Nullable String> bn) {
+                new GenericConstructor(bn, 1) {};
+              }
+              void strictPlain(NullableTypeParam<@Nullable String> bn) {
+                // BUG: Diagnostic contains: upper bound requires it to be @NonNull
+                new GenericConstructor(bn, true);
+              }
+              void strictAnon(NullableTypeParam<@Nullable String> bn) {
+                // BUG: Diagnostic contains: upper bound requires it to be @NonNull
+                new GenericConstructor(bn, true) {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void multipleTypeParametersInstantiation() {
     makeHelper()
         .addSourceLines(
