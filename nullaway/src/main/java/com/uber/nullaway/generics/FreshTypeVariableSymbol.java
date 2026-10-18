@@ -29,7 +29,7 @@ import com.sun.tools.javac.code.Type;
  *
  * <p>The symbol can escape its creating solver through provisional lambda parameter types. A
  * separate solver treating it as fixed must still be able to find the declaration's modeled bound
- * nullability, without attaching annotations to synthetic intersection bounds.
+ * nullability without copying modeled nullability into type annotations.
  */
 final class FreshTypeVariableSymbol extends Symbol.TypeVariableSymbol {
 
