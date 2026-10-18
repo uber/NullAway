@@ -134,14 +134,11 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
       // upper-bound nullability from the original declared type variable for this inference
       // problem.
       if (declaredNullable
-              != GenericsUtils.upperBoundIsNullable(freshVar.tsym, config, handler, state)
+          && !GenericsUtils.upperBoundIsNullable(freshVar.tsym, config, handler, state)
           && !upperBound.isCompound()) {
         freshVar.setUpperBound(
             TypeSubstitutionUtils.typeWithAnnot(
-                upperBound,
-                declaredNullable
-                    ? GenericsChecks.getSyntheticNullableAnnotType(state)
-                    : GenericsChecks.getSyntheticNonNullAnnotType(state)));
+                upperBound, GenericsChecks.getSyntheticNullableAnnotType(state)));
       }
       inferenceVariables.put(freshVar.tsym, new InferenceVariable(entry.getKey(), site));
     }
