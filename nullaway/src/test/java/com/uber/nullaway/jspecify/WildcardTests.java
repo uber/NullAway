@@ -10,6 +10,44 @@ import org.junit.Test;
 public class WildcardTests extends NullAwayTestsBase {
 
   @Test
+  public void issue1909FBoundedWildcardReturnDoesNotCrash() {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Repro {
+              abstract static class Base<S extends Base<S>> {}
+              abstract static class X<S extends X<S>> extends Base<S> {}
+              abstract static class Y<S extends Y<S>> extends Base<S> {}
+
+              static <T> T pick(T a, T b, T c) {
+                return a;
+              }
+
+              static <T> T pick(T a, T b) {
+                return a;
+              }
+
+              Base<?> repeatedSecondArgument(X<?> x, Y<?> y) {
+                return pick(x, y, y);
+              }
+
+              Base<?> repeatedFirstArgument(X<?> x, Y<?> y) {
+                return pick(x, y, x);
+              }
+
+              Base<?> twoArguments(X<?> x, Y<?> y) {
+                return pick(x, y);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void genericCallOnWildcardReceiver() {
     makeHelper()
         .addSourceLines(
