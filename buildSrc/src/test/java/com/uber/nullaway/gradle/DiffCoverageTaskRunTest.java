@@ -223,8 +223,7 @@ class DiffCoverageTaskRunTest {
       DiffCoverageTask task = task();
       task.getBaseRef().set("no/such/ref");
       GradleException thrown = assertThrows(GradleException.class, task::describeRun);
-      assertEquals(
-          "diffCoverageBase no/such/ref does not resolve to a commit", thrown.getMessage());
+      assertEquals("diffBase no/such/ref does not resolve to a commit", thrown.getMessage());
     }
   }
 

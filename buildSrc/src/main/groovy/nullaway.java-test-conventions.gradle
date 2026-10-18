@@ -133,9 +133,7 @@ def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffC
             .map { it.isEmpty() || Boolean.parseBoolean(it) }
             .orElse(false)
     outputFile = layout.buildDirectory.file("reports/diff-coverage/test.txt")
-    if (project.hasProperty("diffCoverageBase")) {
-        baseRef = project.property("diffCoverageBase").toString()
-    }
+    baseRef = providers.gradleProperty("diffBase")
 }
 
 // The automatic report is a local affordance, so it is wired only where nobody asked for a

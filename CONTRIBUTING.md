@@ -26,9 +26,9 @@ DOs and DON'Ts
 Code coverage
 -------------
 
-`./gradlew :<module>:test` prints which of the lines your branch changed the run did not execute, and which changed branches it took only one way. The report is advisory: it fails the build only when `-PdiffCoverageBase` names a ref that does not resolve, with `diffCoverageBase <ref> does not resolve to a commit`. It covers only the tests the run executed, so run the module's whole suite before you read an uncovered line as a missing test.
+`./gradlew :<module>:test` prints which of the lines your branch changed the run did not execute, and which changed branches it took only one way. The report is advisory: it fails the build only when `-PdiffBase` names a ref that does not resolve, with `diffBase <ref> does not resolve to a commit`. It covers only the tests the run executed, so run the module's whole suite before you read an uncovered line as a missing test.
 
-The changed lines are the ones changed since the merge base of `HEAD` and the base ref. The base ref is `-PdiffCoverageBase=<ref>` when you set it. Otherwise it is the branch's upstream, or `origin/master` when the upstream does not exist or is the branch's own pushed copy, as in a fork. For a stacked pull request, set `-PdiffCoverageBase` to the parent branch or commit so that only the current layer counts.
+The changed lines are the ones changed since the merge base of `HEAD` and the base ref. The base ref is `-PdiffBase=<ref>` when you set it. Otherwise it is the branch's upstream, or `origin/master` when the upstream does not exist or is the branch's own pushed copy, as in a fork. For a stacked pull request, set `-PdiffBase` to the parent branch or commit so that only the current layer counts.
 
 To acknowledge a line you decided not to test, end it with `// diff-coverage: ignore -- <reason>`. The line still counts as unexecuted in the totals, but it moves from the list of work to a list of acknowledged lines. The marker has to follow `//`, `/*`, or `*` on the line it acknowledges.
 
@@ -36,7 +36,7 @@ The console shows at most 10 files, 10 rows per file, and 50 rows in total. `<mo
 
 | Property | Default | Effect |
 | --- | --- | --- |
-| `-PdiffCoverageBase=<ref>` | upstream, or `origin/master` | The ref whose merge base with `HEAD` decides which lines count as changed |
+| `-PdiffBase=<ref>` | upstream, or `origin/master` | The ref whose merge base with `HEAD` decides which lines count as changed |
 | `-PdiffCoverageMaxFiles=<n>` | `10` | Files the console describes |
 | `-PdiffCoverageMaxLinesPerFile=<n>` | `10` | Rows per file |
 | `-PdiffCoverageMaxLines=<n>` | `50` | Rows in the whole block |

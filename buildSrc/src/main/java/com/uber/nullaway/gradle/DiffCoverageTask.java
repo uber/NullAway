@@ -54,7 +54,7 @@ import org.gradle.api.tasks.UntrackedTask;
 public abstract class DiffCoverageTask extends DefaultTask {
 
   static final String NO_BASE =
-      "Diff coverage: no base ref resolved, so no line counts as changed. Pass -PdiffCoverageBase=<ref>, "
+      "Diff coverage: no base ref resolved, so no line counts as changed. Pass -PdiffBase=<ref>, "
           + "or set an upstream branch, or fetch origin/master.";
 
   private static final String[] UPSTREAM_NAME = {"rev-parse", "--abbrev-ref", "@{upstream}"};
@@ -297,8 +297,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
   private Base resolveBase(GitService git) {
     String explicit = getBaseRef().getOrNull();
     if (explicit != null && !resolves(git, explicit)) {
-      throw new GradleException(
-          "diffCoverageBase " + explicit + " does not resolve to a commit");
+      throw new GradleException("diffBase " + explicit + " does not resolve to a commit");
     }
     String upstream = git.outputOrNull(UPSTREAM_NAME);
     String branch = git.outputOrNull(BRANCH_NAME);
