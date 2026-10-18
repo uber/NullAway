@@ -45,7 +45,9 @@ jacoco {
 // other JDKs, so instrumenting them locally would multiply that cost over lines the `test` task
 // already reaches.  The aggregate report collects the JDK-specific execution data through
 // coverageDataElementsForTest below.
-def enableJacoco = providers.gradleProperty("enableJacoco").map { it.toBoolean() }
+def enableJacoco = providers.gradleProperty("enableJacoco").map {
+    it.toBoolean()
+}
 
 // -PdiffCoverageEnabled=false takes back everything the default turns on: the report, the XML it
 // reads, and the instrumentation that exists only to produce them, so that one flag buys back the
@@ -53,15 +55,17 @@ def enableJacoco = providers.gradleProperty("enableJacoco").map { it.toBoolean()
 // it is set, since the aggregate report needs the execution data whether or not diffCoverage runs.
 // On CI, where the CI environment variable is true, the default is false: a CI job collects coverage
 // only when it sets -PenableJacoco=true, and every other job runs its tests uninstrumented.
-def runningOnCi = providers.environmentVariable("CI").map { it.toBoolean() }.orElse(false)
+def runningOnCi = providers.environmentVariable("CI").map {
+    it.toBoolean()
+}.orElse(false)
 def diffCoverageEnabled = providers.gradleProperty("diffCoverageEnabled")
         .map { it.isEmpty() || Boolean.parseBoolean(it) }
         .orElse(runningOnCi.map { !it })
 
 tasks.withType(Test).configureEach { testTask ->
     def instrumented = enableJacoco
-            .orElse(diffCoverageEnabled.get() && testTask.name == "test")
-            .get()
+    .orElse(diffCoverageEnabled.get() && testTask.name == "test")
+    .get()
     testTask.extensions.configure(JacocoTaskExtension) { jacocoExtension ->
         jacocoExtension.enabled = instrumented
     }
@@ -92,9 +96,13 @@ gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask
 def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffCoverageTask) {
     description = "Reports which of the lines this branch changed the last test run executed"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
-    reportFiles.from(tasks.named("jacocoTestReport").map { it.reports.xml.outputLocation })
+    reportFiles.from(tasks.named("jacocoTestReport").map {
+        it.reports.xml.outputLocation
+    })
     sourceRoots.set(providers.provider {
-        sourceSets.main.java.srcDirs.collect { rootDir.toPath().relativize(it.toPath()).toString() }
+        sourceSets.main.java.srcDirs.collect {
+            rootDir.toPath().relativize(it.toPath()).toString()
+        }
     })
     // A filtered run leaves the rest of the change looking unexecuted, so the scope is printed
     // beside the counts rather than left for the reader to remember.
@@ -111,9 +119,15 @@ def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffC
     }
     filtered = testFilterPatterns.map { !it.isEmpty() }
     // The console block is a summary of the work left; the file below holds the report whole.
-    maxFiles = providers.gradleProperty("diffCoverageMaxFiles").map { Integer.parseInt(it) }.orElse(10)
-    maxLinesPerFile = providers.gradleProperty("diffCoverageMaxLinesPerFile").map { Integer.parseInt(it) }.orElse(10)
-    maxLinesTotal = providers.gradleProperty("diffCoverageMaxLines").map { Integer.parseInt(it) }.orElse(50)
+    maxFiles = providers.gradleProperty("diffCoverageMaxFiles").map {
+        Integer.parseInt(it)
+    }.orElse(10)
+    maxLinesPerFile = providers.gradleProperty("diffCoverageMaxLinesPerFile").map {
+        Integer.parseInt(it)
+    }.orElse(10)
+    maxLinesTotal = providers.gradleProperty("diffCoverageMaxLines").map {
+        Integer.parseInt(it)
+    }.orElse(50)
     // -PdiffCoverageShowAll with no value reads as true, since nobody passing it means false.
     showAll = providers.gradleProperty("diffCoverageShowAll")
             .map { it.isEmpty() || Boolean.parseBoolean(it) }
