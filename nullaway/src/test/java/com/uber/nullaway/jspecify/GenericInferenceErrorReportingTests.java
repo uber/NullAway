@@ -60,7 +60,7 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
                 // since it will pad the array with `null` whenever the passed new length is greater
                 // than original.length (the example below is safe, but NullAway / JSpecify do not reason
                 // about integer constraints)
-                // BUG: Diagnostic contains: incompatible types: @Nullable E [] cannot be converted to E @Nullable []
+                // BUG: Diagnostic contains: incompatible nullability: a type argument must match exactly; found @Nullable E [], required E @Nullable []
                 return Arrays.copyOf(original, original.length);
               }
             }
