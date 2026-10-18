@@ -413,6 +413,32 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1808ClassCastStreamPipeline() {
+    makeHelper()
+        .addSourceLines(
+            "Tester.java",
+            """
+            import java.io.Serializable;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            public class Tester {
+              public static void main(String[] args) {
+                List<Serializable> list = List.of("Hello", 100);
+                List<String> stringsLongerThanThree = list.stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(s -> s.length() > 3)
+                    .toList();
+                System.out.println(stringsLongerThanThree);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void classCastMethodRefWithNonNullArgument() {
     makeHelper()
         .addSourceLines(
