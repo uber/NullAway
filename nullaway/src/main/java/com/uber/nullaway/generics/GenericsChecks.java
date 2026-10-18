@@ -144,6 +144,17 @@ public final class GenericsChecks {
    */
   private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
 
+  /**
+   * Type variables of the generic constructor or referenced method whose call or method reference
+   * is being checked: a generic constructor called without a diamond or explicit type arguments for
+   * it, and a generic method referenced without explicit type arguments. NullAway infers no
+   * instantiation for the constructor's, nor for the referenced method's outside a call needing
+   * inference; inside such a call the referenced method's type is instantiated, and no marked type
+   * variable remains in it. A check nested in another adds its own entries and removes only them,
+   * so a type variable marked by both stays marked for the outer one.
+   */
+  private final List<Symbol.TypeSymbol> uninferredTypeVariables = new ArrayList<>();
+
   public @Nullable Type getInferredPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
         tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
@@ -1886,7 +1897,7 @@ public final class GenericsChecks {
     } else if (overridingMethod.asType() instanceof Type.ForAll) {
       // the referenced method is a generic method and there are no explicit type arguments
       // we need to substitute inferred nullability for type arguments if it was inferred
-      result = getInferredMethodTypeForGenericMethodReference(result, state);
+      result = getInferredMethodTypeForGenericMethodReference(memberReferenceTree, result, state);
     }
     // finally, run any handlers
     return handler.onOverrideMethodType(overridingMethod, result, state, null);
@@ -2195,6 +2206,16 @@ public final class GenericsChecks {
       return true;
     }
     return lhsType.accept(visitor, rhsType);
+  }
+
+  /**
+   * Returns whether {@code typeVar} is a type variable of the constructor or method whose call or
+   * method reference is being checked, marked as {@link #uninferredTypeVariables} describes. {@link
+   * CheckIdenticalNullabilityVisitor} compares such a type variable by the annotation written on it
+   * rather than by its bounds.
+   */
+  boolean isUninferredTypeVariable(Type.TypeVar typeVar) {
+    return uninferredTypeVariables.contains(typeVar.tsym);
   }
 
   /**
@@ -2602,6 +2623,31 @@ public final class GenericsChecks {
     }
     Type.MethodType finalMethodType =
         getInvokedMethodTypeAtCall(methodSymbol, tree, null, state, false);
+    List<Symbol.TypeVariableSymbol> uninferred =
+        tree instanceof NewClassTree newClassTree
+                && !isDiamondConstructorCall(newClassTree)
+                && newClassTree.getTypeArguments().isEmpty()
+            ? methodSymbol.getTypeParameters()
+            : List.of();
+    uninferredTypeVariables.addAll(uninferred);
+    try {
+      compareArgumentsAtCall(tree, finalMethodType, state);
+    } finally {
+      uninferred.forEach(uninferredTypeVariables::remove);
+    }
+  }
+
+  /**
+   * Compares the type parameter nullability of each argument at a call with that of its formal
+   * parameter, as {@link #compareGenericTypeParameterNullabilityForCall} describes.
+   *
+   * @param tree the tree representing the call
+   * @param finalMethodType the type of the invoked method at the call
+   * @param state the visitor state
+   */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality checks
+  private void compareArgumentsAtCall(
+      Tree tree, Type.MethodType finalMethodType, VisitorState state) {
     new InvocationArguments(tree, finalMethodType)
         .forEach(
             (currentActualParam, argPos, formalParameter, unused) -> {
@@ -2619,25 +2665,39 @@ public final class GenericsChecks {
                   instanceof MemberReferenceTree memberReferenceTree) {
                 Type groundFormalParameter =
                     GenericsUtils.groundTargetType(formalParameter, state, config, handler);
-                // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types. So, do explicit type checks based on the return and
-                // parameter types of the referenced method
-                GenericsUtils.processMethodRefTypeRelations(
-                    this,
-                    groundFormalParameter,
-                    memberReferenceTree,
-                    actualParameterAndState.state(),
-                    (subtype, supertype, relationKind) -> {
-                      if (!subtypeParameterNullability(supertype, subtype, state)) {
-                        if (relationKind == MethodRefTypeRelationKind.RETURN) {
-                          reportInvalidMethodReferenceReturnTypeError(
-                              memberReferenceTree, supertype, subtype, state);
-                        } else {
-                          reportInvalidMethodReferenceParameterTypeError(
-                              memberReferenceTree, subtype, supertype, state);
+                Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
+                List<? extends ExpressionTree> explicitTypeArguments =
+                    memberReferenceTree.getTypeArguments();
+                List<Symbol.TypeVariableSymbol> uninferredOfReference =
+                    referencedMethod != null
+                            && (explicitTypeArguments == null || explicitTypeArguments.isEmpty())
+                        ? referencedMethod.getTypeParameters()
+                        : List.of();
+                uninferredTypeVariables.addAll(uninferredOfReference);
+                try {
+                  // the type of the method reference tree provided by javac may not capture
+                  // nullability of nested types. So, do explicit type checks based on the return
+                  // and
+                  // parameter types of the referenced method
+                  GenericsUtils.processMethodRefTypeRelations(
+                      this,
+                      groundFormalParameter,
+                      memberReferenceTree,
+                      actualParameterAndState.state(),
+                      (subtype, supertype, relationKind) -> {
+                        if (!subtypeParameterNullability(supertype, subtype, state)) {
+                          if (relationKind == MethodRefTypeRelationKind.RETURN) {
+                            reportInvalidMethodReferenceReturnTypeError(
+                                memberReferenceTree, supertype, subtype, state);
+                          } else {
+                            reportInvalidMethodReferenceParameterTypeError(
+                                memberReferenceTree, subtype, supertype, state);
+                          }
                         }
-                      }
-                    });
+                      });
+                } finally {
+                  uninferredOfReference.forEach(uninferredTypeVariables::remove);
+                }
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
                 return;
@@ -2693,6 +2753,7 @@ public final class GenericsChecks {
    * nullability inference, return the method type with inferred nullability for type parameters.
    * Otherwise, return the original method type.
    *
+   * @param memberReferenceTree the generic method reference
    * @param methodType the original method type
    * @param state the visitor state (generic method reference should be leaf of {@code
    *     state.getPath()})
@@ -2700,19 +2761,28 @@ public final class GenericsChecks {
    *     performed, or the original method type otherwise
    */
   private Type.MethodType getInferredMethodTypeForGenericMethodReference(
-      Type.MethodType methodType, VisitorState state) {
+      MemberReferenceTree memberReferenceTree, Type.MethodType methodType, VisitorState state) {
     TreePath parentPath = state.getPath().getParentPath();
     while (parentPath != null && parentPath.getLeaf() instanceof ParenthesizedTree) {
       parentPath = parentPath.getParentPath();
     }
     Tree parentTree = parentPath != null ? parentPath.getLeaf() : null;
-    if (parentTree instanceof MethodInvocationTree methodInvocationTree
-        && isCallNeedingInference(methodInvocationTree)) {
+    if ((parentTree instanceof MethodInvocationTree || parentTree instanceof NewClassTree)
+        && isCallNeedingInference((ExpressionTree) parentTree)) {
       CallInferenceResult inferenceResult =
-          inferredTypeVarNullabilityForGenericCalls.get(methodInvocationTree);
+          inferredTypeVarNullabilityForGenericCalls.get(parentTree);
       if (inferenceResult instanceof InferenceSuccess successResult) {
+        // the type javac inferred for the referenced method decides what an inference variable
+        // whose nullness depends on it resolves to
+        Type referentType = ((JCTree.JCMemberReference) memberReferenceTree).referentType;
+        Type.MethodType typeToUpdate =
+            referentType instanceof Type.MethodType referentMethodType
+                    && referentMethodType.getParameterTypes().size()
+                        == methodType.getParameterTypes().size()
+                ? referentMethodType
+                : methodType;
         return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
-            methodType, methodType, successResult.typeVarNullability, state, config);
+            typeToUpdate, methodType, successResult.typeVarNullability, state, config);
       }
     }
     return methodType;
@@ -3410,12 +3480,49 @@ public final class GenericsChecks {
         && invokedMethodType instanceof Type.ForAll forAllType) {
       invokedMethodType =
           substituteTypeArgsInGenericMethodType(tree, forAllType, path, state, calledFromDataflow);
+    } else if (tree instanceof NewClassTree newClassTree
+        && invokedMethodType instanceof Type.ForAll forAllType) {
+      invokedMethodType = substituteInferredConstructorTypeArgs(newClassTree, forAllType, state);
     }
     return handler.onOverrideMethodType(
         methodSymbol,
         invokedMethodType.asMethodType(),
         state,
         tree instanceof MethodInvocationTree invocationTree ? invocationTree : null);
+  }
+
+  /**
+   * Returns the type of a generic constructor at a diamond call, with the nullness inferred for the
+   * constructor's own type variables, or with the explicit type arguments for them substituted.
+   * Returns {@code forAllType} unchanged where the call has no inference result.
+   *
+   * @param tree the constructor call
+   * @param forAllType the constructor's type, with the class type variables already substituted
+   * @param state the visitor state
+   */
+  private Type substituteInferredConstructorTypeArgs(
+      NewClassTree tree, Type.ForAll forAllType, VisitorState state) {
+    if (!tree.getTypeArguments().isEmpty()) {
+      return TypeSubstitutionUtils.subst(
+          state.getTypes(),
+          forAllType.asMethodType(),
+          forAllType.tvars,
+          convertTreesToTypes(tree.getTypeArguments()),
+          config);
+    }
+    if (!(inferredTypeVarNullabilityForGenericCalls.get(tree)
+        instanceof InferenceSuccess successResult)) {
+      return forAllType;
+    }
+    Type.MethodType declaredMethodType = forAllType.asMethodType();
+    Type constructorTypeAtCallSite = ((JCTree.JCNewClass) tree).constructorType;
+    if (!(constructorTypeAtCallSite instanceof Type.MethodType methodTypeAtCallSite)
+        || methodTypeAtCallSite.getParameterTypes().size()
+            != declaredMethodType.getParameterTypes().size()) {
+      return forAllType;
+    }
+    return TypeSubstitutionUtils.updateMethodTypeWithInferredNullability(
+        methodTypeAtCallSite, declaredMethodType, successResult.typeVarNullability, state, config);
   }
 
   /**
@@ -3661,7 +3768,13 @@ public final class GenericsChecks {
       if (overridingMethodParameterType != null) {
         // allow contravariant subtyping
         if (!subtypeParameterNullability(
-            overridingMethodParameterType, overriddenMethodParameterType, state)) {
+            renameMethodTypeVariables(
+                overridingMethodParameterType,
+                ASTHelpers.getSymbol(tree).type,
+                overriddenMethodType,
+                state),
+            overriddenMethodParameterType,
+            state)) {
           reportInvalidOverridingMethodParamTypeError(
               methodParameters.get(i),
               overriddenMethodParameterType,
@@ -3670,6 +3783,24 @@ public final class GenericsChecks {
         }
       }
     }
+  }
+
+  /**
+   * Renames the overriding method's own type variables in {@code type} to the corresponding type
+   * variables of the overridden method, as javac does when it decides override equivalence, so that
+   * a bound written against one can be compared with a use of the other. The result is for the
+   * comparison only; a diagnostic prints the type as declared.
+   */
+  private Type renameMethodTypeVariables(
+      Type type, Type overridingMethodType, Type overriddenMethodType, VisitorState state) {
+    if (overridingMethodType instanceof Type.ForAll overriding
+        && overriddenMethodType instanceof Type.ForAll overridden
+        && overriding.tvars.size() == overridden.tvars.size()
+        && !overriding.tvars.isEmpty()) {
+      return TypeSubstitutionUtils.subst(
+          state.getTypes(), type, overriding.tvars, overridden.tvars, config);
+    }
+    return type;
   }
 
   /**
@@ -3692,7 +3823,13 @@ public final class GenericsChecks {
     }
     // allow covariant subtyping
     if (!subtypeParameterNullability(
-        overriddenMethodReturnType, overridingMethodReturnType, state)) {
+        overriddenMethodReturnType,
+        renameMethodTypeVariables(
+            overridingMethodReturnType,
+            ASTHelpers.getSymbol(tree).type,
+            overriddenMethodType,
+            state),
+        state)) {
       reportInvalidOverridingMethodReturnTypeError(
           tree, overriddenMethodReturnType, overridingMethodReturnType, state);
     }
@@ -3870,6 +4007,7 @@ public final class GenericsChecks {
     inferredVarLocalTypes.clear();
     varLocalDeclarations.clear();
     nestedNullabilityRepairInProgress.clear();
+    uninferredTypeVariables.clear();
   }
 
   public boolean isNullableAnnotated(Type type) {
