@@ -112,17 +112,17 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Check out NullAway sources
-        uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6.1.0
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
           persist-credentials: false
       - name: 'Set up JDKs'
-        uses: actions/setup-java@b6effb05e454b25005698d916606bdc6ffcbf961 # v5.7.0
+        uses: actions/setup-java@de7274f081f381c8f8158605e0321c36c376e2e6 # v6.0.1
         with:
           java-version: '25'
           distribution: 'temurin'
           check-latest: 'true'
       - name: Setup Gradle
-        uses: gradle/actions/setup-gradle@9c971963bec38e04b3d30dcc455b5382be2fdbfb # v6.3.0
+        uses: gradle/actions/setup-gradle@3f5f9adaf7d9fecd50b5935e54106014257a94e6 # v6.4.0
       # Gradle builds buildSrc as an included build and asks it only for its plugins, so its own
       # tests run only when something asks for them.
       - name: Run buildSrc tests
