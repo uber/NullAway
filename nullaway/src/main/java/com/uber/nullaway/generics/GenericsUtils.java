@@ -329,10 +329,15 @@ public class GenericsUtils {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
     }
-    // First, check if library model overrides the upper bound nullability.
-    Element enclosingElement = typeVarElement.getEnclosingElement();
+    // Models use declaration indices, which fresh inference symbols do not have. Keep looking at
+    // the fresh bound below, but consult its original declaration for library-model overrides.
+    Element modeledTypeVariable = typeVarElement;
+    while (modeledTypeVariable instanceof FreshTypeVariableSymbol freshSymbol) {
+      modeledTypeVariable = freshSymbol.declaredSymbol;
+    }
+    Element enclosingElement = modeledTypeVariable.getEnclosingElement();
     if (enclosingElement instanceof Symbol.MethodSymbol methodSymbol
-        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+        && modeledTypeVariable instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
       int typeVarIndex = methodSymbol.getTypeParameters().indexOf(typeVariableSymbol);
       // TODO typeVarIndex is -1 in some cases; see test
       //  com.uber.nullaway.jspecify.GenericMethodTests.instanceGenericMethodWithMethodRefArgument.
@@ -342,7 +347,7 @@ public class GenericsUtils {
         return true;
       }
     } else if (enclosingElement instanceof Symbol.ClassSymbol classSymbol
-        && typeVarElement instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
+        && modeledTypeVariable instanceof Symbol.TypeVariableSymbol typeVariableSymbol) {
       int typeVarIndex = classSymbol.getTypeParameters().indexOf(typeVariableSymbol);
       if (typeVarIndex >= 0
           && handler.onOverrideClassTypeVariableUpperBound(classSymbol.toString(), typeVarIndex)) {

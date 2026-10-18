@@ -254,13 +254,12 @@ public class GenericInferenceErrorReportingTests extends NullAwayTestsBase {
    * GenericMethodTests}: {@code CompilationTestHelper} accepts a line whose {@code // BUG:
    * Diagnostic contains:} comment matches one diagnostic even when the line carries another. The
    * source below therefore carries every shape from that issue whose line still expects a
-   * diagnostic. Both annotation checks in {@code
-   * ConstraintSolverImpl.treatAsTypeVariableForInference} are reached, by an explicit
-   * {@code @Nullable} on a use and an explicit {@code @NonNull} on a parameter. The call with an
-   * explicit type witness reaches neither, because a witness skips inference; it is here as one of
-   * the issue's shapes, and it guards against such a call acquiring an inference failure of its
-   * own. A shape whose line expects nothing needs no help, since {@code CompilationTestHelper}
-   * rejects any diagnostic there.
+   * diagnostic. Both annotation checks in {@code ConstraintSolverImpl.inferenceVariableForUse} are
+   * reached, by an explicit {@code @Nullable} on a use and an explicit {@code @NonNull} on a
+   * parameter. The call with an explicit type witness reaches neither, because a witness skips
+   * inference; it is here as one of the issue's shapes, and it guards against such a call acquiring
+   * an inference failure of its own. A shape whose line expects nothing needs no help, since {@code
+   * CompilationTestHelper} rejects any diagnostic there.
    */
   @Test
   public void annotatedTypeVariableUseIsNotAnInferenceFailure() {
