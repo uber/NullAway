@@ -1650,8 +1650,10 @@ public final class GenericsChecks {
                         state));
       }
     }
-    // Use call-specific variables for both generic parameters and the shared PolyNull variable.
-    // This keeps different invocations of the same method independent.
+    // Register all type variables whose nullability is inferred for this call (including the shared
+    // polynull variable), and use the call-specific inference variables returned by the solver in
+    // place of the declared type variables. This keeps the constraints for different calls to the
+    // same generic method separate; see https://github.com/uber/NullAway/issues/1291
     List<Element> typeParameters = new ArrayList<>(getCallTypeParameters(callTree));
     if (polyNullContext != null) {
       typeParameters.add(polyNullContext.inferenceVariable().asElement());
