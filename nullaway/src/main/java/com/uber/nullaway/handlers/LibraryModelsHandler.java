@@ -1272,6 +1272,9 @@ public class LibraryModelsHandler implements Handler {
      */
     private final ImmutableSet<MethodRef> nullableReturnsForConfig;
 
+    /** Built-in PolyNull models, enabled only with JSpecify JDK models. */
+    private final ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocationsForConfig;
+
     DefaultLibraryModels(Config config) {
       ImmutableSet.Builder<MethodRef> builder = new ImmutableSet.Builder<>();
       builder.addAll(ALWAYS_NULLABLE_RETURNS);
@@ -1279,6 +1282,8 @@ public class LibraryModelsHandler implements Handler {
         builder.addAll(NULLABLE_RETURNS_JSPECIFY_MODE_DISABLED);
       }
       nullableReturnsForConfig = builder.build();
+      polyNullLocationsForConfig =
+          config.isJSpecifyJDKModels() ? POLY_NULL_LOCATIONS : ImmutableSetMultimap.of();
     }
 
     @Override
@@ -1344,7 +1349,7 @@ public class LibraryModelsHandler implements Handler {
 
     @Override
     public ImmutableSetMultimap<MethodRef, PolyNullLocation> polyNullLocations() {
-      return POLY_NULL_LOCATIONS;
+      return polyNullLocationsForConfig;
     }
 
     @Override

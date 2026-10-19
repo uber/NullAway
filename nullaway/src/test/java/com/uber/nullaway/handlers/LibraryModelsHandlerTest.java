@@ -210,6 +210,19 @@ public class LibraryModelsHandlerTest {
   }
 
   @Test
+  public void onlyCustomPolyNullModelsAreLoadedWithoutJSpecifyJdkModels() {
+    Config config = polyNullModelsConfig();
+    when(config.isJSpecifyJDKModels()).thenReturn(false);
+    LibraryModelsHandler.DefaultLibraryModels defaults =
+        new LibraryModelsHandler.DefaultLibraryModels(config);
+    TestLibraryModels user = new TestLibraryModels();
+    LibraryModelsHandler.CombinedLibraryModels combined =
+        new LibraryModelsHandler.CombinedLibraryModels(ImmutableList.of(defaults, user), config);
+
+    assertThat(combined.polyNullLocations()).containsExactlyEntriesIn(user.polyNullLocations());
+  }
+
+  @Test
   public void userPolyNullModelsReplaceWholeBuiltInModelRegardlessOfProviderOrder() {
     Config config = polyNullModelsConfig();
     LibraryModelsHandler.DefaultLibraryModels defaults =
@@ -353,10 +366,11 @@ public class LibraryModelsHandlerTest {
     };
   }
 
-  /** Creates a configuration that enables PolyNull library models. */
+  /** Creates a configuration that enables built-in and custom PolyNull library models. */
   private static Config polyNullModelsConfig() {
     Config config = mock(Config.class);
     when(config.isPolyNullLibraryModelsEnabled()).thenReturn(true);
+    when(config.isJSpecifyJDKModels()).thenReturn(true);
     return config;
   }
 

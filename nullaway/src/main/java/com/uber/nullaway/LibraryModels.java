@@ -149,13 +149,12 @@ public interface LibraryModels {
    * replaces the nullness the type argument supplied.
    *
    * <p>This model is used only when {@code JSpecifyMode} and {@code JSpecifyExperimental} are
-   * enabled, and the modeled method's enclosing class is expected to be modeled as
-   * {@code @NullMarked}. A PolyNull location takes precedence over any fixed nullable or non-null
-   * library model for the same location, including models on overriding methods when the PolyNull
-   * model is inherited. Models at other locations retain their existing behavior. A top-level
-   * PolyNull return also takes precedence over a {@link #nullImpliesNullParameters()} model. A
-   * PolyNull model on an overriding method replaces the inherited model's entire location set.
-   * Receiver locations are not supported and are rejected with {@link IllegalArgumentException}.
+   * enabled. A PolyNull location takes precedence over any fixed nullable or non-null library model
+   * for the same location, including models on overriding methods when the PolyNull model is
+   * inherited. Models at other locations retain their existing behavior. A top-level PolyNull
+   * return also takes precedence over a {@link #nullImpliesNullParameters()} model. A PolyNull
+   * model on an overriding method replaces the inherited model's entire location set. Receiver
+   * locations are not supported and are rejected with {@link IllegalArgumentException}.
    *
    * <p>Each modeled method must include at least one location with a non-empty type path. Use
    * existing contract-style models like {@link #nullImpliesNullParameters()} for relationships
