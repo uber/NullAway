@@ -17,6 +17,35 @@ import org.junit.Test;
 public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
   @Test
+  public void polyNullModelsAreDisabledWithoutExperimentalOptIn() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(List<Object> nonNull, List<@Nullable Object> nullable) {
+                PolyNullMethods.first(nonNull, nonNull).hashCode();
+
+                // Without PolyNull, both parameters retain their declared List<Object> types.
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable Object> cannot be converted to List<Object>
+                PolyNullMethods.first(nullable, nullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void polyNullModelsDoNotRequireJSpecifyJdkModels() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(

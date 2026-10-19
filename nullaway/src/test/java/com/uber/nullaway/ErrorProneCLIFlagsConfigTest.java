@@ -123,23 +123,31 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
     assertTrue(config.isJSpecifyJDKModels());
     assertTrue(config.handleWildcardGenerics());
     assertTrue(config.isPolyNullLibraryModelsEnabled());
+  }
 
-    // PolyNull follows the experimental opt-in independently of the JDK model override.
-    for (boolean experimental : List.of(false, true)) {
-      for (boolean jdkModels : List.of(false, true)) {
-        ErrorProneCLIFlagsConfig overriddenConfig =
-            new ErrorProneCLIFlagsConfig(
-                ErrorProneFlags.fromMap(
-                    Map.of(
-                        "NullAway:AnnotatedPackages",
-                        "foo",
-                        "NullAway:JSpecifyMode",
-                        "true",
-                        "NullAway:JSpecifyExperimental",
-                        Boolean.toString(experimental),
-                        "NullAway:JSpecifyJDKModels",
-                        Boolean.toString(jdkModels))));
-        assertEquals(experimental, overriddenConfig.isPolyNullLibraryModelsEnabled());
+  @Test
+  public void polyNullModelsRequireJSpecifyModeAndExperimentalRegardlessOfJdkModels() {
+    for (boolean jspecifyMode : List.of(false, true)) {
+      for (boolean experimental : List.of(false, true)) {
+        for (boolean jdkModels : List.of(false, true)) {
+          // JDK models are not a valid configuration outside JSpecify mode.
+          if (!jspecifyMode && jdkModels) {
+            continue;
+          }
+          ErrorProneCLIFlagsConfig config =
+              new ErrorProneCLIFlagsConfig(
+                  ErrorProneFlags.fromMap(
+                      Map.of(
+                          "NullAway:AnnotatedPackages",
+                          "foo",
+                          "NullAway:JSpecifyMode",
+                          Boolean.toString(jspecifyMode),
+                          "NullAway:JSpecifyExperimental",
+                          Boolean.toString(experimental),
+                          "NullAway:JSpecifyJDKModels",
+                          Boolean.toString(jdkModels))));
+          assertEquals(jspecifyMode && experimental, config.isPolyNullLibraryModelsEnabled());
+        }
       }
     }
   }
