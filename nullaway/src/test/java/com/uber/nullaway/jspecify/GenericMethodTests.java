@@ -2523,6 +2523,18 @@ public class GenericMethodTests extends NullAwayTestsBase {
               public static String firstNonNullString(@CheckForNull String... references) {
                 throw new UnsupportedOperationException();
               }
+              public static boolean isNullOrEmpty(@CheckForNull String string) {
+                return string == null || string.isEmpty();
+              }
+              public static <U extends @Nullable Object> U id(U u) {
+                return u;
+              }
+              public static final class Holder {
+                public Holder(@CheckForNull String value) {}
+              }
+              public static final class Box<T extends Object> {
+                public void set(@CheckForNull T value) {}
+              }
               public static <T extends Object> T identity(T reference) {
                 return reference;
               }
@@ -2549,6 +2561,16 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 String v = Preconditions.firstNonNull(s, null);
                 v.hashCode();
               }
+              static void nestedCall(@Nullable String s, boolean b, Preconditions.Box<String> box) {
+                Preconditions.checkNotNull(Preconditions.id(s)).hashCode();
+                Preconditions.checkNotNull(b ? s : null).hashCode();
+                Preconditions.isNullOrEmpty(Preconditions.id(s));
+                new Preconditions.Holder(Preconditions.id(s));
+                box.set(Preconditions.id(s));
+                new Preconditions.Holder(b ? s : null);
+                new Preconditions.Holder(b ? Preconditions.id(s) : null);
+                Preconditions.isNullOrEmpty(b ? Preconditions.id(s) : null);
+              }
               static void varargsArray(@Nullable String[] array) {
                 String w = Preconditions.firstNonNull(array);
                 w.hashCode();
@@ -2557,6 +2579,38 @@ public class GenericMethodTests extends NullAwayTestsBase {
               static void unannotated(@Nullable String s) {
                 // BUG: Diagnostic contains: type variable T is constrained to be @Nullable
                 Preconditions.identity(s);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void libraryModelOverridesDeclarationNullableVarargs() {
+    makeHelper()
+        .addSourceLines(
+            "DeclarationNullableVarargsWithModel.java",
+            """
+            package com.uber.lib;
+            import java.lang.annotation.ElementType;
+            import java.lang.annotation.Target;
+            public class DeclarationNullableVarargsWithModel {
+              @Target(ElementType.PARAMETER)
+              public @interface Nullable {}
+              // TestLibraryModels marks the elements of args as @NonNull
+              public static void nonNullContents(@Nullable String... args) {}
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.DeclarationNullableVarargsWithModel;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void test(@Nullable String[] array) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable String [] cannot be converted to String []
+                DeclarationNullableVarargsWithModel.nonNullContents(array);
               }
             }
             """)

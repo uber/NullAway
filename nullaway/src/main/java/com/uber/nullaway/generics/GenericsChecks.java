@@ -52,6 +52,7 @@ import com.uber.nullaway.Config;
 import com.uber.nullaway.ErrorBuilder;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.InvocationArguments;
+import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
@@ -959,6 +960,28 @@ public final class GenericsChecks {
     return formalParamTypeRef.get();
   }
 
+  /**
+   * Returns the type that the formal parameter corresponding to {@code argumentTree} gives the
+   * argument as its assignment context: the formal parameter type, annotated as {@code @Nullable}
+   * if the parameter is, as {@link #withDeclaredParamNullability} does.
+   */
+  @SuppressWarnings("ReferenceEquality") // deliberate reference equality checks
+  private @Nullable Type getAssignmentContextTypeForArgument(
+      VisitorState state, Tree invocationTree, Type.MethodType invocationType, Tree argumentTree) {
+    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall((ExpressionTree) invocationTree);
+    AtomicReference<@Nullable Type> contextTypeRef = new AtomicReference<>();
+    new InvocationArguments(invocationTree, invocationType)
+        .forEach(
+            (arg, pos, formalParamType, varArgsPassedAsArray) -> {
+              if (ASTHelpers.stripParentheses(arg) == argumentTree) {
+                contextTypeRef.set(
+                    withDeclaredParamNullability(
+                        state, methodSymbol, pos, formalParamType, varArgsPassedAsArray));
+              }
+            });
+    return contextTypeRef.get();
+  }
+
   /** Returns true for constructor calls using the diamond operator. */
   private static boolean isDiamondConstructorCall(NewClassTree newClassTree) {
     return TreeInfo.isDiamond((JCTree) newClassTree);
@@ -1631,7 +1654,8 @@ public final class GenericsChecks {
    * <p>A declaration annotation does not appear in the parameter's {@link Type}. Annotating the
    * type makes {@code @CheckForNull T} a nullable use of {@code T}, as the type-use form
    * {@code @Nullable T} is, so a {@code @Nullable} argument places no constraint on the nullability
-   * of {@code T}.
+   * of {@code T}. A library model that makes the parameter {@code @NonNull} takes precedence, as it
+   * does for the check of a {@code @Nullable} argument against a non-generic parameter.
    *
    * @param state the visitor state
    * @param methodSymbol the invoked method or constructor
@@ -1648,7 +1672,8 @@ public final class GenericsChecks {
       Type formalParamType,
       boolean varArgsPassedAsArray) {
     int paramIndex = Math.min(argPos, methodSymbol.getParameters().size() - 1);
-    if (!Nullness.paramHasNullableAnnotation(methodSymbol, paramIndex, config)) {
+    if (!Nullness.paramHasNullableAnnotation(methodSymbol, paramIndex, config)
+        || libraryModelMakesParamNonNull(state, methodSymbol, paramIndex)) {
       return formalParamType;
     }
     Type nullableAnnotType = getSyntheticNullableAnnotType(state);
@@ -1658,6 +1683,20 @@ public final class GenericsChecks {
           arrayType, TypeSubstitutionUtils.typeWithAnnot(arrayType.elemtype, nullableAnnotType));
     }
     return TypeSubstitutionUtils.typeWithAnnot(formalParamType, nullableAnnotType);
+  }
+
+  /**
+   * Returns true if the handlers override a {@code @Nullable} parameter of {@code methodSymbol} to
+   * {@code @NonNull}, as a library model can. For a varargs parameter, the answer is for its
+   * elements.
+   */
+  private boolean libraryModelMakesParamNonNull(
+      VisitorState state, Symbol.MethodSymbol methodSymbol, int paramIndex) {
+    return handler
+            .onOverrideMethodInvocationParametersNullability(
+                state.context, methodSymbol, true, MethodParameterNullness.create(methodSymbol))
+            .getParameterNullness(paramIndex)
+        == Nullness.NONNULL;
   }
 
   /**
@@ -2627,8 +2666,8 @@ public final class GenericsChecks {
       Type methodType = ASTHelpers.getType(parentInvocation.getMethodSelect());
       if (methodType != null) {
         return new TargetTypeAndAssignmentKind(
-            getFormalParameterTypeForArgument(
-                parentInvocation, methodType.asMethodType(), expressionTree),
+            getAssignmentContextTypeForArgument(
+                state, parentInvocation, methodType.asMethodType(), expressionTree),
             false);
       }
     }
@@ -2641,8 +2680,8 @@ public final class GenericsChecks {
             TypeSubstitutionUtils.memberType(
                 state.getTypes(), parentClassType, parentCtorSymbol, config);
         return new TargetTypeAndAssignmentKind(
-            getFormalParameterTypeForArgument(
-                parentConstructorCall, parentCtorType.asMethodType(), expressionTree),
+            getAssignmentContextTypeForArgument(
+                state, parentConstructorCall, parentCtorType.asMethodType(), expressionTree),
             false);
       }
     }
@@ -2767,6 +2806,9 @@ public final class GenericsChecks {
                 actualParameterType = getTreeType(currentActualParam, state.withPath(pathToParam));
               }
               if (actualParameterType != null) {
+                Type formalParameterWithDeclaredNullability =
+                    withDeclaredParamNullability(
+                        state, methodSymbol, argPos, formalParameter, varArgsPassedAsArray);
                 if (isCallNeedingInference(currentActualParam)) {
                   // infer the type of the method call based on the assignment context
                   // and the formal parameter type
@@ -2775,7 +2817,7 @@ public final class GenericsChecks {
                           state.withPath(pathToParam),
                           currentActualParam,
                           pathToParam,
-                          formalParameter,
+                          formalParameterWithDeclaredNullability,
                           false,
                           false);
                 } else if (currentActualParam
@@ -2785,15 +2827,12 @@ public final class GenericsChecks {
                           state.withPath(pathToParam),
                           conditionalExpressionTree,
                           pathToParam,
-                          formalParameter,
+                          formalParameterWithDeclaredNullability,
                           false);
                 }
                 if (actualParameterType == null) {
                   return;
                 }
-                Type formalParameterWithDeclaredNullability =
-                    withDeclaredParamNullability(
-                        state, methodSymbol, argPos, formalParameter, varArgsPassedAsArray);
                 if (!subtypeParameterNullability(
                     formalParameterWithDeclaredNullability, actualParameterType, state)) {
                   reportInvalidParametersNullabilityError(
@@ -3441,7 +3480,7 @@ public final class GenericsChecks {
                 state.withPath(parentPath),
                 calledFromDataflow);
         Type formalParamType =
-            getFormalParameterTypeForArgument(parentInvocation, parentMethodType, call);
+            getAssignmentContextTypeForArgument(state, parentInvocation, parentMethodType, call);
         if (formalParamType == null) {
           // this can happen if the call is the receiver expression of the parent call, e.g.,
           // id(x).foo() (note that foo() need not be generic)
@@ -3505,8 +3544,8 @@ public final class GenericsChecks {
                   state.getTypes(), parentClassType, parentCtorSymbol, config);
           return new CallAndContext(
               call,
-              getFormalParameterTypeForArgument(
-                  parentConstructorCall, parentCtorType.asMethodType(), call),
+              getAssignmentContextTypeForArgument(
+                  state, parentConstructorCall, parentCtorType.asMethodType(), call),
               false);
         }
       }
