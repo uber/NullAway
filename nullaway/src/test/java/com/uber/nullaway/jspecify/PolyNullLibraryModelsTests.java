@@ -78,6 +78,41 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void optionalOrElseGetWithWildcardReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void direct(Optional<? extends String> optional) {
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> null)' is @Nullable
+                optional.orElseGet(() -> null).hashCode();
+
+                // Applying the result qualifier must not change the receiver's shared bound.
+                optional.get().hashCode();
+              }
+
+              void local(Optional<? extends String> optional) {
+                String result = optional.orElseGet(() -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+
+              void inferredLocal(Optional<? extends String> optional) {
+                var result = optional.orElseGet(() -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void optionalOrElseGetUsesFieldAssignmentTarget() {
     makeHelper()
         .addSourceLines(
@@ -134,6 +169,42 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 var nullableResult = map.computeIfAbsent("key", nullableFunction);
                 // BUG: Diagnostic contains: dereferenced expression 'nullableResult' is @Nullable
                 nullableResult.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapComputeIfAbsentWithWildcardReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void direct(Map<String, ? extends String> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", unused -> null)' is @Nullable
+                map.computeIfAbsent("key", unused -> null).hashCode();
+
+                // A null callback result does not establish that the key is present.
+                // BUG: Diagnostic contains: dereferenced expression
+                map.get("key").hashCode();
+              }
+
+              void local(Map<String, ? extends String> map) {
+                String result = map.computeIfAbsent("key", unused -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+
+              void inferredLocal(Map<String, ? extends String> map) {
+                var result = map.computeIfAbsent("key", unused -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
               }
             }
             """)
