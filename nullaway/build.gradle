@@ -18,6 +18,7 @@ import net.ltgt.gradle.errorprone.CheckSeverity
 plugins {
     id 'java-library'
     id 'nullaway.java-test-conventions'
+    id 'nullaway.pitest-diff'
 }
 
 def libraryModelGeneratorSources =
