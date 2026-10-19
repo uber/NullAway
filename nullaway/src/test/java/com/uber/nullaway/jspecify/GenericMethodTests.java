@@ -11,6 +11,272 @@ import org.junit.Test;
 public class GenericMethodTests extends NullAwayTestsBase {
 
   @Test
+  public void modeledNullableIntersectionBound() {
+    makeHelper()
+        .addSourceLines(
+            "ModeledIntersectionBounds.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class ModeledIntersectionBounds {
+              interface A { void a(); }
+              interface B { void b(); }
+              static class Both implements A, B {
+                public void a() {}
+                public void b() {}
+              }
+              // The test library model permits nullable instantiations of T.
+              static <T extends A & B> T identity(T value) { return value; }
+              void test(Both value, @Nullable Both nullableValue) {
+                var result = identity(value);
+                result.a();
+                result.b();
+                // BUG: Diagnostic contains: dereferenced expression
+                identity(nullableValue).a();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void sourceWrittenAllNullableIntersectionBounds() {
+    for (String bound :
+        Arrays.asList(
+            "@Nullable A & @Nullable B",
+            "@Nullable B & @Nullable A",
+            "@Nullable Object & @Nullable A & @Nullable B",
+            "@Nullable Object & @Nullable B & @Nullable A")) {
+      makeHelper()
+          .addSourceLines(
+              "Test.java",
+              """
+              package com.uber;
+              import org.jspecify.annotations.*;
+              @NullMarked
+              class Test {
+                interface A { void a(); }
+                interface B { void b(); }
+                static class Both implements A, B {
+                  public void a() {}
+                  public void b() {}
+                }
+                static class Box<T extends %1$s> {
+                  T value;
+                  Box(T value) { this.value = value; }
+                }
+                static <T extends %1$s> T id(T value) { return value; }
+                static void test(@Nullable Both value) {
+                  Box<@Nullable Both> box = new Box<@Nullable Both>(value);
+                  Test.<@Nullable Both>id(value);
+                  // BUG: Diagnostic contains: dereferenced expression
+                  Test.<@Nullable Both>id(value).a();
+                  var result = id(value);
+                  // BUG: Diagnostic contains: dereferenced expression
+                  result.a();
+                  id(new Both()).a();
+                }
+              }
+              """
+                  .formatted(bound))
+          .doTest();
+    }
+  }
+
+  @Test
+  public void sourceWrittenMixedNullnessIntersectionBounds() {
+    for (String bound :
+        Arrays.asList(
+            "A & @Nullable B",
+            "@Nullable A & B",
+            "B & @Nullable A",
+            "@Nullable B & A",
+            "@NonNull A & @Nullable B",
+            "@Nullable A & @NonNull B",
+            "@NonNull B & @Nullable A",
+            "@Nullable B & @NonNull A",
+            "Object & @Nullable A & @Nullable B",
+            "Object & @Nullable B & @Nullable A",
+            "@NonNull Object & @Nullable A & @Nullable B",
+            "@NonNull Object & @Nullable B & @Nullable A",
+            "@Nullable Object & A & @Nullable B",
+            "@Nullable Object & @Nullable A & B")) {
+      makeHelper()
+          .addSourceLines(
+              "Test.java",
+              """
+              package com.uber;
+              import org.jspecify.annotations.*;
+              @NullMarked
+              class Test {
+                interface A { void a(); }
+                interface B { void b(); }
+                static class Both implements A, B {
+                  public void a() {}
+                  public void b() {}
+                }
+                static class Box<T extends %1$s> {}
+                static <T extends %1$s> T id(T value) {
+                  value.a();
+                  return value;
+                }
+                // BUG: Diagnostic contains: cannot be @Nullable
+                void rejectedClassArgument(Box<@Nullable Both> box) {}
+                static void test(@Nullable Both value) {
+                  Box<Both> box = new Box<Both>();
+                  id(new Both()).a();
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                  id(value);
+                  // BUG: Diagnostic contains: Type argument cannot be @Nullable
+                  Test.<@Nullable Both>id(new Both());
+                }
+              }
+              """
+                  .formatted(bound))
+          .doTest();
+    }
+  }
+
+  @Test
+  public void overrideSourceWrittenIntersectionBounds() {
+    for (String nullableBound :
+        Arrays.asList(
+            "@Nullable A & @Nullable B",
+            "@Nullable B & @Nullable A",
+            "@Nullable Object & @Nullable A & @Nullable B",
+            "@Nullable Object & @Nullable B & @Nullable A")) {
+      String nonNullBound = nullableBound.replaceFirst("@Nullable", "@NonNull");
+      String defaultNonNullBound = nullableBound.replaceFirst("@Nullable ", "");
+      makeHelper()
+          .addSourceLines(
+              "Test.java",
+              """
+              package com.uber;
+              import org.jspecify.annotations.*;
+              @NullMarked
+              class Test {
+                interface A { void a(); }
+                interface B { void b(); }
+                interface Parent<X> {
+                  <T extends %1$s> void nullable(T value);
+                  <T extends %2$s> void nonNull(T value);
+                  <T extends %3$s> void defaultNonNull(T value);
+                }
+                abstract static class Matching implements Parent<String> {
+                  @Override
+                  public <T extends %1$s> void nullable(T value) {
+                    if (value != null) {
+                      value.a();
+                    }
+                  }
+                  @Override
+                  public <T extends %2$s> void nonNull(T value) { value.a(); }
+                  @Override
+                  public <T extends %3$s> void defaultNonNull(T value) { value.a(); }
+                }
+                abstract static class Mismatching implements Parent<String> {
+                  @Override
+                  // BUG: Diagnostic contains: Method type variable T has a non-null upper bound
+                  public <T extends %2$s> void nullable(T value) {}
+                  @Override
+                  // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                  public <T extends %1$s> void nonNull(T value) {}
+                  @Override
+                  // BUG: Diagnostic contains: Method type variable T has a @Nullable upper bound
+                  public <T extends %1$s> void defaultNonNull(T value) {}
+                }
+              }
+              """
+                  .formatted(nullableBound, nonNullBound, defaultNonNullBound))
+          .doTest();
+    }
+  }
+
+  @Test
+  public void intersectionComponentAnnotationsThroughGenericMethodCall() {
+    for (String bound :
+        Arrays.asList(
+            "A<@Nullable String> & B<String>",
+            "B<String> & A<@Nullable String>",
+            "Base & A<@Nullable String> & B<String>",
+            "Base & B<String> & A<@Nullable String>")) {
+      makeHelper()
+          .addSourceLines(
+              "Test.java",
+              """
+              package com.uber;
+              import org.jspecify.annotations.*;
+              @NullMarked
+              class Test {
+                static class Base {}
+                interface A<X extends @Nullable Object> { X a(); }
+                interface B<X extends @Nullable Object> { X b(); }
+                static <T extends %1$s> T id(T value) { return value; }
+                static <T extends %1$s> void test(T value) {
+                  id(value).b().length();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  id(value).a().length();
+                  A<@Nullable String> nullableA = id(value);
+                  B<String> nonNullB = id(value);
+                  // BUG: Diagnostic contains: incompatible types:
+                  A<String> nonNullA = id(value);
+                  // BUG: Diagnostic contains: incompatible types:
+                  B<@Nullable String> nullableB = id(value);
+                }
+              }
+              """
+                  .formatted(bound))
+          .doTest();
+    }
+  }
+
+  @Test
+  public void intersectionComponentAnnotationsThroughGenericClassCall() {
+    for (String bound :
+        Arrays.asList(
+            "A<List<@Nullable String>> & B<List<String>>",
+            "B<List<String>> & A<List<@Nullable String>>",
+            "Base & A<List<@Nullable String>> & B<List<String>>",
+            "Base & B<List<String>> & A<List<@Nullable String>>")) {
+      makeHelper()
+          .addSourceLines(
+              "Test.java",
+              """
+              package com.uber;
+              import java.util.List;
+              import org.jspecify.annotations.*;
+              @NullMarked
+              class Test {
+                static class Base {}
+                interface A<X> { X a(); }
+                interface B<X> { X b(); }
+                static class Box<T extends %1$s> {
+                  final T value;
+                  Box(T value) { this.value = value; }
+                  T get() { return value; }
+                }
+                static <T extends %1$s> void test(T value) {
+                  Box<T> box = new Box<T>(value);
+                  box.get().b().get(0).length();
+                  // BUG: Diagnostic contains: dereferenced expression
+                  box.get().a().get(0).length();
+                  A<List<@Nullable String>> nullableA = box.get();
+                  B<List<String>> nonNullB = box.get();
+                  // BUG: Diagnostic contains: incompatible types:
+                  A<List<String>> nonNullA = box.get();
+                  // BUG: Diagnostic contains: incompatible types:
+                  B<List<@Nullable String>> nullableB = box.get();
+                }
+              }
+              """
+                  .formatted(bound))
+          .doTest();
+    }
+  }
+
+  @Test
   public void genericNonNullIdentityFunction() {
     makeHelper()
         .addSourceLines(
