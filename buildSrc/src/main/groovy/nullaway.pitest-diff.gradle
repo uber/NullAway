@@ -15,17 +15,10 @@
  */
 
 // Registers pitestDiff, which runs PIT over the lines this branch changed in the module's main
-// sources.  nullaway.java-test-conventions applies it after registering diffCoverage, whose base ref
-// and source roots it reuses, so both count the same lines as changed; in a module without main
-// sources the task is always skipped.
-def diffCoverage = tasks.named("diffCoverage", com.uber.nullaway.gradle.DiffCoverageTask)
-
-def changedLines = tasks.register("changedLines", com.uber.nullaway.gradle.ChangedLinesTask) {
-    description = "Writes the lines this branch changed in the main sources, for pitestDiff"
-    sourceRoots.set(diffCoverage.flatMap { it.sourceRoots })
-    baseRef = diffCoverage.flatMap { it.baseRef }
-    outputFile = layout.buildDirectory.file("diff/changed-lines.txt")
-}
+// sources.  nullaway.java-test-conventions applies it after registering changedLines, which counts
+// changed lines the way diffCoverage does; in a module without main sources the task is always
+// skipped.
+def changedLines = tasks.named("changedLines", com.uber.nullaway.gradle.ChangedLinesTask)
 
 // Mutation testing of the lines this branch changed.  PIT runs the module's tests against copies of
 // the main classes with one instruction changed, and a mutant that no test notices marks a changed
@@ -47,10 +40,11 @@ tasks.register("pitestDiff", JavaExec) {
     description = "Runs PIT mutation testing over the lines this branch changed"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
 
-    def testTask = tasks.named("test", Test)
-    // The test task is read here, through providers, and not from the task actions: the
-    // configuration cache stores the values and cannot store the task itself.
-    def testJvmArgs = testTask.map { test ->
+    // The settings of the test task are read here, while pitestDiff is configured: a provider
+    // derived from the test task's provider would make pitestDiff run the whole test suite first,
+    // and the configuration cache cannot store the task for the task actions to read.
+    def test = tasks.getByName("test")
+    def testJvmArgs = providers.provider {
         com.uber.nullaway.gradle.PitestJvmArgs.of(test.jvmArgs, test.systemProperties, test.maxHeapSize)
     }
     inputs.property("testJvmArgs", testJvmArgs)
@@ -63,7 +57,7 @@ tasks.register("pitestDiff", JavaExec) {
     outputs.upToDateWhen { false }
 
     // PIT runs the tests on the JVM the `test` task runs them on.
-    javaLauncher = testTask.flatMap { it.javaLauncher }
+    javaLauncher = test.javaLauncher
     mainClass = "org.pitest.mutationtest.commandline.MutationCoverageReport"
     // The jar of buildSrc carries the changed-lines interceptor and registers it with PIT.
     classpath = configurations.pitest + files(

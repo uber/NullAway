@@ -153,8 +153,15 @@ if (!enableJacoco.isPresent() && diffCoverageEnabled.get()) {
     }
 }
 
-// pitestDiff takes its changed lines from the diffCoverage settings above, so it is applied here
-// rather than in the plugins block, which runs before diffCoverage is registered.
+// The lines pitestDiff mutates, from the same base ref and source roots as diffCoverage.
+tasks.register("changedLines", com.uber.nullaway.gradle.ChangedLinesTask) {
+    description = "Writes the lines this branch changed in the main sources, for pitestDiff"
+    sourceRoots.set(mainSourceRoots)
+    baseRef = diffBase
+    outputFile = layout.buildDirectory.file("diff/changed-lines.txt")
+}
+
+// Applied here rather than in the plugins block, which runs before changedLines is registered.
 pluginManager.apply("nullaway.pitest-diff")
 
 configurations {
