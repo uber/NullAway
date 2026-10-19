@@ -1607,18 +1607,57 @@ public final class GenericsChecks {
     }
     // then, handle parameters
     TreePath pathToCall = path != null ? path : pathWithLeaf(state.getPath(), callTree);
+    Symbol.MethodSymbol methodSymbol = getMethodSymbolForCall(callTree);
     new InvocationArguments(callTree, methodTypeForSite)
         .forEach(
-            (argument, argPos, formalParamType, unused) -> {
+            (argument, argPos, formalParamType, varArgsPassedAsArray) -> {
               TreePath pathToArgument = new TreePath(pathToCall, argument);
               generateConstraintsForPseudoAssignment(
                   state.withPath(pathToArgument),
                   solver,
                   allCalls,
                   argument,
-                  formalParamType,
+                  withDeclaredParamNullability(
+                      state, methodSymbol, argPos, formalParamType, varArgsPassedAsArray),
                   calledFromDataflow);
             });
+  }
+
+  /**
+   * Returns {@code formalParamType} annotated as {@code @Nullable} when the parameter is
+   * {@code @Nullable}, including through a declaration annotation such as {@code
+   * javax.annotation.CheckForNull}.
+   *
+   * <p>A declaration annotation does not appear in the parameter's {@link Type}. Annotating the
+   * type makes {@code @CheckForNull T} a nullable use of {@code T}, as the type-use form
+   * {@code @Nullable T} is, so a {@code @Nullable} argument places no constraint on the nullability
+   * of {@code T}.
+   *
+   * @param state the visitor state
+   * @param methodSymbol the invoked method or constructor
+   * @param argPos the 0-based position of the argument
+   * @param formalParamType the formal parameter type for the argument
+   * @param varArgsPassedAsArray true if the argument is an array passed in the varargs position;
+   *     the element type of {@code formalParamType} is then annotated instead, since a declaration
+   *     annotation on a varargs parameter applies to its elements
+   */
+  private Type withDeclaredParamNullability(
+      VisitorState state,
+      Symbol.MethodSymbol methodSymbol,
+      int argPos,
+      Type formalParamType,
+      boolean varArgsPassedAsArray) {
+    int paramIndex = Math.min(argPos, methodSymbol.getParameters().size() - 1);
+    if (!Nullness.paramHasNullableAnnotation(methodSymbol, paramIndex, config)) {
+      return formalParamType;
+    }
+    Type nullableAnnotType = getSyntheticNullableAnnotType(state);
+    if (varArgsPassedAsArray) {
+      Type.ArrayType arrayType = (Type.ArrayType) formalParamType;
+      return TYPE_METADATA_BUILDER.createArrayType(
+          arrayType, TypeSubstitutionUtils.typeWithAnnot(arrayType.elemtype, nullableAnnotType));
+    }
+    return TypeSubstitutionUtils.typeWithAnnot(formalParamType, nullableAnnotType);
   }
 
   /**
@@ -2676,7 +2715,7 @@ public final class GenericsChecks {
         getInvokedMethodTypeAtCall(methodSymbol, tree, null, state, false);
     new InvocationArguments(tree, finalMethodType)
         .forEach(
-            (currentActualParam, argPos, formalParameter, unused) -> {
+            (currentActualParam, argPos, formalParameter, varArgsPassedAsArray) -> {
               if (formalParameter.isRaw()) {
                 // bail out of any checking involving raw types for now
                 return;
@@ -2752,9 +2791,16 @@ public final class GenericsChecks {
                 if (actualParameterType == null) {
                   return;
                 }
-                if (!subtypeParameterNullability(formalParameter, actualParameterType, state)) {
+                Type formalParameterWithDeclaredNullability =
+                    withDeclaredParamNullability(
+                        state, methodSymbol, argPos, formalParameter, varArgsPassedAsArray);
+                if (!subtypeParameterNullability(
+                    formalParameterWithDeclaredNullability, actualParameterType, state)) {
                   reportInvalidParametersNullabilityError(
-                      formalParameter, actualParameterType, currentActualParam, state);
+                      formalParameterWithDeclaredNullability,
+                      actualParameterType,
+                      currentActualParam,
+                      state);
                 }
               }
             });

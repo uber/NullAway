@@ -2492,6 +2492,77 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void declarationNullableParamOfTypeVariableType() {
+    makeHelper()
+        .addSourceLines(
+            "Preconditions.java",
+            """
+            package com.uber;
+            import javax.annotation.CheckForNull;
+            import org.jspecify.annotations.Nullable;
+            public final class Preconditions {
+              public static <T extends Object> T checkNotNull(@CheckForNull T reference) {
+                if (reference == null) {
+                  throw new NullPointerException();
+                }
+                return reference;
+              }
+              public static <T extends Object> T checkNotNullTypeUse(@Nullable T reference) {
+                if (reference == null) {
+                  throw new NullPointerException();
+                }
+                return reference;
+              }
+              public static <T extends Object> T firstNonNull(@CheckForNull T... references) {
+                throw new UnsupportedOperationException();
+              }
+              public static <T extends @Nullable Object> T first(@CheckForNull java.util.List<T> list) {
+                throw new UnsupportedOperationException();
+              }
+              public static String firstNonNullString(@CheckForNull String... references) {
+                throw new UnsupportedOperationException();
+              }
+              public static <T extends Object> T identity(T reference) {
+                return reference;
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static void nestedTypeArgument(java.util.List<@Nullable String> list) {
+                String s = Preconditions.first(list);
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                s.hashCode();
+              }
+              static void test(@Nullable String s) {
+                String t = Preconditions.checkNotNull(s);
+                t.hashCode();
+                Preconditions.checkNotNull(s).hashCode();
+                Preconditions.checkNotNull(null);
+                String u = Preconditions.checkNotNullTypeUse(s);
+                u.hashCode();
+                String v = Preconditions.firstNonNull(s, null);
+                v.hashCode();
+              }
+              static void varargsArray(@Nullable String[] array) {
+                String w = Preconditions.firstNonNull(array);
+                w.hashCode();
+                Preconditions.firstNonNullString(array);
+              }
+              static void unannotated(@Nullable String s) {
+                // BUG: Diagnostic contains: type variable T is constrained to be @Nullable
+                Preconditions.identity(s);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
