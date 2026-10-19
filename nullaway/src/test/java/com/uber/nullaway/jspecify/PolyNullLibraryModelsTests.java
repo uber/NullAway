@@ -374,6 +374,52 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void mapComputeIfAbsentEstablishesNonNullEntryForNullableValueType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Map<String, @Nullable String> map) {
+                map.computeIfAbsent("k", unused -> "value");
+                map.get("k").hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapComputeIfAbsentWithNullableFunctionDoesNotEstablishKeyPresence() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Map<String, String> map, Function<String, @Nullable String> function) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("k", function)' is @Nullable
+                map.computeIfAbsent("k", function).hashCode();
+
+                // BUG: Diagnostic contains: dereferenced expression 'map.get("k")' is @Nullable
+                map.get("k").hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapComputeIfAbsentAndKeyPresence() {
     makeHelper()
         .addSourceLines(
