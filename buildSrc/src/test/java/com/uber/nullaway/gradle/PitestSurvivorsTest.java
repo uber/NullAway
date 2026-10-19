@@ -360,6 +360,38 @@ class PitestSurvivorsTest {
     assertEquals(List.of(Set.of("T.a"), Set.of("T.a")), List.of(first, second));
   }
 
+  /** The report quotes no text for a line it cannot decode, and still reports the mutant. */
+  @Test
+  void aSourceFileThatIsNotUtf8LeavesTheLineUnquoted() throws IOException {
+    Path sources = repository.resolve("src");
+    Files.createDirectories(sources.resolve("com/x"));
+    Files.write(sources.resolve("com/x/A.java"), new byte[] {(byte) 0xff, '\n'});
+    Path xml = repository.resolve("mutations.xml");
+    Files.writeString(
+        xml,
+        "<mutations>" + mutation("SURVIVED", "A", "A.java", 1, "removed call") + "</mutations>");
+    PitestSurvivors report =
+        PitestSurvivors.read(
+            "against origin/master (abc), all tests",
+            xml.toFile(),
+            repository.resolve("linecoverage.xml").toFile(),
+            repository.toFile(),
+            List.of(sources.toFile()));
+
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  1 mutant: 0 killed, 1 survived, 0 not reached by any test\n"
+            + "  ordered by live mutants per file, then by line\n"
+            + "\n"
+            + "  src/com/x/A.java\n"
+            + "    1: \n"
+            + "        survived: removed call, in m\n"
+            + "\n"
+            + "Live mutants on 1 line in 1 file."
+            + LIVE_FOOTER,
+        report.render(DiffCoverageReport.Limits.NONE, List.of()));
+  }
+
   @Test
   void aLambdaIsNamedByTheMethodThatHoldsIt() {
     assertEquals("a lambda in check", PitestSurvivors.readableMethod("lambda$check$0"));

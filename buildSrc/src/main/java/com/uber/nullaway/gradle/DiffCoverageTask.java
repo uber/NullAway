@@ -227,7 +227,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
   }
 
   /** Returns the path as the reader would type it, which is relative to the repository. */
-  private static String relativize(File repository, File file) {
+  static String relativize(File repository, File file) {
     Path root = repository.toPath().toAbsolutePath().normalize();
     Path target = file.toPath().toAbsolutePath().normalize();
     return target.startsWith(root) ? root.relativize(target).toString() : target.toString();

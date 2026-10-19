@@ -192,10 +192,12 @@ public final class PitestSurvivors {
     if (lineCoverageXml.isFile() && !testSetsByBlock.isEmpty()) {
       addReachingTests(lineCoverageXml, testSetsByBlock);
     }
+    SourceLines sourceLines = SourceLines.under(repository);
     List<FileMutants> files = new ArrayList<>();
     for (Map.Entry<String, TreeMap<Integer, List<Mutant>>> file : byFile.entrySet()) {
       File source = locate(sourceRoots, file.getKey());
-      List<String> text = source == null ? List.of() : Files.readAllLines(source.toPath());
+      String path =
+          source == null ? file.getKey() : DiffCoverageTask.relativize(repository, source);
       List<Line> lines = new ArrayList<>();
       for (Map.Entry<Integer, List<Mutant>> line : file.getValue().entrySet()) {
         int number = line.getKey();
@@ -204,13 +206,11 @@ public final class PitestSurvivors {
         lines.add(
             new Line(
                 number,
-                number >= 1 && number <= text.size() ? text.get(number - 1).trim() : "",
+                source == null ? "" : sourceLines.get(path, number).trim(),
                 line.getValue(),
                 tests));
       }
-      files.add(
-          new FileMutants(
-              source == null ? file.getKey() : relativize(repository, source), lines));
+      files.add(new FileMutants(path, lines));
     }
     files.sort(
         Comparator.comparingInt(FileMutants::mutantCount)
@@ -253,7 +253,7 @@ public final class PitestSurvivors {
       List<String> otherPaths)
       throws IOException {
     List<String> paths = new ArrayList<>();
-    paths.add(relativize(repository, outputFile));
+    paths.add(DiffCoverageTask.relativize(repository, outputFile));
     // A run that analyzed no mutant leaves no HTML report, and a path that names no file is left out.
     otherPaths = otherPaths.stream().filter(path -> new File(repository, path).exists()).toList();
     paths.addAll(otherPaths);
@@ -482,9 +482,4 @@ public final class PitestSurvivors {
     return null;
   }
 
-  private static String relativize(File repository, File file) {
-    return repository.toPath().toAbsolutePath().normalize()
-        .relativize(file.toPath().toAbsolutePath().normalize())
-        .toString();
-  }
 }
