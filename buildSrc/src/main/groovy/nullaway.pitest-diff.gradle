@@ -36,143 +36,50 @@ dependencies {
     pitest versionCatalogs.named("libs").findLibrary("pitest-command-line").get()
 }
 
-tasks.register("pitestDiff", JavaExec) {
+tasks.register("pitestDiff", com.uber.nullaway.gradle.PitestDiffTask) {
     description = "Runs PIT mutation testing over the lines this branch changed"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
 
     // The settings of the test task are read here, while pitestDiff is configured: a provider
-    // derived from the test task's provider would make pitestDiff run the whole test suite first,
-    // and the configuration cache cannot store the task for the task actions to read.
+    // derived from the test task's provider would make pitestDiff run the whole test suite first.
     def test = tasks.getByName("test")
-    def testJvmArgs = providers.provider {
+    testJvmArgs = providers.provider {
         com.uber.nullaway.gradle.PitestJvmArgs.of(test.jvmArgs, test.systemProperties, test.maxHeapSize)
     }
-    inputs.property("testJvmArgs", testJvmArgs)
-    def rootDirectory = rootDir
-    def changedLinesFile = changedLines.flatMap { it.outputFile }
-    // The classpath becomes a --classPath argument at execution time, which carries no task
-    // dependency of its own; declaring it as an input builds the classes and jars it names.
-    inputs.files(sourceSets.test.runtimeClasspath)
-    inputs.file(changedLinesFile)
-    outputs.upToDateWhen { false }
-
     // PIT runs the tests on the JVM the `test` task runs them on.
     javaLauncher = test.javaLauncher
-    mainClass = "org.pitest.mutationtest.commandline.MutationCoverageReport"
-    // The jar of buildSrc carries the changed-lines interceptor and registers it with PIT.
-    classpath = configurations.pitest + files(
-            com.uber.nullaway.gradle.ChangedLinesFile.protectionDomain.codeSource.location)
 
-    def reportDir = layout.buildDirectory.dir("reports/pitest-diff")
-    def testRuntimeClasspath = sourceSets.test.runtimeClasspath
-    def mainClassesDirs = sourceSets.main.output.classesDirs
-    def mainSourceDirs = sourceSets.main.java.srcDirs
-    def targetTests = providers.gradleProperty("pitestTargetTests").orElse("*")
-    def mutators = providers.gradleProperty("pitestMutators").orElse("DEFAULTS")
-    def threads = providers.gradleProperty("pitestThreads")
-            .orElse(String.valueOf(Math.max(1, Runtime.runtime.availableProcessors().intdiv(2))))
+    // The jar of buildSrc carries the changed-lines interceptor and the mutants listener.
+    pitestClasspath.from(configurations.pitest)
+    pitestClasspath.from(com.uber.nullaway.gradle.ChangedLinesFile.protectionDomain.codeSource.location)
+    changedLinesFile = changedLines.flatMap { it.outputFile }
+    testRuntimeClasspath.from(sourceSets.test.runtimeClasspath)
+    mainClassesDirs.from(sourceSets.main.output.classesDirs)
+    mainSourceDirs.from(sourceSets.main.java.srcDirs)
+    reportDir = layout.buildDirectory.dir("reports/pitest-diff")
+    repositoryRoot = rootProject.layout.projectDirectory
 
-    onlyIf("the branch changed lines of a class in the main sources of this module") {
-        !com.uber.nullaway.gradle.ChangedLinesFile.targetClasses(
-        com.uber.nullaway.gradle.ChangedLinesFile.read(changedLinesFile.get().asFile.toPath())).isEmpty()
+    targetTests = providers.gradleProperty("pitestTargetTests")
+    mutators = providers.gradleProperty("pitestMutators").orElse("DEFAULTS")
+    threads = providers.gradleProperty("pitestThreads").map {
+        Integer.parseInt(it)
     }
-
-    doFirst {
-        def changed = com.uber.nullaway.gradle.ChangedLinesFile.read(changedLinesFile.get().asFile.toPath())
-        def targetClasses = com.uber.nullaway.gradle.ChangedLinesFile.targetClasses(changed)
-        systemProperty(com.uber.nullaway.gradle.ChangedLinesFile.PITEST_PROPERTY,
-                changedLinesFile.get().asFile.absolutePath)
-        def options = [
-            reportDir: reportDir.get().asFile.absolutePath,
-            targetClasses: targetClasses.join(","),
-            targetTests: targetTests.get(),
-            // Only the main output is mutated, so a glob cannot reach a test class of the same name.
-            mutableCodePaths: mainClassesDirs.files*.absolutePath.join(","),
-            sourceDirs: mainSourceDirs*.absolutePath.join(","),
-            classPath: testRuntimeClasspath.files*.absolutePath.join(","),
-            jvmArgs: testJvmArgs.get(),
-            mutators: mutators.get(),
-            // PIT's own default list, plus the invariant checks: removing a Verify or Preconditions
-            // call changes no diagnostic, so every such mutant would survive a passing suite.  PIT
-            // drops every mutant on a line that makes such a call, not only the call's own.
-            avoidCallsTo: [
-                "java.util.logging",
-                "org.apache.log4j",
-                "org.apache.logging.log4j",
-                "org.slf4j",
-                "org.apache.commons.logging",
-                "org.jboss.logging",
-                "com.google.common.base.Verify",
-                "com.google.common.base.Preconditions",
-            ].join(","),
-            threads: threads.get(),
-            outputFormats: "HTML," + com.uber.nullaway.gradle.MutantsFile.LISTENER_FORMAT,
-            timestampedReports: "false",
-            // A changed line can be a comment or a declaration with no instruction to mutate.
-            failWhenNoMutations: "false",
-            // A test case here compiles a Java source file, so PIT's default 4-second constant is too tight.
-            timeoutConst: "20000",
-            // PIT runs every test, including those the `test` task's filter excludes, and refuses to
-            // start when one fails before any mutation.  A test failing there is left out instead.
-            skipFailingTests: "true",
-        ]
-        args = options.collectMany { name, value -> ["--" + name, value] }
-    }
-
-    // PIT prints its progress, its per-mutator statistics, and warnings that do not apply here (it
-    // reports JUnit 5 as missing because the tests use JUnit 5 assertions under the JUnit 4 runner).
-    // All of it goes to pit.log, which the console names only on failure, with the end of the log;
-    // otherwise the console gets the survivors report.
-    def pitLog = reportDir.map { it.file("pit.log") }
-    ignoreExitValue = true
-    doFirst {
-        // PIT writes no report when no mutant is left on the changed lines, so the directory is
-        // emptied first: a report found after the run is this run's.
-        def dir = reportDir.get().asFile
-        dir.deleteDir()
-        dir.mkdirs()
-        def log = pitLog.get().asFile
-        def stream = new FileOutputStream(log)
-        standardOutput = stream
-        errorOutput = stream
-    }
-
-    def maxFiles = providers.gradleProperty("pitestMaxFiles").map {
+    .orElse(Math.max(1, Runtime.runtime.availableProcessors().intdiv(2)))
+    maxFiles = providers.gradleProperty("pitestMaxFiles").map {
         Integer.parseInt(it)
     }.orElse(10)
     // A change usually lives in one or two files, so one file may take most of the 50 lines.
-    def maxLinesPerFile = providers.gradleProperty("pitestMaxLinesPerFile").map {
+    maxLinesPerFile = providers.gradleProperty("pitestMaxLinesPerFile").map {
         Integer.parseInt(it)
     }.orElse(20)
-    def maxLines = providers.gradleProperty("pitestMaxLines").map {
+    maxLines = providers.gradleProperty("pitestMaxLines").map {
         Integer.parseInt(it)
     }.orElse(50)
-    def showAll = providers.gradleProperty("pitestShowAll")
+    showAll = providers.gradleProperty("pitestShowAll")
             .map { it.isEmpty() || Boolean.parseBoolean(it) }
             .orElse(false)
-    def testsDescription = providers.gradleProperty("pitestTargetTests").map {
-        "tests matching " + it
-    }.orElse("all tests")
 
-    doLast {
-        standardOutput.close()
-        def log = pitLog.get().asFile
-        def relativeLog = rootDirectory.toPath().relativize(log.toPath()).toString()
-        def exitValue = executionResult.get().exitValue
-        if (exitValue != 0) {
-            def tail = log.readLines().takeRight(30).join("\n")
-            throw new GradleException("PIT failed with exit code ${exitValue}. The end of ${relativeLog}:\n${tail}")
-        }
-        def changedHeader = com.uber.nullaway.gradle.ChangedLinesFile.readHeader(changedLinesFile.get().asFile.toPath())
-        def scope = (changedHeader ?: "against an unknown base") + ", " + testsDescription.get()
-        def dir = reportDir.get().asFile
-        def report = com.uber.nullaway.gradle.PitestSurvivors.read(
-                scope, new File(dir, com.uber.nullaway.gradle.MutantsFile.NAME), rootDirectory, mainSourceDirs as List)
-        logger.quiet(report.writeAndRender(
-                        rootDirectory, new File(dir, "survivors.txt"),
-                        maxFiles.get(), maxLinesPerFile.get(), maxLines.get(), showAll.get(),
-                        [
-                            rootDirectory.toPath().relativize(new File(dir, "index.html").toPath()).toString()
-                        ]))
+    onlyIf("the branch changed lines of a class in the main sources of this module") {
+        it.hasTargetClasses()
     }
 }
