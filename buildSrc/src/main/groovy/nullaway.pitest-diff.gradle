@@ -85,7 +85,7 @@ tasks.register("pitestDiff", JavaExec) {
 
     doFirst {
         def changed = com.uber.nullaway.gradle.ChangedLinesFile.read(changedLinesFile.get().asFile.toPath())
-        def targetClasses = com.uber.nullaway.gradle.ChangedLinesFile.targetClasses(changed, mainClassesDirs.files as List)
+        def targetClasses = com.uber.nullaway.gradle.ChangedLinesFile.targetClasses(changed)
         systemProperty(com.uber.nullaway.gradle.ChangedLinesFile.PITEST_PROPERTY,
                 changedLinesFile.get().asFile.absolutePath)
         def options = [

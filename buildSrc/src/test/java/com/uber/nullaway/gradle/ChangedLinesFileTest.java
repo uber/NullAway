@@ -17,7 +17,6 @@ package com.uber.nullaway.gradle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -28,6 +27,7 @@ import java.util.NavigableSet;
 import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
+import org.pitest.util.Glob;
 
 /**
  * A changed-lines file holds one source file per line, its changed lines written as comma-separated
@@ -87,30 +87,35 @@ class ChangedLinesFileTest {
     assertEquals("against origin/master (abc)", ChangedLinesFile.readHeader(file));
   }
 
-  @Test
-  void aFileClassAndItsNestedClassesAreTargeted() {
-    assertEquals(
-        List.of("com.x.A", "com.x.A$*"),
-        ChangedLinesFile.targetClasses(Map.of("com/x/A.java", lines(3))));
+  /** Returns the classes among the names that PIT selects with the patterns for the changed lines. */
+  private static List<String> targeted(Map<String, NavigableSet<Integer>> changed, String... names) {
+    List<String> patterns = ChangedLinesFile.targetClasses(changed);
+    return Arrays.stream(names)
+        .filter(name -> patterns.stream().anyMatch(pattern -> new Glob(pattern).matches(name)))
+        .toList();
   }
 
   /**
-   * A second top-level class declared in a changed file has a name of its own, which only the
-   * compiled package shows.
+   * A second top-level class declared in a changed file, such as {@code Helper} in {@code A.java},
+   * has a name of its own, so the whole package is targeted.
    */
   @Test
-  void everyTopLevelClassCompiledIntoTheChangedFilesPackageIsTargeted() throws IOException {
-    Path classes = directory.resolve("classes");
-    Files.createDirectories(classes.resolve("com/x"));
-    Files.createDirectories(classes.resolve("com/y"));
-    for (String file : List.of("com/x/A.class", "com/x/A$Inner.class", "com/x/Helper.class", "com/y/B.class")) {
-      Files.writeString(classes.resolve(file), "");
-    }
-
+  void everyClassOfTheChangedFilesPackageIsTargetedAndNoOther() {
     assertEquals(
-        List.of("com.x.A", "com.x.A$*", "com.x.Helper", "com.x.Helper$*"),
-        ChangedLinesFile.targetClasses(
-            Map.of("com/x/A.java", lines(3)), List.of(classes.toFile(), new File("absent"))));
+        List.of("com.x.A", "com.x.A$Inner", "com.x.Helper"),
+        targeted(
+            Map.of("com/x/A.java", lines(3)),
+            "com.x.A",
+            "com.x.A$Inner",
+            "com.x.Helper",
+            "com.x.sub.C",
+            "com.y.B",
+            "com.xy.D"));
+  }
+
+  @Test
+  void aChangedFileInTheDefaultPackageTargetsOnlyThatPackage() {
+    assertEquals(List.of("A", "Helper"), targeted(Map.of("A.java", lines(1)), "A", "Helper", "com.x.B"));
   }
 
   @Test
