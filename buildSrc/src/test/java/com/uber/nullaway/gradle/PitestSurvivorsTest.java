@@ -1,0 +1,316 @@
+/*
+ * Copyright (C) 2026. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+package com.uber.nullaway.gradle;
+
+import static org.junit.jupiter.api.Assertions.assertEquals;
+
+import java.io.File;
+import java.io.IOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.List;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.io.TempDir;
+
+/**
+ * The report prints each live mutant under its file and line, with the line's source text and the
+ * tests PIT recorded as reaching it, and counts every other mutant as killed.
+ */
+class PitestSurvivorsTest {
+
+  @TempDir Path repository;
+
+  /**
+   * Returns a mutation element in the shape mutations.xml writes it, in method {@code m} of the
+   * given class of package {@code com.x}, sitting in block 0 of that method.
+   */
+  private static String mutation(
+      String status, String className, String file, int line, String description) {
+    return mutation(status, className, file, line, description, 0);
+  }
+
+  /** Returns a mutation element as {@link #mutation(String, String, String, int, String)} does, in the given block. */
+  private static String mutation(
+      String status, String className, String file, int line, String description, int block) {
+    return "<mutation detected='false' status='"
+        + status
+        + "' numberOfTestsRun='1'><sourceFile>"
+        + file
+        + "</sourceFile><mutatedClass>com.x."
+        + className
+        + "</mutatedClass><mutatedMethod>m</mutatedMethod><methodDescription>()V"
+        + "</methodDescription><lineNumber>"
+        + line
+        + "</lineNumber><mutator>X</mutator><blocks><block>"
+        + block
+        + "</block></blocks>"
+        + "<description>"
+        + description
+        + " for com/x/"
+        + className
+        + "::m</description></mutation>";
+  }
+
+  /** Returns a linecoverage.xml block element for block 0 of method {@code m()V}. */
+  private static String coverage(String className, String... tests) {
+    StringBuilder block =
+        new StringBuilder("<block classname='com.x." + className + "' method='m()V' number='0'>");
+    block.append("<tests>");
+    for (String test : tests) {
+      block.append("<test name='com.x.").append(test).append("(com.x.T)'/>");
+    }
+    return block.append("</tests></block>").toString();
+  }
+
+  /** Reads a run whose sources are com/x/A.java and com/x/B.java, each with five lines. */
+  private PitestSurvivors run(String coverageBlocks, String... mutations) throws IOException {
+    Path sources = repository.resolve("src");
+    Files.createDirectories(sources.resolve("com/x"));
+    Files.writeString(sources.resolve("com/x/A.java"), "a1\n  a2\na3\na4\na5\n");
+    Files.writeString(sources.resolve("com/x/B.java"), "b1\nb2\nb3\nb4\nb5\n");
+    Path xml = repository.resolve("mutations.xml");
+    Files.writeString(xml, "<mutations>" + String.join("", mutations) + "</mutations>");
+    Path coverage = repository.resolve("linecoverage.xml");
+    if (coverageBlocks != null) {
+      Files.writeString(coverage, "<coverage>" + coverageBlocks + "</coverage>");
+    }
+    return PitestSurvivors.read(
+        "against origin/master (abc), all tests",
+        xml.toFile(),
+        coverage.toFile(),
+        repository.toFile(),
+        List.of(new File("absent"), sources.toFile()));
+  }
+
+  @Test
+  void liveMutantsAreGroupedByFileAndLineWithTheTestsThatReachThem() throws IOException {
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  4 mutants: 1 killed, 2 survived, 1 not reached by any test\n"
+            + "  ordered by live mutants per file, then by line\n"
+            + "\n"
+            + "  src/com/x/A.java\n"
+            + "    2: a2\n"
+            + "        survived: negated conditional, in m\n"
+            + "        survived: removed call, in m\n"
+            + "        reached by 1 test:\n"
+            + "          T.t1\n"
+            + "    4: a4\n"
+            + "        no test reaches it: replaced return value with null, in m\n"
+            + "\n"
+            + "Live mutants on 2 lines in 1 file.",
+        run(
+                coverage("A", "T.t1"),
+                mutation("NO_COVERAGE", "A", "A.java", 4, "replaced return value with null", 1),
+                mutation("SURVIVED", "A", "A.java", 2, "negated conditional"),
+                mutation("KILLED", "A", "A.java", 3, "removed call"),
+                mutation("SURVIVED", "A", "A.java", 2, "removed call"))
+            .render(DiffCoverageReport.Limits.NONE, List.of()));
+  }
+
+  @Test
+  void aTimeoutCountsAsKilledAndANonViableMutantIsCountedApart() throws IOException {
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  3 mutants: 2 killed, 0 survived, 0 not reached by any test, 1 NON_VIABLE",
+        run(
+                null,
+                mutation("KILLED", "A", "A.java", 1, "removed call"),
+                mutation("TIMED_OUT", "A", "A.java", 2, "negated conditional"),
+                mutation("NON_VIABLE", "A", "A.java", 3, "negated conditional"))
+            .render(DiffCoverageReport.Limits.NONE, List.of()));
+  }
+
+  @Test
+  void theFileWithMoreLiveMutantsComesFirst() throws IOException {
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  3 mutants: 0 killed, 3 survived, 0 not reached by any test\n"
+            + "  ordered by live mutants per file, then by line\n"
+            + "\n"
+            + "  src/com/x/B.java\n"
+            + "    1: b1\n"
+            + "        survived: removed call, in m\n"
+            + "    2: b2\n"
+            + "        survived: removed call, in m\n"
+            + "\n"
+            + "  src/com/x/A.java\n"
+            + "    1: a1\n"
+            + "        survived: removed call, in m\n"
+            + "\n"
+            + "Live mutants on 3 lines in 2 files.",
+        run(
+                null,
+                mutation("SURVIVED", "A", "A.java", 1, "removed call"),
+                mutation("SURVIVED", "B", "B.java", 1, "removed call"),
+                mutation("SURVIVED", "B", "B.java", 2, "removed call"))
+            .render(DiffCoverageReport.Limits.NONE, List.of()));
+  }
+
+  @Test
+  void theTotalLineLimitEndsTheReportAfterTheLinesItAllows() throws IOException {
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  3 mutants: 0 killed, 3 survived, 0 not reached by any test\n"
+            + "  ordered by live mutants per file, then by line\n"
+            + "\n"
+            + "  src/com/x/B.java\n"
+            + "    1: b1\n"
+            + "        survived: removed call, in m\n"
+            + "    1 more line\n"
+            + "\n"
+            + "  1 more file\n"
+            + "\n"
+            + "Live mutants on 3 lines in 2 files.",
+        run(
+                null,
+                mutation("SURVIVED", "A", "A.java", 1, "removed call"),
+                mutation("SURVIVED", "B", "B.java", 1, "removed call"),
+                mutation("SURVIVED", "B", "B.java", 2, "removed call"))
+            .render(new DiffCoverageReport.Limits(10, 10, 1), List.of()));
+  }
+
+  @Test
+  void theReportFileHoldsWhatTheLimitsCut() throws IOException {
+    PitestSurvivors report =
+        run(
+            null,
+            mutation("SURVIVED", "A", "A.java", 1, "removed call"),
+            mutation("SURVIVED", "B", "B.java", 1, "removed call"));
+    Path file = repository.resolve("build/survivors.txt");
+
+    report.writeAndRender(repository.toFile(), file.toFile(), 1, 1, 1, false, List.of());
+
+    assertEquals(
+        report.render(DiffCoverageReport.Limits.NONE, List.of()) + "\n", Files.readString(file));
+  }
+
+  @Test
+  void showAllPrintsTheWholeReport() throws IOException {
+    PitestSurvivors report =
+        run(
+            null,
+            mutation("SURVIVED", "A", "A.java", 1, "removed call"),
+            mutation("SURVIVED", "B", "B.java", 1, "removed call"));
+
+    assertEquals(
+        report.render(DiffCoverageReport.Limits.NONE, List.of("build/survivors.txt")),
+        report.writeAndRender(
+            repository.toFile(),
+            repository.resolve("build/survivors.txt").toFile(),
+            1,
+            1,
+            1,
+            true,
+            List.of()));
+  }
+
+  @Test
+  void theTestsNamedFirstAreTheOnesReachingTheMostLiveMutants() throws IOException {
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  2 mutants: 0 killed, 2 survived, 0 not reached by any test\n"
+            + "  ordered by live mutants per file, then by line\n"
+            + "\n"
+            + "  src/com/x/A.java\n"
+            + "    1: a1\n"
+            + "        survived: removed call, in m\n"
+            + "        reached by 5 tests, among them:\n"
+            + "          T.d\n"
+            + "          T.e\n"
+            + "          T.a\n"
+            + "\n"
+            + "  src/com/x/B.java\n"
+            + "    1: b1\n"
+            + "        survived: removed call, in m\n"
+            + "        reached by 2 tests:\n"
+            + "          T.d\n"
+            + "          T.e\n"
+            + "\n"
+            + "Live mutants on 2 lines in 2 files.",
+        run(
+                coverage("A", "T.a", "T.b", "T.c", "T.d", "T.e") + coverage("B", "T.d", "T.e"),
+                mutation("SURVIVED", "A", "A.java", 1, "removed call"),
+                mutation("SURVIVED", "B", "B.java", 1, "removed call"))
+            .render(DiffCoverageReport.Limits.NONE, List.of()));
+  }
+
+  @Test
+  void theLimitsCutLinesAndFilesAndTheReportNamesTheFullOne() throws IOException {
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  3 mutants: 0 killed, 3 survived, 0 not reached by any test\n"
+            + "  ordered by live mutants per file, then by line\n"
+            + "\n"
+            + "  src/com/x/A.java\n"
+            + "    1: a1\n"
+            + "        survived: removed call, in m\n"
+            + "    1 more line\n"
+            + "\n"
+            + "  1 more file\n"
+            + "\n"
+            + "Live mutants on 3 lines in 2 files.\n"
+            + "\n"
+            + "Full report:\n"
+            + "  build/survivors.txt",
+        run(
+                null,
+                mutation("SURVIVED", "A", "A.java", 1, "removed call"),
+                mutation("SURVIVED", "A", "A.java", 5, "removed call"),
+                mutation("SURVIVED", "B", "B.java", 1, "removed call"))
+            .render(new DiffCoverageReport.Limits(1, 1, 50), List.of("build/survivors.txt")));
+  }
+
+  @Test
+  void aRunThatWroteNoReportSaysNoMutantWasAnalyzed() throws IOException {
+    Path build = repository.resolve("build");
+    Files.createDirectories(build);
+    Files.writeString(build.resolve("pit.log"), "");
+    PitestSurvivors report =
+        PitestSurvivors.read(
+            "against origin/master (abc), all tests",
+            build.resolve("mutations.xml").toFile(),
+            build.resolve("linecoverage.xml").toFile(),
+            repository.toFile(),
+            List.of(repository.toFile()));
+
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  no mutant: PIT generated none on the changed lines\n"
+            + "\n"
+            + "Full report:\n"
+            + "  build/survivors.txt\n"
+            + "  build/pit.log",
+        report.writeAndRender(
+            repository.toFile(),
+            build.resolve("survivors.txt").toFile(),
+            10,
+            10,
+            50,
+            false,
+            List.of("build/index.html", "build/pit.log")));
+  }
+
+  @Test
+  void aLambdaIsNamedByTheMethodThatHoldsIt() {
+    assertEquals("a lambda in check", PitestSurvivors.readableMethod("lambda$check$0"));
+  }
+
+  @Test
+  void aConstructorIsNamedAsSuch() {
+    assertEquals("a constructor", PitestSurvivors.readableMethod("<init>"));
+  }
+}

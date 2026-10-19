@@ -35,7 +35,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 /**
- * Real git output, taken with the arguments {@link DiffCoverageTask#diffCommand}, parses to the
+ * Real git output, taken with the arguments {@link ChangedLines#diffCommand}, parses to the
  * lines the change touched.
  *
  * <p>{@link UnifiedDiffTest} pins the parser against diff text written by hand, which stays correct
@@ -160,7 +160,7 @@ class UnifiedDiffFromGitTest {
   }
 
   private Map<String, NavigableSet<Integer>> parseDiff() throws Exception {
-    List<String> arguments = new ArrayList<>(DiffCoverageTask.diffCommand(base));
+    List<String> arguments = new ArrayList<>(ChangedLines.diffCommand(base));
     return UnifiedDiff.parse(run(arguments.toArray(new String[0])));
   }
 

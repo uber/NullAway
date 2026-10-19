@@ -23,9 +23,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
-import java.util.TreeSet;
 import org.gradle.api.DefaultTask;
-import org.gradle.api.GradleException;
 import org.gradle.api.file.ConfigurableFileCollection;
 import org.gradle.api.file.RegularFileProperty;
 import org.gradle.api.provider.ListProperty;
@@ -54,12 +52,8 @@ import org.gradle.api.tasks.UntrackedTask;
 public abstract class DiffCoverageTask extends DefaultTask {
 
   static final String NO_BASE =
-      "Diff coverage: no base ref resolved, so no line counts as changed. Pass -PdiffBase=<ref>, "
-          + "or set an upstream branch, or fetch origin/master.";
-
-  private static final String[] UPSTREAM_NAME = {"rev-parse", "--abbrev-ref", "@{upstream}"};
-
-  private static final String[] BRANCH_NAME = {"rev-parse", "--abbrev-ref", "HEAD"};
+      "Diff coverage: no base ref resolved, so no line counts as changed. "
+          + ChangedLines.NO_BASE_HINT;
 
   static final String NO_REPORT =
       "Diff coverage: no JaCoCo report was produced, so no line counts as executed.";
@@ -73,13 +67,8 @@ public abstract class DiffCoverageTask extends DefaultTask {
   public abstract ListProperty<String> getSourceRoots();
 
   /**
-   * The ref whose merge base with HEAD the diff is taken from.
-   *
-   * <p>Taking the merge base rather than the ref itself keeps commits that landed on the ref since
-   * the branch point out of the diff, so the report covers this branch's own work. Unset, the
-   * upstream branch is tried, then {@code origin/master}. A ref that is set and does not resolve
-   * fails the task rather than falling through, because diffing against something else would
-   * report the wrong lines as executed.
+   * The ref whose merge base with HEAD the diff is taken from, as {@link ChangedLines#measure}
+   * resolves it.
    */
   @Internal
   public abstract Property<String> getBaseRef();
@@ -157,12 +146,15 @@ public abstract class DiffCoverageTask extends DefaultTask {
     }
     GitService git = getGit().get();
     File repository = git.repositoryRoot();
-    Base base = resolveBase(git);
-    if (base == null) {
+    ChangedLines diff = ChangedLines.measure(git, getBaseRef().getOrNull());
+    if (diff == null) {
       return NO_BASE;
     }
     List<String> unreadable = new ArrayList<>();
-    Map<String, NavigableSet<Integer>> changed = changedLines(git, base.commit(), unreadable);
+    for (String note : diff.unreadable()) {
+      unreadable.add("Diff coverage: " + note);
+    }
+    Map<String, NavigableSet<Integer>> changed = diff.lines();
 
     // A module the change never reached has nothing to say, and saying it anyway would put a line
     // in every whole-build run for every module with no test and for every module the change
@@ -182,11 +174,7 @@ public abstract class DiffCoverageTask extends DefaultTask {
             JacocoLines.read(reports),
             SourceLines.under(repository));
     String scope =
-        "against "
-            + base.ref()
-            + " ("
-            + base.commit().substring(0, Math.min(9, base.commit().length()))
-            + "), from "
+        "against " + diff.ref() + " (" + diff.shortCommit() + "), from "
             + getScopeDescription().get();
     List<String> stale = staleSources(repository, report.measuredPaths(), reports);
     String full =
@@ -243,157 +231,6 @@ public abstract class DiffCoverageTask extends DefaultTask {
     Path root = repository.toPath().toAbsolutePath().normalize();
     Path target = file.toPath().toAbsolutePath().normalize();
     return target.startsWith(root) ? root.relativize(target).toString() : target.toString();
-  }
-
-  /**
-   * Returns the refs to try as the base, in order.
-   *
-   * <p>An explicit ref stands alone: falling through from the ref the caller named to another one
-   * would report a different set of lines as changed, under a base the caller did not choose.
-   *
-   * <p>An upstream that is this branch's own pushed copy is left out. In a fork workflow the branch
-   * tracks the fork, so after the first push its upstream is the branch itself, every line it
-   * changed is already in the base, and the report says nothing was changed rather than that it
-   * could not find a base.
-   *
-   * @param explicit the ref the caller named, or null
-   * @param upstreamRef the upstream branch as git names it, such as {@code origin/develop}, or null
-   * @param currentBranch the checked-out branch, or null on a detached HEAD
-   */
-  static List<String> baseCandidates(String explicit, String upstreamRef, String currentBranch) {
-    if (explicit != null) {
-      return List.of(explicit);
-    }
-    if (upstreamRef == null || isOwnPushedBranch(upstreamRef, currentBranch)) {
-      return List.of("origin/master");
-    }
-    return List.of(upstreamRef, "origin/master");
-  }
-
-  /**
-   * Returns whether the upstream ref is the current branch pushed to a remote.
-   *
-   * <p>The comparison drops the remote name, which is the first segment, so that a branch of its
-   * own named after the tail of another one is not mistaken for it.
-   */
-  static boolean isOwnPushedBranch(String upstreamRef, String currentBranch) {
-    if (currentBranch == null) {
-      return false;
-    }
-    int remoteEnd = upstreamRef.indexOf('/');
-    String branch = remoteEnd < 0 ? upstreamRef : upstreamRef.substring(remoteEnd + 1);
-    return branch.equals(currentBranch);
-  }
-
-  /** The ref the diff is taken against, and the merge base with HEAD it resolved to. */
-  private record Base(String ref, String commit) {}
-
-  /**
-   * Returns the first candidate ref that resolves with its merge base, or null where none does.
-   *
-   * <p>The ref is carried back so that the report names the one that won, which {@code
-   * @{upstream}} and {@code origin/master} otherwise leave the reader to guess between.
-   */
-  private Base resolveBase(GitService git) {
-    String explicit = getBaseRef().getOrNull();
-    if (explicit != null && !resolves(git, explicit)) {
-      throw new GradleException("diffBase " + explicit + " does not resolve to a commit");
-    }
-    String upstream = git.outputOrNull(UPSTREAM_NAME);
-    String branch = git.outputOrNull(BRANCH_NAME);
-    for (String candidate : baseCandidates(explicit, upstream, branch)) {
-      if (!resolves(git, candidate)) {
-        continue;
-      }
-      // A ref can resolve and still share no commit with HEAD, as in a shallow clone or after an
-      // orphan branch, and merge-base then fails. That is a base this run does not have, not a
-      // reason to fail a build whose tests passed.
-      String mergeBase = git.outputOrNull("merge-base", candidate, "HEAD");
-      if (mergeBase != null) {
-        return new Base(candidate, mergeBase);
-      }
-    }
-    return null;
-  }
-
-  /**
-   * Returns the git arguments the diff is taken with.
-   *
-   * <p>{@code --unified=0} is what makes a hunk header name only changed lines, and the prefixes
-   * are pinned because {@code diff.noprefix} and {@code diff.mnemonicPrefix} are personal settings
-   * that would otherwise change the {@code a/} and {@code b/} that {@link UnifiedDiff} strips.
-   *
-   * <p>{@code core.quotePath} is off because it wraps a path holding a non-ASCII byte in quotes
-   * and escapes the byte, as in {@code "b/src/caf\303\251.java"}. Such a {@code +++} line starts
-   * with a quotation mark rather than with the prefix, so it is no file header, and every hunk of
-   * that file leaves the report with nothing to show that it happened.
-   */
-  static List<String> diffCommand(String base) {
-    return List.of(
-        "-c",
-        "core.quotePath=false",
-        "diff",
-        "--unified=0",
-        "--no-color",
-        "--src-prefix=a/",
-        "--dst-prefix=b/",
-        base,
-        "--",
-        "*.java");
-  }
-
-  /** Returns whether the ref names a commit of this repository. */
-  private boolean resolves(GitService git, String ref) {
-    return git.outputOrNull("rev-parse", "--verify", "--quiet", ref + "^{commit}") != null;
-  }
-
-  /**
-   * Returns the changed lines of every Java file, keyed by repository-relative path.
-   *
-   * <p>Two sources are merged: the post-image lines of the diff between base and the working tree,
-   * which covers committed, staged and unstaged changes alike, and every line of an untracked
-   * file, which no diff mentions at all.
-   *
-   * @param unreadable collects a line naming each untracked file this JVM cannot decode
-   */
-  private Map<String, NavigableSet<Integer>> changedLines(
-      GitService git, String base, List<String> unreadable) {
-    String diff = git.output(diffCommand(base).toArray(new String[0]));
-    Map<String, NavigableSet<Integer>> changed = UnifiedDiff.parse(diff);
-    // core.quotePath is off here for the reason diffCommand gives: a quoted path names no file
-    // this JVM can open, and the file would be reported as unreadable rather than measured.
-    String untracked =
-        git.output(
-            "-c",
-            "core.quotePath=false",
-            "ls-files",
-            "--others",
-            "--exclude-standard",
-            "--",
-            "*.java");
-    if (untracked.isEmpty()) {
-      return changed;
-    }
-    for (String path : untracked.split("\n")) {
-      if (path.isEmpty()) {
-        continue;
-      }
-      // An untracked file has no diff, so every line in it counts as changed.
-      NavigableSet<Integer> lines = new TreeSet<>();
-      try {
-        int count = Files.readAllLines(git.repositoryRoot().toPath().resolve(path)).size();
-        for (int number = 1; number <= count; number++) {
-          lines.add(number);
-        }
-      } catch (IOException e) {
-        // A broken symlink or a file this JVM cannot decode is not worth failing a build whose
-        // tests passed, so it is named and left out of the counts.
-        unreadable.add("Diff coverage: cannot read the untracked file " + path + ": " + e);
-        continue;
-      }
-      changed.put(path, lines);
-    }
-    return changed;
   }
 
   /**
