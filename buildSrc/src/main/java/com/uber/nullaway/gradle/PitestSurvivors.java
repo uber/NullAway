@@ -17,6 +17,7 @@ package com.uber.nullaway.gradle;
 
 import java.io.File;
 import java.io.IOException;
+import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -31,6 +32,10 @@ import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.xml.parsers.DocumentBuilderFactory;
 import javax.xml.parsers.ParserConfigurationException;
+import javax.xml.stream.XMLInputFactory;
+import javax.xml.stream.XMLStreamConstants;
+import javax.xml.stream.XMLStreamException;
+import javax.xml.stream.XMLStreamReader;
 import org.w3c.dom.Document;
 import org.w3c.dom.Element;
 import org.w3c.dom.NodeList;
@@ -46,8 +51,9 @@ import org.xml.sax.SAXException;
  * tests and is counted under its own name.
  *
  * <p>Each line is printed once, with its source text, every live mutant on it, the number of tests
- * PIT recorded as reaching it, and the few of them that reach the most live mutants of the report. The tests come from PIT's {@code linecoverage.xml}, which maps a block
- * of a method to the tests that executed it; a mutant names the blocks it sits in.
+ * PIT recorded as reaching it, and the few of them that reach the most live mutants of the report.
+ * The tests come from PIT's {@code linecoverage.xml}, which maps a block of a method to the tests
+ * that executed it; a mutant names the blocks it sits in.
  */
 public final class PitestSurvivors {
 
@@ -130,8 +136,6 @@ public final class PitestSurvivors {
       File repository,
       List<File> sourceRoots)
       throws IOException {
-    Map<String, Set<String>> testsByBlock =
-        lineCoverageXml.isFile() ? testsByBlock(parse(lineCoverageXml)) : Map.of();
     if (!mutationsXml.isFile()) {
       return new PitestSurvivors(
           scope, Comparator.naturalOrder(), new LinkedHashMap<>(), 0, new ArrayList<>());
@@ -139,6 +143,9 @@ public final class PitestSurvivors {
     NodeList mutations = parse(mutationsXml).getElementsByTagName("mutation");
     Map<String, Integer> statusCounts = new LinkedHashMap<>();
     Map<String, TreeMap<Integer, List<Mutant>>> byFile = new HashMap<>();
+    // The test sets of the live mutants, keyed by each block they sit in, for the coverage pass to
+    // fill. A mutant in several blocks is reached by the tests of any of them.
+    Map<String, List<Set<String>>> testSetsByBlock = new HashMap<>();
     for (int i = 0; i < mutations.getLength(); i++) {
       Element mutation = (Element) mutations.item(i);
       String status = mutation.getAttribute("status");
@@ -156,7 +163,7 @@ public final class PitestSurvivors {
                 mutatedClass,
                 method + text(mutation, "methodDescription"),
                 blocks.item(b).getTextContent().trim());
-        tests.addAll(testsByBlock.getOrDefault(key, Set.of()));
+        testSetsByBlock.computeIfAbsent(key, unused -> new ArrayList<>()).add(tests);
       }
       int packageEnd = mutatedClass.lastIndexOf('.');
       String relative =
@@ -170,6 +177,9 @@ public final class PitestSurvivors {
           .computeIfAbsent(
               Integer.parseInt(text(mutation, "lineNumber")), unused -> new ArrayList<>())
           .add(new Mutant(description, readableMethod(method), tests));
+    }
+    if (lineCoverageXml.isFile() && !testSetsByBlock.isEmpty()) {
+      addReachingTests(lineCoverageXml, testSetsByBlock);
     }
     List<FileMutants> files = new ArrayList<>();
     for (Map.Entry<String, TreeMap<Integer, List<Mutant>>> file : byFile.entrySet()) {
@@ -373,34 +383,59 @@ public final class PitestSurvivors {
   }
 
   /**
-   * Returns the tests that executed each block, keyed by {@link #blockKey}.
+   * Adds to each test set the tests that PIT's {@code linecoverage.xml} records for its block.
+   *
+   * <p>The file lists every block of the target classes with every test that executed it, which
+   * for a change to a class most tests reach runs to tens of megabytes. It is streamed, and only
+   * the blocks the map names are read, so memory holds the tests of the live mutants alone.
    *
    * <p>PIT names a test {@code pkg.Class.method(pkg.Class)}; the report keeps {@code Class.method},
    * which a {@code --tests '*Class.method'} filter takes and a search for the class finds.
+   *
+   * @param testSetsByBlock the sets to fill, keyed by {@link #blockKey}
    */
-  private static Map<String, Set<String>> testsByBlock(Document coverage) {
-    Map<String, Set<String>> tests = new HashMap<>();
-    NodeList blocks = coverage.getElementsByTagName("block");
-    for (int i = 0; i < blocks.getLength(); i++) {
-      Element block = (Element) blocks.item(i);
-      Set<String> names = new TreeSet<>();
-      NodeList testElements = block.getElementsByTagName("test");
-      for (int t = 0; t < testElements.getLength(); t++) {
-        String name = ((Element) testElements.item(t)).getAttribute("name");
-        int paren = name.indexOf('(');
-        String qualified = paren < 0 ? name : name.substring(0, paren);
-        int methodStart = qualified.lastIndexOf('.');
-        int classStart = qualified.lastIndexOf('.', methodStart - 1);
-        names.add(qualified.substring(classStart + 1));
+  static void addReachingTests(File lineCoverageXml, Map<String, List<Set<String>>> testSetsByBlock)
+      throws IOException {
+    XMLInputFactory factory = XMLInputFactory.newInstance();
+    factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
+    factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
+    try (InputStream input = Files.newInputStream(lineCoverageXml.toPath())) {
+      XMLStreamReader reader = factory.createXMLStreamReader(input);
+      try {
+        List<Set<String>> current = null;
+        while (reader.hasNext()) {
+          if (reader.next() != XMLStreamConstants.START_ELEMENT) {
+            continue;
+          }
+          if (reader.getLocalName().equals("block")) {
+            current =
+                testSetsByBlock.get(
+                    blockKey(
+                        reader.getAttributeValue(null, "classname"),
+                        reader.getAttributeValue(null, "method"),
+                        reader.getAttributeValue(null, "number")));
+          } else if (current != null && reader.getLocalName().equals("test")) {
+            String name = shortTestName(reader.getAttributeValue(null, "name"));
+            for (Set<String> tests : current) {
+              tests.add(name);
+            }
+          }
+        }
+      } finally {
+        reader.close();
       }
-      tests.put(
-          blockKey(
-              block.getAttribute("classname"),
-              block.getAttribute("method"),
-              block.getAttribute("number")),
-          names);
+    } catch (XMLStreamException e) {
+      throw new IOException("Cannot parse " + lineCoverageXml, e);
     }
-    return tests;
+  }
+
+  /** Returns {@code Class.method} for a test PIT names {@code pkg.Class.method(pkg.Class)}. */
+  private static String shortTestName(String name) {
+    int paren = name.indexOf('(');
+    String qualified = paren < 0 ? name : name.substring(0, paren);
+    int methodStart = qualified.lastIndexOf('.');
+    int classStart = qualified.lastIndexOf('.', methodStart - 1);
+    return qualified.substring(classStart + 1);
   }
 
   private static String blockKey(String className, String methodWithDescriptor, String block) {

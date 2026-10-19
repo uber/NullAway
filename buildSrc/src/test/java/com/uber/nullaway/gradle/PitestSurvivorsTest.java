@@ -22,6 +22,9 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -316,6 +319,24 @@ class PitestSurvivorsTest {
             50,
             false,
             List.of("build/index.html", "build/pit.log")));
+  }
+
+  @Test
+  void theTestsOfABlockReachEveryMutantInItAndOtherBlocksAreSkipped() throws IOException {
+    Path coverage = repository.resolve("linecoverage.xml");
+    Files.writeString(
+        coverage,
+        "<coverage>"
+            + coverage("A", "T.a")
+            + "<block classname='com.x.A' method='m()V' number='1'><tests>"
+            + "<test name='com.x.T.b(com.x.T)'/></tests></block></coverage>");
+    Set<String> first = new TreeSet<>();
+    Set<String> second = new TreeSet<>();
+
+    PitestSurvivors.addReachingTests(
+        coverage.toFile(), Map.of("com.x.A#m()V#0", List.of(first, second)));
+
+    assertEquals(List.of(Set.of("T.a"), Set.of("T.a")), List.of(first, second));
   }
 
   @Test
