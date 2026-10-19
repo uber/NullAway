@@ -36,7 +36,7 @@ The console shows at most 10 files, 10 rows per file, and 50 rows in total. `<mo
 
 | Property | Default | Effect |
 | --- | --- | --- |
-| `-PdiffBase=<ref>` | upstream, or `origin/master` | The ref whose merge base with `HEAD` decides which lines count as changed |
+| `-PdiffBase=<ref>` | upstream, or `origin/master` | The ref whose merge base with `HEAD` decides which lines count as changed, for diff coverage and for `pitestDiff` |
 | `-PdiffCoverageMaxFiles=<n>` | `10` | Files the console describes |
 | `-PdiffCoverageMaxLinesPerFile=<n>` | `10` | Rows per file |
 | `-PdiffCoverageMaxLines=<n>` | `50` | Rows in the whole block |
@@ -45,6 +45,30 @@ The console shows at most 10 files, 10 rows per file, and 50 rows in total. `<mo
 | `-PenableJacoco=true` | unset | Instruments every test task, including `testJdk*`, for `./gradlew codeCoverageReport`; with any value set, the diff coverage report runs only as `./gradlew :<module>:diffCoverage` |
 
 On CI, where the `CI` environment variable is `true`, tests run without JaCoCo unless the job sets `-PenableJacoco=true`.
+
+Mutation testing
+----------------
+
+A test that executes a changed line can still pass whatever the line does. `./gradlew :<module>:pitestDiff` runs [PIT](https://pitest.org/) over the lines your branch changed in the module's main sources: it changes one instruction at a time on those lines, runs the tests that reach it, and prints each mutant no test detected, with the source line. The changed lines are the ones diff coverage counts, from the same `-PdiffBase`, and `<module>/build/diff/changed-lines.txt` lists them. Mutants on other lines are dropped before any test runs against them, and when no mutant is left, PIT skips the run that records which test reaches which line.
+
+The task is not part of `test` or `check`, and it never fails the build because of a surviving mutant. Its cost is one run of the module's tests to record which test reaches which line, plus a run of the reaching tests for each mutant. On ten cores, PIT took 49 seconds for a change with 59 mutants on its changed lines and 2.5 minutes for one with 208, about 20 seconds of each in that first run; compiling adds the usual build time. The task is skipped when the branch changed no line in the module's main sources. PIT runs the tests on the JDK the `test` task uses. It does not read that task's test filter, so a test that fails in PIT's first run, such as one the filter excludes, is silently left out of the analysis; `./gradlew :<module>:test` still reports a test that is broken.
+
+Every module that applies the test conventions has the task; in a module without main sources of its own it is always skipped. PIT runs only the tests of the module whose code it mutates, so a mutant that only another module's tests would kill is reported as surviving or not reached. The tests in `jdk-recent-unit-tests`, `guava-recent-unit-tests`, `jar-infer/nullaway-integration-test`, and `jdk-annotations/jdk-integration-test` exercise `nullaway/src/main`, and the tests of `jar-infer/jar-infer-lib` and `jdk-annotations/astubx-generator` exercise `StubxWriter` in `library-model/library-model-generator`; none of them runs under the `pitestDiff` of the module whose code they test.
+
+A surviving mutant is a question, not a defect. It marks behavior the tests do not pin down, or an equivalent change that no caller can observe, or a defensive branch no test can reach. PIT generates no mutant on a line that calls `Verify` or `Preconditions`, since removing such a call changes no diagnostic; this also leaves a condition written inside such a call untested.
+
+The console lists each live mutant under its file and line, with the line's source text and up to three of the tests that reach the line; a test for the mutant usually belongs beside them. The report ends with how to read a live mutant. It shows at most 10 files, 20 lines per file, and 50 lines in total. `<module>/build/reports/pitest-diff/survivors.txt` holds the whole report, `index.html` the PIT HTML report, and `pit.log` everything PIT printed, including a warning that the JUnit 5 plugin is missing: the tests run on JUnit 4 and use JUnit 5 only for assertions, so the warning does not apply. When PIT fails, the task prints the end of `pit.log`.
+
+| Property | Default | Effect |
+| --- | --- | --- |
+| `-PdiffBase=<ref>` | upstream, or `origin/master` | The ref whose merge base with `HEAD` decides which lines are mutated |
+| `-PpitestTargetTests=<glob>` | `*` | Tests allowed to kill a mutant. Narrowing it shortens the run, and a mutant that survives it may still be killed by a test outside it |
+| `-PpitestMutators=<group>` | `DEFAULTS` | PIT mutator group: `DEFAULTS`, `STRONGER`, or `ALL` |
+| `-PpitestThreads=<n>` | half the cores | Mutants analyzed in parallel |
+| `-PpitestMaxFiles=<n>` | `10` | Files the console describes |
+| `-PpitestMaxLinesPerFile=<n>` | `20` | Lines per file |
+| `-PpitestMaxLines=<n>` | `50` | Lines in the whole console block |
+| `-PpitestShowAll` | off | Prints the whole report to the console |
 
 Guiding Principles
 ------------------

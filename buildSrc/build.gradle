@@ -23,8 +23,11 @@ repositories {
 }
 
 dependencies {
+    // The PIT interceptor in com.uber.nullaway.gradle.pitest runs inside PIT, which supplies this.
+    compileOnly libs.pitest.entry
     testImplementation gradleApi()
-    testImplementation platform("org.junit:junit-bom:5.14.0")
+    testImplementation libs.pitest.entry
+    testImplementation platform("org.junit:junit-bom:5.14.4")
     testImplementation "org.junit.jupiter:junit-jupiter"
     testRuntimeOnly "org.junit.platform:junit-platform-launcher"
 }
@@ -47,4 +50,7 @@ tasks.named("test") {
 // compilation.
 tasks.withType(JavaCompile).configureEach {
     options.compilerArgs << "-parameters"
+    // The PIT interceptor in this jar is loaded by the JVM that runs the tests, which can be older
+    // than the one running Gradle.
+    options.release = 17
 }
