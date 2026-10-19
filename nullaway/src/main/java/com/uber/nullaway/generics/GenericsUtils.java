@@ -324,7 +324,7 @@ public class GenericsUtils {
    * a type-variable bound takes precedence over nullability inherited from that type variable's
    * upper bound.
    */
-  static boolean upperBoundIsNullable(
+  public static boolean upperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;

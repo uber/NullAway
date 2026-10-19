@@ -63,6 +63,7 @@ import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.generics.GenericsChecks;
+import com.uber.nullaway.generics.GenericsUtils;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo.Annotation;
@@ -216,6 +217,11 @@ public class LibraryModelsHandler implements Handler {
     return returnNullness;
   }
 
+  /**
+   * Refines a method reference's return nullness using its determining parameters. A type variable
+   * with a nullable upper bound does not establish a non-null argument, unless its use is
+   * explicitly non-null, so leave the return nullness unchanged in that case.
+   */
   @Override
   public NullnessHint onOverrideMethodReferenceReturnNullability(
       Symbol.MethodSymbol referencedMethod,
@@ -231,6 +237,7 @@ public class LibraryModelsHandler implements Handler {
     com.sun.tools.javac.util.List<Type> functionalParameterTypes =
         functionalInterfaceMethodType.getParameterTypes();
     int parameterOffset = isUnbound ? 1 : 0;
+    boolean hasUnknownParameterNullness = false;
     for (int index : determiningParameters) {
       int functionalParameterIndex = parameterOffset + index;
       if (index < 0 || functionalParameterIndex >= functionalParameterTypes.size()) {
@@ -241,8 +248,13 @@ public class LibraryModelsHandler implements Handler {
           functionalParameterType.getAnnotationMirrors().stream(), config)) {
         return NullnessHint.HINT_NULLABLE;
       }
+      if (functionalParameterType instanceof Type.TypeVar typeVar
+          && !Nullness.hasNonNullAnnotation(typeVar.getAnnotationMirrors().stream(), config)
+          && GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, mainHandler, state)) {
+        hasUnknownParameterNullness = true;
+      }
     }
-    return NullnessHint.FORCE_NONNULL;
+    return hasUnknownParameterNullness ? NullnessHint.UNKNOWN : NullnessHint.FORCE_NONNULL;
   }
 
   @Override

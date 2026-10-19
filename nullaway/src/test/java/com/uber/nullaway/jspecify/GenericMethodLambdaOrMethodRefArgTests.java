@@ -467,6 +467,56 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void classCastMethodRefWithUnresolvedArgumentNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <T extends @Nullable Object> Function<T, String> invalidFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.Function.apply(T) returns @NonNull
+                return String.class::cast;
+              }
+
+              <T extends @Nullable Object> Function<T, @Nullable String> nullableFunction() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithNonNullTypeVariableArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <T> Function<T, String> nonNullBound() {
+                return String.class::cast;
+              }
+
+              <T extends @Nullable Object> Function<@NonNull T, String> nonNullUse() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void classCastMethodRefWithNonNullArgument() {
     makeHelper()
         .addSourceLines(
