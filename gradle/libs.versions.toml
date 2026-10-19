@@ -13,6 +13,7 @@ errorprone-plugin = "5.1.1"
 shadow = "9.6.1"
 jmh = "0.7.3"
 shellcheck = "1.5.1"
+pitest = "1.30.0"
 
 errorProne = "2.50.0"
 errorProneJdk17 = "2.42.0"
@@ -96,6 +97,8 @@ appcompat = { module = "com.android.support:appcompat-v7", version.ref = "suppor
 
 # --- Test ---
 junit4 = { module = "junit:junit", version.ref = "junit4" }
+pitest-command-line = { module = "org.pitest:pitest-command-line", version.ref = "pitest" }
+pitest-entry = { module = "org.pitest:pitest-entry", version.ref = "pitest" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
 apiguardian = { module = "org.apiguardian:apiguardian-api", version.ref = "apiguardian" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }

@@ -99,13 +99,13 @@ class DiffCoverageTaskTest {
     void anIntegrationUpstreamIsTriedBeforeOriginMaster() {
       assertEquals(
           List.of("origin/develop", "origin/master"),
-          DiffCoverageTask.baseCandidates(null, "origin/develop", "feature/x"));
+          ChangedLines.baseCandidates(null, "origin/develop", "feature/x"));
     }
 
     @Test
     void aBranchWithNoUpstreamFallsBackToOriginMaster() {
       assertEquals(
-          List.of("origin/master"), DiffCoverageTask.baseCandidates(null, null, "feature/x"));
+          List.of("origin/master"), ChangedLines.baseCandidates(null, null, "feature/x"));
     }
 
     /**
@@ -116,7 +116,7 @@ class DiffCoverageTaskTest {
     void anUpstreamThatIsThisBranchPushedToAForkIsLeftOut() {
       assertEquals(
           List.of("origin/master"),
-          DiffCoverageTask.baseCandidates(null, "vs/feature/x", "feature/x"));
+          ChangedLines.baseCandidates(null, "vs/feature/x", "feature/x"));
     }
 
     /**
@@ -127,7 +127,7 @@ class DiffCoverageTaskTest {
     void anExplicitRefIsTheOnlyCandidate() {
       assertEquals(
           List.of("release-1.0"),
-          DiffCoverageTask.baseCandidates("release-1.0", "origin/develop", "feature/x"));
+          ChangedLines.baseCandidates("release-1.0", "origin/develop", "feature/x"));
     }
   }
 
@@ -136,28 +136,28 @@ class DiffCoverageTaskTest {
 
     @Test
     void anUpstreamNamedAfterThisBranchOnARemoteIsThisBranch() {
-      assertTrue(DiffCoverageTask.isOwnPushedBranch("vs/feature/x", "feature/x"));
+      assertTrue(ChangedLines.isOwnPushedBranch("vs/feature/x", "feature/x"));
     }
 
     @Test
     void anUpstreamNamingAnotherBranchIsNotThisBranch() {
-      assertFalse(DiffCoverageTask.isOwnPushedBranch("origin/develop", "feature/x"));
+      assertFalse(ChangedLines.isOwnPushedBranch("origin/develop", "feature/x"));
     }
 
     /** Only the remote is dropped, so a branch named after another one's tail stays its own. */
     @Test
     void anUpstreamWhoseTailMatchesButWhosePathDoesNotIsAnotherBranch() {
-      assertFalse(DiffCoverageTask.isOwnPushedBranch("vs/feature/x", "x"));
+      assertFalse(ChangedLines.isOwnPushedBranch("vs/feature/x", "x"));
     }
 
     @Test
     void aLocalUpstreamWithNoRemoteSegmentIsComparedWhole() {
-      assertTrue(DiffCoverageTask.isOwnPushedBranch("x", "x"));
+      assertTrue(ChangedLines.isOwnPushedBranch("x", "x"));
     }
 
     @Test
     void aDetachedHeadHasNoBranchToRecognise() {
-      assertFalse(DiffCoverageTask.isOwnPushedBranch("origin/master", null));
+      assertFalse(ChangedLines.isOwnPushedBranch("origin/master", null));
     }
   }
 

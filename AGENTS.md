@@ -20,10 +20,15 @@ also passes; that runs NullAway checking on itself.  You don't need to run this 
 reflect the tests actually executed, so run the module's full suite before treating uncovered code as a missing test.
 
 By default the diff is measured against the configured upstream/base; for stacked PRs, set `-PdiffBase=<ref>` to the
-parent PR or commit so only the current layer is measured.
+parent PR or commit so only the current layer is measured.  The same property sets the base for mutation testing.
 
 If an uncovered line is intentionally unreachable or not worth testing, acknowledge the reviewed exception with
 `// diff-coverage: ignore -- <reason>`; it remains counted as uncovered but is removed from the actionable list.
+
+# Mutation testing
+
+After you add or change tests for a change to `<module>/src/main`, run `./gradlew :<module>:pitestDiff` and act on the
+mutants it reports; it is not part of `test`.
 
 # Changelog
 

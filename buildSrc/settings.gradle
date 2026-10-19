@@ -1,0 +1,9 @@
+// buildSrc reads the root version catalog so that PIT, which the build runs and the interceptor in
+// buildSrc compiles against, has one version.
+dependencyResolutionManagement {
+    versionCatalogs {
+        libs {
+            from(files("../gradle/libs.versions.toml"))
+        }
+    }
+}
