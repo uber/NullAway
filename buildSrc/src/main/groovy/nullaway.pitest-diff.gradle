@@ -15,15 +15,14 @@
  */
 
 // Registers pitestDiff, which runs PIT over the lines this branch changed in the module's main
-// sources.  A module applies this plugin only where PIT can observe what its tests run: a module
-// whose tests run its code inside javac through -Xplugin, as jdk-javac-plugin's do, gets a report in
-// which no test reaches any line, and a module with no main sources has nothing to mutate.
+// sources.  nullaway.java-test-conventions applies it, so every module with tests has the task; in a
+// module without main sources it is always skipped.
 plugins {
     id 'java'
 }
 
 // The same service and the same -PdiffBase that diffCoverage uses, so both count the same lines as
-// changed.  registerIfAbsent shares the service with nullaway.java-test-conventions.
+// changed.
 gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask.GIT_SERVICE, com.uber.nullaway.gradle.GitService) {
     parameters.repositoryRoot = rootProject.layout.projectDirectory
 }

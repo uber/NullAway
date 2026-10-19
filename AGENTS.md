@@ -27,7 +27,7 @@ If an uncovered line is intentionally unreachable or not worth testing, acknowle
 
 # Mutation testing
 
-After you add or change tests for a change to `nullaway/src/main`, run `./gradlew :nullaway:pitestDiff` and act on the
+After you add or change tests for a change to `<module>/src/main`, run `./gradlew :<module>:pitestDiff` and act on the
 mutants it reports; it is not part of `test`.
 
 # Changelog

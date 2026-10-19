@@ -74,13 +74,13 @@ public final class PitestSurvivors {
   /**
    * What a run in which no test reached any changed line means.
    *
-   * <p>Untested code and code the tests run where PIT records no coverage produce the same report,
+   * <p>Code no test of the module runs and code whose tests fail under PIT produce the same report,
    * so the reader is told both and sent to the list of known cases.
    */
   static final String NOTHING_REACHED =
-      "No test reached any of the changed lines. Either no test exercises this code, or the tests"
-          + " load it where PIT cannot see it, as javac does with a plugin passed through -Xplugin;"
-          + " the \"Mutation testing\" section of CONTRIBUTING.md lists the known cases.";
+      "No test reached any of the changed lines. Either no test of this module exercises this code,"
+          + " or the tests that do failed under PIT, which leaves them out silently; the"
+          + " \"Mutation testing\" section of CONTRIBUTING.md lists the known cases.";
 
   /**
    * Why a changed line can have no mutant, for a reader who expected one.
