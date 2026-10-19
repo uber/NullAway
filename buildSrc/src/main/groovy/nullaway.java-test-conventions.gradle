@@ -247,7 +247,8 @@ tasks.register("pitestDiff", JavaExec) {
 
     // PIT prints its progress, its per-mutator statistics, and warnings that do not apply here (it
     // reports JUnit 5 as missing because the tests use JUnit 5 assertions under the JUnit 4 runner).
-    // All of it goes to pit.log; the console gets the survivors report, or the end of the log on failure.
+    // All of it goes to pit.log, which the console names only on failure, with the end of the log;
+    // otherwise the console gets the survivors report.
     def pitLog = reportDir.map { it.file("pit.log") }
     ignoreExitValue = true
     def pitLogStream = null
@@ -297,8 +298,7 @@ tasks.register("pitestDiff", JavaExec) {
                         rootDir, new File(dir, "survivors.txt"),
                         maxFiles.get(), maxLinesPerFile.get(), maxLines.get(), showAll.get(),
                         [
-                            rootDir.toPath().relativize(new File(dir, "index.html").toPath()).toString(),
-                            relativeLog
+                            rootDir.toPath().relativize(new File(dir, "index.html").toPath()).toString()
                         ]))
     }
 }

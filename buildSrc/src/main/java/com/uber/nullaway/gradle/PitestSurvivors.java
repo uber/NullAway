@@ -51,6 +51,28 @@ import org.xml.sax.SAXException;
  */
 public final class PitestSurvivors {
 
+  /**
+   * What the reader of a report with live mutants does with each of them.
+   *
+   * <p>The report carries it rather than the instructions every session loads, since only the
+   * reader of a report needs it.
+   */
+  static final String WHAT_TO_DO =
+      "For each live mutant, decide which case it is:\n"
+          + "  - the tests miss behavior the change defines: add or strengthen a test,"
+          + " next to the tests named for its line\n"
+          + "  - no caller can observe the difference, so the mutant is equivalent:"
+          + " say so in the pull request\n"
+          + "  - you cannot tell: report it as unresolved";
+
+  /**
+   * Why a changed line can have no mutant, for a reader who expected one.
+   *
+   * <p>It reflects the {@code avoidCallsTo} list the pitestDiff task passes to PIT.
+   */
+  static final String AVOIDED_CALLS =
+      "PIT generates no mutant on a line that calls Verify or Preconditions.";
+
   /** How many of the tests reaching a line are named. */
   static final int TESTS_SHOWN = 3;
 
@@ -283,7 +305,12 @@ public final class PitestSurvivors {
           .append(liveLines == 1 ? " line" : " lines")
           .append(" in ")
           .append(files.size())
-          .append(files.size() == 1 ? " file." : " files.");
+          .append(files.size() == 1 ? " file." : " files.")
+          .append("\n\n")
+          .append(WHAT_TO_DO);
+    }
+    if (liveLines > 0 || total == 0) {
+      out.append("\n\n").append(AVOIDED_CALLS);
     }
     if (!fullReportPaths.isEmpty()) {
       out.append("\n\nFull report:");

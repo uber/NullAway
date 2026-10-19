@@ -31,6 +31,18 @@ import org.junit.jupiter.api.io.TempDir;
  */
 class PitestSurvivorsTest {
 
+  /** What a report with live mutants ends with, before the paths of the full report. */
+  private static final String LIVE_FOOTER =
+      "\n\n"
+          + "For each live mutant, decide which case it is:\n"
+          + "  - the tests miss behavior the change defines: add or strengthen a test,"
+          + " next to the tests named for its line\n"
+          + "  - no caller can observe the difference, so the mutant is equivalent:"
+          + " say so in the pull request\n"
+          + "  - you cannot tell: report it as unresolved\n"
+          + "\n"
+          + "PIT generates no mutant on a line that calls Verify or Preconditions.";
+
   @TempDir Path repository;
 
   /**
@@ -111,7 +123,7 @@ class PitestSurvivorsTest {
             + "    4: a4\n"
             + "        no test reaches it: replaced return value with null, in m\n"
             + "\n"
-            + "Live mutants on 2 lines in 1 file.",
+            + "Live mutants on 2 lines in 1 file." + LIVE_FOOTER,
         run(
                 coverage("A", "T.t1"),
                 mutation("NO_COVERAGE", "A", "A.java", 4, "replaced return value with null", 1),
@@ -151,7 +163,7 @@ class PitestSurvivorsTest {
             + "    1: a1\n"
             + "        survived: removed call, in m\n"
             + "\n"
-            + "Live mutants on 3 lines in 2 files.",
+            + "Live mutants on 3 lines in 2 files." + LIVE_FOOTER,
         run(
                 null,
                 mutation("SURVIVED", "A", "A.java", 1, "removed call"),
@@ -174,7 +186,7 @@ class PitestSurvivorsTest {
             + "\n"
             + "  1 more file\n"
             + "\n"
-            + "Live mutants on 3 lines in 2 files.",
+            + "Live mutants on 3 lines in 2 files." + LIVE_FOOTER,
         run(
                 null,
                 mutation("SURVIVED", "A", "A.java", 1, "removed call"),
@@ -240,7 +252,7 @@ class PitestSurvivorsTest {
             + "          T.d\n"
             + "          T.e\n"
             + "\n"
-            + "Live mutants on 2 lines in 2 files.",
+            + "Live mutants on 2 lines in 2 files." + LIVE_FOOTER,
         run(
                 coverage("A", "T.a", "T.b", "T.c", "T.d", "T.e") + coverage("B", "T.d", "T.e"),
                 mutation("SURVIVED", "A", "A.java", 1, "removed call"),
@@ -262,7 +274,7 @@ class PitestSurvivorsTest {
             + "\n"
             + "  1 more file\n"
             + "\n"
-            + "Live mutants on 3 lines in 2 files.\n"
+            + "Live mutants on 3 lines in 2 files." + LIVE_FOOTER + "\n"
             + "\n"
             + "Full report:\n"
             + "  build/survivors.txt",
@@ -290,6 +302,8 @@ class PitestSurvivorsTest {
     assertEquals(
         "Mutation testing of changed lines against origin/master (abc), all tests\n"
             + "  no mutant: PIT generated none on the changed lines\n"
+            + "\n"
+            + "PIT generates no mutant on a line that calls Verify or Preconditions.\n"
             + "\n"
             + "Full report:\n"
             + "  build/survivors.txt\n"

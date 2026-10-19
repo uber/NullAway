@@ -27,20 +27,8 @@ If an uncovered line is intentionally unreachable or not worth testing, acknowle
 
 # Mutation testing
 
-Coverage shows that a test executed a changed line, not that a test would fail if the line were wrong.  After you add
-or change tests for a change to `nullaway/src/main`, run `./gradlew :nullaway:pitestDiff`.  It runs PIT over the lines
-changed since the base ref and prints each mutant no test detected.  It is not part of `test`.  Its cost grows with
-the number of mutants on changed lines: PIT took 49 s for 59 mutants and 2.5 minutes for 208, about 20 s of each in
-the coverage pass that runs the whole suite once.  To shorten a run, narrow the tests with
-`-PpitestTargetTests='com.uber.nullaway.jspecify.*'`, and confirm a survivor against the full suite before acting on
-it.
-
-The console lists each live mutant under its file and line, with the tests that reach the line; a new test for the
-mutant usually belongs beside them.  The whole report is in `nullaway/build/reports/pitest-diff/survivors.txt`.  Read
-`pit.log` only when the task failed.  For each mutant, decide which case it is: the tests miss behavior the change
-defines (add or strengthen a test), the mutant is equivalent and no caller can observe the difference (say so in the
-PR), or you cannot tell (report it as unresolved).  PIT generates no mutant on a line that calls `Verify` or
-`Preconditions`.
+After you add or change tests for a change to `nullaway/src/main`, run `./gradlew :nullaway:pitestDiff` and act on the
+mutants it reports; it is not part of `test`.
 
 # Changelog
 
