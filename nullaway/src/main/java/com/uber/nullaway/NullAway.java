@@ -1396,9 +1396,25 @@ public class NullAway extends BugChecker
     if (functionalInterfaceType == null) {
       return result;
     }
+    if (functionalInterfaceType.isRaw() || overridingMethod.isConstructor()) {
+      return result;
+    }
+    Symbol.MethodSymbol functionalInterfaceMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
+    Type.MethodType functionalInterfaceMethodType =
+        config.isJSpecifyMode()
+            ? genericsChecks.getFunctionalInterfaceMethodType(
+                functionalInterfaceMethod, functionalInterfaceType, state)
+            : functionalInterfaceMethod.type.asMethodType();
+    boolean isUnbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
     Handler.NullnessHint hint =
-        genericsChecks.getMethodReferenceReturnNullnessHint(
-            memberReferenceTree, functionalInterfaceType, state);
+        NullabilityUtil.getMethodReferenceReturnNullnessHint(
+            overridingMethod,
+            functionalInterfaceMethod,
+            functionalInterfaceMethodType,
+            isUnbound,
+            state,
+            handler);
     return hint.equals(Handler.NullnessHint.UNKNOWN) ? result : hint.toNullness();
   }
 

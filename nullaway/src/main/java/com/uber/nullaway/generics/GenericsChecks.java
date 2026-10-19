@@ -256,6 +256,10 @@ public final class GenericsChecks {
     return config;
   }
 
+  /* package-private */ Handler getHandler() {
+    return handler;
+  }
+
   /**
    * Checks that for an instantiated generic type, {@code @Nullable} types are only used for type
    * variables that have a {@code @Nullable} upper bound.
@@ -1897,60 +1901,21 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets a handler-provided return nullness hint for a method reference based on the functional
-   * interface parameters that will be passed to the referenced method.
+   * Gets a functional interface method's type as a member of the ground target type, preserving
+   * nullness when substituting type arguments. Only suitable for use in JSpecify mode.
    *
-   * @param memberReferenceTree the method reference
+   * @param functionalInterfaceMethod the functional interface method
    * @param targetType the functional interface target type
    * @param state the current visitor state
-   * @return the handler-provided return nullness hint
+   * @return the grounded and substituted functional interface method type
    */
-  public Handler.NullnessHint getMethodReferenceReturnNullnessHint(
-      MemberReferenceTree memberReferenceTree, Type targetType, VisitorState state) {
-    if (targetType.isRaw()) {
-      return Handler.NullnessHint.UNKNOWN;
-    }
-    Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
-    if (referencedMethod == null || referencedMethod.isConstructor()) {
-      return Handler.NullnessHint.UNKNOWN;
-    }
+  public Type.MethodType getFunctionalInterfaceMethodType(
+      Symbol.MethodSymbol functionalInterfaceMethod, Type targetType, VisitorState state) {
+    verify(config.isJSpecifyMode(), "Method only suitable for use in JSpecify mode");
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
-    Symbol.MethodSymbol functionalInterfaceMethod =
-        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
-    Type.MethodType functionalInterfaceMethodType =
-        TypeSubstitutionUtils.memberType(
-                state.getTypes(), groundTargetType, functionalInterfaceMethod, config)
-            .asMethodType();
-    boolean isUnbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-    return getMethodReferenceReturnNullnessHint(
-        referencedMethod,
-        functionalInterfaceMethod,
-        functionalInterfaceMethodType,
-        isUnbound,
-        state);
-  }
-
-  /**
-   * Gets a handler-provided return nullness hint using already-resolved method-reference inputs.
-   *
-   * @param referencedMethod the referenced method, which must not be a constructor
-   * @param functionalInterfaceMethod the functional interface method
-   * @param functionalInterfaceMethodType grounded and substituted functional interface method type
-   * @param isUnbound whether the first functional interface parameter is the receiver
-   * @param state the current visitor state
-   * @return the handler-provided hint, or {@code UNKNOWN} if either method is varargs
-   */
-  Handler.NullnessHint getMethodReferenceReturnNullnessHint(
-      Symbol.MethodSymbol referencedMethod,
-      Symbol.MethodSymbol functionalInterfaceMethod,
-      Type.MethodType functionalInterfaceMethodType,
-      boolean isUnbound,
-      VisitorState state) {
-    if (referencedMethod.isVarArgs() || functionalInterfaceMethod.isVarArgs()) {
-      return Handler.NullnessHint.UNKNOWN;
-    }
-    return handler.onOverrideMethodReferenceReturnNullability(
-        referencedMethod, functionalInterfaceMethodType, isUnbound, state);
+    return TypeSubstitutionUtils.memberType(
+            state.getTypes(), groundTargetType, functionalInterfaceMethod, config)
+        .asMethodType();
   }
 
   /**

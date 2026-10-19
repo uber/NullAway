@@ -467,6 +467,75 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void classCastMethodRefWithRawTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              @SuppressWarnings("rawtypes")
+              Function rawFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithVarargsFunctionalInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Caster { String apply(Object... values); }
+
+              Caster varargsFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method Test.Caster.apply(Object []) returns @NonNull
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithNullableDeclarationParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import javax.annotation.Nullable;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Caster { String apply(@Nullable Object value); }
+              interface NullableResult { @Nullable String apply(@Nullable Object value); }
+
+              Caster invalidFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method Test.Caster.apply(Object) returns @NonNull
+                return String.class::cast;
+              }
+
+              NullableResult nullableResult() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void classCastMethodRefWithUnresolvedArgumentNullness() {
     makeHelper()
         .addSourceLines(

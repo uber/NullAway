@@ -519,8 +519,13 @@ public class GenericsUtils {
     Type fiReturnType = fiMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
     Handler.NullnessHint returnNullnessHint =
-        genericsChecks.getMethodReferenceReturnNullnessHint(
-            referencedMethod, fiMethod, fiMethodTypeAsMember, unbound, state);
+        NullabilityUtil.getMethodReferenceReturnNullnessHint(
+            referencedMethod,
+            fiMethod,
+            fiMethodTypeAsMember,
+            unbound,
+            state,
+            genericsChecks.getHandler());
     if (!returnNullnessHint.equals(Handler.NullnessHint.UNKNOWN)) {
       referencedReturnType =
           genericsChecks.updateTypeWithNullness(

@@ -92,6 +92,37 @@ public class NullabilityUtil {
   }
 
   /**
+   * Gets a handler-provided return nullness hint using resolved method-reference inputs. Varargs
+   * references are left unchanged because their parameters may not line up one-to-one.
+   *
+   * @param referencedMethod the referenced method, which must not be a constructor
+   * @param functionalInterfaceMethod the functional interface method
+   * @param functionalInterfaceMethodType functional interface method type, grounded and substituted
+   *     in JSpecify mode, or its declared type otherwise
+   * @param isUnbound whether the first functional interface parameter is the receiver
+   * @param state the current visitor state
+   * @param handler the handler providing the hint
+   * @return the handler-provided hint, or {@code UNKNOWN} if either method is varargs
+   */
+  public static Handler.NullnessHint getMethodReferenceReturnNullnessHint(
+      Symbol.MethodSymbol referencedMethod,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state,
+      Handler handler) {
+    if (referencedMethod.isVarArgs() || functionalInterfaceMethod.isVarArgs()) {
+      return Handler.NullnessHint.UNKNOWN;
+    }
+    return handler.onOverrideMethodReferenceReturnNullability(
+        referencedMethod,
+        functionalInterfaceMethod,
+        functionalInterfaceMethodType,
+        isUnbound,
+        state);
+  }
+
+  /**
    * determines whether a lambda parameter is missing an explicit type declaration
    *
    * @param lambdaParameter the parameter

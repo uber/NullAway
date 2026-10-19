@@ -218,13 +218,15 @@ public class LibraryModelsHandler implements Handler {
   }
 
   /**
-   * Refines a method reference's return nullness using its determining parameters. A type variable
-   * with a nullable upper bound does not establish a non-null argument, unless its use is
-   * explicitly non-null, so leave the return nullness unchanged in that case.
+   * Refines a method reference's return nullness using declaration annotations on its determining
+   * parameters and, in JSpecify mode, their substituted types. A type variable with a nullable
+   * upper bound does not establish a non-null argument, unless its use is explicitly non-null, so
+   * leave the return nullness unchanged in that case.
    */
   @Override
   public NullnessHint onOverrideMethodReferenceReturnNullability(
       Symbol.MethodSymbol referencedMethod,
+      Symbol.MethodSymbol functionalInterfaceMethod,
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,
       VisitorState state) {
@@ -242,6 +244,13 @@ public class LibraryModelsHandler implements Handler {
       int functionalParameterIndex = parameterOffset + index;
       if (index < 0 || functionalParameterIndex >= functionalParameterTypes.size()) {
         return NullnessHint.UNKNOWN;
+      }
+      if (Nullness.paramHasNullableAnnotation(
+          functionalInterfaceMethod, functionalParameterIndex, config)) {
+        return NullnessHint.HINT_NULLABLE;
+      }
+      if (!config.isJSpecifyMode()) {
+        continue;
       }
       Type functionalParameterType = functionalParameterTypes.get(functionalParameterIndex);
       if (Nullness.hasNullableAnnotation(
