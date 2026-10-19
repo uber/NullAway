@@ -4261,7 +4261,10 @@ public final class GenericsChecks {
     return callingUnannotated;
   }
 
-  /** Clears inference caches after each CompilationUnit to avoid memory leaks. */
+  /**
+   * Clears the inference caches. Call after each CompilationUnit; otherwise the caches keep trees
+   * alive and leak memory.
+   */
   public void clearCache() {
     inferredTypeVarNullabilityForGenericCalls.clear();
     separatelyInferredPolyNullness.clear();

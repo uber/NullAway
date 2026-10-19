@@ -618,6 +618,7 @@ final class ErrorProneCLIFlagsConfig implements Config {
     return jspecifyMode;
   }
 
+  /** Returns true iff the JSpecifyMode and JSpecifyExperimental flags have both been set */
   @Override
   public boolean isPolyNullLibraryModelsEnabled() {
     return polyNullLibraryModelsEnabled;
