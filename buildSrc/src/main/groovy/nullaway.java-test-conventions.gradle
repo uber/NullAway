@@ -267,9 +267,10 @@ tasks.register("pitestDiff", JavaExec) {
     def maxFiles = providers.gradleProperty("pitestMaxFiles").map {
         Integer.parseInt(it)
     }.orElse(10)
+    // A change usually lives in one or two files, so one file may take most of the 50 lines.
     def maxLinesPerFile = providers.gradleProperty("pitestMaxLinesPerFile").map {
         Integer.parseInt(it)
-    }.orElse(10)
+    }.orElse(20)
     def maxLines = providers.gradleProperty("pitestMaxLines").map {
         Integer.parseInt(it)
     }.orElse(50)

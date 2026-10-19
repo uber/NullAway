@@ -55,7 +55,7 @@ The task is not part of `test` or `check`, and it never fails the build because 
 
 A surviving mutant is a question, not a defect. It marks behavior the tests do not pin down, or an equivalent change that no caller can observe, or a defensive branch no test can reach. PIT generates no mutant on a line that calls `Verify` or `Preconditions`, since removing such a call changes no diagnostic; this also leaves a condition written inside such a call untested.
 
-The console lists each live mutant under its file and line, with the line's source text and up to three of the tests that reach the line; a test for the mutant usually belongs beside them. The report ends with how to read a live mutant. It shows at most 10 files, 10 lines per file, and 50 lines in total. `<module>/build/reports/pitest-diff/survivors.txt` holds the whole report, `index.html` the PIT HTML report, and `pit.log` everything PIT printed, including a warning that the JUnit 5 plugin is missing: the tests run on JUnit 4 and use JUnit 5 only for assertions, so the warning does not apply. When PIT fails, the task prints the end of `pit.log`.
+The console lists each live mutant under its file and line, with the line's source text and up to three of the tests that reach the line; a test for the mutant usually belongs beside them. The report ends with how to read a live mutant. It shows at most 10 files, 20 lines per file, and 50 lines in total. `<module>/build/reports/pitest-diff/survivors.txt` holds the whole report, `index.html` the PIT HTML report, and `pit.log` everything PIT printed, including a warning that the JUnit 5 plugin is missing: the tests run on JUnit 4 and use JUnit 5 only for assertions, so the warning does not apply. When PIT fails, the task prints the end of `pit.log`.
 
 | Property | Default | Effect |
 | --- | --- | --- |
@@ -64,7 +64,7 @@ The console lists each live mutant under its file and line, with the line's sour
 | `-PpitestMutators=<group>` | `DEFAULTS` | PIT mutator group: `DEFAULTS`, `STRONGER`, or `ALL` |
 | `-PpitestThreads=<n>` | half the cores | Mutants analyzed in parallel |
 | `-PpitestMaxFiles=<n>` | `10` | Files the console describes |
-| `-PpitestMaxLinesPerFile=<n>` | `10` | Lines per file |
+| `-PpitestMaxLinesPerFile=<n>` | `20` | Lines per file |
 | `-PpitestMaxLines=<n>` | `50` | Lines in the whole console block |
 | `-PpitestShowAll` | off | Prints the whole report to the console |
 
