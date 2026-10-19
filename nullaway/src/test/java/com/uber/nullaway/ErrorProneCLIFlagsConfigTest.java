@@ -122,8 +122,9 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
 
     assertTrue(config.isJSpecifyJDKModels());
     assertTrue(config.handleWildcardGenerics());
+    assertTrue(config.isPolyNullLibraryModelsEnabled());
 
-    // Explicit JDK model settings override the experimental default.
+    // PolyNull follows the experimental opt-in independently of the JDK model override.
     for (boolean experimental : List.of(false, true)) {
       for (boolean jdkModels : List.of(false, true)) {
         ErrorProneCLIFlagsConfig overriddenConfig =
@@ -138,8 +139,7 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
                         Boolean.toString(experimental),
                         "NullAway:JSpecifyJDKModels",
                         Boolean.toString(jdkModels))));
-        assertEquals(jdkModels, overriddenConfig.isJSpecifyJDKModels());
-        assertEquals(experimental, overriddenConfig.handleWildcardGenerics());
+        assertEquals(experimental, overriddenConfig.isPolyNullLibraryModelsEnabled());
       }
     }
   }

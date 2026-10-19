@@ -98,7 +98,7 @@ public class LibraryModelsHandlerTest {
             IllegalArgumentException.class,
             () ->
                 new LibraryModelsHandler.CombinedLibraryModels(
-                    ImmutableList.of(provider), mock(Config.class)));
+                    ImmutableList.of(provider), polyNullModelsConfig()));
     assertThat(error).hasMessageThat().contains("receiver locations are not yet supported");
     assertThat(error).hasMessageThat().contains("example.Container");
   }
@@ -127,7 +127,7 @@ public class LibraryModelsHandlerTest {
               IllegalArgumentException.class,
               () ->
                   new LibraryModelsHandler.CombinedLibraryModels(
-                      ImmutableList.of(polyNullProvider(models)), mock(Config.class)));
+                      ImmutableList.of(polyNullProvider(models)), polyNullModelsConfig()));
       assertThat(error).hasMessageThat().contains("must include at least one nested location");
       assertThat(error).hasMessageThat().contains("identity");
     }
@@ -136,7 +136,7 @@ public class LibraryModelsHandlerTest {
   @Test
   public void rejectsTopLevelOnlyPolyNullModelsEvenWhenSkipped() {
     MethodRef method = methodRef("example.Container", "identity(java.lang.Object)");
-    Config config = mock(Config.class);
+    Config config = polyNullModelsConfig();
     when(config.isSkippedLibraryModel("example.Container.identity")).thenReturn(true);
     IllegalArgumentException error =
         assertThrows(
@@ -162,7 +162,7 @@ public class LibraryModelsHandlerTest {
                 .build());
     LibraryModelsHandler.CombinedLibraryModels combined =
         new LibraryModelsHandler.CombinedLibraryModels(
-            ImmutableList.of(first, second), mock(Config.class));
+            ImmutableList.of(first, second), polyNullModelsConfig());
     assertThat(combined.polyNullLocations()).containsExactlyEntriesIn(first.polyNullLocations());
   }
 
@@ -186,7 +186,9 @@ public class LibraryModelsHandlerTest {
       IllegalArgumentException error =
           assertThrows(
               IllegalArgumentException.class,
-              () -> new LibraryModelsHandler.CombinedLibraryModels(providers, mock(Config.class)));
+              () ->
+                  new LibraryModelsHandler.CombinedLibraryModels(
+                      providers, polyNullModelsConfig()));
       assertThat(error).hasMessageThat().contains("Conflicting PolyNull library model providers");
       assertThat(error).hasMessageThat().contains("PolyNullMethods");
       assertThat(error).hasMessageThat().contains(first.getClass().getName());
@@ -196,7 +198,7 @@ public class LibraryModelsHandlerTest {
 
   @Test
   public void userPolyNullModelsReplaceWholeBuiltInModelRegardlessOfProviderOrder() {
-    Config config = mock(Config.class);
+    Config config = polyNullModelsConfig();
     LibraryModelsHandler.DefaultLibraryModels defaults =
         new LibraryModelsHandler.DefaultLibraryModels(config);
     // Omit the built-in return location to check replacement rather than union.
@@ -221,7 +223,7 @@ public class LibraryModelsHandlerTest {
 
   @Test
   public void skipsConflictingPolyNullModelsFromBuiltInAndUserProviders() {
-    Config config = mock(Config.class);
+    Config config = polyNullModelsConfig();
     when(config.isSkippedLibraryModel("java.util.Optional.orElseGet")).thenReturn(true);
     LibraryModelsHandler.DefaultLibraryModels defaults =
         new LibraryModelsHandler.DefaultLibraryModels(config);
@@ -241,7 +243,7 @@ public class LibraryModelsHandlerTest {
 
   @Test
   public void rejectsConflictingUserPolyNullModelsEvenWhenOneMatchesBuiltInModel() {
-    Config config = mock(Config.class);
+    Config config = polyNullModelsConfig();
     LibraryModelsHandler.DefaultLibraryModels defaults =
         new LibraryModelsHandler.DefaultLibraryModels(config);
     TestLibraryModels first =
@@ -320,6 +322,13 @@ public class LibraryModelsHandlerTest {
         return models;
       }
     };
+  }
+
+  /** Creates a configuration that enables PolyNull library models. */
+  private static Config polyNullModelsConfig() {
+    Config config = mock(Config.class);
+    when(config.isPolyNullLibraryModelsEnabled()).thenReturn(true);
+    return config;
   }
 
   /**
