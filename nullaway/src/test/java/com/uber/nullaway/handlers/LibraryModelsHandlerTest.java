@@ -17,6 +17,7 @@
 package com.uber.nullaway.handlers;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.uber.nullaway.LibraryModels.MethodRef.methodRef;
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.ARRAY_ELEMENT;
 import static com.uber.nullaway.libmodel.NestedAnnotationInfo.TypePathEntry.Kind.TYPE_ARGUMENT;
@@ -187,12 +188,24 @@ public class LibraryModelsHandlerTest {
           assertThrows(
               IllegalArgumentException.class,
               () ->
-                  new LibraryModelsHandler.CombinedLibraryModels(
-                      providers, polyNullModelsConfig()));
-      assertThat(error).hasMessageThat().contains("Conflicting PolyNull library model providers");
-      assertThat(error).hasMessageThat().contains("PolyNullMethods");
-      assertThat(error).hasMessageThat().contains(first.getClass().getName());
-      assertThat(error).hasMessageThat().contains(second.getClass().getName());
+                  new LibraryModelsHandler.CombinedLibraryModels(providers, polyNullModelsConfig()),
+              "providers: " + providers);
+      assertWithMessage("providers: %s", providers)
+          .that(error)
+          .hasMessageThat()
+          .contains("Conflicting PolyNull library model providers");
+      assertWithMessage("providers: %s", providers)
+          .that(error)
+          .hasMessageThat()
+          .contains("PolyNullMethods");
+      assertWithMessage("providers: %s", providers)
+          .that(error)
+          .hasMessageThat()
+          .contains(first.getClass().getName());
+      assertWithMessage("providers: %s", providers)
+          .that(error)
+          .hasMessageThat()
+          .contains(second.getClass().getName());
     }
   }
 
@@ -205,19 +218,28 @@ public class LibraryModelsHandlerTest {
     ImmutableSetMultimap<MethodRef, PolyNullLocation> userLocations =
         ImmutableSetMultimap.of(OPTIONAL_OR_ELSE_GET, OPTIONAL_SUPPLIER_RESULT);
     TestLibraryModels user = polyNullProvider(userLocations);
+    MethodRef computeIfAbsent =
+        methodRef(
+            "java.util.Map",
+            "computeIfAbsent(K,java.util.function.Function<? super K,? extends V>)");
+    ImmutableSetMultimap<MethodRef, PolyNullLocation> expected =
+        ImmutableSetMultimap.of(
+            OPTIONAL_OR_ELSE_GET,
+            OPTIONAL_SUPPLIER_RESULT,
+            computeIfAbsent,
+            new PolyNullLocation(
+                new Parameter(1),
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 1), new TypePathEntry(WILDCARD_BOUND, 0))),
+            computeIfAbsent,
+            new PolyNullLocation(new Return(), ImmutableList.of()));
     for (ImmutableList<LibraryModels> providers :
         ImmutableList.of(ImmutableList.of(defaults, user), ImmutableList.of(user, defaults))) {
       LibraryModelsHandler.CombinedLibraryModels combined =
           new LibraryModelsHandler.CombinedLibraryModels(providers, config);
-      ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation> expected =
-          ImmutableSetMultimap.builder();
-      for (MethodRef method : defaults.polyNullLocations().keySet()) {
-        if (!method.equals(OPTIONAL_OR_ELSE_GET)) {
-          expected.putAll(method, defaults.polyNullLocations().get(method));
-        }
-      }
-      expected.putAll(userLocations);
-      assertThat(combined.polyNullLocations()).containsExactlyEntriesIn(expected.build());
+      assertWithMessage("providers: %s", providers)
+          .that(combined.polyNullLocations())
+          .containsExactlyEntriesIn(expected);
     }
   }
 
@@ -265,9 +287,16 @@ public class LibraryModelsHandlerTest {
       IllegalArgumentException error =
           assertThrows(
               IllegalArgumentException.class,
-              () -> new LibraryModelsHandler.CombinedLibraryModels(providers, config));
-      assertThat(error).hasMessageThat().contains("Conflicting PolyNull library model providers");
-      assertThat(error).hasMessageThat().contains("orElseGet");
+              () -> new LibraryModelsHandler.CombinedLibraryModels(providers, config),
+              "providers: " + providers);
+      assertWithMessage("providers: %s", providers)
+          .that(error)
+          .hasMessageThat()
+          .contains("Conflicting PolyNull library model providers");
+      assertWithMessage("providers: %s", providers)
+          .that(error)
+          .hasMessageThat()
+          .contains("orElseGet");
     }
   }
 
