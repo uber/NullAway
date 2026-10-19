@@ -112,14 +112,12 @@ tasks.register("pitestDiff", JavaExec) {
                 "com.google.common.base.Preconditions",
             ].join(","),
             threads: threads.get(),
-            outputFormats: "XML,HTML",
+            outputFormats: "HTML," + com.uber.nullaway.gradle.MutantsFile.LISTENER_FORMAT,
             timestampedReports: "false",
             // A changed line can be a comment or a declaration with no instruction to mutate.
             failWhenNoMutations: "false",
             // A test case here compiles a Java source file, so PIT's default 4-second constant is too tight.
             timeoutConst: "20000",
-            // linecoverage.xml names the tests that reach each block, which the report prints.
-            exportLineCoverage: "true",
             // PIT runs every test, including those the `test` task's filter excludes, and refuses to
             // start when one fails before any mutation.  A test failing there is left out instead.
             skipFailingTests: "true",
@@ -175,7 +173,7 @@ tasks.register("pitestDiff", JavaExec) {
         def scope = (changedHeader ?: "against an unknown base") + ", " + testsDescription.get()
         def dir = reportDir.get().asFile
         def report = com.uber.nullaway.gradle.PitestSurvivors.read(
-                scope, new File(dir, "mutations.xml"), new File(dir, "linecoverage.xml"), rootDirectory, mainSourceDirs as List)
+                scope, new File(dir, com.uber.nullaway.gradle.MutantsFile.NAME), rootDirectory, mainSourceDirs as List)
         logger.quiet(report.writeAndRender(
                         rootDirectory, new File(dir, "survivors.txt"),
                         maxFiles.get(), maxLinesPerFile.get(), maxLines.get(), showAll.get(),

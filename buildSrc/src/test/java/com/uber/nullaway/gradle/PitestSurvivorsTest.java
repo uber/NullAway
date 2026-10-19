@@ -22,9 +22,6 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeSet;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
@@ -49,63 +46,37 @@ class PitestSurvivorsTest {
   @TempDir Path repository;
 
   /**
-   * Returns a mutation element in the shape mutations.xml writes it, in method {@code m} of the
-   * given class of package {@code com.x}, sitting in block 0 of that method.
+   * Returns the mutants.tsv line for a mutant in method {@code m} of the given class of package
+   * {@code com.x}, covered by the given tests of class {@code com.x.T}.
    */
   private static String mutation(
-      String status, String className, String file, int line, String description) {
-    return mutation(status, className, file, line, description, 0);
-  }
-
-  /** Returns a mutation element as {@link #mutation(String, String, String, int, String)} does, in the given block. */
-  private static String mutation(
-      String status, String className, String file, int line, String description, int block) {
-    return "<mutation detected='false' status='"
-        + status
-        + "' numberOfTestsRun='1'><sourceFile>"
-        + file
-        + "</sourceFile><mutatedClass>com.x."
-        + className
-        + "</mutatedClass><mutatedMethod>m</mutatedMethod><methodDescription>()V"
-        + "</methodDescription><lineNumber>"
-        + line
-        + "</lineNumber><mutator>X</mutator><blocks><block>"
-        + block
-        + "</block></blocks>"
-        + "<description>"
-        + description
-        + " for com/x/"
-        + className
-        + "::m</description></mutation>";
-  }
-
-  /** Returns a linecoverage.xml block element for block 0 of method {@code m()V}. */
-  private static String coverage(String className, String... tests) {
-    StringBuilder block =
-        new StringBuilder("<block classname='com.x." + className + "' method='m()V' number='0'>");
-    block.append("<tests>");
+      String status, String className, String file, int line, String description, String... tests) {
+    StringBuilder out =
+        new StringBuilder(
+            status + "\tcom.x." + className + "\tm\t" + file + "\t" + line + "\t" + description
+                + " for com/x/" + className + "::m");
     for (String test : tests) {
-      block.append("<test name='com.x.").append(test).append("(com.x.T)'/>");
+      out.append("\tcom.x.").append(test).append("(com.x.T)");
     }
-    return block.append("</tests></block>").toString();
+    return out.toString();
+  }
+
+  /** Writes the mutants to mutants.tsv and returns the path. */
+  private Path mutantsFile(String... mutations) throws IOException {
+    Path file = repository.resolve("mutants.tsv");
+    Files.writeString(file, String.join("\n", mutations) + "\n");
+    return file;
   }
 
   /** Reads a run whose sources are com/x/A.java and com/x/B.java, each with five lines. */
-  private PitestSurvivors run(String coverageBlocks, String... mutations) throws IOException {
+  private PitestSurvivors run(String... mutations) throws IOException {
     Path sources = repository.resolve("src");
     Files.createDirectories(sources.resolve("com/x"));
     Files.writeString(sources.resolve("com/x/A.java"), "a1\n  a2\na3\na4\na5\n");
     Files.writeString(sources.resolve("com/x/B.java"), "b1\nb2\nb3\nb4\nb5\n");
-    Path xml = repository.resolve("mutations.xml");
-    Files.writeString(xml, "<mutations>" + String.join("", mutations) + "</mutations>");
-    Path coverage = repository.resolve("linecoverage.xml");
-    if (coverageBlocks != null) {
-      Files.writeString(coverage, "<coverage>" + coverageBlocks + "</coverage>");
-    }
     return PitestSurvivors.read(
         "against origin/master (abc), all tests",
-        xml.toFile(),
-        coverage.toFile(),
+        mutantsFile(mutations).toFile(),
         repository.toFile(),
         List.of(new File("absent"), sources.toFile()));
   }
@@ -128,11 +99,10 @@ class PitestSurvivorsTest {
             + "\n"
             + "Live mutants on 2 lines in 1 file." + LIVE_FOOTER,
         run(
-                coverage("A", "T.t1"),
-                mutation("NO_COVERAGE", "A", "A.java", 4, "replaced return value with null", 1),
-                mutation("SURVIVED", "A", "A.java", 2, "negated conditional"),
-                mutation("KILLED", "A", "A.java", 3, "removed call"),
-                mutation("SURVIVED", "A", "A.java", 2, "removed call"))
+                mutation("NO_COVERAGE", "A", "A.java", 4, "replaced return value with null"),
+                mutation("SURVIVED", "A", "A.java", 2, "negated conditional", "T.t1"),
+                mutation("KILLED", "A", "A.java", 3, "removed call", "T.t2"),
+                mutation("SURVIVED", "A", "A.java", 2, "removed call", "T.t1"))
             .render(DiffCoverageReport.Limits.NONE, List.of()));
   }
 
@@ -142,7 +112,6 @@ class PitestSurvivorsTest {
         "Mutation testing of changed lines against origin/master (abc), all tests\n"
             + "  3 mutants: 2 killed, 0 survived, 0 not reached by any test, 1 NON_VIABLE",
         run(
-                null,
                 mutation("KILLED", "A", "A.java", 1, "removed call"),
                 mutation("TIMED_OUT", "A", "A.java", 2, "negated conditional"),
                 mutation("NON_VIABLE", "A", "A.java", 3, "negated conditional"))
@@ -166,7 +135,7 @@ class PitestSurvivorsTest {
             + "\n"
             + "Live mutants on 1 line in 1 file."
             + LIVE_FOOTER,
-        run(null, mutation("NO_COVERAGE", "A", "A.java", 1, "removed call"))
+        run(mutation("NO_COVERAGE", "A", "A.java", 1, "removed call"))
             .render(DiffCoverageReport.Limits.NONE, List.of()));
   }
 
@@ -189,7 +158,6 @@ class PitestSurvivorsTest {
             + "\n"
             + "Live mutants on 3 lines in 2 files." + LIVE_FOOTER,
         run(
-                null,
                 mutation("SURVIVED", "A", "A.java", 1, "removed call"),
                 mutation("SURVIVED", "B", "B.java", 1, "removed call"),
                 mutation("SURVIVED", "B", "B.java", 2, "removed call"))
@@ -212,7 +180,6 @@ class PitestSurvivorsTest {
             + "\n"
             + "Live mutants on 3 lines in 2 files." + LIVE_FOOTER,
         run(
-                null,
                 mutation("SURVIVED", "A", "A.java", 1, "removed call"),
                 mutation("SURVIVED", "B", "B.java", 1, "removed call"),
                 mutation("SURVIVED", "B", "B.java", 2, "removed call"))
@@ -223,7 +190,6 @@ class PitestSurvivorsTest {
   void theReportFileHoldsWhatTheLimitsCut() throws IOException {
     PitestSurvivors report =
         run(
-            null,
             mutation("SURVIVED", "A", "A.java", 1, "removed call"),
             mutation("SURVIVED", "B", "B.java", 1, "removed call"));
     Path file = repository.resolve("build/survivors.txt");
@@ -238,7 +204,6 @@ class PitestSurvivorsTest {
   void showAllPrintsTheWholeReport() throws IOException {
     PitestSurvivors report =
         run(
-            null,
             mutation("SURVIVED", "A", "A.java", 1, "removed call"),
             mutation("SURVIVED", "B", "B.java", 1, "removed call"));
 
@@ -278,9 +243,8 @@ class PitestSurvivorsTest {
             + "\n"
             + "Live mutants on 2 lines in 2 files." + LIVE_FOOTER,
         run(
-                coverage("A", "T.a", "T.b", "T.c", "T.d", "T.e") + coverage("B", "T.d", "T.e"),
-                mutation("SURVIVED", "A", "A.java", 1, "removed call"),
-                mutation("SURVIVED", "B", "B.java", 1, "removed call"))
+                mutation("SURVIVED", "A", "A.java", 1, "removed call", "T.a", "T.b", "T.c", "T.d", "T.e"),
+                mutation("SURVIVED", "B", "B.java", 1, "removed call", "T.d", "T.e"))
             .render(DiffCoverageReport.Limits.NONE, List.of()));
   }
 
@@ -303,7 +267,6 @@ class PitestSurvivorsTest {
             + "Full report:\n"
             + "  build/survivors.txt",
         run(
-                null,
                 mutation("SURVIVED", "A", "A.java", 1, "removed call"),
                 mutation("SURVIVED", "A", "A.java", 5, "removed call"),
                 mutation("SURVIVED", "B", "B.java", 1, "removed call"))
@@ -318,8 +281,7 @@ class PitestSurvivorsTest {
     PitestSurvivors report =
         PitestSurvivors.read(
             "against origin/master (abc), all tests",
-            build.resolve("mutations.xml").toFile(),
-            build.resolve("linecoverage.xml").toFile(),
+            build.resolve("mutants.tsv").toFile(),
             repository.toFile(),
             List.of(repository.toFile()));
 
@@ -342,39 +304,16 @@ class PitestSurvivorsTest {
             List.of("build/index.html", "build/pit.log")));
   }
 
-  @Test
-  void theTestsOfABlockReachEveryMutantInItAndOtherBlocksAreSkipped() throws IOException {
-    Path coverage = repository.resolve("linecoverage.xml");
-    Files.writeString(
-        coverage,
-        "<coverage>"
-            + coverage("A", "T.a")
-            + "<block classname='com.x.A' method='m()V' number='1'><tests>"
-            + "<test name='com.x.T.b(com.x.T)'/></tests></block></coverage>");
-    Set<String> first = new TreeSet<>();
-    Set<String> second = new TreeSet<>();
-
-    PitestSurvivors.addReachingTests(
-        coverage.toFile(), Map.of("com.x.A#m()V#0", List.of(first, second)));
-
-    assertEquals(List.of(Set.of("T.a"), Set.of("T.a")), List.of(first, second));
-  }
-
   /** The report quotes no text for a line it cannot decode, and still reports the mutant. */
   @Test
   void aSourceFileThatIsNotUtf8LeavesTheLineUnquoted() throws IOException {
     Path sources = repository.resolve("src");
     Files.createDirectories(sources.resolve("com/x"));
     Files.write(sources.resolve("com/x/A.java"), new byte[] {(byte) 0xff, '\n'});
-    Path xml = repository.resolve("mutations.xml");
-    Files.writeString(
-        xml,
-        "<mutations>" + mutation("SURVIVED", "A", "A.java", 1, "removed call") + "</mutations>");
     PitestSurvivors report =
         PitestSurvivors.read(
             "against origin/master (abc), all tests",
-            xml.toFile(),
-            repository.resolve("linecoverage.xml").toFile(),
+            mutantsFile(mutation("SURVIVED", "A", "A.java", 1, "removed call")).toFile(),
             repository.toFile(),
             List.of(sources.toFile()));
 

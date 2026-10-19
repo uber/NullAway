@@ -17,7 +17,6 @@ package com.uber.nullaway.gradle;
 
 import java.io.File;
 import java.io.IOException;
-import java.io.InputStream;
 import java.nio.file.Files;
 import java.util.ArrayList;
 import java.util.Comparator;
@@ -30,16 +29,6 @@ import java.util.TreeMap;
 import java.util.TreeSet;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import javax.xml.parsers.DocumentBuilderFactory;
-import javax.xml.parsers.ParserConfigurationException;
-import javax.xml.stream.XMLInputFactory;
-import javax.xml.stream.XMLStreamConstants;
-import javax.xml.stream.XMLStreamException;
-import javax.xml.stream.XMLStreamReader;
-import org.w3c.dom.Document;
-import org.w3c.dom.Element;
-import org.w3c.dom.NodeList;
-import org.xml.sax.SAXException;
 
 /**
  * Renders the mutants a PIT run left alive, grouped by source file and line.
@@ -52,8 +41,7 @@ import org.xml.sax.SAXException;
  *
  * <p>Each line is printed once, with its source text, every live mutant on it, the number of tests
  * PIT recorded as reaching it, and the few of them that reach the most live mutants of the report.
- * The tests come from PIT's {@code linecoverage.xml}, which maps a block of a method to the tests
- * that executed it; a mutant names the blocks it sits in.
+ * The mutants and their tests come from the {@link MutantsFile} the PIT listener writes.
  */
 public final class PitestSurvivors {
 
@@ -133,64 +121,40 @@ public final class PitestSurvivors {
    * Reads a PIT run.
    *
    * @param scope what the run measured against, printed in the first line
-   * @param mutationsXml the {@code mutations.xml} PIT wrote, or a missing file where PIT generated no
-   *     mutant on the changed lines and wrote no report
-   * @param lineCoverageXml the {@code linecoverage.xml} PIT wrote, or a missing file, in which
-   *     case no test is named
+   * @param mutantsFile the {@link MutantsFile} the run wrote, or a missing file where PIT generated
+   *     no mutant on the changed lines and wrote no report
    * @param repository the directory the printed paths are relative to
    * @param sourceRoots absolute source directories, searched in order for the mutated file
    */
   public static PitestSurvivors read(
-      String scope,
-      File mutationsXml,
-      File lineCoverageXml,
-      File repository,
-      List<File> sourceRoots)
-      throws IOException {
-    if (!mutationsXml.isFile()) {
+      String scope, File mutantsFile, File repository, List<File> sourceRoots) throws IOException {
+    if (!mutantsFile.isFile()) {
       return new PitestSurvivors(
           scope, Comparator.naturalOrder(), new LinkedHashMap<>(), 0, new ArrayList<>());
     }
-    NodeList mutations = parse(mutationsXml).getElementsByTagName("mutation");
+    List<MutantsFile.Mutant> reported = MutantsFile.read(mutantsFile.toPath());
     Map<String, Integer> statusCounts = new LinkedHashMap<>();
     Map<String, TreeMap<Integer, List<Mutant>>> byFile = new HashMap<>();
-    // The test sets of the live mutants, keyed by each block they sit in, for the coverage pass to
-    // fill. A mutant in several blocks is reached by the tests of any of them.
-    Map<String, List<Set<String>>> testSetsByBlock = new HashMap<>();
-    for (int i = 0; i < mutations.getLength(); i++) {
-      Element mutation = (Element) mutations.item(i);
-      String status = mutation.getAttribute("status");
-      statusCounts.merge(status, 1, Integer::sum);
-      if (!isLive(status)) {
+    for (MutantsFile.Mutant mutant : reported) {
+      statusCounts.merge(mutant.status(), 1, Integer::sum);
+      if (!isLive(mutant.status())) {
         continue;
       }
-      String mutatedClass = text(mutation, "mutatedClass");
-      String method = text(mutation, "mutatedMethod");
       Set<String> tests = new TreeSet<>();
-      NodeList blocks = mutation.getElementsByTagName("block");
-      for (int b = 0; b < blocks.getLength(); b++) {
-        String key =
-            blockKey(
-                mutatedClass,
-                method + text(mutation, "methodDescription"),
-                blocks.item(b).getTextContent().trim());
-        testSetsByBlock.computeIfAbsent(key, unused -> new ArrayList<>()).add(tests);
-      }
-      int packageEnd = mutatedClass.lastIndexOf('.');
+      mutant.tests().forEach(test -> tests.add(shortTestName(test)));
+      int packageEnd = mutant.mutatedClass().lastIndexOf('.');
       String relative =
-          (packageEnd < 0 ? "" : mutatedClass.substring(0, packageEnd).replace('.', '/') + "/")
-              + text(mutation, "sourceFile");
+          (packageEnd < 0
+                  ? ""
+                  : mutant.mutatedClass().substring(0, packageEnd).replace('.', '/') + "/")
+              + mutant.sourceFile();
       String description =
-          (status.equals("NO_COVERAGE") ? "no test reaches it: " : "survived: ")
-              + DESCRIPTION_SUFFIX.matcher(text(mutation, "description")).replaceFirst("");
+          (mutant.status().equals("NO_COVERAGE") ? "no test reaches it: " : "survived: ")
+              + DESCRIPTION_SUFFIX.matcher(mutant.description()).replaceFirst("");
       byFile
           .computeIfAbsent(relative, unused -> new TreeMap<>())
-          .computeIfAbsent(
-              Integer.parseInt(text(mutation, "lineNumber")), unused -> new ArrayList<>())
-          .add(new Mutant(description, readableMethod(method), tests));
-    }
-    if (lineCoverageXml.isFile() && !testSetsByBlock.isEmpty()) {
-      addReachingTests(lineCoverageXml, testSetsByBlock);
+          .computeIfAbsent(mutant.lineNumber(), unused -> new ArrayList<>())
+          .add(new Mutant(description, readableMethod(mutant.method()), tests));
     }
     SourceLines sourceLines = SourceLines.under(repository);
     List<FileMutants> files = new ArrayList<>();
@@ -230,7 +194,7 @@ public final class PitestSurvivors {
         Comparator.<String>comparingInt(test -> liveMutantsReached.getOrDefault(test, 0))
             .reversed()
             .thenComparing(Comparator.naturalOrder());
-    return new PitestSurvivors(scope, testOrder, statusCounts, mutations.getLength(), files);
+    return new PitestSurvivors(scope, testOrder, statusCounts, reported.size(), files);
   }
 
   /**
@@ -396,53 +360,6 @@ public final class PitestSurvivors {
     return lambda.matches() ? "a lambda in " + lambda.group(1) : method;
   }
 
-  /**
-   * Adds to each test set the tests that PIT's {@code linecoverage.xml} records for its block.
-   *
-   * <p>The file lists every block of the target classes with every test that executed it, which
-   * for a change to a class most tests reach runs to tens of megabytes. It is streamed, and only
-   * the blocks the map names are read, so memory holds the tests of the live mutants alone.
-   *
-   * <p>PIT names a test {@code pkg.Class.method(pkg.Class)}; the report keeps {@code Class.method},
-   * which a {@code --tests '*Class.method'} filter takes and a search for the class finds.
-   *
-   * @param testSetsByBlock the sets to fill, keyed by {@link #blockKey}
-   */
-  static void addReachingTests(File lineCoverageXml, Map<String, List<Set<String>>> testSetsByBlock)
-      throws IOException {
-    XMLInputFactory factory = XMLInputFactory.newInstance();
-    factory.setProperty(XMLInputFactory.SUPPORT_DTD, false);
-    factory.setProperty(XMLInputFactory.IS_SUPPORTING_EXTERNAL_ENTITIES, false);
-    try (InputStream input = Files.newInputStream(lineCoverageXml.toPath())) {
-      XMLStreamReader reader = factory.createXMLStreamReader(input);
-      try {
-        List<Set<String>> current = null;
-        while (reader.hasNext()) {
-          if (reader.next() != XMLStreamConstants.START_ELEMENT) {
-            continue;
-          }
-          if (reader.getLocalName().equals("block")) {
-            current =
-                testSetsByBlock.get(
-                    blockKey(
-                        reader.getAttributeValue(null, "classname"),
-                        reader.getAttributeValue(null, "method"),
-                        reader.getAttributeValue(null, "number")));
-          } else if (current != null && reader.getLocalName().equals("test")) {
-            String name = shortTestName(reader.getAttributeValue(null, "name"));
-            for (Set<String> tests : current) {
-              tests.add(name);
-            }
-          }
-        }
-      } finally {
-        reader.close();
-      }
-    } catch (XMLStreamException e) {
-      throw new IOException("Cannot parse " + lineCoverageXml, e);
-    }
-  }
-
   /** Returns {@code Class.method} for a test PIT names {@code pkg.Class.method(pkg.Class)}. */
   private static String shortTestName(String name) {
     int paren = name.indexOf('(');
@@ -450,25 +367,6 @@ public final class PitestSurvivors {
     int methodStart = qualified.lastIndexOf('.');
     int classStart = qualified.lastIndexOf('.', methodStart - 1);
     return qualified.substring(classStart + 1);
-  }
-
-  private static String blockKey(String className, String methodWithDescriptor, String block) {
-    return className + "#" + methodWithDescriptor + "#" + block;
-  }
-
-  private static Document parse(File xml) throws IOException {
-    try {
-      DocumentBuilderFactory factory = DocumentBuilderFactory.newInstance();
-      factory.setFeature("http://apache.org/xml/features/disallow-doctype-decl", true);
-      return factory.newDocumentBuilder().parse(xml);
-    } catch (ParserConfigurationException | SAXException e) {
-      throw new IOException("Cannot parse " + xml, e);
-    }
-  }
-
-  private static String text(Element parent, String tag) {
-    NodeList nodes = parent.getElementsByTagName(tag);
-    return nodes.getLength() == 0 ? "" : nodes.item(0).getTextContent().trim();
   }
 
   /** Returns the first file under the source roots with this relative path, or null. */
