@@ -112,8 +112,9 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   public Type visitWildcardType(Type.WildcardType t, Integer pathIndex) {
     if (pathIndex == typePath.size()) {
       // Member-type substitution can replace a modeled type variable with an extends wildcard.
-      // Reads use the upper bound's nullness, and annotating the wildcard itself is not legal
-      // under JSpecify. So, apply the resolved qualifier to a copy of the upper bound.
+      // For ADD_ANNOTATION, annotate a copy of its upper bound: reads use the bound's nullness,
+      // and annotations directly on wildcards are not legal under JSpecify. Other wildcard kinds
+      // remain unchanged. REPLACE_TYPE replaces the entire wildcard.
       if (updateKind == UpdateKind.ADD_ANNOTATION && t.kind == BoundKind.EXTENDS) {
         return TYPE_METADATA_BUILDER.createWildcardType(
             t, TypeSubstitutionUtils.typeWithAnnot(t.type, annotationOrReplacementType));

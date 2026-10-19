@@ -1613,7 +1613,9 @@ public final class GenericsChecks {
    *     #getExecutableTypeForInference}
    * @param allCalls a set of all calls that require inference, including nested ones. This is an
    *     output parameter that gets mutated while generating the constraints to add nested calls.
-   * @param polyNullContexts PolyNull inference contexts created for calls in this inference session
+   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
+   *     is an output parameter mutated during constraint generation to add contexts for modeled
+   *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @throws UnsatisfiableConstraintsException if the constraints are determined to be unsatisfiable
    */
@@ -1716,7 +1718,9 @@ public final class GenericsChecks {
    *     output parameter that gets mutated while generating the constraints to add nested calls.
    * @param rhsExpr the right-hand side expression of the pseudo-assignment
    * @param lhsType the left-hand side type of the pseudo-assignment
-   * @param polyNullContexts PolyNull inference contexts created for calls in this inference session
+   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
+   *     is an output parameter mutated during constraint generation to add contexts for modeled
+   *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
   private void generateConstraintsForPseudoAssignment(
@@ -1809,7 +1813,9 @@ public final class GenericsChecks {
    *     output parameter that gets mutated while generating the constraints to add nested calls.
    * @param lhsType the type to which the lambda is being assigned
    * @param lambda The lambda argument
-   * @param polyNullContexts PolyNull inference contexts created for calls in this inference session
+   * @param polyNullContexts PolyNull inference contexts for calls in this inference session. This
+   *     is an output parameter mutated during constraint generation to add contexts for modeled
+   *     calls.
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    */
   private void handleLambdaInGenericMethodInference(
@@ -3660,8 +3666,12 @@ public final class GenericsChecks {
    * available. This includes non-generic calls and generic calls with explicit type arguments.
    *
    * <p>All modeled locations share one synthetic type variable. Ordinary assignment-compatibility
-   * constraints therefore select the most specific qualifier that makes every argument and the
-   * invocation result compatible with the instantiated method signature.
+   * constraints select {@code @NonNull} unless an argument or the result target requires
+   * {@code @Nullable}.
+   *
+   * @return the inferred shared nullness, or {@code null} if no modeled parameter location applies
+   *     or the constraints are unsatisfiable. Unsatisfiable constraints are reported before
+   *     returning when {@code WarnOnGenericInferenceFailure} is enabled.
    */
   private @Nullable Nullness inferPolyNullnessSeparately(
       Symbol.MethodSymbol methodSymbol,
@@ -4166,9 +4176,8 @@ public final class GenericsChecks {
     if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
-    // A call-specific inference result can explicitly make a captured return type @NonNull even
-    // when the capture has a nullable upper bound. Honor that resolved qualifier before falling
-    // back to the upper bound of an otherwise unqualified wildcard or capture.
+    // An explicit @NonNull takes precedence over a wildcard or capture's nullable upper bound.
+    // PolyNull inference is one source of such an annotation on a call's return type.
     if (Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)) {
       return Nullness.NONNULL;
     }
