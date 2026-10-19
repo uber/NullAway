@@ -17,7 +17,6 @@
 // Mostly taken from official Gradle sample: https://docs.gradle.org/current/samples/sample_jvm_multi_project_with_code_coverage.html
 plugins {
     id 'jacoco'
-    id 'nullaway.pitest-diff'
 }
 
 // we pull in the snapshot version of Jacoco to support running on JDK 27 early access builds
@@ -153,6 +152,10 @@ if (!enableJacoco.isPresent() && diffCoverageEnabled.get()) {
         finalizedBy(diffCoverage)
     }
 }
+
+// pitestDiff takes its changed lines from the diffCoverage settings above, so it is applied here
+// rather than in the plugins block, which runs before diffCoverage is registered.
+pluginManager.apply("nullaway.pitest-diff")
 
 configurations {
     // A configuration holding the jars for the Error Prone version to use when testing with JDK 17

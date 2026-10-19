@@ -15,31 +15,15 @@
  */
 
 // Registers pitestDiff, which runs PIT over the lines this branch changed in the module's main
-// sources.  nullaway.java-test-conventions applies it, so every module with tests has the task; in a
-// module without main sources it is always skipped.
-plugins {
-    id 'java'
-}
-
-// The same service and the same -PdiffBase that diffCoverage uses, so both count the same lines as
-// changed.
-gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask.GIT_SERVICE, com.uber.nullaway.gradle.GitService) {
-    parameters.repositoryRoot = rootProject.layout.projectDirectory
-}
-
-def diffBase = providers.gradleProperty("diffBase")
-
-// The main source roots relative to the repository root, the form git diff prints paths in.
-def mainSourceRoots = providers.provider {
-    sourceSets.main.java.srcDirs.collect {
-        rootDir.toPath().relativize(it.toPath()).toString()
-    }
-}
+// sources.  nullaway.java-test-conventions applies it after registering diffCoverage, whose base ref
+// and source roots it reuses, so both count the same lines as changed; in a module without main
+// sources the task is always skipped.
+def diffCoverage = tasks.named("diffCoverage", com.uber.nullaway.gradle.DiffCoverageTask)
 
 def changedLines = tasks.register("changedLines", com.uber.nullaway.gradle.ChangedLinesTask) {
     description = "Writes the lines this branch changed in the main sources, for pitestDiff"
-    sourceRoots.set(mainSourceRoots)
-    baseRef = diffBase
+    sourceRoots.set(diffCoverage.flatMap { it.sourceRoots })
+    baseRef = diffCoverage.flatMap { it.baseRef }
     outputFile = layout.buildDirectory.file("diff/changed-lines.txt")
 }
 
