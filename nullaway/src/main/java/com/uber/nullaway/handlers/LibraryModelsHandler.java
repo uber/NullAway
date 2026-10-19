@@ -242,8 +242,9 @@ public class LibraryModelsHandler implements Handler {
     boolean hasUnknownParameterNullness = false;
     for (int index : determiningParameterIndices) {
       int functionalParameterIndex = parameterOffset + index;
-      if (functionalParameterIndex >= functionalParameterTypes.size()) {
-        return NullnessHint.UNKNOWN;
+      if (functionalParameterIndex
+          >= functionalParameterTypes.size()) { // diff-coverage: ignore -- Invalid model index.
+        return NullnessHint.UNKNOWN; // diff-coverage: ignore -- Invalid model index.
       }
       if (Nullness.paramHasNullableAnnotation(
           functionalInterfaceMethod, functionalParameterIndex, config)) {

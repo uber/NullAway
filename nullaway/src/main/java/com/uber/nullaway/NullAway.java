@@ -1393,8 +1393,8 @@ public class NullAway extends BugChecker
     if (functionalInterfaceType == null) {
       functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
     }
-    if (functionalInterfaceType == null) {
-      return result;
+    if (functionalInterfaceType == null) { // diff-coverage: ignore -- Unattributed javac tree.
+      return result; // diff-coverage: ignore -- Unattributed javac tree.
     }
     if (functionalInterfaceType.isRaw() || overridingMethod.isConstructor()) {
       return result;

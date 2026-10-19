@@ -77,6 +77,28 @@ public class Java8Tests extends NullAwayTestsBase {
   }
 
   @Test
+  public void classCastMethodReferenceUsesTypeUseParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+
+            class Test {
+              interface NullableParameter { String apply(@Nullable Object value); }
+
+              NullableParameter nullableParameter() {
+                // Class.cast(null) returns null, so this cannot implement a non-null result.
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.NullableParameter.apply(@Nullable Object) returns @NonNull
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void methodReferenceIgnoresGenericNullnessOutsideJSpecifyMode() {
     defaultCompilationHelper
         .addSourceLines(
