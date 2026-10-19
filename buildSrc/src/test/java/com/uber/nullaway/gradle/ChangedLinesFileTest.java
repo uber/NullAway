@@ -17,6 +17,7 @@ package com.uber.nullaway.gradle;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
@@ -91,6 +92,25 @@ class ChangedLinesFileTest {
     assertEquals(
         List.of("com.x.A", "com.x.A$*"),
         ChangedLinesFile.targetClasses(Map.of("com/x/A.java", lines(3))));
+  }
+
+  /**
+   * A second top-level class declared in a changed file has a name of its own, which only the
+   * compiled package shows.
+   */
+  @Test
+  void everyTopLevelClassCompiledIntoTheChangedFilesPackageIsTargeted() throws IOException {
+    Path classes = directory.resolve("classes");
+    Files.createDirectories(classes.resolve("com/x"));
+    Files.createDirectories(classes.resolve("com/y"));
+    for (String file : List.of("com/x/A.class", "com/x/A$Inner.class", "com/x/Helper.class", "com/y/B.class")) {
+      Files.writeString(classes.resolve(file), "");
+    }
+
+    assertEquals(
+        List.of("com.x.A", "com.x.A$*", "com.x.Helper", "com.x.Helper$*"),
+        ChangedLinesFile.targetClasses(
+            Map.of("com/x/A.java", lines(3)), List.of(classes.toFile(), new File("absent"))));
   }
 
   @Test

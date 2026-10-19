@@ -15,15 +15,19 @@
  */
 package com.uber.nullaway.gradle;
 
+import java.io.File;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.NavigableSet;
+import java.util.Set;
 import java.util.TreeSet;
 
 /**
@@ -111,17 +115,35 @@ public final class ChangedLinesFile {
   }
 
   /**
-   * Returns the PIT {@code targetClasses} globs for the classes of the changed files.
+   * Returns the PIT {@code targetClasses} globs for the classes of the changed files, judged from
+   * their paths alone.
    *
-   * <p>A file contributes its top-level class and every class nested in it, which is what one
-   * source file compiles to. A second top-level class declared in the same file is not named, so
-   * PIT generates no mutant in it. {@code package-info.java} and {@code module-info.java} compile to
-   * no class PIT mutates and contribute nothing.
+   * <p>This names each file's own top-level class and the classes nested in it, which is enough to
+   * tell whether a change reached any class at all. {@link #targetClasses(Map, List)} names the
+   * classes PIT mutates.
    *
    * @param lines the changed line numbers, keyed by path relative to the source root
    */
   public static List<String> targetClasses(Map<String, NavigableSet<Integer>> lines) {
-    List<String> globs = new ArrayList<>();
+    return targetClasses(lines, List.of());
+  }
+
+  /**
+   * Returns the PIT {@code targetClasses} globs for every class a changed file can compile to.
+   *
+   * <p>A source file compiles to its own top-level class, the classes nested in it, and any other
+   * top-level class it declares, which carries a name of its own in the same package. Only the
+   * compiled output tells the last kind apart, so every top-level class compiled into the package
+   * of a changed file is named, with the classes nested in it. The interceptor then keeps only the
+   * mutants whose class records the changed file as its source. {@code package-info.java} and
+   * {@code module-info.java} compile to no class PIT mutates and contribute nothing.
+   *
+   * @param lines the changed line numbers, keyed by path relative to the source root
+   * @param classesDirs the directories the main sources compile into; a missing one is skipped
+   */
+  public static List<String> targetClasses(
+      Map<String, NavigableSet<Integer>> lines, List<File> classesDirs) {
+    Set<String> globs = new LinkedHashSet<>();
     for (String path : lines.keySet()) {
       if (!path.endsWith(".java")
           || path.endsWith("package-info.java")
@@ -131,8 +153,26 @@ public final class ChangedLinesFile {
       String name = path.substring(0, path.length() - ".java".length()).replace('/', '.');
       globs.add(name);
       globs.add(name + "$*");
+      int slash = path.lastIndexOf('/');
+      String packagePath = slash < 0 ? "" : path.substring(0, slash);
+      String packagePrefix = packagePath.isEmpty() ? "" : packagePath.replace('/', '.') + ".";
+      for (File classesDir : classesDirs) {
+        String[] classFiles = new File(classesDir, packagePath).list();
+        if (classFiles == null) {
+          continue;
+        }
+        Arrays.sort(classFiles);
+        for (String classFile : classFiles) {
+          if (classFile.endsWith(".class") && !classFile.contains("$")) {
+            String className =
+                packagePrefix + classFile.substring(0, classFile.length() - ".class".length());
+            globs.add(className);
+            globs.add(className + "$*");
+          }
+        }
+      }
     }
-    return globs;
+    return new ArrayList<>(globs);
   }
 
   /** Returns the numbers as comma-separated ranges, such as {@code 3-5,9}. */
