@@ -507,22 +507,24 @@ public class GenericsUtils {
     Type.MethodType referencedMethodType = resolvedMethodReference.methodType();
 
     // Get the type of the corresponding functional interface method as a member of targetType.
-    Symbol.MethodSymbol fiMethod =
+    Symbol.MethodSymbol functionalInterfaceMethod =
         NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
-    Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(types, targetType, fiMethod, genericsChecks.getConfig())
+    Type.MethodType functionalInterfaceMethodTypeAsMember =
+        TypeSubstitutionUtils.memberType(
+                types, targetType, functionalInterfaceMethod, genericsChecks.getConfig())
             .asMethodType();
-    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
+    com.sun.tools.javac.util.List<Type> fiParamTypes =
+        functionalInterfaceMethodTypeAsMember.getParameterTypes();
     boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
 
     // method reference return type <: functional interface return type
-    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    Type fiReturnType = functionalInterfaceMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
     Handler.NullnessHint returnNullnessHint =
         NullabilityUtil.getMethodReferenceReturnNullnessHint(
             referencedMethod,
-            fiMethod,
-            fiMethodTypeAsMember,
+            functionalInterfaceMethod,
+            functionalInterfaceMethodTypeAsMember,
             unbound,
             state,
             genericsChecks.getHandler());
