@@ -1526,45 +1526,43 @@ public class LibraryModelsHandler implements Handler {
                   entry.getKey(), key -> new ImmutableSetMultimap.Builder<>());
           builder.putAll(entry.getValue());
         }
-        if (config.isPolyNullLibraryModelsEnabled()) {
-          ImmutableSetMultimap<MethodRef, PolyNullLocation> providerPolyNullLocations =
-              libraryModels.polyNullLocations();
-          for (MethodRef method : providerPolyNullLocations.keySet()) {
-            ImmutableSet<PolyNullLocation> locations = providerPolyNullLocations.get(method);
-            if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
-              throw new IllegalArgumentException(
-                  "PolyNull receiver locations are not yet supported for " + method);
-            }
-            if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
-              throw new IllegalArgumentException(
-                  "PolyNull models must include at least one nested location for " + method);
-            }
-            if (shouldSkipModel(method)) {
+        ImmutableSetMultimap<MethodRef, PolyNullLocation> providerPolyNullLocations =
+            libraryModels.polyNullLocations();
+        for (MethodRef method : providerPolyNullLocations.keySet()) {
+          ImmutableSet<PolyNullLocation> locations = providerPolyNullLocations.get(method);
+          if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
+            throw new IllegalArgumentException(
+                "PolyNull receiver locations are not yet supported for " + method);
+          }
+          if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
+            throw new IllegalArgumentException(
+                "PolyNull models must include at least one nested location for " + method);
+          }
+          if (shouldSkipModel(method)) {
+            continue;
+          }
+          LibraryModels previousOwner = polyNullModelOwners.get(method);
+          if (previousOwner != null) {
+            // User providers replace the whole built-in relationship, regardless of load order.
+            // Unioning location sets could introduce unintended links between nullness values.
+            if (libraryModels instanceof DefaultLibraryModels) {
               continue;
             }
-            LibraryModels previousOwner = polyNullModelOwners.get(method);
-            if (previousOwner != null) {
-              // User providers replace the whole built-in relationship, regardless of load order.
-              // Unioning location sets could introduce unintended links between nullness values.
-              if (libraryModels instanceof DefaultLibraryModels) {
-                continue;
+            if (!(previousOwner instanceof DefaultLibraryModels)) {
+              if (!locations.equals(polyNullLocationsByMethod.get(method))) {
+                throw new IllegalArgumentException(
+                    "Conflicting PolyNull library model providers for "
+                        + method
+                        + ": "
+                        + previousOwner.getClass().getName()
+                        + " and "
+                        + libraryModels.getClass().getName());
               }
-              if (!(previousOwner instanceof DefaultLibraryModels)) {
-                if (!locations.equals(polyNullLocationsByMethod.get(method))) {
-                  throw new IllegalArgumentException(
-                      "Conflicting PolyNull library model providers for "
-                          + method
-                          + ": "
-                          + previousOwner.getClass().getName()
-                          + " and "
-                          + libraryModels.getClass().getName());
-                }
-                continue;
-              }
+              continue;
             }
-            polyNullModelOwners.put(method, libraryModels);
-            polyNullLocationsByMethod.put(method, locations);
           }
+          polyNullModelOwners.put(method, libraryModels);
+          polyNullLocationsByMethod.put(method, locations);
         }
       }
       ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation> polyNullLocationsBuilder =

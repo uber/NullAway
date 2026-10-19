@@ -234,7 +234,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   private final boolean treatGeneratedAsUnannotated;
   private final boolean acknowledgeAndroidRecent;
   private final boolean jspecifyMode;
-  private final boolean polyNullLibraryModelsEnabled;
   private final boolean handleWildcardGenerics;
   private final boolean warnOnInferenceFailure;
   private final ImmutableSet<MethodClassAndName> knownInitializers;
@@ -310,7 +309,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
     treatGeneratedAsUnannotated = flags.getBoolean(FL_GENERATED_UNANNOTATED).orElse(false);
     acknowledgeAndroidRecent = flags.getBoolean(FL_ACKNOWLEDGE_ANDROID_RECENT).orElse(false);
     jspecifyMode = flags.getBoolean(FL_JSPECIFY_MODE).orElse(false);
-    polyNullLibraryModelsEnabled = jspecifyMode && jspecifyExperimental;
     handleWildcardGenerics =
         flags.getBoolean(FL_HANDLE_WILDCARD_GENERICS).orElse(jspecifyExperimental);
     assertsEnabled = flags.getBoolean(FL_ASSERTS_ENABLED).orElse(false);
@@ -616,11 +614,6 @@ final class ErrorProneCLIFlagsConfig implements Config {
   @Override
   public boolean isJSpecifyMode() {
     return jspecifyMode;
-  }
-
-  @Override
-  public boolean isPolyNullLibraryModelsEnabled() {
-    return polyNullLibraryModelsEnabled;
   }
 
   @Override

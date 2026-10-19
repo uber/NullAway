@@ -13,7 +13,7 @@ import java.util.List;
  * <p>For tests, this utility ensures that they always pass {@code
  * -XepOpt:NullAway:JSpecifyMode=true}, {@code -XDaddTypeAnnotationsToSymbol=true}, and the JSpecify
  * experimental-features flag together. The experimental-features flag enables wildcard support,
- * generic inference failure warnings, JSpecify JDK models, and PolyNull library models.
+ * generic inference failure warnings, and JSpecify JDK models.
  */
 public final class JSpecifyJavacConfig {
 
