@@ -388,7 +388,7 @@ public interface LibraryModels {
     /** The method receiver. */
     public record Receiver() implements Position {}
 
-    /** A zero-based method parameter. */
+    /** A zero-based method parameter (the receiver parameter is not counted). */
     public record Parameter(int index) implements Position {
       /** Rejects negative parameter indexes. */
       public Parameter {
