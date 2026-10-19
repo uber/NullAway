@@ -97,7 +97,6 @@ tasks.register("pitestDiff", JavaExec) {
         def changed = com.uber.nullaway.gradle.ChangedLinesFile.read(changedLinesFile.get().asFile.toPath())
         def targetClasses = com.uber.nullaway.gradle.ChangedLinesFile.targetClasses(changed)
         def test = testTask.get()
-        def minionJvmArgs = test.jvmArgs + (test.maxHeapSize ? ["-Xmx" + test.maxHeapSize] : [])
         systemProperty(com.uber.nullaway.gradle.ChangedLinesFile.PITEST_PROPERTY,
                 changedLinesFile.get().asFile.absolutePath)
         def options = [
@@ -108,7 +107,7 @@ tasks.register("pitestDiff", JavaExec) {
             mutableCodePaths: mainClassesDirs.files*.absolutePath.join(","),
             sourceDirs: mainSourceDirs*.absolutePath.join(","),
             classPath: testRuntimeClasspath.files*.absolutePath.join(","),
-            jvmArgs: minionJvmArgs.join(","),
+            jvmArgs: com.uber.nullaway.gradle.PitestJvmArgs.of(test.jvmArgs, test.systemProperties, test.maxHeapSize),
             mutators: mutators.get(),
             // PIT's own default list, plus the invariant checks: removing a Verify or Preconditions
             // call changes no diagnostic, so every such mutant would survive a passing suite.  PIT
