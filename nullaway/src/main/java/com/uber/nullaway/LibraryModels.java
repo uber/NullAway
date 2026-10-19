@@ -142,13 +142,11 @@ public interface LibraryModels {
   /**
    * Get the locations in library method signatures that have linked, polymorphic nullness.
    *
-   * <p>At a call, NullAway introduces nullability inference variables at the modeled input
-   * locations and generates constraints from invocation arguments, including lambdas and method
-   * references. All input occurrences must infer the same nullness, which is then substituted at
-   * every modeled location. If the linked nullness is unconstrained, it resolves to
-   * {@code @NonNull}. A top-level parameter location allows {@code null} and other nullable
-   * arguments, whose nullness still constrains the linked nullness. Explicit method type arguments
-   * seed the corresponding inference variables after substitution.
+   * <p>All locations listed for a method share the same nullness at each call. NullAway infers it
+   * from the arguments, including lambda and method-reference results, and from the assignment
+   * target, and then substitutes it at every modeled location present in the method type. Explicit
+   * method type arguments are substituted first, and at a modeled location the linked nullness
+   * replaces the nullness the type argument supplied.
    *
    * <p>This model is used only when {@code JSpecifyMode} and {@code JSpecifyExperimental} are
    * enabled, and the modeled method's enclosing class is expected to be modeled as
