@@ -15,7 +15,6 @@ import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
@@ -24,6 +23,7 @@ import com.uber.nullaway.Nullness;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
@@ -513,12 +513,12 @@ public class GenericsUtils {
         TypeSubstitutionUtils.memberType(
                 types, targetType, functionalInterfaceMethod, genericsChecks.getConfig())
             .asMethodType();
-    com.sun.tools.javac.util.List<Type> fiParamTypes =
+    List<Type> functionalInterfaceParamTypes =
         functionalInterfaceMethodTypeAsMember.getParameterTypes();
     boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
 
     // method reference return type <: functional interface return type
-    Type fiReturnType = functionalInterfaceMethodTypeAsMember.getReturnType();
+    Type functionalInterfaceReturnType = functionalInterfaceMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
     Handler.NullnessHint returnNullnessHint =
         NullabilityUtil.getMethodReferenceReturnNullnessHint(
@@ -533,33 +533,36 @@ public class GenericsUtils {
           genericsChecks.updateTypeWithNullness(
               state, referencedReturnType, returnNullnessHint.toNullness());
     }
-    if (fiReturnType.getKind() != TypeKind.VOID
+    if (functionalInterfaceReturnType.getKind() != TypeKind.VOID
         && referencedReturnType.getKind() != TypeKind.VOID) {
-      relationHandler.handle(referencedReturnType, fiReturnType, MethodRefTypeRelationKind.RETURN);
+      relationHandler.handle(
+          referencedReturnType, functionalInterfaceReturnType, MethodRefTypeRelationKind.RETURN);
     }
 
     //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
     //  aligned appropriately in the case of unbound method references
-    com.sun.tools.javac.util.List<Type> referencedParamTypes =
-        referencedMethodType.getParameterTypes();
-    int fiStartIndex = 0;
+    List<Type> referencedParamTypes = referencedMethodType.getParameterTypes();
+    int functionalInterfaceStartIndex = 0;
     if (unbound) {
       if (qualifierType != null) {
         relationHandler.handle(
-            fiParamTypes.get(0), qualifierType, MethodRefTypeRelationKind.PARAMETER);
+            functionalInterfaceParamTypes.get(0),
+            qualifierType,
+            MethodRefTypeRelationKind.PARAMETER);
       }
-      fiStartIndex = 1;
+      functionalInterfaceStartIndex = 1;
     }
 
     // first, handle the non-varargs case
-    int fiParamCount = fiParamTypes.size() - fiStartIndex;
+    int functionalInterfaceParamCount =
+        functionalInterfaceParamTypes.size() - functionalInterfaceStartIndex;
     int nonVarargsParamCount =
         referencedMethod.isVarArgs()
-            ? Math.min(fiParamCount, referencedParamTypes.size() - 1)
+            ? Math.min(functionalInterfaceParamCount, referencedParamTypes.size() - 1)
             : referencedParamTypes.size();
     for (int i = 0; i < nonVarargsParamCount; i++) {
       relationHandler.handle(
-          fiParamTypes.get(fiStartIndex + i),
+          functionalInterfaceParamTypes.get(functionalInterfaceStartIndex + i),
           referencedParamTypes.get(i),
           MethodRefTypeRelationKind.PARAMETER);
     }
@@ -570,7 +573,7 @@ public class GenericsUtils {
     // For varargs references, the functional interface can map to fixed-arity form (single array
     // argument at the varargs position) or variable-arity form (zero or more element arguments).
     int varargsParamPosition = referencedParamTypes.size() - 1;
-    if (fiParamCount == varargsParamPosition) {
+    if (functionalInterfaceParamCount == varargsParamPosition) {
       // No varargs arguments; this is the variable-arity case, passing zero arguments
       return;
     }
@@ -581,20 +584,20 @@ public class GenericsUtils {
         memberReferenceTree,
         varargsArrayType);
     JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
-    int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
+    int firstVarargsFiParamIndex = functionalInterfaceStartIndex + varargsParamPosition;
     if (javacMemberRef.varargsElement == null) {
       // javac resolved this member reference using non-varargs (fixed-arity) adaptation.
       relationHandler.handle(
-          fiParamTypes.get(firstVarargsFiParamIndex),
+          functionalInterfaceParamTypes.get(firstVarargsFiParamIndex),
           varargsArrayType,
           MethodRefTypeRelationKind.PARAMETER);
     } else {
       // javac resolved this member reference using varargs (variable-arity) adaptation.
       // Use the element type from the referenced varargs array type
       Type varargsElementType = types.elemtype(varargsArrayType);
-      for (int i = varargsParamPosition; i < fiParamCount; i++) {
+      for (int i = varargsParamPosition; i < functionalInterfaceParamCount; i++) {
         relationHandler.handle(
-            fiParamTypes.get(fiStartIndex + i),
+            functionalInterfaceParamTypes.get(functionalInterfaceStartIndex + i),
             varargsElementType,
             MethodRefTypeRelationKind.PARAMETER);
       }

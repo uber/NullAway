@@ -230,19 +230,19 @@ public class LibraryModelsHandler implements Handler {
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,
       VisitorState state) {
-    ImmutableSet<Integer> determiningParameters =
+    ImmutableSet<Integer> determiningParameterIndices =
         getOptLibraryModels(state.context)
             .nullImpliesNullParameters(referencedMethod, state.getTypes());
-    if (determiningParameters.isEmpty()) {
+    if (determiningParameterIndices.isEmpty()) {
       return NullnessHint.UNKNOWN;
     }
     com.sun.tools.javac.util.List<Type> functionalParameterTypes =
         functionalInterfaceMethodType.getParameterTypes();
     int parameterOffset = isUnbound ? 1 : 0;
     boolean hasUnknownParameterNullness = false;
-    for (int index : determiningParameters) {
+    for (int index : determiningParameterIndices) {
       int functionalParameterIndex = parameterOffset + index;
-      if (index < 0 || functionalParameterIndex >= functionalParameterTypes.size()) {
+      if (functionalParameterIndex >= functionalParameterTypes.size()) {
         return NullnessHint.UNKNOWN;
       }
       if (Nullness.paramHasNullableAnnotation(
