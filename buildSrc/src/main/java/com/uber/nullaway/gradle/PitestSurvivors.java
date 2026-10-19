@@ -72,6 +72,17 @@ public final class PitestSurvivors {
           + "  - you cannot tell: report it as unresolved";
 
   /**
+   * What a run in which no test reached any changed line means.
+   *
+   * <p>Untested code and code the tests run where PIT records no coverage produce the same report,
+   * so the reader is told both and sent to the list of known cases.
+   */
+  static final String NOTHING_REACHED =
+      "No test reached any of the changed lines. Either no test exercises this code, or the tests"
+          + " load it where PIT cannot see it, as javac does with a plugin passed through -Xplugin;"
+          + " the \"Mutation testing\" section of CONTRIBUTING.md lists the known cases.";
+
+  /**
    * Why a changed line can have no mutant, for a reader who expected one.
    *
    * <p>It reflects the {@code avoidCallsTo} list the pitestDiff task passes to PIT.
@@ -279,6 +290,9 @@ public final class PitestSurvivors {
     int liveLines = files.stream().mapToInt(file -> file.lines().size()).sum();
     if (liveLines > 0) {
       out.append("\n  ordered by live mutants per file, then by line");
+    }
+    if (total > 0 && statusCounts.getOrDefault("NO_COVERAGE", 0) == total) {
+      out.append("\n\n").append(NOTHING_REACHED);
     }
     int filesLeft = limits.files;
     int rowsLeft = limits.lines;

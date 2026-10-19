@@ -150,6 +150,27 @@ class PitestSurvivorsTest {
   }
 
   @Test
+  void aRunInWhichNoTestReachedAnyLineSaysWhyThatCanHappen() throws IOException {
+    assertEquals(
+        "Mutation testing of changed lines against origin/master (abc), all tests\n"
+            + "  1 mutant: 0 killed, 0 survived, 1 not reached by any test\n"
+            + "  ordered by live mutants per file, then by line\n"
+            + "\n"
+            + "No test reached any of the changed lines. Either no test exercises this code, or the"
+            + " tests load it where PIT cannot see it, as javac does with a plugin passed through"
+            + " -Xplugin; the \"Mutation testing\" section of CONTRIBUTING.md lists the known cases.\n"
+            + "\n"
+            + "  src/com/x/A.java\n"
+            + "    1: a1\n"
+            + "        no test reaches it: removed call, in m\n"
+            + "\n"
+            + "Live mutants on 1 line in 1 file."
+            + LIVE_FOOTER,
+        run(null, mutation("NO_COVERAGE", "A", "A.java", 1, "removed call"))
+            .render(DiffCoverageReport.Limits.NONE, List.of()));
+  }
+
+  @Test
   void theFileWithMoreLiveMutantsComesFirst() throws IOException {
     assertEquals(
         "Mutation testing of changed lines against origin/master (abc), all tests\n"
