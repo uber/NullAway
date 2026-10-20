@@ -1557,6 +1557,119 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void streamFilterLambdaInParenthesesRefinesTheMappedElement() {
+    streamChainCompilesCleanly("s.filter((b -> b.get() != null)).map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamMapLambdaInParenthesesSeesTheFilteredElement() {
+    streamChainCompilesCleanly("s.filter(b -> b.get() != null).map((b -> b.get().length()))");
+  }
+
+  @Test
+  public void streamFilterCallInParenthesesRefinesTheChainedMap() {
+    streamChainCompilesCleanly("(s.filter(b -> b.get() != null)).map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamCollectorInParenthesesSeesTheFilteredElement() {
+    streamChainCompilesCleanly(
+        "s.filter(b -> b.get() != null).collect((Collectors.toMap(b -> b.get().length(), b -> b)))");
+  }
+
+  @Test
+  public void streamCollectorLambdaInParenthesesSeesTheFilteredElement() {
+    streamChainCompilesCleanly(
+        "s.filter(b -> b.get() != null).collect(Collectors.toMap((b -> b.get().length()), b -> b))");
+  }
+
+  @Test
+  public void streamFilterReturningFalseInParenthesesRefinesTheMappedElement() {
+    streamChainCompilesCleanly(
+        "s.filter(b -> { if (b.get() == null) { return (false); } return true; })"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamFilterReturningTrueInParenthesesDoesNotRefineTheMappedElement() {
+    streamChainReportsNullableGet(
+        "s.filter(b -> { if (b.get() == null) { return (true); } return true; })"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamFilterCallInParenthesesWithoutANullCheckDoesNotRefineTheChainedMap() {
+    streamChainReportsNullableGet("(s.filter(b -> true)).map(b -> b.get().length())");
+  }
+
+  @Test
+  public void observableFilterLambdaInParenthesesRefinesTheMappedElement() {
+    streamChainCompilesCleanly("o.filter((b -> b.get() != null)).map(b -> b.get().length())");
+  }
+
+  @Test
+  public void observableMapLambdaInParenthesesSeesTheFilteredElement() {
+    streamChainCompilesCleanly("o.filter(b -> b.get() != null).map((b -> b.get().length()))");
+  }
+
+  @Test
+  public void observableFilterCallInParenthesesRefinesTheChainedMap() {
+    streamChainCompilesCleanly("(o.filter(b -> b.get() != null)).map(b -> b.get().length())");
+  }
+
+  @Test
+  public void observableMapLambdaInParenthesesWithoutAFilterReportsTheNullableElement() {
+    streamChainReportsNullableGet("o.map((b -> b.get().length()))");
+  }
+
+  /**
+   * Checks that NullAway reports nothing on {@code chain}, an expression over {@code s}, a {@code
+   * Stream<B>}, and {@code o}, an RxJava {@code Observable<B>}, where {@code B.get()} is
+   * {@code @Nullable}.
+   */
+  private void streamChainCompilesCleanly(String chain) {
+    compileStreamChain("", chain);
+  }
+
+  /**
+   * Checks that NullAway reports a dereference of the {@code @Nullable} {@code b.get()} in {@code
+   * chain}, an expression over the receivers {@link #streamChainCompilesCleanly} describes.
+   */
+  private void streamChainReportsNullableGet(String chain) {
+    compileStreamChain(
+        "// BUG: Diagnostic contains: dereferenced expression 'b.get()' is @Nullable", chain);
+  }
+
+  /**
+   * Compiles a method that returns {@code chain}, with {@code expectedDiagnostic} on the line above
+   * it.
+   */
+  private void compileStreamChain(String expectedDiagnostic, String chain) {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import io.reactivex.Observable;
+            import java.util.stream.Collectors;
+            import java.util.stream.Stream;
+            import javax.annotation.Nullable;
+            class Test {
+              static class B {
+                @Nullable String v;
+                @Nullable String get() { return v; }
+              }
+              Object test(Stream<B> s, Observable<B> o) {
+                %s
+                return %s;
+              }
+            }
+            """
+                .formatted(expectedDiagnostic, chain))
+        .doTest();
+  }
+
+  @Test
   public void supportObjectsIsNull() {
     defaultCompilationHelper
         .addSourceLines(
