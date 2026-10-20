@@ -892,7 +892,6 @@ public class NullAway extends BugChecker
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
     if (isOverriddenMethodAnnotated) {
-      boolean overriddenMethodIsVarArgs = overriddenMethod.isVarArgs();
       for (int i = 0; i < superParamSymbols.size(); i++) {
         Nullness paramNullness;
         Type modeledParameterType =
@@ -903,7 +902,7 @@ public class NullAway extends BugChecker
             && Nullness.hasNullableAnnotation(
                 modeledParameterType.getAnnotationMirrors().stream(), config)) {
           paramNullness = Nullness.NULLABLE;
-        } else if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
+        } else if (isVarargsPosition(overriddenMethod, i)) {
           // For a varargs position, we need to check if the array itself is @Nullable
           paramNullness =
               Nullness.varargsArrayIsNullable(superParamSymbols.get(i), config)
@@ -927,7 +926,11 @@ public class NullAway extends BugChecker
         } else {
           paramNullness = Nullness.NONNULL;
         }
-        overriddenMethodArgumentNullness.setParameterNullness(i, paramNullness);
+        if (isVarargsPosition(overriddenMethod, i)) {
+          overriddenMethodArgumentNullness.setVarargsArrayNullness(paramNullness);
+        } else {
+          overriddenMethodArgumentNullness.setParameterNullness(i, paramNullness);
+        }
       }
     }
 
@@ -945,7 +948,8 @@ public class NullAway extends BugChecker
     // SomeFunc<String> and thus incompatible with, for example, SomeFunc.apply(@Nullable T).
     if (unboundMemberRef
         && Objects.equals(
-            overriddenMethodArgumentNullness.getParameterNullness(0), Nullness.NULLABLE)) {
+            overriddenParameterNullness(overriddenMethod, overriddenMethodArgumentNullness, 0),
+            Nullness.NULLABLE)) {
       String message =
           "unbound instance method reference cannot be used, as first parameter of "
               + "functional interface method "
@@ -967,7 +971,7 @@ public class NullAway extends BugChecker
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
       Nullness overriddenParameterNullness =
-          overriddenMethodArgumentNullness.getParameterNullness(i);
+          overriddenParameterNullness(overriddenMethod, overriddenMethodArgumentNullness, i);
       if (!Objects.equals(overriddenParameterNullness, Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridden by a @NonNull arg.
@@ -1031,6 +1035,29 @@ public class NullAway extends BugChecker
       }
     }
     return Description.NO_MATCH;
+  }
+
+  /**
+   * Returns the nullness an overriding method receives at a parameter position of the overridden
+   * method. At the varargs position the overriding method receives the array itself, so this is the
+   * nullness of the varargs array rather than of its elements.
+   *
+   * @param overriddenMethod method being overridden
+   * @param overriddenMethodArgumentNullness parameter nullness of the overridden method
+   * @param index parameter position in the overridden method
+   * @return the nullness at {@code index}, or {@code null} if it is unknown
+   */
+  private static @Nullable Nullness overriddenParameterNullness(
+      Symbol.MethodSymbol overriddenMethod,
+      MethodParameterNullness overriddenMethodArgumentNullness,
+      int index) {
+    return isVarargsPosition(overriddenMethod, index)
+        ? overriddenMethodArgumentNullness.getVarargsArrayNullness()
+        : overriddenMethodArgumentNullness.getParameterNullness(index);
+  }
+
+  private static boolean isVarargsPosition(Symbol.MethodSymbol method, int index) {
+    return method.isVarArgs() && index == method.getParameters().size() - 1;
   }
 
   /**
@@ -1241,9 +1268,9 @@ public class NullAway extends BugChecker
     }
     handler.onMatchLambdaExpression(
         tree, new MethodAnalysisContext(this, state, funcInterfaceMethod));
-    if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
-      return Description.NO_MATCH;
-    }
+    // Parameters are checked even when the functional interface method is unannotated, as for an
+    // overriding method or a method reference, since handlers such as RestrictiveAnnotationHandler
+    // may mark its parameters @Nullable
     Description description =
         checkParamOverriding(
             tree.getParameters().stream().map(ASTHelpers::getSymbol).collect(Collectors.toList()),
@@ -1255,6 +1282,9 @@ public class NullAway extends BugChecker
             /* overridingMethod= */ null);
     if (!description.equals(Description.NO_MATCH)) {
       state.reportMatch(description);
+    }
+    if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
+      return Description.NO_MATCH;
     }
     // if the body has a return statement, that gets checked in matchReturn().  We need this code
     // for lambdas with expression bodies
