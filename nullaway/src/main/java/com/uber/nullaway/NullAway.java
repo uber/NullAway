@@ -1066,7 +1066,8 @@ public class NullAway extends BugChecker
    *
    * @param paramSymbol the symbol for the parameter of the overriding method
    * @param methodParamInd the index of the parameter in the method signature of the overriding
-   *     method (adjusted for unbound member references)
+   *     method, adjusted for unbound member references; for a member reference that passes varargs
+   *     individually, a position past the last parameter is mapped to the varargs parameter
    * @param overridingMethod if available, the symbol for the overriding method
    * @param isMethodAnnotated whether the overriding method is annotated
    * @param memberReferenceTree if the overriding method is a member reference, the tree for the
@@ -1121,9 +1122,7 @@ public class NullAway extends BugChecker
       // of the member reference after handling generics
       com.sun.tools.javac.util.List<Type> parameterTypes =
           memberReferenceMethodType.getParameterTypes();
-      int memberRefParamIndex =
-          getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree);
-      Type paramType = parameterTypes.get(memberRefParamIndex);
+      Type paramType = parameterTypes.get(methodParamInd);
       // if we have a method reference to a varargs method where varargs are passed individually
       // (not as an array), and this parameter is the varargs
       // parameter, then we need to check the nullability of the varargs element type

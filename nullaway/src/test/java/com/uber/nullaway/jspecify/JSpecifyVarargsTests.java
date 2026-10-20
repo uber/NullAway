@@ -841,14 +841,14 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               @NullUnmarked
               static void nonNullArray(Object @NonNull ... inputs) {}
               void test() {
-                UnmarkedNullableArrayFi u1 = Test::nonNullElementsNullableArray;
-                UnmarkedNullableArrayFi u2 = Test::nonNullElements;
+                UnmarkedNullableArrayFi unmarkedNullableArray = Test::nonNullElementsNullableArray;
+                UnmarkedNullableArrayFi unmarkedNonNullElements = Test::nonNullElements;
                 // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
-                UnmarkedNullableArrayFi u3 = Test::nonNullArray;
-                NullableArrayFi m1 = Test::nonNullElementsNullableArray;
-                NullableArrayFi m2 = Test::nonNullElements;
+                UnmarkedNullableArrayFi unmarkedNonNullArray = Test::nonNullArray;
+                NullableArrayFi markedNullableArray = Test::nonNullElementsNullableArray;
+                NullableArrayFi markedNonNullElements = Test::nonNullElements;
                 // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
-                NullableArrayFi m3 = Test::nonNullArray;
+                NullableArrayFi markedNonNullArray = Test::nonNullArray;
               }
             }
             """)
@@ -878,11 +878,46 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               static void takeNullable(@Nullable Object... values) {}
               void test() {
                 // BUG: Diagnostic contains: parameter values of referenced method is @NonNull
-                UnmarkedNullableArrayFi u1 = Test::take;
-                UnmarkedNullableArrayFi u2 = Test::takeNullable;
+                UnmarkedNullableArrayFi unmarkedNonNullElements = Test::take;
+                UnmarkedNullableArrayFi unmarkedNullableElements = Test::takeNullable;
                 // BUG: Diagnostic contains: parameter values of referenced method is @NonNull
-                NullableSecondFi m1 = Test::take;
-                NullableSecondFi m2 = Test::takeNullable;
+                NullableSecondFi markedNonNullElements = Test::take;
+                NullableSecondFi markedNullableElements = Test::takeNullable;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundVarargsMethodRefSkipsReceiverPosition() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NullableArrayFi {
+                @NullUnmarked
+                void apply(Test receiver, Object @Nullable ... inputs);
+              }
+              interface NullableTrailingFi {
+                void apply(Test receiver, Object first, @Nullable Object second);
+              }
+              void take(Object... inputs) {}
+              void takeNullableArray(Object @Nullable ... inputs) {}
+              void takeNullableElements(@Nullable Object... inputs) {}
+              void test() {
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi nonNullArray = Test::take;
+                NullableArrayFi nullableArray = Test::takeNullableArray;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableTrailingFi nonNullElements = Test::take;
+                NullableTrailingFi nullableElements = Test::takeNullableElements;
               }
             }
             """)
