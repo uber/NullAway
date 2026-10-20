@@ -142,6 +142,32 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void optionalOrElseGetWithCapturedReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static <T> Optional<T> identity(Optional<T> optional) {
+                return optional;
+              }
+
+              void test(Optional<? extends String> optional) {
+                // Generic inference captures the wildcard before the PolyNull model is applied.
+                var result = identity(optional).orElseGet(() -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void optionalOrElseGetUsesFieldAssignmentTarget() {
     makeHelper()
         .addSourceLines(
