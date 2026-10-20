@@ -225,7 +225,8 @@ public class LibraryModelsHandler implements Handler {
    * reference, add one to each index to skip the functional interface method's receiver parameter.
    *
    * <p>A determining parameter with a declaration-level {@code @Nullable} annotation produces
-   * {@code HINT_NULLABLE}. In JSpecify mode, a nullable substituted parameter type does too.
+   * {@code HINT_NULLABLE}. In JSpecify mode, a nullable substituted parameter type does too, using
+   * effective upper bounds for wildcards and captured wildcards when wildcard support is enabled.
    * Otherwise, parameters are treated as non-null, except that a type variable with a nullable
    * upper bound leaves its nullness unresolved unless its use is explicitly {@code @NonNull}.
    *
@@ -255,9 +256,11 @@ public class LibraryModelsHandler implements Handler {
         return NullnessHint.UNKNOWN;
       }
       NullnessHint valueHint =
-          getTypeNullnessHint(
+          GenericsChecks.getTypeNullnessHint(
               GenericsUtils.effectiveWildcardUpperBound(valueType, state, config, mainHandler),
-              state);
+              state,
+              config,
+              mainHandler);
       if (valueHint.equals(NullnessHint.HINT_NULLABLE)) {
         return NullnessHint.HINT_NULLABLE;
       }
@@ -284,29 +287,14 @@ public class LibraryModelsHandler implements Handler {
         continue;
       }
       NullnessHint parameterHint =
-          getTypeNullnessHint(functionalParameterTypes.get(functionalParameterIndex), state);
+          GenericsChecks.getTypeNullnessHint(
+              functionalParameterTypes.get(functionalParameterIndex), state, config, mainHandler);
       if (parameterHint.equals(NullnessHint.HINT_NULLABLE)) {
         return NullnessHint.HINT_NULLABLE;
       }
       hasUnknownParameterNullness |= parameterHint.equals(NullnessHint.UNKNOWN);
     }
     return hasUnknownParameterNullness ? NullnessHint.UNKNOWN : NullnessHint.FORCE_NONNULL;
-  }
-
-  /**
-   * Determines whether a substituted input type guarantees a non-null value. A type variable with a
-   * nullable upper bound leaves its nullness unresolved unless its use is explicitly non-null.
-   */
-  private NullnessHint getTypeNullnessHint(Type type, VisitorState state) {
-    if (Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config)) {
-      return NullnessHint.HINT_NULLABLE;
-    }
-    if (type instanceof Type.TypeVar typeVar
-        && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
-        && GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, mainHandler, state)) {
-      return NullnessHint.UNKNOWN;
-    }
-    return NullnessHint.FORCE_NONNULL;
   }
 
   @Override

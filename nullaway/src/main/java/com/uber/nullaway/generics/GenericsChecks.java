@@ -59,6 +59,7 @@ import com.uber.nullaway.dataflow.NullnessStore;
 import com.uber.nullaway.generics.ConstraintSolver.UnsatisfiableConstraintsException;
 import com.uber.nullaway.generics.GenericsUtils.MethodRefTypeRelationKind;
 import com.uber.nullaway.handlers.Handler;
+import com.uber.nullaway.handlers.Handler.NullnessHint;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.IdentityHashMap;
@@ -1210,7 +1211,7 @@ public final class GenericsChecks {
     return elementType == null
         ? Nullness.NONNULL
         : getTypeNullnessForRead(
-            elementType, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
+            elementType, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ true);
   }
 
   /**
@@ -3179,7 +3180,7 @@ public final class GenericsChecks {
       // If this condition evaluates to false, we fall through to the subsequent logic, to handle
       // type variables declared on the enclosing class
       if (substitutedReturnType != null
-          && Objects.equals(getTypeNullness(substitutedReturnType), Nullness.NULLABLE)) {
+          && Objects.equals(getTypeNullness(substitutedReturnType, config), Nullness.NULLABLE)) {
         return Nullness.NULLABLE;
       }
     }
@@ -3810,18 +3811,19 @@ public final class GenericsChecks {
       if (config.handleWildcardGenerics()) {
         Type.WildcardType wildcardType = GenericsUtils.asWildcard(type);
         if (wildcardType != null && wildcardType.kind == BoundKind.SUPER) {
-          return getTypeNullness(castToNonNull(wildcardType.getSuperBound()));
+          return getTypeNullness(castToNonNull(wildcardType.getSuperBound()), config);
         }
       }
-      return getTypeNullness(type);
+      return getTypeNullness(type, config);
     }
   }
 
   /**
    * @param type A type for which we need the Nullness.
+   * @param config NullAway configuration
    * @return Returns the Nullness of the type based on the Nullability annotation.
    */
-  private Nullness getTypeNullness(Type type) {
+  private static Nullness getTypeNullness(Type type, Config config) {
     boolean hasNullableAnnotation =
         Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
     if (hasNullableAnnotation) {
@@ -3841,7 +3843,35 @@ public final class GenericsChecks {
    * @return nullness of a value read from {@code type}
    */
   private Nullness getTypeNullnessForRead(Type type, VisitorState state) {
-    return getTypeNullnessForRead(type, state, /* followUnsubstitutedTypeVarUpperBound= */ false);
+    return getTypeNullnessForRead(
+        type, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ false);
+  }
+
+  /**
+   * Determines whether a substituted input type guarantees a non-null value. Wildcards and captured
+   * wildcards use the nullness of their effective upper bound. An unsubstituted type variable with
+   * a nullable upper bound leaves its nullness unresolved unless its use is explicitly non-null.
+   *
+   * @param type substituted input type
+   * @param state visitor state
+   * @param config NullAway configuration
+   * @param handler NullAway extension handler
+   * @return a nullable or non-null hint, or {@link NullnessHint#UNKNOWN} for unresolved type
+   *     variables
+   */
+  public static NullnessHint getTypeNullnessHint(
+      Type type, VisitorState state, Config config, Handler handler) {
+    if (getTypeNullnessForRead(
+            type, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ false)
+        .equals(Nullness.NULLABLE)) {
+      return NullnessHint.HINT_NULLABLE;
+    }
+    if (type instanceof Type.TypeVar typeVar
+        && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
+        && GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, handler, state)) {
+      return NullnessHint.UNKNOWN;
+    }
+    return NullnessHint.FORCE_NONNULL;
   }
 
   /**
@@ -3850,26 +3880,36 @@ public final class GenericsChecks {
    *
    * @param type type from which a value is read
    * @param state visitor state
+   * @param config NullAway configuration
+   * @param handler NullAway extension handler
    * @param followUnsubstitutedTypeVarUpperBound whether to use the upper bound when {@code type} is
    *     an unsubstituted type variable
    * @return nullness of a value read from {@code type}
    */
-  private Nullness getTypeNullnessForRead(
-      Type type, VisitorState state, boolean followUnsubstitutedTypeVarUpperBound) {
-    if (getTypeNullness(type).equals(Nullness.NULLABLE)) {
+  private static Nullness getTypeNullnessForRead(
+      Type type,
+      VisitorState state,
+      Config config,
+      Handler handler,
+      boolean followUnsubstitutedTypeVarUpperBound) {
+    if (getTypeNullness(type, config).equals(Nullness.NULLABLE)) {
       return Nullness.NULLABLE;
     }
     if (config.handleWildcardGenerics() && GenericsUtils.asWildcard(type) != null) {
       Type effectiveUpperBound =
           GenericsUtils.effectiveWildcardUpperBound(type, state, config, handler);
       return getTypeNullnessForRead(
-          effectiveUpperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
+          effectiveUpperBound,
+          state,
+          config,
+          handler,
+          /* followUnsubstitutedTypeVarUpperBound= */ true);
     }
     if (followUnsubstitutedTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
       Type upperBound = typeVar.getUpperBound();
       if (upperBound != null) {
         return getTypeNullnessForRead(
-            upperBound, state, /* followUnsubstitutedTypeVarUpperBound= */ true);
+            upperBound, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ true);
       }
     }
     return Nullness.NONNULL;

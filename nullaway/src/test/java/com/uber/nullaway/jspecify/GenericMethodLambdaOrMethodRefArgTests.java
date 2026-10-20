@@ -752,6 +752,47 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void classCastStreamPipelineInfersNullableWildcardElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Stream<? extends @Nullable Object> input) {
+                input.map(String.class::cast)
+                    // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                    .filter(s -> s.length() > 3);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastStreamPipelineInfersNonNullWildcardElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void test(Stream<? extends Object> input) {
+                input.map(String.class::cast).filter(s -> s.length() > 3);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void classCastMethodRefWithRawTarget() {
     makeHelper()
         .addSourceLines(
