@@ -776,6 +776,33 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void restrictiveAnnotationsVarargsLambdaNullableArrayIsChecked() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @FunctionalInterface
+              interface RestrictiveNullableVarargsFi {
+                @NullUnmarked
+                void apply(Object @Nullable ... inputs);
+              }
+              void test() {
+                RestrictiveNullableVarargsFi fi =
+                    // BUG: Diagnostic contains: parameter inputs is @NonNull, but parameter in functional interface method
+                    (Object[] inputs) -> {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
   /**
    * Tests that a conditional argument to the signature-polymorphic {@code MethodHandle.invoke} does
    * not cause a {@link ClassCastException} when javac adapts its varargs parameter to a non-array

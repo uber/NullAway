@@ -313,6 +313,53 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedLambdaPlusRestrictivePositive() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.RestrictivelyAnnotatedFI;
+            public class Test {
+              void foo() {
+                // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface method
+                RestrictivelyAnnotatedFI func = (Object x) -> new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedLambdaPlusRestrictiveNegative() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.RestrictivelyAnnotatedFI;
+            public class Test {
+              void foo() {
+                // no error since AcknowledgeRestrictiveAnnotations disabled
+                RestrictivelyAnnotatedFI func = (Object x) -> new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void annotatedVsUnannotatedMethodRefOverrideChecks() {
     makeTestHelperWithArgs(
             Arrays.asList(
