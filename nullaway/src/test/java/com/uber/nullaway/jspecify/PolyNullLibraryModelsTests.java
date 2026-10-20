@@ -46,6 +46,38 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void builtInPolyNullModelsAreDisabledWithoutExperimentalOptIn() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
+                "-XepOpt:NullAway:JSpecifyJDKModels=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void test(Map<String, String> map, Optional<String> optional) {
+                // Without PolyNull, the JDK model rejects this nullable callback result.
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                map.computeIfAbsent("key", unused -> null);
+                // The legacy dataflow rule treats the inferred Function result as non-null.
+                map.get("key").hashCode();
+
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> null)' is @Nullable
+                optional.orElseGet(() -> null).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void polyNullModelsDoNotRequireJSpecifyJdkModels() {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
