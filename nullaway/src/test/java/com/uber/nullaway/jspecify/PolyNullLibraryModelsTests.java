@@ -136,6 +136,27 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
                 result.hashCode();
               }
+
+              void unbounded(Optional<?> optional) {
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> null)' is @Nullable
+                optional.orElseGet(() -> null).hashCode();
+                optional.get().hashCode();
+
+                var result = optional.orElseGet(() -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+
+              void lowerBounded(Optional<? super String> optional) {
+                // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> null)' is @Nullable
+                optional.orElseGet(() -> null).hashCode();
+                optional.get().hashCode();
+                optional.orElseGet(() -> "value").hashCode();
+
+                var result = optional.orElseGet(() -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
             }
             """)
         .doTest();
@@ -161,6 +182,19 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 var result = identity(optional).orElseGet(() -> null);
                 // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
                 result.hashCode();
+              }
+
+              void unbounded(Optional<?> optional) {
+                // BUG: Diagnostic contains: dereferenced expression 'identity(optional).orElseGet(() -> null)' is @Nullable
+                identity(optional).orElseGet(() -> null).hashCode();
+                optional.get().hashCode();
+              }
+
+              void lowerBounded(Optional<? super String> optional) {
+                // BUG: Diagnostic contains: dereferenced expression 'identity(optional).orElseGet(() -> null)' is @Nullable
+                identity(optional).orElseGet(() -> null).hashCode();
+                optional.get().hashCode();
+                identity(optional).orElseGet(() -> "value").hashCode();
               }
             }
             """)
@@ -260,6 +294,59 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 var result = map.computeIfAbsent("key", unused -> null);
                 // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
                 result.hashCode();
+              }
+
+              void unbounded(Map<String, ?> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", unused -> null)' is @Nullable
+                map.computeIfAbsent("key", unused -> null).hashCode();
+
+                var result = map.computeIfAbsent("key", unused -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+
+              void lowerBounded(Map<String, ? super String> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", unused -> null)' is @Nullable
+                map.computeIfAbsent("key", unused -> null).hashCode();
+
+                var result = map.computeIfAbsent("key", unused -> null);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+
+                map.computeIfAbsent("nonNull", unused -> "value").hashCode();
+                // A non-null result does not establish that another key maps to a non-null value.
+                // BUG: Diagnostic contains: dereferenced expression
+                map.get("other").hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapComputeIfAbsentWithCapturedReceiver() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static <V extends @Nullable Object> Map<String, V> identity(Map<String, V> map) {
+                return map;
+              }
+
+              void test(Map<String, ? super String> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'identity(map).computeIfAbsent("nullable", unused -> null)' is @Nullable
+                identity(map).computeIfAbsent("nullable", unused -> null).hashCode();
+                identity(map).computeIfAbsent("nonNull", unused -> "value").hashCode();
+
+                // Neither call establishes that another key maps to a non-null value.
+                // BUG: Diagnostic contains: dereferenced expression
+                map.get("other").hashCode();
               }
             }
             """)

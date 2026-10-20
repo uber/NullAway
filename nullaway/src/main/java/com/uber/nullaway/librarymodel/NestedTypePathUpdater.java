@@ -111,15 +111,23 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
   @Override
   public Type visitWildcardType(Type.WildcardType t, Integer pathIndex) {
     if (pathIndex == typePath.size()) {
-      // Member-type substitution can replace a modeled type variable with an extends wildcard.
-      // For ADD_ANNOTATION, annotate a copy of its upper bound: reads use the bound's nullness,
-      // and annotations directly on wildcards are not legal under JSpecify. Other wildcard kinds
-      // remain unchanged. REPLACE_TYPE replaces the entire wildcard.
-      if (updateKind == UpdateKind.ADD_ANNOTATION && t.kind == BoundKind.EXTENDS) {
+      // Member-type substitution can replace a modeled type variable with a wildcard. Annotate
+      // a copy of its upper bound: reads use the bound's nullness, and annotations directly on
+      // wildcards are not legal under JSpecify. REPLACE_TYPE replaces the entire wildcard.
+      if (updateKind == UpdateKind.REPLACE_TYPE) {
+        return updateLeaf(t);
+      }
+      if (t.kind == BoundKind.EXTENDS) {
         return TYPE_METADATA_BUILDER.createWildcardType(
             t, TypeSubstitutionUtils.typeWithAnnot(t.type, annotationOrReplacementType));
       }
-      return updateKind == UpdateKind.ADD_ANNOTATION ? t : updateLeaf(t);
+      Type.TypeVar formalTypeVariable =
+          Verify.verifyNotNull(t.bound, "wildcard has no corresponding formal type variable");
+      Type updatedUpperBound =
+          TypeSubstitutionUtils.typeWithAnnot(
+              formalTypeVariable.getUpperBound(), annotationOrReplacementType);
+      return TypeSubstitutionUtils.replaceImplicitWildcardUpperBound(
+          t, formalTypeVariable, updatedUpperBound);
     }
     NestedAnnotationInfo.TypePathEntry entry = typePath.get(pathIndex);
     if (entry.kind() != NestedAnnotationInfo.TypePathEntry.Kind.WILDCARD_BOUND) {
@@ -155,8 +163,8 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
    * Updates a captured type while preserving its backing wildcard when adding an annotation.
    *
    * <p>javac represents a captured wildcard as a type variable plus its original wildcard.
-   * NullAway's effective-bound computations inspect the backing wildcard, so annotating only the
-   * capture is insufficient: annotation updates must also be reflected in that wildcard.
+   * NullAway's effective-bound computations inspect both the structural upper bound and the backing
+   * wildcard, so annotation updates must be reflected in both.
    */
   @Override
   public Type visitCapturedType(Type.CapturedType t, Integer pathIndex) {
@@ -176,20 +184,19 @@ public final class NestedTypePathUpdater extends Types.MapVisitor<Integer> {
       updatedWildcard = (Type.WildcardType) wildcard.accept(this, pathIndex);
     } else {
       Verify.verify(pathIndex == typePath.size(), "path index out of bounds");
-      if (wildcard.kind == BoundKind.UNBOUND) {
-        Type.TypeVar formalTypeVariable =
-            Verify.verifyNotNull(
-                wildcard.bound, "unbounded wildcard has no corresponding formal type variable");
-        Type updatedUpperBound =
-            TypeSubstitutionUtils.typeWithAnnot(
-                formalTypeVariable.getUpperBound(), annotationOrReplacementType);
-        updatedWildcard =
-            TypeSubstitutionUtils.replaceUnboundedWildcardUpperBound(wildcard, updatedUpperBound);
-      } else {
+      Type updatedUpperBound =
+          TypeSubstitutionUtils.typeWithAnnot(t.getUpperBound(), annotationOrReplacementType);
+      if (wildcard.kind == BoundKind.EXTENDS) {
         Type updatedBound =
             TypeSubstitutionUtils.typeWithAnnot(wildcard.type, annotationOrReplacementType);
         updatedWildcard = TYPE_METADATA_BUILDER.createWildcardType(wildcard, updatedBound);
+      } else {
+        // The capture supplies the resolved upper bound, including receiver substitutions.
+        updatedWildcard =
+            TypeSubstitutionUtils.replaceImplicitWildcardUpperBound(wildcard, t, updatedUpperBound);
       }
+      return TYPE_METADATA_BUILDER.createDetachedCapturedType(
+          t, updatedWildcard, updatedUpperBound);
     }
     if (updatedWildcard == t.wildcard) {
       return t;
