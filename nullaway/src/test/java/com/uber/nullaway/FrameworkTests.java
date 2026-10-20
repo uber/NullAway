@@ -1567,6 +1567,21 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void streamFilterAnonymousClassInParenthesesRefinesTheMappedElement() {
+    streamChainCompilesCleanly(
+        "s.filter((new java.util.function.Predicate<B>() {"
+            + " public boolean test(B b) { return b.get() != null; } }))"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamMapAnonymousClassInParenthesesSeesTheFilteredElement() {
+    streamChainCompilesCleanly(
+        "s.filter(b -> b.get() != null).map((new java.util.function.Function<B, Integer>() {"
+            + " public Integer apply(B b) { return b.get().length(); } }))");
+  }
+
+  @Test
   public void streamFilterCallInParenthesesRefinesTheChainedMap() {
     streamChainCompilesCleanly("(s.filter(b -> b.get() != null)).map(b -> b.get().length())");
   }
