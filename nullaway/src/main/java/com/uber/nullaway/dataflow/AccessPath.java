@@ -275,8 +275,19 @@ public final class AccessPath implements MapKey {
     return fromMapGetCall(node, state, apContext);
   }
 
+  /**
+   * Strips the casts to reference types wrapped around a node.
+   *
+   * <p>A cast to a reference type yields the reference it was given, or throws, so the cast and its
+   * operand share an access path. A cast to a primitive type is kept, because it can change the
+   * value: for a {@code long l}, {@code (int) l} and {@code l} box to different map keys.
+   *
+   * @param node a node
+   * @return {@code node} with every enclosing cast to a reference type removed
+   */
   private static Node stripCasts(Node node) {
-    while (node instanceof TypeCastNode typeCastNode) {
+    while (node instanceof TypeCastNode typeCastNode
+        && !typeCastNode.getType().getKind().isPrimitive()) {
       node = typeCastNode.getOperand();
     }
     return node;
@@ -331,6 +342,9 @@ public final class AccessPath implements MapKey {
    * Gets corresponding AccessPath for node, if it exists. Handles calls to <code>Map.get()
    * </code>
    *
+   * <p>A cast to a reference type has the access path of its operand; a cast to a primitive type
+   * has none.
+   *
    * @param node AST node
    * @param state the visitor state
    * @param apContext the current access path context information (see {@link
@@ -339,6 +353,7 @@ public final class AccessPath implements MapKey {
    */
   public static @Nullable AccessPath getAccessPathForNode(
       Node node, VisitorState state, AccessPathContext apContext) {
+    node = stripCasts(node);
     if (node instanceof LocalVariableNode localVariableNode) {
       return fromLocal(localVariableNode);
     } else if (node instanceof FieldAccessNode fieldAccessNode) {
