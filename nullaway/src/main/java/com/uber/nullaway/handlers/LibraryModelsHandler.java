@@ -1126,10 +1126,6 @@ public class LibraryModelsHandler implements Handler {
             .add(methodRef("android.webkit.WebView", "getUrl()"))
             .add(methodRef("android.widget.TextView", "getLayout()"))
             .add(methodRef("java.util.Optional", "orElse(T)"))
-            // https://github.com/uber/NullAway/issues/1616
-            // .add(
-            //    methodRef(
-            //        "java.util.Optional", "orElseGet(java.util.function.Supplier<? extends T>)"))
             .add(methodRef("java.lang.System", "console()"))
             .build();
 
