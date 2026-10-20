@@ -581,6 +581,34 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedPolyNullResultAffectsOuterInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> T identity(T value) {
+                return value;
+              }
+
+              void test(String nonNull, @Nullable String nullable) {
+                // The modeled return is Object, so only the joint PolyNull constraints can
+                // propagate its nullable result into identity's inferred type argument.
+                var result = identity(PolyNullMethods.genericObject(nonNull, () -> nullable));
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void repeatedGenericPolyNullCallsAreInferredSeparately() {
     makeHelper()
         .addSourceLines(
