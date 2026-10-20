@@ -360,6 +360,51 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varargsOverrideOfRestrictiveMethodUsesArrayNullness() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Unannotated.java",
+            """
+            package com.example;
+            public class Unannotated {
+              public interface NullableElements {
+                void apply(@javax.annotation.Nullable Object... inputs);
+              }
+              public interface NullableArray {
+                void apply(Object @org.jspecify.annotations.Nullable ... inputs);
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.example.Unannotated;
+            public class Test {
+              void foo() {
+                Unannotated.NullableElements elements =
+                    new Unannotated.NullableElements() {
+                      @Override
+                      public void apply(Object... inputs) {}
+                    };
+                Unannotated.NullableArray array =
+                    new Unannotated.NullableArray() {
+                      @Override
+                      // BUG: Diagnostic contains: parameter inputs is @NonNull, but parameter in superclass method
+                      public void apply(Object... inputs) {}
+                    };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void annotatedVsUnannotatedMethodRefOverrideChecks() {
     makeTestHelperWithArgs(
             Arrays.asList(
