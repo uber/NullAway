@@ -1,0 +1,85 @@
+/*
+ * Copyright (C) 2026. Uber Technologies
+ *
+ * Licensed under the Apache License, Version 2.0 (the "License");
+ * you may not use this file except in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ *    http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing, software
+ * distributed under the License is distributed on an "AS IS" BASIS,
+ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+ * See the License for the specific language governing permissions and
+ * limitations under the License.
+ */
+
+// Registers pitestDiff, which runs PIT over the lines this branch changed in the module's main
+// sources.  nullaway.java-test-conventions applies it after registering changedLines, which counts
+// changed lines the way diffCoverage does; in a module without main sources the task is always
+// skipped.
+def changedLines = tasks.named("changedLines", com.uber.nullaway.gradle.ChangedLinesTask)
+
+// Mutation testing of the lines this branch changed.  PIT runs the module's tests against copies of
+// the main classes with one instruction changed, and a mutant that no test notices marks a changed
+// line whose behavior no test asserts.  The interceptor from buildSrc drops every mutant outside the
+// changed lines before PIT assigns tests to it, so the cost is one coverage pass over the tests plus
+// a partial pass per mutant on a changed line.  It runs only on request.
+configurations {
+    pitest {
+        canBeConsumed = false
+        canBeResolved = true
+    }
+}
+
+dependencies {
+    pitest versionCatalogs.named("libs").findLibrary("pitest-command-line").get()
+}
+
+tasks.register("pitestDiff", com.uber.nullaway.gradle.PitestDiffTask) {
+    description = "Runs PIT mutation testing over the lines this branch changed"
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+
+    // The settings of the test task are read here, while pitestDiff is configured: a provider
+    // derived from the test task's provider would make pitestDiff run the whole test suite first.
+    def test = tasks.getByName("test")
+    testJvmArgs = providers.provider {
+        com.uber.nullaway.gradle.PitestJvmArgs.of(test.jvmArgs, test.systemProperties, test.maxHeapSize)
+    }
+    // PIT runs the tests on the JVM the `test` task runs them on.
+    javaLauncher = test.javaLauncher
+
+    // The jar of buildSrc carries the changed-lines interceptor and the mutants listener.
+    pitestClasspath.from(configurations.pitest)
+    pitestClasspath.from(com.uber.nullaway.gradle.ChangedLinesFile.protectionDomain.codeSource.location)
+    changedLinesFile = changedLines.flatMap { it.outputFile }
+    testRuntimeClasspath.from(sourceSets.test.runtimeClasspath)
+    mainClassesDirs.from(sourceSets.main.output.classesDirs)
+    mainSourceDirs.from(sourceSets.main.java.srcDirs)
+    reportDir = layout.buildDirectory.dir("reports/pitest-diff")
+    repositoryRoot = rootProject.layout.projectDirectory
+
+    targetTests = providers.gradleProperty("pitestTargetTests")
+    mutators = providers.gradleProperty("pitestMutators").orElse("DEFAULTS")
+    threads = providers.gradleProperty("pitestThreads").map {
+        Integer.parseInt(it)
+    }
+    .orElse(Math.max(1, Runtime.runtime.availableProcessors().intdiv(2)))
+    maxFiles = providers.gradleProperty("pitestMaxFiles").map {
+        Integer.parseInt(it)
+    }.orElse(10)
+    // A change usually lives in one or two files, so one file may take most of the 50 lines.
+    maxLinesPerFile = providers.gradleProperty("pitestMaxLinesPerFile").map {
+        Integer.parseInt(it)
+    }.orElse(20)
+    maxLines = providers.gradleProperty("pitestMaxLines").map {
+        Integer.parseInt(it)
+    }.orElse(50)
+    showAll = providers.gradleProperty("pitestShowAll")
+            .map { it.isEmpty() || Boolean.parseBoolean(it) }
+            .orElse(false)
+
+    onlyIf("the branch changed lines of a class in the main sources of this module") {
+        it.hasTargetClasses()
+    }
+}

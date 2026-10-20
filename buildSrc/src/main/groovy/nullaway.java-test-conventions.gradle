@@ -64,8 +64,8 @@ def diffCoverageEnabled = providers.gradleProperty("diffCoverageEnabled")
 
 tasks.withType(Test).configureEach { testTask ->
     def instrumented = enableJacoco
-    .orElse(diffCoverageEnabled.get() && testTask.name == "test")
-    .get()
+            .orElse(diffCoverageEnabled.get() && testTask.name == "test")
+            .get()
     testTask.extensions.configure(JacocoTaskExtension) { jacocoExtension ->
         jacocoExtension.enabled = instrumented
     }
@@ -93,17 +93,24 @@ gradle.sharedServices.registerIfAbsent(com.uber.nullaway.gradle.DiffCoverageTask
     parameters.repositoryRoot = rootProject.layout.projectDirectory
 }
 
+// -PdiffBase=<ref> names the base for every report about this branch's changes: diff coverage and
+// diff mutation testing count the same lines as changed.
+def diffBase = providers.gradleProperty("diffBase")
+
+// The main source roots relative to the repository root, the form git diff prints paths in.
+def mainSourceRoots = providers.provider {
+    sourceSets.main.java.srcDirs.collect {
+        rootDir.toPath().relativize(it.toPath()).toString()
+    }
+}
+
 def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffCoverageTask) {
     description = "Reports which of the lines this branch changed the last test run executed"
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     reportFiles.from(tasks.named("jacocoTestReport").map {
         it.reports.xml.outputLocation
     })
-    sourceRoots.set(providers.provider {
-        sourceSets.main.java.srcDirs.collect {
-            rootDir.toPath().relativize(it.toPath()).toString()
-        }
-    })
+    sourceRoots.set(mainSourceRoots)
     // A filtered run leaves the rest of the change looking unexecuted, so the scope is printed
     // beside the counts rather than left for the reader to remember.
     def testFilterPatterns = providers.provider {
@@ -133,7 +140,7 @@ def diffCoverage = tasks.register("diffCoverage", com.uber.nullaway.gradle.DiffC
             .map { it.isEmpty() || Boolean.parseBoolean(it) }
             .orElse(false)
     outputFile = layout.buildDirectory.file("reports/diff-coverage/test.txt")
-    baseRef = providers.gradleProperty("diffBase")
+    baseRef = diffBase
 }
 
 // The automatic report is a local affordance, so it is wired only where nobody asked for a
@@ -145,6 +152,17 @@ if (!enableJacoco.isPresent() && diffCoverageEnabled.get()) {
         finalizedBy(diffCoverage)
     }
 }
+
+// The lines pitestDiff mutates, from the same base ref and source roots as diffCoverage.
+tasks.register("changedLines", com.uber.nullaway.gradle.ChangedLinesTask) {
+    description = "Writes the lines this branch changed in the main sources, for pitestDiff"
+    sourceRoots.set(mainSourceRoots)
+    baseRef = diffBase
+    outputFile = layout.buildDirectory.file("diff/changed-lines.txt")
+}
+
+// Applied here rather than in the plugins block, which runs before changedLines is registered.
+pluginManager.apply("nullaway.pitest-diff")
 
 configurations {
     // A configuration holding the jars for the Error Prone version to use when testing with JDK 17
@@ -240,8 +258,8 @@ configurations.named('coverageDataElementsForTest') {
         // tasks.named(...).map { } keeps the exec-file reference lazy and carries the
         // task dependency, so requesting the coverage data runs the JDK-specific tests.
         outgoing.artifact(
-        tasks.named(testTask.name).map { t ->
-            t.extensions.getByType(JacocoTaskExtension).destinationFile
-        })
+                tasks.named(testTask.name).map { t ->
+                    t.extensions.getByType(JacocoTaskExtension).destinationFile
+                })
     }
 }

@@ -8,11 +8,12 @@ auto-service = "1.1.1"
 google-java-format = "1.34.1"
 android-gradle-plugin = "9.4.1"
 gradle-maven-publish-plugin = "0.37.0"
-spotless = "8.10.3"
+spotless = "8.10.4"
 errorprone-plugin = "5.1.1"
 shadow = "9.6.1"
 jmh = "0.7.3"
 shellcheck = "1.5.1"
+pitest = "1.30.0"
 
 errorProne = "2.50.0"
 errorProneJdk17 = "2.42.0"
@@ -23,7 +24,7 @@ jakarta-annotations = "2.1.1"
 javax-inject = "1"
 gson = "2.14.0"
 guava = "31.1-jre"
-guava-latest = "33.7.1-jre"
+guava-latest = "33.7.2-jre"
 javax-validation = "2.0.1.Final"
 jspecify = "1.0.1"
 jackson = "3.2.3"
@@ -44,7 +45,7 @@ lombok = "1.18.48"
 spring-beans = "5.3.39"
 spring-context = "5.3.39"
 spring-webflux = "7.0.9"
-grpc-core = "1.84.0"
+grpc-core = "1.84.2"
 mockito = "5.24.0"
 javax-annotation = "1.3.2"
 assertj = "3.27.7"
@@ -96,6 +97,8 @@ appcompat = { module = "com.android.support:appcompat-v7", version.ref = "suppor
 
 # --- Test ---
 junit4 = { module = "junit:junit", version.ref = "junit4" }
+pitest-command-line = { module = "org.pitest:pitest-command-line", version.ref = "pitest" }
+pitest-entry = { module = "org.pitest:pitest-entry", version.ref = "pitest" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
 apiguardian = { module = "org.apiguardian:apiguardian-api", version.ref = "apiguardian" }
 jetbrains-annotations = { module = "org.jetbrains:annotations", version.ref = "jetbrains-annotations" }

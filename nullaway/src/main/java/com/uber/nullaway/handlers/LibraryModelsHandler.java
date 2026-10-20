@@ -62,6 +62,7 @@ import com.uber.nullaway.LibraryModels.PolyNullLocation.Receiver;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
@@ -241,6 +242,11 @@ public class LibraryModelsHandler implements Handler {
     if (!(expr instanceof MethodInvocationTree
         && exprSymbol instanceof Symbol.MethodSymbol methodSymbol)) {
       return exprMayBeNull;
+    }
+    // getOrDefault can return either a mapped value or the default. Let dataflow combine
+    // their nullness rather than assuming the default alone determines the result.
+    if (NullabilityUtil.isMapMethod(methodSymbol, state, "getOrDefault", 2)) {
+      return true;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
     // A model of a method's return nullness matches the exact signature when the method is
@@ -1094,7 +1100,6 @@ public class LibraryModelsHandler implements Handler {
             .put(methodRef("java.lang.Class", "cast(java.lang.Object)"), 0)
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
-            .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
             .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
             .build();
 
