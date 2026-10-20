@@ -53,6 +53,7 @@ import com.uber.nullaway.InvocationArguments;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.ResolvedMethodReference;
 import com.uber.nullaway.dataflow.AccessPathNullnessAnalysis;
 import com.uber.nullaway.dataflow.EnclosingEnvironmentNullness;
 import com.uber.nullaway.dataflow.NullnessStore;
@@ -80,9 +81,6 @@ import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
-
-  /** Types resolved for a method reference using its ground target type. */
-  public record ResolvedMethodReference(Type.MethodType methodType, @Nullable Type qualifierType) {}
 
   /** Marker interface for results of attempting to infer nullability of type variables at a call */
   private interface CallInferenceResult {}
@@ -247,14 +245,6 @@ public final class GenericsChecks {
     this.analysis = analysis;
     this.config = config;
     this.handler = handler;
-  }
-
-  Config getConfig() {
-    return config;
-  }
-
-  Handler getHandler() {
-    return handler;
   }
 
   /**
@@ -1836,51 +1826,60 @@ public final class GenericsChecks {
   }
 
   /**
-   * Resolves a method reference's method and qualifier types using its functional-interface target.
+   * Resolves a method reference's method and functional-interface types and return-nullness hint.
    *
    * <p>For an unbound reference to an instance method in a generic class, javac leaves the
    * qualifier as the generic declaration type. The functional-interface receiver supplies the type
    * arguments needed to instantiate that qualifier and, in turn, the referenced method type.
+   * Outside JSpecify mode, uses declared method types and leaves the qualifier type unavailable.
+   *
+   * <p>Raw targets and constructor references are not resolved. For varargs references, resolves
+   * the types but leaves the return-nullness hint unknown, since parameters may not line up
+   * one-to-one.
    *
    * @param memberReferenceTree the method reference tree
    * @param referencedMethod the symbol for the referenced method
    * @param targetType the functional-interface target type
    * @param state visitor state whose current path ends at {@code memberReferenceTree}
-   * @return the resolved types, or {@code null} if the method reference cannot be resolved
+   * @return the resolved method reference, or {@code null} for a raw target or constructor
+   *     reference
    */
   public @Nullable ResolvedMethodReference resolveMemberReference(
       MemberReferenceTree memberReferenceTree,
       Symbol.MethodSymbol referencedMethod,
       Type targetType,
       VisitorState state) {
-    if (!config.isJSpecifyMode() || targetType.isRaw() || referencedMethod.isConstructor()) {
+    if (targetType.isRaw() || referencedMethod.isConstructor()) {
       // TODO handle constructor references like Foo::new;
       //  https://github.com/uber/NullAway/issues/1468
       return null;
     }
-    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    Symbol.MethodSymbol functionalInterfaceMethod =
+        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
+    Type.MethodType functionalInterfaceMethodType =
+        config.isJSpecifyMode()
+            ? getFunctionalInterfaceMethodType(
+                functionalInterfaceMethod,
+                GenericsUtils.groundTargetType(targetType, state, config, handler),
+                state)
+            : functionalInterfaceMethod.type.asMethodType();
+    boolean isUnbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
     Type qualifierType = null;
-    if (!referencedMethod.isStatic()) {
+    if (config.isJSpecifyMode() && !referencedMethod.isStatic()) {
       ExpressionTree qualifierExpression = memberReferenceTree.getQualifierExpression();
       qualifierType =
           getTreeType(
               qualifierExpression,
               state.withPath(new TreePath(state.getPath(), qualifierExpression)));
-      boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-      if (unbound) {
+      if (isUnbound) {
         if (qualifierType == null || qualifierType.isRaw()) {
           // javac attributes an annotated bare qualifier such as @A Box as raw. Use the generic
           // declaration as the substitution template; the receiver type supplies its arguments.
           qualifierType = referencedMethod.owner.type;
         }
         if (qualifierType instanceof Type.ClassType qualifierClassType) {
-          Symbol.MethodSymbol fiMethod =
-              NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
-          Type.MethodType fiMethodTypeAsMember =
-              TypeSubstitutionUtils.memberType(state.getTypes(), groundTargetType, fiMethod, config)
-                  .asMethodType();
           com.sun.tools.javac.util.List<Type> fiParamTypes =
-              fiMethodTypeAsMember.getParameterTypes();
+              functionalInterfaceMethodType.getParameterTypes();
           Verify.verify(
               !fiParamTypes.isEmpty(),
               "Expected receiver parameter for unbound method ref %s",
@@ -1892,8 +1891,28 @@ public final class GenericsChecks {
       }
     }
     Type.MethodType methodType =
-        getMemberReferenceMethodType(memberReferenceTree, referencedMethod, qualifierType, state);
-    return methodType == null ? null : new ResolvedMethodReference(methodType, qualifierType);
+        config.isJSpecifyMode()
+            ? castToNonNull(
+                getMemberReferenceMethodType(
+                    memberReferenceTree, referencedMethod, qualifierType, state))
+            : referencedMethod.type.asMethodType();
+    NullnessHint returnNullnessHint =
+        referencedMethod.isVarArgs() || functionalInterfaceMethod.isVarArgs()
+            ? NullnessHint.UNKNOWN
+            : handler.onMethodReferenceReturnNullnessHint(
+                referencedMethod,
+                qualifierType,
+                functionalInterfaceMethod,
+                functionalInterfaceMethodType,
+                isUnbound,
+                state);
+    return new ResolvedMethodReference(
+        methodType,
+        qualifierType,
+        functionalInterfaceMethod,
+        functionalInterfaceMethodType,
+        isUnbound,
+        returnNullnessHint);
   }
 
   /**
@@ -1906,7 +1925,7 @@ public final class GenericsChecks {
    * @param state the current visitor state
    * @return the functional interface method type as a member of the ground target type
    */
-  public Type.MethodType getFunctionalInterfaceMethodType(
+  private Type.MethodType getFunctionalInterfaceMethodType(
       Symbol.MethodSymbol functionalInterfaceMethod, Type targetType, VisitorState state) {
     verify(config.isJSpecifyMode(), "Method only suitable for use in JSpecify mode");
     return TypeSubstitutionUtils.memberType(

@@ -862,8 +862,9 @@ public class NullAway extends BugChecker
     MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
       Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
-      if (functionalInterfaceType != null) {
-        GenericsChecks.ResolvedMethodReference resolvedMethodReference =
+      if (config.isJSpecifyMode() // diff-coverage: ignore -- Unattributed javac tree.
+          && functionalInterfaceType != null) {
+        ResolvedMethodReference resolvedMethodReference =
             genericsChecks.resolveMemberReference(
                 memberReferenceTree, referencedMethod, functionalInterfaceType, state);
         if (resolvedMethodReference != null) {
@@ -1396,32 +1397,13 @@ public class NullAway extends BugChecker
     if (functionalInterfaceType == null) { // diff-coverage: ignore -- Unattributed javac tree.
       return result; // diff-coverage: ignore -- Unattributed javac tree.
     }
-    if (functionalInterfaceType.isRaw() || overridingMethod.isConstructor()) {
+    ResolvedMethodReference resolvedReference =
+        genericsChecks.resolveMemberReference(
+            memberReferenceTree, overridingMethod, functionalInterfaceType, state);
+    if (resolvedReference == null) {
       return result;
     }
-    Symbol.MethodSymbol functionalInterfaceMethod =
-        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, state.getTypes());
-    Type.MethodType functionalInterfaceMethodType =
-        config.isJSpecifyMode()
-            ? genericsChecks.getFunctionalInterfaceMethodType(
-                functionalInterfaceMethod, functionalInterfaceType, state)
-            : functionalInterfaceMethod.type.asMethodType();
-    boolean isUnbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
-    GenericsChecks.ResolvedMethodReference resolvedReference =
-        config.isJSpecifyMode()
-            ? genericsChecks.resolveMemberReference(
-                memberReferenceTree, overridingMethod, functionalInterfaceType, state)
-            : null;
-    Type receiverType = resolvedReference == null ? null : resolvedReference.qualifierType();
-    Handler.NullnessHint hint =
-        NullabilityUtil.getMethodReferenceReturnNullnessHint(
-            overridingMethod,
-            receiverType,
-            functionalInterfaceMethod,
-            functionalInterfaceMethodType,
-            isUnbound,
-            state,
-            handler);
+    Handler.NullnessHint hint = resolvedReference.returnNullnessHint();
     return hint.equals(Handler.NullnessHint.UNKNOWN) ? result : hint.toNullness();
   }
 

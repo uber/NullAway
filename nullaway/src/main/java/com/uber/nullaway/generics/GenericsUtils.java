@@ -20,8 +20,8 @@ import com.sun.tools.javac.tree.JCTree;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.ResolvedMethodReference;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
@@ -507,19 +507,14 @@ public class GenericsUtils {
         "Expected current path to end at member reference %s, but found %s",
         memberReferenceTree,
         state.getPath().getLeaf());
-    if (targetType.isRaw()) {
-      return;
-    }
     Types types = state.getTypes();
 
     // First, resolve the referenced method and its qualifier type.
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
-    if (referencedMethod == null || referencedMethod.isConstructor()) {
-      // TODO handle constructor references like Foo::new;
-      //  https://github.com/uber/NullAway/issues/1468
+    if (referencedMethod == null) { // diff-coverage: ignore -- Unattributed javac tree.
       return;
     }
-    GenericsChecks.ResolvedMethodReference resolvedMethodReference =
+    ResolvedMethodReference resolvedMethodReference =
         genericsChecks.resolveMemberReference(
             memberReferenceTree, referencedMethod, targetType, state);
     if (resolvedMethodReference == null) {
@@ -528,29 +523,16 @@ public class GenericsUtils {
     Type qualifierType = resolvedMethodReference.qualifierType();
     Type.MethodType referencedMethodType = resolvedMethodReference.methodType();
 
-    // Get the type of the corresponding functional interface method as a member of targetType.
-    Symbol.MethodSymbol functionalInterfaceMethod =
-        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
     Type.MethodType functionalInterfaceMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(
-                types, targetType, functionalInterfaceMethod, genericsChecks.getConfig())
-            .asMethodType();
+        resolvedMethodReference.functionalInterfaceMethodType();
     List<Type> functionalInterfaceParamTypes =
         functionalInterfaceMethodTypeAsMember.getParameterTypes();
-    boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+    boolean unbound = resolvedMethodReference.isUnbound();
 
     // method reference return type <: functional interface return type
     Type functionalInterfaceReturnType = functionalInterfaceMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
-    Handler.NullnessHint returnNullnessHint =
-        NullabilityUtil.getMethodReferenceReturnNullnessHint(
-            referencedMethod,
-            qualifierType,
-            functionalInterfaceMethod,
-            functionalInterfaceMethodTypeAsMember,
-            unbound,
-            state,
-            genericsChecks.getHandler());
+    Handler.NullnessHint returnNullnessHint = resolvedMethodReference.returnNullnessHint();
     if (!returnNullnessHint.equals(Handler.NullnessHint.UNKNOWN)) {
       referencedReturnType =
           genericsChecks.updateTypeWithNullness(
