@@ -3721,7 +3721,7 @@ public final class GenericsChecks {
           solver.solve();
       Nullness resolved =
           PolyNullInference.resolveContext(invocationTree, inferenceContext, solution);
-      if (resolved != null && !calledFromDataflow) {
+      if (!calledFromDataflow) {
         separatelyInferredPolyNullness.put(invocationTree, resolved);
       }
       return resolved;
