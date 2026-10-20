@@ -128,9 +128,16 @@ public class LibraryModelsHandlerTest {
               IllegalArgumentException.class,
               () ->
                   new LibraryModelsHandler.CombinedLibraryModels(
-                      ImmutableList.of(polyNullProvider(models)), polyNullModelsConfig()));
-      assertThat(error).hasMessageThat().contains("must include at least one nested location");
-      assertThat(error).hasMessageThat().contains("identity");
+                      ImmutableList.of(polyNullProvider(models)), polyNullModelsConfig()),
+              "locations: " + locations);
+      assertWithMessage("locations: %s", locations)
+          .that(error)
+          .hasMessageThat()
+          .contains("must include at least one nested location");
+      assertWithMessage("locations: %s", locations)
+          .that(error)
+          .hasMessageThat()
+          .contains("identity");
     }
   }
 
