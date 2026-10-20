@@ -405,6 +405,43 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varargsMethodRefToRestrictiveMethodUsesArrayNullness() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Unannotated.java",
+            """
+            package com.example;
+            public class Unannotated {
+              public static void nonNullElements(@javax.annotation.Nonnull Object... inputs) {}
+              public static void nonNullArray(Object @org.jspecify.annotations.NonNull ... inputs) {}
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.example.Unannotated;
+            import org.jspecify.annotations.Nullable;
+            public class Test {
+              interface NullableArrayFi {
+                void apply(Object @Nullable ... inputs);
+              }
+              void foo() {
+                NullableArrayFi elements = Unannotated::nonNullElements;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi array = Unannotated::nonNullArray;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void annotatedVsUnannotatedMethodRefOverrideChecks() {
     makeTestHelperWithArgs(
             Arrays.asList(
