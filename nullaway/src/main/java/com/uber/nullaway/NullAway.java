@@ -977,7 +977,8 @@ public class NullAway extends BugChecker
         // in which case it can't be overridden by a @NonNull arg.
         continue;
       }
-      int methodParamInd = i - startParam;
+      int methodParamInd =
+          getMemberRefParamIndex(i - startParam, overridingMethod, memberReferenceTree);
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
       boolean paramIsNonNull =
           paramOfOverridingMethodIsNonNull(
@@ -1085,10 +1086,11 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       Type.@Nullable MethodType memberReferenceMethodType,
       @Nullable MethodParameterNullness referencedMethodParameterNullnessOverrides) {
-    // A varargs parameter that receives the whole array is checked by the nullness of the array
+    // A varargs parameter of a referenced method that receives the whole array is checked by the
+    // nullness of the array
     boolean receivesVarargsArray =
-        overridingMethod != null
-            && isVarargsPosition(overridingMethod, methodParamInd)
+        memberReferenceTree != null
+            && isVarargsPosition(castToNonNull(overridingMethod), methodParamInd)
             && !memberRefToVarargsPassedIndividually(overridingMethod, memberReferenceTree);
     if (referencedMethodParameterNullnessOverrides != null) {
       Nullness parameterNullnessOverride =

@@ -856,6 +856,40 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varargsMethodRefExpandingTrailingParametersChecksElementNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface UnmarkedNullableArrayFi {
+                @NullUnmarked
+                void apply(Object first, Object @Nullable ... rest);
+              }
+              interface NullableSecondFi {
+                void apply(Object first, @Nullable Object second);
+              }
+              static void take(Object... values) {}
+              static void takeNullable(@Nullable Object... values) {}
+              void test() {
+                // BUG: Diagnostic contains: parameter values of referenced method is @NonNull
+                UnmarkedNullableArrayFi u1 = Test::take;
+                UnmarkedNullableArrayFi u2 = Test::takeNullable;
+                // BUG: Diagnostic contains: parameter values of referenced method is @NonNull
+                NullableSecondFi m1 = Test::take;
+                NullableSecondFi m2 = Test::takeNullable;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void restrictiveAnnotationsVarargsLambdaNullableArrayIsChecked() {
     makeHelper()
         .addSourceLines(
