@@ -457,12 +457,6 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
             @NullMarked
             class Test {
-              static String nonNullMapping(String unused) {
-                return "value";
-              }
-              static @Nullable String nullableMapping(String unused) {
-                return null;
-              }
               void testPresent(Map<String, String> map) {
                 map.computeIfAbsent("k", unused -> "hello");
                 map.get("k").hashCode();
