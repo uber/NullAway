@@ -10,6 +10,108 @@ import org.junit.Test;
 public class MapNullableValuesTests extends NullAwayTestsBase {
 
   @Test
+  public void mapGetOrDefaultWithNullableValues() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static void test(Map<String, @Nullable String> map,
+                  HashMap<String, @Nullable String> hashMap, @Nullable String defaultValue) {
+                // A present key can map to null even with a non-null default.
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault("key", "fallback")' is @Nullable
+                map.getOrDefault("key", "fallback").length();
+                // BUG: Diagnostic contains: dereferenced expression 'hashMap.getOrDefault("key", "fallback")' is @Nullable
+                hashMap.getOrDefault("key", "fallback").length();
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault("key", defaultValue)' is @Nullable
+                map.getOrDefault("key", defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault("key", null)' is @Nullable
+                map.getOrDefault("key", null).length();
+              }
+              static String nonNull(Map<String, String> map) {
+                return map.getOrDefault("key", "fallback");
+              }
+              static String invalid(Map<String, @Nullable String> map) {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return map.getOrDefault("key", "fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultWithNonNullValuesAndNullableDefault() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void test(Map<String, String> map, @Nullable String defaultValue) {
+                map.getOrDefault("key", "fallback").length();
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault("key", defaultValue)' is @Nullable
+                map.getOrDefault("key", defaultValue).length();
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault("key", null)' is @Nullable
+                map.getOrDefault("key", null).length();
+                if (defaultValue != null) {
+                  map.getOrDefault("key", defaultValue).length();
+                }
+              }
+              void checkedResult(Map<String, @Nullable String> map) {
+                if (map.getOrDefault("key", "fallback") != null) {
+                  map.getOrDefault("key", "fallback").length();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultWithInheritedAndInferredNullableValues() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class NullableValueMap extends HashMap<String, @Nullable String> {
+                void test() {
+                  // BUG: Diagnostic contains: dereferenced expression 'getOrDefault("key", "fallback")' is @Nullable
+                  getOrDefault("key", "fallback").length();
+                }
+              }
+              static class GenericValueMap<V extends @Nullable Object, K> extends HashMap<K, V> {}
+              static <T> T identity(T value) { return value; }
+              void test(GenericValueMap<@Nullable String, String> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault("key", "fallback")' is @Nullable
+                map.getOrDefault("key", "fallback").length();
+                // BUG: Diagnostic contains: dereferenced expression 'identity(map).getOrDefault("key", "fallback")' is @Nullable
+                identity(map).getOrDefault("key", "fallback").length();
+              }
+              void wildcard(Map<String, ? super String> map) {
+                // BUG: Diagnostic contains: dereferenced expression 'map.getOrDefault("key", "fallback")' is @Nullable
+                map.getOrDefault("key", "fallback").hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void containsKeyWithNullableValues() {
     makeHelper()
         .addSourceLines(
