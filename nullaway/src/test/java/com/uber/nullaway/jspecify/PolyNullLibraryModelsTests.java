@@ -474,7 +474,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void customLibraryModelWithMultipleExplicitTypeArguments() {
+  public void customModelLinksBothListParametersToReturn() {
     makeHelper()
         .addSourceLines(
             "Test.java",
