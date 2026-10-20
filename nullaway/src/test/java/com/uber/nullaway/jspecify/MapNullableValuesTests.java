@@ -10,6 +10,63 @@ import org.junit.Test;
 public class MapNullableValuesTests extends NullAwayTestsBase {
 
   @Test
+  public void getOrDefaultCallsAndReferencesWithWildcardValues() {
+    checkGetOrDefaultWildcardValues(true);
+  }
+
+  @Test
+  public void getOrDefaultCallsAndReferencesWithWildcardHandlingDisabled() {
+    checkGetOrDefaultWildcardValues(false);
+  }
+
+  /** Checks that calls and bound/unbound references respect the same wildcard-support setting. */
+  private void checkGetOrDefaultWildcardValues(boolean handleWildcards) {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:HandleWildcardGenerics=" + handleWildcards)))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Lookup {
+                Object apply(Map<String, ? super String> map, String key, String defaultValue);
+              }
+
+              void call(Map<String, ? super String> map) {
+                // CALL_DIAGNOSTIC
+                map.getOrDefault("key", "fallback").hashCode();
+              }
+
+              BiFunction<String, String, Object> bound(Map<String, ? super String> map) {
+                // REFERENCE_DIAGNOSTIC
+                return map::getOrDefault;
+              }
+
+              Lookup unbound() {
+                // REFERENCE_DIAGNOSTIC
+                return Map::getOrDefault;
+              }
+            }
+            """
+                .replace(
+                    "// CALL_DIAGNOSTIC",
+                    handleWildcards ? "// BUG: Diagnostic contains: dereferenced expression" : "")
+                .replace(
+                    "// REFERENCE_DIAGNOSTIC",
+                    handleWildcards
+                        ? "// BUG: Diagnostic contains: referenced method returns @Nullable"
+                        : ""))
+        .doTest();
+  }
+
+  @Test
   public void mapGetOrDefaultWithNullableValues() {
     makeHelper()
         .addSourceLines(

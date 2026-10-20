@@ -15,7 +15,6 @@ import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
-import org.jspecify.annotations.Nullable;
 import org.junit.Test;
 
 /** Tests the exclusions promised by the method-reference return-nullness hook. */
@@ -71,7 +70,6 @@ public class MethodReferenceResolutionTests {
             @Override
             public NullnessHint onMethodReferenceReturnNullnessHint(
                 Symbol.MethodSymbol referencedMethod,
-                @Nullable Type receiverType,
                 Symbol.MethodSymbol functionalInterfaceMethod,
                 Type.MethodType functionalInterfaceMethodType,
                 boolean isUnbound,

@@ -63,7 +63,6 @@ import com.uber.nullaway.annotations.Initializer;
 import com.uber.nullaway.dataflow.AccessPath;
 import com.uber.nullaway.dataflow.AccessPathNullnessPropagation;
 import com.uber.nullaway.generics.GenericsChecks;
-import com.uber.nullaway.generics.GenericsUtils;
 import com.uber.nullaway.handlers.stream.StreamTypeRecord;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo;
 import com.uber.nullaway.libmodel.NestedAnnotationInfo.Annotation;
@@ -218,8 +217,7 @@ public class LibraryModelsHandler implements Handler {
   }
 
   /**
-   * Derives return-nullness hints from determining parameters in library models and, in JSpecify
-   * mode, the receiver's value type for {@code Map.getOrDefault}.
+   * Derives return-nullness hints from determining parameters in library models.
    *
    * <p>Model indexes refer to the referenced method's declared parameters. For an unbound
    * reference, add one to each index to skip the functional interface method's receiver parameter.
@@ -230,17 +228,12 @@ public class LibraryModelsHandler implements Handler {
    * Otherwise, parameters are treated as non-null, except that a type variable with a nullable
    * upper bound leaves its nullness unresolved unless its use is explicitly {@code @NonNull}.
    *
-   * <p>For {@code Map.getOrDefault} in JSpecify mode, the mapped value type is also a determining
-   * input. A nullable mapped value produces {@code HINT_NULLABLE}; both the value type and the
-   * default-value parameter must be known non-null to produce {@code FORCE_NONNULL}.
-   *
    * <p>Returns {@code FORCE_NONNULL} when all determining inputs are known non-null. Returns {@code
    * UNKNOWN} when no model applies or required type information is unavailable or unresolved.
    */
   @Override
   public NullnessHint onMethodReferenceReturnNullnessHint(
       Symbol.MethodSymbol referencedMethod,
-      @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,
@@ -249,24 +242,6 @@ public class LibraryModelsHandler implements Handler {
         getOptLibraryModels(state.context)
             .nullImpliesNullParameters(referencedMethod, state.getTypes());
     boolean hasUnknownParameterNullness = false;
-    if (config.isJSpecifyMode()
-        && NullabilityUtil.isMapMethod(referencedMethod, state, "getOrDefault", 2)) {
-      Type valueType = GenericsUtils.getMapValueType(receiverType, state, config);
-      if (valueType == null) {
-        return NullnessHint.UNKNOWN;
-      }
-      NullnessHint valueHint =
-          GenericsChecks.getTypeNullnessHint(
-              GenericsUtils.effectiveWildcardUpperBound(valueType, state, config, mainHandler),
-              state,
-              config,
-              mainHandler);
-      if (valueHint.equals(NullnessHint.HINT_NULLABLE)) {
-        return NullnessHint.HINT_NULLABLE;
-      }
-      hasUnknownParameterNullness = valueHint.equals(NullnessHint.UNKNOWN);
-      determiningParameterIndices = ImmutableSet.of(1);
-    }
     if (determiningParameterIndices.isEmpty()) {
       return NullnessHint.UNKNOWN;
     }

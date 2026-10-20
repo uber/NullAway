@@ -627,6 +627,37 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void getOrDefaultMethodRefsWithNullableDeclarationDefault() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface BoundLookup { String apply(String key, @Nullable String defaultValue); }
+              interface UnboundLookup {
+                String apply(Map<String, String> map, String key, @Nullable String defaultValue);
+              }
+
+              BoundLookup bound(Map<String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              UnboundLookup unbound() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void getOrDefaultMethodRefWithTypeVariableInputs() {
     makeHelper()
         .addSourceLines(
@@ -651,6 +682,11 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                   Map<String, V> map) {
                 // BUG: Diagnostic contains: referenced method returns @Nullable
                 return map::getOrDefault;
+              }
+              <V extends @Nullable String> void readUnresolvedValues(
+                  Map<String, V> map, @NonNull V defaultValue) {
+                // Direct reads of a bare V retain their existing non-null treatment.
+                map.getOrDefault("key", defaultValue).length();
               }
               <D extends @Nullable String> BiFunction<String, D, String> unresolvedDefault(
                   Map<String, String> map) {

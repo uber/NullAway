@@ -1896,16 +1896,27 @@ public final class GenericsChecks {
                 getMemberReferenceMethodType(
                     memberReferenceTree, referencedMethod, qualifierType, state))
             : referencedMethod.type.asMethodType();
-    NullnessHint returnNullnessHint =
-        referencedMethod.isVarArgs() || functionalInterfaceMethod.isVarArgs()
-            ? NullnessHint.UNKNOWN
-            : handler.onMethodReferenceReturnNullnessHint(
-                referencedMethod,
-                qualifierType,
-                functionalInterfaceMethod,
-                functionalInterfaceMethodType,
-                isUnbound,
-                state);
+    NullnessHint returnNullnessHint = NullnessHint.UNKNOWN;
+    if (!referencedMethod.isVarArgs() && !functionalInterfaceMethod.isVarArgs()) {
+      returnNullnessHint =
+          handler.onMethodReferenceReturnNullnessHint(
+              referencedMethod,
+              functionalInterfaceMethod,
+              functionalInterfaceMethodType,
+              isUnbound,
+              state);
+      if (config.isJSpecifyMode()
+          && NullabilityUtil.isMapMethod(referencedMethod, state, "getOrDefault", 2)) {
+        returnNullnessHint =
+            returnNullnessHint.merge(
+                getMapGetOrDefaultReturnNullnessHint(
+                    qualifierType,
+                    functionalInterfaceMethod,
+                    functionalInterfaceMethodType,
+                    isUnbound,
+                    state));
+      }
+    }
     return new ResolvedMethodReference(
         methodType,
         qualifierType,
@@ -1913,6 +1924,37 @@ public final class GenericsChecks {
         functionalInterfaceMethodType,
         isUnbound,
         returnNullnessHint);
+  }
+
+  /**
+   * Combines the map-value and default-parameter hints for a {@code Map.getOrDefault} reference.
+   * Either input admitting null makes the result nullable; both must be known non-null to force a
+   * non-null result. The resolver calls this only for non-varargs references in JSpecify mode.
+   */
+  private NullnessHint getMapGetOrDefaultReturnNullnessHint(
+      @Nullable Type receiverType,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state) {
+    NullnessHint valueHint = getMapValueNullnessHint(receiverType, state);
+    int defaultParameterIndex = isUnbound ? 2 : 1;
+    NullnessHint defaultHint =
+        Nullness.paramHasNullableAnnotation(
+                functionalInterfaceMethod, defaultParameterIndex, config)
+            ? NullnessHint.HINT_NULLABLE
+            : getTypeNullnessHint(
+                functionalInterfaceMethodType.getParameterTypes().get(defaultParameterIndex),
+                state,
+                config,
+                handler);
+    if (valueHint.equals(NullnessHint.HINT_NULLABLE)
+        || defaultHint.equals(NullnessHint.HINT_NULLABLE)) {
+      return NullnessHint.HINT_NULLABLE;
+    }
+    return valueHint.equals(NullnessHint.UNKNOWN) || defaultHint.equals(NullnessHint.UNKNOWN)
+        ? NullnessHint.UNKNOWN
+        : NullnessHint.FORCE_NONNULL;
   }
 
   /**
@@ -3621,8 +3663,21 @@ public final class GenericsChecks {
     Type receiverType =
         getEnclosingTypeForCallExpression(
             invokedMethodSymbol, tree, path, state, /* calledFromDataflow= */ true);
+    // An unresolved type variable is read as non-null, but cannot force a method-reference result
+    // to be non-null. UNKNOWN maps to the existing non-null fallback for direct reads.
+    return getMapValueNullnessHint(receiverType, state).toNullness();
+  }
+
+  /**
+   * Gets a map receiver's value-nullness hint for both direct reads and method references. Respects
+   * wildcard support and preserves UNKNOWN for unavailable value types or unresolved type
+   * variables.
+   */
+  private NullnessHint getMapValueNullnessHint(@Nullable Type receiverType, VisitorState state) {
     Type valueType = GenericsUtils.getMapValueType(receiverType, state, config);
-    return valueType == null ? Nullness.NONNULL : getTypeNullnessForRead(valueType, state);
+    return valueType == null
+        ? NullnessHint.UNKNOWN
+        : getTypeNullnessHint(valueType, state, config, handler);
   }
 
   /**

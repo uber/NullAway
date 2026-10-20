@@ -123,7 +123,7 @@ public interface Handler {
 
   /**
    * Returns a hint for a method reference's return nullness based on its functional interface
-   * method and resolved receiver type.
+   * method.
    *
    * <p>Hints from all handlers are combined using {@link NullnessHint#merge(NullnessHint)}. During
    * return compatibility checking, a merged hint other than {@link NullnessHint#UNKNOWN} replaces
@@ -135,8 +135,6 @@ public interface Handler {
    * varargs.
    *
    * @param referencedMethod symbol of the referenced method
-   * @param receiverType the resolved receiver type, or {@code null} for static references or when
-   *     unavailable
    * @param functionalInterfaceMethod symbol of the functional interface method
    * @param functionalInterfaceMethodType functional interface method type as a member of the ground
    *     target type in JSpecify mode, or its declared type otherwise
@@ -148,7 +146,6 @@ public interface Handler {
    */
   default NullnessHint onMethodReferenceReturnNullnessHint(
       Symbol.MethodSymbol referencedMethod,
-      @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,

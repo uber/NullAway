@@ -44,7 +44,7 @@ public class GenericsUtils {
    * Gets the value type of a receiver viewed as a {@code java.util.Map}, preserving type-use
    * nullness through inherited type arguments. Returns {@code null} for unavailable or raw types.
    */
-  public static @Nullable Type getMapValueType(
+  static @Nullable Type getMapValueType(
       @Nullable Type receiverType, VisitorState state, Config config) {
     if (receiverType == null) {
       return null;
@@ -68,7 +68,7 @@ public class GenericsUtils {
    * type itself. For wildcards and captured wildcards, returns the wildcard's upper bound,
    * recursing through nested wildcards and captures produced by javac.
    */
-  public static Type effectiveWildcardUpperBound(
+  static Type effectiveWildcardUpperBound(
       Type typeArg, VisitorState state, Config config, Handler handler) {
     if (typeArg instanceof CapturedType capturedType) {
       Type.TypeVar formalTypeVariable =
@@ -346,7 +346,7 @@ public class GenericsUtils {
    * a type-variable bound takes precedence over nullability inherited from that type variable's
    * upper bound.
    */
-  public static boolean upperBoundIsNullable(
+  static boolean upperBoundIsNullable(
       Element typeVarElement, Config config, Handler handler, VisitorState state) {
     if (fromUnannotatedMethodOrClass(typeVarElement, config, handler, state)) {
       return true;
