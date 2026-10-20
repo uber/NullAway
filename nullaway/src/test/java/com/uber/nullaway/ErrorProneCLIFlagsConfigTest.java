@@ -146,7 +146,16 @@ public class ErrorProneCLIFlagsConfigTest extends NullAwayTestsBase {
                           Boolean.toString(experimental),
                           "NullAway:JSpecifyJDKModels",
                           Boolean.toString(jdkModels))));
-          assertEquals(jspecifyMode && experimental, config.isPolyNullLibraryModelsEnabled());
+          assertEquals(
+              jspecifyMode && experimental,
+              config.isPolyNullLibraryModelsEnabled(),
+              () ->
+                  "JSpecifyMode="
+                      + jspecifyMode
+                      + ", JSpecifyExperimental="
+                      + experimental
+                      + ", JSpecifyJDKModels="
+                      + jdkModels);
         }
       }
     }
