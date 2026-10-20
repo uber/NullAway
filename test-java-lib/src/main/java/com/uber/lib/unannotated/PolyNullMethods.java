@@ -1,7 +1,9 @@
 package com.uber.lib.unannotated;
 
 import java.util.List;
+import java.util.function.Function;
 import java.util.function.Supplier;
+import org.jspecify.annotations.Nullable;
 
 /* @NullMarked */
 public final class PolyNullMethods {
@@ -32,5 +34,22 @@ public final class PolyNullMethods {
   public static <T, U> /* @PolyNull */ T genericFromSuppliers(
       Supplier<? extends /* @PolyNull */ T> first, Supplier<? extends /* @PolyNull */ U> second) {
     return first.get();
+  }
+
+  /** Links the mapper input's nullness to the seed independently of its generic type. */
+  public static <T> String withMapper(
+      /* @PolyNull */ T seed, Function</* @PolyNull */ Object, String> mapper) {
+    return mapper.apply(seed);
+  }
+
+  /** Links nullness like {@link #genericObject}, but requires a non-null type argument. */
+  public static <T> /* @PolyNull */ Object boundedGenericObject(
+      /* @PolyNull */ T seed, Supplier<? extends /* @PolyNull */ Object> other) {
+    return seed;
+  }
+
+  /** Returns nullable contents, with a PolyNull model that has no input to infer from. */
+  public static List</* @PolyNull */ @Nullable Object> outputOnly() {
+    return java.util.Collections.singletonList(null);
   }
 }

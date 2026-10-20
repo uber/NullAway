@@ -314,6 +314,11 @@ public class TestLibraryModels implements LibraryModels {
   private static ImmutableSetMultimap<MethodRef, Integer>
       createMethodTypeVariablesWithNullableUpperBounds() {
     return new ImmutableSetMultimap.Builder<MethodRef, Integer>()
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T>withMapper(T,java.util.function.Function<java.lang.Object,java.lang.String>)"),
+            0)
         .put(methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0)
         .put(
             methodRef(
@@ -370,6 +375,39 @@ public class TestLibraryModels implements LibraryModels {
             "com.uber.lib.unannotated.PolyNullMethods",
             "first(java.util.List<java.lang.Object>,java.util.List<java.lang.Object>)");
     return new ImmutableSetMultimap.Builder<MethodRef, PolyNullLocation>()
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T>withMapper(T,java.util.function.Function<java.lang.Object,java.lang.String>)"),
+            new PolyNullLocation(new Parameter(0), ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T>withMapper(T,java.util.function.Function<java.lang.Object,java.lang.String>)"),
+            new PolyNullLocation(
+                new Parameter(1), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T>boundedGenericObject(T,java.util.function.Supplier<? extends java.lang.Object>)"),
+            new PolyNullLocation(new Parameter(0), ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T>boundedGenericObject(T,java.util.function.Supplier<? extends java.lang.Object>)"),
+            new PolyNullLocation(
+                new Parameter(1),
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 0))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "<T>boundedGenericObject(T,java.util.function.Supplier<? extends java.lang.Object>)"),
+            new PolyNullLocation(new Return(), ImmutableList.of()))
+        .put(
+            methodRef("com.uber.lib.unannotated.PolyNullMethods", "outputOnly()"),
+            new PolyNullLocation(
+                new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
         .put(
             method,
             new PolyNullLocation(

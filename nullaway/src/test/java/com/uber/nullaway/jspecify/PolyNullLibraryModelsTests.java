@@ -1,5 +1,8 @@
 package com.uber.nullaway.jspecify;
 
+import static com.google.common.truth.Truth.assertThat;
+import static org.junit.Assert.assertThrows;
+
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
@@ -15,6 +18,75 @@ import org.junit.Test;
  * @see <a href="https://github.com/uber/NullAway/issues/1616">NullAway issue #1616</a>
  */
 public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
+
+  @Test
+  public void modeledLambdaParameterUsesInferredPolyNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Object nonNull, @Nullable Object nullable) {
+                PolyNullMethods.withMapper(nonNull, value -> value.toString());
+                // BUG: Diagnostic contains: dereferenced expression 'value' is @Nullable
+                PolyNullMethods.withMapper(nullable, value -> value.toString());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void failedGenericInferenceDoesNotAddPolyNullDereferenceError() {
+    CompilationTestHelper helper =
+        makeHelper()
+            .addSourceLines(
+                "Test.java",
+                """
+                import com.uber.lib.unannotated.PolyNullMethods;
+                import org.jspecify.annotations.NullMarked;
+                import org.jspecify.annotations.Nullable;
+
+                @NullMarked
+                class Test {
+                  void test(@Nullable String seed) {
+                    PolyNullMethods.boundedGenericObject(seed, () -> "fallback").hashCode();
+                  }
+                }
+                """);
+    // An expected-diagnostic marker permits extra diagnostics on the same line. Inspect the
+    // complete diagnostic output to ensure failed generic inference doesn't also infer a
+    // nullable PolyNull result and report a spurious dereference error.
+    AssertionError error = assertThrows(AssertionError.class, helper::doTest);
+    assertThat(error).hasMessageThat().contains("inference failure");
+    assertThat(error).hasMessageThat().doesNotContain("dereferenced expression");
+  }
+
+  @Test
+  public void outputOnlyModelPreservesDeclaredNullableContents() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void test() {
+                // Without a modeled input, keep the declared nullable list contents.
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.outputOnly().get(0)' is @Nullable
+                PolyNullMethods.outputOnly().get(0).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
 
   @Test
   public void polyNullModelsAreDisabledWithoutExperimentalOptIn() {
