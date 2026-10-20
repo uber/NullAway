@@ -117,7 +117,7 @@ public class NullabilityUtil {
     if (referencedMethod.isVarArgs() || functionalInterfaceMethod.isVarArgs()) {
       return Handler.NullnessHint.UNKNOWN;
     }
-    return handler.onOverrideMethodReferenceReturnNullability(
+    return handler.onMethodReferenceReturnNullnessHint(
         referencedMethod,
         receiverType,
         functionalInterfaceMethod,

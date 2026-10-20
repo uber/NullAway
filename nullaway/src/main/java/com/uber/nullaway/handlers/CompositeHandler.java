@@ -106,7 +106,7 @@ class CompositeHandler implements Handler {
   }
 
   @Override
-  public NullnessHint onOverrideMethodReferenceReturnNullability(
+  public NullnessHint onMethodReferenceReturnNullnessHint(
       Symbol.MethodSymbol referencedMethod,
       @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
@@ -117,7 +117,7 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       result =
           result.merge(
-              h.onOverrideMethodReferenceReturnNullability(
+              h.onMethodReferenceReturnNullnessHint(
                   referencedMethod,
                   receiverType,
                   functionalInterfaceMethod,

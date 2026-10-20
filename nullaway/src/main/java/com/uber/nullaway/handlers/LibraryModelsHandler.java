@@ -225,7 +225,7 @@ public class LibraryModelsHandler implements Handler {
    * nullness unchanged in that case.
    */
   @Override
-  public NullnessHint onOverrideMethodReferenceReturnNullability(
+  public NullnessHint onMethodReferenceReturnNullnessHint(
       Symbol.MethodSymbol referencedMethod,
       @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
