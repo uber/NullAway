@@ -901,9 +901,17 @@ public final class GenericsChecks {
                 config.handleWildcardGenerics()
                     ? GenericsUtils.effectiveWildcardUpperBound(returnType, state, config, handler)
                     : returnType;
-            result =
-                TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
-                    annotationSource, result, config);
+            // javac types a value read through a lower-bounded wildcard by the upper bound of the
+            // formal type variable, and that type already carries the bound's annotations. The
+            // lower bound differs in structure from result, so it is no source of annotations.
+            // With wildcard handling on, effectiveWildcardUpperBound has already replaced the
+            // wildcard by its upper bound.
+            if (!(annotationSource instanceof Type.WildcardType wildcard
+                && wildcard.kind == BoundKind.SUPER)) {
+              result =
+                  TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(
+                      annotationSource, result, config);
+            }
           } else if (tree instanceof MemberSelectTree memberSelectTree) {
             Symbol memberSelectSymbol = ASTHelpers.getSymbol(memberSelectTree);
             if (memberSelectSymbol != null && memberSelectSymbol.getKind().isField()) {
