@@ -265,7 +265,7 @@ class StreamNullabilityPropagator implements Handler {
 
   private void handleFilterMethod(
       MethodInvocationTree tree, StreamTypeRecord streamType, VisitorState state) {
-    ExpressionTree argTree = tree.getArguments().get(0);
+    ExpressionTree argTree = ASTHelpers.stripParentheses(tree.getArguments().get(0));
     if (argTree instanceof NewClassTree newClassTree) {
       ClassTree anonClassBody = newClassTree.getClassBody();
       // Ensure that this `new A() ...` has a custom class body, otherwise, we skip for now.
@@ -282,7 +282,7 @@ class StreamNullabilityPropagator implements Handler {
 
   private void handleMapMethod(
       MethodInvocationTree tree, StreamTypeRecord streamType, Symbol.MethodSymbol methodSymbol) {
-    ExpressionTree argTree = tree.getArguments().get(0);
+    ExpressionTree argTree = ASTHelpers.stripParentheses(tree.getArguments().get(0));
     if (argTree instanceof NewClassTree newClassTree) {
       ClassTree anonClassBody = newClassTree.getClassBody();
       // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
@@ -347,7 +347,8 @@ class StreamNullabilityPropagator implements Handler {
       if (streamType.hasModelForMethod(methodSymbol)
           && streamType.matchesType(receiverType, state)
           && streamType.isFilterMethod(methodSymbol)) {
-        Symbol predicateMethodSymbol = ASTHelpers.getSymbol(invocationTree.getArguments().get(0));
+        Symbol predicateMethodSymbol =
+            ASTHelpers.getSymbol(ASTHelpers.stripParentheses(invocationTree.getArguments().get(0)));
         if (predicateMethodSymbol instanceof Symbol.MethodSymbol predicateMethod
             && mainHandler.isSingleArgNullImpliesFalseMethod(predicateMethod, state)) {
           return true;
@@ -393,7 +394,8 @@ class StreamNullabilityPropagator implements Handler {
    */
   private boolean handleCollectCall(
       MethodInvocationTree collectInvocationTree, CollectLikeMethodRecord collectlikeMethodRecord) {
-    ExpressionTree argTree = collectInvocationTree.getArguments().get(0);
+    ExpressionTree argTree =
+        ASTHelpers.stripParentheses(collectInvocationTree.getArguments().get(0));
     if (argTree instanceof MethodInvocationTree collectInvokeArg) {
       // the argument passed to the collect method.  We check if this is a call to the collector
       // factory method from the record
@@ -407,7 +409,7 @@ class StreamNullabilityPropagator implements Handler {
               .equals(collectlikeMethodRecord.collectorFactoryMethodSignature())) {
         List<? extends ExpressionTree> arguments = collectInvokeArg.getArguments();
         for (int ind : collectlikeMethodRecord.argsToCollectorFactoryMethod()) {
-          ExpressionTree factoryMethodArg = arguments.get(ind);
+          ExpressionTree factoryMethodArg = ASTHelpers.stripParentheses(arguments.get(ind));
           // TODO eventually, support method references, though this is likely only useful in
           // JSpecify mode with generics checking
           if (factoryMethodArg instanceof NewClassTree newClassTree) {
@@ -437,7 +439,8 @@ class StreamNullabilityPropagator implements Handler {
   private void buildObservableCallChain(MethodInvocationTree tree) {
     ExpressionTree methodSelect = tree.getMethodSelect();
     if (methodSelect instanceof MemberSelectTree memberSelectTree) {
-      ExpressionTree receiverExpression = memberSelectTree.getExpression();
+      ExpressionTree receiverExpression =
+          ASTHelpers.stripParentheses(memberSelectTree.getExpression());
       if (receiverExpression instanceof MethodInvocationTree methodInvocationTree) {
         observableOuterCallInChain.put(methodInvocationTree, tree);
       }
@@ -601,7 +604,7 @@ class StreamNullabilityPropagator implements Handler {
   }
 
   private boolean canBooleanExpressionEvalToTrue(ExpressionTree expressionTree) {
-    if (expressionTree instanceof LiteralTree expressionAsLiteral) {
+    if (ASTHelpers.stripParentheses(expressionTree) instanceof LiteralTree expressionAsLiteral) {
       if (expressionAsLiteral.getValue() instanceof Boolean) {
         return (boolean) expressionAsLiteral.getValue();
       } else {
