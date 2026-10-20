@@ -777,6 +777,44 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void restrictiveAnnotationsVarargsOverrideUsesArrayNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NullableElementsFi {
+                @NullUnmarked
+                void apply(@Nullable Object @NonNull ... inputs);
+              }
+              interface NullableArrayFi {
+                @NullUnmarked
+                void apply(Object @Nullable ... inputs);
+              }
+              static void take(Object... inputs) {}
+              void test() {
+                NullableElementsFi elementsRef = Test::take;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi arrayRef = Test::take;
+                NullableArrayFi arrayAnon =
+                    new NullableArrayFi() {
+                      @Override
+                      // BUG: Diagnostic contains: parameter inputs is @NonNull, but parameter in superclass method
+                      public void apply(Object... inputs) {}
+                    };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void restrictiveAnnotationsVarargsLambdaNullableArrayIsChecked() {
     makeHelper()
         .addSourceLines(
