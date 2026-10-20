@@ -815,6 +815,47 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varargsMethodRefUsesReferencedArrayNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface UnmarkedNullableArrayFi {
+                @NullUnmarked
+                void apply(Object @Nullable ... inputs);
+              }
+              interface NullableArrayFi {
+                void apply(Object @Nullable ... inputs);
+              }
+              @NullUnmarked
+              static void nonNullElementsNullableArray(@NonNull Object @Nullable ... inputs) {}
+              @NullUnmarked
+              static void nonNullElements(@NonNull Object... inputs) {}
+              @NullUnmarked
+              static void nonNullArray(Object @NonNull ... inputs) {}
+              void test() {
+                UnmarkedNullableArrayFi u1 = Test::nonNullElementsNullableArray;
+                UnmarkedNullableArrayFi u2 = Test::nonNullElements;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                UnmarkedNullableArrayFi u3 = Test::nonNullArray;
+                NullableArrayFi m1 = Test::nonNullElementsNullableArray;
+                NullableArrayFi m2 = Test::nonNullElements;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi m3 = Test::nonNullArray;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void restrictiveAnnotationsVarargsLambdaNullableArrayIsChecked() {
     makeHelper()
         .addSourceLines(

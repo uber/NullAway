@@ -1085,9 +1085,16 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       Type.@Nullable MethodType memberReferenceMethodType,
       @Nullable MethodParameterNullness referencedMethodParameterNullnessOverrides) {
+    // A varargs parameter that receives the whole array is checked by the nullness of the array
+    boolean receivesVarargsArray =
+        overridingMethod != null
+            && isVarargsPosition(overridingMethod, methodParamInd)
+            && !memberRefToVarargsPassedIndividually(overridingMethod, memberReferenceTree);
     if (referencedMethodParameterNullnessOverrides != null) {
       Nullness parameterNullnessOverride =
-          referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
+          receivesVarargsArray
+              ? referencedMethodParameterNullnessOverrides.getVarargsArrayNullness()
+              : referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
       if (parameterNullnessOverride != null) {
         // An explicit handler value takes precedence over annotations and generic substitution.
         return parameterNullnessOverride.equals(Nullness.NONNULL);
@@ -1095,10 +1102,16 @@ public class NullAway extends BugChecker
     }
     boolean result = false;
     if (isMethodAnnotated) {
-      result = !Nullness.hasNullableAnnotation(paramSymbol, config);
+      result =
+          receivesVarargsArray
+              ? !Nullness.varargsArrayIsNullable(paramSymbol, config)
+              : !Nullness.hasNullableAnnotation(paramSymbol, config);
     } else if (config.acknowledgeRestrictiveAnnotations()) {
       // can still be @NonNull if there is a restrictive annotation
-      result = Nullness.hasNonNullAnnotation(paramSymbol, config);
+      result =
+          receivesVarargsArray
+              ? Nullness.varargsArrayIsNonNull(paramSymbol, config)
+              : Nullness.hasNonNullAnnotation(paramSymbol, config);
     }
     if (result && memberReferenceMethodType != null) {
       // when the overriding method is a member reference, also check that the parameter is not
