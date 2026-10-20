@@ -106,7 +106,6 @@ public class Java8Tests extends NullAwayTestsBase {
             """
             package com.uber;
             import java.util.Optional;
-            import java.util.function.Function;
             import org.jspecify.annotations.Nullable;
 
             class Test {
@@ -114,10 +113,6 @@ public class Java8Tests extends NullAwayTestsBase {
               interface NullableBoundF<A extends @Nullable Object, B> { B apply(A value); }
 
               F<@Nullable Object, String> customFunction() {
-                return String.class::cast;
-              }
-
-              Function<@Nullable Object, String> jdkFunction() {
                 return String.class::cast;
               }
 
