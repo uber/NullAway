@@ -460,6 +460,56 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void contractMethodReferenceReturnNullnessCurrentBehaviorJSpecify() {
+    // Pin current behavior until contract and library-model return-nullness handling are unified:
+    // https://github.com/uber/NullAway/issues/1986
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.stream.Stream;
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @Contract("!null -> !null")
+              static @Nullable String id(@Nullable String s) { return s; }
+              @Contract("!null -> !null")
+              @Nullable String self(@Nullable String s) { return s; }
+
+              Function<String, String> staticReference() {
+                return Test::id;
+              }
+              Function<String, String> boundReference() {
+                return this::self;
+              }
+              BiFunction<Test, String, String> unboundReference() {
+                // ContractHandler currently skips unbound references (issue #1986).
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.BiFunction.apply(Test,String) returns @NonNull
+                return Test::self;
+              }
+              BiFunction<Test, String, String> unboundAsLambda() {
+                return (receiver, s) -> receiver.self(s);
+              }
+              Stream<String> streamMethodReference(Stream<String> input) {
+                // Contracts refine override checks, but not generic return inference (issue #1986).
+                // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
+                return input.map(Test::id);
+              }
+              Stream<String> streamLambda(Stream<String> input) {
+                return input.map(s -> id(s));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void impliesNonNullContractAnnotation() {
     makeTestHelperWithArgs(
             Arrays.asList(
