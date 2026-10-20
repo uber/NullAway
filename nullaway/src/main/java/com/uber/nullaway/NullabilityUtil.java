@@ -96,6 +96,8 @@ public class NullabilityUtil {
    * references are left unchanged because their parameters may not line up one-to-one.
    *
    * @param referencedMethod the referenced method, which must not be a constructor
+   * @param receiverType the resolved receiver type, or {@code null} for static references or when
+   *     unavailable
    * @param functionalInterfaceMethod the functional interface method
    * @param functionalInterfaceMethodType functional interface method type, grounded and substituted
    *     in JSpecify mode, or its declared type otherwise
@@ -106,6 +108,7 @@ public class NullabilityUtil {
    */
   public static Handler.NullnessHint getMethodReferenceReturnNullnessHint(
       Symbol.MethodSymbol referencedMethod,
+      @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,
@@ -116,6 +119,7 @@ public class NullabilityUtil {
     }
     return handler.onOverrideMethodReferenceReturnNullability(
         referencedMethod,
+        receiverType,
         functionalInterfaceMethod,
         functionalInterfaceMethodType,
         isUnbound,

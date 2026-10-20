@@ -219,13 +219,15 @@ public class LibraryModelsHandler implements Handler {
 
   /**
    * Refines a method reference's return nullness using declaration annotations on its determining
-   * parameters and, in JSpecify mode, their substituted types. A type variable with a nullable
-   * upper bound does not establish a non-null argument, unless its use is explicitly non-null, so
-   * leave the return nullness unchanged in that case.
+   * parameters and, in JSpecify mode, their substituted types. For {@code Map.getOrDefault}, the
+   * receiver's value type must also be non-null. A type variable with a nullable upper bound does
+   * not establish a non-null argument, unless its use is explicitly non-null, so leave the return
+   * nullness unchanged in that case.
    */
   @Override
   public NullnessHint onOverrideMethodReferenceReturnNullability(
       Symbol.MethodSymbol referencedMethod,
+      @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,
@@ -233,13 +235,29 @@ public class LibraryModelsHandler implements Handler {
     ImmutableSet<Integer> determiningParameterIndices =
         getOptLibraryModels(state.context)
             .nullImpliesNullParameters(referencedMethod, state.getTypes());
+    boolean hasUnknownParameterNullness = false;
+    if (config.isJSpecifyMode()
+        && NullabilityUtil.isMapMethod(referencedMethod, state, "getOrDefault", 2)) {
+      Type valueType = GenericsUtils.getMapValueType(receiverType, state, config);
+      if (valueType == null) {
+        return NullnessHint.UNKNOWN;
+      }
+      NullnessHint valueHint =
+          getTypeNullnessHint(
+              GenericsUtils.effectiveWildcardUpperBound(valueType, state, config, mainHandler),
+              state);
+      if (valueHint.equals(NullnessHint.HINT_NULLABLE)) {
+        return NullnessHint.HINT_NULLABLE;
+      }
+      hasUnknownParameterNullness = valueHint.equals(NullnessHint.UNKNOWN);
+      determiningParameterIndices = ImmutableSet.of(1);
+    }
     if (determiningParameterIndices.isEmpty()) {
       return NullnessHint.UNKNOWN;
     }
     com.sun.tools.javac.util.List<Type> functionalParameterTypes =
         functionalInterfaceMethodType.getParameterTypes();
     int parameterOffset = isUnbound ? 1 : 0;
-    boolean hasUnknownParameterNullness = false;
     for (int index : determiningParameterIndices) {
       int functionalParameterIndex = parameterOffset + index;
       if (functionalParameterIndex
@@ -253,18 +271,30 @@ public class LibraryModelsHandler implements Handler {
       if (!config.isJSpecifyMode()) {
         continue;
       }
-      Type functionalParameterType = functionalParameterTypes.get(functionalParameterIndex);
-      if (Nullness.hasNullableAnnotation(
-          functionalParameterType.getAnnotationMirrors().stream(), config)) {
+      NullnessHint parameterHint =
+          getTypeNullnessHint(functionalParameterTypes.get(functionalParameterIndex), state);
+      if (parameterHint.equals(NullnessHint.HINT_NULLABLE)) {
         return NullnessHint.HINT_NULLABLE;
       }
-      if (functionalParameterType instanceof Type.TypeVar typeVar
-          && !Nullness.hasNonNullAnnotation(typeVar.getAnnotationMirrors().stream(), config)
-          && GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, mainHandler, state)) {
-        hasUnknownParameterNullness = true;
-      }
+      hasUnknownParameterNullness |= parameterHint.equals(NullnessHint.UNKNOWN);
     }
     return hasUnknownParameterNullness ? NullnessHint.UNKNOWN : NullnessHint.FORCE_NONNULL;
+  }
+
+  /**
+   * Determines whether a substituted input type guarantees a non-null value. A type variable with a
+   * nullable upper bound leaves its nullness unresolved unless its use is explicitly non-null.
+   */
+  private NullnessHint getTypeNullnessHint(Type type, VisitorState state) {
+    if (Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config)) {
+      return NullnessHint.HINT_NULLABLE;
+    }
+    if (type instanceof Type.TypeVar typeVar
+        && !Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config)
+        && GenericsUtils.upperBoundIsNullable(typeVar.asElement(), config, mainHandler, state)) {
+      return NullnessHint.UNKNOWN;
+    }
+    return NullnessHint.FORCE_NONNULL;
   }
 
   @Override

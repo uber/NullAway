@@ -9,8 +9,6 @@ import static java.util.stream.Collectors.joining;
 import com.google.common.base.Preconditions;
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
-import com.google.errorprone.suppliers.Supplier;
-import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.AnnotatedTypeTree;
 import com.sun.source.tree.AnnotationTree;
@@ -81,8 +79,6 @@ import org.jspecify.annotations.Nullable;
 
 /** Methods for performing checks related to generic types and nullability. */
 public final class GenericsChecks {
-
-  private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
 
   /** Types resolved for a method reference using its ground target type. */
   public record ResolvedMethodReference(Type.MethodType methodType, @Nullable Type qualifierType) {}
@@ -3606,16 +3602,8 @@ public final class GenericsChecks {
     Type receiverType =
         getEnclosingTypeForCallExpression(
             invokedMethodSymbol, tree, path, state, /* calledFromDataflow= */ true);
-    if (receiverType == null) {
-      return Nullness.NONNULL;
-    }
-    Symbol.ClassSymbol mapSymbol = (Symbol.ClassSymbol) MAP_TYPE_SUPPLIER.get(state).tsym;
-    Type mapType = TypeSubstitutionUtils.asSuper(state.getTypes(), receiverType, mapSymbol, config);
-    if (mapType == null || mapType.getTypeArguments().size() != 2) {
-      // e.g., a raw map type
-      return Nullness.NONNULL;
-    }
-    return getTypeNullnessForRead(mapType.getTypeArguments().get(1), state);
+    Type valueType = GenericsUtils.getMapValueType(receiverType, state, config);
+    return valueType == null ? Nullness.NONNULL : getTypeNullnessForRead(valueType, state);
   }
 
   /**

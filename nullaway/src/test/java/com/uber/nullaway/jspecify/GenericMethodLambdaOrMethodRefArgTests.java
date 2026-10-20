@@ -524,6 +524,180 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void boundGetOrDefaultMethodRefReturnNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Values<V extends @Nullable Object, K> extends HashMap<K, V> {}
+              static <T> T identity(T value) { return value; }
+
+              BiFunction<String, String, String> nonNull(Map<String, String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inherited(Values<String, String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inferredReceiver(Map<String, String> map) {
+                return identity(map)::getOrDefault;
+              }
+              BiFunction<String, String, String> nullableValues(Map<String, @Nullable String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inheritedNullableValues(
+                  Values<@Nullable String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inferredNullableReceiver(
+                  Map<String, @Nullable String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return identity(map)::getOrDefault;
+              }
+              BiFunction<String, @Nullable String, String> nullableDefault(Map<String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, @Nullable String> nullableResult(
+                  Map<String, @Nullable String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, @Nullable String, @Nullable String> nullableDefaultAndResult(
+                  Map<String, String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, Object> wildcardValues(Map<String, ? super String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, Object> rawMap(Map map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundGetOrDefaultMethodRefReturnNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Lookup<V extends @Nullable Object, D extends @Nullable Object,
+                  R extends @Nullable Object> {
+                R apply(Map<String, V> map, String key, D defaultValue);
+              }
+              Lookup<String, String, String> nonNull() {
+                return Map::getOrDefault;
+              }
+              Lookup<@Nullable String, String, String> nullableValues() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+              Lookup<String, @Nullable String, String> nullableDefault() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+              Lookup<@Nullable String, String, @Nullable String> nullableResult() {
+                return Map::getOrDefault;
+              }
+              Lookup<String, @Nullable String, @Nullable String> nullableDefaultAndResult() {
+                return Map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultMethodRefWithTypeVariableInputs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <V extends String> BiFunction<String, V, String> nonNullBound(Map<String, V> map) {
+                return map::getOrDefault;
+              }
+              <V extends @Nullable String> BiFunction<String, @NonNull V, String> nonNullUses(
+                  Map<String, @NonNull V> map) {
+                return map::getOrDefault;
+              }
+              <V extends @Nullable String> BiFunction<String, @NonNull V, String> unresolvedValues(
+                  Map<String, V> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              <D extends @Nullable String> BiFunction<String, D, String> unresolvedDefault(
+                  Map<String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultMethodRefsInferNullableReturns() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Lookup<R extends @Nullable Object> {
+                R apply(Map<String, @Nullable String> map, String key, String defaultValue);
+              }
+              static <R extends @Nullable Object> R unbound(
+                  Lookup<R> f, Map<String, @Nullable String> map) {
+                return f.apply(map, "key", "fallback");
+              }
+              static <R extends @Nullable Object> R bound(BiFunction<String, String, R> f) {
+                return f.apply("key", "fallback");
+              }
+              void test(Map<String, @Nullable String> nullableMap, Map<String, String> nonNullMap) {
+                // BUG: Diagnostic contains: dereferenced expression
+                unbound(Map::getOrDefault, nullableMap).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                bound(nullableMap::getOrDefault).length();
+                bound(nonNullMap::getOrDefault).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void objectsToStringMethodRefReturnFollowsDefaultNullness() {
     makeHelper()
         .addSourceLines(

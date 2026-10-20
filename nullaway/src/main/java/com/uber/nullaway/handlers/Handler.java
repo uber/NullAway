@@ -126,6 +126,8 @@ public interface Handler {
    * interface method that it implements.
    *
    * @param referencedMethod symbol of the referenced method
+   * @param receiverType the resolved receiver type, or {@code null} for static references or when
+   *     unavailable
    * @param functionalInterfaceMethod symbol of the functional interface method
    * @param functionalInterfaceMethodType functional interface method type, grounded and substituted
    *     in JSpecify mode, or its declared type otherwise
@@ -136,6 +138,7 @@ public interface Handler {
    */
   default NullnessHint onOverrideMethodReferenceReturnNullability(
       Symbol.MethodSymbol referencedMethod,
+      @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,

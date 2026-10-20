@@ -4,6 +4,8 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.tools.javac.code.BoundKind;
@@ -33,8 +35,28 @@ import org.jspecify.annotations.Nullable;
 /** Utility methods for doing generics-related checking */
 public class GenericsUtils {
 
+  private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
+
   /** only static methods */
   private GenericsUtils() {}
+
+  /**
+   * Gets the value type of a receiver viewed as a {@code java.util.Map}, preserving type-use
+   * nullness through inherited type arguments. Returns {@code null} for unavailable or raw types.
+   */
+  public static @Nullable Type getMapValueType(
+      @Nullable Type receiverType, VisitorState state, Config config) {
+    if (receiverType == null) {
+      return null;
+    }
+    Symbol.ClassSymbol mapSymbol = (Symbol.ClassSymbol) MAP_TYPE_SUPPLIER.get(state).tsym;
+    Type mapType = TypeSubstitutionUtils.asSuper(state.getTypes(), receiverType, mapSymbol, config);
+    if (mapType == null // diff-coverage: ignore -- Receiver is a Map.
+        || mapType.getTypeArguments().size() != 2) { // diff-coverage: ignore -- Raw Map.
+      return null; // diff-coverage: ignore -- Invalid/raw receiver.
+    }
+    return mapType.getTypeArguments().get(1);
+  }
 
   enum MethodRefTypeRelationKind {
     RETURN,
@@ -46,7 +68,7 @@ public class GenericsUtils {
    * type itself. For wildcards and captured wildcards, returns the wildcard's upper bound,
    * recursing through nested wildcards and captures produced by javac.
    */
-  static Type effectiveWildcardUpperBound(
+  public static Type effectiveWildcardUpperBound(
       Type typeArg, VisitorState state, Config config, Handler handler) {
     if (typeArg instanceof CapturedType capturedType) {
       Type.TypeVar formalTypeVariable =
@@ -523,6 +545,7 @@ public class GenericsUtils {
     Handler.NullnessHint returnNullnessHint =
         NullabilityUtil.getMethodReferenceReturnNullnessHint(
             referencedMethod,
+            qualifierType,
             functionalInterfaceMethod,
             functionalInterfaceMethodTypeAsMember,
             unbound,

@@ -108,6 +108,7 @@ class CompositeHandler implements Handler {
   @Override
   public NullnessHint onOverrideMethodReferenceReturnNullability(
       Symbol.MethodSymbol referencedMethod,
+      @Nullable Type receiverType,
       Symbol.MethodSymbol functionalInterfaceMethod,
       Type.MethodType functionalInterfaceMethodType,
       boolean isUnbound,
@@ -118,6 +119,7 @@ class CompositeHandler implements Handler {
           result.merge(
               h.onOverrideMethodReferenceReturnNullability(
                   referencedMethod,
+                  receiverType,
                   functionalInterfaceMethod,
                   functionalInterfaceMethodType,
                   isUnbound,
