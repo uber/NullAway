@@ -1901,16 +1901,16 @@ public final class GenericsChecks {
    * nullness when substituting type arguments. Only suitable for use in JSpecify mode.
    *
    * @param functionalInterfaceMethod the functional interface method
-   * @param targetType the functional interface target type
+   * @param targetType the method reference's ground target type from javac attribution, with any
+   *     cached NullAway nullness refinements
    * @param state the current visitor state
-   * @return the grounded and substituted functional interface method type
+   * @return the functional interface method type as a member of the ground target type
    */
   public Type.MethodType getFunctionalInterfaceMethodType(
       Symbol.MethodSymbol functionalInterfaceMethod, Type targetType, VisitorState state) {
     verify(config.isJSpecifyMode(), "Method only suitable for use in JSpecify mode");
-    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
     return TypeSubstitutionUtils.memberType(
-            state.getTypes(), groundTargetType, functionalInterfaceMethod, config)
+            state.getTypes(), targetType, functionalInterfaceMethod, config)
         .asMethodType();
   }
 

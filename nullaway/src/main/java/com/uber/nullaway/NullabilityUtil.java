@@ -99,12 +99,13 @@ public class NullabilityUtil {
    * @param receiverType the resolved receiver type, or {@code null} for static references or when
    *     unavailable
    * @param functionalInterfaceMethod the functional interface method
-   * @param functionalInterfaceMethodType functional interface method type, grounded and substituted
-   *     in JSpecify mode, or its declared type otherwise
+   * @param functionalInterfaceMethodType functional interface method type as a member of the ground
+   *     target type in JSpecify mode, or its declared type otherwise
    * @param isUnbound whether the first functional interface parameter is the receiver
    * @param state the current visitor state
    * @param handler the handler providing the hint
-   * @return the handler-provided hint, or {@code UNKNOWN} if either method is varargs
+   * @return the handler-provided hint, or {@code UNKNOWN} when no refinement is available or either
+   *     method is varargs
    */
   public static Handler.NullnessHint getMethodReferenceReturnNullnessHint(
       Symbol.MethodSymbol referencedMethod,

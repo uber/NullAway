@@ -218,11 +218,23 @@ public class LibraryModelsHandler implements Handler {
   }
 
   /**
-   * Refines a method reference's return nullness using declaration annotations on its determining
-   * parameters and, in JSpecify mode, their substituted types. For {@code Map.getOrDefault}, the
-   * receiver's value type must also be non-null. A type variable with a nullable upper bound does
-   * not establish a non-null argument, unless its use is explicitly non-null, so leave the return
-   * nullness unchanged in that case.
+   * Derives return-nullness hints from determining parameters in library models and, in JSpecify
+   * mode, the receiver's value type for {@code Map.getOrDefault}.
+   *
+   * <p>Model indexes refer to the referenced method's declared parameters. For an unbound
+   * reference, add one to each index to skip the functional interface method's receiver parameter.
+   *
+   * <p>A determining parameter with a declaration-level {@code @Nullable} annotation produces
+   * {@code HINT_NULLABLE}. In JSpecify mode, a nullable substituted parameter type does too.
+   * Otherwise, parameters are treated as non-null, except that a type variable with a nullable
+   * upper bound leaves its nullness unresolved unless its use is explicitly {@code @NonNull}.
+   *
+   * <p>For {@code Map.getOrDefault} in JSpecify mode, the mapped value type is also a determining
+   * input. A nullable mapped value produces {@code HINT_NULLABLE}; both the value type and the
+   * default-value parameter must be known non-null to produce {@code FORCE_NONNULL}.
+   *
+   * <p>Returns {@code FORCE_NONNULL} when all determining inputs are known non-null. Returns {@code
+   * UNKNOWN} when no model applies or required type information is unavailable or unresolved.
    */
   @Override
   public NullnessHint onMethodReferenceReturnNullnessHint(

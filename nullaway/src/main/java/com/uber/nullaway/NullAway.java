@@ -1372,8 +1372,8 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Gets the return nullness of an overriding method, accounting for handler-provided conditional
-   * return models when the override is a method reference.
+   * Computes the effective return nullness for override checking. For a method reference, a handler
+   * hint other than {@code UNKNOWN} replaces the annotated or modeled return nullness outright.
    *
    * @param overridingMethod the overriding or referenced method
    * @param memberReferenceTree the method reference, or {@code null} for an ordinary override

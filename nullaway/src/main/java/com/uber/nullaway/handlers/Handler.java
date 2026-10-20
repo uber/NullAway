@@ -138,8 +138,8 @@ public interface Handler {
    * @param receiverType the resolved receiver type, or {@code null} for static references or when
    *     unavailable
    * @param functionalInterfaceMethod symbol of the functional interface method
-   * @param functionalInterfaceMethodType functional interface method type, grounded and substituted
-   *     in JSpecify mode, or its declared type otherwise
+   * @param functionalInterfaceMethodType functional interface method type as a member of the ground
+   *     target type in JSpecify mode, or its declared type otherwise
    * @param isUnbound whether this is an unbound instance method reference, whose first functional
    *     interface parameter is the receiver
    * @param state the current visitor state
