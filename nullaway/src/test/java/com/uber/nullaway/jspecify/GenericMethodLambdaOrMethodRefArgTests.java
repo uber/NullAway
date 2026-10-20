@@ -906,7 +906,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
 
               Function<@Nullable Object, String> invalidFunction() {
-                // BUG: Diagnostic contains: referenced method returns @Nullable
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.Function.apply(@Nullable Object) returns @NonNull
                 return String.class::cast;
               }
 
@@ -920,7 +920,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
 
               BiFunction<Class<String>, @Nullable Object, String> invalidUnboundFunction() {
-                // BUG: Diagnostic contains: referenced method returns @Nullable
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.BiFunction.apply(Class<String>,@Nullable Object) returns @NonNull
                 return Class::cast;
               }
             }
