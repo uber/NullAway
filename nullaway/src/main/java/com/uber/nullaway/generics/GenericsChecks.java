@@ -248,11 +248,11 @@ public final class GenericsChecks {
     this.handler = handler;
   }
 
-  /* package-private */ Config getConfig() {
+  Config getConfig() {
     return config;
   }
 
-  /* package-private */ Handler getHandler() {
+  Handler getHandler() {
     return handler;
   }
 
@@ -769,8 +769,7 @@ public final class GenericsChecks {
    *     types and other unhandled cases. Arrays with raw component types are returned since their
    *     structure and component annotations are still useful.
    */
-  /* package-private */ @Nullable Type getTreeType(
-      Tree tree, VisitorState state, boolean calledFromDataflow) {
+  @Nullable Type getTreeType(Tree tree, VisitorState state, boolean calledFromDataflow) {
     if (tree instanceof ExpressionTree exprTree) {
       NullabilityUtil.ExprTreeAndState exprTreeAndState =
           NullabilityUtil.stripParensAndUpdateTreePath(exprTree, state);
