@@ -1151,6 +1151,15 @@ public class AccessPathNullnessPropagation
             thenUpdates,
             elseUpdates,
             bothUpdates);
+    if (NullabilityUtil.isMapMethod(callee, state, "getOrDefault", 2)) {
+      // A present key returns its mapped value, even when that value is null. Outside
+      // JSpecify mode map values are assumed non-null, so only the default matters.
+      nullnessHint =
+          mapHasNullableValues(node)
+                  || !values(input).valueOfSubNode(node.getArgument(1)).equals(NONNULL)
+              ? NullnessHint.HINT_NULLABLE
+              : NullnessHint.FORCE_NONNULL;
+    }
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(callee)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
