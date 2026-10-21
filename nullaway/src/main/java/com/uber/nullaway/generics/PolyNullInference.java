@@ -137,9 +137,6 @@ final class PolyNullInference {
         continue;
       }
       int parameterIndex = parameter.index();
-      if (parameterIndex >= methodType.argtypes.size()) {
-        continue;
-      }
       locationsByParameter
           .computeIfAbsent(parameterIndex, unused -> new ArrayList<>())
           .add(location);
