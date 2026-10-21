@@ -1005,6 +1005,10 @@ public class AccessPathNullnessPropagation
       TypeCastNode node, TransferInput<Nullness, NullnessStore> input) {
     SubNodeValues values = values(input);
     Nullness nullness = hasPrimitiveType(node) ? NONNULL : values.valueOfSubNode(node.getOperand());
+    // (boolean) (x != null) has the truth value of x != null, so the branch facts of x != null hold
+    if (input.containsTwoStores()) {
+      return new ConditionalTransferResult<>(nullness, input.getThenStore(), input.getElseStore());
+    }
     return noStoreChanges(nullness, input);
   }
 
