@@ -75,7 +75,8 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test() {
-                // Without a modeled input, keep the declared nullable list contents.
+                // The provider's stale parameter location does not apply to this zero-argument
+                // method. Without a modeled input, keep the declared nullable list contents.
                 // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.outputOnly().get(0)' is @Nullable
                 PolyNullMethods.outputOnly().get(0).hashCode();
               }
@@ -1095,6 +1096,30 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void polyNullOverridesConflictingFixedParameterModels() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullOverrides.NullableOverride;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(NullableOverride library, Object nonNull, @Nullable Object nullable) {
+                // Both nullable and non-null fixed models cover the first parameter.
+                library.top(nonNull, nullable, nonNull, () -> nonNull).hashCode();
+                Object result = library.top(nullable, nullable, nonNull, () -> nonNull);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inheritedPolyNullOverridesFixedTopLevelModels() {
     makeHelper()
         .addSourceLines(
@@ -1175,6 +1200,30 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: dereferenced expression
                 nullableModel.nested(nonNull, nullable).hashCode();
                 nonNullModel.nested(nonNull, nullable).get(0).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void inputOnlyPolyNullPreservesNullableReturnAssignmentError() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullOverrides.NullableOverride;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              private Object field = new Object();
+
+              void test(NullableOverride library, List<Object> values) {
+                // With no PolyNull return location, retain the ordinary nullable-return error.
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                field = library.inputOnly(values);
               }
             }
             """)

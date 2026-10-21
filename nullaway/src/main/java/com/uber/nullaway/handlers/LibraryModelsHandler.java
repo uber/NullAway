@@ -1805,7 +1805,10 @@ public class LibraryModelsHandler implements Handler {
       return parameterModelsWithoutPolyNull(symbol, nonNullParams);
     }
 
-    /** Removes fixed parameter models covered by an exact or inherited PolyNull location. */
+    /**
+     * Removes fixed parameter models covered by an exact or inherited PolyNull location before
+     * checking for conflicting nullable and non-null parameter models.
+     */
     private ImmutableSet<Integer> parameterModelsWithoutPolyNull(
         Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<Integer>> lookup) {
       ImmutableSet<Integer> fixedModels = lookupImmutableSet(symbol, lookup);
