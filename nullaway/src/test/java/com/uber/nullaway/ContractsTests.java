@@ -1442,4 +1442,36 @@ public class ContractsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void contractOnReferenceCastArgumentRefinesItsOperand() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            class Test {
+              @Contract("null -> false")
+              static boolean isNotNull(@Nullable Object o) {
+                return o != null;
+              }
+              String trueBranch(@Nullable Object o) {
+                if (isNotNull((Object) o)) {
+                  return o.toString();
+                }
+                return "";
+              }
+              String falseBranch(@Nullable Object o) {
+                if (!isNotNull((Object) o)) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
+                  return o.toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
 }
