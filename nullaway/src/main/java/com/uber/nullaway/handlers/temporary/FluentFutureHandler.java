@@ -90,7 +90,9 @@ public class FluentFutureHandler implements Handler {
     }
     MethodInvocationTree methodInvocation =
         ASTHelpers.findEnclosingNode(state.getPath(), MethodInvocationTree.class);
-    if (methodInvocation == null || !methodInvocation.getArguments().contains(enclosingLambda)) {
+    if (methodInvocation == null
+        || methodInvocation.getArguments().stream()
+            .noneMatch(arg -> enclosingLambda.equals(ASTHelpers.stripParentheses(arg)))) {
       return returnNullness;
     }
     // Check if that method call is one of the FluentFuture APIs we care about
