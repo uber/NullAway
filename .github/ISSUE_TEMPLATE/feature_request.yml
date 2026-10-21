@@ -1,0 +1,50 @@
+name: Feature request
+description: Suggest an improvement to NullAway's analysis, configuration, or integrations.
+labels: [enhancement]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for helping improve NullAway! Please search [existing issues](https://github.com/uber/NullAway/issues) before submitting a request.
+        For large features, please discuss the proposal in an issue before investing in an implementation, as described in our [contributing guide](https://github.com/uber/NullAway/blob/master/CONTRIBUTING.md).
+        For usage questions, you can ask in the [NullAway Discord server](https://discord.gg/QH2F779).
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem or use case
+      description: Describe the limitation you are facing and how it affects your use of NullAway.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: Describe the behavior you would like, such as support for a Java language construct, a nullness annotation, a library, or a configuration option.
+    validations:
+      required: true
+
+  - type: textarea
+    id: example
+    attributes:
+      label: Example and expected behavior
+      description: If applicable, include a small Java example with nullness annotations and explain which diagnostics NullAway should or should not report. For build integrations, include example configuration instead.
+    validations:
+      required: false
+
+  - type: textarea
+    id: alternatives
+    attributes:
+      label: Alternatives considered
+      description: Describe any existing configuration options, library models, suppressions, or other workarounds you considered and why they are insufficient.
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Include relevant links, JSpecify or Java specifications, dependencies, or related issues.
+    validations:
+      required: false

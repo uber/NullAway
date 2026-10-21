@@ -1,0 +1,96 @@
+name: Bug report
+description: Report an incorrect nullness diagnostic, a missed error, a crash, or another NullAway bug.
+labels: [bug]
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for using NullAway! Before filing, please search [existing issues](https://github.com/uber/NullAway/issues) to avoid duplicates.
+        For help with configuration, see the [configuration guide](https://github.com/uber/NullAway/wiki/Configuration) or ask in the [NullAway Discord server](https://discord.gg/QH2F779).
+
+  - type: input
+    id: nullaway_version
+    attributes:
+      label: NullAway version
+      description: Include the full version number (major, minor, and patch), or the commit if using an unreleased build.
+    validations:
+      required: true
+
+  - type: input
+    id: error_prone_version
+    attributes:
+      label: Error Prone version
+      description: The version of error_prone_core used by your build.
+    validations:
+      required: true
+
+  - type: input
+    id: java_version
+    attributes:
+      label: JDK version
+      description: Include the JDK version used to compile the affected code, and the Java source or release level if different.
+      placeholder: "e.g. javac 21.0.6, compiling with --release 17"
+    validations:
+      required: true
+
+  - type: input
+    id: build_tool
+    attributes:
+      label: Build tool and version
+      description: Include relevant plugin versions, such as the Gradle Error Prone or NullAway plugin, and whether this is an Android build.
+      placeholder: "e.g. Gradle, Maven, Bazel, or direct javac invocation"
+    validations:
+      required: true
+
+  - type: textarea
+    id: description
+    attributes:
+      label: Describe the bug
+      description: Explain what went wrong, such as an unexpected warning, a missing nullness error, or a compiler crash.
+    validations:
+      required: true
+
+  - type: textarea
+    id: reproduction
+    attributes:
+      label: Steps to reproduce
+      description: |
+        A minimal Java code sample or test case that reproduces the issue is preferred. Include imports and nullness annotations, or link to a small reproducer repository and give the command to run it.
+        If you cannot provide a reproducer, describe the steps and include a stack trace or diagnostics below; a stack trace alone may not provide enough context.
+    validations:
+      required: true
+
+  - type: textarea
+    id: configuration
+    attributes:
+      label: NullAway configuration
+      description: |
+        Include your NullAway compiler options and relevant build configuration, especially AnnotatedPackages or OnlyNullMarked, JSpecifyMode, custom nullness annotations, and library models if used.
+        Remove secrets and unrelated build configuration.
+    validations:
+      required: true
+
+  - type: textarea
+    id: expected
+    attributes:
+      label: Expected behavior
+      description: Explain which diagnostics should or should not be reported, or what should happen instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: diagnostics
+    attributes:
+      label: Actual diagnostics or stack trace
+      description: Paste compiler diagnostics, a stack trace, or relevant build output as text, if available. No Markdown code fences are needed.
+      render: text
+    validations:
+      required: false
+
+  - type: textarea
+    id: additional
+    attributes:
+      label: Additional context
+      description: Include any relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression. If you tested a newer release or main branch build, note the result here.
+    validations:
+      required: false

@@ -1,0 +1,6 @@
+# GitHub still offers blank issues to users with write access or above (maintainers only).
+blank_issues_enabled: false
+contact_links:
+  - name: Usage questions and support
+    url: https://discord.gg/QH2F779
+    about: Ask the NullAway community for help with setup, configuration, and usage.
