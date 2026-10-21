@@ -52,8 +52,8 @@ public class GenericsUtils {
     Symbol.ClassSymbol mapSymbol = (Symbol.ClassSymbol) MAP_TYPE_SUPPLIER.get(state).tsym;
     Type mapType = TypeSubstitutionUtils.asSuper(state.getTypes(), receiverType, mapSymbol, config);
     if (mapType == null // diff-coverage: ignore -- Receiver is a Map.
-        || mapType.getTypeArguments().size() != 2) { // diff-coverage: ignore -- Raw Map.
-      return null; // diff-coverage: ignore -- Invalid/raw receiver.
+        || mapType.getTypeArguments().size() != 2) {
+      return null;
     }
     return mapType.getTypeArguments().get(1);
   }

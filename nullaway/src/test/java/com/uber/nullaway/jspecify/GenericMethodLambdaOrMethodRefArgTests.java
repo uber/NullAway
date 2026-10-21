@@ -828,6 +828,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Pins the existing conservative behavior for raw functional-interface targets. */
   @Test
   public void classCastMethodRefWithRawTarget() {
     makeHelper()
@@ -849,6 +850,7 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** Pins the existing conservative behavior for varargs functional-interface methods. */
   @Test
   public void classCastMethodRefWithVarargsFunctionalInterface() {
     makeHelper()

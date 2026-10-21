@@ -241,10 +241,10 @@ public class LibraryModelsHandler implements Handler {
     ImmutableSet<Integer> determiningParameterIndices =
         getOptLibraryModels(state.context)
             .nullImpliesNullParameters(referencedMethod, state.getTypes());
-    boolean hasUnknownParameterNullness = false;
     if (determiningParameterIndices.isEmpty()) {
       return NullnessHint.UNKNOWN;
     }
+    boolean hasUnknownParameterNullness = false;
     com.sun.tools.javac.util.List<Type> functionalParameterTypes =
         functionalInterfaceMethodType.getParameterTypes();
     int parameterOffset = isUnbound ? 1 : 0;

@@ -11,21 +11,11 @@ public class MapNullableValuesTests extends NullAwayTestsBase {
 
   @Test
   public void getOrDefaultCallsAndReferencesWithWildcardValues() {
-    checkGetOrDefaultWildcardValues(true);
-  }
-
-  @Test
-  public void getOrDefaultCallsAndReferencesWithWildcardHandlingDisabled() {
-    checkGetOrDefaultWildcardValues(false);
-  }
-
-  /** Checks that calls and bound/unbound references respect the same wildcard-support setting. */
-  private void checkGetOrDefaultWildcardValues(boolean handleWildcards) {
     makeTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 Arrays.asList(
                     "-XepOpt:NullAway:OnlyNullMarked=true",
-                    "-XepOpt:NullAway:HandleWildcardGenerics=" + handleWildcards)))
+                    "-XepOpt:NullAway:HandleWildcardGenerics=true")))
         .addSourceLines(
             "Test.java",
             """
@@ -40,29 +30,57 @@ public class MapNullableValuesTests extends NullAwayTestsBase {
               }
 
               void call(Map<String, ? super String> map) {
-                // CALL_DIAGNOSTIC
+                // BUG: Diagnostic contains: dereferenced expression
                 map.getOrDefault("key", "fallback").hashCode();
               }
 
               BiFunction<String, String, Object> bound(Map<String, ? super String> map) {
-                // REFERENCE_DIAGNOSTIC
+                // BUG: Diagnostic contains: referenced method returns @Nullable
                 return map::getOrDefault;
               }
 
               Lookup unbound() {
-                // REFERENCE_DIAGNOSTIC
+                // BUG: Diagnostic contains: referenced method returns @Nullable
                 return Map::getOrDefault;
               }
             }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultCallsAndReferencesWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:HandleWildcardGenerics=false")))
+        .addSourceLines(
+            "Test.java",
             """
-                .replace(
-                    "// CALL_DIAGNOSTIC",
-                    handleWildcards ? "// BUG: Diagnostic contains: dereferenced expression" : "")
-                .replace(
-                    "// REFERENCE_DIAGNOSTIC",
-                    handleWildcards
-                        ? "// BUG: Diagnostic contains: referenced method returns @Nullable"
-                        : ""))
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Lookup {
+                Object apply(Map<String, ? super String> map, String key, String defaultValue);
+              }
+
+              void call(Map<String, ? super String> map) {
+                map.getOrDefault("key", "fallback").hashCode();
+              }
+
+              BiFunction<String, String, Object> bound(Map<String, ? super String> map) {
+                return map::getOrDefault;
+              }
+
+              Lookup unbound() {
+                return Map::getOrDefault;
+              }
+            }
+            """)
         .doTest();
   }
 
@@ -102,6 +120,34 @@ public class MapNullableValuesTests extends NullAwayTestsBase {
 
               BiFunction<String, String, String> nonNullValues(Map<String, String> map) {
                 return map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultOnRawMapSubtype() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              @SuppressWarnings({"rawtypes", "serial"})
+              static class RawSubtype extends HashMap {}
+
+              BiFunction<Object, Object, Object> reference(RawSubtype map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              Object call(RawSubtype map, Object key) {
+                return map.getOrDefault(key, "fallback");
               }
             }
             """)

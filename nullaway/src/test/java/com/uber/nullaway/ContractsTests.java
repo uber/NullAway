@@ -461,7 +461,8 @@ public class ContractsTests extends NullAwayTestsBase {
 
   @Test
   public void contractMethodReferenceReturnNullnessCurrentBehaviorJSpecify() {
-    // Pin current behavior until contract and library-model return-nullness handling are unified:
+    // Pins behavior that predates conditional library method-reference models. The BUG markers
+    // below record known false positives until contract and library-model handling are unified:
     // https://github.com/uber/NullAway/issues/1986
     makeTestHelperWithArgs(
             withJSpecifyModeArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
@@ -489,7 +490,7 @@ public class ContractsTests extends NullAwayTestsBase {
                 return this::self;
               }
               BiFunction<Test, String, String> unboundReference() {
-                // ContractHandler currently skips unbound references (issue #1986).
+                // Known false positive: ContractHandler skips unbound references (issue #1986).
                 // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.BiFunction.apply(Test,String) returns @NonNull
                 return Test::self;
               }
@@ -497,7 +498,7 @@ public class ContractsTests extends NullAwayTestsBase {
                 return (receiver, s) -> receiver.self(s);
               }
               Stream<String> streamMethodReference(Stream<String> input) {
-                // Contracts refine override checks, but not generic return inference (issue #1986).
+                // Known false positive: contracts do not refine generic return inference (#1986).
                 // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
                 return input.map(Test::id);
               }

@@ -78,6 +78,36 @@ public class Java8Tests extends NullAwayTestsBase {
   }
 
   @Test
+  public void classCastUnboundMethodReferenceUsesDeclarationParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+
+            class Test {
+              interface NullableParameter {
+                String apply(Class<String> type, @Nullable Object value);
+              }
+              interface NonNullParameter {
+                String apply(Class<String> type, Object value);
+              }
+
+              NullableParameter nullableParameter() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Class::cast;
+              }
+
+              NonNullParameter nonNullParameter() {
+                return Class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void classCastMethodReferenceUsesTypeUseParameterNullness() {
     defaultCompilationHelper
         .addSourceLines(
