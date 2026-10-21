@@ -1504,16 +1504,7 @@ public final class GenericsChecks {
       return successResult;
     } catch (UnsatisfiableConstraintsException e) {
       String inferenceFailureMessage = inferenceFailureMessage(e, polyNullContexts);
-      if (config.warnOnGenericInferenceFailure()
-          && callsWithReportedInferenceFailures.add(callTree)) {
-        ErrorBuilder errorBuilder = analysis.getErrorBuilder();
-        ErrorMessage errorMessage =
-            new ErrorMessage(
-                ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, inferenceFailureMessage);
-        state.reportMatch(
-            errorBuilder.createErrorDescription(
-                errorMessage, analysis.buildDescription(callTree), state, null));
-      }
+      reportInferenceFailure(callTree, inferenceFailureMessage, state);
       InferenceFailure failureResult = new InferenceFailure(inferenceFailureMessage);
       if (okToCacheInferenceResult(calledFromDataflow)) {
         for (Tree inferredCall : allCalls) {
@@ -3738,7 +3729,10 @@ public final class GenericsChecks {
       }
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
-      reportPolyNullInferenceFailure(invocationTree, state);
+      reportInferenceFailure(
+          invocationTree,
+          PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)),
+          state);
       return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
     }
   }
@@ -3813,22 +3807,19 @@ public final class GenericsChecks {
             });
   }
 
-  /** Reports unsatisfiable constraints on a PolyNull invocation. */
-  private void reportPolyNullInferenceFailure(
-      MethodInvocationTree invocationTree, VisitorState state) {
+  /** Reports an inference failure once per call when inference warnings are enabled. */
+  private void reportInferenceFailure(Tree callTree, String message, VisitorState state) {
     if (!config.warnOnGenericInferenceFailure()
-        || !callsWithReportedInferenceFailures.add(invocationTree)) {
+        || !callsWithReportedInferenceFailures.add(callTree)) {
       return;
     }
     ErrorMessage errorMessage =
-        new ErrorMessage(
-            ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE,
-            PolyNullInference.inferenceFailureMessage(ASTHelpers.getSymbol(invocationTree)));
+        new ErrorMessage(ErrorMessage.MessageTypes.GENERIC_INFERENCE_FAILURE, message);
     state.reportMatch(
         analysis
             .getErrorBuilder()
             .createErrorDescription(
-                errorMessage, analysis.buildDescription(invocationTree), state, null));
+                errorMessage, analysis.buildDescription(callTree), state, null));
   }
 
   /** Returns the synthetic annotation type representing the resolved PolyNull qualifier. */
