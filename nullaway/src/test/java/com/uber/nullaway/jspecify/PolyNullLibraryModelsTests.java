@@ -43,28 +43,24 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
   @Test
   public void failedGenericInferenceDoesNotAddPolyNullDereferenceError() {
-    CompilationTestHelper helper =
-        makeHelper()
-            .addSourceLines(
-                "Test.java",
-                """
-                import com.uber.lib.unannotated.PolyNullMethods;
-                import org.jspecify.annotations.NullMarked;
-                import org.jspecify.annotations.Nullable;
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
 
-                @NullMarked
-                class Test {
-                  void test(@Nullable String seed) {
-                    PolyNullMethods.boundedGenericObject(seed, () -> "fallback").hashCode();
-                  }
-                }
-                """);
-    // An expected-diagnostic marker permits extra diagnostics on the same line. Inspect the
-    // complete diagnostic output to ensure failed generic inference doesn't also infer a
-    // nullable PolyNull result and report a spurious dereference error.
-    AssertionError error = assertThrows(AssertionError.class, helper::doTest);
-    assertThat(error).hasMessageThat().contains("inference failure");
-    assertThat(error).hasMessageThat().doesNotContain("dereferenced expression");
+            @NullMarked
+            class Test {
+              void test(@Nullable String seed) {
+                // BUG: Diagnostic contains: inference failure
+                Object result = PolyNullMethods.boundedGenericObject(seed, () -> "fallback");
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
   }
 
   @Test
@@ -177,7 +173,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void optionalOrElseGetWithExplicitSupplierTypeArgument() {
+  public void optionalOrElseGetWithNamedSupplier() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -222,6 +218,8 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void direct(Optional<? extends String> optional) {
+                // Throwing callbacks are valid for any capture and never return null.
+                optional.orElseGet(() -> { throw new IllegalStateException(); }).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> null)' is @Nullable
                 optional.orElseGet(() -> null).hashCode();
 
@@ -242,6 +240,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               }
 
               void unbounded(Optional<?> optional) {
+                optional.orElseGet(() -> { throw new IllegalStateException(); }).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression 'optional.orElseGet(() -> null)' is @Nullable
                 optional.orElseGet(() -> null).hashCode();
                 optional.get().hashCode();
@@ -282,6 +281,8 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               }
 
               void test(Optional<? extends String> optional) {
+                // Throwing callbacks are valid for any capture and never return null.
+                identity(optional).orElseGet(() -> { throw new IllegalStateException(); }).hashCode();
                 // Generic inference captures the wildcard before the PolyNull model is applied.
                 var result = identity(optional).orElseGet(() -> null);
                 // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
@@ -289,6 +290,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               }
 
               void unbounded(Optional<?> optional) {
+                identity(optional).orElseGet(() -> { throw new IllegalStateException(); }).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression 'identity(optional).orElseGet(() -> null)' is @Nullable
                 identity(optional).orElseGet(() -> null).hashCode();
                 optional.get().hashCode();
@@ -371,6 +373,66 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void optionalOrElseGetUsesParenthesizedResultTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              String nullableResult(Optional<String> optional) {
+                // BUG: Diagnostic contains: linked nullness for call to orElseGet constrained to be both @NonNull and @Nullable
+                return ((optional.orElseGet(() -> null)));
+              }
+
+              String nonNullResult(Optional<String> optional) {
+                return ((optional.orElseGet(() -> "value")));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapComputeIfAbsentPreservesErrorsWithoutInferenceWarnings() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              private String field = "initial";
+
+              void assign(Map<String, String> map) {
+                field = map.computeIfAbsent("nonNull", unused -> "value");
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                field = map.computeIfAbsent("nullable", unused -> null);
+              }
+
+              String nullableResult(Map<String, String> map) {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return map.computeIfAbsent("nullable", unused -> null);
+              }
+
+              String nonNullResult(Map<String, String> map) {
+                return map.computeIfAbsent("nonNull", unused -> "value");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void polyNullInferenceFailureDoesNotAddOrdinaryNullnessErrors() {
     CompilationTestHelper helper =
         makeHelper()
@@ -444,7 +506,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void mapComputeIfAbsentWithExplicitFunctionTypeArgument() {
+  public void mapComputeIfAbsentWithNamedFunction() {
     makeHelper()
         .addSourceLines(
             "Test.java",
@@ -489,6 +551,8 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void direct(Map<String, ? extends String> map) {
+                // Throwing callbacks are valid for any capture and never return null.
+                map.computeIfAbsent("nonNull", unused -> { throw new IllegalStateException(); }).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", unused -> null)' is @Nullable
                 map.computeIfAbsent("key", unused -> null).hashCode();
 
@@ -510,6 +574,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
               }
 
               void unbounded(Map<String, ?> map) {
+                map.computeIfAbsent("nonNull", unused -> { throw new IllegalStateException(); }).hashCode();
                 // BUG: Diagnostic contains: dereferenced expression 'map.computeIfAbsent("key", unused -> null)' is @Nullable
                 map.computeIfAbsent("key", unused -> null).hashCode();
 
