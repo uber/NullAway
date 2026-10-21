@@ -135,9 +135,12 @@ public class RestrictiveAnnotationHandler implements Handler {
       } else if (Nullness.paramHasNullableAnnotation(methodSymbol, i, config)) {
         argumentNullness.setParameterNullness(i, Nullness.NULLABLE);
       }
-      if (varargsParamSymbol != null
-          && Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
-        argumentNullness.setVarargsArrayNullness(Nullness.NONNULL);
+      if (varargsParamSymbol != null) {
+        if (Nullness.varargsArrayIsNonNull(varargsParamSymbol, config)) {
+          argumentNullness.setVarargsArrayNullness(Nullness.NONNULL);
+        } else if (Nullness.varargsArrayIsNullable(varargsParamSymbol, config)) {
+          argumentNullness.setVarargsArrayNullness(Nullness.NULLABLE);
+        }
       }
     }
     return argumentNullness;

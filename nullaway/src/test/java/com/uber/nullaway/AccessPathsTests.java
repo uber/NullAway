@@ -627,4 +627,89 @@ public class AccessPathsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void nullCheckOfReferenceCastRefinesItsOperand() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String castToOwnType(@Nullable Object o) {
+                if ((Object) o != null) {
+                  return o.toString();
+                }
+                return "";
+              }
+              String downcast(@Nullable Object o) {
+                if ((String) o != null) {
+                  return o.toString();
+                }
+                return "";
+              }
+              String equalsNullBranch(@Nullable Object o) {
+                if ((Object) o == null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
+                  return o.toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void checkNotNullOfReferenceCastRefinesItsOperand() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.google.common.base.Preconditions;
+            class Test {
+              int checkedVariable(@Nullable Integer i) {
+                Preconditions.checkNotNull((Integer) i);
+                return i;
+              }
+              int uncheckedVariable(@Nullable Integer i, @Nullable Integer j) {
+                Preconditions.checkNotNull((Integer) j);
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'i'
+                return i;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapKeyUnderReferenceCastIsTheSameKey() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              String referenceCastKey(Map<String, Object> m, String k) {
+                if (m.get((String) k) != null) {
+                  return m.get(k).toString();
+                }
+                return "";
+              }
+              String primitiveCastKey(Map<Object, Object> m, long l) {
+                // m.get(l) looks up a Long and m.get((int) l) an Integer, so they are different keys
+                if (m.get(l) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get((int) l)' is @Nullable
+                  return m.get((int) l).toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
 }

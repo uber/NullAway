@@ -1014,6 +1014,76 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void parenthesizedFalseReturnedWhenTheFieldIsNullSatisfiesTheContract() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Foo {
+              @Nullable Object item;
+              @EnsuresNonNullIf("item")
+              boolean hasItem() {
+                if (item != null) {
+                  return (true);
+                }
+                return (false);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void parenthesizedTrueReturnedWhenTheFieldIsNullSatisfiesAResultFalseContract() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Foo {
+              @Nullable Object item;
+              @EnsuresNonNullIf(value = "item", result = false)
+              boolean lacksItem() {
+                if (item == null) {
+                  return (true);
+                }
+                return (false);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void parenthesizedTrueReturnedWhenTheFieldIsNullViolatesTheContract() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Foo.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Foo {
+              @Nullable Object item;
+              @EnsuresNonNullIf("item")
+              boolean hasItem() {
+                if (item != null) {
+                  return (false);
+                }
+                // BUG: Diagnostic contains: Method is annotated with @EnsuresNonNullIf but does not ensure fields [item]
+                return (true);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void invalidContractCanBeSuppressed() {
     defaultCompilationHelper
         .addSourceLines(
@@ -1037,6 +1107,31 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             package com.uber;
             class Item {
               public void call() { }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castOfReturnedConditionKeepsItsBranchFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Test {
+              @Nullable Object item;
+              @EnsuresNonNullIf("item")
+              boolean checksNonNull() {
+                return (boolean) (item != null);
+              }
+              @EnsuresNonNullIf("item")
+              boolean checksNull() {
+                // BUG: Diagnostic contains: does not ensure fields [item]
+                return (boolean) (item == null);
+              }
             }
             """)
         .doTest();

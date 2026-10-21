@@ -126,6 +126,31 @@ public class SyncLambdasTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void forEachWithLambdaInParentheses() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            public class Test {
+                private @Nullable Object f;
+                public void test1(List<Object> l) {
+                    if (this.f == null) {
+                        throw new IllegalArgumentException();
+                    }
+                    l.forEach((v -> System.out.println(v + this.f.toString())));
+                    this.f = null;
+                    // BUG: Diagnostic contains: dereferenced expression 'this.f' is @Nullable
+                    l.forEach((v -> System.out.println(v + this.f.toString())));
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void removeIf() {
     defaultCompilationHelper
         .addSourceLines(
