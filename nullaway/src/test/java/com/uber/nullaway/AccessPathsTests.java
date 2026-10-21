@@ -72,6 +72,298 @@ public class AccessPathsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void constantArgumentWidenedToADifferentValueDoesNotMatch() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object d(double x) { return null; }
+              void test() {
+                if (d(0.1d) != null) {
+                  // 0.1f widens to 0.10000000149011612, a different double than 0.1d
+                  // BUG: Diagnostic contains: dereferenced expression 'd(0.1f)' is @Nullable
+                  d(0.1f).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constantArgumentWidenedToTheSameValueMatches() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object l(long x) { return null; }
+              void test() {
+                if (l(0) != null) {
+                  l(0L).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void doubleParameterMatchesAnIntConstantAndAnEqualDoubleConstant() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object d(double x) { return null; }
+              void test() {
+                if (d(1) != null) {
+                  d(1.0).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void floatParameterMatchesAnIntConstantAndAnEqualFloatConstant() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object f(float x) { return null; }
+              void test() {
+                if (f(1) != null) {
+                  f(1.0f).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void shortParameterMatchesAByteConstantAndAnEqualShortConstant() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              static final byte BYTE_ONE = 1;
+              static final short SHORT_ONE = 1;
+              @Nullable Object s(short x) { return null; }
+              void test() {
+                if (s(BYTE_ONE) != null) {
+                  s(SHORT_ONE).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void byteParameterMatchesEqualByteConstants() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              static final byte ONE = 1;
+              static final byte UNO = 1;
+              @Nullable Object b(byte x) { return null; }
+              void test() {
+                if (b(ONE) != null) {
+                  b(UNO).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void charConstantWidenedToIntMatchesTheIntConstant() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object i(int x) { return null; }
+              void test() {
+                if (i('a') != null) {
+                  i(97).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void integerAndLongConstantArgumentsDoNotMatch() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void test() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(42L)' is @Nullable
+                  o(42L).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void longValueOfAnIntConstantArgumentMatchesTheLongConstant() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void test() {
+                if (o(42L) != null) {
+                  o(Long.valueOf(42)).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void stringAndIntegerConstantArgumentsDoNotMatch() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void test() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o("42")' is @Nullable
+                  o("42").toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void charAndIntConstantArgumentsDoNotMatch() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void test() {
+                if (o(97) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o('a')' is @Nullable
+                  o('a').toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void integerValueOfAStringArgumentIsNotTreatedAsBoxing() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void test() {
+                if (o("42") != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(Integer.valueOf("42"))' is @Nullable
+                  o(Integer.valueOf("42")).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void stringValueOfArgumentIsNotTreatedAsBoxing() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void test() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(String.valueOf(42))' is @Nullable
+                  o(String.valueOf(42)).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void integerToStringArgumentIsNotTreatedAsBoxing() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void test() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(Integer.toString(42))' is @Nullable
+                  o(Integer.toString(42)).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testVariablesInAccessPathsNegative() {
     defaultCompilationHelper
         .addSourceLines(
@@ -533,6 +825,65 @@ public class AccessPathsTests extends NullAwayTestsBase {
               public void putThenGet() {
                 map.put(valueOf(10), new Object());
                 map.get(valueOf(10)).toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void integerAndLongMapKeysDoNotMatch() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void test(Map<Object, Object> m) {
+                if (m.get(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get(42L)' is @Nullable
+                  m.get(42L).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void longValueOfAnIntMapKeyMatchesTheLongLiteral() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void test(Map<Object, Object> m) {
+                if (m.get(Long.valueOf(42)) != null) {
+                  m.get(42L).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void integerValueOfAStringMapKeyDoesNotMatchTheString() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void test(Map<Object, Object> m) {
+                if (m.get("42") != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get(Integer.valueOf("42"))' is @Nullable
+                  m.get(Integer.valueOf("42")).toString();
+                }
               }
             }
             """)

@@ -26,6 +26,7 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Preconditions;
 import com.google.common.collect.ImmutableList;
+import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.suppliers.Supplier;
@@ -36,19 +37,19 @@ import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
-import com.uber.nullaway.ASTHelpersBackports;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.annotations.JacocoIgnoreGenerated;
 import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
-import java.util.Optional;
 import java.util.Set;
 import javax.lang.model.element.Element;
 import javax.lang.model.element.ElementKind;
 import javax.lang.model.element.Modifier;
 import javax.lang.model.element.VariableElement;
+import javax.lang.model.type.TypeKind;
+import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.ArrayAccessNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.ClassNameNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.FieldAccessNode;
@@ -236,9 +237,8 @@ public final class AccessPath implements MapKey {
    * Construct the access path given a {@code base.method(CONS)} structure.
    *
    * <p>IMPORTANT: Be careful with this method, the argument list is not the variable names of the
-   * method arguments, but rather the string representation of primitive-type compile-time constants
-   * or the name of static final fields of structurally immutable types (see {@link
-   * #buildAccessPathRecursive(Node, ArrayDeque, AccessPathContext, MapKey)}).
+   * method arguments, but rather the names of static final fields of structurally immutable types,
+   * each encoded by {@link #immutableFieldNameAsConstantArgument(String)}.
    *
    * <p>This is used by a few specialized Handlers to set nullability around particular paths
    * involving constants.
@@ -295,6 +295,9 @@ public final class AccessPath implements MapKey {
 
   private static @Nullable MapKey argumentToMapKeySpecifier(
       Node argument, VisitorState state, AccessPathContext apContext) {
+    // Taken before the widening is stripped: the primitive type the literal was converted to, which
+    // is the parameter type of the valueOf call that boxes it and tells an Integer key from a Long.
+    TypeKind numericKind = argument.getType().getKind();
     // Required to have Node type match Tree type in some instances.
     if (argument instanceof WideningConversionNode node) {
       argument = node.getOperand();
@@ -304,15 +307,14 @@ public final class AccessPath implements MapKey {
       case STRING_LITERAL:
         return new StringMapKey(((StringLiteralNode) argument).getValue());
       case INT_LITERAL:
-        return new NumericMapKey(((IntegerLiteralNode) argument).getValue());
+        return new NumericMapKey(((IntegerLiteralNode) argument).getValue(), numericKind);
       case LONG_LITERAL:
-        return new NumericMapKey(((LongLiteralNode) argument).getValue());
+        return new NumericMapKey(((LongLiteralNode) argument).getValue(), numericKind);
       case METHOD_INVOCATION:
         MethodAccessNode target = ((MethodInvocationNode) argument).getTarget();
         List<Node> arguments = ((MethodInvocationNode) argument).getArguments();
         // Check for int/long boxing.
-        if (target.getMethod().getSimpleName().toString().equals("valueOf")
-            && arguments.size() == 1) {
+        if (isBoxingMethod((Symbol.MethodSymbol) target.getMethod())) {
           Type ownerType = ((Symbol.MethodSymbol) target.getMethod()).owner.type;
           if (ASTHelpers.isSameType(ownerType, INTEGER_TYPE_SUPPLIER.get(state), state)
               || ASTHelpers.isSameType(ownerType, LONG_TYPE_SUPPLIER.get(state), state)) {
@@ -411,14 +413,77 @@ public final class AccessPath implements MapKey {
     return new AccessPath(element, ImmutableList.of(), null);
   }
 
+  /**
+   * Primitive kind that each wrapper class in {@code java.lang} boxes, keyed by the wrapper's fully
+   * qualified name.
+   */
+  private static final ImmutableMap<String, TypeKind> BOXED_PRIMITIVE_KINDS =
+      ImmutableMap.of(
+          "java.lang.Boolean", TypeKind.BOOLEAN,
+          "java.lang.Byte", TypeKind.BYTE,
+          "java.lang.Character", TypeKind.CHAR,
+          "java.lang.Short", TypeKind.SHORT,
+          "java.lang.Integer", TypeKind.INT,
+          "java.lang.Long", TypeKind.LONG,
+          "java.lang.Float", TypeKind.FLOAT,
+          "java.lang.Double", TypeKind.DOUBLE);
+
+  /**
+   * Returns whether a method is the {@code valueOf} overload of a primitive wrapper class that
+   * boxes its primitive, such as {@code Integer.valueOf(int)}. Other overloads, such as {@code
+   * Integer.valueOf(String)} and {@code String.valueOf(int)}, convert their argument to a different
+   * value and are not boxing.
+   */
   private static boolean isBoxingMethod(Symbol.MethodSymbol methodSymbol) {
-    if (methodSymbol.isStatic() && methodSymbol.getSimpleName().contentEquals("valueOf")) {
-      Optional<Symbol.PackageSymbol> enclosingPackage =
-          ASTHelpersBackports.enclosingPackage(methodSymbol.enclClass());
-      return enclosingPackage.isPresent()
-          && enclosingPackage.get().fullname.contentEquals("java.lang");
+    if (!methodSymbol.isStatic() || !methodSymbol.getSimpleName().contentEquals("valueOf")) {
+      return false;
     }
-    return false;
+    // Every valueOf of a wrapper class takes at least one parameter.
+    TypeKind boxedKind =
+        BOXED_PRIMITIVE_KINDS.get(methodSymbol.enclClass().getQualifiedName().toString());
+    return boxedKind != null && methodSymbol.getParameters().get(0).type.getKind() == boxedKind;
+  }
+
+  /**
+   * Encodes a compile-time constant argument as the value the parameter receives, after any
+   * widening or boxing conversion.
+   *
+   * <p>The encoding names the class of that value, so that {@code 42}, {@code 42L}, and {@code
+   * "42"} passed to an {@code Object} parameter stay distinct. Two constants share an encoding only
+   * when the parameter receives equal values: {@code 0} and {@code 0L} passed to a {@code long}
+   * parameter do, and {@code 0.1f} and {@code 0.1d} passed to a {@code double} parameter do not.
+   *
+   * @param constantValue the value of the literal or constant field, before conversion
+   * @param argumentType the type of the argument after conversion: the parameter's primitive type
+   *     after widening, the wrapper class after boxing, or the argument's own type when no
+   *     conversion applies
+   * @return the encoding to include in the constant arguments of an access path element
+   */
+  private static String encodeConstantArgument(Object constantValue, TypeMirror argumentType) {
+    TypeKind kind = argumentType.getKind();
+    if (kind == TypeKind.DECLARED) {
+      kind =
+          BOXED_PRIMITIVE_KINDS.getOrDefault(
+              ((Type) argumentType).tsym.getQualifiedName().toString(), kind);
+    }
+    Object value = constantValue;
+    if (value instanceof Character c && kind != TypeKind.CHAR) {
+      value = (int) c;
+    }
+    if (value instanceof Number number) {
+      value =
+          switch (kind) {
+            case BYTE -> number.byteValue();
+            case SHORT -> number.shortValue();
+            case INT -> number.intValue();
+            case LONG -> number.longValue();
+            case FLOAT -> number.floatValue();
+            case DOUBLE -> number.doubleValue();
+            // diff-coverage: ignore -- a numeric constant always converts to a numeric type
+            default -> number;
+          };
+    }
+    return value.getClass().getSimpleName() + ": " + value;
   }
 
   /**
@@ -497,7 +562,9 @@ public final class AccessPath implements MapKey {
             case INT_LITERAL:
             case LONG_LITERAL:
             case STRING_LITERAL:
-              constantArgumentValues.add(((LiteralTree) tree).getValue().toString());
+              constantArgumentValues.add(
+                  encodeConstantArgument(
+                      castToNonNull(((LiteralTree) tree).getValue()), argumentNode.getType()));
               break;
             case NULL_LITERAL:
               // Um, probably not? Return null for now.
@@ -515,7 +582,8 @@ public final class AccessPath implements MapKey {
                 // constant :)
                 Object constantValue = varSymbol.getConstantValue();
                 if (constantValue != null) {
-                  constantArgumentValues.add(constantValue.toString());
+                  constantArgumentValues.add(
+                      encodeConstantArgument(constantValue, argumentNode.getType()));
                   break;
                 }
                 // The above will not work for static final fields of reference type, since they are
@@ -676,7 +744,14 @@ public final class AccessPath implements MapKey {
 
   private record StringMapKey(String key) implements MapKey {}
 
-  private record NumericMapKey(long key) implements MapKey {}
+  /**
+   * Key of a {@code Map.get} call whose argument is a boxed {@code int} or {@code long} constant.
+   *
+   * @param key the constant
+   * @param kind {@link TypeKind#INT} or {@link TypeKind#LONG}, the primitive that was boxed; an
+   *     {@code Integer} and a {@code Long} are never equal map keys, whatever their values
+   */
+  private record NumericMapKey(long key, TypeKind kind) implements MapKey {}
 
   /**
    * Represents all possible values that could be returned by calling {@code next()} on an {@code
