@@ -892,7 +892,6 @@ public class NullAway extends BugChecker
     // (otherwise, whether we acknowledge @Nullable in unannotated code or not depends on the
     // -XepOpt:NullAway:AcknowledgeRestrictiveAnnotations flag and its handler).
     if (isOverriddenMethodAnnotated) {
-      boolean overriddenMethodIsVarArgs = overriddenMethod.isVarArgs();
       for (int i = 0; i < superParamSymbols.size(); i++) {
         Nullness paramNullness;
         Type modeledParameterType =
@@ -903,7 +902,7 @@ public class NullAway extends BugChecker
             && Nullness.hasNullableAnnotation(
                 modeledParameterType.getAnnotationMirrors().stream(), config)) {
           paramNullness = Nullness.NULLABLE;
-        } else if (overriddenMethodIsVarArgs && i == superParamSymbols.size() - 1) {
+        } else if (isVarargsPosition(overriddenMethod, i)) {
           // For a varargs position, we need to check if the array itself is @Nullable
           paramNullness =
               Nullness.varargsArrayIsNullable(superParamSymbols.get(i), config)
@@ -927,7 +926,11 @@ public class NullAway extends BugChecker
         } else {
           paramNullness = Nullness.NONNULL;
         }
-        overriddenMethodArgumentNullness.setParameterNullness(i, paramNullness);
+        if (isVarargsPosition(overriddenMethod, i)) {
+          overriddenMethodArgumentNullness.setVarargsArrayNullness(paramNullness);
+        } else {
+          overriddenMethodArgumentNullness.setParameterNullness(i, paramNullness);
+        }
       }
     }
 
@@ -945,7 +948,8 @@ public class NullAway extends BugChecker
     // SomeFunc<String> and thus incompatible with, for example, SomeFunc.apply(@Nullable T).
     if (unboundMemberRef
         && Objects.equals(
-            overriddenMethodArgumentNullness.getParameterNullness(0), Nullness.NULLABLE)) {
+            overriddenParameterNullness(overriddenMethod, overriddenMethodArgumentNullness, 0),
+            Nullness.NULLABLE)) {
       String message =
           "unbound instance method reference cannot be used, as first parameter of "
               + "functional interface method "
@@ -967,13 +971,14 @@ public class NullAway extends BugChecker
 
     for (int i = 0; i < superParamSymbols.size(); i++) {
       Nullness overriddenParameterNullness =
-          overriddenMethodArgumentNullness.getParameterNullness(i);
+          overriddenParameterNullness(overriddenMethod, overriddenMethodArgumentNullness, i);
       if (!Objects.equals(overriddenParameterNullness, Nullness.NULLABLE)) {
         // No need to check, unless the argument of the overridden method is effectively @Nullable,
         // in which case it can't be overridden by a @NonNull arg.
         continue;
       }
-      int methodParamInd = i - startParam;
+      int methodParamInd =
+          getMemberRefParamIndex(i - startParam, overridingMethod, memberReferenceTree);
       VarSymbol paramSymbol = overridingParamSymbols.get(methodParamInd);
       boolean paramIsNonNull =
           paramOfOverridingMethodIsNonNull(
@@ -1034,11 +1039,35 @@ public class NullAway extends BugChecker
   }
 
   /**
+   * Returns the nullness an overriding method receives at a parameter position of the overridden
+   * method. At the varargs position the overriding method receives the array itself, so this is the
+   * nullness of the varargs array rather than of its elements.
+   *
+   * @param overriddenMethod method being overridden
+   * @param overriddenMethodArgumentNullness parameter nullness of the overridden method
+   * @param index parameter position in the overridden method
+   * @return the nullness at {@code index}, or {@code null} if it is unknown
+   */
+  private static @Nullable Nullness overriddenParameterNullness(
+      Symbol.MethodSymbol overriddenMethod,
+      MethodParameterNullness overriddenMethodArgumentNullness,
+      int index) {
+    return isVarargsPosition(overriddenMethod, index)
+        ? overriddenMethodArgumentNullness.getVarargsArrayNullness()
+        : overriddenMethodArgumentNullness.getParameterNullness(index);
+  }
+
+  private static boolean isVarargsPosition(Symbol.MethodSymbol method, int index) {
+    return method.isVarArgs() && index == method.getParameters().size() - 1;
+  }
+
+  /**
    * Checks if the parameter of the overriding method is {@code @NonNull}
    *
    * @param paramSymbol the symbol for the parameter of the overriding method
    * @param methodParamInd the index of the parameter in the method signature of the overriding
-   *     method (adjusted for unbound member references)
+   *     method, adjusted for unbound member references; for a member reference that passes varargs
+   *     individually, a position past the last parameter is mapped to the varargs parameter
    * @param overridingMethod if available, the symbol for the overriding method
    * @param isMethodAnnotated whether the overriding method is annotated
    * @param memberReferenceTree if the overriding method is a member reference, the tree for the
@@ -1058,9 +1087,17 @@ public class NullAway extends BugChecker
       @Nullable MemberReferenceTree memberReferenceTree,
       Type.@Nullable MethodType memberReferenceMethodType,
       @Nullable MethodParameterNullness referencedMethodParameterNullnessOverrides) {
+    // A varargs parameter of a referenced method that receives the whole array is checked by the
+    // nullness of the array
+    boolean receivesVarargsArray =
+        memberReferenceTree != null
+            && isVarargsPosition(castToNonNull(overridingMethod), methodParamInd)
+            && !memberRefToVarargsPassedIndividually(overridingMethod, memberReferenceTree);
     if (referencedMethodParameterNullnessOverrides != null) {
       Nullness parameterNullnessOverride =
-          referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
+          receivesVarargsArray
+              ? referencedMethodParameterNullnessOverrides.getVarargsArrayNullness()
+              : referencedMethodParameterNullnessOverrides.getParameterNullness(methodParamInd);
       if (parameterNullnessOverride != null) {
         // An explicit handler value takes precedence over annotations and generic substitution.
         return parameterNullnessOverride.equals(Nullness.NONNULL);
@@ -1068,10 +1105,16 @@ public class NullAway extends BugChecker
     }
     boolean result = false;
     if (isMethodAnnotated) {
-      result = !Nullness.hasNullableAnnotation(paramSymbol, config);
+      result =
+          receivesVarargsArray
+              ? !Nullness.varargsArrayIsNullable(paramSymbol, config)
+              : !Nullness.hasNullableAnnotation(paramSymbol, config);
     } else if (config.acknowledgeRestrictiveAnnotations()) {
       // can still be @NonNull if there is a restrictive annotation
-      result = Nullness.hasNonNullAnnotation(paramSymbol, config);
+      result =
+          receivesVarargsArray
+              ? Nullness.varargsArrayIsNonNull(paramSymbol, config)
+              : Nullness.hasNonNullAnnotation(paramSymbol, config);
     }
     if (result && memberReferenceMethodType != null) {
       // when the overriding method is a member reference, also check that the parameter is not
@@ -1079,9 +1122,7 @@ public class NullAway extends BugChecker
       // of the member reference after handling generics
       com.sun.tools.javac.util.List<Type> parameterTypes =
           memberReferenceMethodType.getParameterTypes();
-      int memberRefParamIndex =
-          getMemberRefParamIndex(methodParamInd, overridingMethod, memberReferenceTree);
-      Type paramType = parameterTypes.get(memberRefParamIndex);
+      Type paramType = parameterTypes.get(methodParamInd);
       // if we have a method reference to a varargs method where varargs are passed individually
       // (not as an array), and this parameter is the varargs
       // parameter, then we need to check the nullability of the varargs element type
@@ -1241,9 +1282,9 @@ public class NullAway extends BugChecker
     }
     handler.onMatchLambdaExpression(
         tree, new MethodAnalysisContext(this, state, funcInterfaceMethod));
-    if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
-      return Description.NO_MATCH;
-    }
+    // Parameters are checked even when the functional interface method is unannotated, as for an
+    // overriding method or a method reference, since handlers such as RestrictiveAnnotationHandler
+    // may mark its parameters @Nullable
     Description description =
         checkParamOverriding(
             tree.getParameters().stream().map(ASTHelpers::getSymbol).collect(Collectors.toList()),
@@ -1255,6 +1296,9 @@ public class NullAway extends BugChecker
             /* overridingMethod= */ null);
     if (!description.equals(Description.NO_MATCH)) {
       state.reportMatch(description);
+    }
+    if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
+      return Description.NO_MATCH;
     }
     // if the body has a return statement, that gets checked in matchReturn().  We need this code
     // for lambdas with expression bodies
@@ -1316,7 +1360,11 @@ public class NullAway extends BugChecker
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
-    if (overriddenMethodReturnsNonNull(
+    // A constructor reference creates a new object and never returns null. javac gives the
+    // constructor of an array constructor reference the qualifier as its return type, annotations
+    // included, so the return type of String @Nullable []::new carries @Nullable.
+    if (!overridingMethod.isConstructor()
+        && overriddenMethodReturnsNonNull(
             overriddenMethod,
             overridingMethod.owner,
             modeledOverriddenMethodType,
@@ -2899,7 +2947,10 @@ public class NullAway extends BugChecker
       }
       case NEW_CLASS,
           NEW_ARRAY,
+          // A type is not a value; it reaches here as the qualifier of a method reference, such as
+          // String[]::new or String @Nullable []::new
           ARRAY_TYPE,
+          ANNOTATED_TYPE,
           // Lambdas may return null, but the lambda literal itself should not be null
           LAMBDA_EXPRESSION,
           // These cannot be null; the compiler would catch it
