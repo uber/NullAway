@@ -1041,4 +1041,29 @@ public class EnsuresNonNullIfTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void castOfReturnedConditionKeepsItsBranchFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNullIf;
+            class Test {
+              @Nullable Object item;
+              @EnsuresNonNullIf("item")
+              boolean checksNonNull() {
+                return (boolean) (item != null);
+              }
+              @EnsuresNonNullIf("item")
+              boolean checksNull() {
+                // BUG: Diagnostic contains: does not ensure fields [item]
+                return (boolean) (item == null);
+              }
+            }
+            """)
+        .doTest();
+  }
 }

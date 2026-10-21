@@ -1316,7 +1316,11 @@ public class NullAway extends BugChecker
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
-    if (overriddenMethodReturnsNonNull(
+    // A constructor reference creates a new object and never returns null. javac gives the
+    // constructor of an array constructor reference the qualifier as its return type, annotations
+    // included, so the return type of String @Nullable []::new carries @Nullable.
+    if (!overridingMethod.isConstructor()
+        && overriddenMethodReturnsNonNull(
             overriddenMethod,
             overridingMethod.owner,
             modeledOverriddenMethodType,
@@ -2892,7 +2896,10 @@ public class NullAway extends BugChecker
       }
       case NEW_CLASS,
           NEW_ARRAY,
+          // A type is not a value; it reaches here as the qualifier of a method reference, such as
+          // String[]::new or String @Nullable []::new
           ARRAY_TYPE,
+          ANNOTATED_TYPE,
           // Lambdas may return null, but the lambda literal itself should not be null
           LAMBDA_EXPRESSION,
           // These cannot be null; the compiler would catch it

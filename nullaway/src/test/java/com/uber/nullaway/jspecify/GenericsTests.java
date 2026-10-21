@@ -2364,6 +2364,86 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * The exemption for unmarked callees holds for a lambda or method reference wrapped in
+   * parentheses, and parentheses do not extend it to a marked callee. The wrapped forms used to be
+   * reported as if the callee were marked (issue #1993).
+   */
+  @Test
+  public void passParenthesizedLambdaOrMethodRefToUnannotatedCode() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static interface Fn<S extends @Nullable Object, T extends @Nullable Object> {
+                T apply(S s);
+              }
+              @NullUnmarked
+              static class Unmarked {
+                static void foo(Fn<String, String> f) {}
+              }
+              @NullMarked
+              static class Marked {
+                static void foo(Fn<String, String> f) {}
+              }
+              @NullMarked
+              static class C {
+                static @Nullable String baz(String s) { return null; }
+                static void unmarkedCallee() {
+                  Unmarked.foo((s -> null));
+                  Unmarked.foo(((s -> null)));
+                  Unmarked.foo((s -> { return null; }));
+                  Unmarked.foo((C::baz));
+                  Unmarked.foo(((C::baz)));
+                }
+                static void markedCallee() {
+                  // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                  Marked.foo((s -> null));
+                  // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method
+                  Marked.foo((C::baz));
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Parenthesized lambdas and method references passed to the JDK keep the exemption for unmarked
+   * callees when the JSpecify JDK models are off, so {@code Map} and {@code Stream} are unmarked.
+   */
+  @Test
+  public void passParenthesizedLambdaOrMethodRefToUnmarkedJdk() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.Map;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static @Nullable String toNull(String s) { return null; }
+              void map(List<String> l) {
+                l.stream().map((Test::toNull)).forEach(s -> {});
+              }
+              Object computeIfAbsent(Map<String, Object> m, String key) {
+                return m.computeIfAbsent(key, (k -> null));
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void testRawTypeReceiverCast() {
     makeHelper()

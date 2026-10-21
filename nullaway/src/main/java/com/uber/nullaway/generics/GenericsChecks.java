@@ -3932,7 +3932,11 @@ public final class GenericsChecks {
       path = path.getParentPath();
     }
     verify(path != null, "did not find lambda or method reference tree in TreePath");
-    Tree parentOfLambdaTree = path.getParentPath().getLeaf();
+    TreePath parentPath = path.getParentPath();
+    while (parentPath.getLeaf() instanceof ParenthesizedTree) {
+      parentPath = parentPath.getParentPath();
+    }
+    Tree parentOfLambdaTree = parentPath.getLeaf();
     if (parentOfLambdaTree instanceof MethodInvocationTree methodInvocationTree) {
       Symbol.MethodSymbol parentMethodSymbol = ASTHelpers.getSymbol(methodInvocationTree);
       callingUnannotated =

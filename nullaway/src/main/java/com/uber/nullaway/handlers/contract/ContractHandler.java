@@ -49,6 +49,7 @@ import java.util.Optional;
 import javax.lang.model.type.TypeMirror;
 import org.checkerframework.nullaway.dataflow.cfg.node.AbstractNodeVisitor;
 import org.checkerframework.nullaway.dataflow.cfg.node.BinaryOperationNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.ConditionalNotNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.EqualToNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
@@ -363,11 +364,11 @@ public class ContractHandler implements Handler {
           // This path unwraps null reference equality and inequality checks
           // to pass the target (in the above example, 'obj') as arg.
           Node argument = node.getArgument(i);
-          // isNullTarget is the variable side of a null check. For example, both 'e == null'
-          // and 'null == e' would return the node representing 'e'.
+          // isNullTarget is the variable side of a null check. For example, 'e == null',
+          // 'null == e', and '!(e != null)' all return the node representing 'e'.
           Optional<Node> isNullTarget = argument.accept(NullEqualityVisitor.IS_NULL, inputs);
-          // notNullTarget is the variable side of a not-null check. For example, both 'e != null'
-          // and 'null != e' would return the node representing 'e'.
+          // notNullTarget is the variable side of a not-null check. For example, 'e != null',
+          // 'null != e', and '!(e == null)' all return the node representing 'e'.
           Optional<Node> notNullTarget = argument.accept(NullEqualityVisitor.NOT_NULL, inputs);
           // It is possible for at most one of isNullTarget and notNullTarget to be present.
           Node nullTestTarget = isNullTarget.orElse(notNullTarget.orElse(null));
@@ -462,11 +463,11 @@ public class ContractHandler implements Handler {
    * This visitor returns an {@link Optional<Node>} representing the non-null side of a null
    * comparison check.
    *
-   * <p>When the visited node is not an equality check (either {@link EqualToNode} or {@link
-   * NotEqualNode} based on {@link #equals} being {@code true} or {@code false} respectively)
-   * against a null value, {@link Optional#empty()} is returned. For example, visiting {@code e ==
-   * null} with {@code new NullEqualityVisitor(true)} would return an {@link Optional} of node
-   * {@code e}.
+   * <p>The visitor matches an {@link EqualToNode} when {@link #equals} is {@code true}, or a {@link
+   * NotEqualNode} when it is {@code false}, provided one operand is null. It also matches a {@link
+   * ConditionalNotNode} whose operand matches with the opposite polarity. Any other node yields
+   * {@link Optional#empty()}. For example, visiting {@code e == null} or {@code !(e != null)} with
+   * {@code new NullEqualityVisitor(true)} returns an {@link Optional} of node {@code e}.
    */
   private static final class NullEqualityVisitor
       extends AbstractNodeVisitor<Optional<Node>, AccessPathNullnessPropagation.SubNodeValues> {
@@ -483,6 +484,13 @@ public class ContractHandler implements Handler {
     @Override
     public Optional<Node> visitNode(Node node, AccessPathNullnessPropagation.SubNodeValues unused) {
       return Optional.empty();
+    }
+
+    @Override
+    public Optional<Node> visitConditionalNot(
+        ConditionalNotNode conditionalNotNode, AccessPathNullnessPropagation.SubNodeValues inputs) {
+      NullEqualityVisitor negated = equals ? NOT_NULL : IS_NULL;
+      return conditionalNotNode.getOperand().accept(negated, inputs);
     }
 
     @Override
