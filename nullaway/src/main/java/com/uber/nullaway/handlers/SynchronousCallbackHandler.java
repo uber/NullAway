@@ -12,6 +12,7 @@ import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.MethodInvocationTree;
+import com.sun.source.tree.ParenthesizedTree;
 import com.sun.source.tree.Tree;
 import com.sun.source.util.TreePath;
 import com.sun.tools.javac.code.Symbol;
@@ -57,7 +58,12 @@ public class SynchronousCallbackHandler implements Handler {
         leafNode instanceof ClassTree || leafNode instanceof LambdaExpressionTree,
         "Unexpected leaf type: %s",
         leafNode.getClass());
-    Tree parentNode = path.getParentPath().getLeaf();
+    // A parenthesized callback is still an argument of the call around the parentheses.
+    TreePath argumentPath = path;
+    while (argumentPath.getParentPath().getLeaf() instanceof ParenthesizedTree) {
+      argumentPath = argumentPath.getParentPath();
+    }
+    Tree parentNode = argumentPath.getParentPath().getLeaf();
     if (parentNode instanceof MethodInvocationTree methodInvocationTree) {
       Symbol.MethodSymbol symbol = ASTHelpers.getSymbol(methodInvocationTree);
       if (symbol == null) {
@@ -81,15 +87,8 @@ public class SynchronousCallbackHandler implements Handler {
           if (symbol.toString().equals(methodRef.fullMethodSig)
               && ASTHelpers.isSubtype(
                   ownerType, state.getTypeFromString(methodRef.enclosingClass), state)) {
-            int parameterIndex = -1;
-            for (int i = 0; i < methodInvocationTree.getArguments().size(); i++) {
-              @SuppressWarnings("ReferenceEquality")
-              boolean foundLeaf = methodInvocationTree.getArguments().get(i) == leafNode;
-              if (foundLeaf) {
-                parameterIndex = i;
-                break;
-              }
-            }
+            int parameterIndex =
+                methodInvocationTree.getArguments().indexOf(argumentPath.getLeaf());
             if (parameterIndex == entriesForMethodName.get(methodRef)) {
               return TRUE_AP_PREDICATE;
             }

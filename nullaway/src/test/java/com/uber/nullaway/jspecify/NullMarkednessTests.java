@@ -1111,6 +1111,42 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedLambdaOverNullUnmarkedMethodWithNullableParamJSpecifyMode() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:OnlyNullMarked=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NullableParamFi {
+                @NullUnmarked
+                void apply(@Nullable Object o);
+              }
+              interface UnannotatedParamFi {
+                @NullUnmarked
+                void apply(Object o);
+              }
+              void test() {
+                // BUG: Diagnostic contains: parameter o is @NonNull, but parameter in functional interface method com.uber.Test.NullableParamFi.apply(@Nullable Object) is @Nullable
+                NullableParamFi nonNullParam = (Object o) -> {};
+                NullableParamFi nullableParam = (@Nullable Object o) -> {};
+                UnannotatedParamFi unannotatedFiParam = (Object o) -> {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullUnmarkedOuterMethodLevelWithLocalClass() {
     defaultCompilationHelper
         .addSourceLines(
