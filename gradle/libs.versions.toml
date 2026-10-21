@@ -1,8 +1,8 @@
 [versions]
-asm = "9.10.1"
+asm = "9.11"
 checker-framework = "4.2.3"
 support = "27.1.1"
-wala = "1.7.1"
+wala = "1.8.0"
 commons-cli = "1.11.0"
 auto-service = "1.1.1"
 google-java-format = "1.34.1"
@@ -49,7 +49,7 @@ grpc-core = "1.84.2"
 mockito = "5.24.0"
 javax-annotation = "1.3.2"
 assertj = "3.27.7"
-amazon-utils = "2.55.7"
+amazon-utils = "2.55.16"
 
 # --- Android SDK Versions ---
 compile-sdk = "30"

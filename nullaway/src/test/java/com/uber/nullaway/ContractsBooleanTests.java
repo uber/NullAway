@@ -635,6 +635,235 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void negatedNullCheckSatisfiesTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!(m == null), r == null);
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedReversedNullCheckSatisfiesTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!(null == m), r == null);
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedNullCheckOfKnownNullArgumentKeepsTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m) {
+                String r = null;
+                Validation.checkEither(m != null, !(r == null));
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedNullChecksInBothArgumentsSatisfyTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m) {
+                String r = null;
+                Validation.checkEither(!(m == null), !(r == null));
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void doublyNegatedNonNullCheckSatisfiesTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!!(m != null), r == null);
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedParenthesizedNullCheckSatisfiesTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!((m == null)), r == null);
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedNonNullCheckLeavesArgumentNullableAfterTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!(m != null), r == null);
+                // BUG: Diagnostic contains: dereferenced expression
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void doublyNegatedNullCheckLeavesArgumentNullableAfterTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!!(m == null), r == null);
+                // BUG: Diagnostic contains: dereferenced expression
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedComparisonWithNonNullValueLeavesArgumentNullable() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!(m == r), r == null);
+                // BUG: Diagnostic contains: dereferenced expression
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedNullChecksOfTwoUnknownArgumentsLeaveBothNullable() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, @Nullable Object n) {
+                Validation.checkEither(!(m == null), !(n == null));
+                // BUG: Diagnostic contains: dereferenced expression 'm'
+                String s = m.toString();
+                // BUG: Diagnostic contains: dereferenced expression 'n'
+                return s + n.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedNullCheckSatisfiesTrueImpliesTrueContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object other) {
+                if (Validation.identity(!(m == null), other)) {
+                  return m.toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedNonNullCheckLeavesArgumentNullableUnderTrueImpliesTrueContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object other) {
+                if (Validation.identity(!(m != null), other)) {
+                  // BUG: Diagnostic contains: dereferenced expression
+                  return m.toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper helper() {
     return makeTestHelperWithArgs(
             Arrays.asList(
@@ -655,6 +884,10 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
               @Contract("false, _ -> fail")
               static void checkTrue(boolean value, String msg) {
                 if (!value) throw new RuntimeException(msg);
+              }
+              @Contract("false, false -> fail")
+              static void checkEither(boolean first, boolean second) {
+                if (!first && !second) throw new RuntimeException();
               }
               @Contract("true -> fail")
               static void checkFalse(boolean value) {
