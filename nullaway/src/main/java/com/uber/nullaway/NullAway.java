@@ -818,6 +818,8 @@ public class NullAway extends BugChecker
    *     LambdaExpressionTree}; otherwise {@code null}
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
+   * @param resolvedReference the shared method-reference resolution, or {@code null} for an
+   *     ordinary override, lambda, or unsupported reference
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
    *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param state visitor state
@@ -829,6 +831,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overriddenMethod,
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
+      @Nullable ResolvedMethodReference resolvedReference,
       @Nullable Type modeledOverriddenMethodType,
       VisitorState state,
       Symbol.@Nullable MethodSymbol overridingMethod) {
@@ -862,14 +865,8 @@ public class NullAway extends BugChecker
     MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
       Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
-      if (config.isJSpecifyMode() // diff-coverage: ignore -- Unattributed javac tree.
-          && functionalInterfaceType != null) {
-        ResolvedMethodReference resolvedMethodReference =
-            genericsChecks.resolveMemberReference(
-                memberReferenceTree, referencedMethod, functionalInterfaceType, state);
-        if (resolvedMethodReference != null) {
-          jspecifyMemberReferenceMethodType = resolvedMethodReference.methodType();
-        }
+      if (config.isJSpecifyMode() && resolvedReference != null) {
+        jspecifyMemberReferenceMethodType = resolvedReference.methodType();
       }
       if (jspecifyMemberReferenceMethodType == null) {
         // Preserve the existing behavior for cases the shared resolver intentionally skips, such
@@ -1292,6 +1289,7 @@ public class NullAway extends BugChecker
             funcInterfaceMethod,
             tree,
             /* memberReferenceTree= */ null,
+            /* resolvedReference= */ null,
             /* modeledOverriddenMethodType= */ null,
             state,
             /* overridingMethod= */ null);
@@ -1358,6 +1356,19 @@ public class NullAway extends BugChecker
       @Nullable Type modeledOverriddenMethodType,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
+    ResolvedMethodReference resolvedReference = null;
+    if (memberReferenceTree != null) {
+      Type functionalInterfaceType =
+          genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
+      if (functionalInterfaceType == null) {
+        functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
+      }
+      if (functionalInterfaceType != null) { // diff-coverage: ignore -- Unattributed javac tree.
+        resolvedReference =
+            genericsChecks.resolveMemberReference(
+                memberReferenceTree, overridingMethod, functionalInterfaceType, state);
+      }
+    }
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
@@ -1371,7 +1382,7 @@ public class NullAway extends BugChecker
             modeledOverriddenMethodType,
             memberReferenceTree,
             state)
-        && getOverridingMethodReturnNullness(overridingMethod, memberReferenceTree, state)
+        && getOverridingMethodReturnNullness(overridingMethod, resolvedReference, state)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
             || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
@@ -1415,6 +1426,7 @@ public class NullAway extends BugChecker
         overriddenMethod,
         null,
         memberReferenceTree,
+        resolvedReference,
         modeledOverriddenMethodType,
         state,
         overridingMethod);
@@ -1425,29 +1437,16 @@ public class NullAway extends BugChecker
    * hint other than {@code UNKNOWN} replaces the annotated or modeled return nullness outright.
    *
    * @param overridingMethod the overriding or referenced method
-   * @param memberReferenceTree the method reference, or {@code null} for an ordinary override
+   * @param resolvedReference the shared method-reference resolution, or {@code null} for an
+   *     ordinary override or unsupported reference
    * @param state the current visitor state
    * @return the effective return nullness
    */
   private Nullness getOverridingMethodReturnNullness(
       Symbol.MethodSymbol overridingMethod,
-      @Nullable MemberReferenceTree memberReferenceTree,
+      @Nullable ResolvedMethodReference resolvedReference,
       VisitorState state) {
     Nullness result = getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL);
-    if (memberReferenceTree == null) {
-      return result;
-    }
-    Type functionalInterfaceType =
-        genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-    if (functionalInterfaceType == null) {
-      functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-    }
-    if (functionalInterfaceType == null) { // diff-coverage: ignore -- Unattributed javac tree.
-      return result; // diff-coverage: ignore -- Unattributed javac tree.
-    }
-    ResolvedMethodReference resolvedReference =
-        genericsChecks.resolveMemberReference(
-            memberReferenceTree, overridingMethod, functionalInterfaceType, state);
     if (resolvedReference == null) {
       return result;
     }
