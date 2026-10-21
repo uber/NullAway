@@ -593,9 +593,12 @@ public class LibraryModelsHandler implements Handler {
     boolean isMethodUnannotated =
         getCodeAnnotationInfo(state.context)
             .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
+    // Constructors allocate non-null objects; their javac method return type is void and cannot
+    // carry the nullable-return annotation used for ordinary modeled methods.
     boolean modeledNullableReturn =
-        optimizedLibraryModels.hasNullableReturn(
-            methodSymbol, state.getTypes(), isMethodUnannotated);
+        !methodSymbol.isConstructor()
+            && optimizedLibraryModels.hasNullableReturn(
+                methodSymbol, state.getTypes(), isMethodUnannotated);
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
         optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
     if (explicitlyNullableParameters.isEmpty()

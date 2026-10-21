@@ -873,6 +873,81 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void modeledConstructorReferenceProducesNonNullStreamElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.ConditionalReturns;
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Stream<ConditionalReturns> test(Stream<@Nullable Object> input) {
+                // Constructor allocations remain non-null even with a nullable library model.
+                return input.map(ConditionalReturns::new);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void closerRegisterMethodReferenceFollowsArgumentNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.google.common.io.Closer;
+            import java.io.Closeable;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Function<Closeable, Closeable> nonNullInput(Closer closer) {
+                return closer::register;
+              }
+
+              Function<@Nullable Closeable, Closeable> nullableInput(Closer closer) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return closer::register;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void optionalOrElseMethodReferenceFollowsArgumentNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Function<String, String> nonNullInput(Optional<String> optional) {
+                return optional::orElse;
+              }
+
+              Function<@Nullable String, String> nullableInput(Optional<String> optional) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return optional::orElse;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void classCastMethodRefWithNullableDeclarationParameter() {
     makeHelper()
         .addSourceLines(
