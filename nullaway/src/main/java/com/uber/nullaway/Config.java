@@ -311,7 +311,7 @@ public interface Config {
   /** Should new checks based on JSpecify (like checks for generic types) be enabled? */
   boolean isJSpecifyMode();
 
-  /** Should PolyNull library models be enabled? */
+  /** Returns true if both JSpecifyMode and JSpecifyExperimental are enabled. */
   boolean isPolyNullLibraryModelsEnabled();
 
   /** Should wildcard-aware generic nullability checks be enabled? */
