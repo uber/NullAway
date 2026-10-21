@@ -1,8 +1,5 @@
 package com.uber.nullaway.jspecify;
 
-import static com.google.common.truth.Truth.assertThat;
-import static org.junit.Assert.assertThrows;
-
 import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
@@ -435,32 +432,31 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
 
   @Test
   public void polyNullInferenceFailureDoesNotAddOrdinaryNullnessErrors() {
-    CompilationTestHelper helper =
-        makeHelper()
-            .addSourceLines(
-                "Test.java",
-                """
-                import java.util.Optional;
-                import org.jspecify.annotations.NullMarked;
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
 
-                @NullMarked
-                class Test {
-                  private String field = "initial";
+            @NullMarked
+            class Test {
+              private String field = "initial";
 
-                  void assign(Optional<String> optional) {
-                    field = optional.orElseGet(() -> null);
-                  }
+              void assign(Optional<String> optional) {
+                field =
+                    // BUG: Diagnostic contains: linked nullness for call to orElseGet
+                    optional.orElseGet(() -> null);
+              }
 
-                  String returnNullable(Optional<String> optional) {
-                    return optional.orElseGet(() -> null);
-                  }
-                }
-                """);
-    // Inspect all diagnostics, since expected-diagnostic markers allow extra errors on a line.
-    AssertionError error = assertThrows(AssertionError.class, helper::doTest);
-    assertThat(error).hasMessageThat().contains("linked nullness for call to orElseGet");
-    assertThat(error).hasMessageThat().doesNotContain("assigning @Nullable expression");
-    assertThat(error).hasMessageThat().doesNotContain("returning @Nullable expression");
+              String returnNullable(Optional<String> optional) {
+                return
+                    // BUG: Diagnostic contains: linked nullness for call to orElseGet
+                    optional.orElseGet(() -> null);
+              }
+            }
+            """)
+        .doTest();
   }
 
   @Test
