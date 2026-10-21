@@ -2109,6 +2109,13 @@ public class NullAway extends BugChecker
         genericsChecks.checkTypeParameterNullnessForConditionalExpression(tree, state);
       }
       doUnboxingCheck(state, tree.getCondition());
+      // A conditional of primitive type unboxes each boxed operand, and the checks on the
+      // enclosing expression skip it because its type is primitive.
+      Type conditionalExprType = ASTHelpers.getType(tree);
+      if (conditionalExprType != null // diff-coverage: ignore -- javac attributes every conditional
+          && conditionalExprType.isPrimitive()) {
+        doUnboxingCheck(state, tree.getTrueExpression(), tree.getFalseExpression());
+      }
     }
     return Description.NO_MATCH;
   }
