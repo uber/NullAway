@@ -676,6 +676,30 @@ public class VarargsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void varargsMethodRefToNullableArrayUsesArrayNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            public class Test {
+              interface NullableArrayFi {
+                void apply(Object @Nullable ... params);
+              }
+              static void nullableElements(@javax.annotation.Nullable Object... params) {}
+              static void nullableArray(Object @Nullable ... params) {}
+              void test() {
+                // BUG: Diagnostic contains: parameter params of referenced method is @NonNull
+                NullableArrayFi elements = Test::nullableElements;
+                NullableArrayFi array = Test::nullableArray;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void varargsOverride() {
     defaultCompilationHelper
         .addSourceLines(
