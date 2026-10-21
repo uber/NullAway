@@ -1860,6 +1860,66 @@ public class WildcardTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void issue1991WildcardReceiversWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.ArrayList;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Node<T extends Comparable<Integer>> {
+                T get();
+              }
+
+              interface NullableNode<T extends @Nullable Comparable<Integer>> {
+                T get();
+              }
+
+              interface ListNode<T extends List<@Nullable String>> {
+                T get();
+              }
+
+              static void takesObject(Object value) {}
+
+              static void takesList(List<String> value) {}
+
+              static void superBounded(Node<? super Integer> node) {
+                takesObject(node.get());
+              }
+
+              static void extendsBounded(Node<? extends Integer> node) {
+                takesObject(node.get());
+              }
+
+              static void unbounded(Node<?> node) {
+                takesObject(node.get());
+              }
+
+              static void nullableSuperBounded(NullableNode<? super Integer> node) {
+                // without wildcard handling, no read through a wildcard of NullableNode is
+                // reported as nullable
+                takesObject(node.get());
+              }
+
+              static void superBoundedNullableElements(ListNode<? super ArrayList<String>> node) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String>
+                takesList(node.get());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableTypeParameterEnhancedForLoopWithWildcardHandlingDisabled() {
     makeTestHelperWithArgs(
             List.of(

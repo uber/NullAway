@@ -173,6 +173,8 @@ class StreamNullabilityPropagator implements Handler {
   // true.
   // Specifically, this is the least upper bound of the "then" store on the branch of every return
   // statement in which the expression after the return can be true.
+  // A filter has no entry when NullAway does not check it (it is @NullUnmarked or suppressed) or
+  // when none of its returns can be true; the callbacks after it then get no facts from it.
   private final Map<Tree, NullnessStore> filterToNSMap = new LinkedHashMap<>();
 
   // Maps the body of a method or lambda to the corresponding enclosing tree, used because the
@@ -265,7 +267,7 @@ class StreamNullabilityPropagator implements Handler {
 
   private void handleFilterMethod(
       MethodInvocationTree tree, StreamTypeRecord streamType, VisitorState state) {
-    ExpressionTree argTree = tree.getArguments().get(0);
+    ExpressionTree argTree = ASTHelpers.stripParentheses(tree.getArguments().get(0));
     if (argTree instanceof NewClassTree newClassTree) {
       ClassTree anonClassBody = newClassTree.getClassBody();
       // Ensure that this `new A() ...` has a custom class body, otherwise, we skip for now.
@@ -282,7 +284,7 @@ class StreamNullabilityPropagator implements Handler {
 
   private void handleMapMethod(
       MethodInvocationTree tree, StreamTypeRecord streamType, Symbol.MethodSymbol methodSymbol) {
-    ExpressionTree argTree = tree.getArguments().get(0);
+    ExpressionTree argTree = ASTHelpers.stripParentheses(tree.getArguments().get(0));
     if (argTree instanceof NewClassTree newClassTree) {
       ClassTree anonClassBody = newClassTree.getClassBody();
       // Ensure that this `new B() ...` has a custom class body, otherwise, we skip for now.
@@ -347,7 +349,8 @@ class StreamNullabilityPropagator implements Handler {
       if (streamType.hasModelForMethod(methodSymbol)
           && streamType.matchesType(receiverType, state)
           && streamType.isFilterMethod(methodSymbol)) {
-        Symbol predicateMethodSymbol = ASTHelpers.getSymbol(invocationTree.getArguments().get(0));
+        Symbol predicateMethodSymbol =
+            ASTHelpers.getSymbol(ASTHelpers.stripParentheses(invocationTree.getArguments().get(0)));
         if (predicateMethodSymbol instanceof Symbol.MethodSymbol predicateMethod
             && mainHandler.isSingleArgNullImpliesFalseMethod(predicateMethod, state)) {
           return true;
@@ -393,7 +396,8 @@ class StreamNullabilityPropagator implements Handler {
    */
   private boolean handleCollectCall(
       MethodInvocationTree collectInvocationTree, CollectLikeMethodRecord collectlikeMethodRecord) {
-    ExpressionTree argTree = collectInvocationTree.getArguments().get(0);
+    ExpressionTree argTree =
+        ASTHelpers.stripParentheses(collectInvocationTree.getArguments().get(0));
     if (argTree instanceof MethodInvocationTree collectInvokeArg) {
       // the argument passed to the collect method.  We check if this is a call to the collector
       // factory method from the record
@@ -407,7 +411,7 @@ class StreamNullabilityPropagator implements Handler {
               .equals(collectlikeMethodRecord.collectorFactoryMethodSignature())) {
         List<? extends ExpressionTree> arguments = collectInvokeArg.getArguments();
         for (int ind : collectlikeMethodRecord.argsToCollectorFactoryMethod()) {
-          ExpressionTree factoryMethodArg = arguments.get(ind);
+          ExpressionTree factoryMethodArg = ASTHelpers.stripParentheses(arguments.get(ind));
           // TODO eventually, support method references, though this is likely only useful in
           // JSpecify mode with generics checking
           if (factoryMethodArg instanceof NewClassTree newClassTree) {
@@ -437,7 +441,8 @@ class StreamNullabilityPropagator implements Handler {
   private void buildObservableCallChain(MethodInvocationTree tree) {
     ExpressionTree methodSelect = tree.getMethodSelect();
     if (methodSelect instanceof MemberSelectTree memberSelectTree) {
-      ExpressionTree receiverExpression = memberSelectTree.getExpression();
+      ExpressionTree receiverExpression =
+          ASTHelpers.stripParentheses(memberSelectTree.getExpression());
       if (receiverExpression instanceof MethodInvocationTree methodInvocationTree) {
         observableOuterCallInChain.put(methodInvocationTree, tree);
       }
@@ -567,8 +572,7 @@ class StreamNullabilityPropagator implements Handler {
       }
       NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
       if (filterNullnessStore == null) {
-        throw new IllegalStateException(
-            "null filterNullStore for tree " + state.getSourceForNode(filterTree));
+        return;
       }
       for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
         // Find the access path corresponding to the current unbound method reference after binding
@@ -601,7 +605,7 @@ class StreamNullabilityPropagator implements Handler {
   }
 
   private boolean canBooleanExpressionEvalToTrue(ExpressionTree expressionTree) {
-    if (expressionTree instanceof LiteralTree expressionAsLiteral) {
+    if (ASTHelpers.stripParentheses(expressionTree) instanceof LiteralTree expressionAsLiteral) {
       if (expressionAsLiteral.getValue() instanceof Boolean) {
         return (boolean) expressionAsLiteral.getValue();
       } else {
@@ -656,6 +660,10 @@ class StreamNullabilityPropagator implements Handler {
       // Plug Nullness info from filter method into entry to map method.
       Tree filterTree = callInstanceRecord.getFilter();
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
+      NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
+      if (filterNullnessStore == null) {
+        return nullnessBuilder;
+      }
       MapOrCollectLikeMethodRecord methodRecord =
           callInstanceRecord.getMapOrCollectLikeMethodRecord();
       for (int argIdx : methodRecord.argsFromStream()) {
@@ -672,10 +680,6 @@ class StreamNullabilityPropagator implements Handler {
         } else {
           mapLocalName =
               new LocalVariableNode(((LambdaExpressionTree) tree).getParameters().get(argIdx));
-        }
-        NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
-        if (filterNullnessStore == null) {
-          throw new IllegalStateException("null filterNullStore for tree");
         }
         NullnessStore renamedRootsNullnessStore =
             filterNullnessStore.uprootAccessPaths(ImmutableMap.of(filterLocalName, mapLocalName));
