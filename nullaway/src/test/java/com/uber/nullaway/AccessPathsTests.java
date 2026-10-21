@@ -712,4 +712,120 @@ public class AccessPathsTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void mapKeyLiteralUnderCastIsTheSameKey() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.HashMap;
+            import java.util.Map;
+            class Test {
+              String stringLiteral(Map<String, Object> m) {
+                if (m.get("k") != null) {
+                  return m.get((String) ("k")).toString();
+                }
+                return "";
+              }
+              String valueOfKey() {
+                Map<Integer, Object> m = new HashMap<>();
+                m.put(Integer.valueOf(10), new Object());
+                return m.get((Integer) (Integer.valueOf(10))).toString();
+              }
+              String containsKeyThenRemove(Map<String, Object> m) {
+                if (m.containsKey("k")) {
+                  return m.remove((String) ("k")).toString();
+                }
+                return "";
+              }
+              String intLiteralUnderIntCast(Map<Integer, Object> m) {
+                if (m.get(42) != null) {
+                  return m.get((int) (42)).toString();
+                }
+                return "";
+              }
+              String intVariableUnderIntCast(Map<Integer, Object> m, int key) {
+                if (m.get(key) != null) {
+                  return m.get((int) (key)).toString();
+                }
+                return "";
+              }
+              String otherStringLiteralUnderReferenceCast(Map<String, Object> m) {
+                if (m.get("k") != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get((String) ("j"))' is @Nullable
+                  return m.get((String) ("j")).toString();
+                }
+                return "";
+              }
+              String intLiteralUnderLongCast(Map<Object, Object> m) {
+                // m.get(42) looks up an Integer and m.get((long) (42)) a Long, so they are different keys
+                if (m.get(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get((long) (42))' is @Nullable
+                  return m.get((long) (42)).toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constantArgumentUnderCastIsTheSameArgument() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            class Test {
+              static final String K = "k";
+              @Nullable Object get(int i) { return null; }
+              @Nullable Object apply(String s) { return null; }
+              @Nullable Object getBoxed(Integer i) { return null; }
+              @Nullable Object getLong(long l) { return null; }
+              String intLiteralUnderIntCast() {
+                if (get(0) != null) {
+                  return get((int) (0)).toString();
+                }
+                return "";
+              }
+              String boxedIntLiteralUnderIntCast() {
+                if (getBoxed(0) != null) {
+                  return getBoxed((int) (0)).toString();
+                }
+                return "";
+              }
+              String widenedIntLiteralUnderIntCast() {
+                if (getLong(0) != null) {
+                  return getLong((int) (0)).toString();
+                }
+                return "";
+              }
+              String stringLiteralUnderReferenceCast() {
+                if (apply("hello") != null) {
+                  return apply((String) ("hello")).toString();
+                }
+                return "";
+              }
+              String constantFieldUnderReferenceCast(Map<String, Map<String, Object>> m) {
+                if (m.get(K) != null && m.get(K).get(K) != null) {
+                  return m.get((String) (K)).get(K).toString();
+                }
+                return "";
+              }
+              String otherConstantUnderIntCast() {
+                if (get(0) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'get((int) (1))' is @Nullable
+                  return get((int) (1)).toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
 }

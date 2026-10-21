@@ -32,7 +32,6 @@ import com.google.errorprone.suppliers.Supplier;
 import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.LiteralTree;
-import com.sun.source.tree.MethodInvocationTree;
 import com.sun.source.tree.Tree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
@@ -276,29 +275,47 @@ public final class AccessPath implements MapKey {
   }
 
   /**
-   * Strips the casts to reference types wrapped around a node.
+   * Strips the casts that keep their operand's value from around a node.
    *
    * <p>A cast to a reference type yields the reference it was given, or throws, so the cast and its
-   * operand share an access path. A cast to a primitive type is kept, because it can change the
-   * value: for a {@code long l}, {@code (int) l} and {@code l} box to different map keys.
+   * operand share an access path. So does a cast to the operand's own primitive type, such as
+   * {@code (int) i} for an {@code int i}. A cast to a primitive type other than the operand's own
+   * is kept, because it can change the value: for a {@code long l}, {@code (int) l} and {@code l}
+   * box to different map keys.
    *
    * @param node a node
-   * @return {@code node} with every enclosing cast to a reference type removed
+   * @return {@code node} with every enclosing value-preserving cast removed
    */
   private static Node stripCasts(Node node) {
     while (node instanceof TypeCastNode typeCastNode
-        && !typeCastNode.getType().getKind().isPrimitive()) {
+        && (!typeCastNode.getType().getKind().isPrimitive()
+            || typeCastNode.getType().getKind() == typeCastNode.getOperand().getType().getKind())) {
       node = typeCastNode.getOperand();
     }
     return node;
   }
 
+  /**
+   * Strips a widening conversion and the value-preserving casts from around a method argument.
+   *
+   * <p>A widening conversion keeps the value of a constant: for a {@code long} parameter, {@code
+   * f(0)}, {@code f((int) 0)}, and {@code f(0L)} pass the same constant.
+   *
+   * @param argument a method argument
+   * @return {@code argument} without an enclosing widening conversion and without the casts {@link
+   *     #stripCasts(Node)} removes
+   */
+  private static Node stripConversionsAndCasts(Node argument) {
+    if (argument instanceof WideningConversionNode wideningNode) {
+      argument = wideningNode.getOperand();
+    }
+    return stripCasts(argument);
+  }
+
   private static @Nullable MapKey argumentToMapKeySpecifier(
       Node argument, VisitorState state, AccessPathContext apContext) {
     // Required to have Node type match Tree type in some instances.
-    if (argument instanceof WideningConversionNode node) {
-      argument = node.getOperand();
-    }
+    argument = stripConversionsAndCasts(argument);
     // A switch at the Tree level should be faster than multiple if checks at the Node level.
     switch (castToNonNull(argument.getTree()).getKind()) {
       case STRING_LITERAL:
@@ -342,8 +359,8 @@ public final class AccessPath implements MapKey {
    * Gets corresponding AccessPath for node, if it exists. Handles calls to <code>Map.get()
    * </code>
    *
-   * <p>A cast to a reference type has the access path of its operand; a cast to a primitive type
-   * has none.
+   * <p>A cast to a reference type, or to the operand's own primitive type, has the access path of
+   * its operand; a cast to any other primitive type has none.
    *
    * @param node AST node
    * @param state the visitor state
@@ -449,7 +466,7 @@ public final class AccessPath implements MapKey {
       }
     } else if (node instanceof ArrayAccessNode arrayAccess) {
       Node arrayNode = stripCasts(arrayAccess.getArray());
-      Node indexNode = arrayAccess.getIndex();
+      Node indexNode = stripCasts(arrayAccess.getIndex());
       Element arrayElement = getElementFromArrayNode(arrayNode);
       Element indexElement = getElementFromArrayNode(indexNode);
       if (arrayElement == null) {
@@ -479,15 +496,16 @@ public final class AccessPath implements MapKey {
       } else {
         List<String> constantArgumentValues = new ArrayList<>();
         for (Node argumentNode : invocation.getArguments()) {
-          Tree tree = argumentNode.getTree();
+          Node argument = stripConversionsAndCasts(argumentNode);
+          // Check for boxing call
+          if (argument instanceof MethodInvocationNode boxingCall
+              && boxingCall.getArguments().size() == 1
+              && isBoxingMethod((Symbol.MethodSymbol) boxingCall.getTarget().getMethod())) {
+            argument = stripConversionsAndCasts(boxingCall.getArgument(0));
+          }
+          Tree tree = argument.getTree();
           if (tree == null) {
             return null; // Not an AP
-          } else if (tree instanceof MethodInvocationTree methodInvocationTree) {
-            // Check for boxing call
-            if (methodInvocationTree.getArguments().size() == 1
-                && isBoxingMethod(ASTHelpers.getSymbol(methodInvocationTree))) {
-              tree = methodInvocationTree.getArguments().get(0);
-            }
           }
           switch (tree.getKind()) {
             case BOOLEAN_LITERAL:
