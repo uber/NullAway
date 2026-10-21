@@ -415,7 +415,9 @@ public final class DualModeCompilationTestHelper {
   /**
    * Returns the javac arguments for the sources that become class files. Error Prone arguments are
    * dropped, since no check runs on those sources, and the classpath is stated once so that these
-   * sources see what the test declared rather than what javac happened to read last.
+   * sources see what the test declared rather than what javac happened to read last. Annotation
+   * processing is off unless the test chose a {@code -proc:} mode or a {@code -processor}; a
+   * processor path alone selects no processor and so does not turn it on.
    *
    * @param classes the directory the class files are written to
    * @return the javac arguments
@@ -433,7 +435,7 @@ public final class DualModeCompilationTestHelper {
                 declaredClasspath()));
     List<String> declared = javacArgs();
     options.addAll(declared);
-    if (declared.stream().noneMatch(arg -> arg.startsWith("-proc") || arg.equals("-processor"))) {
+    if (declared.stream().noneMatch(arg -> arg.startsWith("-proc:") || arg.equals("-processor"))) {
       options.add("-proc:none");
     }
     return options;

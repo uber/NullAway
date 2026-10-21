@@ -31,6 +31,7 @@ import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.stream.Collectors;
 import org.junit.AssumptionViolatedException;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -311,6 +312,44 @@ public class DualModeCompilationTestHelperTest {
     assertEquals(
         classes + File.pathSeparator + runtimeClasspath,
         onlyClasspath(helper.argsWithClasspath(classes)));
+  }
+
+  /**
+   * Returns the annotation-processing options among the javac arguments for the sources that become
+   * class files, given the arguments a test declares beside the annotated-packages flag.
+   *
+   * @param declared the arguments the test declares
+   * @return the arguments starting with {@code -proc}, in order
+   */
+  private List<String> dependencyProcessingOptionsDeclaring(String... declared) {
+    List<String> args = new ArrayList<>(List.of("-XepOpt:NullAway:AnnotatedPackages=com.uber"));
+    args.addAll(List.of(declared));
+    List<String> options =
+        DualModeCompilationTestHelper.newInstance(NullAway.class, getClass(), TestMode.BYTECODE)
+            .setArgs(args)
+            .javacOptions(Paths.get("classes"));
+    return options.stream()
+        .filter(option -> option.startsWith("-proc"))
+        .collect(Collectors.toList());
+  }
+
+  @Test
+  public void aProcessorPathAloneLeavesAnnotationProcessingOff() {
+    assertEquals(
+        List.of("-processorpath", "-proc:none"),
+        dependencyProcessingOptionsDeclaring("-processorpath", "processors"));
+  }
+
+  @Test
+  public void aDeclaredProcessingModeIsKept() {
+    assertEquals(List.of("-proc:full"), dependencyProcessingOptionsDeclaring("-proc:full"));
+  }
+
+  @Test
+  public void aDeclaredProcessorIsKept() {
+    assertEquals(
+        List.of("-processor"),
+        dependencyProcessingOptionsDeclaring("-processor", "com.example.Processor"));
   }
 
   @Test
