@@ -189,6 +189,11 @@ class UnifiedDiffFromGitTest {
     environment.put("GIT_CONFIG_GLOBAL", noConfig);
     environment.put("GIT_CONFIG_SYSTEM", noConfig);
     environment.put("GIT_CONFIG_NOSYSTEM", "1");
+    // git commit starts a detached git maintenance run --auto, which can still be writing under
+    // .git after the commit exits, and JUnit then fails to delete the temporary directory.
+    environment.put("GIT_CONFIG_COUNT", "1");
+    environment.put("GIT_CONFIG_KEY_0", "maintenance.auto");
+    environment.put("GIT_CONFIG_VALUE_0", "false");
     Process process = builder.start();
     String output;
     try (InputStream stream = process.getInputStream()) {
