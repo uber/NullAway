@@ -335,6 +335,115 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void optionalOrElseGetPreservesErrorsWithoutInferenceWarnings() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              private String field = "initial";
+
+              void assign(Optional<String> optional) {
+                field = optional.orElseGet(() -> "fallback");
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                field = optional.orElseGet(() -> null);
+              }
+
+              String returnNullable(Optional<String> optional) {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return optional.orElseGet(() -> null);
+              }
+
+              String returnNonNull(Optional<String> optional) {
+                return optional.orElseGet(() -> "fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void polyNullInferenceFailureDoesNotAddOrdinaryNullnessErrors() {
+    CompilationTestHelper helper =
+        makeHelper()
+            .addSourceLines(
+                "Test.java",
+                """
+                import java.util.Optional;
+                import org.jspecify.annotations.NullMarked;
+
+                @NullMarked
+                class Test {
+                  private String field = "initial";
+
+                  void assign(Optional<String> optional) {
+                    field = optional.orElseGet(() -> null);
+                  }
+
+                  String returnNullable(Optional<String> optional) {
+                    return optional.orElseGet(() -> null);
+                  }
+                }
+                """);
+    // Inspect all diagnostics, since expected-diagnostic markers allow extra errors on a line.
+    AssertionError error = assertThrows(AssertionError.class, helper::doTest);
+    assertThat(error).hasMessageThat().contains("linked nullness for call to orElseGet");
+    assertThat(error).hasMessageThat().doesNotContain("assigning @Nullable expression");
+    assertThat(error).hasMessageThat().doesNotContain("returning @Nullable expression");
+  }
+
+  @Test
+  public void genericPolyNullPreservesErrorsWithoutInferenceWarnings() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                List.of(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              private Object field = new Object();
+
+              void assign(Object seed) {
+                field = PolyNullMethods.genericObject(seed, () -> "fallback");
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                field = PolyNullMethods.genericObject(seed, () -> null);
+                // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                field = PolyNullMethods.<Object, Object>genericObject(seed, () -> null);
+              }
+
+              Object returnNullable(Object seed) {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return PolyNullMethods.genericObject(seed, () -> null);
+              }
+
+              Object returnExplicitNullable(Object seed) {
+                // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                return PolyNullMethods.<Object, Object>genericObject(seed, () -> null);
+              }
+
+              Object returnNonNull(Object seed) {
+                return PolyNullMethods.genericObject(seed, () -> "fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapComputeIfAbsentWithExplicitFunctionTypeArgument() {
     makeHelper()
         .addSourceLines(

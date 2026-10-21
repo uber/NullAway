@@ -3373,7 +3373,9 @@ public final class GenericsChecks {
         jointlyInferredPolyNullness = successResult.polyNullnessByInvocation.get(invocationTree);
       } else {
         // Inference failed; use the call-site type without inferred nullability substitutions.
-        // Still apply onOverrideMethodType below, but skip the PolyNull step.
+        // Still apply onOverrideMethodType below. Skip the PolyNull step when reporting the
+        // inference failure; otherwise, infer PolyNull separately to preserve ordinary nullness
+        // errors.
         substitutedMethodType = methodTypeAtCallSite;
         genericInferenceFailed = true;
       }
@@ -3385,7 +3387,8 @@ public final class GenericsChecks {
     }
     Type.MethodType modeledMethodType =
         handler.onOverrideMethodType(methodSymbol, substitutedMethodType, state, invocationTree);
-    return invocationTree == null || genericInferenceFailed
+    return invocationTree == null
+            || (genericInferenceFailed && config.warnOnGenericInferenceFailure())
         ? modeledMethodType
         : applyPolyNullModel(
             methodSymbol,
@@ -3679,9 +3682,10 @@ public final class GenericsChecks {
    * constraints select {@code @NonNull} unless an argument or the result target requires
    * {@code @Nullable}.
    *
-   * @return the inferred shared nullness, or {@code null} if no modeled parameter location applies
-   *     or the constraints are unsatisfiable. Unsatisfiable constraints are reported before
-   *     returning when {@code WarnOnGenericInferenceFailure} is enabled.
+   * @return the inferred shared nullness, or {@code null} if no modeled parameter location applies.
+   *     Unsatisfiable constraints are reported and return {@code null} when {@code
+   *     WarnOnGenericInferenceFailure} is enabled; otherwise they return {@code Nullness.NULLABLE}
+   *     to preserve ordinary nullness errors.
    */
   private @Nullable Nullness inferPolyNullnessSeparately(
       Symbol.MethodSymbol methodSymbol,
@@ -3735,7 +3739,7 @@ public final class GenericsChecks {
       return resolved;
     } catch (UnsatisfiableConstraintsException e) {
       reportPolyNullInferenceFailure(invocationTree, state);
-      return null;
+      return config.warnOnGenericInferenceFailure() ? null : Nullness.NULLABLE;
     }
   }
 
