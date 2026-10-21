@@ -1,11 +1,12 @@
 package com.uber.nullaway;
 
-import com.google.errorprone.CompilationTestHelper;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import org.junit.Test;
 
 public class JakartaPersistenceTests extends NullAwayTestsBase {
 
-  private CompilationTestHelper addJpaAnnotationStubs(CompilationTestHelper helper) {
+  private ReversingCompilationTestHelper addJpaAnnotationStubs(
+      ReversingCompilationTestHelper helper) {
     return helper
         .addSourceLines(
             "jakarta/persistence/Access.java",

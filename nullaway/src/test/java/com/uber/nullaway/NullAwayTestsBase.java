@@ -1,8 +1,8 @@
 package com.uber.nullaway;
 
 import com.google.common.collect.ImmutableList;
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.scanner.ScannerSupplier;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.List;
 import org.junit.Before;
 import org.junit.Rule;
@@ -12,7 +12,7 @@ public abstract class NullAwayTestsBase {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  protected CompilationTestHelper defaultCompilationHelper;
+  protected ReversingCompilationTestHelper defaultCompilationHelper;
 
   @SuppressWarnings("CheckReturnValue")
   @Before
@@ -43,10 +43,11 @@ public abstract class NullAwayTestsBase {
   }
 
   /**
-   * Creates a new {@link CompilationTestHelper} with a list of javac arguments. As of Error Prone
-   * 2.5.1, {@link CompilationTestHelper#setArgs(List)} can only be invoked once per object. So,
-   * this method must be used to create a test helper when a different set of javac arguments is
-   * required than those used for {@link #defaultCompilationHelper}.
+   * Creates a new {@link ReversingCompilationTestHelper} with a list of javac arguments. As of
+   * Error Prone 2.5.1, {@link com.google.errorprone.CompilationTestHelper#setArgs(List)} can only
+   * be invoked once per object, and {@link ReversingCompilationTestHelper} replays every call into
+   * one. So, this method must be used to create a test helper when a different set of javac
+   * arguments is required than those used for {@link #defaultCompilationHelper}.
    *
    * <p>The helper runs {@link JSpecifyUnrecognizedAnnotationLocation} alongside NullAway, so a test
    * whose source annotates a location JSpecify does not recognize fails. A source that does so on
@@ -60,26 +61,26 @@ public abstract class NullAwayTestsBase {
    * @param args the javac arguments
    * @return the test helper
    */
-  protected CompilationTestHelper makeTestHelperWithArgs(List<String> args) {
+  protected ReversingCompilationTestHelper makeTestHelperWithArgs(List<String> args) {
     return makeTestHelperWithArgs(getClass(), args);
   }
 
   /**
-   * Creates a {@link CompilationTestHelper} that runs NullAway and {@link
+   * Creates a {@link ReversingCompilationTestHelper} that runs NullAway and {@link
    * JSpecifyUnrecognizedAnnotationLocation} together over the sources a test compiles. The location
    * check runs at {@code WARN}, since it reports nothing at its default severity.
    *
    * <p>A test class that builds its own NullAway helper calls this rather than {@link
-   * CompilationTestHelper#newInstance}, so that its sources are checked too. {@link
+   * ReversingCompilationTestHelper#newInstance}, so that its sources are checked too. {@link
    * UnrecognizedAnnotationLocationInTestSourcesTest} covers only {@link #defaultCompilationHelper},
    * not a helper built some other way.
    *
    * @param testClass the test class, used to resolve source paths
    * @param args the javac arguments
    */
-  public static CompilationTestHelper makeTestHelperWithArgs(
+  public static ReversingCompilationTestHelper makeTestHelperWithArgs(
       Class<?> testClass, List<String> args) {
-    return CompilationTestHelper.newInstance(
+    return ReversingCompilationTestHelper.newInstance(
             ScannerSupplier.fromBugCheckerClasses(
                 NullAway.class, JSpecifyUnrecognizedAnnotationLocation.class),
             testClass)

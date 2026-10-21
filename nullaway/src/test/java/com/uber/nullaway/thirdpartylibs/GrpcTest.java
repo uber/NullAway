@@ -22,8 +22,8 @@
 
 package com.uber.nullaway.thirdpartylibs;
 
-import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.Arrays;
 import org.junit.Before;
 import org.junit.Rule;
@@ -39,7 +39,7 @@ public class GrpcTest {
 
   @Rule public final TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private CompilationTestHelper ioGrpcCompilationTestHelper;
+  private ReversingCompilationTestHelper ioGrpcCompilationTestHelper;
 
   @SuppressWarnings("CheckReturnValue")
   @Before

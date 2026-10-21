@@ -5,7 +5,6 @@ import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 
 import com.google.errorprone.BugPattern;
-import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneFlags;
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.bugpatterns.BugChecker;
@@ -17,6 +16,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -35,7 +35,7 @@ public class TypeSubstitutionUtilsTests {
 
   @Test
   public void replaceUnboundedWildcardUpperBoundDoesNotMutateFormalTypeVariable() {
-    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+    ReversingCompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
         .addSourceLines(
             "Test.java",
             """
@@ -48,7 +48,7 @@ public class TypeSubstitutionUtilsTests {
 
   @Test
   public void replaceCapturedTypeWildcardReturnsDetachedCapture() {
-    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+    ReversingCompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
         .addSourceLines(
             "Test.java",
             """
@@ -61,7 +61,7 @@ public class TypeSubstitutionUtilsTests {
 
   @Test
   public void cloneTypeWithMetadataReturnsDetachedMutableTypes() {
-    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+    ReversingCompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
         .addSourceLines(
             "Test.java",
             """
@@ -75,7 +75,7 @@ public class TypeSubstitutionUtilsTests {
 
   @Test
   public void restoreWildcardAnnotationsFromImplicitUpperBound() {
-    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+    ReversingCompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
         .addSourceLines(
             "Test.java",
             """
@@ -88,7 +88,7 @@ public class TypeSubstitutionUtilsTests {
 
   @Test
   public void restoreWildcardAnnotationsWithoutFormalLeavesWildcardUnchanged() {
-    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+    ReversingCompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
         .addSourceLines(
             "Test.java",
             """

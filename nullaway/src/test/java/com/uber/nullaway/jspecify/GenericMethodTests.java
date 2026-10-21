@@ -1,8 +1,8 @@
 package com.uber.nullaway.jspecify;
 
-import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
+import com.uber.nullaway.tools.ReversingCompilationTestHelper;
 import java.util.Arrays;
 import java.util.Collections;
 import org.junit.Ignore;
@@ -2492,7 +2492,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  private CompilationTestHelper makeHelper() {
+  private ReversingCompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
