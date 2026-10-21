@@ -382,6 +382,24 @@ public interface LibraryModels {
   public record PolyNullLocation(
       Position position, ImmutableList<NestedAnnotationInfo.TypePathEntry> typePath) {
 
+    /** Rejects receiver locations until polymorphic-nullness inference supports them. */
+    public static void validateNoReceiverLocations(
+        ImmutableSet<PolyNullLocation> locations, String methodDescription) {
+      if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
+        throw new IllegalArgumentException(
+            "PolyNull receiver locations are not yet supported for " + methodDescription);
+      }
+    }
+
+    /** Rejects models containing only top-level locations. */
+    public static void validateHasNestedLocation(
+        ImmutableSet<PolyNullLocation> locations, String methodDescription) {
+      if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
+        throw new IllegalArgumentException(
+            "PolyNull models must include at least one nested location for " + methodDescription);
+      }
+    }
+
     /** A component of a method signature that may carry polymorphic nullness. */
     public sealed interface Position permits Receiver, Parameter, Return {}
 

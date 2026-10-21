@@ -42,7 +42,6 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
-import com.uber.nullaway.LibraryModels.PolyNullLocation.Receiver;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -388,10 +387,7 @@ class CompositeHandler implements Handler {
       if (locations.isEmpty()) {
         continue;
       }
-      if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
-        throw new IllegalArgumentException(
-            "PolyNull receiver locations are not yet supported for " + methodSymbol);
-      }
+      PolyNullLocation.validateNoReceiverLocations(locations, String.valueOf(methodSymbol));
       if (previousOwner != null) {
         throw new IllegalArgumentException(
             "Multiple handlers provide PolyNull locations for "
@@ -401,10 +397,7 @@ class CompositeHandler implements Handler {
                 + " and "
                 + h.getClass().getName());
       }
-      if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
-        throw new IllegalArgumentException(
-            "PolyNull models must include at least one nested location for " + methodSymbol);
-      }
+      PolyNullLocation.validateHasNestedLocation(locations, String.valueOf(methodSymbol));
       previousOwner = h;
       result = locations;
     }

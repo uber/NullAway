@@ -3,10 +3,12 @@ package com.uber.nullaway.generics;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
 import com.sun.source.tree.MethodInvocationTree;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.ListBuffer;
+import com.sun.tools.javac.util.Name;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
@@ -24,6 +26,9 @@ import org.jspecify.annotations.Nullable;
 
 /** Constructs and applies polymorphic-nullness constraints for modeled method locations. */
 final class PolyNullInference {
+
+  private static final Supplier<Name> POLY_NULL_VARIABLE_NAME =
+      VisitorState.memoize(state -> state.getName("$PolyNull$0"));
 
   /** Formats a diagnostic for incompatible linked-nullness constraints on a modeled method. */
   static String inferenceFailureMessage(Symbol.MethodSymbol methodSymbol) {
@@ -126,13 +131,13 @@ final class PolyNullInference {
     Map<Integer, java.util.List<PolyNullLocation>> locationsByParameter = new LinkedHashMap<>();
     ImmutableList.Builder<PolyNullLocation> appliedLocations = ImmutableList.builder();
     Type.TypeVar inferenceVariable =
-        createInferenceVariable(methodSymbol, 0, nullableAnnotationType, state);
+        createInferenceVariable(methodSymbol, nullableAnnotationType, state);
     for (PolyNullLocation location : locations) {
       if (!(location.position() instanceof Parameter parameter)) {
         continue;
       }
       int parameterIndex = parameter.index();
-      if (parameterIndex < 0 || parameterIndex >= methodType.argtypes.size()) {
+      if (parameterIndex >= methodType.argtypes.size()) {
         continue;
       }
       locationsByParameter
@@ -219,13 +224,10 @@ final class PolyNullInference {
 
   /** Creates the nullable-bounded synthetic type variable for one PolyNull invocation. */
   private static Type.TypeVar createInferenceVariable(
-      Symbol.MethodSymbol methodSymbol,
-      int group,
-      Type nullableAnnotationType,
-      VisitorState state) {
+      Symbol.MethodSymbol methodSymbol, Type nullableAnnotationType, VisitorState state) {
     Symbol.TypeVariableSymbol symbol =
         new Symbol.TypeVariableSymbol(
-            0, state.getName("$PolyNull$" + group), Type.noType, methodSymbol);
+            0, POLY_NULL_VARIABLE_NAME.get(state), Type.noType, methodSymbol);
     Type nullableObject =
         TypeSubstitutionUtils.typeWithAnnot(state.getSymtab().objectType, nullableAnnotationType);
     Type.TypeVar variable = new Type.TypeVar(symbol, nullableObject, state.getSymtab().botType);

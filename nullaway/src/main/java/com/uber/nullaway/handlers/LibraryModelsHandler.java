@@ -58,7 +58,6 @@ import com.uber.nullaway.LibraryModels;
 import com.uber.nullaway.LibraryModels.MethodRef;
 import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
-import com.uber.nullaway.LibraryModels.PolyNullLocation.Receiver;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
@@ -1537,14 +1536,8 @@ public class LibraryModelsHandler implements Handler {
               libraryModels.polyNullLocations();
           for (MethodRef method : providerPolyNullLocations.keySet()) {
             ImmutableSet<PolyNullLocation> locations = providerPolyNullLocations.get(method);
-            if (locations.stream().anyMatch(location -> location.position() instanceof Receiver)) {
-              throw new IllegalArgumentException(
-                  "PolyNull receiver locations are not yet supported for " + method);
-            }
-            if (locations.stream().allMatch(location -> location.typePath().isEmpty())) {
-              throw new IllegalArgumentException(
-                  "PolyNull models must include at least one nested location for " + method);
-            }
+            PolyNullLocation.validateNoReceiverLocations(locations, method.toString());
+            PolyNullLocation.validateHasNestedLocation(locations, method.toString());
             if (shouldSkipModel(method)) {
               continue;
             }
