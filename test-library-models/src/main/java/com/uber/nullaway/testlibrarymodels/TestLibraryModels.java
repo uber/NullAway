@@ -411,6 +411,14 @@ public class TestLibraryModels implements LibraryModels {
                         new TypePathEntry(WILDCARD_BOUND, 1)))))
         .put(
             methodRef(
+                "com.uber.lib.DeclarationNullableVarargsWithModel",
+                "nonNullContents(java.lang.String...)"),
+            ImmutableSetMultimap.of(
+                0,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL, ImmutableList.of(new TypePathEntry(ARRAY_ELEMENT, -1)))))
+        .put(
+            methodRef(
                 "com.uber.lib.unannotated.NullMarkedVarargsWithModel",
                 "nullableContents(java.lang.String...)"),
             ImmutableSetMultimap.of(
