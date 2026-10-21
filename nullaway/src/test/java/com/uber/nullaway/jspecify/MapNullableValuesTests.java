@@ -67,6 +67,48 @@ public class MapNullableValuesTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void getOrDefaultRuleOverridesConditionalLibraryModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Lookup {
+                String apply(Map<String, @Nullable String> map, String key, String defaultValue);
+              }
+
+              void call(Map<String, @Nullable String> map) {
+                // The test provider models a non-null default as forcing a non-null result.
+                // A present key can still have a null value, so the core rule must win.
+                // BUG: Diagnostic contains: dereferenced expression
+                map.getOrDefault("key", "fallback").length();
+              }
+
+              BiFunction<String, String, String> bound(Map<String, @Nullable String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              Lookup unbound() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+
+              BiFunction<String, String, String> nonNullValues(Map<String, String> map) {
+                return map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapGetOrDefaultWithNullableValues() {
     makeHelper()
         .addSourceLines(

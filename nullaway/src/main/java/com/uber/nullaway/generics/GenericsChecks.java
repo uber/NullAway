@@ -1916,13 +1916,12 @@ public final class GenericsChecks {
       if (config.isJSpecifyMode()
           && NullabilityUtil.isMapMethod(referencedMethod, state, "getOrDefault", 2)) {
         returnNullnessHint =
-            returnNullnessHint.merge(
-                getMapGetOrDefaultReturnNullnessHint(
-                    qualifierType,
-                    functionalInterfaceMethod,
-                    functionalInterfaceMethodType,
-                    isUnbound,
-                    state));
+            getMapGetOrDefaultReturnNullnessHint(
+                qualifierType,
+                functionalInterfaceMethod,
+                functionalInterfaceMethodType,
+                isUnbound,
+                state);
       }
     }
     return new ResolvedMethodReference(

@@ -132,7 +132,9 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
-    return ImmutableSetMultimap.of();
+    // The core getOrDefault rule must override this hint when map values can be nullable.
+    return ImmutableSetMultimap.of(
+        methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1);
   }
 
   @Override

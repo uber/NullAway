@@ -601,7 +601,8 @@ public interface Handler {
     HINT_NULLABLE(1, Nullness.NULLABLE),
     /**
      * The value or return is guaranteed non-null in the analyzed context. Takes precedence over
-     * other hints and over nullness computed by the core analysis.
+     * other handlers' hints. The core {@code Map.getOrDefault} rule replaces handler hints for
+     * calls and, in JSpecify mode, method references.
      */
     FORCE_NONNULL(2, Nullness.NONNULL);
 
