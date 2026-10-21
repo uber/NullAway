@@ -138,6 +138,27 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void filterWithMethodReferenceInParenthesesRefinesStreamElementType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static List<String> nullableStringsToNonNull(List<@Nullable String> values) {
+                return values.stream().filter((Objects::nonNull)).toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void unrelatedFilterDoesNotRefineStreamElementType() {
     makeHelper()
         .addSourceLines(
