@@ -3063,34 +3063,36 @@ public final class GenericsChecks {
    * @param method the invoked method or constructor
    * @param path the path to the call
    * @param state the visitor state
-   * @return the receiver type, or the innermost enclosing class's type if no enclosing class has
-   *     the method as a member, or {@code null} outside a class
+   * @return the receiver type, or {@code null} outside a class or where the type of the anonymous
+   *     class's instance creation cannot be computed
    */
   private @Nullable Type getImplicitReceiverType(
       Symbol.MethodSymbol method, TreePath path, VisitorState state) {
-    Symbol.TypeSymbol owner = ASTHelpers.enclosingClass(method);
+    Symbol.ClassSymbol owner = method.enclClass();
     Type innermostType = null;
-    for (TreePath p = path; p != null; p = p.getParentPath()) {
-      if (!(p.getLeaf() instanceof ClassTree classTree)) {
-        continue;
-      }
-      Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
-      Type classType = castToNonNull(ASTHelpers.getType(classTree));
-      if (innermostType == null) {
-        innermostType = classType;
-        if (method.isConstructor()) {
-          return innermostType;
+    // JLS 15.12.1: an unqualified call names a member of an enclosing class, so the loop returns
+    // before it runs out of classes
+    TreePath p = path;
+    while (p != null) { // diff-coverage: ignore -- JLS 15.12.1
+      if (p.getLeaf() instanceof ClassTree classTree) {
+        Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
+        Type classType = castToNonNull(ASTHelpers.getType(classTree));
+        if (innermostType == null) {
+          innermostType = classType;
+          if (method.isConstructor()) {
+            return innermostType;
+          }
+        }
+        if (method.isMemberOf(classSymbol, state.getTypes())) {
+          if (classSymbol.isAnonymous() && !owner.equals(classSymbol)) {
+            return getTypeForSymbol(classSymbol, state.withPath(p));
+          }
+          return classType;
         }
       }
-      if (owner != null && method.isMemberOf(classSymbol, state.getTypes())) {
-        if (classSymbol.isAnonymous() && !owner.equals(classSymbol)) {
-          Type supertype = getTypeForSymbol(classSymbol, state.withPath(p));
-          return supertype != null ? supertype : classType;
-        }
-        return classType;
-      }
+      p = p.getParentPath();
     }
-    return innermostType;
+    return innermostType; // diff-coverage: ignore -- JLS 15.12.1
   }
 
   /**

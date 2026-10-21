@@ -3459,6 +3459,15 @@ public class GenericsTests extends NullAwayTestsBase {
                       }
                     };
               }
+              void toAMethodTheAnonymousClassDeclares(@Nullable String value) {
+                new Base<@Nullable String>() {
+                  void own(String s) {}
+                  void call() {
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                    own(value);
+                  }
+                };
+              }
               void fromAnAnonymousClassWithANonNullTypeArgument(@Nullable String value) {
                 new Base<String>() {
                   void call() {
