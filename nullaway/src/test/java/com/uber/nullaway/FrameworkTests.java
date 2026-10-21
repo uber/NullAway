@@ -1433,6 +1433,203 @@ public class FrameworkTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  // A map callback gets facts only from a filter predicate that NullAway checked and that can
+  // return true; otherwise it is checked with no facts from the predicate.  An unmarked or
+  // suppressed predicate, or one that always returns false, used to crash the analysis of the map
+  // callback with IllegalStateException: null filterNullStore for tree (issue #1990).
+
+  /**
+   * Returns a source whose {@code Stream.filter} predicate is an anonymous class with {@code
+   * annotation} on its {@code test} method. The predicate checks {@code foo.getBar() != null}, and
+   * the {@code map} lambda after it dereferences {@code foo.getBar()} with {@code expectation}
+   * written on the line above.
+   */
+  private static String streamFilterThenMapLambda(String annotation, String expectation) {
+    return """
+        package com.uber;
+        import java.util.function.Predicate;
+        import java.util.stream.Stream;
+        import javax.annotation.Nullable;
+        import org.jspecify.annotations.NullUnmarked;
+        class Test {
+          static class Foo {
+            @Nullable String bar;
+            @Nullable String getBar() { return bar; }
+          }
+          Stream<Integer> f(Stream<Foo> s) {
+            return s.filter(
+                    new Predicate<Foo>() {
+                      %s
+                      @Override
+                      public boolean test(Foo foo) {
+                        return foo.getBar() != null;
+                      }
+                    })
+                %s
+                .map(foo -> foo.getBar().length());
+          }
+        }
+        """
+        .formatted(annotation, expectation);
+  }
+
+  /**
+   * Returns a source whose RxJava {@code Observable.filter} predicate is an anonymous class with
+   * {@code annotation} on its {@code test} method. The predicate checks {@code foo.getBar() !=
+   * null}, and {@code mapCall} follows it.
+   */
+  private static String rxFilterThenMap(String annotation, String mapCall) {
+    return """
+        package com.uber;
+        import io.reactivex.Observable;
+        import io.reactivex.functions.Function;
+        import io.reactivex.functions.Predicate;
+        import javax.annotation.Nullable;
+        import org.jspecify.annotations.NullUnmarked;
+        class Test {
+          static class Foo {
+            @Nullable String bar;
+            @Nullable String getBar() { return bar; }
+          }
+          Observable<?> f(Observable<Foo> o) {
+            return o.filter(
+                    new Predicate<Foo>() {
+                      %s
+                      @Override
+                      public boolean test(Foo foo) throws Exception {
+                        return foo.getBar() != null;
+                      }
+                    })
+                %s;
+          }
+        }
+        """
+        .formatted(annotation, mapCall);
+  }
+
+  /**
+   * Returns a {@code map} call whose anonymous {@code Function} dereferences {@code foo.getBar()}
+   * with {@code expectation} written on the line above.
+   */
+  private static String rxMapAnonymousFunction(String expectation) {
+    return """
+        .map(
+            new Function<Foo, Integer>() {
+              @Override
+              public Integer apply(Foo foo) throws Exception {
+                %s
+                return foo.getBar().length();
+              }
+            })"""
+        .formatted(expectation);
+  }
+
+  @Test
+  public void streamMapAfterNullUnmarkedFilterPredicateGetsNoFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            streamFilterThenMapLambda(
+                "@NullUnmarked",
+                "// BUG: Diagnostic contains: dereferenced expression 'foo.getBar()' is @Nullable"))
+        .doTest();
+  }
+
+  @Test
+  public void streamMapAfterSuppressedFilterPredicateGetsNoFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            streamFilterThenMapLambda(
+                "@SuppressWarnings(\"NullAway\")",
+                "// BUG: Diagnostic contains: dereferenced expression 'foo.getBar()' is @Nullable"))
+        .doTest();
+  }
+
+  @Test
+  public void streamMapAfterCheckedFilterPredicateGetsItsFacts() {
+    defaultCompilationHelper
+        .addSourceLines("Test.java", streamFilterThenMapLambda("", ""))
+        .doTest();
+  }
+
+  @Test
+  public void streamMapAfterFilterPredicateThatNeverReturnsTrueGetsNoFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.stream.Stream;
+            import javax.annotation.Nullable;
+            class Test {
+              static class Foo {
+                @Nullable String bar;
+                @Nullable String getBar() { return bar; }
+              }
+              Stream<Integer> f(Stream<Foo> s) {
+                return s.filter(foo -> false)
+                    // BUG: Diagnostic contains: dereferenced expression 'foo.getBar()' is @Nullable
+                    .map(foo -> foo.getBar().length());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void rxMapAfterNullUnmarkedFilterPredicateGetsNoFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            rxFilterThenMap(
+                "@NullUnmarked",
+                rxMapAnonymousFunction(
+                    "// BUG: Diagnostic contains: dereferenced expression 'foo.getBar()' is"
+                        + " @Nullable")))
+        .doTest();
+  }
+
+  @Test
+  public void rxMapAfterSuppressedFilterPredicateGetsNoFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            rxFilterThenMap(
+                "@SuppressWarnings(\"NullAway\")",
+                rxMapAnonymousFunction(
+                    "// BUG: Diagnostic contains: dereferenced expression 'foo.getBar()' is"
+                        + " @Nullable")))
+        .doTest();
+  }
+
+  @Test
+  public void rxMapAfterCheckedFilterPredicateGetsItsFacts() {
+    defaultCompilationHelper
+        .addSourceLines("Test.java", rxFilterThenMap("", rxMapAnonymousFunction("")))
+        .doTest();
+  }
+
+  @Test
+  public void rxMethodReferenceAfterNullUnmarkedFilterPredicateGetsNoFacts() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            rxFilterThenMap(
+                "@NullUnmarked",
+                """
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                .map(Foo::getBar)"""))
+        .doTest();
+  }
+
+  @Test
+  public void rxMethodReferenceAfterCheckedFilterPredicateGetsItsFacts() {
+    defaultCompilationHelper
+        .addSourceLines("Test.java", rxFilterThenMap("", ".map(Foo::getBar)"))
+        .doTest();
+  }
+
   @Test
   public void streamSupportCollectorsToMap() {
     defaultCompilationHelper

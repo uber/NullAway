@@ -26,6 +26,7 @@ import com.google.errorprone.CompilationTestHelper;
 import com.uber.nullaway.NullAwayTestsBase;
 import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
+import org.junit.Assume;
 import org.junit.Test;
 
 public class JSpecifyArrayTests extends NullAwayTestsBase {
@@ -1198,6 +1199,87 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types: CompletableFuture<@Nullable String> cannot be converted to CompletableFuture<? extends String>
                 futures[0] = value;
               }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * An array type in the qualifier of a method reference is never dereferenced, and the array a
+   * constructor reference creates is never null, so a type-use annotation on the array type leaves
+   * NullAway silent. NullAway used to crash on such a qualifier with RuntimeException "whoops,
+   * better handle ANNOTATED_TYPE" (issue #1992).
+   */
+  @Test
+  public void constructorReferenceOnAnnotatedArrayTypeIsNeitherDereferencedNorNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              Function<Integer, String[]> arrayConstructor = String @Nullable []::new;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constructorReferenceOnAnnotatedPrimitiveArrayTypeIsNeitherDereferencedNorNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.IntFunction;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              IntFunction<int[]> arrayConstructor = int @Nullable []::new;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceOnAnnotatedArrayTypeIsNotADereference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.UnaryOperator;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              UnaryOperator<String[]> arrayClone = String @Nullable []::clone;
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * javac 17 through 25 places a leading type-use annotation, as in {@code @Nullable
+   * String[]::new}, on the array type; javac 26 and later places it on the element type
+   * (JDK-8369489), so the source no longer reaches the annotated-array path there.
+   */
+  @Test
+  public void
+      constructorReferenceWithLeadingAnnotationOnArrayTypeIsNeitherDereferencedNorNullable() {
+    Assume.assumeTrue(Runtime.version().feature() < 26);
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              Function<Integer, String[]> arrayConstructor = @Nullable String[]::new;
             }
             """)
         .doTest();

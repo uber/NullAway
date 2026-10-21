@@ -173,6 +173,8 @@ class StreamNullabilityPropagator implements Handler {
   // true.
   // Specifically, this is the least upper bound of the "then" store on the branch of every return
   // statement in which the expression after the return can be true.
+  // A filter has no entry when NullAway does not check it (it is @NullUnmarked or suppressed) or
+  // when none of its returns can be true; the callbacks after it then get no facts from it.
   private final Map<Tree, NullnessStore> filterToNSMap = new LinkedHashMap<>();
 
   // Maps the body of a method or lambda to the corresponding enclosing tree, used because the
@@ -570,8 +572,7 @@ class StreamNullabilityPropagator implements Handler {
       }
       NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
       if (filterNullnessStore == null) {
-        throw new IllegalStateException(
-            "null filterNullStore for tree " + state.getSourceForNode(filterTree));
+        return;
       }
       for (AccessPath ap : filterNullnessStore.getAccessPathsWithValue(Nullness.NONNULL)) {
         // Find the access path corresponding to the current unbound method reference after binding
@@ -659,6 +660,10 @@ class StreamNullabilityPropagator implements Handler {
       // Plug Nullness info from filter method into entry to map method.
       Tree filterTree = callInstanceRecord.getFilter();
       assert (filterTree instanceof MethodTree || filterTree instanceof LambdaExpressionTree);
+      NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
+      if (filterNullnessStore == null) {
+        return nullnessBuilder;
+      }
       MapOrCollectLikeMethodRecord methodRecord =
           callInstanceRecord.getMapOrCollectLikeMethodRecord();
       for (int argIdx : methodRecord.argsFromStream()) {
@@ -675,10 +680,6 @@ class StreamNullabilityPropagator implements Handler {
         } else {
           mapLocalName =
               new LocalVariableNode(((LambdaExpressionTree) tree).getParameters().get(argIdx));
-        }
-        NullnessStore filterNullnessStore = filterToNSMap.get(filterTree);
-        if (filterNullnessStore == null) {
-          throw new IllegalStateException("null filterNullStore for tree");
         }
         NullnessStore renamedRootsNullnessStore =
             filterNullnessStore.uprootAccessPaths(ImmutableMap.of(filterLocalName, mapLocalName));
