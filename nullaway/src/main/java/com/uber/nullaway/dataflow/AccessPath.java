@@ -335,7 +335,13 @@ public final class AccessPath implements MapKey {
           Type ownerType = ((Symbol.MethodSymbol) target.getMethod()).owner.type;
           if (ASTHelpers.isSameType(ownerType, INTEGER_TYPE_SUPPLIER.get(state), state)
               || ASTHelpers.isSameType(ownerType, LONG_TYPE_SUPPLIER.get(state), state)) {
-            return argumentToMapKeySpecifier(arguments.get(0), state, apContext);
+            Node boxed = arguments.get(0);
+            MapKey boxedKey = argumentToMapKeySpecifier(boxed, state, apContext);
+            // A numeric literal key records the primitive it was boxed from; an access path does
+            // not.
+            return boxedKey instanceof AccessPath accessPath
+                ? new BoxedMapKey(accessPath, boxed.getType().getKind())
+                : boxedKey;
           }
         }
       // Fine to fallthrough:
@@ -770,6 +776,17 @@ public final class AccessPath implements MapKey {
    *     {@code Integer} and a {@code Long} are never equal map keys, whatever their values
    */
   private record NumericMapKey(long key, TypeKind kind) implements MapKey {}
+
+  /**
+   * Key of a {@code Map.get} call whose argument boxes an {@code int} or {@code long} expression
+   * that has an access path, such as a local variable.
+   *
+   * @param unboxed the access path of the expression that was boxed
+   * @param kind {@link TypeKind#INT} or {@link TypeKind#LONG}, the primitive that was boxed; for an
+   *     {@code int i}, {@code Integer.valueOf(i)} and {@code Long.valueOf(i)} are never equal map
+   *     keys
+   */
+  private record BoxedMapKey(AccessPath unboxed, TypeKind kind) implements MapKey {}
 
   /**
    * Represents all possible values that could be returned by calling {@code next()} on an {@code
