@@ -234,11 +234,12 @@ public class LibraryModelsHandler implements Handler {
    * <p>Model indexes refer to the referenced method's declared parameters. For an unbound
    * reference, add one to each index to skip the functional interface method's receiver parameter.
    *
-   * <p>A determining parameter with a declaration-level {@code @Nullable} annotation produces
-   * {@code HINT_NULLABLE}. In JSpecify mode, a nullable substituted parameter type does too, using
-   * effective upper bounds for wildcards and captured wildcards when wildcard support is enabled.
-   * Otherwise, parameters are treated as non-null, except that a type variable with a nullable
-   * upper bound leaves its nullness unresolved unless its use is explicitly {@code @NonNull}.
+   * <p>A {@code @Nullable} annotation, declaration or type-use, on the functional interface method
+   * parameter that matches a determining parameter produces {@code HINT_NULLABLE}. In JSpecify
+   * mode, a nullable substituted parameter type does too, using effective upper bounds for
+   * wildcards and captured wildcards when wildcard support is enabled, and a type variable with a
+   * nullable upper bound and no explicit {@code @NonNull} leaves the nullness unresolved. Any other
+   * parameter is treated as non-null.
    *
    * <p>Returns {@code FORCE_NONNULL} when all determining inputs are known non-null. Returns {@code
    * UNKNOWN} when no model applies or required type information is unavailable or unresolved.
@@ -300,7 +301,7 @@ public class LibraryModelsHandler implements Handler {
     }
     // getOrDefault can return either a mapped value or the default. Let dataflow combine
     // their nullness rather than assuming the default alone determines the result.
-    if (NullabilityUtil.isMapMethod(methodSymbol, state, "getOrDefault", 2)) {
+    if (NullabilityUtil.isMapGetOrDefault(methodSymbol, state)) {
       return true;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);

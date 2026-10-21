@@ -2021,8 +2021,7 @@ public final class GenericsChecks {
               functionalInterfaceMethodType,
               isUnbound,
               state);
-      if (config.isJSpecifyMode()
-          && NullabilityUtil.isMapMethod(referencedMethod, state, "getOrDefault", 2)) {
+      if (config.isJSpecifyMode() && NullabilityUtil.isMapGetOrDefault(referencedMethod, state)) {
         returnNullnessHint =
             getMapGetOrDefaultReturnNullnessHint(
                 qualifierType,
@@ -4258,9 +4257,10 @@ public final class GenericsChecks {
   }
 
   /**
-   * Determines whether a substituted input type guarantees a non-null value. Wildcards and captured
-   * wildcards use the nullness of their effective upper bound. An unsubstituted type variable with
-   * a nullable upper bound leaves its nullness unresolved unless its use is explicitly non-null.
+   * Determines whether a substituted input type guarantees a non-null value. When wildcard support
+   * is enabled, wildcards and captured wildcards use the nullness of their effective upper bound.
+   * An unsubstituted type variable with a nullable upper bound leaves its nullness unresolved
+   * unless its use is explicitly non-null.
    *
    * @param type substituted input type
    * @param state visitor state

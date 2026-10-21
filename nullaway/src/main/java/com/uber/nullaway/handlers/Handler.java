@@ -128,8 +128,9 @@ public interface Handler {
    *
    * <p>Hints from all handlers are combined using {@link NullnessHint#merge(NullnessHint)}. During
    * return compatibility checking, a merged hint other than {@link NullnessHint#UNKNOWN} replaces
-   * the return nullness computed by {@link #onOverrideMethodReturnNullability}. During generic
-   * inference, it replaces the referenced return type's top-level nullness.
+   * the return nullness computed by {@link #onOverrideMethodReturnNullability}. In JSpecify mode,
+   * it also replaces the referenced return type's top-level nullness, both during generic inference
+   * and when checking the type of a method reference passed as an argument.
    *
    * <p>NullAway does not call this hook for raw functional-interface target types, constructor
    * references, or references where either the referenced or functional interface method is

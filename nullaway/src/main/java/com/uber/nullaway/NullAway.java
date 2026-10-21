@@ -1433,8 +1433,9 @@ public class NullAway extends BugChecker
   }
 
   /**
-   * Computes the effective return nullness for override checking. For a method reference, a handler
-   * hint other than {@code UNKNOWN} replaces the annotated or modeled return nullness outright.
+   * Computes the effective return nullness for override checking. For a method reference, a
+   * resolved return-nullness hint other than {@code UNKNOWN}, from handlers or from the {@code
+   * Map.getOrDefault} rule, replaces the annotated or modeled return nullness outright.
    *
    * @param overridingMethod the overriding or referenced method
    * @param resolvedReference the shared method-reference resolution, or {@code null} for an

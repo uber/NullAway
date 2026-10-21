@@ -80,7 +80,7 @@ public class CustomLibraryModelsTests {
   }
 
   @Test
-  public void conditionalReturnModelDoesNotMakeConstructorReferenceNullable() {
+  public void nullableReturnModelOnConstructorReferenceDoesNotCrash() {
     makeLibraryModelsTestHelperWithArgs(
             JSpecifyJavacConfig.withJSpecifyModeArgs(
                 List.of("-XepOpt:NullAway:OnlyNullMarked=true")))
@@ -107,6 +107,7 @@ public class CustomLibraryModelsTests {
         .doTest();
   }
 
+  /** Pins the existing conservative behavior: references to varargs methods skip the hook. */
   @Test
   public void conditionalReturnModelDoesNotRefineVarargsMethodReference() {
     makeLibraryModelsTestHelperWithArgs(
