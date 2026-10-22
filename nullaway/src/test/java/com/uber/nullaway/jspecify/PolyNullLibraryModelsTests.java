@@ -1348,6 +1348,9 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
                 Object oneElement = PolyNullMethods.varargsArray(() -> value, nullable);
                 oneElement.hashCode();
                 PolyNullMethods.varargsArray(() -> value, value, value).hashCode();
+                // BUG: Diagnostic contains: passing @Nullable parameter 'nullable'
+                Object laterElement = PolyNullMethods.varargsArray(() -> value, value, nullable);
+                laterElement.hashCode();
                 Object nullableSupplier = PolyNullMethods.varargsArray(() -> nullable, value, value);
                 // BUG: Diagnostic contains: dereferenced expression 'nullableSupplier' is @Nullable
                 nullableSupplier.hashCode();
