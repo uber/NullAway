@@ -696,6 +696,33 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedLambdaParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface NullableElementsFi {
+                void apply(@Nullable Integer[] p);
+              }
+              interface NonNullElementsFi {
+                void apply(Integer[] p);
+              }
+              void test() {
+                // BUG: Diagnostic contains: Parameter has type Integer [], but overridden method has parameter type @Nullable Integer []
+                NullableElementsFi nonNullElements = (Integer[] p) -> {};
+                NullableElementsFi nullableElements = (@Nullable Integer[] p) -> {};
+                NullableElementsFi implicit = p -> {};
+                NonNullElementsFi contravariant = (@Nullable Integer[] p) -> {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void ternaryOperator() {
     makeHelper()
         .addSourceLines(

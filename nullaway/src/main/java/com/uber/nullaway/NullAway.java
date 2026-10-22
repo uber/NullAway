@@ -1397,6 +1397,8 @@ public class NullAway extends BugChecker
     updateEnvironmentMapping(state.getPath(), state);
     if (config.isJSpecifyMode()) {
       genericsChecks.maybeStoreLibraryModeledPolyExpressionType(tree, state);
+      genericsChecks.checkTypeParameterNullnessForExplicitLambdaParameters(
+          tree, funcInterfaceMethod, state);
     }
     handler.onMatchLambdaExpression(
         tree, new MethodAnalysisContext(this, state, funcInterfaceMethod));

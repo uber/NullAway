@@ -767,6 +767,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               }
               void test() {
                 RestrictiveVarargsFi fi =
+                    // BUG: Diagnostic contains: Parameter has type Object [], but overridden method has parameter type @Nullable Object []
                     (Object[] inputs) -> {
                       inputs.toString();
                     };
