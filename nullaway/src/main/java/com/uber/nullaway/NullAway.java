@@ -936,6 +936,8 @@ public class NullAway extends BugChecker
    *     LambdaExpressionTree}; otherwise {@code null}
    * @param memberReferenceTree if the overriding method is a member reference (which "overrides" a
    *     functional interface method), the {@link MemberReferenceTree}; otherwise {@code null}
+   * @param resolvedReference the shared method-reference resolution, or {@code null} for an
+   *     ordinary override, lambda, or unsupported reference
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
    *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param state visitor state
@@ -947,6 +949,7 @@ public class NullAway extends BugChecker
       Symbol.MethodSymbol overriddenMethod,
       @Nullable LambdaExpressionTree lambdaExpressionTree,
       @Nullable MemberReferenceTree memberReferenceTree,
+      @Nullable ResolvedMethodReference resolvedReference,
       @Nullable Type modeledOverriddenMethodType,
       VisitorState state,
       Symbol.@Nullable MethodSymbol overridingMethod) {
@@ -980,13 +983,8 @@ public class NullAway extends BugChecker
     MethodParameterNullness referencedMethodParameterNullnessOverrides = null;
     if (memberReferenceTree != null) {
       Symbol.MethodSymbol referencedMethod = castToNonNull(overridingMethod);
-      if (functionalInterfaceType != null) {
-        GenericsChecks.ResolvedMethodReference resolvedMethodReference =
-            genericsChecks.resolveMemberReference(
-                memberReferenceTree, referencedMethod, functionalInterfaceType, state);
-        if (resolvedMethodReference != null) {
-          jspecifyMemberReferenceMethodType = resolvedMethodReference.methodType();
-        }
+      if (config.isJSpecifyMode() && resolvedReference != null) {
+        jspecifyMemberReferenceMethodType = resolvedReference.methodType();
       }
       if (jspecifyMemberReferenceMethodType == null) {
         // Preserve the existing behavior for cases the shared resolver intentionally skips, such
@@ -1411,6 +1409,7 @@ public class NullAway extends BugChecker
             funcInterfaceMethod,
             tree,
             /* memberReferenceTree= */ null,
+            /* resolvedReference= */ null,
             /* modeledOverriddenMethodType= */ null,
             state,
             /* overridingMethod= */ null);
@@ -1466,8 +1465,7 @@ public class NullAway extends BugChecker
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
    *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
-   *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
-   *     referenced method
+   *     MemberReferenceTree}; otherwise {@code null}
    * @param state visitor state.
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */
@@ -1477,12 +1475,26 @@ public class NullAway extends BugChecker
       @Nullable Type modeledOverriddenMethodType,
       @Nullable MemberReferenceTree memberReferenceTree,
       VisitorState state) {
+    ResolvedMethodReference resolvedReference = null;
+    if (memberReferenceTree != null) {
+      Type functionalInterfaceType =
+          genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
+      if (functionalInterfaceType == null) {
+        functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
+      }
+      if (functionalInterfaceType != null) { // diff-coverage: ignore -- Unattributed javac tree.
+        resolvedReference =
+            genericsChecks.resolveMemberReference(
+                memberReferenceTree, overridingMethod, functionalInterfaceType, state);
+      }
+    }
     // if the super method returns nonnull, overriding method better not return nullable
     // Note that, for the overriding method, the permissive default is non-null,
     // but it's nullable for the overridden one.
     // A constructor reference creates a new object and never returns null. javac gives the
     // constructor of an array constructor reference the qualifier as its return type, annotations
-    // included, so the return type of String @Nullable []::new carries @Nullable.
+    // included, so the return type of String @Nullable []::new carries @Nullable; we still want to
+    // ignore that annotation since the result is always non-null.
     if (!overridingMethod.isConstructor()
         && overriddenMethodReturnsNonNull(
             overriddenMethod,
@@ -1490,7 +1502,7 @@ public class NullAway extends BugChecker
             modeledOverriddenMethodType,
             memberReferenceTree,
             state)
-        && getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL)
+        && getOverridingMethodReturnNullness(overridingMethod, resolvedReference, state)
             .equals(Nullness.NULLABLE)
         && (memberReferenceTree == null
             || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
@@ -1534,9 +1546,33 @@ public class NullAway extends BugChecker
         overriddenMethod,
         null,
         memberReferenceTree,
+        resolvedReference,
         modeledOverriddenMethodType,
         state,
         overridingMethod);
+  }
+
+  /**
+   * Computes the effective return nullness for override checking. For a method reference, a
+   * resolved return-nullness hint other than {@code UNKNOWN}, from handlers or from the {@code
+   * Map.getOrDefault} rule, replaces the annotated or modeled return nullness outright.
+   *
+   * @param overridingMethod the overriding or referenced method
+   * @param resolvedReference the shared method-reference resolution, or {@code null} for an
+   *     ordinary override or unsupported reference
+   * @param state the current visitor state
+   * @return the effective return nullness
+   */
+  private Nullness getOverridingMethodReturnNullness(
+      Symbol.MethodSymbol overridingMethod,
+      @Nullable ResolvedMethodReference resolvedReference,
+      VisitorState state) {
+    Nullness result = getMethodReturnNullness(overridingMethod, state, Nullness.NONNULL);
+    if (resolvedReference == null) {
+      return result;
+    }
+    Handler.NullnessHint hint = resolvedReference.returnNullnessHint();
+    return hint.equals(Handler.NullnessHint.UNKNOWN) ? result : hint.toNullness();
   }
 
   private boolean overriddenMethodReturnsNonNull(

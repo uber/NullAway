@@ -1155,7 +1155,7 @@ public class AccessPathNullnessPropagation
             thenUpdates,
             elseUpdates,
             bothUpdates);
-    if (NullabilityUtil.isMapMethod(callee, state, "getOrDefault", 2)) {
+    if (NullabilityUtil.isMapGetOrDefault(callee, state)) {
       // A present key returns its mapped value, even when that value is null. Outside
       // JSpecify mode map values are assumed non-null, so only the default matters.
       nullnessHint =

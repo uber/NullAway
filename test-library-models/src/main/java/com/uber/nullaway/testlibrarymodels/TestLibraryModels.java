@@ -154,11 +154,33 @@ public class TestLibraryModels implements LibraryModels {
 
   @Override
   public ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters() {
-    return ImmutableSetMultimap.of(
-        polyNullOverrideMethod("NullableOverride", "top"), 1,
-        polyNullOverrideMethod("NonNullOverride", "top"), 1,
-        polyNullOverrideMethod("NullableOverride", "conditional"), 1,
-        polyNullOverrideMethod("NonNullOverride", "conditional"), 1);
+    return ImmutableSetMultimap.<MethodRef, Integer>builder()
+        // The core getOrDefault rule must override this hint when map values can be nullable.
+        .put(methodRef("java.util.Map", "getOrDefault(java.lang.Object,V)"), 1)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.ConditionalReturns",
+                "both(java.lang.Object,java.lang.Object)"),
+            0)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.ConditionalReturns",
+                "both(java.lang.Object,java.lang.Object)"),
+            1)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.ConditionalReturns",
+                "ConditionalReturns(java.lang.Object)"),
+            0)
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.ConditionalReturns", "varargs(java.lang.Object...)"),
+            0)
+        .put(polyNullOverrideMethod("NullableOverride", "top"), 1)
+        .put(polyNullOverrideMethod("NonNullOverride", "top"), 1)
+        .put(polyNullOverrideMethod("NullableOverride", "conditional"), 1)
+        .put(polyNullOverrideMethod("NonNullOverride", "conditional"), 1)
+        .build();
   }
 
   @Override
@@ -182,15 +204,21 @@ public class TestLibraryModels implements LibraryModels {
   /** Creates the immutable nullable-return models used by this test provider. */
   private static ImmutableSet<MethodRef> createNullableReturns() {
     return ImmutableSet.<MethodRef>builder()
-        .addAll(
-            ImmutableSet.of(
-                methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
-                methodRef(
-                    "com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
-                methodRef(
-                    "com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
-                methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
-                methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()")))
+        .add(
+            methodRef("com.uber.AnnotatedWithModels", "returnsNullFromModel()"),
+            methodRef("com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated()"),
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels", "returnsNullUnannotated2()"),
+            methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
+            methodRef(
+                "com.uber.lib.unannotated.ConditionalReturns",
+                "both(java.lang.Object,java.lang.Object)"),
+            methodRef(
+                "com.uber.lib.unannotated.ConditionalReturns",
+                "ConditionalReturns(java.lang.Object)"),
+            methodRef(
+                "com.uber.lib.unannotated.ConditionalReturns", "varargs(java.lang.Object...)"),
+            methodRef("com.uber.lib.unannotated.CustomInterface", "getContent()"))
         .add(polyNullOverrideMethod("NullableOverride", "top"))
         .add(polyNullOverrideMethod("NullableOverride", "generic"))
         .add(polyNullOverrideMethod("NullableOverride", "nested"))
