@@ -1345,8 +1345,7 @@ public class NullAway extends BugChecker
    * @param modeledOverriddenMethodType overridden method type after substitution and application of
    *     library models, for a regular override in JSpecify mode; otherwise {@code null}
    * @param memberReferenceTree if override is via a method reference, the relevant {@link
-   *     MemberReferenceTree}; otherwise {@code null}. If non-null, overridingTree is the AST of the
-   *     referenced method
+   *     MemberReferenceTree}; otherwise {@code null}
    * @param state visitor state.
    * @return discovered error, or {@link Description#NO_MATCH} if no error
    */

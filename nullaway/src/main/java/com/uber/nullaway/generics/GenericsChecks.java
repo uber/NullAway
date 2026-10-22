@@ -1944,10 +1944,13 @@ public final class GenericsChecks {
   /**
    * Resolves a method reference's method and functional-interface types and return-nullness hint.
    *
-   * <p>For an unbound reference to an instance method in a generic class, javac leaves the
-   * qualifier as the generic declaration type. The functional-interface receiver supplies the type
-   * arguments needed to instantiate that qualifier and, in turn, the referenced method type.
-   * Outside JSpecify mode, uses declared method types and leaves the qualifier type unavailable.
+   * <p>The qualifier is the expression or type to the left of {@code ::}. For an unbound
+   * instance-method reference such as {@code Box::get} for a generic class {@code Box<T>}, javac
+   * leaves the qualifier's type as {@code Box<T>}. The functional interface's first parameter
+   * supplies the receiver type, such as {@code Box<String>} for a target {@code
+   * Function<Box<String>, String>}, providing the type arguments needed to instantiate the
+   * qualifier's type and the referenced method type. Outside JSpecify mode, uses declared method
+   * types and leaves the instantiated qualifier type unavailable.
    *
    * <p>Raw targets and constructor references are not resolved. For varargs references, resolves
    * the types but leaves the return-nullness hint unknown, since parameters may not line up
@@ -2114,7 +2117,7 @@ public final class GenericsChecks {
     Type.MethodType result = overridingMethod.asType().asMethodType();
     if (!overridingMethod.isStatic()) {
       // This handles any generic type parameters of the qualifier of the member reference, e.g. for
-      // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer whereever it
+      // x::m, where x is of type Foo<Integer>, it handles the type parameter Integer wherever it
       // appears in the signature of m.
       Type qualifierType =
           qualifierExpressionType != null
