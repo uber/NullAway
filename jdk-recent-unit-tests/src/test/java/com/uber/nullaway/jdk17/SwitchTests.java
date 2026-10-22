@@ -167,6 +167,87 @@ public class SwitchTests {
   }
 
   @Test
+  public void unboxingOfPrimitiveSwitchExpressionResults() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "SwitchExpr.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class SwitchExpr {
+              static void takeInt(int i) {}
+              static int arrowCase(int k, @Nullable Integer n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                int x = switch (k) { case 1 -> n; case 2 -> throw new IllegalStateException(); default -> 0; };
+                return x;
+              }
+              static int yieldInStatementCase(int k, @Nullable Integer n) {
+                return switch (k) {
+                  // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                  case 1: yield n;
+                  default: yield 0;
+                };
+              }
+              static int yieldInBlockBody(int k, boolean b, @Nullable Integer n) {
+                return switch (k) {
+                  case 1 -> {
+                    if (b) {
+                      // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                      yield n;
+                    }
+                    yield 1;
+                  }
+                  default -> 0;
+                };
+              }
+              static void argument(int k, @Nullable Integer n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                takeInt(switch (k) { case 1 -> n; default -> 0; });
+              }
+              static int nullChecked(int k, @Nullable Integer n) {
+                if (n == null) {
+                  return 0;
+                }
+                return switch (k) { case 1 -> n; default -> 0; };
+              }
+              static int nullCheckedYield(int k, @Nullable Integer n) {
+                return switch (k) {
+                  case 1 -> {
+                    if (n != null) {
+                      yield n;
+                    }
+                    yield 1;
+                  }
+                  default -> 0;
+                };
+              }
+              static int yieldOfNestedReferenceSwitch(int k, int j, @Nullable Integer n) {
+                return switch (k) {
+                  case 1 -> {
+                    Integer inner = switch (j) {
+                      case 0 -> {
+                        yield n;
+                      }
+                      default -> 1;
+                    };
+                    yield 2;
+                  }
+                  default -> 0;
+                };
+              }
+              static int referenceSwitchUnboxedAsAWhole(int k, @Nullable Integer n, Integer m) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                return 3 + (switch (k) {
+                  case 1 -> n;
+                  default -> m;
+                });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testSwitchExprLambda() {
     defaultCompilationHelper
         .addSourceLines(

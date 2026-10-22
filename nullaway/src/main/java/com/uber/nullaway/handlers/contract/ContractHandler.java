@@ -54,6 +54,7 @@ import org.checkerframework.nullaway.dataflow.cfg.node.EqualToNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.MethodInvocationNode;
 import org.checkerframework.nullaway.dataflow.cfg.node.Node;
 import org.checkerframework.nullaway.dataflow.cfg.node.NotEqualNode;
+import org.checkerframework.nullaway.dataflow.cfg.node.TypeCastNode;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -465,9 +466,11 @@ public class ContractHandler implements Handler {
    *
    * <p>The visitor matches an {@link EqualToNode} when {@link #equals} is {@code true}, or a {@link
    * NotEqualNode} when it is {@code false}, provided one operand is null. It also matches a {@link
-   * ConditionalNotNode} whose operand matches with the opposite polarity. Any other node yields
-   * {@link Optional#empty()}. For example, visiting {@code e == null} or {@code !(e != null)} with
-   * {@code new NullEqualityVisitor(true)} returns an {@link Optional} of node {@code e}.
+   * ConditionalNotNode} whose operand matches with the opposite polarity, and a {@link
+   * TypeCastNode} whose operand matches with the same polarity. Any other node yields {@link
+   * Optional#empty()}. For example, visiting {@code e == null}, {@code !(e != null)}, or {@code
+   * (boolean) (e == null)} with {@code new NullEqualityVisitor(true)} returns an {@link Optional}
+   * of node {@code e}.
    */
   private static final class NullEqualityVisitor
       extends AbstractNodeVisitor<Optional<Node>, AccessPathNullnessPropagation.SubNodeValues> {
@@ -491,6 +494,12 @@ public class ContractHandler implements Handler {
         ConditionalNotNode conditionalNotNode, AccessPathNullnessPropagation.SubNodeValues inputs) {
       NullEqualityVisitor negated = equals ? NOT_NULL : IS_NULL;
       return conditionalNotNode.getOperand().accept(negated, inputs);
+    }
+
+    @Override
+    public Optional<Node> visitTypeCast(
+        TypeCastNode typeCastNode, AccessPathNullnessPropagation.SubNodeValues inputs) {
+      return typeCastNode.getOperand().accept(this, inputs);
     }
 
     @Override

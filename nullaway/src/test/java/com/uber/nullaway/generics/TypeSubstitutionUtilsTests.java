@@ -1,9 +1,11 @@
 package com.uber.nullaway.generics;
 
 import static com.google.common.truth.Truth.assertThat;
+import static com.google.common.truth.Truth.assertWithMessage;
 import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 
+import com.google.common.collect.ImmutableList;
 import com.google.errorprone.BugPattern;
 import com.google.errorprone.CompilationTestHelper;
 import com.google.errorprone.ErrorProneFlags;
@@ -17,6 +19,7 @@ import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Type;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
+import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.util.Map;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -54,6 +57,19 @@ public class TypeSubstitutionUtilsTests {
             """
             class Test<T> {
               Test<?> capturedTypeField;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void annotateCapturedWildcardPreservesBoundsAndDoesNotMutateOriginalTypes() {
+    CompilationTestHelper.newInstance(TypeCopyIsolationChecker.class, getClass())
+        .addSourceLines(
+            "Test.java",
+            """
+            class Test<T> {
+              Test<?> capturedWildcardAnnotationField;
             }
             """)
         .doTest();
@@ -107,7 +123,9 @@ public class TypeSubstitutionUtilsTests {
    * capturedTypeMetadataField} exercise the metadata-copying path used by {@link
    * TypeSubstitutionUtils#typeWithAnnot}. The fields named {@code wildcardAnnotationField} and
    * {@code wildcardWithoutFormalField} exercise annotation restoration from unbounded wildcards,
-   * with and without a corresponding formal type variable.
+   * with and without a corresponding formal type variable. The field named {@code
+   * capturedWildcardAnnotationField} checks annotation updates to captured unbounded and super
+   * wildcards.
    */
   @BugPattern(
       summary = "Checks javac type copying and annotation restoration",
@@ -117,6 +135,8 @@ public class TypeSubstitutionUtilsTests {
 
     private static final String TYPE_VAR_FIELD = "typeVarField";
     private static final String CAPTURED_TYPE_FIELD = "capturedTypeField";
+    private static final String CAPTURED_WILDCARD_ANNOTATION_FIELD =
+        "capturedWildcardAnnotationField";
     private static final String TYPE_VAR_METADATA_FIELD = "typeVarMetadataField";
     private static final String CAPTURED_TYPE_METADATA_FIELD = "capturedTypeMetadataField";
     private static final String WILDCARD_ANNOTATION_FIELD = "wildcardAnnotationField";
@@ -129,6 +149,8 @@ public class TypeSubstitutionUtilsTests {
       switch (fieldName) {
         case TYPE_VAR_FIELD -> checkUnboundedWildcardReplacement(testTypeContext);
         case CAPTURED_TYPE_FIELD -> checkCapturedWildcardReplacement(testTypeContext, tree, state);
+        case CAPTURED_WILDCARD_ANNOTATION_FIELD ->
+            checkCapturedWildcardAnnotation(testTypeContext, tree, state);
         case TYPE_VAR_METADATA_FIELD -> checkTypeVariableMetadataCopy(testTypeContext);
         case CAPTURED_TYPE_METADATA_FIELD ->
             checkCapturedTypeMetadataCopy(testTypeContext, tree, state);
@@ -182,6 +204,71 @@ public class TypeSubstitutionUtilsTests {
       assertThat(updatedWildcard.bound.lower).isSameInstanceAs(context.formalTypeVariable().lower);
       assertThat(updatedWildcard.bound.getUpperBound())
           .isSameInstanceAs(context.updatedUpperBound());
+    }
+
+    /**
+     * Checks that annotating a captured implicit upper bound preserves its lower bound and returns
+     * detached copies, whether or not javac records a corresponding formal type variable.
+     */
+    private static void checkCapturedWildcardAnnotation(
+        TestTypeContext context, VariableTree tree, VisitorState state) {
+      for (BoundKind kind : ImmutableList.of(BoundKind.UNBOUND, BoundKind.SUPER)) {
+        for (boolean missingFormal : ImmutableList.of(false, true)) {
+          for (Type annotationType :
+              ImmutableList.of(
+                  context.nullableAnnotationType(),
+                  GenericsChecks.getSyntheticNonNullAnnotType(state))) {
+            var assertions =
+                assertWithMessage(
+                    "kind=%s, missingFormal=%s, annotation=%s",
+                    kind, missingFormal, annotationType);
+            Type lowerBound =
+                kind == BoundKind.SUPER ? state.getSymtab().stringType : state.getSymtab().botType;
+            Type.WildcardType wildcard =
+                new Type.WildcardType(
+                    kind == BoundKind.SUPER ? lowerBound : context.sourceWildcard().type,
+                    kind,
+                    context.sourceWildcard().tsym,
+                    missingFormal ? null : context.formalTypeVariable());
+            Type.CapturedType capture =
+                new Type.CapturedType(
+                    context.formalTypeVariable().tsym.name,
+                    ASTHelpers.getSymbol(tree),
+                    context.originalUpperBound(),
+                    lowerBound,
+                    wildcard);
+            Type.CapturedType updated =
+                (Type.CapturedType)
+                    NestedTypePathUpdater.addAnnotation(
+                        capture, ImmutableList.of(), annotationType);
+            assertions.that(updated).isNotSameInstanceAs(capture);
+            assertions.that(updated.lower).isSameInstanceAs(lowerBound);
+            assertions.that(updated.wildcard).isNotSameInstanceAs(wildcard);
+            assertions.that(updated.wildcard.kind).isEqualTo(kind);
+            assertions.that(updated.wildcard.type).isSameInstanceAs(wildcard.type);
+            assertions
+                .that(updated.getUpperBound().getAnnotationMirrors().head.type)
+                .isSameInstanceAs(annotationType);
+            assertions
+                .that(updated.wildcard.bound.getUpperBound().getAnnotationMirrors().head.type)
+                .isSameInstanceAs(annotationType);
+
+            // Metadata wrappers can delegate mutations to compiler-owned types. Exercise both
+            // copied bounds to ensure that neither can mutate the original capture or formal.
+            updated.setUpperBound(state.getSymtab().stringType);
+            updated.wildcard.bound.setUpperBound(state.getSymtab().stringType);
+            assertions.that(capture.getUpperBound()).isSameInstanceAs(context.originalUpperBound());
+            assertions.that(capture.wildcard).isSameInstanceAs(wildcard);
+            assertions
+                .that(wildcard.bound)
+                .isSameInstanceAs(missingFormal ? null : context.formalTypeVariable());
+            assertions
+                .that(context.formalTypeVariable().getUpperBound())
+                .isSameInstanceAs(context.originalUpperBound());
+            assertions.that(context.originalUpperBound().getAnnotationMirrors()).isEmpty();
+          }
+        }
+      }
     }
 
     /** Checks that adding metadata to a type variable does not share its mutable upper bound. */

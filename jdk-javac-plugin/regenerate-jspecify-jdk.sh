@@ -2,7 +2,7 @@
 set -euo pipefail
 
 readonly JDK_REPOSITORY=https://github.com/jspecify/jdk.git
-readonly JDK_REVISION=e89cf6d97e5df874be7d9db4f0e14cc0c0a20648
+readonly JDK_REVISION=97c11a79c590cf8bc3713b19ff461f045dbc8309
 
 usage() {
   cat <<EOF
