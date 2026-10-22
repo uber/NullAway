@@ -1,6 +1,6 @@
 {
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-  "description": "minimumReleaseAge holds an update back until its release is seven days old, so that a broken or compromised publish has time to be found and pulled before it reaches a PR. internalChecksFilter defaults to strict, so such an update waits rather than opening a PR that is revised later. The Error Prone rule and the GitHub official actions rule set minimumReleaseAge to null; a security update bypasses it through Renovate's own vulnerabilityAlerts defaults.",
+  "description": "minimumReleaseAge holds an update back until its release is seven days old, so that a broken or compromised publish has time to be found and pulled before it reaches a PR. internalChecksFilter defaults to strict, so such an update waits rather than opening a PR that is revised later. The Error Prone rule and the GitHub official actions rule set minimumReleaseAge to null; a security update bypasses it through Renovate's own vulnerabilityAlerts defaults. Renovate opens a PR at any time once the release has aged, while fewer than ten of its PRs (prConcurrentLimit) are open, and creates at most five new PRs an hour (prHourlyLimit), so a burst after a pause spreads its first CI runs over two hours. Neither limit covers rebases.",
   "extends": [
     "config:best-practices"
   ],
@@ -9,8 +9,10 @@
   ],
   "semanticCommits": "disabled",
   "schedule": [
-    "every 2 weeks on Monday"
+    "at any time"
   ],
+  "prConcurrentLimit": 10,
+  "prHourlyLimit": 5,
   "minimumReleaseAge": "7 days",
   "packageRules": [
     {
@@ -21,12 +23,28 @@
       "dependencyDashboardApproval": true
     },
     {
-      "description": "NullAway compiles against Error Prone internals such as ASTHelpers, so an Error Prone release can change what NullAway builds and runs against; testErrorProneLatestSnapshot exists to catch such a change before the release lands (#1555). Error Prone PRs open as soon as a release lands, rather than waiting for the next two-week window. Error Prone also skips the seven-day cooldown: a broken release breaks this build rather than reaching users, and testErrorProneLatestSnapshot has already exercised the change while it was a snapshot. A major Error Prone release still needs dependency dashboard approval, like every other major.",
+      "description": "A minor, patch, pin or digest update is marked for automerge. Renovate turns on GitHub auto-merge for the PR (platformAutomerge defaults to true), so GitHub merges it once the branch protection on master is satisfied: the required status checks pass and the PR has the required approving review. A major update matches none of these types, so after dependency dashboard approval it still waits for a maintainer to merge it. rebaseWhen stays at its default, which for an automerge PR means a rebase whenever master moves ahead of it, so each merge to master restarts CI on every open automerge PR. rebaseWhen: conflicted would avoid those runs, but two updates could then merge without being tested together.",
+      "matchUpdateTypes": [
+        "minor",
+        "patch",
+        "pin",
+        "pinDigest",
+        "digest"
+      ],
+      "automerge": true
+    },
+    {
+      "description": "Error Prone and the Checker Framework stay manual merges, because NullAway compiles against their internals: ASTHelpers in Error Prone, and the dataflow framework that org.checkerframework:dataflow-nullaway ships. A green build does not show that a new release keeps the same semantics, so a maintainer reviews each such PR.",
+      "matchPackageNames": [
+        "com.google.errorprone{/,}**",
+        "org.checkerframework{/,}**"
+      ],
+      "automerge": false
+    },
+    {
+      "description": "NullAway compiles against Error Prone internals such as ASTHelpers, so an Error Prone release can change what NullAway builds and runs against; testErrorProneLatestSnapshot exists to catch such a change before the release lands (#1555). Error Prone skips the seven-day cooldown, so its PR opens as soon as a release lands: a broken release breaks this build rather than reaching users, and testErrorProneLatestSnapshot has already exercised the change while it was a snapshot. A major Error Prone release still needs dependency dashboard approval, like every other major.",
       "matchPackageNames": [
         "com.google.errorprone{/,}**"
-      ],
-      "schedule": [
-        "at any time"
       ],
       "minimumReleaseAge": null
     },
@@ -38,15 +56,14 @@
       "groupName": "libs.versions.errorProne"
     },
     {
-      "description": "The errorProneOldest entry in gradle/libs.versions.toml is the oldest Error Prone release NullAway supports: README.md gives 2.36.0 as the minimum, and testErrorProneOldest runs the test suite against it. Raising that floor is a decision rather than maintenance, so this entry takes 2.36.x patch releases only. This rule and the errorProne, errorProneJdk17 and guava rules match on sharedVariableName, the version-catalog alias Renovate records for a dependency, because the three Error Prone entries resolve to the same com.google.errorprone artifacts and no other stable field distinguishes them. Each rule also accepts a libs.versions.-prefixed spelling as insurance. Renovate reports the bare alias for every entry here, because it strips that prefix while more than one dependency shares a catalog entry; an entry that build.gradle reads through an ext property would keep the prefix if a refactor left a single dependency on it. Renaming an alias would therefore drop its pin without failing the validator, so the lint workflow checks the names separately. Each bound is written as a Gradle range. Renovate's gradle versioning has no '<' range syntax, so a bound of '< 2.37' in either allowedVersions or matchCurrentVersion parses as nothing and holds nothing back.",
+      "description": "The errorProneOldest entry in gradle/libs.versions.toml is the oldest Error Prone release NullAway supports: README.md gives 2.36.0 as the minimum, and testErrorProneOldest runs the test suite against it. Raising that floor is a decision rather than maintenance, so a maintainer edits this entry by hand and Renovate leaves it alone. This rule and the errorProne, errorProneJdk17 and guava rules match on sharedVariableName, the version-catalog alias Renovate records for a dependency, because the three Error Prone entries resolve to the same com.google.errorprone artifacts and no other stable field distinguishes them. Each rule also accepts a libs.versions.-prefixed spelling as insurance. Renovate reports the bare alias for every entry here, because it strips that prefix while more than one dependency shares a catalog entry; an entry that build.gradle reads through an ext property would keep the prefix if a refactor left a single dependency on it. Renaming an alias would therefore drop its rule without failing the validator, so the lint workflow checks the names separately.",
       "matchJsonata": [
         "sharedVariableName in ['errorProneOldest', 'libs.versions.errorProneOldest']"
       ],
-      "groupName": "libs.versions.errorProneOldest",
-      "allowedVersions": "[,2.37)"
+      "enabled": false
     },
     {
-      "description": "The errorProneJdk17 entry in gradle/libs.versions.toml holds the newest Error Prone that runs on JDK 17, because 2.43.0 and later require JDK 21 (#1401). The testJdk17 task puts its jars in front of the test classpath. This entry takes 2.42.x patch releases only.",
+      "description": "The errorProneJdk17 entry in gradle/libs.versions.toml holds the newest Error Prone that runs on JDK 17, because 2.43.0 and later require JDK 21 (#1401). The testJdk17 task puts its jars in front of the test classpath. This entry takes 2.42.x patch releases only. The bound here and in the guava rule is written as a Gradle range: Renovate's gradle versioning has no '<' range syntax, so a bound of '< 2.43' in either allowedVersions or matchCurrentVersion parses as nothing and holds nothing back.",
       "matchJsonata": [
         "sharedVariableName in ['errorProneJdk17', 'libs.versions.errorProneJdk17']"
       ],
@@ -81,7 +98,7 @@
       "enabled": false
     },
     {
-      "description": "actions/* and github/* are maintained by GitHub and can update together. GitHub publishes them, so they skip the seven-day cooldown; an action from any other publisher waits it out.",
+      "description": "actions/* and github/* are maintained by GitHub and can update together. GitHub publishes them, so they skip the seven-day cooldown; an action from any other publisher waits it out. A major release of these actions also opens without dependency dashboard approval and automerges like a minor one, because the continuous-integration, renovate-config-lint and zizmor workflows run them on the PR itself. Three uses run only after the merge: the publish-snapshot job on a push to master, publish-release.yml on a release tag, and jmh-benchmark.yml when a maintainer labels a PR. A breaking major in those shows up there first.",
       "groupName": "github official actions",
       "matchManagers": [
         "github-actions"
@@ -90,7 +107,9 @@
         "actions/**",
         "github/**"
       ],
-      "minimumReleaseAge": null
+      "minimumReleaseAge": null,
+      "dependencyDashboardApproval": false,
+      "automerge": true
     }
   ]
 }
