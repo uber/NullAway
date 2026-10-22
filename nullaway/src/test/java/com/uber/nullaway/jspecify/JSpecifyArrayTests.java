@@ -975,6 +975,41 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void indexUnderCastToItsOwnTypeIsTheSameIndex() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static @Nullable String[] fizz = {"1"};
+              static String intLiteralIndex() {
+                if (fizz[0] != null) {
+                  return fizz[(int) (0)].toString();
+                }
+                return "";
+              }
+              static String intVariableIndex(int i) {
+                if (fizz[i] != null) {
+                  return fizz[(int) (i)].toString();
+                }
+                return "";
+              }
+              static String narrowedLongIndex(long l) {
+                // (int) l converts l, so fizz[(int) l] has no access path
+                if (fizz[(int) l] != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz[(int) l]' is @Nullable
+                  return fizz[(int) l].toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void typeUseAndDeclarationAnnotationOnArray() {
     makeHelper()
         .addSourceLines(

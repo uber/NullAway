@@ -95,6 +95,62 @@ public class GenericLambdaTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void parenthesizedPolyExpressionAssignedToFieldUsesAnnotatedTypeVar() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable CharSequence> {
+                @Nullable Function<@Nullable T, T> field;
+              }
+              static String requireNonNull(String s) {
+                return s;
+              }
+              static @Nullable String acceptNullable(@Nullable String s) {
+                return s;
+              }
+              void assignLambda(Box<String> box) {
+                box.field = (t -> {
+                  // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
+                  t.length();
+                  return "";
+                });
+              }
+              void assignDoublyParenthesizedLambda(Box<String> box) {
+                box.field = ((t -> {
+                  // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
+                  t.length();
+                  return "";
+                }));
+              }
+              void assignMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                box.field = Test::requireNonNull;
+              }
+              void assignParenthesizedMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                box.field = (Test::requireNonNull);
+              }
+              void assignNullableReturningMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                box.field = Test::acceptNullable;
+              }
+              void assignParenthesizedNullableReturningMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                box.field = (Test::acceptNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaReturnedUsesAnnotatedTypeVar() {
     makeHelper()
         .addSourceLines(
