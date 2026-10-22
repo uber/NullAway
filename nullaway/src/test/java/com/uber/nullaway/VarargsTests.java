@@ -624,6 +624,36 @@ public class VarargsTests extends NullAwayTestsBase {
                 Unannotated.takesVarargsTypeUseOnElements(x);
                 Unannotated.takesVarargsTypeUseOnElements(y);
               }
+              public void testTypeUseOnBoth() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsTypeUseOnBoth(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsTypeUseOnBoth(y);
+              }
+              public void testBothOnArray() {
+                Object x = null;
+                Object[] y = null;
+                Unannotated.takesVarargsBothOnArray(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsBothOnArray(y);
+              }
+              public void testBothOnElements() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsBothOnElements(x);
+                Unannotated.takesVarargsBothOnElements(y);
+              }
+              public void testBothOnBoth() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsBothOnBoth(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsBothOnBoth(y);
+              }
             }
             """)
         .doTest();

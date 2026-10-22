@@ -1561,6 +1561,37 @@ public class CoreTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * An enum constructor's implicit {@code super()} call has no arguments but resolves to {@code
+   * Enum(String, int)}, which NullAway checks once {@code AnnotatedPackages} matches {@code
+   * java.lang}. NullAway used to read the arguments by the callee's parameter positions, and this
+   * call failed with {@code IndexOutOfBoundsException} (issue #848).
+   */
+  @Test
+  public void enumConstructorIsCheckedWhenAnnotatedPackagesMatchesJavaLang() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=[a-zA-Z0-9.]*"))
+        .addSourceLines(
+            "Color.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            enum Color {
+              RED("r"),
+              GREEN("g");
+              private final String code;
+              Color(@Nullable String code) {
+                // BUG: Diagnostic contains: dereferenced expression 'code' is @Nullable
+                this.code = code.trim();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void assertSupportPositiveCases() {
     defaultCompilationHelper
