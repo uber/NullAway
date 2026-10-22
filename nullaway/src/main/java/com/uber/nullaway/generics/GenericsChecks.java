@@ -836,7 +836,7 @@ public final class GenericsChecks {
           if (owner != null) {
             Symbol.ClassSymbol enclosingClass = owner.enclClass();
             if (enclosingClass != null) {
-              Type enclosingType = getTypeForSymbol(enclosingClass, state);
+              Type enclosingType = getTypeForSymbol(enclosingClass, state, calledFromDataflow);
               if (enclosingType != null) {
                 return enclosingType;
               }
@@ -3309,13 +3309,68 @@ public final class GenericsChecks {
   }
 
   /**
+   * Returns the type of the implicit receiver of a call of {@code method} at {@code path}. For a
+   * method, this is the innermost enclosing class that has the method as a member, as javac
+   * resolves the call, so a private method binds to the class that declares it rather than to an
+   * anonymous subclass. Where that class is an anonymous class that does not declare the method,
+   * this is its supertype as the class instance creation writes it, so the annotations on its type
+   * arguments are kept. For a {@code super(...)} or {@code this(...)} constructor call, this is the
+   * innermost enclosing class.
+   *
+   * @param method the invoked method or constructor
+   * @param path the path to the call
+   * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
+   * @return the receiver type, or {@code null} outside a class or where the type of the anonymous
+   *     class's instance creation cannot be computed
+   */
+  private @Nullable Type getImplicitReceiverType(
+      Symbol.MethodSymbol method, TreePath path, VisitorState state, boolean calledFromDataflow) {
+    Symbol.ClassSymbol owner = method.enclClass();
+    Type innermostType = null;
+    // JLS 15.12.1: an unqualified call names a member of an enclosing class, so the loop returns
+    // before it runs out of classes
+    TreePath p = path;
+    while (p != null) { // diff-coverage: ignore -- JLS 15.12.1
+      if (p.getLeaf() instanceof ClassTree classTree) {
+        Symbol.ClassSymbol classSymbol = ASTHelpers.getSymbol(classTree);
+        Type classType = castToNonNull(ASTHelpers.getType(classTree));
+        if (innermostType == null) {
+          innermostType = classType;
+          if (method.isConstructor()) {
+            return innermostType;
+          }
+        }
+        if (method.isMemberOf(classSymbol, state.getTypes())) {
+          if (classSymbol.isAnonymous() && !owner.equals(classSymbol)) {
+            return getTypeForSymbol(classSymbol, state.withPath(p), calledFromDataflow);
+          }
+          return classType;
+        }
+      }
+      p = p.getParentPath();
+    }
+    return innermostType; // diff-coverage: ignore -- JLS 15.12.1
+  }
+
+  /**
+   * Same as {@link #getTypeForSymbol(Symbol, VisitorState, boolean)}, for a caller outside dataflow
+   * analysis.
+   */
+  private @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state) {
+    return getTypeForSymbol(symbol, state, false);
+  }
+
+  /**
    * Get the type for the symbol, accounting for anonymous classes
    *
    * @param symbol the symbol
    * @param state the visitor state
+   * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return the type for {@code symbol}
    */
-  private @Nullable Type getTypeForSymbol(Symbol symbol, VisitorState state) {
+  private @Nullable Type getTypeForSymbol(
+      Symbol symbol, VisitorState state, boolean calledFromDataflow) {
     if (symbol.isAnonymous()) {
       // For anonymous classes, symbol.type does not contain annotations on generic type parameters.
       // So, we get a correct type from the NewClassTree representing the anonymous class.
@@ -3327,7 +3382,7 @@ public final class GenericsChecks {
             && newClassTree.getClassBody() != null) {
           Type newClassType = ASTHelpers.getType(newClassTree);
           if (newClassType != null && newClassType.tsym.equals(symbol)) {
-            Type typeFromTree = getTreeType(newClassTree, state.withPath(path));
+            Type typeFromTree = getTreeType(newClassTree, state.withPath(path), calledFromDataflow);
             if (typeFromTree != null) {
               verify(
                   state.getTypes().isAssignable(symbol.type, typeFromTree),
@@ -4107,13 +4162,10 @@ public final class GenericsChecks {
       ExpressionTree methodSelect =
           ASTHelpers.stripParentheses(methodInvocationTree.getMethodSelect());
       if (methodSelect instanceof IdentifierTree) {
-        // implicit this parameter, or a super call.  in either case, use the type of the enclosing
-        // class.
+        // implicit this parameter, or a super call
         TreePath basePath = (path != null) ? path : state.getPath();
-        ClassTree enclosingClassTree = ASTHelpers.findEnclosingNode(basePath, ClassTree.class);
-        if (enclosingClassTree != null) {
-          enclosingType = castToNonNull(ASTHelpers.getType(enclosingClassTree));
-        }
+        enclosingType =
+            getImplicitReceiverType(invokedMethodSymbol, basePath, state, calledFromDataflow);
       } else if (methodSelect instanceof MemberSelectTree memberSelectTree) {
         ExpressionTree receiver = ASTHelpers.stripParentheses(memberSelectTree.getExpression());
         TreePath curPath = path != null ? path : state.getPath();
