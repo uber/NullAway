@@ -478,10 +478,15 @@ public class NullAway extends BugChecker
    * Updates the {@link EnclosingEnvironmentNullness} with an entry for lambda or anonymous class,
    * capturing nullability info for locals just before the declaration of the entity
    *
+   * <p>The entry comes from dataflow analysis of the enclosing code, so this first adds the entry
+   * that analysis starts from if it is missing; see {@link
+   * #addMissingEnclosingEnvironmentMapping(TreePath, VisitorState)}.
+   *
    * @param treePath either a lambda or a local / anonymous class, identified by its tree path
    * @param state visitor state
    */
   private void updateEnvironmentMapping(TreePath treePath, VisitorState state) {
+    addMissingEnclosingEnvironmentMapping(treePath, state);
     AccessPathNullnessAnalysis analysis = getNullnessAnalysis(state);
     // two notes:
     // 1. we are free to take local variable information from the program point before
@@ -492,6 +497,75 @@ public class NullAway extends BugChecker
         .addEnvironmentMapping(
             treePath.getLeaf(),
             analysis.getNullnessInfoBeforeNestedMethodNode(treePath, state, handler));
+  }
+
+  /**
+   * Ensures that the code enclosing {@code treePath} has the environment mapping its dataflow
+   * analysis starts from.
+   *
+   * <p>That is the mapping of the enclosing lambda, or, for a method or initializer, the mapping of
+   * the closest local or anonymous class it belongs to, looking through member classes. The
+   * matchers add mappings only in annotated code, so the mapping is missing when that lambda or
+   * class is in unmarked code and {@code treePath} is in null-marked code. Adding it runs dataflow
+   * analysis over the code enclosing that lambda or class, which adds the mapping that code needs
+   * in turn.
+   *
+   * @param treePath a lambda or a local or anonymous class, identified by its tree path
+   * @param state visitor state
+   */
+  private void addMissingEnclosingEnvironmentMapping(TreePath treePath, VisitorState state) {
+    TreePath enclosingCode = NullabilityUtil.findEnclosingMethodOrLambdaOrInitializer(treePath);
+    if (enclosingCode == null) {
+      return; // diff-coverage: ignore -- a lambda or a local or anonymous class is always in code
+    }
+    if (enclosingCode.getLeaf() instanceof LambdaExpressionTree) {
+      addEnvironmentMappingIfMissing(enclosingCode, state);
+    } else {
+      // a method or initializer is a member of a class
+      addMissingEnvironmentMappingOfClosestLocalOrAnonymousClass(
+          enclosingCode.getParentPath(), state);
+    }
+  }
+
+  /**
+   * Adds the environment mapping of the closest local or anonymous class enclosing a class, looking
+   * through member classes, if that mapping is missing. Nothing is added for a class that is nested
+   * only in member classes of a top-level class.
+   *
+   * @param classPath the tree path of a class, which counts as its own closest local or anonymous
+   *     class when it is one
+   * @param state visitor state
+   */
+  private void addMissingEnvironmentMappingOfClosestLocalOrAnonymousClass(
+      TreePath classPath, VisitorState state) {
+    // a class that is not local or anonymous is a member of a class or is top-level
+    while (true) {
+      NestingKind nestingKind =
+          ASTHelpers.getSymbol((ClassTree) classPath.getLeaf()).getNestingKind();
+      if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
+        addEnvironmentMappingIfMissing(classPath, state);
+        return;
+      }
+      if (!nestingKind.isNested()) {
+        return;
+      }
+      classPath = classPath.getParentPath();
+    }
+  }
+
+  /**
+   * Calls {@link #updateEnvironmentMapping(TreePath, VisitorState)} for a lambda or a local or
+   * anonymous class that has no entry in {@link EnclosingEnvironmentNullness} yet.
+   *
+   * @param treePath a lambda or a local or anonymous class, identified by its tree path
+   * @param state visitor state
+   */
+  private void addEnvironmentMappingIfMissing(TreePath treePath, VisitorState state) {
+    if (EnclosingEnvironmentNullness.instance(state.context)
+            .getEnvironmentMapping(treePath.getLeaf())
+        == null) {
+      updateEnvironmentMapping(treePath, state);
+    }
   }
 
   private Symbol.MethodSymbol getSymbolOfSuperConstructor(
@@ -675,18 +749,15 @@ public class NullAway extends BugChecker
       }
     }
     if (markedMethodInUnmarkedContext) {
-      // If this is a @NullMarked method of a @NullUnmarked local or anonymous class, we need to set
-      // its environment mapping, since we skipped it during matchClass.
+      // The dataflow analysis of a @NullMarked method in an unmarked class starts from the
+      // environment mapping of the closest local or anonymous class enclosing it, which matchClass
+      // skipped.
       TreePath pathToEnclosingClass =
           ASTHelpers.findPathFromEnclosingNodeToTopLevel(state.getPath(), ClassTree.class);
       if (pathToEnclosingClass == null) {
         return;
       }
-      ClassTree enclosingClass = (ClassTree) pathToEnclosingClass.getLeaf();
-      NestingKind nestingKind = ASTHelpers.getSymbol(enclosingClass).getNestingKind();
-      if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
-        updateEnvironmentMapping(pathToEnclosingClass, state);
-      }
+      addMissingEnvironmentMappingOfClosestLocalOrAnonymousClass(pathToEnclosingClass, state);
     }
   }
 
@@ -2073,6 +2144,10 @@ public class NullAway extends BugChecker
       // may run dataflow analysis
       if (nestingKind.equals(NestingKind.LOCAL) || nestingKind.equals(NestingKind.ANONYMOUS)) {
         updateEnvironmentMapping(state.getPath(), state);
+      } else {
+        // the analysis of a member class starts from the environment mapping of the closest local
+        // or anonymous class enclosing it, which is missing when that class is unmarked
+        addMissingEnvironmentMappingOfClosestLocalOrAnonymousClass(state.getPath(), state);
       }
       checkFieldInitialization(tree, state);
     }

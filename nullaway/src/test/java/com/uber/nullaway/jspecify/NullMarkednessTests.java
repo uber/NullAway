@@ -575,6 +575,252 @@ public class NullMarkednessTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullMarkedLocalClassInAMethodOfAnUnmarkedLocalClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        class A {
+          void m() {
+            %s
+          }
+        }
+        """);
+  }
+
+  @Test
+  public void nullMarkedLocalClassInAMethodOfAnUnmarkedAnonymousClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        Runnable r = new Runnable() {
+          public void run() {
+            %s
+          }
+        };
+        """);
+  }
+
+  @Test
+  public void nullMarkedLocalClassInAnUnmarkedLambda() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        Runnable r = () -> {
+          %s
+        };
+        """);
+  }
+
+  @Test
+  public void nullMarkedLocalClassInAMethodOfAMemberOfAnUnmarkedLocalClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        class A {
+          class Member {
+            void m() {
+              %s
+            }
+          }
+        }
+        """);
+  }
+
+  @Test
+  public void nullMarkedLocalClassInAnInitializerOfAnUnmarkedLocalClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        class A {
+          {
+            %s
+          }
+        }
+        """);
+  }
+
+  @Test
+  public void nullMarkedLocalClassInsideTwoUnmarkedLocalClasses() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        class A {
+          void m() {
+            class Inner {
+              void n() {
+                %s
+              }
+            }
+          }
+        }
+        """);
+  }
+
+  @Test
+  public void nullMarkedMemberClassOfAnUnmarkedLocalClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        class A {
+          %s
+        }
+        """);
+  }
+
+  @Test
+  public void nullMarkedMemberClassOfAMemberOfAnUnmarkedLocalClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        class A {
+          class Member {
+            %s
+          }
+        }
+        """);
+  }
+
+  @Test
+  public void nullMarkedMemberClassOfAnUnmarkedAnonymousClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        Runnable r = new Runnable() {
+          %s
+          public void run() {}
+        };
+        """);
+  }
+
+  @Test
+  public void nullMarkedLocalClassInALambdaInAFieldInitializerOfAnUnmarkedLocalClass() {
+    checkNullMarkedClassSeesCapturedLocals(
+        """
+        class A {
+          Runnable r = () -> {
+            %s
+          };
+        }
+        """);
+  }
+
+  @Test
+  public void nullMarkedLocalClassInANullUnmarkedMethodOfAnAnnotatedPackage() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            public class Test {
+              @NullUnmarked
+              public static void test() {
+                Object x = null;
+                class A {
+                  void m() {
+                    @NullMarked
+                    class Marked {
+                      Object get() {
+                        // BUG: Diagnostic contains: returning @Nullable expression
+                        return x;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullMarkedMethodOfAMemberClassOfAnUnmarkedLocalClass() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example.thirdparty;
+            import org.jspecify.annotations.NullMarked;
+            public class Test {
+              public static void test() {
+                Object x = null;
+                class A {
+                  class Member {
+                    @NullMarked
+                    Object get() {
+                      // BUG: Diagnostic contains: returning @Nullable expression
+                      return x;
+                    }
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nullMarkedMethodOfALocalClassInsideAnUnmarkedLocalClass() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example.thirdparty;
+            import org.jspecify.annotations.NullMarked;
+            public class Test {
+              public static void test() {
+                Object x = null;
+                class A {
+                  void m() {
+                    class Local {
+                      @NullMarked
+                      Object get() {
+                        // BUG: Diagnostic contains: returning @Nullable expression
+                        return x;
+                      }
+                    }
+                  }
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Compiles a {@code @NullMarked} class declared in unmarked code inside an unmarked method, and
+   * checks that the class sees the nullness of the locals that method declares: returning the null
+   * local is reported, and returning the non-null one is not. A crash of NullAway fails the
+   * compilation instead.
+   *
+   * @param enclosingCode the unmarked code around the class, with {@code %s} where the class
+   *     declaration goes, as a local class or as a member of a class
+   */
+  private void checkNullMarkedClassSeesCapturedLocals(String enclosingCode) {
+    String markedClass =
+        """
+        @NullMarked
+        class Marked {
+          Object getNull() {
+            // BUG: Diagnostic contains: returning @Nullable expression
+            return x;
+          }
+          Object getNonNull() {
+            return y;
+          }
+        }
+        """;
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.example.thirdparty;
+            import org.jspecify.annotations.NullMarked;
+            public class Test {
+              public static void test() {
+                Object x = null;
+                Object y = new Object();
+                %s
+              }
+            }
+            """
+                .formatted(enclosingCode.formatted(markedClass)))
+        .doTest();
+  }
+
+  @Test
   public void configUnannotatedOverridesNullMarked() {
     makeTestHelperWithArgs(
             Arrays.asList(
