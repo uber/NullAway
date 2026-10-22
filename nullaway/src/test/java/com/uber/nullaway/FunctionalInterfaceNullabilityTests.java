@@ -117,6 +117,53 @@ public class FunctionalInterfaceNullabilityTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A parenthesized lambda passed to a Futures or FluentFuture method may return null, as an
+   * unparenthesized one does. Before the fix, the parentheses hid the lambda from {@code
+   * FluentFutureHandler}, which reported {@code returning @Nullable expression}.
+   */
+  @Test
+  public void futuresFunctionParenthesizedLambdas() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "TestGuava.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            import com.google.common.base.Function;
+            import com.google.common.util.concurrent.FluentFuture;
+            import com.google.common.util.concurrent.Futures;
+            import com.google.common.util.concurrent.ListenableFuture;
+            import java.util.concurrent.Executor;
+            class TestGuava {
+              private static void takeFn(Function<String, String> f) { }
+              private static ListenableFuture<@Nullable String> futuresTransform(Executor executor) {
+                return Futures
+                    .transform(Futures.immediateFuture("hi"), (s -> { return null; }), executor);
+              }
+              private static ListenableFuture<@Nullable String> fluentFutureTransform(Executor executor) {
+                return FluentFuture
+                    .from(Futures.immediateFuture("hi"))
+                    .transform(((s -> { return null; })), executor);
+              }
+              private static ListenableFuture<String> futuresTransformConditional(
+                  Executor executor, Function<String, String> f, boolean b) {
+                // The lambda is an operand of the conditional, not an argument of transform
+                return Futures.transform(
+                    // BUG: Diagnostic contains: returning @Nullable expression from method
+                    Futures.immediateFuture("hi"), b ? f : (s -> { return null; }), executor);
+              }
+              private static void passToAnnotatedFunction() {
+                // BUG: Diagnostic contains: returning @Nullable expression from method
+                takeFn((s -> { return null; }));
+              }
+              // BUG: Diagnostic contains: returning @Nullable expression from method
+              private static final Function<String, String> FIELD = (s -> { return null; });
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void extraFuturesClassesLambda() {
     makeTestHelperWithArgs(
