@@ -64,6 +64,10 @@ public class GenericDiamondTests extends NullAwayTestsBase {
               }
               void test() {
                 var inferredFromInitializer = new Box<>(null);
+                // BUG: Diagnostic contains: dereferenced expression 'inferredFromInitializer.get()' is @Nullable
+                inferredFromInitializer.get().hashCode();
+                var inferredNonNull = new Box<>("x");
+                inferredNonNull.get().hashCode();
                 // BUG: Diagnostic contains: passing @Nullable parameter
                 Box<String> explicitNonNullTarget = new Box<>(null);
                 Box<@Nullable String> explicitNullableTarget = new Box<>(null);
