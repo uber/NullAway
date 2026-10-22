@@ -368,6 +368,63 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboxingEnhancedForLoopOverNullableIterableElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              <T extends @Nullable Integer> void test(
+                  Iterable<@Nullable Integer> nullableIterable,
+                  List<@Nullable Integer> nullableList,
+                  List<? extends @Nullable Integer> nullableWildcardList,
+                  List<T> nullableTypeVariableList) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                for (int x : nullableIterable) {}
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                for (int x : nullableList) {}
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                for (int x : nullableWildcardList) {}
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                for (int x : nullableTypeVariableList) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboxingEnhancedForLoopOverNonNullIterableElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              <T extends Integer> void test(
+                  Iterable<Integer> nonNullIterable,
+                  List<Integer> nonNullList,
+                  List<? extends Integer> nonNullWildcardList,
+                  List<T> nonNullTypeVariableList) {
+                for (int x : nonNullIterable) {}
+                for (int x : nonNullList) {}
+                for (int x : nonNullWildcardList) {}
+                for (int x : nonNullTypeVariableList) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void enhancedForLoopMapEntryPreservesValueTypeNullness() {
     makeHelper()
         .addSourceLines(

@@ -1306,7 +1306,7 @@ public class AccessPathNullnessPropagation
     TreePath expressionPath = new TreePath(loopPath, iterableExpression);
     Nullness elementNullness =
         genericsChecks.getEnhancedForLoopElementNullness(
-            iterableExpression, state.withPath(expressionPath));
+            iterableExpression, state.withPath(expressionPath), /* calledFromDataflow= */ true);
     return elementNullness.equals(NULLABLE);
   }
 
