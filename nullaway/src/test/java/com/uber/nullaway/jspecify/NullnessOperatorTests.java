@@ -214,6 +214,37 @@ public class NullnessOperatorTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nonNullTypeVariableReadsIgnoreNullableUpperBound() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Box<R extends @Nullable Object> {
+                R get();
+              }
+
+              static <T extends @Nullable Object> void wildcard(Box<? extends @NonNull T> box) {
+                // Reading the wildcard bound must preserve T's explicit non-null projection.
+                box.get().hashCode();
+              }
+
+              static <T extends @Nullable Object> void loop(Iterable<@NonNull T> values) {
+                for (var value : values) {
+                  // Enhanced-for reads must also honor @NonNull before following T's bound.
+                  value.hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableWildcardBoundIsRejectedAtReturn() {
     makeHelper()
         .addSourceLines(

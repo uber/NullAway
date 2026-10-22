@@ -58,6 +58,7 @@ import com.sun.source.tree.AssertTree;
 import com.sun.source.tree.AssignmentTree;
 import com.sun.source.tree.BinaryTree;
 import com.sun.source.tree.BlockTree;
+import com.sun.source.tree.CaseTree;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.CompoundAssignmentTree;
@@ -87,7 +88,9 @@ import com.sun.source.tree.TypeCastTree;
 import com.sun.source.tree.UnaryTree;
 import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WhileLoopTree;
+import com.sun.source.tree.YieldTree;
 import com.sun.source.util.TreePath;
+import com.sun.source.util.TreeScanner;
 import com.sun.source.util.Trees;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symbol.ClassSymbol;
@@ -810,9 +813,53 @@ public class NullAway extends BugChecker
     if (!withinAnnotatedCode(state)) {
       return Description.NO_MATCH;
     }
+    // A switch expression of primitive type unboxes each boxed result, and the checks on the
+    // enclosing expression skip it because its type is primitive.
+    Type switchExprType = ASTHelpers.getType(tree);
+    if (switchExprType != null // diff-coverage: ignore -- javac attributes every switch expression
+        && switchExprType.isPrimitive()) {
+      doUnboxingCheck(state, getSwitchExpressionResults(tree).toArray(new ExpressionTree[0]));
+    }
 
     return checkSwitchSelectorExpression(
         tree.getExpression(), TreeUtils.hasNullCaseLabel(tree), state);
+  }
+
+  /**
+   * Returns the expressions whose values a switch expression can produce: the body of each {@code
+   * case L -> expression;} and the value of each {@code yield} that completes the switch
+   * expression. A {@code yield} inside a nested switch expression completes that one and is not
+   * included.
+   */
+  private static List<ExpressionTree> getSwitchExpressionResults(SwitchExpressionTree tree) {
+    List<ExpressionTree> results = new ArrayList<>();
+    TreeScanner<@Nullable Void, @Nullable Void> yieldScanner =
+        new TreeScanner<>() {
+          @Override
+          public @Nullable Void visitYield(YieldTree yieldTree, @Nullable Void unused) {
+            results.add(yieldTree.getValue());
+            return null;
+          }
+
+          @Override
+          public @Nullable Void visitSwitchExpression(
+              SwitchExpressionTree nested, @Nullable Void unused) {
+            return null;
+          }
+        };
+    for (CaseTree caseTree : tree.getCases()) {
+      if (caseTree.getCaseKind() == CaseTree.CaseKind.RULE) {
+        Tree body = caseTree.getBody();
+        if (body instanceof ExpressionTree expressionBody) {
+          results.add(expressionBody);
+        } else {
+          yieldScanner.scan(body, null);
+        }
+      } else {
+        yieldScanner.scan(caseTree.getStatements(), null);
+      }
+    }
+    return results;
   }
 
   private Description checkSwitchSelectorExpression(
@@ -2184,6 +2231,13 @@ public class NullAway extends BugChecker
         genericsChecks.checkTypeParameterNullnessForConditionalExpression(tree, state);
       }
       doUnboxingCheck(state, tree.getCondition());
+      // A conditional of primitive type unboxes each boxed operand, and the checks on the
+      // enclosing expression skip it because its type is primitive.
+      Type conditionalExprType = ASTHelpers.getType(tree);
+      if (conditionalExprType != null // diff-coverage: ignore -- javac attributes every conditional
+          && conditionalExprType.isPrimitive()) {
+        doUnboxingCheck(state, tree.getTrueExpression(), tree.getFalseExpression());
+      }
     }
     return Description.NO_MATCH;
   }
@@ -3135,7 +3189,9 @@ public class NullAway extends BugChecker
     if (Nullness.hasNullableAnnotation(exprSymbol, config)) {
       return true;
     }
-    if (config.isJSpecifyMode() && exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)) {
+    if (config.isJSpecifyMode()
+        && (exprSymbol.getReturnType().getKind().equals(TypeKind.TYPEVAR)
+            || genericsChecks.hasPolyNullModel(exprSymbol, state))) {
       // It is important to pass a correct TreePath to getGenericReturnNullnessAtInvocation.  So, we
       // do a search under path to find invocationTree.  This shouldn't be too costly in the common
       // case, and it's important for correctness.
