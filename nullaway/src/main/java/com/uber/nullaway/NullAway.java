@@ -1373,7 +1373,8 @@ public class NullAway extends BugChecker
     // but it's nullable for the overridden one.
     // A constructor reference creates a new object and never returns null. javac gives the
     // constructor of an array constructor reference the qualifier as its return type, annotations
-    // included, so the return type of String @Nullable []::new carries @Nullable.
+    // included, so the return type of String @Nullable []::new carries @Nullable; we still want to
+    // ignore that annotation since the result is always non-null.
     if (!overridingMethod.isConstructor()
         && overriddenMethodReturnsNonNull(
             overriddenMethod,
