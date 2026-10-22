@@ -2400,7 +2400,10 @@ public class CoreTests extends NullAwayTestsBase {
                  // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
                  return m.get(key);
                }
-               // ToDo: should error somewhere, but doesn't, due to limited checking of generics
+               // No error expected here, as we are outside JSpecify mode (we do not plan to report errors for such
+               // code outside of JSpecify mode).  We have a separate test
+               // PolyNullLibraryModelsTests.mapComputeIfAbsentAndKeyPresence that shows an error is reported for a
+               // similar case in JSpecify mode.
                Object testComputeIfAbsentNullLambda(String key, Map<String, Object> m){
                  m.computeIfAbsent(key, k -> null);
                  return m.get(key);
@@ -3218,6 +3221,84 @@ public class CoreTests extends NullAwayTestsBase {
                   return t + 1;
                 }
                 return 0;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboxingOfConditionalOperands() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static void takeInt(int i) {}
+              static int returned(boolean b, @Nullable Integer n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                return b ? 1 : n;
+              }
+              static int trueOperand(boolean b, @Nullable Integer n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                int x = b ? n : 1;
+                return x;
+              }
+              static Integer boxedTarget(boolean b, @Nullable Integer n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                Integer x = b ? 1 : n;
+                return x;
+              }
+              static void argument(boolean b, @Nullable Integer n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                takeInt(b ? 1 : n);
+              }
+              static boolean booleanConditional(boolean b, @Nullable Boolean n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                return b ? true : n;
+              }
+              static int nullChecked(@Nullable Integer n) {
+                return n != null ? n : 0;
+              }
+              static int referenceConditional(boolean b, @Nullable Integer n, Integer m) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression
+                return b ?
+                    n :
+                    m;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboxingOfConditionalOperandsWithBoxedBoundTypeVariables() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test<U extends Double, B extends Boolean> {
+              double sameTypeVariable(boolean b, @Nullable U n, U m) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                double x = b ? n :
+                    m;
+                return x;
+              }
+              Boolean castToBoxedType(boolean b, @Nullable B n) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable expression 'n'
+                Boolean r = (Boolean) (b ? Boolean.TRUE : n);
+                return r;
+              }
+              Boolean referenceConditional(boolean b, @Nullable B n) {
+                Boolean r = b
+                    ? Boolean.TRUE
+                    : n;
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return r;
               }
             }
             """)

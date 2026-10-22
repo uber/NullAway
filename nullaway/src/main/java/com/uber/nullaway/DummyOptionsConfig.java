@@ -225,6 +225,11 @@ public class DummyOptionsConfig implements Config {
   }
 
   @Override
+  public boolean isPolyNullLibraryModelsEnabled() {
+    throw new IllegalStateException(ERROR_MESSAGE);
+  }
+
+  @Override
   public boolean handleWildcardGenerics() {
     throw new IllegalStateException(ERROR_MESSAGE);
   }
