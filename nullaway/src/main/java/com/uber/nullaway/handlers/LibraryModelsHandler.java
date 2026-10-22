@@ -998,6 +998,11 @@ public class LibraryModelsHandler implements Handler {
             .put(methodRef("com.google.common.base.Function", "apply(F)"), 0)
             .put(methodRef("com.google.common.base.Predicate", "apply(T)"), 0)
             .put(methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"), 0)
+            .putAll(
+                methodRef(
+                    "com.google.common.collect.Maps.EntryTransformer", "transformEntry(K,V1)"),
+                0,
+                1)
             .put(methodRef("java.io.File", "File(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "getResource(java.lang.String)"), 0)
             .put(methodRef("java.lang.Class", "isAssignableFrom(java.lang.Class<?>)"), 0)
@@ -1197,6 +1202,9 @@ public class LibraryModelsHandler implements Handler {
             .add(methodRef("com.google.common.base.Function", "apply(F)"))
             .add(methodRef("com.google.common.base.Predicate", "apply(T)"))
             .add(methodRef("com.google.common.util.concurrent.AsyncFunction", "apply(I)"))
+            .add(
+                methodRef(
+                    "com.google.common.collect.Maps.EntryTransformer", "transformEntry(K,V1)"))
             .add(methodRef("android.app.Activity", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "<T>findViewById(int)"))
             .add(methodRef("android.view.View", "getResources()"))

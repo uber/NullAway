@@ -269,4 +269,68 @@ public class NullAwayGuavaParametricNullnessTests {
             """)
         .doTest();
   }
+
+  /**
+   * A library model makes {@code AsyncFunction.apply} take a non-null argument, as for Guava's
+   * {@code Function}. Guava marks the parameter {@code @ParametricNullness}, which NullAway reads
+   * as {@code @Nullable} outside JSpecify mode.
+   */
+  @Test
+  public void guavaAsyncFunctionTakesNonNullArgument() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.google.common.util.concurrent.AsyncFunction;
+            import com.google.common.util.concurrent.Futures;
+            class Test {
+              static AsyncFunction<String, Integer> dereferencesParameter() {
+                return s -> Futures.immediateFuture(s.length());
+              }
+              static void passesNull(AsyncFunction<String, Integer> f) throws Exception {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                f.apply(null);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A library model makes {@code Maps.EntryTransformer.transformEntry} take and return non-null, as
+   * for Guava's {@code Function}. Guava 32 and later mark both parameters and the return
+   * {@code @ParametricNullness}, which NullAway reads as {@code @Nullable} outside JSpecify mode.
+   */
+  @Test
+  public void guavaEntryTransformerTakesAndReturnsNonNull() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.google.common.collect.Maps;
+            class Test {
+              static Maps.EntryTransformer<String, String, Integer> dereferencesParameters() {
+                return (k, v) -> k.length() + v.length();
+              }
+              static int dereferencesResult(Maps.EntryTransformer<String, String, Integer> t) {
+                return t.transformEntry("a", "b").intValue();
+              }
+              static void passesNullKey(Maps.EntryTransformer<String, String, Integer> t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                t.transformEntry(null, "b");
+              }
+              static void passesNullValue(Maps.EntryTransformer<String, String, Integer> t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                t.transformEntry("a", null);
+              }
+              static Maps.EntryTransformer<String, String, Integer> returnsNull() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return (k, v) -> { return null; };
+              }
+            }
+            """)
+        .doTest();
+  }
 }
