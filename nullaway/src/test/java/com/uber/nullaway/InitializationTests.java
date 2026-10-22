@@ -1187,6 +1187,42 @@ public class InitializationTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A {@code @Nullable} constructor parameter assigned to a final {@code @NonNull} field is
+   * reported at the assignment only, because the initialization check skips final fields; a
+   * non-final field still gets the initializer error on the constructor. Issue #429 reported only
+   * the initializer error, on the constructor, and its message named the field {@code after}, which
+   * shares its name with the parameter.
+   */
+  @Test
+  public void nullableParameterAssignedToFinalFieldIsReportedOnlyAtAssignment() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static class FinalField {
+                private final Object after;
+                FinalField(@Nullable Object after) {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  this.after = after;
+                }
+              }
+              static class NonFinalField {
+                private Object after;
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'after'
+                NonFinalField(@Nullable Object after) {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  this.after = after;
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void postConstructAnnotation() {
     defaultCompilationHelper
