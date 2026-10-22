@@ -1,11 +1,74 @@
 Changelog
 =========
 
-Unreleased
-----------
+Version 0.14.3
+--------------
 
+Many bug fixes in this release.  Thanks especially to @vlsi and @subhramit for
+all the contributions!  As they are now committers, their many contributions are
+not credited individually below.
+
+Two bug fixes of note are #2005 and #2003, which may lead to new warnings even
+outside JSpecify mode.
+
+We have also added initial support for `@PolyNull` in library models in #1813.
+We will continue to enhance this support, but it should be helpful in removing
+some false positives from `JSpecifyExperimental` mode.
+
+* Allow configuring suppression-remover source encoding (#1894)
+* Compute a call's executable type once per generic inference by @ericschlarmann (#1896)
+* Skip nested annotation restoration from raw source types (#1898)
+* Refine argument nullness after Objects.equals calls by @Beluomini (#1900)
+* Keep nullable map values nullable after `containsKey` (#1902)
+* Read nullable fields from JSpecify JDK models into astubx (#1901)
+* Avoid initialization-check crashes in `@NullMarked` constructors by @ZedingZhang (#1929)
+* Store types of implicit lambda parameters during inference (#1930)
+* Compute erasure before binary promotion (#1935)
+* Preserve captured type variables during constraint generation (#1941)
+* Cache conversion of MethodSymbols to MethodRefs (#1964)
+* Restore nullness annotations from implicit wildcard bounds (#1967)
+* Use call-specific generic inference variables (#1965)
+* Account for nullable map values in getOrDefault (#1985)
+* Fix crash in map callbacks after an unmarked or suppressed filter predicate (#1996)
+* Strip reference casts when computing access paths (#1997)
+* Handle negated null checks in multi-argument boolean contracts (#1998)
+* Skip parentheses around a lambda or method reference passed to unmarked code (#1999)
+* Fix crash on method references to annotated array types (#2000)
+* Skip a lower-bounded wildcard when restoring annotations on a call type (#2001)
+* Strip parentheses before handlers match stream callbacks and boolean literals (#2002)
+* Check explicitly typed lambda parameters against unmarked interface methods (#2003)
+* Add PolyNull library models and apply them to Optional.orElseGet and Map.computeIfAbsent (#1813)
+* Report unboxing of a @Nullable operand inside a primitive conditional expression (#2005)
+* Report unboxing of a @Nullable result inside a primitive switch expression (#2006)
+* Fix crash on null-marked code nested in unmarked lambdas and local classes (#2007)
+* Strip parentheses before the futures and gRPC handlers match an argument (#2010)
+* Recognize boolean constants behind a cast in EnsuresNonNullIf and stream filters (#2011)
+* Treat a parenthesized lambda or method reference like an unwrapped one in generics checks (#2012)
+* Recognize a cast null check in a boolean contract argument (#2013)
+* Keep the access path of a map key, call argument, or array index cast to its own type (#2014)
+* Check nested nullness of explicitly typed lambda parameters (#2015)
+* Keep distinct constant map keys and call arguments on distinct access paths (#2016)
+* Apply conditional library return models to method references (#1968)
+* Reject conflicting fixed parameter models regardless of PolyNull (#2025)
+* Keep the boxing wrapper in the identity of a variable map key (#2017)
 * Maintenance
-  - Report diff coverage after each test run, quoting the changed lines the run did not execute and the branches it took one way, and writing the whole report to `<module>/build/reports/diff-coverage/test.txt`; a `// diff-coverage: ignore` comment moves a line out of that list without changing the counts by @vlsi (#1833)
+  - Report diff coverage after each test run, quoting the changed lines the run did not execute and the branches it took one way, and writing the whole report to `<module>/build/reports/diff-coverage/test.txt`; a `// diff-coverage: ignore` comment moves a line out of that list without changing the counts (#1833)
+  - Update Gradle to 9.8.1 (#1915, #1959)
+  - Update build plugins (#1878, #1917, #1918, #1969)
+  - Update library and test dependencies (#1884, #1885, #1921, #1922, #1923, #1925, #1927, #1970, #1973, #1974, #1976, #1977, #1978, #1981)
+  - Update GitHub Actions (#1920, #1928, #1979)
+  - Decouple build, lint and test CI checks (#1906)
+  - Update instructions for building jspecify-jdk.astubx (#1914)
+  - Add script to re-generate jspecify-jdk.astubx (#1916)
+  - Update dependency python to 3.14 (#1924)
+  - Update NullAway JMH benchmark to 0.14.2 (#1962)
+  - Add pitestDiff to mutation-test the lines a branch changed (#1975)
+  - Tell agents that Error Prone reports every mismatched test line (#2018)
+  - Update JSpecify JDK astubx (#2020)
+  - Keep git maintenance from racing temp directory cleanup in buildSrc tests (#2008)
+  - Pin oracle-actions/setup-java to the v1.5.0 tag (#2021)
+  - Build third-party projects at pinned commits with patches until upstream merges fixes (#2026)
+  - Enable zizmor job for merge queue (#2039)
 
 Version 0.14.2
 --------------
