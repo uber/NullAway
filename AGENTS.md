@@ -14,6 +14,10 @@ Do _not_ try to run multiple Gradle build commands in parallel; it is not suppor
 Generally, whenever you run a test suite, it's best to also check that `./gradlew :nullaway:buildWithNullAway`
 also passes; that runs NullAway checking on itself.  You don't need to run this after every targeted test run.
 
+When you write `CompilationTestHelper` tests, assume Error Prone reports every mismatched line at once rather than
+stopping at the first.  Put the cases of one rule, those that report an error and those that do not, in one source file,
+with one method per case named for what it checks.
+
 # Code coverage
 
 `./gradlew :nullaway:test` reports diff coverage for changed executable lines and branches; filtered test runs only
