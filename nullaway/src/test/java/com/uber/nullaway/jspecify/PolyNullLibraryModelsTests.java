@@ -1119,6 +1119,31 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void polyNullOverridesFixedVarargsArrayModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Object[] nonNullArray, Object @Nullable [] nullableArray) {
+                PolyNullMethods.varargsArray(() -> "value", nonNullArray).hashCode();
+                // PolyNull admits a nullable array despite the fixed non-null model of the array,
+                // and links the array's nullness to the result.
+                Object result = PolyNullMethods.varargsArray(() -> "value", nullableArray);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void inheritedPolyNullOverridesFixedTopLevelModels() {
     makeHelper()
         .addSourceLines(

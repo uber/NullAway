@@ -112,6 +112,12 @@ public class TestLibraryModels implements LibraryModels {
   private static ImmutableSetMultimap<MethodRef, Integer> createNonNullParameters() {
     return new ImmutableSetMultimap.Builder<MethodRef, Integer>()
         .put(polyNullOverrideMethod("NonNullOverride", "top"), 0)
+        // A PolyNull location overrides a single fixed model on the varargs array.
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "varargsArray(java.util.function.Supplier<? extends java.lang.Object>,java.lang.Object...)"),
+            1)
         .put(polyNullOverrideMethod("NonNullOverride", "generic"), 1)
         .put(polyNullOverrideMethod("NullableOverride", "top"), 2)
         .put(polyNullOverrideMethod("NonNullOverride", "top"), 2)
@@ -403,6 +409,24 @@ public class TestLibraryModels implements LibraryModels {
             methodRef(
                 "com.uber.lib.unannotated.PolyNullMethods",
                 "<T>boundedGenericObject(T,java.util.function.Supplier<? extends java.lang.Object>)"),
+            new PolyNullLocation(new Return(), ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "varargsArray(java.util.function.Supplier<? extends java.lang.Object>,java.lang.Object...)"),
+            new PolyNullLocation(
+                new Parameter(0),
+                ImmutableList.of(
+                    new TypePathEntry(TYPE_ARGUMENT, 0), new TypePathEntry(WILDCARD_BOUND, 0))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "varargsArray(java.util.function.Supplier<? extends java.lang.Object>,java.lang.Object...)"),
+            new PolyNullLocation(new Parameter(1), ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods",
+                "varargsArray(java.util.function.Supplier<? extends java.lang.Object>,java.lang.Object...)"),
             new PolyNullLocation(new Return(), ImmutableList.of()))
         .put(
             methodRef("com.uber.lib.unannotated.PolyNullMethods", "outputOnly()"),

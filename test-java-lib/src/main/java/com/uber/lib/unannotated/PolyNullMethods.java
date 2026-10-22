@@ -48,6 +48,12 @@ public final class PolyNullMethods {
     return seed;
   }
 
+  /** Returns the varargs array, with nullness linked to the supplier result. */
+  public static /* @PolyNull */ Object varargsArray(
+      Supplier<? extends /* @PolyNull */ Object> nested, Object /* @PolyNull */... values) {
+    return values;
+  }
+
   /** Returns nullable contents, with a PolyNull model that has no input to infer from. */
   public static List</* @PolyNull */ @Nullable Object> outputOnly() {
     return java.util.Collections.singletonList(null);

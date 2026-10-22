@@ -182,10 +182,14 @@ public class LibraryModelsHandler implements Handler {
     }
     // The PolyNull solver checks whether a nullable argument is compatible with the result target.
     // The ordinary top-level argument check must allow that argument through to the solver.
+    // At the varargs position, the top-level type is the array passed explicitly.
     for (PolyNullLocation location :
         optimizedLibraryModels.polyNullLocations(methodSymbol, Types.instance(context))) {
       if (location.position() instanceof Parameter parameter && location.typePath().isEmpty()) {
         argumentNullness.setParameterNullness(parameter.index(), NULLABLE);
+        if (varArgsMethod && parameter.index() == varargsIndex) {
+          argumentNullness.setVarargsArrayNullness(NULLABLE);
+        }
       }
     }
     if (varArgsMethod) {
