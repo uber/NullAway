@@ -1068,8 +1068,10 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    if (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree) {
-      maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType, state);
+    ExpressionTree rhsWithoutParentheses = ASTHelpers.stripParentheses(rhsTree);
+    if (rhsWithoutParentheses instanceof LambdaExpressionTree
+        || rhsWithoutParentheses instanceof MemberReferenceTree) {
+      maybeStorePolyExpressionTypeFromTarget(rhsWithoutParentheses, lhsType, state);
     }
     boolean varLocalDeclaration =
         tree instanceof VariableTree varTree && isVarLocalVariableDeclaration(varTree);
@@ -1472,7 +1474,8 @@ public final class GenericsChecks {
         }
         new InvocationArguments(callTree, callMethodType)
             .forEach(
-                (argument, argPos, formalParamType, unused) -> {
+                (argumentWithParentheses, argPos, formalParamType, unused) -> {
+                  ExpressionTree argument = ASTHelpers.stripParentheses(argumentWithParentheses);
                   if (argument instanceof LambdaExpressionTree
                       || argument instanceof MemberReferenceTree) {
                     Type polyExprTreeType = ASTHelpers.getType(argument);
@@ -1796,6 +1799,9 @@ public final class GenericsChecks {
    * constraints. Keep them separate from cached inference results, and restore the enclosing
    * parameter context on both success and failure.
    *
+   * <p>Explicit parameter types constrain the nested types of the descriptor's parameter types, so
+   * a type variable that only an explicit parameter type mentions is inferred from it.
+   *
    * @param state the visitor state
    * @param path the tree path to the enclosing call if available and possibly distinct from {@code
    *     state.getPath()}
@@ -1844,6 +1850,21 @@ public final class GenericsChecks {
               castToNonNull(ASTHelpers.getSymbol(params.get(i))), fiParameterTypes.get(i));
         }
         lambdaParameterTypesForInference = parameterTypes;
+      } else {
+        // An explicitly typed parameter must accept every argument of the functional interface
+        // method, as a referenced method's parameter must in
+        // handleMethodRefInGenericMethodInference.
+        // Only nested types are constrained: matchLambdaExpression reports a top-level mismatch at
+        // the parameter itself.
+        var params = lambda.getParameters();
+        var fiParameterTypes = fiMethodTypeAsMember.getParameterTypes();
+        for (int i = 0; i < params.size(); i++) {
+          Type parameterType = getTreeType(params.get(i), state);
+          if (parameterType != null) {
+            solver.addSubtypeConstraint(
+                fiParameterTypes.get(i), parameterType, /* localVariableType= */ true);
+          }
+        }
       }
       Tree body = lambda.getBody();
       // Ensure our current TreePath has the lambda as the leaf, in case dataflow analysis needs to
@@ -3014,6 +3035,48 @@ public final class GenericsChecks {
     checkTypeParameterNullnessForOverridingMethodParameterType(tree, overriddenMethodType, state);
     checkMethodTypeVariableUpperBoundNullnessForOverriding(
         tree, overridingMethod, overriddenMethod, overriddenMethodType, state);
+  }
+
+  /**
+   * Checks the nullability of type arguments and array elements in the declared parameter types of
+   * an explicitly typed lambda against the functional interface method, as for the parameters of an
+   * overriding method (see {@link #checkTypeParameterNullnessForOverridingMethodParameterType}). An
+   * implicitly typed parameter takes its type from the functional interface method, so it is not
+   * checked. Only called in JSpecify mode.
+   *
+   * @param tree the lambda
+   * @param fiMethod the functional interface method the lambda implements
+   * @param state the visitor state
+   */
+  public void checkTypeParameterNullnessForExplicitLambdaParameters(
+      LambdaExpressionTree tree, Symbol.MethodSymbol fiMethod, VisitorState state) {
+    if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.EXPLICIT) {
+      return;
+    }
+    Type targetType = getTreeType(tree, state);
+    if (targetType == null) {
+      return;
+    }
+    Type.MethodType fiMethodType =
+        handler.onOverrideMethodType(
+            fiMethod,
+            TypeSubstitutionUtils.memberType(state.getTypes(), targetType, fiMethod, config)
+                .asMethodType(),
+            state,
+            null);
+    List<? extends VariableTree> parameters = tree.getParameters();
+    List<Type> fiParameterTypes = fiMethodType.getParameterTypes();
+    for (int i = 0; i < parameters.size(); i++) {
+      VariableTree parameter = parameters.get(i);
+      Type parameterType = getTreeType(parameter, state);
+      Type fiParameterType = fiParameterTypes.get(i);
+      // allow contravariant subtyping
+      if (parameterType != null
+          && !subtypeParameterNullability(parameterType, fiParameterType, state)) {
+        reportInvalidOverridingMethodParamTypeError(
+            parameter, fiParameterType, parameterType, state);
+      }
+    }
   }
 
   /**

@@ -746,6 +746,115 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void castNullCheckSatisfiesOneArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m) {
+                Validation.checkTrue((boolean) (m != null));
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castNullCheckSatisfiesTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither((boolean) (m != null), r == null);
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castNullCheckOfNonNullArgumentKeepsTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(m != null, (boolean) (r == null));
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void negatedCastNullCheckSatisfiesTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither(!((boolean) (m == null)), r == null);
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castNegatedNullCheckSatisfiesTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither((boolean) !(m == null), r == null);
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castNullCheckLeavesArgumentNullableAfterTwoArgumentFailContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object r) {
+                Validation.checkEither((boolean) (m == null), r == null);
+                // BUG: Diagnostic contains: dereferenced expression
+                return m.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void negatedNonNullCheckLeavesArgumentNullableAfterTwoArgumentFailContract() {
     helper()
         .addSourceLines(
@@ -855,6 +964,26 @@ public class ContractsBooleanTests extends NullAwayTestsBase {
               String test(@Nullable Object m, Object other) {
                 if (Validation.identity(!(m != null), other)) {
                   // BUG: Diagnostic contains: dereferenced expression
+                  return m.toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castNullCheckSatisfiesTrueImpliesTrueContract() {
+    helper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              String test(@Nullable Object m, Object other) {
+                if (Validation.identity((boolean) (m != null), other)) {
                   return m.toString();
                 }
                 return "";

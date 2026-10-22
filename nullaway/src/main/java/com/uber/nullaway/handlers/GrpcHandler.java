@@ -99,7 +99,8 @@ public class GrpcHandler implements Handler {
       Element getter = getGetterForMetadataSubtype(symbol.enclClass(), types);
       Node base = node.getTarget().getReceiver();
       // Argument list and types should be already checked by grpcIsMetadataContainsKeyCall
-      Symbol keyArgSymbol = ASTHelpers.getSymbol(tree.getArguments().get(0));
+      Symbol keyArgSymbol =
+          ASTHelpers.getSymbol(ASTHelpers.stripParentheses(tree.getArguments().get(0)));
       if (getter != null
           && keyArgSymbol instanceof Symbol.VarSymbol varSymbol
           && keyArgSymbol.getKind().equals(ElementKind.FIELD)) {

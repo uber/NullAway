@@ -696,6 +696,33 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedLambdaParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface NullableElementsFi {
+                void apply(@Nullable Integer[] p);
+              }
+              interface NonNullElementsFi {
+                void apply(Integer[] p);
+              }
+              void test() {
+                // BUG: Diagnostic contains: Parameter has type Integer [], but overridden method has parameter type @Nullable Integer []
+                NullableElementsFi nonNullElements = (Integer[] p) -> {};
+                NullableElementsFi nullableElements = (@Nullable Integer[] p) -> {};
+                NullableElementsFi implicit = p -> {};
+                NonNullElementsFi contravariant = (@Nullable Integer[] p) -> {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void ternaryOperator() {
     makeHelper()
         .addSourceLines(
@@ -941,6 +968,41 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
                   // BUG: Diagnostic contains: dereferenced expression 'fizz[i+1]' is @Nullable
                   fizz[i+1].toString();
                 }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void indexUnderCastToItsOwnTypeIsTheSameIndex() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static @Nullable String[] fizz = {"1"};
+              static String intLiteralIndex() {
+                if (fizz[0] != null) {
+                  return fizz[(int) (0)].toString();
+                }
+                return "";
+              }
+              static String intVariableIndex(int i) {
+                if (fizz[i] != null) {
+                  return fizz[(int) (i)].toString();
+                }
+                return "";
+              }
+              static String narrowedLongIndex(long l) {
+                // (int) l converts l, so fizz[(int) l] has no access path
+                if (fizz[(int) l] != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz[(int) l]' is @Nullable
+                  return fizz[(int) l].toString();
+                }
+                return "";
               }
             }
             """)

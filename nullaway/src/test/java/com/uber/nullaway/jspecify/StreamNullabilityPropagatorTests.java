@@ -91,6 +91,74 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void parenthesizedLambdaAfterNullRejectingFilterSeesNonNullElements() {
+    makeHelperWithoutJdkModels()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static List<Integer> nullRejectingFilter(List<@Nullable String> values) {
+                return values.stream().filter(Objects::nonNull).map(x -> x.length()).toList();
+              }
+
+              static List<Integer> nullRejectingFilterParenthesized(List<@Nullable String> values) {
+                return values.stream().filter(Objects::nonNull).map((x -> x.length())).toList();
+              }
+
+              static List<Integer> noFilter(List<@Nullable String> values) {
+                return values.stream()
+                    // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                    .map((x -> x.length()))
+                    .toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void parenthesizedMethodReferenceAfterNullRejectingFilterSeesNonNullElements() {
+    makeHelperWithoutJdkModels()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static int len(String s) {
+                return s.length();
+              }
+
+              static List<Integer> nullRejectingFilter(List<@Nullable String> values) {
+                return values.stream().filter(Objects::nonNull).map(Test::len).toList();
+              }
+
+              static List<Integer> nullRejectingFilterParenthesized(List<@Nullable String> values) {
+                return values.stream().filter(Objects::nonNull).map((Test::len)).toList();
+              }
+
+              static List<Integer> noFilter(List<@Nullable String> values) {
+                return values.stream()
+                    // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                    .map((Test::len))
+                    .toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void filterWithStringUtilsHasLength() {
     makeHelper()
         .addSourceLines(
@@ -205,5 +273,18 @@ public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:OnlyNullMarked=true")));
+  }
+
+  /**
+   * Returns a helper with the JSpecify JDK models turned off. The tests of a parenthesized lambda
+   * or method reference passed to {@code map} need it: with the models on, they pass even when
+   * generic method inference stores no type for a parenthesized argument.
+   */
+  private CompilationTestHelper makeHelperWithoutJdkModels() {
+    return makeTestHelperWithArgs(
+        JSpecifyJavacConfig.withJSpecifyModeArgs(
+            Arrays.asList(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                "-XepOpt:NullAway:JSpecifyJDKModels=false")));
   }
 }
