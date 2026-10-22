@@ -6,8 +6,7 @@ import com.uber.nullaway.handlers.Handler.NullnessHint;
 import org.jspecify.annotations.Nullable;
 
 /**
- * Resolved method-reference types and return-nullness hint. In JSpecify mode the types preserve
- * nullness from the ground target type; otherwise the method types are the declared types.
+ * Resolved method-reference types and return-nullness hint.
  *
  * @param methodType the referenced method's type, with receiver and available method type-argument
  *     substitutions and handler-provided models applied in JSpecify mode, or its declared type
