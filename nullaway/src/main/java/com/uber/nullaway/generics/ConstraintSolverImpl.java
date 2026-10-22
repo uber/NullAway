@@ -169,17 +169,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         }
         // recursing, so set localVariableType to false
         localVariableType = false;
-        // constrain type arguments to have identical nullability
-        com.sun.tools.javac.util.List<Type> subtypeTypeArguments =
-            subtypeAsSuper.getTypeArguments();
-        com.sun.tools.javac.util.List<Type> supertypeTypeArguments = supertype.getTypeArguments();
-        int numTypeArgs = supertypeTypeArguments.size();
-        Verify.verify(numTypeArgs == subtypeTypeArguments.size());
-        for (int i = 0; i < numTypeArgs; i++) {
-          Type supertypeTypeArg = supertypeTypeArguments.get(i);
-          Type subtypeTypeArg = subtypeTypeArguments.get(i);
-          constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg);
-        }
+        constrainTypeArguments(subtypeAsSuper, supertype);
       }
       // if supertype is not a ClassType, we still call visitType to handle the case where
       // supertype is a TypeVar or a wildcard
@@ -221,6 +211,27 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         constrainWildcardToSupertype(subtype, supertype);
       }
       return null;
+    }
+
+    /**
+     * Adds nullability constraints between the type arguments of two parameterizations of the same
+     * class, including the type arguments of their enclosing types, so that {@code Outer<@Nullable
+     * String>.Inner} constrains {@code T} in {@code Outer<T>.Inner}.
+     */
+    private void constrainTypeArguments(Type subtype, Type supertype) {
+      com.sun.tools.javac.util.List<Type> subtypeTypeArguments = subtype.getTypeArguments();
+      com.sun.tools.javac.util.List<Type> supertypeTypeArguments = supertype.getTypeArguments();
+      int numTypeArgs = supertypeTypeArguments.size();
+      Verify.verify(numTypeArgs == subtypeTypeArguments.size());
+      for (int i = 0; i < numTypeArgs; i++) {
+        Type supertypeTypeArg = supertypeTypeArguments.get(i);
+        Type subtypeTypeArg = subtypeTypeArguments.get(i);
+        constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg);
+      }
+      Type supertypeEnclosing = supertype.getEnclosingType();
+      if (supertypeEnclosing instanceof ClassType) {
+        constrainTypeArguments(subtype.getEnclosingType(), supertypeEnclosing);
+      }
     }
 
     /**

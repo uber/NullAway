@@ -2492,6 +2492,77 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  @Test
+  public void inferenceFromEnclosingTypeArguments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Consumer;
+            @NullMarked
+            public class Test {
+              static class Outer<X extends @Nullable Object> {
+                class Inner {
+                  class Deepest {}
+                }
+                class SubInner extends Inner {}
+              }
+              static <T extends @Nullable Object> void takeInner(Outer<T>.Inner inner) {}
+              static <T> void takeNonNullInner(Outer<T>.Inner inner) {}
+              static <T extends @Nullable Object> T valueOf(Outer<T>.Inner inner) {
+                throw new UnsupportedOperationException();
+              }
+              static <T extends @Nullable Object> T deepestValueOf(Outer<T>.Inner.Deepest deepest) {
+                throw new UnsupportedOperationException();
+              }
+              static <T extends @Nullable Object> void takeConsumer(Consumer<Outer<T>.Inner> consumer) {}
+              static <T> void takeNonNullConsumer(Consumer<Outer<T>.Inner> consumer) {}
+              static void refNullable(Outer<@Nullable String>.Inner inner) {}
+              static void refNonNull(Outer<String>.Inner inner) {}
+              void argument(Outer<@Nullable String>.Inner nullableInner, Outer<String>.Inner nonNullInner) {
+                takeInner(nullableInner);
+                takeInner(nonNullInner);
+                // BUG: Diagnostic contains: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                takeNonNullInner(nullableInner);
+                takeNonNullInner(nonNullInner);
+              }
+              void inferredReturn(Outer<@Nullable String>.Inner nullableInner, Outer<String>.Inner nonNullInner) {
+                // BUG: Diagnostic contains: dereferenced expression 'valueOf(nullableInner)' is @Nullable
+                valueOf(nullableInner).hashCode();
+                valueOf(nonNullInner).hashCode();
+              }
+              void subclass(Outer<@Nullable String>.SubInner nullableSub, Outer<String>.SubInner nonNullSub) {
+                // BUG: Diagnostic contains: dereferenced expression 'valueOf(nullableSub)' is @Nullable
+                valueOf(nullableSub).hashCode();
+                valueOf(nonNullSub).hashCode();
+              }
+              void twoLevels(
+                  Outer<@Nullable String>.Inner.Deepest nullableDeepest, Outer<String>.Inner.Deepest nonNullDeepest) {
+                // BUG: Diagnostic contains: dereferenced expression 'deepestValueOf(nullableDeepest)' is @Nullable
+                deepestValueOf(nullableDeepest).hashCode();
+                deepestValueOf(nonNullDeepest).hashCode();
+              }
+              void methodReference() {
+                takeConsumer(Test::refNullable);
+                takeConsumer(Test::refNonNull);
+                // BUG: Diagnostic contains: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                takeNonNullConsumer(Test::refNullable);
+                takeNonNullConsumer(Test::refNonNull);
+              }
+              void explicitlyTypedLambda() {
+                takeConsumer((Outer<@Nullable String>.Inner inner) -> {});
+                takeConsumer((Outer<String>.Inner inner) -> {});
+                // BUG: Diagnostic contains: type variable T is constrained to be @Nullable, but its upper bound requires it to be @NonNull
+                takeNonNullConsumer((Outer<@Nullable String>.Inner inner) -> {});
+                takeNonNullConsumer((Outer<String>.Inner inner) -> {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
