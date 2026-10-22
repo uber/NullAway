@@ -31,6 +31,10 @@ reports a false positive in one of these projects, fix the code upstream and add
 
 4. Commit the patch in the NullAway pull request that needs it.
 
+Patches apply in lexicographic order of their file names, each against the code the earlier ones left. Two patches
+that touch the same lines conflict in either order; generate the later one on top of the earlier, or merge them into one
+file.
+
 To build the project locally the way CI does, publish NullAway with
 `ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED=false ./gradlew publishToMavenLocal`, copy
 `.github/workflows/use-snapshot.gradle.kts` into the checkout, and run
