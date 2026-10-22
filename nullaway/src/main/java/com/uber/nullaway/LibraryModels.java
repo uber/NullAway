@@ -99,20 +99,30 @@ public interface LibraryModels {
   }
 
   /**
-   * Get (method, parameter) pairs that cause the method to return <code>null</code> when passed
-   * <code>null</code> on that parameter.
+   * Gets methods and parameter indexes whose arguments determine the return nullness. The model
+   * guarantees a non-null return when all listed arguments are non-null; otherwise the return may
+   * be null.
    *
-   * <p>This is equivalent to annotating a method with both a {@code @Nullable} return type
-   * <em>and</em> a {@code @Contract} annotation specifying that if the parameter is
-   * {@code @NonNull} then the return is {@code @NonNull}, e.g.:
+   * <p>For ordinary calls to a one-parameter method, this provides the same return-nullness
+   * refinement as a {@code @Nullable} return type combined with a {@code @Contract} annotation
+   * specifying that a non-null argument implies a non-null return:
    *
    * <pre><code>@Contract("!null -&gt; !null") @Nullable</code></pre>
+   *
+   * <p>The model also applies to method references: the parameter types of the functional interface
+   * method stand in for the call arguments. For example, {@code input.map(String.class::cast)}
+   * preserves non-null element types when the elements of {@code input} are non-null. For an
+   * unbound instance method reference, the indexes refer to the referenced method's declared
+   * parameters and do not count the receiver parameter of the functional interface method.
+   *
+   * <p>The equivalence to {@code @Contract} does not currently extend to method references:
+   * contracts have more limited support for unbound references and generic inference (see <a
+   * href="https://github.com/uber/NullAway/issues/1986">issue #1986</a>).
    *
    * <p>The model applies to any method that overrides the listed method. NullAway does not check
    * that such an override obeys the contract (issue #803).
    *
-   * @return map from null-in-implies-null-out methods to the indexes of the arguments that
-   *     determine nullness of the return.
+   * @return map from modeled methods to the indexes of the arguments that determine return nullness
    */
   ImmutableSetMultimap<MethodRef, Integer> nullImpliesNullParameters();
 
