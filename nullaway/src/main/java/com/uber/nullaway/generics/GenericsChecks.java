@@ -1078,8 +1078,10 @@ public final class GenericsChecks {
     if (rhsTree == null || rhsTree.getKind().equals(Tree.Kind.NULL_LITERAL)) {
       return;
     }
-    if (rhsTree instanceof LambdaExpressionTree || rhsTree instanceof MemberReferenceTree) {
-      maybeStorePolyExpressionTypeFromTarget(rhsTree, lhsType, state);
+    ExpressionTree rhsWithoutParentheses = ASTHelpers.stripParentheses(rhsTree);
+    if (rhsWithoutParentheses instanceof LambdaExpressionTree
+        || rhsWithoutParentheses instanceof MemberReferenceTree) {
+      maybeStorePolyExpressionTypeFromTarget(rhsWithoutParentheses, lhsType, state);
     }
     boolean varLocalDeclaration =
         tree instanceof VariableTree varTree && isVarLocalVariableDeclaration(varTree);
@@ -1482,7 +1484,8 @@ public final class GenericsChecks {
         }
         new InvocationArguments(callTree, callMethodType)
             .forEach(
-                (argument, argPos, formalParamType, unused) -> {
+                (argumentWithParentheses, argPos, formalParamType, unused) -> {
+                  ExpressionTree argument = ASTHelpers.stripParentheses(argumentWithParentheses);
                   if (argument instanceof LambdaExpressionTree
                       || argument instanceof MemberReferenceTree) {
                     Type polyExprTreeType = ASTHelpers.getType(argument);
