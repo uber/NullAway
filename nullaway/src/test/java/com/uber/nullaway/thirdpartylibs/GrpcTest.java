@@ -118,6 +118,48 @@ public class GrpcTest {
         .doTest();
   }
 
+  /**
+   * A parenthesized {@code containsKey} key makes {@code get} of the same key non-null, as an
+   * unparenthesized one does, and leaves {@code get} of another key nullable. Before the fix,
+   * {@code GrpcHandler} found no field symbol behind the parentheses and left {@code get} of the
+   * same key nullable.
+   */
+  @Test
+  public void ioGrpcMetadataAsMapParenthesizedKeyTest() {
+    ioGrpcCompilationTestHelper
+        .addSourceLines(
+            "Keys.java",
+            """
+            package com.uber;
+            import io.grpc.Metadata;
+            public final class Keys {
+              static final Metadata.Key<String> KEY_1 = Metadata.Key.of("KEY1", Metadata.ASCII_STRING_MARSHALLER);
+              static final Metadata.Key<String> KEY_2 = Metadata.Key.of("KEY2", Metadata.ASCII_STRING_MARSHALLER);
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import io.grpc.Metadata;
+            public class Test {
+              public void takeNonNullString(String s) { }
+              public void safeDeref(Metadata headers) {
+               if (headers.containsKey(((Keys.KEY_1)))) {
+                 takeNonNullString(headers.get(Keys.KEY_1));
+               }
+              }
+              public void unsafeDeref(Metadata headers) {
+               if (headers.containsKey((Keys.KEY_1))) {
+                 // BUG: Diagnostic contains: passing @Nullable parameter 'headers.get(Keys.KEY_2)'
+                 takeNonNullString(headers.get(Keys.KEY_2));
+               }
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void ioGrpcMetadataAsAccessPathTest() {
     ioGrpcCompilationTestHelper

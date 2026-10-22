@@ -72,6 +72,142 @@ public class AccessPathsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void constantArgumentToAPrimitiveParameterMatchesByTheWidenedValue() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              static final byte BYTE_ONE = 1;
+              static final byte BYTE_UNO = 1;
+              static final short SHORT_ONE = 1;
+              @Nullable Object b(byte x) { return null; }
+              @Nullable Object s(short x) { return null; }
+              @Nullable Object i(int x) { return null; }
+              @Nullable Object l(long x) { return null; }
+              @Nullable Object f(float x) { return null; }
+              @Nullable Object d(double x) { return null; }
+              void floatWidensToADifferentDouble() {
+                // 0.1f widens to 0.10000000149011612, a different double than 0.1d
+                if (d(0.1d) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'd(0.1f)' is @Nullable
+                  d(0.1f).toString();
+                }
+              }
+              void intWidensToAnEqualLong() {
+                if (l(0) != null) {
+                  l(0L).toString();
+                }
+              }
+              void intWidensToAnEqualFloat() {
+                if (f(1) != null) {
+                  f(1.0f).toString();
+                }
+              }
+              void intWidensToAnEqualDouble() {
+                if (d(1) != null) {
+                  d(1.0).toString();
+                }
+              }
+              void charWidensToItsCodeAsInt() {
+                if (i('a') != null) {
+                  i(97).toString();
+                }
+              }
+              void byteConstantWidensToAnEqualShortConstant() {
+                if (s(BYTE_ONE) != null) {
+                  s(SHORT_ONE).toString();
+                }
+              }
+              void byteConstantsWithEqualValues() {
+                if (b(BYTE_ONE) != null) {
+                  b(BYTE_UNO).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constantArgumentToAnObjectParameterMatchesByTheBoxedClassAndValue() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void integerAndLongWithEqualValues() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(42L)' is @Nullable
+                  o(42L).toString();
+                }
+              }
+              void integerAndStringWithEqualText() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o("42")' is @Nullable
+                  o("42").toString();
+                }
+              }
+              void integerAndCharacterWithEqualCode() {
+                if (o(97) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o('a')' is @Nullable
+                  o('a').toString();
+                }
+              }
+              void longValueOfAnIntAndALongLiteral() {
+                if (o(42L) != null) {
+                  o(Long.valueOf(42)).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void onlyAWrapperValueOfOfItsOwnPrimitiveIsUnwrappedAsBoxing() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            public class Test {
+              @Nullable Object o(Object x) { return null; }
+              void integerValueOfAnInt() {
+                if (o(42) != null) {
+                  o(Integer.valueOf(42)).toString();
+                }
+              }
+              void stringValueOfAnInt() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(String.valueOf(42))' is @Nullable
+                  o(String.valueOf(42)).toString();
+                }
+              }
+              void integerValueOfAString() {
+                if (o("42") != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(Integer.valueOf("42"))' is @Nullable
+                  o(Integer.valueOf("42")).toString();
+                }
+              }
+              void integerToString() {
+                if (o(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o(Integer.toString(42))' is @Nullable
+                  o(Integer.toString(42)).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void testVariablesInAccessPathsNegative() {
     defaultCompilationHelper
         .addSourceLines(
@@ -540,6 +676,77 @@ public class AccessPathsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void constantMapKeyMatchesOnlyTheSameBoxedClassAndValue() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void integerAndLongKeys(Map<Object, Object> m) {
+                if (m.get(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get(42L)' is @Nullable
+                  m.get(42L).toString();
+                }
+              }
+              void longValueOfAnIntAndALongLiteral(Map<Object, Object> m) {
+                if (m.get(Long.valueOf(42)) != null) {
+                  m.get(42L).toString();
+                }
+              }
+              void stringAndIntegerValueOfTheString(Map<Object, Object> m) {
+                if (m.get("42") != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get(Integer.valueOf("42"))' is @Nullable
+                  m.get(Integer.valueOf("42")).toString();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void boxedVariableMapKeyMatchesOnlyTheSameWrapper() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void intKeyAndLongValueOfIt(Map<Object, Object> m, int i) {
+                if (m.get(i) != null) {
+                  // m.get(i) looks up an Integer and m.get(Long.valueOf(i)) a Long
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get(Long.valueOf(i))' is @Nullable
+                  m.get(Long.valueOf(i)).toString();
+                }
+              }
+              void intKeyAndIntegerValueOfIt(Map<Object, Object> m, int i) {
+                if (m.get(i) != null) {
+                  m.get(Integer.valueOf(i)).toString();
+                }
+              }
+              void longValueOfAnIntKeyAndItself(Map<Object, Object> m, int i) {
+                if (m.get(Long.valueOf(i)) != null) {
+                  m.get(Long.valueOf(i)).toString();
+                }
+              }
+              void longKeyAndLongValueOfIt(Map<Object, Object> m, long l) {
+                if (m.get(l) != null) {
+                  m.get(Long.valueOf(l)).toString();
+                }
+              }
+              void putThenGetWithAnIntKey(Map<Object, Object> m, int i) {
+                m.put(i, new Object());
+                m.get(i).toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapContainsKeyMakesMapRemoveSafe() {
     defaultCompilationHelper
         .addSourceLines(
@@ -705,6 +912,122 @@ public class AccessPathsTests extends NullAwayTestsBase {
                 if (m.get(l) != null) {
                   // BUG: Diagnostic contains: dereferenced expression 'm.get((int) l)' is @Nullable
                   return m.get((int) l).toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void mapKeyLiteralUnderCastIsTheSameKey() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.HashMap;
+            import java.util.Map;
+            class Test {
+              String stringLiteral(Map<String, Object> m) {
+                if (m.get("k") != null) {
+                  return m.get((String) ("k")).toString();
+                }
+                return "";
+              }
+              String valueOfKey() {
+                Map<Integer, Object> m = new HashMap<>();
+                m.put(Integer.valueOf(10), new Object());
+                return m.get((Integer) (Integer.valueOf(10))).toString();
+              }
+              String containsKeyThenRemove(Map<String, Object> m) {
+                if (m.containsKey("k")) {
+                  return m.remove((String) ("k")).toString();
+                }
+                return "";
+              }
+              String intLiteralUnderIntCast(Map<Integer, Object> m) {
+                if (m.get(42) != null) {
+                  return m.get((int) (42)).toString();
+                }
+                return "";
+              }
+              String intVariableUnderIntCast(Map<Integer, Object> m, int key) {
+                if (m.get(key) != null) {
+                  return m.get((int) (key)).toString();
+                }
+                return "";
+              }
+              String otherStringLiteralUnderReferenceCast(Map<String, Object> m) {
+                if (m.get("k") != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get((String) ("j"))' is @Nullable
+                  return m.get((String) ("j")).toString();
+                }
+                return "";
+              }
+              String intLiteralUnderLongCast(Map<Object, Object> m) {
+                // m.get(42) looks up an Integer and m.get((long) (42)) a Long, so they are different keys
+                if (m.get(42) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get((long) (42))' is @Nullable
+                  return m.get((long) (42)).toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constantArgumentUnderCastIsTheSameArgument() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            class Test {
+              static final String K = "k";
+              @Nullable Object get(int i) { return null; }
+              @Nullable Object apply(String s) { return null; }
+              @Nullable Object getBoxed(Integer i) { return null; }
+              @Nullable Object getLong(long l) { return null; }
+              String intLiteralUnderIntCast() {
+                if (get(0) != null) {
+                  return get((int) (0)).toString();
+                }
+                return "";
+              }
+              String boxedIntLiteralUnderIntCast() {
+                if (getBoxed(0) != null) {
+                  return getBoxed((int) (0)).toString();
+                }
+                return "";
+              }
+              String widenedIntLiteralUnderIntCast() {
+                if (getLong(0) != null) {
+                  return getLong((int) (0)).toString();
+                }
+                return "";
+              }
+              String stringLiteralUnderReferenceCast() {
+                if (apply("hello") != null) {
+                  return apply((String) ("hello")).toString();
+                }
+                return "";
+              }
+              String constantFieldUnderReferenceCast(Map<String, Map<String, Object>> m) {
+                if (m.get(K) != null && m.get(K).get(K) != null) {
+                  return m.get((String) (K)).get(K).toString();
+                }
+                return "";
+              }
+              String otherConstantUnderIntCast() {
+                if (get(0) != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'get((int) (1))' is @Nullable
+                  return get((int) (1)).toString();
                 }
                 return "";
               }

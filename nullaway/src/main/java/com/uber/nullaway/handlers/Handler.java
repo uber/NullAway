@@ -38,6 +38,7 @@ import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
 import com.uber.nullaway.LibraryModels;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -119,6 +120,39 @@ public interface Handler {
   default void onMatchMethodReference(
       MemberReferenceTree tree, MethodAnalysisContext methodAnalysisContext) {
     // NoOp
+  }
+
+  /**
+   * Returns a hint for a method reference's return nullness based on its functional interface
+   * method.
+   *
+   * <p>Hints from all handlers are combined using {@link NullnessHint#merge(NullnessHint)}. During
+   * return compatibility checking, a merged hint other than {@link NullnessHint#UNKNOWN} replaces
+   * the return nullness computed by {@link #onOverrideMethodReturnNullability}. In JSpecify mode,
+   * it also replaces the referenced return type's top-level nullness, both during generic inference
+   * and when checking the type of a method reference passed as an argument.
+   *
+   * <p>NullAway does not call this hook for raw functional-interface target types, constructor
+   * references, or references where either the referenced or functional interface method is
+   * varargs.
+   *
+   * @param referencedMethod symbol of the referenced method
+   * @param functionalInterfaceMethod symbol of the functional interface method
+   * @param functionalInterfaceMethodType functional interface method type as a member of the ground
+   *     target type in JSpecify mode, or its declared type otherwise
+   * @param isUnbound whether this is an unbound instance method reference, whose first functional
+   *     interface parameter is the receiver
+   * @param state the current visitor state
+   * @return a return-nullness hint, or {@link NullnessHint#UNKNOWN} when this handler has no
+   *     refinement
+   */
+  default NullnessHint onMethodReferenceReturnNullnessHint(
+      Symbol.MethodSymbol referencedMethod,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state) {
+    return NullnessHint.UNKNOWN;
   }
 
   /**
@@ -257,9 +291,8 @@ public interface Handler {
    *     the set() method.
    * @param bothUpdates NullnessStore updates to be added along both paths, handlers can add via the
    *     set() method.
-   * @return The Nullness information for this method's return computed by this handler. See
-   *     NullnessHint and CompositeHandler for more information about how this values get merged
-   *     into a final Nullness value.
+   * @return a hint for the method call's result nullness; hints from different handlers are
+   *     combined using {@link NullnessHint#merge(NullnessHint)}
    */
   default NullnessHint onDataflowVisitMethodInvocation(
       MethodInvocationNode node,
@@ -285,9 +318,8 @@ public interface Handler {
    *     AccessPath.AccessPathContext}).
    * @param inputs NullnessStore information known before the method invocation.
    * @param updates NullnessStore updates to be added, handlers can add via the set() method.
-   * @return The Nullness information for this field computed by this handler. See NullnessHint and
-   *     CompositeHandler for more information about how this values get merged into a final
-   *     Nullness value.
+   * @return a hint for the field value's nullness; hints from different handlers are combined using
+   *     {@link NullnessHint#merge(NullnessHint)}
    */
   default NullnessHint onDataflowVisitFieldAccess(
       FieldAccessNode node,
@@ -505,6 +537,23 @@ public interface Handler {
     return methodType;
   }
 
+  /**
+   * Returns modeled polymorphic-nullness locations for {@code methodSymbol}.
+   *
+   * <p>The generic type-checking machinery uses these locations when resolving an invocation. A
+   * handler should only provide model metadata here; substitution and call-site reasoning belong in
+   * {@code GenericsChecks}.
+   *
+   * <p>A non-empty result must include at least one location with a non-empty type path and must
+   * not contain receiver locations. {@link CompositeHandler} enforces these restrictions by
+   * throwing {@link IllegalArgumentException}. It also throws if multiple handlers return non-empty
+   * results for the same method, even if their location sets are identical.
+   */
+  default ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    return ImmutableSet.of();
+  }
+
   enum FieldSkipResult {
     /** do not skip the check */
     NO,
@@ -558,23 +607,21 @@ public interface Handler {
   }
 
   /**
-   * A three value enum for handlers implementing onDataflowVisitMethodInvocation to communicate
-   * their knowledge of the method return nullability to the rest of NullAway.
+   * A handler's nullness hint for a field value, method-call result, or method-reference return.
+   * Hints from different handlers are combined using {@link #merge(NullnessHint)}.
    */
   public enum NullnessHint {
-    /**
-     * No new information about return nullability, defer to the core algorithm and other handlers.
-     */
+    /** Provides no new nullness information; defer to the core analysis and other handlers. */
     UNKNOWN(0, Nullness.NONNULL),
     /**
-     * The method is nullable in general (e.g. due to a library model or a return type annotation).
-     * Override core behavior and mark this method as Nullable, unless a handler returns
-     * FORCE_NONNULL.
+     * The value or return may be null. Requests nullable treatment unless another handler supplies
+     * {@link #FORCE_NONNULL}. During dataflow, known non-null facts can still refine this hint.
      */
     HINT_NULLABLE(1, Nullness.NULLABLE),
     /**
-     * Handler asserts this method is guaranteed to be NonNull for the current invocation (e.g. used
-     * by ContractHandler when all preconditions for a "-> !null" clause are known to hold).
+     * The value or return is guaranteed non-null in the analyzed context. Takes precedence over
+     * other handlers' hints. The core {@code Map.getOrDefault} rule replaces handler hints for
+     * calls and, in JSpecify mode, method references.
      */
     FORCE_NONNULL(2, Nullness.NONNULL);
 
@@ -590,6 +637,13 @@ public interface Handler {
       return nullness;
     }
 
+    /**
+     * Combines two hints by precedence: {@link #FORCE_NONNULL} over {@link #HINT_NULLABLE} over
+     * {@link #UNKNOWN}.
+     *
+     * @param other the hint to combine with this hint
+     * @return the higher-priority hint
+     */
     public NullnessHint merge(NullnessHint other) {
       if (other.priority > this.priority) {
         return other;

@@ -1,0 +1,14 @@
+diff --git a/spring-web/src/main/java/org/springframework/web/util/ContentCachingResponseWrapper.java b/spring-web/src/main/java/org/springframework/web/util/ContentCachingResponseWrapper.java
+index 1b209a38132..cd3275e8182 100644
+--- a/spring-web/src/main/java/org/springframework/web/util/ContentCachingResponseWrapper.java
++++ b/spring-web/src/main/java/org/springframework/web/util/ContentCachingResponseWrapper.java
+@@ -298,7 +298,8 @@ protected void copyBodyToResponse(boolean complete) throws IOException {
+ 			if (!rawResponse.isCommitted()) {
+ 				if (complete || this.contentLength != null) {
+ 					if (rawResponse.getHeader(HttpHeaders.TRANSFER_ENCODING) == null) {
+-						rawResponse.setContentLength(complete ? this.content.size() : this.contentLength);
++						rawResponse.setContentLength(!complete && this.contentLength != null ?
++								this.contentLength : this.content.size());
+ 					}
+ 					this.contentLength = null;
+ 				}
