@@ -2,6 +2,7 @@ package com.uber.nullaway.oracles;
 
 import static java.nio.charset.StandardCharsets.UTF_8;
 
+import com.google.common.base.Throwables;
 import com.google.common.collect.HashMultiset;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
@@ -30,6 +31,12 @@ import java.util.Random;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import org.jspecify.annotations.Nullable;
@@ -56,6 +63,11 @@ import org.jspecify.annotations.Nullable;
  * finding with the sources that reproduce it under {@value #OUT}, and exits with status 1 if it saw
  * a new crash signature. A new divergence never fails the run, since telling a NullAway defect from
  * an artifact of the rewrite takes a person.
+ *
+ * <p>A NullAway run that takes longer than {@link #RUN_TIMEOUT} is recorded as a crash whose stack
+ * trace is that of the compiling thread, and ends the run: the report is written, and the run exits
+ * with status 1 whether or not the signature is known. The compiling thread cannot be stopped and
+ * still holds the compiler, so no other seed is checked after it.
  *
  * <p>The working directory is the {@code nullaway} module. Arguments, all optional: {@code
  * --configs <comma-separated names from CONFIGS>} (default all), {@code --relations
@@ -92,6 +104,13 @@ public final class OracleRunner {
    * The triaged findings, relative to the working directory, in the {@link KnownFindings} format.
    */
   private static final String KNOWN = "src/oracles/known-findings.tsv";
+
+  /**
+   * The longest one NullAway run may take. It is well under the time the workflow leaves between
+   * the run's {@code --max-minutes} budget and the job timeout, so a run that hangs in the last
+   * seed still leaves time to write the report.
+   */
+  static final Duration RUN_TIMEOUT = Duration.ofMinutes(5);
 
   /** The most mutations one variant carries. */
   private static final int MAX_MUTATIONS = 3;
@@ -147,6 +166,25 @@ public final class OracleRunner {
 
   /** Wall-clock milliseconds spent in NullAway runs and rewrites, by the kind of input. */
   private final Map<String, Long> millis = new TreeMap<>();
+
+  private final Duration runTimeout;
+
+  /**
+   * The one thread that runs NullAway; a daemon, so a run it never finishes does not keep the JVM.
+   */
+  private final ExecutorService runs;
+
+  private @Nullable Thread runThread;
+
+  /** The origin of the input of the NullAway run that took longer than the timeout, or null. */
+  private @Nullable String timedOut;
+
+  /** Thrown by {@link #check} once a NullAway run took longer than the timeout. */
+  static final class RunTimedOutException extends RuntimeException {
+    RunTimedOutException(String message, TimeoutException cause) {
+      super(message, cause);
+    }
+  }
 
   /**
    * The smallest reproduction seen for one crash signature.
@@ -226,8 +264,22 @@ public final class OracleRunner {
    * compiler}.
    */
   OracleRunner(KnownFindings known, Compiler compiler) {
+    this(known, compiler, RUN_TIMEOUT);
+  }
+
+  /** Creates a runner whose NullAway runs may take up to {@code runTimeout} each. */
+  OracleRunner(KnownFindings known, Compiler compiler, Duration runTimeout) {
     this.known = known;
     this.compiler = compiler;
+    this.runTimeout = runTimeout;
+    this.runs =
+        Executors.newSingleThreadExecutor(
+            r -> {
+              Thread thread = new Thread(r, "nullaway-oracles-run");
+              thread.setDaemon(true);
+              runThread = thread;
+              return thread;
+            });
   }
 
   /** Runs the oracles with the arguments the class comment lists. */
@@ -269,7 +321,12 @@ public final class OracleRunner {
         System.out.println("Stopped at the time budget after " + done + " seeds");
         break;
       }
-      runner.check(seed, configs, relations, bytecode, randomSeed, mutants);
+      try {
+        runner.check(seed, configs, relations, bytecode, randomSeed, mutants);
+      } catch (RunTimedOutException e) {
+        System.out.println(e.getMessage());
+        break;
+      }
       if (++done % 25 == 0) {
         System.out.println(
             done
@@ -286,7 +343,7 @@ public final class OracleRunner {
     String summary = runner.writeReport(out, done, seeds.size(), elapsed);
     System.out.println(summary);
     System.out.println("Report: " + out.toAbsolutePath().resolve("report.md"));
-    if (runner.foundNewCrash()) {
+    if (runner.failed()) {
       System.exit(1);
     }
   }
@@ -532,6 +589,8 @@ public final class OracleRunner {
    * @param classes a directory of class files {@code sources} compile against, or null for none
    * @param reproduction the sources a crash report keeps: {@code sources}, plus the sources of the
    *     class files in {@code classes}, which the run deletes afterwards
+   * @throws RunTimedOutException if the run took longer than the timeout, after recording it as a
+   *     crash
    */
   private Outcome run(
       String kind,
@@ -542,13 +601,50 @@ public final class OracleRunner {
       @Nullable Path classes,
       ImmutableList<Source> reproduction) {
     long started = System.nanoTime();
-    Outcome outcome = compiler.runNullAway(sources, options, classes);
+    Future<Outcome> run = runs.submit(() -> compiler.runNullAway(sources, options, classes));
+    Outcome outcome;
+    try {
+      outcome = run.get(runTimeout.toMillis(), TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      millis.merge(kind, (System.nanoTime() - started) / 1_000_000, Long::sum);
+      count(kind + ": TIMEOUT");
+      timedOut = origin;
+      recordCrash(config, origin, reproduction, timeoutTrace());
+      throw new RunTimedOutException(
+          "NullAway ran longer than " + runTimeout.toSeconds() + " s on " + origin, e);
+    } catch (ExecutionException e) {
+      // Compiler reports a checker's exception as a CRASH outcome, so this one is the harness's.
+      Throwables.throwIfUnchecked(e.getCause());
+      throw new IllegalStateException(e.getCause());
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+      throw new IllegalStateException(e);
+    }
     millis.merge(kind, (System.nanoTime() - started) / 1_000_000, Long::sum);
     count(kind + ": " + outcome.status());
     if (outcome.status() == Status.CRASH) {
       recordCrash(config, origin, reproduction, outcome.detail());
     }
     return outcome;
+  }
+
+  /**
+   * Returns the stack of the thread that runs NullAway, printed as the stack trace of a {@link
+   * TimeoutException}, so that {@link CrashSignature} names the NullAway method the run was in.
+   */
+  private String timeoutTrace() {
+    StringBuilder trace =
+        new StringBuilder(
+            TimeoutException.class.getName()
+                + ": NullAway ran longer than "
+                + runTimeout.toSeconds()
+                + " s\n");
+    StackTraceElement[] frames =
+        runThread == null ? new StackTraceElement[0] : runThread.getStackTrace();
+    for (StackTraceElement frame : frames) {
+      trace.append("\tat ").append(frame).append('\n');
+    }
+    return trace.toString();
   }
 
   private void recordCrash(
@@ -652,6 +748,14 @@ public final class OracleRunner {
   /** Returns whether a crash signature the known findings do not list was seen. */
   boolean foundNewCrash() {
     return newCrashes().findAny().isPresent();
+  }
+
+  /**
+   * Returns whether the run fails: it saw a new crash signature, or a NullAway run took longer than
+   * the timeout, known or not, which left the remaining seeds unchecked.
+   */
+  boolean failed() {
+    return foundNewCrash() || timedOut != null;
   }
 
   private Stream<Crash> newCrashes() {
@@ -875,7 +979,13 @@ public final class OracleRunner {
         + " of "
         + selected
         + " seeds"
-        + (done < selected ? " (stopped at the time budget)" : "")
+        + (timedOut != null
+            ? " (stopped after a NullAway run took longer than "
+                + runTimeout.toSeconds()
+                + " s on "
+                + timedOut
+                + ")"
+            : done < selected ? " (stopped at the time budget)" : "")
         + ", "
         + elapsed.toMinutes()
         + " min "
@@ -886,13 +996,14 @@ public final class OracleRunner {
   /** Returns a table of NullAway runs by kind and outcome, and of comparisons by relation. */
   private String compilations() {
     StringBuilder t =
-        new StringBuilder("| Kind | OK | INVALID | CRASH | Agree | Diverge | Seconds |\n");
-    t.append("| --- | --- | --- | --- | --- | --- | --- |\n");
+        new StringBuilder(
+            "| Kind | OK | INVALID | CRASH | TIMEOUT | Agree | Diverge | Seconds |\n");
+    t.append("| --- | --- | --- | --- | --- | --- | --- | --- |\n");
     Set<String> kinds = new TreeSet<>();
     counters.keySet().forEach(k -> kinds.add(k.substring(0, k.indexOf(':'))));
     for (String kind : kinds) {
       t.append("| ").append(kind);
-      for (String column : List.of("OK", "INVALID", "CRASH", "agree", "DIVERGE")) {
+      for (String column : List.of("OK", "INVALID", "CRASH", "TIMEOUT", "agree", "DIVERGE")) {
         t.append(" | ").append(counters.getOrDefault(kind + ": " + column, 0));
       }
       t.append(" | ").append(millis.getOrDefault(kind, 0L) / 1000).append(" |\n");
