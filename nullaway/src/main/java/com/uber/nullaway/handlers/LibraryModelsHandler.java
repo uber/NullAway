@@ -182,10 +182,16 @@ public class LibraryModelsHandler implements Handler {
     }
     // The PolyNull solver checks whether a nullable argument is compatible with the result target.
     // The ordinary top-level argument check must allow that argument through to the solver.
+    // At the varargs position, the top-level type is the array passed explicitly; individually
+    // passed elements keep the nullness that the fixed models or the annotations give them.
     for (PolyNullLocation location :
         optimizedLibraryModels.polyNullLocations(methodSymbol, Types.instance(context))) {
       if (location.position() instanceof Parameter parameter && location.typePath().isEmpty()) {
-        argumentNullness.setParameterNullness(parameter.index(), NULLABLE);
+        if (varArgsMethod && parameter.index() == varargsIndex) {
+          argumentNullness.setVarargsArrayNullness(NULLABLE);
+        } else {
+          argumentNullness.setParameterNullness(parameter.index(), NULLABLE);
+        }
       }
     }
     if (varArgsMethod) {
@@ -1750,8 +1756,11 @@ public class LibraryModelsHandler implements Handler {
    * A view of library models optimized to make lookup of {@link
    * com.sun.tools.javac.code.Symbol.MethodSymbol}s fast
    *
-   * <p>Fixed models are filtered against the effective PolyNull locations during lookup, since an
-   * inherited PolyNull model can conflict with a fixed model on a different declaration.
+   * <p>Fixed and conditional return models and nested annotations are filtered against the
+   * effective PolyNull locations during lookup, since an inherited PolyNull model can conflict with
+   * a fixed model on a different declaration. Fixed top-level parameter models are returned
+   * unfiltered, so a parameter with both a nullable and a non-null model fails the conflict check
+   * even when PolyNull covers it.
    */
   private static class OptimizedLibraryModels {
 
@@ -1858,33 +1867,11 @@ public class LibraryModelsHandler implements Handler {
     }
 
     ImmutableSet<Integer> explicitlyNullableParameters(Symbol.MethodSymbol symbol) {
-      return parameterModelsWithoutPolyNull(symbol, explicitlyNullableParams);
+      return lookupImmutableSet(symbol, explicitlyNullableParams);
     }
 
     ImmutableSet<Integer> nonNullParameters(Symbol.MethodSymbol symbol) {
-      return parameterModelsWithoutPolyNull(symbol, nonNullParams);
-    }
-
-    /**
-     * Removes fixed parameter models covered by an exact or inherited PolyNull location before
-     * checking for conflicting nullable and non-null parameter models.
-     */
-    private ImmutableSet<Integer> parameterModelsWithoutPolyNull(
-        Symbol.MethodSymbol symbol, NameIndexedMap<ImmutableSet<Integer>> lookup) {
-      ImmutableSet<Integer> fixedModels = lookupImmutableSet(symbol, lookup);
-      if (fixedModels.isEmpty()) {
-        return fixedModels;
-      }
-      ImmutableSet<PolyNullLocation> locations = polyNullLocations(symbol, types);
-      if (locations.isEmpty()) {
-        return fixedModels;
-      }
-      return fixedModels.stream()
-          .filter(
-              index ->
-                  !locations.contains(
-                      new PolyNullLocation(new Parameter(index), ImmutableList.of())))
-          .collect(ImmutableSet.toImmutableSet());
+      return lookupImmutableSet(symbol, nonNullParams);
     }
 
     ImmutableSet<Integer> nullImpliesTrueParameters(Symbol.MethodSymbol symbol) {
