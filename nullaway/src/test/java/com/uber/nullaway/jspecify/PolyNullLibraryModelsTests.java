@@ -1323,6 +1323,214 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * A top-level PolyNull location on a varargs parameter is the array. The array javac creates for
+   * individually passed elements is non-null, so only the supplier decides the result here. This
+   * call used to fail with ArrayIndexOutOfBoundsException in InvocationArguments.forEach.
+   */
+  @Test
+  public void individuallyPassedVarargsElementsLeaveTheResultNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              Object test(Object value) {
+                return PolyNullMethods.varargsArray(() -> value, value, value);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** The supplier still links its nullness to the result when the elements are passed singly. */
+  @Test
+  public void nullableSupplierMakesTheResultNullableWithIndividuallyPassedVarargs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Object value, @Nullable Object nullable) {
+                Object result = PolyNullMethods.varargsArray(() -> nullable, value, value);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * An individually passed element is checked against the element type, which the location does not
+   * cover. Before, the element was linked to the result in place of the array, and was not
+   * reported.
+   */
+  @Test
+  public void nullableVarargsElementPassedIndividuallyIsReportedAndLeavesTheResultNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Object value, @Nullable Object nullable) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'nullable'
+                Object result = PolyNullMethods.varargsArray(() -> value, nullable);
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** A call that passes no varargs elements gets a non-null array from javac. */
+  @Test
+  public void noVarargsElementsLeaveTheResultNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void test(Object value) {
+                PolyNullMethods.varargsArray(() -> value).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonNullVarargsArrayPassedExplicitlyLeavesTheResultNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void test(Object value, Object[] array) {
+                PolyNullMethods.varargsArray(() -> value, array).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** An explicitly passed array is the location itself, so its nullness reaches the result. */
+  @Test
+  public void nullableVarargsArrayPassedExplicitlyMakesTheResultNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Object value, Object @Nullable [] nullableArray) {
+                Object result = PolyNullMethods.varargsArray(() -> value, nullableArray);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Inference of an enclosing generic call builds the PolyNull overlay of a nested call too, and
+   * handles individually passed varargs elements the same way.
+   */
+  @Test
+  public void individuallyPassedVarargsElementsInsideGenericCallLeaveTheResultNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              static <T> T id(T value) {
+                return value;
+              }
+
+              Object test(Object value) {
+                return id(PolyNullMethods.varargsArray(() -> value, value, value));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * When the varargs array is the only modeled input, individually passed elements still resolve
+   * the PolyNull nullness, to non-null, in place of keeping the declared nullable contents.
+   */
+  @Test
+  public void individuallyPassedVarargsAsTheOnlyInputMakeNullableContentsNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void test(Object value) {
+                PolyNullMethods.varargsContents(value, value).get(0).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** An explicitly passed nullable array is the only input, so it makes the contents nullable. */
+  @Test
+  public void nullableVarargsArrayAsTheOnlyInputMakesContentsNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Object @Nullable [] nullableArray) {
+                // BUG: Diagnostic contains: dereferenced expression 'PolyNullMethods.varargsContents(nullableArray).get(0)' is @Nullable
+                PolyNullMethods.varargsContents(nullableArray).get(0).hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
