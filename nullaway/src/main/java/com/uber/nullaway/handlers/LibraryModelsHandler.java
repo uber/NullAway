@@ -234,6 +234,63 @@ public class LibraryModelsHandler implements Handler {
     return returnNullness;
   }
 
+  /**
+   * Derives return-nullness hints from determining parameters in library models.
+   *
+   * <p>Model indexes refer to the referenced method's declared parameters. For an unbound
+   * reference, add one to each index to skip the functional interface method's receiver parameter.
+   *
+   * <p>A {@code @Nullable} annotation, declaration or type-use, on the functional interface method
+   * parameter that matches a determining parameter produces {@code HINT_NULLABLE}. In JSpecify
+   * mode, a nullable substituted parameter type does too, using effective upper bounds for
+   * wildcards and captured wildcards when wildcard support is enabled, and a type variable with a
+   * nullable upper bound and no explicit {@code @NonNull} leaves the nullness unresolved. Any other
+   * parameter is treated as non-null.
+   *
+   * <p>Returns {@code FORCE_NONNULL} when all determining inputs are known non-null. Returns {@code
+   * UNKNOWN} when no model applies or required type information is unavailable or unresolved.
+   */
+  @Override
+  public NullnessHint onMethodReferenceReturnNullnessHint(
+      Symbol.MethodSymbol referencedMethod,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state) {
+    ImmutableSet<Integer> determiningParameterIndices =
+        getOptLibraryModels(state.context)
+            .nullImpliesNullParameters(referencedMethod, state.getTypes());
+    if (determiningParameterIndices.isEmpty()) {
+      return NullnessHint.UNKNOWN;
+    }
+    boolean hasUnknownParameterNullness = false;
+    com.sun.tools.javac.util.List<Type> functionalParameterTypes =
+        functionalInterfaceMethodType.getParameterTypes();
+    int parameterOffset = isUnbound ? 1 : 0;
+    for (int index : determiningParameterIndices) {
+      int functionalParameterIndex = parameterOffset + index;
+      if (functionalParameterIndex
+          >= functionalParameterTypes.size()) { // diff-coverage: ignore -- Invalid model index.
+        return NullnessHint.UNKNOWN; // diff-coverage: ignore -- Invalid model index.
+      }
+      if (Nullness.paramHasNullableAnnotation(
+          functionalInterfaceMethod, functionalParameterIndex, config)) {
+        return NullnessHint.HINT_NULLABLE;
+      }
+      if (!config.isJSpecifyMode()) {
+        continue;
+      }
+      NullnessHint parameterHint =
+          GenericsChecks.getTypeNullnessHint(
+              functionalParameterTypes.get(functionalParameterIndex), state, config, mainHandler);
+      if (parameterHint.equals(NullnessHint.HINT_NULLABLE)) {
+        return NullnessHint.HINT_NULLABLE;
+      }
+      hasUnknownParameterNullness |= parameterHint.equals(NullnessHint.UNKNOWN);
+    }
+    return hasUnknownParameterNullness ? NullnessHint.UNKNOWN : NullnessHint.FORCE_NONNULL;
+  }
+
   @Override
   public boolean onOverrideMayBeNullExpr(
       NullAway analysis,
@@ -250,7 +307,7 @@ public class LibraryModelsHandler implements Handler {
     }
     // getOrDefault can return either a mapped value or the default. Let dataflow combine
     // their nullness rather than assuming the default alone determines the result.
-    if (NullabilityUtil.isMapMethod(methodSymbol, state, "getOrDefault", 2)) {
+    if (NullabilityUtil.isMapGetOrDefault(methodSymbol, state)) {
       return true;
     }
     OptimizedLibraryModels optLibraryModels = getOptLibraryModels(state.context);
@@ -561,9 +618,12 @@ public class LibraryModelsHandler implements Handler {
     boolean isMethodUnannotated =
         getCodeAnnotationInfo(state.context)
             .isSymbolUnannotated(methodSymbol, this.config, mainHandler);
+    // Constructors allocate non-null objects; their javac method return type is void and cannot
+    // carry the nullable-return annotation used for ordinary modeled methods.
     boolean modeledNullableReturn =
-        optimizedLibraryModels.hasNullableReturn(
-            methodSymbol, state.getTypes(), isMethodUnannotated);
+        !methodSymbol.isConstructor()
+            && optimizedLibraryModels.hasNullableReturn(
+                methodSymbol, state.getTypes(), isMethodUnannotated);
     ImmutableSetMultimap<Integer, NestedAnnotationInfo> nestedAnnotations =
         optimizedLibraryModels.nestedAnnotationsForMethods(methodSymbol);
     if (explicitlyNullableParameters.isEmpty()

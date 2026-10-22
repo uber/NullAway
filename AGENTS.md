@@ -34,6 +34,10 @@ If an uncovered line is intentionally unreachable or not worth testing, acknowle
 After you add or change tests for a change to `<module>/src/main`, run `./gradlew :<module>:pitestDiff` and act on the
 mutants it reports; it is not part of `test`.
 
+# Third-party projects in CI
+
+When a `Build <project> with snapshot` CI job fails, read `.github/third-party/README.md`.
+
 # Changelog
 
 Our `CHANGELOG.md` file should be formatted as follows:

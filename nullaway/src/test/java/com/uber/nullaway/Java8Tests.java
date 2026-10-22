@@ -5,6 +5,158 @@ import org.junit.Test;
 
 public class Java8Tests extends NullAwayTestsBase {
   @Test
+  public void optionalMethodReferenceUsesDeclarationParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import javax.annotation.Nullable;
+
+            class Test {
+              interface NullableParameter { String apply(@Nullable String value); }
+              interface NonNullParameter { String apply(String value); }
+              interface NullableResult { @Nullable String apply(@Nullable String value); }
+              interface UnboundNullableParameter {
+                String apply(Optional<String> receiver, @Nullable String value);
+              }
+              interface UnboundNonNullParameter {
+                String apply(Optional<String> receiver, String value);
+              }
+
+              NullableParameter nullableParameter(Optional<String> optional) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.NullableParameter.apply(String) returns @NonNull
+                return optional::orElse;
+              }
+
+              NonNullParameter nonNullParameter(Optional<String> optional) {
+                return optional::orElse;
+              }
+
+              NullableResult nullableResult(Optional<String> optional) {
+                return optional::orElse;
+              }
+
+              UnboundNullableParameter unboundNullableParameter() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.UnboundNullableParameter.apply(Optional<String>,String) returns @NonNull
+                return Optional::orElse;
+              }
+
+              UnboundNonNullParameter unboundNonNullParameter() {
+                return Optional::orElse;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodReferenceUsesDeclarationParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+
+            class Test {
+              interface NullableParameter { String apply(@Nullable Object value); }
+              interface NonNullParameter { String apply(Object value); }
+
+              NullableParameter nullableParameter() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.NullableParameter.apply(Object) returns @NonNull
+                return String.class::cast;
+              }
+
+              NonNullParameter nonNullParameter() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastUnboundMethodReferenceUsesDeclarationParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+
+            class Test {
+              interface NullableParameter {
+                String apply(Class<String> type, @Nullable Object value);
+              }
+              interface NonNullParameter {
+                String apply(Class<String> type, Object value);
+              }
+
+              NullableParameter nullableParameter() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Class::cast;
+              }
+
+              NonNullParameter nonNullParameter() {
+                return Class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodReferenceUsesTypeUseParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+
+            class Test {
+              interface NullableParameter { String apply(@Nullable Object value); }
+
+              NullableParameter nullableParameter() {
+                // Class.cast(null) returns null, so this cannot implement a non-null result.
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.NullableParameter.apply(@Nullable Object) returns @NonNull
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceIgnoresGenericNullnessOutsideJSpecifyMode() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import org.jspecify.annotations.Nullable;
+
+            class Test {
+              interface F<A, B> { B apply(A value); }
+              interface NullableBoundF<A extends @Nullable Object, B> { B apply(A value); }
+
+              F<@Nullable Object, String> customFunction() {
+                return String.class::cast;
+              }
+
+              <T extends @Nullable Object> NullableBoundF<T, T> nullableBound(
+                  Optional<T> optional) {
+                return optional::orElse;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void java8PositiveCases() {
     defaultCompilationHelper
         .addSourceLines(

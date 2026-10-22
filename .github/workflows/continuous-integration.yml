@@ -148,16 +148,27 @@ jobs:
     name: "Build ${{ matrix.project }} with snapshot"
     strategy:
       fail-fast: false
+      # Each project builds at a pinned commit, so a change upstream cannot fail an unrelated
+      # NullAway PR. Renovate moves sha to the tip of branch; .github/third-party/README.md explains
+      # how to patch a project whose fix upstream has not merged yet.
       matrix:
         include:
           - project: caffeine
             url: https://github.com/ben-manes/caffeine.git
+            branch: master
+            sha: b9e876532a618690936c933f593911d0e3a9ce63
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
+            branch: main
+            sha: 0c575d443dbdff69349a2369f40491c002dc2c96
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
+            branch: main
+            sha: 21b4a5fac91d0c4e684cedba0c0ce1ceb8809315
           - project: spring-boot
             url: https://github.com/spring-projects/spring-boot.git
+            branch: main
+            sha: 0d10cba89be586300791948e5608807882edb278
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -177,10 +188,19 @@ jobs:
         env:
           ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED: 'false'
         run: ./gradlew publishToMavenLocal
-      - name: Create a temporary directory for ${{ matrix.project }}
-        run: mkdir -p /tmp/${{ matrix.project }}
-      - name: Clone ${{ matrix.project }} repository
-        run: git clone --depth 1 ${{ matrix.url }} /tmp/${{ matrix.project }}
+      - name: Check out ${{ matrix.project }} at the pinned commit
+        env:
+          PROJECT: ${{ matrix.project }}
+          URL: ${{ matrix.url }}
+          SHA: ${{ matrix.sha }}
+        run: |
+          git init "/tmp/$PROJECT"
+          git -C "/tmp/$PROJECT" fetch --depth 1 "$URL" "$SHA"
+          git -C "/tmp/$PROJECT" checkout --detach FETCH_HEAD
+      - name: Apply patches to ${{ matrix.project }}
+        env:
+          PROJECT: ${{ matrix.project }}
+        run: .github/third-party/apply-patches.sh ".github/third-party/$PROJECT" "/tmp/$PROJECT"
       - name: Run ${{ matrix.project }} build
         run: |
           cp .github/workflows/use-snapshot.gradle.kts /tmp/${{ matrix.project }}
