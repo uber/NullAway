@@ -34,7 +34,6 @@ import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.CompilationUnitTree;
 import com.sun.source.tree.ExpressionTree;
 import com.sun.source.tree.LambdaExpressionTree;
-import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.source.tree.MemberSelectTree;
 import com.sun.source.tree.MethodInvocationTree;
@@ -604,18 +603,13 @@ class StreamNullabilityPropagator implements Handler {
     }
   }
 
+  /**
+   * Returns {@code false} only when {@code expressionTree} is a constant expression whose value is
+   * {@code false}, such as the literal {@code false}, a cast of it, or a constant field. Any other
+   * expression may evaluate to {@code true}.
+   */
   private boolean canBooleanExpressionEvalToTrue(ExpressionTree expressionTree) {
-    if (ASTHelpers.stripParentheses(expressionTree) instanceof LiteralTree expressionAsLiteral) {
-      if (expressionAsLiteral.getValue() instanceof Boolean) {
-        return (boolean) expressionAsLiteral.getValue();
-      } else {
-        throw new RuntimeException("not a boolean expression!");
-      }
-    }
-    // We are fairly conservative, anything other than 'return false;' is assumed to potentially be
-    // true.
-    // No SAT-solving or any other funny business.
-    return true;
+    return !Boolean.FALSE.equals(ASTHelpers.constValue(expressionTree, Boolean.class));
   }
 
   @Override
