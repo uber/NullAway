@@ -1092,8 +1092,12 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void polyNullOverridesConflictingFixedParameterModels() {
-    makeHelper()
+  public void fixedParameterModelsApplyAtPolyNullLocationWithoutExperimentalOptIn() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
         .addSourceLines(
             "Test.java",
             """
@@ -1104,11 +1108,44 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test(NullableOverride library, Object nonNull, @Nullable Object nullable) {
-                // Both nullable and non-null fixed models cover the first parameter.
-                library.top(nonNull, nullable, nonNull, () -> nonNull).hashCode();
+                // Without PolyNull, the fixed nullable model admits a nullable first argument.
                 Object result = library.top(nullable, nullable, nonNull, () -> nonNull);
                 // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
                 result.hashCode();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void polyNullOverridesFixedVarargsArrayModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.PolyNullMethods;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(
+                  Object[] nonNullArray, Object @Nullable [] nullableArray, @Nullable Object nullable) {
+                PolyNullMethods.varargsArray(() -> "value", nonNullArray).hashCode();
+                // PolyNull admits a nullable array despite the fixed non-null model of the array,
+                // and links the array's nullness to the result.
+                Object result = PolyNullMethods.varargsArray(() -> "value", nullableArray);
+                // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
+                result.hashCode();
+                // The PolyNull location covers the array, not its elements, which stay non-null.
+                // BUG: Diagnostic contains: passing @Nullable parameter 'nullable'
+                PolyNullMethods.varargsArray(() -> "value", nullable);
+                // A top-level location on a parameter before the varargs is not the array, and
+                // PolyNull overrides the fixed non-null model of that parameter.
+                Object linked = PolyNullMethods.linkedBeforeVarargs(nullable, () -> "value");
+                // BUG: Diagnostic contains: dereferenced expression 'linked' is @Nullable
+                linked.hashCode();
               }
             }
             """)

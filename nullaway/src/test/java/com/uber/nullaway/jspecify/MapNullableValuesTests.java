@@ -10,6 +10,274 @@ import org.junit.Test;
 public class MapNullableValuesTests extends NullAwayTestsBase {
 
   @Test
+  public void getOrDefaultRuleExcludesUnrelatedOverloads() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface IntLookup {
+                String apply(int key, String defaultValue);
+              }
+
+              @SuppressWarnings("serial")
+              static class BaseMap<K, V extends @Nullable Object> extends HashMap<K, V> {
+                public @Nullable String getOrDefault(String key, int defaultValue) {
+                  return null;
+                }
+              }
+
+              @SuppressWarnings("serial")
+              static class OddMap<K, V extends @Nullable Object> extends BaseMap<K, V> {
+                @Override
+                public @Nullable String getOrDefault(String key, int defaultValue) {
+                  return null;
+                }
+
+                public String getOrDefault(int key, String defaultValue) {
+                  return defaultValue;
+                }
+              }
+
+              @SuppressWarnings("serial")
+              static class NullableValuesMap extends HashMap<String, @Nullable String> {
+                @Override
+                public @Nullable String getOrDefault(@Nullable Object key, @Nullable String defaultValue) {
+                  return super.getOrDefault(key, defaultValue);
+                }
+              }
+
+              BiFunction<String, Integer, String> nullableOverloadReference(
+                  OddMap<String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              int nullableOverloadCall(OddMap<String, String> map) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return map.getOrDefault("key", 1).length();
+              }
+
+              IntLookup nonNullOverloadReference(OddMap<String, @Nullable String> map) {
+                return map::getOrDefault;
+              }
+
+              int nonNullOverloadCall(OddMap<String, @Nullable String> map) {
+                return map.getOrDefault(1, "fallback").length();
+              }
+
+              BiFunction<String, String, String> nullableOverrideReference(NullableValuesMap map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              int nullableOverrideCall(NullableValuesMap map) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return map.getOrDefault("key", "fallback").length();
+              }
+
+              BiFunction<String, String, String> inheritedReference(HashMap<String, String> map) {
+                return map::getOrDefault;
+              }
+
+              int inheritedCall(HashMap<String, String> map) {
+                return map.getOrDefault("key", "fallback").length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultRuleRunsWithoutLibraryModels() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:IgnoreLibraryModelsFor=java.util.Map.getOrDefault,java.util.HashMap.getOrDefault")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              @SuppressWarnings("serial")
+              static class UnannotatedMap extends HashMap<String, String> {
+                @Override
+                public String getOrDefault(Object key, String defaultValue) {
+                  return defaultValue;
+                }
+              }
+
+              int nullableDefault(UnannotatedMap map) {
+                // BUG: Diagnostic contains: dereferenced expression
+                return map.getOrDefault("key", null).length();
+              }
+
+              int nonNullDefault(UnannotatedMap map) {
+                return map.getOrDefault("key", "fallback").length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultCallsAndReferencesWithWildcardValues() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:HandleWildcardGenerics=true")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Lookup {
+                Object apply(Map<String, ? super String> map, String key, String defaultValue);
+              }
+
+              void call(Map<String, ? super String> map) {
+                // BUG: Diagnostic contains: dereferenced expression
+                map.getOrDefault("key", "fallback").hashCode();
+              }
+
+              BiFunction<String, String, Object> bound(Map<String, ? super String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              Lookup unbound() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultCallsAndReferencesWithWildcardHandlingDisabled() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:OnlyNullMarked=true",
+                    "-XepOpt:NullAway:HandleWildcardGenerics=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Lookup {
+                Object apply(Map<String, ? super String> map, String key, String defaultValue);
+              }
+
+              void call(Map<String, ? super String> map) {
+                map.getOrDefault("key", "fallback").hashCode();
+              }
+
+              BiFunction<String, String, Object> bound(Map<String, ? super String> map) {
+                return map::getOrDefault;
+              }
+
+              Lookup unbound() {
+                return Map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultRuleOverridesConditionalLibraryModel() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Lookup {
+                String apply(Map<String, @Nullable String> map, String key, String defaultValue);
+              }
+
+              void call(Map<String, @Nullable String> map) {
+                // The test provider models a non-null default as forcing a non-null result.
+                // A present key can still have a null value, so the core rule must win.
+                // BUG: Diagnostic contains: dereferenced expression
+                map.getOrDefault("key", "fallback").length();
+              }
+
+              BiFunction<String, String, String> bound(Map<String, @Nullable String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              Lookup unbound() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+
+              BiFunction<String, String, String> nonNullValues(Map<String, String> map) {
+                return map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultOnRawMapSubtype() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              @SuppressWarnings({"rawtypes", "serial"})
+              static class RawSubtype extends HashMap {}
+
+              BiFunction<Object, Object, Object> reference(RawSubtype map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              Object call(RawSubtype map, Object key) {
+                return map.getOrDefault(key, "fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapGetOrDefaultWithNullableValues() {
     makeHelper()
         .addSourceLines(

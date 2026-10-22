@@ -555,6 +555,17 @@ public class NullabilityUtil {
     return ASTHelpers.isSubtype(owner.type, MAP_TYPE_SUPPLIER.get(state), state);
   }
 
+  /** Checks whether {@code symbol} is {@code java.util.Map.getOrDefault} or overrides it. */
+  public static boolean isMapGetOrDefault(Symbol.MethodSymbol symbol, VisitorState state) {
+    if (!isMapMethod(symbol, state, "getOrDefault", 2)) {
+      return false;
+    }
+    Symbol.TypeSymbol mapSymbol = MAP_TYPE_SUPPLIER.get(state).tsym;
+    return symbol.owner.equals(mapSymbol)
+        || ASTHelpers.findSuperMethods(symbol, state.getTypes()).stream()
+            .anyMatch(superMethod -> superMethod.owner.equals(mapSymbol));
+  }
+
   /**
    * Downcasts a {@code @Nullable} argument to {@code NonNull}, returning the argument
    *
