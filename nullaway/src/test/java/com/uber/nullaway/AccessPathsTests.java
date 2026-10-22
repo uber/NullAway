@@ -707,6 +707,46 @@ public class AccessPathsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void boxedVariableMapKeyMatchesOnlyTheSameWrapper() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              void intKeyAndLongValueOfIt(Map<Object, Object> m, int i) {
+                if (m.get(i) != null) {
+                  // m.get(i) looks up an Integer and m.get(Long.valueOf(i)) a Long
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get(Long.valueOf(i))' is @Nullable
+                  m.get(Long.valueOf(i)).toString();
+                }
+              }
+              void intKeyAndIntegerValueOfIt(Map<Object, Object> m, int i) {
+                if (m.get(i) != null) {
+                  m.get(Integer.valueOf(i)).toString();
+                }
+              }
+              void longValueOfAnIntKeyAndItself(Map<Object, Object> m, int i) {
+                if (m.get(Long.valueOf(i)) != null) {
+                  m.get(Long.valueOf(i)).toString();
+                }
+              }
+              void longKeyAndLongValueOfIt(Map<Object, Object> m, long l) {
+                if (m.get(l) != null) {
+                  m.get(Long.valueOf(l)).toString();
+                }
+              }
+              void putThenGetWithAnIntKey(Map<Object, Object> m, int i) {
+                m.put(i, new Object());
+                m.get(i).toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapContainsKeyMakesMapRemoveSafe() {
     defaultCompilationHelper
         .addSourceLines(
