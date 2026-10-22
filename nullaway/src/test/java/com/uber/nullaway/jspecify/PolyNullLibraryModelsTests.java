@@ -1092,8 +1092,12 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void polyNullOverridesConflictingFixedParameterModels() {
-    makeHelper()
+  public void fixedParameterModelsApplyAtPolyNullLocationWithoutExperimentalOptIn() {
+    makeTestHelperWithArgs(
+            List.of(
+                "-XepOpt:NullAway:OnlyNullMarked=true",
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG))
         .addSourceLines(
             "Test.java",
             """
@@ -1104,8 +1108,7 @@ public class PolyNullLibraryModelsTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               void test(NullableOverride library, Object nonNull, @Nullable Object nullable) {
-                // Both nullable and non-null fixed models cover the first parameter.
-                library.top(nonNull, nullable, nonNull, () -> nonNull).hashCode();
+                // Without PolyNull, the fixed nullable model admits a nullable first argument.
                 Object result = library.top(nullable, nullable, nonNull, () -> nonNull);
                 // BUG: Diagnostic contains: dereferenced expression 'result' is @Nullable
                 result.hashCode();

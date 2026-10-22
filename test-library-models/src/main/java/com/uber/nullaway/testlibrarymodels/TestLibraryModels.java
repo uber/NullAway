@@ -111,8 +111,6 @@ public class TestLibraryModels implements LibraryModels {
   /** Creates the immutable non-null parameter models used by this test provider. */
   private static ImmutableSetMultimap<MethodRef, Integer> createNonNullParameters() {
     return new ImmutableSetMultimap.Builder<MethodRef, Integer>()
-        // PolyNull must suppress conflicting fixed models before parameter-conflict validation.
-        .put(polyNullOverrideMethod("NullableOverride", "top"), 0)
         .put(polyNullOverrideMethod("NonNullOverride", "top"), 0)
         .put(polyNullOverrideMethod("NonNullOverride", "generic"), 1)
         .put(polyNullOverrideMethod("NullableOverride", "top"), 2)
