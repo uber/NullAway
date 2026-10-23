@@ -450,4 +450,42 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
+
+  @Test
+  public void lambdaReturnTypeArgumentsAreCheckedAgainstUnmarkedInterface() {
+    makeHelper()
+        .addSourceLines(
+            "ListSupplier.java",
+            """
+            package com.example.unmarked;
+            import java.util.List;
+            public interface ListSupplier {
+              List<String> get();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.example.unmarked.ListSupplier;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void expressionBodyNullableElements(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                ListSupplier s = () -> l;
+              }
+              void blockBodyNullableElements(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                ListSupplier s = () -> { return l; };
+              }
+              void expressionBodyNonNullElements(List<String> l) {
+                ListSupplier s = () -> l;
+              }
+            }
+            """)
+        .doTest();
+  }
 }

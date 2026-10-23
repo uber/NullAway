@@ -1416,11 +1416,10 @@ public class NullAway extends BugChecker
     if (!description.equals(Description.NO_MATCH)) {
       state.reportMatch(description);
     }
-    if (codeAnnotationInfo.isSymbolUnannotated(funcInterfaceMethod, config, handler)) {
-      return Description.NO_MATCH;
-    }
     // if the body has a return statement, that gets checked in matchReturn().  We need this code
-    // for lambdas with expression bodies
+    // for lambdas with expression bodies.  As in matchReturn(), the check runs even when the
+    // functional interface method is unannotated, since a library model or a handler may make its
+    // return @NonNull
     if (tree.getBodyKind() == LambdaExpressionTree.BodyKind.EXPRESSION
         && funcInterfaceMethod.getReturnType().getKind() != TypeKind.VOID) {
       ExpressionTree resExpr = (ExpressionTree) tree.getBody();

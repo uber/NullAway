@@ -239,6 +239,7 @@ public class TestLibraryModels implements LibraryModels {
   @Override
   public ImmutableSet<MethodRef> nonNullReturns() {
     return ImmutableSet.of(
+        methodRef("com.uber.lib.unannotated.NonNullReturnFunction", "apply(F)"),
         polyNullOverrideMethod("NonNullOverride", "top"),
         polyNullOverrideMethod("NonNullOverride", "generic"),
         polyNullOverrideMethod("NonNullOverride", "nested"),
