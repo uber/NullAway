@@ -228,9 +228,15 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
         Type subtypeTypeArg = subtypeTypeArguments.get(i);
         constrainTypeArgumentContainment(subtypeTypeArg, supertypeTypeArg);
       }
+      Type subtypeEnclosing = subtype.getEnclosingType();
       Type supertypeEnclosing = supertype.getEnclosingType();
-      if (supertypeEnclosing instanceof ClassType) {
-        constrainTypeArguments(subtype.getEnclosingType(), supertypeEnclosing);
+      // javac erases the enclosing type of some inner class types, such as the supertype of an
+      // anonymous class; a raw enclosing type constrains nothing
+      if (subtypeEnclosing instanceof ClassType
+          && supertypeEnclosing instanceof ClassType
+          && !subtypeEnclosing.isRaw()
+          && !supertypeEnclosing.isRaw()) { // diff-coverage: ignore -- defensive safeguard
+        constrainTypeArguments(subtypeEnclosing, supertypeEnclosing);
       }
     }
 
