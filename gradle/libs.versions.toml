@@ -30,6 +30,7 @@ jspecify = "1.0.1"
 jackson = "3.2.3"
 commons-io = "2.22.0"
 junit4 = "4.13.2"
+test-parameter-injector = "1.25"
 junit-jupiter = "5.14.4"
 apiguardian = "1.1.2"
 jetbrains-annotations = "24.1.0"
@@ -97,6 +98,7 @@ appcompat = { module = "com.android.support:appcompat-v7", version.ref = "suppor
 
 # --- Test ---
 junit4 = { module = "junit:junit", version.ref = "junit4" }
+test-parameter-injector = { module = "com.google.testparameterinjector:test-parameter-injector", version.ref = "test-parameter-injector" }
 pitest-command-line = { module = "org.pitest:pitest-command-line", version.ref = "pitest" }
 pitest-entry = { module = "org.pitest:pitest-entry", version.ref = "pitest" }
 junit-jupiter-api = { module = "org.junit.jupiter:junit-jupiter-api", version.ref = "junit-jupiter" }
