@@ -1351,7 +1351,7 @@ public final class GenericsChecks {
     Type.MethodType declaredMethodType = methodSymbol.type.asMethodType();
     Type.MethodType modeledMethodType =
         handler.onOverrideMethodType(methodSymbol, declaredMethodType, state, invocationTree);
-    if (modeledMethodType != declaredMethodType) {
+    if (modeledMethodType.getReturnType() != declaredMethodType.getReturnType()) {
       return resolvedExpressionType;
     }
 

@@ -3027,6 +3027,29 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void parameterOnlyLibraryModelDoesNotOverrideUnmarkedMethodReturn() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated")))
+        .addSourceLines(
+            "com/uber/Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.UnannotatedWithModels;
+            import java.util.List;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              List<@Nullable String> nullableElements() {
+                return UnannotatedWithModels.returnsListWithModeledParameter("value");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1126() {
     makeHelper()
         .addSourceLines(
