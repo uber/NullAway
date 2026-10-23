@@ -1,8 +1,161 @@
 package com.uber.nullaway;
 
+import org.junit.Assume;
 import org.junit.Test;
 
 public class Java8Tests extends NullAwayTestsBase {
+  @Test
+  public void optionalMethodReferenceUsesDeclarationParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import javax.annotation.Nullable;
+
+            class Test {
+              interface NullableParameter { String apply(@Nullable String value); }
+              interface NonNullParameter { String apply(String value); }
+              interface NullableResult { @Nullable String apply(@Nullable String value); }
+              interface UnboundNullableParameter {
+                String apply(Optional<String> receiver, @Nullable String value);
+              }
+              interface UnboundNonNullParameter {
+                String apply(Optional<String> receiver, String value);
+              }
+
+              NullableParameter nullableParameter(Optional<String> optional) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.NullableParameter.apply(String) returns @NonNull
+                return optional::orElse;
+              }
+
+              NonNullParameter nonNullParameter(Optional<String> optional) {
+                return optional::orElse;
+              }
+
+              NullableResult nullableResult(Optional<String> optional) {
+                return optional::orElse;
+              }
+
+              UnboundNullableParameter unboundNullableParameter() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.UnboundNullableParameter.apply(Optional<String>,String) returns @NonNull
+                return Optional::orElse;
+              }
+
+              UnboundNonNullParameter unboundNonNullParameter() {
+                return Optional::orElse;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodReferenceUsesDeclarationParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+
+            class Test {
+              interface NullableParameter { String apply(@Nullable Object value); }
+              interface NonNullParameter { String apply(Object value); }
+
+              NullableParameter nullableParameter() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.NullableParameter.apply(Object) returns @NonNull
+                return String.class::cast;
+              }
+
+              NonNullParameter nonNullParameter() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastUnboundMethodReferenceUsesDeclarationParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+
+            class Test {
+              interface NullableParameter {
+                String apply(Class<String> type, @Nullable Object value);
+              }
+              interface NonNullParameter {
+                String apply(Class<String> type, Object value);
+              }
+
+              NullableParameter nullableParameter() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Class::cast;
+              }
+
+              NonNullParameter nonNullParameter() {
+                return Class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodReferenceUsesTypeUseParameterNullness() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+
+            class Test {
+              interface NullableParameter { String apply(@Nullable Object value); }
+
+              NullableParameter nullableParameter() {
+                // Class.cast(null) returns null, so this cannot implement a non-null result.
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method com.uber.Test.NullableParameter.apply(@Nullable Object) returns @NonNull
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceIgnoresGenericNullnessOutsideJSpecifyMode() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Optional;
+            import org.jspecify.annotations.Nullable;
+
+            class Test {
+              interface F<A, B> { B apply(A value); }
+              interface NullableBoundF<A extends @Nullable Object, B> { B apply(A value); }
+
+              F<@Nullable Object, String> customFunction() {
+                return String.class::cast;
+              }
+
+              <T extends @Nullable Object> NullableBoundF<T, T> nullableBound(
+                  Optional<T> optional) {
+                return optional::orElse;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void java8PositiveCases() {
     defaultCompilationHelper
@@ -562,6 +715,85 @@ public class Java8Tests extends NullAwayTestsBase {
                     .map(c -> c.getValue().toUpperCase())
                     .collect(Collectors.joining(","));
               }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * An array type in the qualifier of a method reference is never dereferenced, so a type-use
+   * annotation on it leaves NullAway silent. NullAway used to crash on such a qualifier with
+   * RuntimeException "whoops, better handle ANNOTATED_TYPE" (issue #1992).
+   */
+  @Test
+  public void constructorReferenceOnAnnotatedArrayTypeIsNotADereference() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              Function<Integer, String[]> arrayConstructor = String @Nullable []::new;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void constructorReferenceOnAnnotatedPrimitiveArrayTypeIsNotADereference() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.IntFunction;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              IntFunction<int[]> arrayConstructor = int @Nullable []::new;
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void methodReferenceOnAnnotatedArrayTypeIsNotADereference() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.UnaryOperator;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              UnaryOperator<String[]> arrayClone = String @Nullable []::clone;
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * javac 17 through 25 places a leading type-use annotation, as in {@code @Nullable
+   * String[]::new}, on the array type; javac 26 and later places it on the element type
+   * (JDK-8369489), so the source no longer reaches the annotated-array path there.
+   */
+  @Test
+  public void constructorReferenceWithLeadingAnnotationOnArrayTypeIsNotADereference() {
+    Assume.assumeTrue(Runtime.version().feature() < 26);
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+              Function<Integer, String[]> arrayConstructor = @Nullable String[]::new;
             }
             """)
         .doTest();

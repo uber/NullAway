@@ -4,6 +4,8 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 
 import com.google.common.base.Verify;
 import com.google.errorprone.VisitorState;
+import com.google.errorprone.suppliers.Supplier;
+import com.google.errorprone.suppliers.Suppliers;
 import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.MemberReferenceTree;
 import com.sun.tools.javac.code.BoundKind;
@@ -15,15 +17,15 @@ import com.sun.tools.javac.code.Type.ClassType;
 import com.sun.tools.javac.code.Type.WildcardType;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.tree.JCTree;
-import com.sun.tools.javac.util.List;
 import com.sun.tools.javac.util.ListBuffer;
 import com.uber.nullaway.CodeAnnotationInfo;
 import com.uber.nullaway.Config;
-import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
+import com.uber.nullaway.ResolvedMethodReference;
 import com.uber.nullaway.handlers.Handler;
 import java.util.ArrayList;
 import java.util.IdentityHashMap;
+import java.util.List;
 import java.util.Map;
 import javax.lang.model.element.Element;
 import javax.lang.model.type.TypeKind;
@@ -33,8 +35,28 @@ import org.jspecify.annotations.Nullable;
 /** Utility methods for doing generics-related checking */
 public class GenericsUtils {
 
+  private static final Supplier<Type> MAP_TYPE_SUPPLIER = Suppliers.typeFromString("java.util.Map");
+
   /** only static methods */
   private GenericsUtils() {}
+
+  /**
+   * Gets the value type of a receiver viewed as a {@code java.util.Map}, preserving type-use
+   * nullness through inherited type arguments. Returns {@code null} for unavailable or raw types.
+   */
+  static @Nullable Type getMapValueType(
+      @Nullable Type receiverType, VisitorState state, Config config) {
+    if (receiverType == null) {
+      return null;
+    }
+    Symbol.ClassSymbol mapSymbol = (Symbol.ClassSymbol) MAP_TYPE_SUPPLIER.get(state).tsym;
+    Type mapType = TypeSubstitutionUtils.asSuper(state.getTypes(), receiverType, mapSymbol, config);
+    if (mapType == null // diff-coverage: ignore -- Receiver is a Map.
+        || mapType.getTypeArguments().size() != 2) {
+      return null;
+    }
+    return mapType.getTypeArguments().get(1);
+  }
 
   enum MethodRefTypeRelationKind {
     RETURN,
@@ -485,19 +507,14 @@ public class GenericsUtils {
         "Expected current path to end at member reference %s, but found %s",
         memberReferenceTree,
         state.getPath().getLeaf());
-    if (targetType.isRaw()) {
-      return;
-    }
     Types types = state.getTypes();
 
     // First, resolve the referenced method and its qualifier type.
     Symbol.MethodSymbol referencedMethod = ASTHelpers.getSymbol(memberReferenceTree);
-    if (referencedMethod == null || referencedMethod.isConstructor()) {
-      // TODO handle constructor references like Foo::new;
-      //  https://github.com/uber/NullAway/issues/1468
+    if (referencedMethod == null) { // diff-coverage: ignore -- Unattributed javac tree.
       return;
     }
-    GenericsChecks.ResolvedMethodReference resolvedMethodReference =
+    ResolvedMethodReference resolvedMethodReference =
         genericsChecks.resolveMemberReference(
             memberReferenceTree, referencedMethod, targetType, state);
     if (resolvedMethodReference == null) {
@@ -506,45 +523,51 @@ public class GenericsUtils {
     Type qualifierType = resolvedMethodReference.qualifierType();
     Type.MethodType referencedMethodType = resolvedMethodReference.methodType();
 
-    // Get the type of the corresponding functional interface method as a member of targetType.
-    Symbol.MethodSymbol fiMethod =
-        NullabilityUtil.getFunctionalInterfaceMethod(memberReferenceTree, types);
-    Type.MethodType fiMethodTypeAsMember =
-        TypeSubstitutionUtils.memberType(types, targetType, fiMethod, genericsChecks.getConfig())
-            .asMethodType();
-    com.sun.tools.javac.util.List<Type> fiParamTypes = fiMethodTypeAsMember.getParameterTypes();
-    boolean unbound = ((JCTree.JCMemberReference) memberReferenceTree).kind.isUnbound();
+    Type.MethodType functionalInterfaceMethodTypeAsMember =
+        resolvedMethodReference.functionalInterfaceMethodType();
+    List<Type> functionalInterfaceParamTypes =
+        functionalInterfaceMethodTypeAsMember.getParameterTypes();
+    boolean unbound = resolvedMethodReference.isUnbound();
 
     // method reference return type <: functional interface return type
-    Type fiReturnType = fiMethodTypeAsMember.getReturnType();
+    Type functionalInterfaceReturnType = functionalInterfaceMethodTypeAsMember.getReturnType();
     Type referencedReturnType = referencedMethodType.getReturnType();
-    if (fiReturnType.getKind() != TypeKind.VOID
+    Handler.NullnessHint returnNullnessHint = resolvedMethodReference.returnNullnessHint();
+    if (!returnNullnessHint.equals(Handler.NullnessHint.UNKNOWN)) {
+      referencedReturnType =
+          genericsChecks.updateTypeWithNullness(
+              state, referencedReturnType, returnNullnessHint.toNullness());
+    }
+    if (functionalInterfaceReturnType.getKind() != TypeKind.VOID
         && referencedReturnType.getKind() != TypeKind.VOID) {
-      relationHandler.handle(referencedReturnType, fiReturnType, MethodRefTypeRelationKind.RETURN);
+      relationHandler.handle(
+          referencedReturnType, functionalInterfaceReturnType, MethodRefTypeRelationKind.RETURN);
     }
 
     //  i^{th} functional interface parameter type <: i^{th} method reference parameter type,
     //  aligned appropriately in the case of unbound method references
-    com.sun.tools.javac.util.List<Type> referencedParamTypes =
-        referencedMethodType.getParameterTypes();
-    int fiStartIndex = 0;
+    List<Type> referencedParamTypes = referencedMethodType.getParameterTypes();
+    int functionalInterfaceStartIndex = 0;
     if (unbound) {
       if (qualifierType != null) {
         relationHandler.handle(
-            fiParamTypes.get(0), qualifierType, MethodRefTypeRelationKind.PARAMETER);
+            functionalInterfaceParamTypes.get(0),
+            qualifierType,
+            MethodRefTypeRelationKind.PARAMETER);
       }
-      fiStartIndex = 1;
+      functionalInterfaceStartIndex = 1;
     }
 
     // first, handle the non-varargs case
-    int fiParamCount = fiParamTypes.size() - fiStartIndex;
+    int functionalInterfaceParamCount =
+        functionalInterfaceParamTypes.size() - functionalInterfaceStartIndex;
     int nonVarargsParamCount =
         referencedMethod.isVarArgs()
-            ? Math.min(fiParamCount, referencedParamTypes.size() - 1)
+            ? Math.min(functionalInterfaceParamCount, referencedParamTypes.size() - 1)
             : referencedParamTypes.size();
     for (int i = 0; i < nonVarargsParamCount; i++) {
       relationHandler.handle(
-          fiParamTypes.get(fiStartIndex + i),
+          functionalInterfaceParamTypes.get(functionalInterfaceStartIndex + i),
           referencedParamTypes.get(i),
           MethodRefTypeRelationKind.PARAMETER);
     }
@@ -555,7 +578,7 @@ public class GenericsUtils {
     // For varargs references, the functional interface can map to fixed-arity form (single array
     // argument at the varargs position) or variable-arity form (zero or more element arguments).
     int varargsParamPosition = referencedParamTypes.size() - 1;
-    if (fiParamCount == varargsParamPosition) {
+    if (functionalInterfaceParamCount == varargsParamPosition) {
       // No varargs arguments; this is the variable-arity case, passing zero arguments
       return;
     }
@@ -566,20 +589,20 @@ public class GenericsUtils {
         memberReferenceTree,
         varargsArrayType);
     JCTree.JCMemberReference javacMemberRef = (JCTree.JCMemberReference) memberReferenceTree;
-    int firstVarargsFiParamIndex = fiStartIndex + varargsParamPosition;
+    int firstVarargsFiParamIndex = functionalInterfaceStartIndex + varargsParamPosition;
     if (javacMemberRef.varargsElement == null) {
       // javac resolved this member reference using non-varargs (fixed-arity) adaptation.
       relationHandler.handle(
-          fiParamTypes.get(firstVarargsFiParamIndex),
+          functionalInterfaceParamTypes.get(firstVarargsFiParamIndex),
           varargsArrayType,
           MethodRefTypeRelationKind.PARAMETER);
     } else {
       // javac resolved this member reference using varargs (variable-arity) adaptation.
       // Use the element type from the referenced varargs array type
       Type varargsElementType = types.elemtype(varargsArrayType);
-      for (int i = varargsParamPosition; i < fiParamCount; i++) {
+      for (int i = varargsParamPosition; i < functionalInterfaceParamCount; i++) {
         relationHandler.handle(
-            fiParamTypes.get(fiStartIndex + i),
+            functionalInterfaceParamTypes.get(functionalInterfaceStartIndex + i),
             varargsElementType,
             MethodRefTypeRelationKind.PARAMETER);
       }

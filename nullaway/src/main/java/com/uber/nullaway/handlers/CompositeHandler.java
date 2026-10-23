@@ -41,6 +41,7 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.code.Types;
 import com.sun.tools.javac.util.Context;
 import com.uber.nullaway.ErrorMessage;
+import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullAway;
 import com.uber.nullaway.Nullness;
@@ -103,6 +104,27 @@ class CompositeHandler implements Handler {
     for (Handler h : handlers) {
       h.onMatchMethodReference(tree, methodAnalysisContext);
     }
+  }
+
+  @Override
+  public NullnessHint onMethodReferenceReturnNullnessHint(
+      Symbol.MethodSymbol referencedMethod,
+      Symbol.MethodSymbol functionalInterfaceMethod,
+      Type.MethodType functionalInterfaceMethodType,
+      boolean isUnbound,
+      VisitorState state) {
+    NullnessHint result = NullnessHint.UNKNOWN;
+    for (Handler h : handlers) {
+      result =
+          result.merge(
+              h.onMethodReferenceReturnNullnessHint(
+                  referencedMethod,
+                  functionalInterfaceMethod,
+                  functionalInterfaceMethodType,
+                  isUnbound,
+                  state));
+    }
+    return result;
   }
 
   @Override
@@ -374,6 +396,33 @@ class CompositeHandler implements Handler {
       currentType = h.onOverrideMethodType(methodSymbol, currentType, state, invocationTree);
     }
     return currentType;
+  }
+
+  @Override
+  public ImmutableSet<PolyNullLocation> onGetPolyNullLocations(
+      Symbol.MethodSymbol methodSymbol, VisitorState state) {
+    ImmutableSet<PolyNullLocation> result = ImmutableSet.of();
+    Handler previousOwner = null;
+    for (Handler h : handlers) {
+      ImmutableSet<PolyNullLocation> locations = h.onGetPolyNullLocations(methodSymbol, state);
+      if (locations.isEmpty()) {
+        continue;
+      }
+      PolyNullLocation.validateNoReceiverLocations(locations, String.valueOf(methodSymbol));
+      if (previousOwner != null) {
+        throw new IllegalArgumentException(
+            "Multiple handlers provide PolyNull locations for "
+                + methodSymbol
+                + ": "
+                + previousOwner.getClass().getName()
+                + " and "
+                + h.getClass().getName());
+      }
+      PolyNullLocation.validateHasNestedLocation(locations, String.valueOf(methodSymbol));
+      previousOwner = h;
+      result = locations;
+    }
+    return result;
   }
 
   @Override

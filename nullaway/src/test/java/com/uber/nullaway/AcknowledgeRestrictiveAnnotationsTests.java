@@ -313,6 +313,135 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedLambdaPlusRestrictivePositive() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.RestrictivelyAnnotatedFI;
+            public class Test {
+              void foo() {
+                // BUG: Diagnostic contains: parameter x is @NonNull, but parameter in functional interface method
+                RestrictivelyAnnotatedFI func = (Object x) -> new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedLambdaPlusRestrictiveNegative() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.RestrictivelyAnnotatedFI;
+            public class Test {
+              void foo() {
+                // no error since AcknowledgeRestrictiveAnnotations disabled
+                RestrictivelyAnnotatedFI func = (Object x) -> new Object();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void varargsOverrideOfRestrictiveMethodUsesArrayNullness() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Unannotated.java",
+            """
+            package com.example;
+            public class Unannotated {
+              public interface NullableElements {
+                void apply(@javax.annotation.Nullable Object... inputs);
+              }
+              public interface NullableArray {
+                void apply(Object @org.jspecify.annotations.Nullable ... inputs);
+              }
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.example.Unannotated;
+            public class Test {
+              void foo() {
+                Unannotated.NullableElements elements =
+                    new Unannotated.NullableElements() {
+                      @Override
+                      public void apply(Object... inputs) {}
+                    };
+                Unannotated.NullableArray array =
+                    new Unannotated.NullableArray() {
+                      @Override
+                      // BUG: Diagnostic contains: parameter inputs is @NonNull, but parameter in superclass method
+                      public void apply(Object... inputs) {}
+                    };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void varargsMethodRefToRestrictiveMethodUsesArrayNullness() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "Unannotated.java",
+            """
+            package com.example;
+            public class Unannotated {
+              public static void nonNullElements(@javax.annotation.Nonnull Object... inputs) {}
+              public static void nonNullArray(Object @org.jspecify.annotations.NonNull ... inputs) {}
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.example.Unannotated;
+            import org.jspecify.annotations.Nullable;
+            public class Test {
+              interface NullableArrayFi {
+                void apply(Object @Nullable ... inputs);
+              }
+              void foo() {
+                NullableArrayFi elements = Unannotated::nonNullElements;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi array = Unannotated::nonNullArray;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void annotatedVsUnannotatedMethodRefOverrideChecks() {
     makeTestHelperWithArgs(
             Arrays.asList(

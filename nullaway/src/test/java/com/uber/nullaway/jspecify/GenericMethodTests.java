@@ -2146,10 +2146,14 @@ public class GenericMethodTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1493")
   @Test
-  public void issue1493() {
-    makeHelper()
+  public void issue1493RequireNonNullElseWithJdkModels() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true",
+                    "-XepOpt:NullAway:JSpecifyJDKModels=true")))
         .addSourceLines(
             "Test.java",
             """
@@ -2159,6 +2163,38 @@ public class GenericMethodTests extends NullAwayTestsBase {
             @NullMarked
             class Test {
               String nonNullElse(@Nullable String nullableString, String defaultValue) {
+                return Objects.requireNonNullElse(nullableString, defaultValue);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Without the JSpecify JDK models, {@code Objects.requireNonNullElse} is unannotated: the
+   * {@code @Nullable} argument and the {@code @NonNull} return constrain its {@code T} both ways,
+   * so the inference failure (https://github.com/uber/NullAway/issues/1493) is still reported. The
+   * flags differ from those of {@link #issue1493RequireNonNullElseWithJdkModels()} only in {@code
+   * JSpecifyJDKModels}, so the pair shows that the models remove the warning.
+   */
+  @Test
+  public void issue1493RequireNonNullElseWithoutJdkModels() {
+    makeTestHelperWithArgs(
+            JSpecifyJavacConfig.withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                    "-XepOpt:NullAway:WarnOnGenericInferenceFailure=true",
+                    "-XepOpt:NullAway:JSpecifyJDKModels=false")))
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              String nonNullElse(@Nullable String nullableString, String defaultValue) {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both @NonNull and @Nullable
                 return Objects.requireNonNullElse(nullableString, defaultValue);
               }
             }

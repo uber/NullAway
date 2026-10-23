@@ -1005,6 +1005,10 @@ public class AccessPathNullnessPropagation
       TypeCastNode node, TransferInput<Nullness, NullnessStore> input) {
     SubNodeValues values = values(input);
     Nullness nullness = hasPrimitiveType(node) ? NONNULL : values.valueOfSubNode(node.getOperand());
+    // (boolean) (x != null) has the truth value of x != null, so the branch facts of x != null hold
+    if (input.containsTwoStores()) {
+      return new ConditionalTransferResult<>(nullness, input.getThenStore(), input.getElseStore());
+    }
     return noStoreChanges(nullness, input);
   }
 
@@ -1151,6 +1155,15 @@ public class AccessPathNullnessPropagation
             thenUpdates,
             elseUpdates,
             bothUpdates);
+    if (NullabilityUtil.isMapGetOrDefault(callee, state)) {
+      // A present key returns its mapped value, even when that value is null. Outside
+      // JSpecify mode map values are assumed non-null, so only the default matters.
+      nullnessHint =
+          mapHasNullableValues(node)
+                  || !values(input).valueOfSubNode(node.getArgument(1)).equals(NONNULL)
+              ? NullnessHint.HINT_NULLABLE
+              : NullnessHint.FORCE_NONNULL;
+    }
     Nullness nullness = returnValueNullness(node, input, nullnessHint);
     if (booleanReturnType(callee)) {
       ResultingStore thenStore = updateStore(input.getThenStore(), thenUpdates, bothUpdates);
@@ -1187,8 +1200,17 @@ public class AccessPathNullnessPropagation
     } else if (AccessPath.isMapComputeIfAbsent(callee, state)) {
       AccessPath getAccessPath = AccessPath.getForMapInvocation(node, state, apContext);
       if (getAccessPath != null) {
-        // TODO: For now, Function<K, V> implies a @NonNull V. We need to revisit this once we
-        // support generics, but we do include a couple defensive tests below.
+        if (config.isJSpecifyMode() && genericsChecks.hasPolyNullModel(callee, state)) {
+          // PolyNull inference accounts for nullable lambda and method-reference results that
+          // are not reflected in javac's type arguments for the callback. A non-null result
+          // guarantees that the key is mapped to a non-null value after the call.
+          if (!genericReturnIsNullable(node)) {
+            bothUpdates.set(getAccessPath, NONNULL);
+          }
+          return;
+        }
+        // Without a PolyNull model, approximate the callback's return nullness using its type
+        // argument, assuming non-null unless explicitly annotated @Nullable.
         if (arguments.size() < 2) {
           return;
         }

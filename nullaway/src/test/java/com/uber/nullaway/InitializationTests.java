@@ -727,6 +727,23 @@ public class InitializationTests extends NullAwayTestsBase {
                   f = Util.id(f);
                 }
               }
+
+              // https://github.com/uber/NullAway/issues/594
+              static class CastToNonNullOtherArgumentTest {
+
+                Object castF;
+                Object castG;
+                String reason;
+
+                @Initializer
+                void init() {
+                  // BUG: Diagnostic contains: read of @NonNull field 'reason' before
+                  castF = Util.castToNonNull(castF, reason);
+                  // BUG: Diagnostic contains: read of @NonNull field 'reason' before
+                  castG = Util.castToNonNull(reason, castG, 0);
+                  reason = "r";
+                }
+              }
             }
             """)
         .doTest();
@@ -980,16 +997,24 @@ public class InitializationTests extends NullAwayTestsBase {
 
                 Object castF;
                 Object castG;
+                Object castH;
+                Object castI;
 
                 @Initializer
                 void init(@Nullable Object o) {
                   if (o != null) {
                     castF = castToNonNull(castF);
                     castG = castToNonNull(castG);
+                    // castToNonNull methods with extra arguments, declared in a library model
+                    // https://github.com/uber/NullAway/issues/594
+                    castH = castToNonNull(castH, "reason");
+                    castI = castToNonNull("reason", castI, 0);
                     return;
                   }
                   castF = "hi";
                   castG = "bye";
+                  castH = "hello";
+                  castI = "goodbye";
                 }
               }
 
@@ -1181,6 +1206,42 @@ public class InitializationTests extends NullAwayTestsBase {
                 this.o = new Object();
                 this.p = new Object();
                 this.o.equals(this.p);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A {@code @Nullable} constructor parameter assigned to a final {@code @NonNull} field is
+   * reported at the assignment only, because the initialization check skips final fields; a
+   * non-final field still gets the initializer error on the constructor. Issue #429 reported only
+   * the initializer error, on the constructor, and its message named the field {@code after}, which
+   * shares its name with the parameter.
+   */
+  @Test
+  public void nullableParameterAssignedToFinalFieldIsReportedOnlyAtAssignment() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              static class FinalField {
+                private final Object after;
+                FinalField(@Nullable Object after) {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  this.after = after;
+                }
+              }
+              static class NonFinalField {
+                private Object after;
+                // BUG: Diagnostic contains: initializer method does not guarantee @NonNull field 'after'
+                NonFinalField(@Nullable Object after) {
+                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                  this.after = after;
+                }
               }
             }
             """)

@@ -504,10 +504,6 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * This test is a WIP for restrictive annotations on varargs. More assertions still need to be
-   * written, and more support needs to be implemented.
-   */
   @Test
   public void testVarargsRestrictive() {
     makeTestHelperWithArgs(
@@ -566,6 +562,36 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
                 Unannotated.takesVarargsTypeUseOnElements(x);
                 Unannotated.takesVarargsTypeUseOnElements(y);
+              }
+              public void testTypeUseOnBoth() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsTypeUseOnBoth(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsTypeUseOnBoth(y);
+              }
+              public void testBothOnArray() {
+                Object x = null;
+                Object[] y = null;
+                Unannotated.takesVarargsBothOnArray(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsBothOnArray(y);
+              }
+              public void testBothOnElements() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsBothOnElements(x);
+                Unannotated.takesVarargsBothOnElements(y);
+              }
+              public void testBothOnBoth() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsBothOnBoth(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsBothOnBoth(y);
               }
             }
             """)
@@ -767,9 +793,185 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               }
               void test() {
                 RestrictiveVarargsFi fi =
+                    // BUG: Diagnostic contains: Parameter has type Object [], but overridden method has parameter type @Nullable Object []
                     (Object[] inputs) -> {
                       inputs.toString();
                     };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void restrictiveAnnotationsVarargsOverrideUsesArrayNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NullableElementsFi {
+                @NullUnmarked
+                void apply(@Nullable Object @NonNull ... inputs);
+              }
+              interface NullableArrayFi {
+                @NullUnmarked
+                void apply(Object @Nullable ... inputs);
+              }
+              static void take(Object... inputs) {}
+              void test() {
+                NullableElementsFi elementsRef = Test::take;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi arrayRef = Test::take;
+                NullableArrayFi arrayAnon =
+                    new NullableArrayFi() {
+                      @Override
+                      // BUG: Diagnostic contains: parameter inputs is @NonNull, but parameter in superclass method
+                      public void apply(Object... inputs) {}
+                    };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void varargsMethodRefUsesReferencedArrayNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface UnmarkedNullableArrayFi {
+                @NullUnmarked
+                void apply(Object @Nullable ... inputs);
+              }
+              interface NullableArrayFi {
+                void apply(Object @Nullable ... inputs);
+              }
+              @NullUnmarked
+              static void nonNullElementsNullableArray(@NonNull Object @Nullable ... inputs) {}
+              @NullUnmarked
+              static void nonNullElements(@NonNull Object... inputs) {}
+              @NullUnmarked
+              static void nonNullArray(Object @NonNull ... inputs) {}
+              void test() {
+                UnmarkedNullableArrayFi unmarkedNullableArray = Test::nonNullElementsNullableArray;
+                UnmarkedNullableArrayFi unmarkedNonNullElements = Test::nonNullElements;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                UnmarkedNullableArrayFi unmarkedNonNullArray = Test::nonNullArray;
+                NullableArrayFi markedNullableArray = Test::nonNullElementsNullableArray;
+                NullableArrayFi markedNonNullElements = Test::nonNullElements;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi markedNonNullArray = Test::nonNullArray;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void varargsMethodRefExpandingTrailingParametersChecksElementNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface UnmarkedNullableArrayFi {
+                @NullUnmarked
+                void apply(Object first, Object @Nullable ... rest);
+              }
+              interface NullableSecondFi {
+                void apply(Object first, @Nullable Object second);
+              }
+              static void take(Object... values) {}
+              static void takeNullable(@Nullable Object... values) {}
+              void test() {
+                // BUG: Diagnostic contains: parameter values of referenced method is @NonNull
+                UnmarkedNullableArrayFi unmarkedNonNullElements = Test::take;
+                UnmarkedNullableArrayFi unmarkedNullableElements = Test::takeNullable;
+                // BUG: Diagnostic contains: parameter values of referenced method is @NonNull
+                NullableSecondFi markedNonNullElements = Test::take;
+                NullableSecondFi markedNullableElements = Test::takeNullable;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundVarargsMethodRefSkipsReceiverPosition() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface NullableArrayFi {
+                @NullUnmarked
+                void apply(Test receiver, Object @Nullable ... inputs);
+              }
+              interface NullableTrailingFi {
+                void apply(Test receiver, Object first, @Nullable Object second);
+              }
+              void take(Object... inputs) {}
+              void takeNullableArray(Object @Nullable ... inputs) {}
+              void takeNullableElements(@Nullable Object... inputs) {}
+              void test() {
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableArrayFi nonNullArray = Test::take;
+                NullableArrayFi nullableArray = Test::takeNullableArray;
+                // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
+                NullableTrailingFi nonNullElements = Test::take;
+                NullableTrailingFi nullableElements = Test::takeNullableElements;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void restrictiveAnnotationsVarargsLambdaNullableArrayIsChecked() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @FunctionalInterface
+              interface RestrictiveNullableVarargsFi {
+                @NullUnmarked
+                void apply(Object @Nullable ... inputs);
+              }
+              void test() {
+                RestrictiveNullableVarargsFi fi =
+                    // BUG: Diagnostic contains: parameter inputs is @NonNull, but parameter in functional interface method
+                    (Object[] inputs) -> {};
               }
             }
             """)

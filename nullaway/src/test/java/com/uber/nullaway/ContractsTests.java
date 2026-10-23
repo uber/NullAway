@@ -460,6 +460,57 @@ public class ContractsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void contractMethodReferenceReturnNullnessCurrentBehaviorJSpecify() {
+    // Pins behavior that predates conditional library method-reference models. The BUG markers
+    // below record known false positives until contract and library-model handling are unified:
+    // https://github.com/uber/NullAway/issues/1986
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.stream.Stream;
+            import org.jetbrains.annotations.Contract;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @Contract("!null -> !null")
+              static @Nullable String id(@Nullable String s) { return s; }
+              @Contract("!null -> !null")
+              @Nullable String self(@Nullable String s) { return s; }
+
+              Function<String, String> staticReference() {
+                return Test::id;
+              }
+              Function<String, String> boundReference() {
+                return this::self;
+              }
+              BiFunction<Test, String, String> unboundReference() {
+                // Known false positive: ContractHandler skips unbound references (issue #1986).
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.BiFunction.apply(Test,String) returns @NonNull
+                return Test::self;
+              }
+              BiFunction<Test, String, String> unboundAsLambda() {
+                return (receiver, s) -> receiver.self(s);
+              }
+              Stream<String> streamMethodReference(Stream<String> input) {
+                // Known false positive: contracts do not refine generic return inference (#1986).
+                // BUG: Diagnostic contains: inference failure: type variable R constrained to be both @NonNull and @Nullable
+                return input.map(Test::id);
+              }
+              Stream<String> streamLambda(Stream<String> input) {
+                return input.map(s -> id(s));
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void impliesNonNullContractAnnotation() {
     makeTestHelperWithArgs(
             Arrays.asList(
@@ -1437,6 +1488,38 @@ public class ContractsTests extends NullAwayTestsBase {
               String test(@Nullable Object o) {
                 NullnessChecker.assertNonNull(o);
                 return o.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void contractOnReferenceCastArgumentRefinesItsOperand() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import org.jetbrains.annotations.Contract;
+            class Test {
+              @Contract("null -> false")
+              static boolean isNotNull(@Nullable Object o) {
+                return o != null;
+              }
+              String trueBranch(@Nullable Object o) {
+                if (isNotNull((Object) o)) {
+                  return o.toString();
+                }
+                return "";
+              }
+              String falseBranch(@Nullable Object o) {
+                if (!isNotNull((Object) o)) {
+                  // BUG: Diagnostic contains: dereferenced expression 'o' is @Nullable
+                  return o.toString();
+                }
+                return "";
               }
             }
             """)
