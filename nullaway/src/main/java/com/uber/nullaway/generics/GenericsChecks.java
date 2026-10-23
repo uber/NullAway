@@ -1661,8 +1661,9 @@ public final class GenericsChecks {
           PolyNullInference.substituteInferenceVariables(
               polyNullContext, inferenceVariables, state, config);
     }
-    // first, handle the call result flow
-    if (typeFromAssignmentContext != null) {
+    // First, handle the call result flow. A TypeKind.VOID type can arise here due to
+    // void-compatible expression lambda; do not generate constraints for that case
+    if (typeFromAssignmentContext != null && typeFromAssignmentContext.getKind() != TypeKind.VOID) {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
               ? methodTypeForSite.getReturnType()
