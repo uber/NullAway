@@ -2272,8 +2272,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // an error here.
                 m(cache.policy().refreshes());
               }
-            }\
-            """)
+            }""")
         .doTest();
   }
 
@@ -2294,8 +2293,7 @@ public class GenericMethodTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: incompatible types: Box<CompletableFuture<Object>> cannot be converted to Box<@Nullable CompletableFuture<Object>>
                 accept(box);
               }
-            }\
-            """)
+            }""")
         .doTest();
   }
 
