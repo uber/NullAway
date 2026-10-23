@@ -24,6 +24,10 @@ public class UnannotatedWithModels {
     return null;
   }
 
+  public static List<String> returnsListWithModeledParameter(Object unused) {
+    return null;
+  }
+
   public static boolean isNonNull(Object o) {
     return o != null;
   }

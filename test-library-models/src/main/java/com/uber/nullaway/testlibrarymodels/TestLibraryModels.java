@@ -92,6 +92,10 @@ public class TestLibraryModels implements LibraryModels {
                     "com.uber.lib.unannotated.UnannotatedWithModels",
                     "isNonNull(java.lang.Object)"),
                 0,
+                methodRef(
+                    "com.uber.lib.unannotated.UnannotatedWithModels",
+                    "returnsListWithModeledParameter(java.lang.Object)"),
+                0,
                 methodRef("com.uber.lib.unannotated.Box", "orElse(T)"),
                 0))
         .put(polyNullOverrideMethod("NullableOverride", "top"), 0)
