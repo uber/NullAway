@@ -620,6 +620,22 @@ public class TestLibraryModels implements LibraryModels {
                     Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
         .put(
             methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsListWithNullableElements()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NULLABLE, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.UnannotatedWithModels",
+                "returnsListWithNonNullElements()"),
+            ImmutableSetMultimap.of(
+                -1,
+                new NestedAnnotationInfo(
+                    Annotation.NONNULL, ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0)))))
+        .put(
+            methodRef(
                 "com.uber.lib.unannotated.NestedAnnots",
                 "deeplyNested(com.uber.lib.unannotated.NestedAnnots<com.uber.lib.unannotated.NestedAnnots<java.lang.String>>)"),
             ImmutableSetMultimap.of(
