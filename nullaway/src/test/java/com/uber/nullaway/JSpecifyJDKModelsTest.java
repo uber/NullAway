@@ -555,6 +555,81 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
         .doTest();
   }
 
+  /** The models give {@code Map.of} and {@code List.of} non-null type parameters (issue #1236). */
+  @Test
+  public void collectionFactoriesRejectNullableArguments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static @Nullable String maybe() {
+                return null;
+              }
+              Map<String, String> nullableKey() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'maybe()'
+                return Map.of(maybe(), "v");
+              }
+              Map<String, String> nullableValue() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'maybe()'
+                return Map.of("k", maybe());
+              }
+              List<String> nullableElement() {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'maybe()'
+                return List.of(maybe());
+              }
+              Map<String, String> nonNullKeyAndValue() {
+                return Map.of("k", "v");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * The models make the parameter of {@code Object.equals} {@code @Nullable}, so an override must
+   * accept null too (issue #672).
+   */
+  @Test
+  public void equalsOverrideMustAcceptNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class NonNullParameter {
+              @Override
+              // BUG: Diagnostic contains: parameter o is @NonNull, but parameter in superclass method java.lang.Object.equals(java.lang.Object) is @Nullable
+              public boolean equals(Object o) {
+                return o == this;
+              }
+              @Override
+              public int hashCode() {
+                return 0;
+              }
+            }
+            @NullMarked
+            class NullableParameter {
+              @Override
+              public boolean equals(@Nullable Object o) {
+                return o == this;
+              }
+              @Override
+              public int hashCode() {
+                return 0;
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(List.of("-XepOpt:NullAway:OnlyNullMarked=true")));
