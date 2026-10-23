@@ -15,7 +15,7 @@ jmh = "0.7.3"
 shellcheck = "1.5.1"
 pitest = "1.30.0"
 
-errorProne = "2.50.0"
+errorProne = "2.51.0"
 errorProneJdk17 = "2.42.0"
 errorProneOldest = "2.36.0"
 

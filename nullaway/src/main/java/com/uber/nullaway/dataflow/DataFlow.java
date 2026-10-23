@@ -452,7 +452,7 @@ public final class DataFlow {
      */
     @Override
     public int hashCode() {
-      return java.util.Objects.hash(codePath);
+      return java.util.Objects.hashCode(codePath);
     }
 
     /**
