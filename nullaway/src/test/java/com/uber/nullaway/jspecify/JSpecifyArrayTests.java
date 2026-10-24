@@ -1091,6 +1091,45 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void unboxArrayElement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+               void f(@Nullable Integer[] array) {
+                 for (int i = 0; i < array.length; i++) {
+                   // BUG: Diagnostic contains: unboxing of a @Nullable expression 'array[i]'
+                   int x = array[i];
+                 }
+               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboxArrayElementNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+               void f(Integer[] array) {
+                 for (int i = 0; i < array.length; i++) {
+                   int x = array[i];
+                 }
+               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void issue1416() {
     makeHelper()
         .addSourceLines(
