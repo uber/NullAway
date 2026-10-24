@@ -20,6 +20,7 @@ import static com.google.errorprone.util.ASTHelpers.isStatic;
 import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.BOTTOM;
 import static com.uber.nullaway.Nullness.NONNULL;
+import static com.uber.nullaway.Nullness.NO_CHANGE;
 import static com.uber.nullaway.Nullness.NULLABLE;
 import static javax.lang.model.element.ElementKind.EXCEPTION_PARAMETER;
 import static org.checkerframework.nullaway.javacutil.TreeUtils.elementFromDeclaration;
@@ -1291,7 +1292,9 @@ public class AccessPathNullnessPropagation
 
   /**
    * Returns the nullness of the element that {@code node} reads for an enhanced-for loop, or {@link
-   * Nullness#NONNULL} if {@code node} is not such a read.
+   * Nullness#NONNULL} if {@code node} is not such a read. Without wildcard support, which {@code
+   * JSpecifyExperimental} turns on, an element that would be {@link Nullness#NO_CHANGE} is {@link
+   * Nullness#NONNULL}, like any other value whose type is a type variable.
    */
   private Nullness enhancedForLoopElementNullness(MethodInvocationNode node) {
     if (!config.isJSpecifyMode()) {
@@ -1311,8 +1314,12 @@ public class AccessPathNullnessPropagation
               iterableExpression);
     }
     TreePath expressionPath = new TreePath(loopPath, iterableExpression);
-    return genericsChecks.getEnhancedForLoopElementNullness(
-        iterableExpression, state.withPath(expressionPath), /* calledFromDataflow= */ true);
+    Nullness elementNullness =
+        genericsChecks.getEnhancedForLoopElementNullness(
+            iterableExpression, state.withPath(expressionPath), /* calledFromDataflow= */ true);
+    return elementNullness.equals(NO_CHANGE) && !config.handleWildcardGenerics()
+        ? NONNULL
+        : elementNullness;
   }
 
   /**
