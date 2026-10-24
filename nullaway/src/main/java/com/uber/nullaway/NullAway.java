@@ -3104,6 +3104,11 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
     expr = NullabilityUtil.stripParensAndCasts(expr);
+    Type exprType = ASTHelpers.getType(expr);
+    if (exprType != null && exprType.isPrimitive()) {
+      // A value of a primitive type is never null, whatever annotation its declaration carries
+      return false;
+    }
     if (ASTHelpers.constValue(expr) != null) {
       // This should include literals such as "true" or a string
       // obviously not null
