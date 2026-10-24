@@ -72,6 +72,7 @@ public class NullAwayGuavaParametricNullnessTests {
                     return new FutureCallback<T>() {
                         @Override
                         public void onSuccess(@Nullable T result) {
+                            // BUG: Diagnostic contains: passing @Nullable parameter 'result'
                             futureCallback.onSuccess(result);
                         }
                         @Override
@@ -124,10 +125,11 @@ public class NullAwayGuavaParametricNullnessTests {
             import javax.annotation.Nullable;
             class Test {
                 public static String test1() {
-                    // BUG: Diagnostic contains: returning @Nullable expression
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'null'
                     return Iterables.getFirst(ImmutableList.<String>of(), null);
                 }
                 public static @Nullable String test2() {
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'null'
                     return Iterables.getFirst(ImmutableList.<String>of(), null);
                 }
             }
@@ -206,12 +208,14 @@ public class NullAwayGuavaParametricNullnessTests {
                 }
                 @Nullable
                 public static FileInputStream test2(Closer closer, @Nullable FileInputStream fis2) {
-                    // safe: nullable arg to nullable return
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'fis2'
                     return closer.register(fis2);
                 }
                 public static FileInputStream test3(Closer closer, @Nullable FileInputStream fis3) {
                     // BUG: Diagnostic contains: returning @Nullable expression
-                    return closer.register(fis3);
+                    return closer.register(
+                        // BUG: Diagnostic contains: passing @Nullable parameter 'fis3'
+                        fis3);
                 }
             }
             """)
@@ -265,6 +269,117 @@ public class NullAwayGuavaParametricNullnessTests {
               public static void test(@Nullable String s) {
                 Set<@Nullable String> params = Sets.newHashSet(s);
               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void parametricNullnessReadAsTypeVariable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.google.common.base.Function;
+            import com.google.common.base.Optional;
+            import com.google.common.base.Supplier;
+            import com.google.common.collect.Iterables;
+            import com.google.common.collect.Iterators;
+            import com.google.common.collect.MapDifference;
+            import com.google.common.collect.Maps;
+            import com.google.common.collect.Multiset;
+            import com.google.common.collect.Multimap;
+            import com.google.common.collect.Ordering;
+            import com.google.common.collect.PeekingIterator;
+            import com.google.common.collect.Streams;
+            import com.google.common.collect.Table;
+            import com.google.common.hash.Funnel;
+            import com.google.common.io.LineProcessor;
+            import com.google.common.util.concurrent.ClosingFuture;
+            import com.google.common.util.concurrent.FutureCallback;
+            import com.google.common.util.concurrent.Futures;
+            import com.google.common.util.concurrent.ListenableFuture;
+            import com.google.common.util.concurrent.MoreExecutors;
+            import java.util.Iterator;
+            import java.util.List;
+            import java.util.Map;
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+                static int iterablesGetOnlyElementReturnsNonNull(List<String> list) {
+                    return Iterables.getOnlyElement(list).length();
+                }
+                static int iterablesGetLastReturnsNonNull(List<String> list) {
+                    return Iterables.getLast(list).length();
+                }
+                static int iteratorsGetNextWithNonNullDefaultReturnsNonNull(Iterator<String> it) {
+                    return Iterators.getNext(it, "d").length();
+                }
+                static int orderingMaxReturnsNonNull(String a, String b) {
+                    return Ordering.<String>natural().max(a, b).length();
+                }
+                static int futuresGetDoneReturnsNonNull(ListenableFuture<String> f) throws Exception {
+                    return Futures.getDone(f).length();
+                }
+                static int supplierGetReturnsNonNull(Supplier<String> s) {
+                    return s.get().length();
+                }
+                static int peekingIteratorReturnsNonNull(PeekingIterator<String> it) {
+                    return it.peek().length() + it.next().length();
+                }
+                static int multisetEntryGetElementReturnsNonNull(Multiset.Entry<String> e) {
+                    return e.getElement().length();
+                }
+                static int tableCellGettersReturnNonNull(Table.Cell<String, String, String> c) {
+                    return c.getRowKey().length() + c.getValue().length();
+                }
+                static int valueDifferenceLeftValueReturnsNonNull(MapDifference.ValueDifference<String> d) {
+                    return d.leftValue().length();
+                }
+                static int lineProcessorGetResultReturnsNonNull(LineProcessor<String> p) {
+                    return p.getResult().length();
+                }
+                static Funnel<String> funnelLambdaParameterIsNonNull() {
+                    return (s, into) -> into.putInt(s.length());
+                }
+                static Stream<Long> mapWithIndexLambdaParameterIsNonNull(Stream<String> stream) {
+                    return Streams.mapWithIndex(stream, (s, i) -> s.length() + i);
+                }
+                static ClosingFuture<Integer> closingFunctionLambdaParameterIsNonNull(ListenableFuture<String> f) {
+                    return ClosingFuture.from(f).transform((closer, s) -> s.length(), MoreExecutors.directExecutor());
+                }
+                static Map<String, Integer> entryTransformerLambdaParametersAreNonNull(Map<String, String> map) {
+                    return Maps.transformEntries(map, (k, v) -> k.length() + v.length());
+                }
+                static FutureCallback<String> futureCallbackOverrideTakesNonNullParameter() {
+                    return new FutureCallback<String>() {
+                        @Override
+                        public void onSuccess(String result) {
+                            result.length();
+                        }
+                        @Override
+                        public void onFailure(Throwable t) {}
+                    };
+                }
+                static Integer functionApplyRejectsNull(Function<String, Integer> f) {
+                    // BUG: Diagnostic contains: passing @Nullable parameter
+                    return f.apply(null);
+                }
+                static Supplier<String> supplierLambdaCannotReturnNull() {
+                    // BUG: Diagnostic contains: returning @Nullable expression from method with @NonNull return type
+                    return () -> null;
+                }
+                // A false positive: standard mode does not read the @Nullable type argument, so it
+                // treats V as non-null although null is a legal value here.
+                static void nullValueForNullableTypeArgumentIsAFalsePositive(Multimap<String, @Nullable String> m) {
+                    // BUG: Diagnostic contains: passing @Nullable parameter 'null'
+                    m.put("k", null);
+                }
+                static int explicitlyNullableReturnStaysNullable(Optional<String> o) {
+                    // BUG: Diagnostic contains: dereferenced expression 'o.orNull()' is @Nullable
+                    return o.orNull().length();
+                }
             }
             """)
         .doTest();
