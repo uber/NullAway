@@ -87,46 +87,67 @@ final class AttributedRelations {
   private record Attributed(String name, Scanner scanner) implements Relation {
     @Override
     public ImmutableList<ImmutableList<Source>> variants(Seed seed) {
-      DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
-      List<JavaFileObject> files =
-          seed.sources().stream()
-              .map(s -> FileObjects.forSourceLines(s.path(), s.text()))
-              .collect(Collectors.toList());
-      JavacTask task =
-          (JavacTask)
-              JAVAC.getTask(
-                  null,
-                  FILE_MANAGER,
-                  diagnostics,
-                  List.of("-proc:none", "-classpath", System.getProperty("java.class.path")),
-                  null,
-                  files);
-      List<CompilationUnitTree> units = new ArrayList<>();
-      try {
-        task.parse().forEach(units::add);
-        task.analyze();
-      } catch (IOException e) {
-        throw new UncheckedIOException(e);
-      }
-      if (diagnostics.getDiagnostics().stream()
-          .anyMatch(d -> d.getKind() == Diagnostic.Kind.ERROR)) {
+      Attribution attribution = attribute(seed);
+      if (attribution == null) {
         return ImmutableList.of();
       }
-      Trees trees = Trees.instance(task);
-      Types types = Types.instance(((BasicJavacTask) task).getContext());
       List<Change> changes = new ArrayList<>();
-      for (int i = 0; i < units.size(); i++) {
-        CompilationUnitTree unit = units.get(i);
+      for (CompilationUnitTree unit : attribution.units()) {
         int index = indexOf(seed, unit);
         ParsedUnit parsed =
-            new ParsedUnit(unit, seed.sources().get(index).text(), trees.getSourcePositions());
-        scanner.scan(index, parsed, unit, trees, types, changes);
+            new ParsedUnit(
+                unit, seed.sources().get(index).text(), attribution.trees().getSourcePositions());
+        scanner.scan(index, parsed, unit, attribution.trees(), attribution.types(), changes);
       }
       return Relation.variants(seed, changes, SINGLES);
     }
   }
 
-  private static int indexOf(Seed seed, CompilationUnitTree unit) {
+  /**
+   * The units of a seed as plain javac attributes them.
+   *
+   * @param units the units, in the order javac parsed them; {@link #indexOf} maps each to its index
+   *     in the seed
+   * @param trees the trees of the task, for elements and source positions
+   * @param types the types of the task
+   */
+  record Attribution(ImmutableList<CompilationUnitTree> units, Trees trees, Types types) {}
+
+  /**
+   * Attributes {@code seed} with plain javac on this JVM's classpath, or returns null if javac
+   * reports an error.
+   */
+  static @Nullable Attribution attribute(Seed seed) {
+    DiagnosticCollector<JavaFileObject> diagnostics = new DiagnosticCollector<>();
+    List<JavaFileObject> files =
+        seed.sources().stream()
+            .map(s -> FileObjects.forSourceLines(s.path(), s.text()))
+            .collect(Collectors.toList());
+    JavacTask task =
+        (JavacTask)
+            JAVAC.getTask(
+                null,
+                FILE_MANAGER,
+                diagnostics,
+                List.of("-proc:none", "-classpath", System.getProperty("java.class.path")),
+                null,
+                files);
+    ImmutableList.Builder<CompilationUnitTree> units = ImmutableList.builder();
+    try {
+      task.parse().forEach(units::add);
+      task.analyze();
+    } catch (IOException e) {
+      throw new UncheckedIOException(e);
+    }
+    if (diagnostics.getDiagnostics().stream().anyMatch(d -> d.getKind() == Diagnostic.Kind.ERROR)) {
+      return null;
+    }
+    return new Attribution(
+        units.build(), Trees.instance(task), Types.instance(((BasicJavacTask) task).getContext()));
+  }
+
+  /** Returns the index in {@code seed} of the source that {@code unit} was parsed from. */
+  static int indexOf(Seed seed, CompilationUnitTree unit) {
     String uriPath = unit.getSourceFile().toUri().getPath();
     int best = -1;
     for (int i = 0; i < seed.sources().size(); i++) {

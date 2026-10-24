@@ -108,7 +108,7 @@ public class OracleRunnerReportTest {
   public void aRelationThatThrowsIsCountedAndTheSeedIsStillCompiled() throws Exception {
     OracleRunner runner = afterACrash(KnownFindings.parse(List.of()), ImmutableList.of(THROWING));
     String summary = runner.writeReport(temporaryFolder.getRoot().toPath(), 1, 1, Duration.ZERO);
-    assertThat(summary).contains("A relation or the mutator threw 1 times");
+    assertThat(summary).contains("A relation or a mutator threw 1 times");
     assertThat(runner.foundNewCrash()).isTrue();
   }
 

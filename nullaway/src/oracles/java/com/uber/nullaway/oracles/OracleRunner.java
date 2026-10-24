@@ -47,7 +47,9 @@ import org.jspecify.annotations.Nullable;
  *
  * <ul>
  *   <li><b>Crash.</b> NullAway must not throw on any source javac accepts. Inputs are the seeds and
- *       {@link AnnotationMutator} variants of them.
+ *       variants of them by the chosen mutators: {@link AnnotationMutator}, and with {@code
+ *       --mutators annotation,type} also {@link TypeMutator}, whose edits change what the code
+ *       means and so never feed the metamorphic pairs.
  *   <li><b>Metamorphic pairs.</b> Two compilations that differ only in a way Java gives no meaning
  *       must yield the same NullAway warnings. The pairs are a seed against each {@link Relation}
  *       rewrite of it, and one unit compiled with the rest of its seed as source against the same
@@ -72,9 +74,18 @@ import org.jspecify.annotations.Nullable;
  * <p>The working directory is the {@code nullaway} module. Arguments, all optional: {@code
  * --configs <comma-separated names from CONFIGS>} (default all), {@code --relations
  * <comma-separated relation names, bytecode, or none>} (default all), {@code --mutants <variants
- * per seed and configuration>} (default 3), {@code --limit <seeds>}, {@code --filter <substring of
- * the seed name>}, {@code --max-minutes <wall-clock budget>} (default 60), and {@code --random-seed
- * <long>} (default 1), which picks the mutants.
+ * per seed and configuration>} (default 3), {@code --mutators <comma-separated names: annotation,
+ * type>} (default {@code annotation}), {@code --seeds <comma-separated sources>} (default {@code
+ * tests}), {@code --generator-seeds <comma-separated longs>} (default 1), {@code --limit <seeds>},
+ * {@code --filter <substring of the seed name>}, {@code --max-minutes <wall-clock budget>} (default
+ * 60), and {@code --random-seed <long>} (default 1), which picks the mutants.
+ *
+ * <p>A seed source is {@code tests}, the {@code addSourceLines} chains of the NullAway tests;
+ * {@code generated}, the programs of {@link CombinationGenerator#generate(long)}, one covering
+ * array per generator seed, each program run only under its own configuration; {@code
+ * samples:<dir>}, a directory laid out as the JSpecify samples are; {@code files:<dir>}, every Java
+ * file under a directory as one seed, such as the javac tests; or {@code files-marked:<dir>}, the
+ * same with a null-marked variant of each file.
  */
 public final class OracleRunner {
 
@@ -123,7 +134,13 @@ public final class OracleRunner {
           "--limit",
           "--filter",
           "--max-minutes",
-          "--random-seed");
+          "--random-seed",
+          "--seeds",
+          "--generator-seeds",
+          "--mutators");
+
+  /** The mutators {@code --mutators} may name. */
+  private static final ImmutableSet<String> MUTATORS = ImmutableSet.of("annotation", "type");
 
   /** The {@code (line N)} NullAway puts after a field it names. */
   private static final Pattern LINE_REFERENCE = Pattern.compile("\\(line \\d+\\)");
@@ -147,6 +164,7 @@ public final class OracleRunner {
       ImmutableList.<Relation>builder()
           .addAll(SyntacticRelations.all())
           .addAll(AttributedRelations.all())
+          .addAll(ImportRelations.all())
           .build();
 
   /** The name of the relation that compiles one unit against the others' class files. */
@@ -168,6 +186,9 @@ public final class OracleRunner {
   private final Map<String, Long> millis = new TreeMap<>();
 
   private final Duration runTimeout;
+
+  /** The names of the mutators whose candidates the crash oracle draws mutants from. */
+  private final ImmutableList<String> mutators;
 
   /**
    * The one thread that runs NullAway; a daemon, so a run it never finishes does not keep the JVM.
@@ -269,9 +290,23 @@ public final class OracleRunner {
 
   /** Creates a runner whose NullAway runs may take up to {@code runTimeout} each. */
   OracleRunner(KnownFindings known, Compiler compiler, Duration runTimeout) {
+    this(known, compiler, runTimeout, ImmutableList.of("annotation"));
+  }
+
+  /**
+   * Creates a runner whose mutants draw on the candidates of {@code mutators}, names from {@link
+   * #MUTATORS}.
+   */
+  OracleRunner(KnownFindings known, Compiler compiler, Duration runTimeout, List<String> mutators) {
+    for (String mutator : mutators) {
+      if (!MUTATORS.contains(mutator)) {
+        throw new IllegalArgumentException("Unknown mutator '" + mutator + "'; known: " + MUTATORS);
+      }
+    }
     this.known = known;
     this.compiler = compiler;
     this.runTimeout = runTimeout;
+    this.mutators = ImmutableList.copyOf(mutators);
     this.runs =
         Executors.newSingleThreadExecutor(
             r -> {
@@ -303,26 +338,41 @@ public final class OracleRunner {
         relationNames == null || List.of(relationNames.split(",")).contains(BYTECODE);
     Duration budget = Duration.ofMinutes(Long.parseLong(args.getOrDefault("--max-minutes", "60")));
 
-    ImmutableList<Seed> allSeeds = SeedExtractor.extract(Path.of(TESTS));
-    ImmutableList<Seed> seeds =
-        allSeeds.stream()
-            .filter(s -> s.name().contains(filter))
+    ImmutableList<Input> seeds =
+        inputs(
+                List.of(args.getOrDefault("--seeds", "tests").split(",")),
+                List.of(args.getOrDefault("--generator-seeds", "1").split(",")))
+            .stream()
+            .filter(i -> i.seed().name().contains(filter))
+            .filter(i -> i.config() == null || configs.contains(i.config()))
             .limit(limit)
             .collect(ImmutableList.toImmutableList());
     System.out.println(
         "Seeds: " + seeds.size() + ", configurations: " + configs + ", JDK " + Runtime.version());
 
-    OracleRunner runner = new OracleRunner(KnownFindings.read(Path.of(KNOWN)), new Compiler());
+    OracleRunner runner =
+        new OracleRunner(
+            KnownFindings.read(Path.of(KNOWN)),
+            new Compiler(),
+            RUN_TIMEOUT,
+            List.of(args.getOrDefault("--mutators", "annotation").split(",")));
     Instant started = Instant.now();
     Instant deadline = started.plus(budget);
     int done = 0;
-    for (Seed seed : seeds) {
+    for (Input input : seeds) {
       if (Instant.now().isAfter(deadline)) {
         System.out.println("Stopped at the time budget after " + done + " seeds");
         break;
       }
+      String config = input.config();
       try {
-        runner.check(seed, configs, relations, bytecode, randomSeed, mutants);
+        runner.check(
+            input.seed(),
+            config == null ? configs : List.of(config),
+            relations,
+            bytecode,
+            randomSeed,
+            mutants);
       } catch (RunTimedOutException e) {
         System.out.println(e.getMessage());
         break;
@@ -346,6 +396,55 @@ public final class OracleRunner {
     if (runner.failed()) {
       System.exit(1);
     }
+  }
+
+  /**
+   * A seed and the one configuration it runs under, or null to run it under every configuration of
+   * the run.
+   *
+   * @param seed the seed
+   * @param config a key of {@link #CONFIGS}, or null
+   */
+  record Input(Seed seed, @Nullable String config) {}
+
+  /**
+   * Returns the seeds of every source the class comment lists, in the order of {@code sources}.
+   *
+   * @param generatorSeeds the seeds of the covering arrays for the {@code generated} source
+   */
+  static ImmutableList<Input> inputs(List<String> sources, List<String> generatorSeeds)
+      throws IOException {
+    ImmutableList.Builder<Input> result = ImmutableList.builder();
+    for (String source : sources) {
+      if (source.equals("generated")) {
+        for (String generatorSeed : generatorSeeds) {
+          for (CombinationGenerator.Row row :
+              CombinationGenerator.generate(Long.parseLong(generatorSeed))) {
+            result.add(
+                new Input(
+                    new Seed("generated " + row, ImmutableList.of(row.source())), row.config()));
+          }
+        }
+        continue;
+      }
+      ImmutableList<Seed> seeds;
+      if (source.equals("tests")) {
+        seeds = SeedExtractor.extract(Path.of(TESTS));
+      } else if (source.startsWith("samples:")) {
+        seeds = DirectorySeeds.samples(Path.of(source.substring("samples:".length())));
+      } else if (source.startsWith("files:")) {
+        seeds = DirectorySeeds.perFile(Path.of(source.substring("files:".length())), false);
+      } else if (source.startsWith("files-marked:")) {
+        seeds = DirectorySeeds.perFile(Path.of(source.substring("files-marked:".length())), true);
+      } else {
+        throw new IllegalArgumentException(
+            "Unknown seed source '"
+                + source
+                + "'; known: tests, generated, samples:<dir>, files:<dir>, files-marked:<dir>");
+      }
+      seeds.forEach(s -> result.add(new Input(s, null)));
+    }
+    return result.build();
   }
 
   /**
@@ -426,6 +525,21 @@ public final class OracleRunner {
   }
 
   /**
+   * Returns the mutations of {@code seed} that the mutators of this runner propose. Only the crash
+   * oracle draws on them, since a {@link TypeMutator} edit changes what the code means.
+   */
+  ImmutableList<Mutation> candidates(Seed seed) {
+    ImmutableList.Builder<Mutation> result = ImmutableList.builder();
+    if (mutators.contains("annotation")) {
+      result.addAll(AnnotationMutator.candidates(seed));
+    }
+    if (mutators.contains("type")) {
+      result.addAll(TypeMutator.candidates(seed));
+    }
+    return result.build();
+  }
+
+  /**
    * Runs every oracle over {@code seed} under each of {@code configs}.
    *
    * @param bytecode whether to compare each unit against the others compiled to class files
@@ -439,7 +553,7 @@ public final class OracleRunner {
       int mutants) {
     ImmutableList<Mutation> candidates;
     try {
-      candidates = AnnotationMutator.candidates(seed);
+      candidates = candidates(seed);
     } catch (RuntimeException | AssertionError | StackOverflowError e) {
       count("mutant: " + REWRITE_FAILED);
       System.err.println("Finding mutations of " + seed.name() + " failed:");
@@ -875,7 +989,7 @@ public final class OracleRunner {
             .mapToInt(Map.Entry::getValue)
             .sum();
     if (rewriteFailures > 0) {
-      s.append("A relation or the mutator threw ")
+      s.append("A relation or a mutator threw ")
           .append(rewriteFailures)
           .append(" times; the job log has the stack traces.\n\n");
     }

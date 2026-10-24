@@ -1,5 +1,7 @@
 package com.uber.nullaway.oracles;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
+
 import com.google.common.collect.Iterables;
 import com.google.errorprone.FileObjects;
 import com.sun.source.tree.CompilationUnitTree;
@@ -10,7 +12,9 @@ import com.sun.source.util.Trees;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.util.List;
+import java.util.Locale;
 import javax.tools.JavaCompiler;
+import javax.tools.StandardJavaFileManager;
 import javax.tools.ToolProvider;
 
 /**
@@ -28,13 +32,20 @@ record ParsedUnit(CompilationUnitTree unit, String text, SourcePositions positio
 
   private static final JavaCompiler JAVAC = ToolProvider.getSystemJavaCompiler();
 
+  /**
+   * The file manager every parse shares. A task that only parses never closes the file manager it
+   * would otherwise create, so a fresh one per parse leaves its open jar files behind.
+   */
+  private static final StandardJavaFileManager FILE_MANAGER =
+      JAVAC.getStandardFileManager(null, Locale.ROOT, UTF_8);
+
   /** Parses {@code source}, reporting its path as {@code source.path()}. */
   static ParsedUnit parse(Source source) {
     JavacTask task =
         (JavacTask)
             JAVAC.getTask(
                 null,
-                null,
+                FILE_MANAGER,
                 diagnostic -> {},
                 List.of("-proc:none"),
                 null,

@@ -67,6 +67,27 @@ final class AnnotationMutator {
 
   private AnnotationMutator() {}
 
+  /**
+   * Returns {@code seed} with {@code @NullMarked} added to every top-level class, interface, enum,
+   * and record that does not already carry an annotation named {@code NullMarked}.
+   */
+  static Seed nullMarked(Seed seed) {
+    ImmutableList.Builder<Source> sources = ImmutableList.builder();
+    for (Source source : seed.sources()) {
+      ParsedUnit parsed = ParsedUnit.parse(source);
+      List<TextEdit> edits = new ArrayList<>();
+      for (Tree declaration : parsed.unit().getTypeDecls()) {
+        if (declaration instanceof ClassTree type
+            && !isNullMarked(type)
+            && parsed.start(type) >= 0) {
+          edits.add(new TextEdit(parsed.start(type), parsed.start(type), NULL_MARKED));
+        }
+      }
+      sources.add(source.withText(TextEdit.apply(source.text(), edits)));
+    }
+    return new Seed(seed.name(), sources.build());
+  }
+
   /** Returns whether {@code type} carries an annotation named {@code NullMarked}. */
   private static boolean isNullMarked(ClassTree type) {
     return type.getModifiers().getAnnotations().stream()

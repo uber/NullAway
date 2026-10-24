@@ -350,4 +350,207 @@ public class RelationsTest {
                 new Source("A.java", "class A { String f(String s) { return s\n.trim(); } }")))
         .isEmpty();
   }
+
+  @Test
+  public void simpleNamesShortenATypeAndATypeUseAnnotationAndImportBothOnThePackageLine() {
+    assertThat(
+            rewritten(
+                ImportRelations.SIMPLE_NAMES,
+                """
+                package p;
+                class A { java.util.@org.jspecify.annotations.Nullable List<String> f; }
+                """))
+        .isEqualTo(
+            """
+            package p; import java.util.List; import org.jspecify.annotations.Nullable;
+            class A { @Nullable List<String> f; }
+            """);
+  }
+
+  @Test
+  public void simpleNamesImportAtTheStartOfAUnitWithNoPackageOrImports() {
+    assertThat(
+            rewritten(
+                ImportRelations.SIMPLE_NAMES,
+                "class A { @org.jspecify.annotations.Nullable Object f; }"))
+        .isEqualTo("import org.jspecify.annotations.Nullable; class A { @Nullable Object f; }");
+  }
+
+  @Test
+  public void simpleNamesShortenOnlyOneOfTwoClassesThatShareASimpleName() {
+    assertThat(
+            rewritten(
+                ImportRelations.SIMPLE_NAMES,
+                "class A { java.util.List<String> f; java.awt.List g; }"))
+        .isEqualTo("import java.util.List; class A { List<String> f; java.awt.List g; }");
+  }
+
+  @Test
+  public void simpleNamesShortenTheSupertypeOfAnAnonymousClass() {
+    // The rewrite threw StringIndexOutOfBoundsException on the trees javac synthesizes for it.
+    assertThat(
+            rewritten(
+                ImportRelations.SIMPLE_NAMES,
+                "class A { Object o = new java.util.ArrayList<String>() {}; }"))
+        .isEqualTo(
+            "import java.util.ArrayList; class A { Object o = new ArrayList<String>() {}; }");
+  }
+
+  @Test
+  public void simpleNamesLeaveANameImportedFromAnotherPackage() {
+    assertThat(
+            variants(
+                ImportRelations.SIMPLE_NAMES,
+                new Source(
+                    "A.java", "import java.awt.List; class A { java.util.List<String> f; }")))
+        .isEmpty();
+  }
+
+  @Test
+  public void simpleNamesAddNoImportForAClassTheUnitImportsAlready() {
+    assertThat(
+            rewritten(
+                ImportRelations.SIMPLE_NAMES,
+                "import java.util.List; class A { java.util.List<String> f; List<String> g; }"))
+        .isEqualTo("import java.util.List; class A { List<String> f; List<String> g; }");
+  }
+
+  @Test
+  public void simpleNamesLeaveANameOfATypeParameter() {
+    assertThat(
+            variants(
+                ImportRelations.SIMPLE_NAMES,
+                new Source("A.java", "class A<List> { java.util.List<String> f; }")))
+        .isEmpty();
+  }
+
+  @Test
+  public void simpleNamesImportOnTheFirstImportLineOfAUnitWithNoPackage() {
+    assertThat(
+            rewritten(
+                ImportRelations.SIMPLE_NAMES,
+                """
+                import java.util.Map;
+                class A { java.util.List<String> f; Map<String, String> m; }
+                """))
+        .isEqualTo(
+            """
+            import java.util.Map; import java.util.List;
+            class A { List<String> f; Map<String, String> m; }
+            """);
+  }
+
+  @Test
+  public void simpleNamesShadowAClassOfTheSamePackageThatTheUnitNeverNames() {
+    assertThat(
+            variants(
+                    ImportRelations.SIMPLE_NAMES,
+                    new Source("p/List.java", "package p; class List {}"),
+                    new Source("p/A.java", "package p; class A { java.util.List<String> f; }"))
+                .get(0)
+                .get(1)
+                .text())
+        .isEqualTo("package p; import java.util.List; class A { List<String> f; }");
+  }
+
+  @Test
+  public void simpleNamesLeaveANameTheUnitDeclares() {
+    assertThat(
+            variants(
+                ImportRelations.SIMPLE_NAMES,
+                new Source("A.java", "class A { class List {} java.util.List<String> f; }")))
+        .isEmpty();
+  }
+
+  @Test
+  public void simpleNamesLeaveANameThatAFieldWouldObscure() {
+    // The early checks let java.util.List through; attributing List.of() finds the field instead.
+    assertThat(
+            variants(
+                ImportRelations.SIMPLE_NAMES,
+                new Source(
+                    "A.java", "class A { Object List = null; Object g = java.util.List.of(); }")))
+        .isEmpty();
+  }
+
+  @Test
+  public void simpleNamesLeaveANameThatAnInheritedMemberClassWouldShadow() {
+    // List<String> compiles after the rewrite, but names B.List, so the references differ.
+    assertThat(
+            variants(
+                ImportRelations.SIMPLE_NAMES,
+                new Source("B.java", "class B { static class List<T> {} }"),
+                new Source("A.java", "class A extends B { java.util.List<String> f; }")))
+        .isEmpty();
+  }
+
+  @Test
+  public void qualifiedNamesQualifyATypeAndItsTypeArgument() {
+    assertThat(
+            rewritten(
+                ImportRelations.QUALIFIED_NAMES,
+                """
+                import java.util.List;
+                class A { List<String> f; }
+                """))
+        .isEqualTo(
+            """
+            import java.util.List;
+            class A { java.util.List<java.lang.String> f; }
+            """);
+  }
+
+  @Test
+  public void qualifiedNamesPutThePackageBeforeATypeUseAnnotation() {
+    assertThat(
+            rewritten(
+                ImportRelations.QUALIFIED_NAMES,
+                """
+                import org.jspecify.annotations.Nullable;
+                class A { java.util.List<@Nullable Object> f; }
+                """))
+        .isEqualTo(
+            """
+            import org.jspecify.annotations.Nullable;
+            class A { java.util.List<java.lang.@org.jspecify.annotations.Nullable Object> f; }
+            """);
+  }
+
+  @Test
+  public void qualifiedNamesLeaveATypeAfterAnAnnotationInTheModifiers() {
+    // @Nullable is a type-use annotation here, and java.lang.String may not follow it.
+    assertThat(
+            rewritten(
+                ImportRelations.QUALIFIED_NAMES,
+                """
+                import org.jspecify.annotations.Nullable;
+                class A { @Nullable String f; }
+                """))
+        .isEqualTo(
+            """
+            import org.jspecify.annotations.Nullable;
+            class A { @org.jspecify.annotations.Nullable String f; }
+            """);
+  }
+
+  @Test
+  public void qualifiedNamesLeaveAClassOfTheUnnamedPackage() {
+    assertThat(rewritten(ImportRelations.QUALIFIED_NAMES, "class B {} class A { B b; Object o; }"))
+        .isEqualTo("class B {} class A { B b; java.lang.Object o; }");
+  }
+
+  @Test
+  public void qualifiedNamesKeepOnlyVariantsThatAFieldNamedJavaDoesNotObscure() {
+    // java.util.List.of() would read the field java; the variant that qualifies Object stays.
+    ImmutableList<ImmutableList<Source>> variants =
+        variants(
+            ImportRelations.QUALIFIED_NAMES,
+            new Source(
+                "A.java",
+                "import java.util.List; class A { Object java = null; Object g = List.of(); }"));
+    assertThat(variants.stream().map(v -> v.get(0).text()).toList())
+        .containsExactly(
+            "import java.util.List; class A { java.lang.Object java = null; java.lang.Object g ="
+                + " List.of(); }");
+  }
 }
