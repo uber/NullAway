@@ -360,6 +360,7 @@ public class TestLibraryModels implements LibraryModels {
                 "<T>withMapper(T,java.util.function.Function<java.lang.Object,java.lang.String>)"),
             0)
         .put(methodRef("com.uber.lib.unannotated.ProviderNullMarkedViaModel", "<U>of(U)"), 0)
+        .put(methodRef("com.uber.ModeledIntersectionBounds", "<T>identity(T)"), 0)
         .put(
             methodRef(
                 "com.uber.lib.unannotated.NestedAnnots", "<T>genericMethod(java.lang.Class<T>)"),

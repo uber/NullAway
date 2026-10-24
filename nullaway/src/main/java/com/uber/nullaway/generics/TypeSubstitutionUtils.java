@@ -29,6 +29,31 @@ import org.jspecify.annotations.Nullable;
 public class TypeSubstitutionUtils {
 
   /**
+   * Returns a new intersection with the symbol and {@code allInterfaces} flag of {@code original}
+   * and the given components. {@code components} must be complete, as {@code getComponents()}
+   * returns them: for an interface-only intersection, that starts with the implicit {@code Object}.
+   * {@code TypeMetadataBuilder.cloneTypeWithMetadata} cannot be used here: on JDK 17 it throws an
+   * {@code AssertionError}, and on JDK 21 and later it can return a plain class type.
+   */
+  private static Type.IntersectionClassType rebuildIntersection(
+      Type.IntersectionClassType original, List<Type> components) {
+    return new Type.IntersectionClassType(
+        components, (Symbol.ClassSymbol) original.tsym, original.allInterfaces);
+  }
+
+  /** Finds an intersection's corresponding component by symbol rather than component position. */
+  private static @Nullable Type intersectionComponent(
+      Type.IntersectionClassType intersection, Symbol.TypeSymbol symbol) {
+    for (Type component : intersection.getComponents()) {
+      if (component.tsym.equals(symbol)) {
+        return component;
+      }
+    }
+    return null; // diff-coverage: ignore -- No source reproducer for unmatched intersection
+    // components.
+  }
+
+  /**
    * Like {@link Types#asSuper(Type, Symbol)}, but restores explicit nullability annotations on type
    * arguments from the subtype's inheritance path to the resulting supertype.
    *
@@ -422,7 +447,56 @@ public class TypeSubstitutionUtils {
           return visit(t, wt.getSuperBound());
         }
       }
+      if (t
+          instanceof
+          Type.IntersectionClassType) { // diff-coverage: ignore -- Retained structural restoration;
+        // no distinguishing source reproducer.
+        Type.IntersectionClassType updated =
+            (Type.IntersectionClassType) updateDirectNullabilityAnnotationsForType(t, other);
+        ListBuffer<Type> components = new ListBuffer<>();
+        boolean changed = false;
+        for (Type component : updated.getComponents()) {
+          Type corresponding;
+          if (other instanceof Type.IntersectionClassType source) {
+            corresponding = intersectionComponent(source, component.tsym);
+          } else if (component.tsym.equals(
+              other.tsym)) { // diff-coverage: ignore -- No source reproducer for a non-intersection
+            // annotation source.
+            corresponding = other;
+          } else {
+            corresponding = null;
+          }
+          Type restored = corresponding == null ? component : visit(component, corresponding);
+          components.append(restored);
+          changed |= restored != component;
+        }
+        return changed ? rebuildIntersection(updated, components.toList()) : updated;
+      }
+      if (other
+          instanceof
+          Type.IntersectionClassType
+              intersection) { // diff-coverage: ignore -- No source reproducer for restoring an
+        // intersection onto one component.
+        Type corresponding = intersectionComponent(intersection, t.tsym);
+        Type restored =
+            corresponding == null
+                ? t
+                : restoreClassTypeArguments(
+                    t,
+                    corresponding); // diff-coverage: ignore -- No source reproducer for restoring
+        // an intersection onto one component.
+        return updateDirectNullabilityAnnotationsForType(restored, other);
+      }
       Type updated = updateDirectNullabilityAnnotationsForType(t, other);
+      return restoreClassTypeArguments(updated, other);
+    }
+
+    /**
+     * Restores enclosing-type and type-argument annotations without copying the source's top-level
+     * annotation. A matching intersection component may have different top-level nullability from
+     * the complete intersection.
+     */
+    private Type restoreClassTypeArguments(Type updated, Type other) {
       // A raw source type has no type arguments from which to restore nested annotations.
       if (!(other instanceof Type.ClassType) || other.isRaw()) {
         return updated;
@@ -612,9 +686,24 @@ public class TypeSubstitutionUtils {
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
     }
 
-    /** Returns a synthetic nullness annotation directly on {@code type}, if one is present. */
-    private static Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(
-        Type type) {
+    /** Returns a synthetic root nullness annotation for {@code type}, if one is present. */
+    private Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(Type type) {
+      if (type
+          instanceof
+          Type.IntersectionClassType
+              intersection) { // diff-coverage: ignore -- No distinguishing source reproducer for
+        // synthetic intersection annotations.
+        for (Type component : GenericsUtils.nullabilityMatchingComponents(intersection, config)) {
+          Attribute.TypeCompound annotation = getDirectSyntheticNullnessAnnotation(component);
+          if (annotation
+              != null) { // diff-coverage: ignore -- No source reproducer supplying a matching
+            // synthetic annotation.
+            return annotation; // diff-coverage: ignore -- No source reproducer supplying a matching
+            // synthetic annotation.
+          }
+        }
+        return null;
+      }
       for (Attribute.TypeCompound annotation : type.getAnnotationMirrors()) {
         if (annotation.type.tsym == null) {
           continue;
@@ -640,13 +729,28 @@ public class TypeSubstitutionUtils {
 
     /**
      * Updates the nullability annotations on a type {@code t} based on the nullability annotations
-     * on a type {@code other}.
+     * on a type {@code other}. When {@code other} is an intersection, copies the nullness
+     * annotation of the first explicit component that carries one and whose nullability matches the
+     * intersection's. If no such component exists, returns {@code t} unchanged.
      *
      * @param t the type to update
      * @param other the type to update from
      * @return the updated type, or {@code t} if no updates were made
      */
     private Type updateDirectNullabilityAnnotationsForType(Type t, Type other) {
+      if (other
+          instanceof
+          Type.IntersectionClassType
+              intersection) { // diff-coverage: ignore -- Retained annotation selection; no
+        // distinguishing source reproducer.
+        for (Type component : GenericsUtils.nullabilityMatchingComponents(intersection, config)) {
+          Type updated = updateDirectNullabilityAnnotationsForType(t, component);
+          if (updated != t) {
+            return updated;
+          }
+        }
+        return t;
+      }
       // first check for annotations directly on the type variable
       for (Attribute.TypeCompound annot : other.getAnnotationMirrors()) {
         if (annot.type.tsym == null) {
@@ -661,8 +765,11 @@ public class TypeSubstitutionUtils {
       return t;
     }
 
+    /**
+     * Replaces the type's top-level annotations with {@code annot}, preserving its Java type
+     * structure via {@link TypeSubstitutionUtils#typeWithAnnot(Type, Type)}.
+     */
     private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
-      // Construct and return an updated version of t with annotation annot.
       Type annotType = annot.type;
       return TypeSubstitutionUtils.typeWithAnnot(t, annotType);
     }
@@ -706,7 +813,19 @@ public class TypeSubstitutionUtils {
     }
   }
 
+  /**
+   * Replaces root annotations without changing a type's Java shape. Intersection root annotations
+   * are represented on components of a new intersection, never on a metadata clone of the
+   * intersection itself.
+   */
   public static Type typeWithAnnot(Type t, Type annotType) {
+    if (t instanceof Type.IntersectionClassType intersection) {
+      ListBuffer<Type> components = new ListBuffer<>();
+      for (Type component : intersection.getComponents()) {
+        components.append(typeWithAnnot(component, annotType));
+      }
+      return rebuildIntersection(intersection, components.toList());
+    }
     List<Attribute.TypeCompound> annotationCompound =
         List.from(
             Collections.singletonList(new Attribute.TypeCompound(annotType, List.nil(), null)));
@@ -723,9 +842,28 @@ public class TypeSubstitutionUtils {
    * @return the type without the {@code @Nullable} annotation
    */
   public static Type removeNullableAnnotation(Type argumentType, Config config) {
+    Verify.verify(GenericsUtils.isAnnotatedAsNullable(argumentType, config));
+    return withoutNullableRootAnnotations(argumentType, config);
+  }
+
+  /**
+   * Removes nullable root annotations if present, preserving structure and unrelated annotations.
+   */
+  private static Type withoutNullableRootAnnotations(Type type, Config config) {
+    if (type
+        instanceof
+        Type.IntersectionClassType
+            intersection) { // diff-coverage: ignore -- Retained structural removal; no
+      // distinguishing source reproducer.
+      ListBuffer<Type> components = new ListBuffer<>();
+      for (Type component : intersection.getComponents()) {
+        components.append(withoutNullableRootAnnotations(component, config));
+      }
+      return rebuildIntersection(intersection, components.toList());
+    }
     ListBuffer<Attribute.TypeCompound> updatedAnnotations = new ListBuffer<>();
     boolean removedNullable = false;
-    for (Attribute.TypeCompound annot : argumentType.getAnnotationMirrors()) {
+    for (Attribute.TypeCompound annot : type.getAnnotationMirrors()) {
       String annotationName = annot.type.toString();
       if (Nullness.isNullableAnnotation(annotationName, config)) {
         removedNullable = true;
@@ -733,9 +871,10 @@ public class TypeSubstitutionUtils {
       }
       updatedAnnotations.append(annot);
     }
-    Verify.verify(removedNullable);
-    return TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
-        argumentType, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()));
+    return removedNullable
+        ? TYPE_METADATA_BUILDER.cloneTypeWithMetadata(
+            type, TYPE_METADATA_BUILDER.create(updatedAnnotations.toList()))
+        : type;
   }
 
   /**
