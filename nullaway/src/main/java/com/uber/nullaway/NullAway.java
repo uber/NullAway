@@ -2329,16 +2329,26 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Type expressionType = ASTHelpers.getType(expr);
+    boolean elementNullable;
     if (expressionType != null && expressionType.getKind() == TypeKind.ARRAY) {
       Symbol arraySymbol = ASTHelpers.getSymbol(expr);
-      if (arraySymbol != null && isArrayElementNullable(arraySymbol, config)) {
-        // A nullable element is being unboxed to a primitive. This is unsafe.
-        ErrorMessage errorMessageUnbox =
-            new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
-        state.reportMatch(
-            errorBuilder.createErrorDescription(
-                errorMessageUnbox, buildDescription(loopVariable), state, null));
-      }
+      elementNullable = arraySymbol != null && isArrayElementNullable(arraySymbol, config);
+    } else {
+      elementNullable =
+          genericsChecks
+              .getEnhancedForLoopElementNullness(
+                  expr,
+                  state.withPath(new TreePath(state.getPath(), expr)),
+                  /* calledFromDataflow= */ false)
+              .equals(Nullness.NULLABLE);
+    }
+    if (elementNullable) {
+      // A nullable element is being unboxed to a primitive. This is unsafe.
+      ErrorMessage errorMessageUnbox =
+          new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
+      state.reportMatch(
+          errorBuilder.createErrorDescription(
+              errorMessageUnbox, buildDescription(loopVariable), state, null));
     }
 
     return Description.NO_MATCH;

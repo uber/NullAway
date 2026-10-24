@@ -921,6 +921,36 @@ public class AccessPathsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullCheckOfCastMapGetRefinesTheSameGet() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.Map;
+            class Test {
+              String conditional(Map<String, Object> m) {
+                return (String) m.get("k") == null ? "" : (String) m.get("k");
+              }
+              String ifNotNull(Map<String, Object> m) {
+                if ((String) m.get("k") != null) {
+                  return m.get("k").toString();
+                }
+                return "";
+              }
+              String otherKey(Map<String, Object> m) {
+                if ((String) m.get("k") != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'm.get("j")' is @Nullable
+                  return m.get("j").toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void mapKeyLiteralUnderCastIsTheSameKey() {
     defaultCompilationHelper
         .addSourceLines(

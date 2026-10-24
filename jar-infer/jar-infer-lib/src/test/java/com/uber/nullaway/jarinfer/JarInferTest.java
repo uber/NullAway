@@ -530,6 +530,30 @@ public class JarInferTest {
   }
 
   @Test
+  public void wildcardReturnTypes() throws Exception {
+    testTemplate(
+        "wildcardReturnTypes",
+        "generic",
+        "TestGeneric",
+        ImmutableMap.of(
+            "generic.TestGeneric:generic.TestGeneric.Generic<?> retUnbounded(java.lang.Object)",
+            Sets.newHashSet(0),
+            "generic.TestGeneric:generic.TestGeneric.Generic<? extends java.lang.String> retUpper(java.lang.Object)",
+            Sets.newHashSet(0),
+            "generic.TestGeneric:generic.TestGeneric.Generic<? super java.lang.String> retLower(java.lang.Object)",
+            Sets.newHashSet(0),
+            "generic.TestGeneric:generic.TestGeneric.Generic<? extends generic.TestGeneric.Generic<? super java.lang.String>> retNested(java.lang.Object)",
+            Sets.newHashSet(0)),
+        "public class TestGeneric {",
+        "  public abstract static class Generic<T> {}",
+        "  public static Generic<?> retUnbounded(Object o) { o.toString(); return null; };",
+        "  public static Generic<? extends String> retUpper(Object o) { o.toString(); return null; };",
+        "  public static Generic<? super String> retLower(Object o) { o.toString(); return null; };",
+        "  public static Generic<? extends Generic<? super String>> retNested(Object o) { o.toString(); return null; };",
+        "}");
+  }
+
+  @Test
   public void multiArgWildcards() throws Exception {
     testTemplate(
         "multiArgWildcards",

@@ -482,6 +482,15 @@ public class TestLibraryModels implements LibraryModels {
                 "linkedBeforeVarargs(java.lang.Object,java.util.function.Supplier<? extends java.lang.Object>,java.lang.Object...)"),
             new PolyNullLocation(new Return(), ImmutableList.of()))
         .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods", "varargsContents(java.lang.Object...)"),
+            new PolyNullLocation(new Parameter(0), ImmutableList.of()))
+        .put(
+            methodRef(
+                "com.uber.lib.unannotated.PolyNullMethods", "varargsContents(java.lang.Object...)"),
+            new PolyNullLocation(
+                new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))
+        .put(
             methodRef("com.uber.lib.unannotated.PolyNullMethods", "outputOnly()"),
             new PolyNullLocation(
                 new Return(), ImmutableList.of(new TypePathEntry(TYPE_ARGUMENT, 0))))

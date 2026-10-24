@@ -38,7 +38,10 @@ file.
 To build the project locally the way CI does, publish NullAway with
 `ORG_GRADLE_PROJECT_RELEASE_SIGNING_ENABLED=false ./gradlew publishToMavenLocal`, copy
 `.github/workflows/use-snapshot.gradle.kts` into the checkout, and run
-`./gradlew --init-script use-snapshot.gradle.kts assemble` there.
+`./gradlew --init-script use-snapshot.gradle.kts assemble` there. For Caffeine, install JDK 26 and use
+`JAVA_VERSION=26 ./gradlew --init-script use-snapshot.gradle.kts assemble`
+to match its ErrorProne CI configuration. Caffeine's default Java 11 target selects JUnit 5; the Java 26 target selects
+JUnit 6 and enables NullAway checking of JUnit's annotated API, exposing additional generic-inference diagnostics.
 
 ## What CI does with each patch
 

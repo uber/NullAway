@@ -1166,6 +1166,10 @@ public class LibraryModelsHandler implements Handler {
             .put(methodRef("java.util.Optional", "orElse(T)"), 0)
             .put(methodRef("com.google.common.io.Closer", "<C>register(C)"), 0)
             .put(methodRef("java.util.Objects", "toString(java.lang.Object,java.lang.String)"), 1)
+            .put(methodRef("java.lang.System", "getProperty(java.lang.String,java.lang.String)"), 1)
+            .put(
+                methodRef("java.util.Properties", "getProperty(java.lang.String,java.lang.String)"),
+                1)
             .build();
 
     private static final ImmutableSet<MethodRef> ALWAYS_NULLABLE_RETURNS =

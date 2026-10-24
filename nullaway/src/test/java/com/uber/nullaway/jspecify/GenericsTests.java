@@ -6,7 +6,6 @@ import com.uber.nullaway.generics.JSpecifyJavacConfig;
 import java.util.Arrays;
 import java.util.List;
 import org.junit.Assume;
-import org.junit.Ignore;
 import org.junit.Test;
 
 public class GenericsTests extends NullAwayTestsBase {
@@ -281,6 +280,7 @@ public class GenericsTests extends NullAwayTestsBase {
                       @Override
                       public void onResult(@Nullable Integer value) {
                         removeCallback(this);
+                        Callback<@Nullable Integer> self = this;
                       }
                       void callOnResult() {
                         this.onResult(null);
@@ -295,6 +295,8 @@ public class GenericsTests extends NullAwayTestsBase {
                       public void onResult(Integer value) {
                         // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>
                         removeCallback(this);
+                        // BUG: Diagnostic contains: incompatible types: Callback<Integer> cannot be converted to Callback<@Nullable Integer>
+                        Callback<@Nullable Integer> self = this;
                       }
                       void callOnResult() {
                         // BUG: Diagnostic contains: passing @Nullable parameter 'null'
@@ -2936,7 +2938,6 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  @Ignore("https://github.com/uber/NullAway/issues/1155")
   @Test
   public void callWithConstructorReceiver() {
     makeHelper()
@@ -2951,6 +2952,8 @@ public class GenericsTests extends NullAwayTestsBase {
                 Inner<T> identity() { return this; }
               }
               Inner<@Nullable Object> mThing = new Inner<@Nullable Object>().identity();
+              // BUG: Diagnostic contains: incompatible types: Inner<@Nullable Object> cannot be converted to Inner<Object>
+              Inner<Object> mNonNullThing = new Inner<@Nullable Object>().identity();
             }
             """)
         .doTest();
