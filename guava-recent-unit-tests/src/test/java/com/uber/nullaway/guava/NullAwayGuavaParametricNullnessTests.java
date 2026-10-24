@@ -333,4 +333,75 @@ public class NullAwayGuavaParametricNullnessTests {
             """)
         .doTest();
   }
+
+  /**
+   * In JSpecify mode, the type arguments of a Guava functional interface decide the nullness of its
+   * parameters and return, and the non-null models of the standard mode do not apply.
+   */
+  @Test
+  public void jspecifyGuavaFunctionalInterfacesFollowTypeArguments() {
+    jspecifyCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.google.common.base.Function;
+            import com.google.common.base.Predicate;
+            import com.google.common.collect.Maps;
+            import com.google.common.util.concurrent.AsyncFunction;
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+              static void functionPassesNullToNullableArgument(Function<@Nullable String, String> f) {
+                f.apply(null);
+              }
+              static void functionPassesNullToNonNullArgument(Function<String, String> f) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                f.apply(null);
+              }
+              static Function<@Nullable String, Integer> functionDereferencesNullableParameter() {
+                // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                return s -> s.length();
+              }
+              static Function<String, Integer> functionDereferencesNonNullParameter() {
+                return s -> s.length();
+              }
+              static int functionDereferencesNullableResult(Function<String, @Nullable Integer> f) {
+                // BUG: Diagnostic contains: dereferenced expression 'f.apply("a")' is @Nullable
+                return f.apply("a").intValue();
+              }
+              static boolean predicatePassesNullToNullableArgument(Predicate<@Nullable String> p) {
+                return p.apply(null);
+              }
+              static boolean predicatePassesNullToNonNullArgument(Predicate<String> p) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                return p.apply(null);
+              }
+              static void asyncFunctionPassesNullToNullableArgument(
+                  AsyncFunction<@Nullable String, String> f) throws Exception {
+                f.apply(null);
+              }
+              static void asyncFunctionPassesNullToNonNullArgument(AsyncFunction<String, String> f)
+                  throws Exception {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                f.apply(null);
+              }
+              static void entryTransformerPassesNullToNullableArguments(
+                  Maps.EntryTransformer<@Nullable String, @Nullable String, String> t) {
+                t.transformEntry(null, null);
+              }
+              static void entryTransformerPassesNullToNonNullArgument(
+                  Maps.EntryTransformer<String, String, String> t) {
+                // BUG: Diagnostic contains: passing @Nullable parameter
+                t.transformEntry(null, "b");
+              }
+              static int entryTransformerDereferencesNullableResult(
+                  Maps.EntryTransformer<String, String, @Nullable Integer> t) {
+                // BUG: Diagnostic contains: dereferenced expression 't.transformEntry("a", "b")'
+                return t.transformEntry("a", "b").intValue();
+              }
+            }
+            """)
+        .doTest();
+  }
 }
