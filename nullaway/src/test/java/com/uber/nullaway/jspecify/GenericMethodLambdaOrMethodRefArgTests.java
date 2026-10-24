@@ -10,6 +10,119 @@ import org.junit.Test;
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
   @Test
+  public void issue2063InlineGenericMethodReference() {
+    checkInlineGenericMethodReference(
+        "@NullMarked interface Publisher<T extends @Nullable Object> {}");
+  }
+
+  @Test
+  public void issue2063InlineGenericMethodReferenceWithUnmarkedPublisher() {
+    checkInlineGenericMethodReference("@NullUnmarked interface Publisher<T> {}");
+  }
+
+  /** Checks the wildcard inference reproducer with either a marked or an unmarked publisher. */
+  private void checkInlineGenericMethodReference(String publisherDeclaration) {
+    makeHelper()
+        .addSourceLines(
+            "Repro.java",
+            """
+            package com.uber;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Repro {
+              %s
+              static class Mono<T extends @Nullable Object> implements Publisher<T> {
+                static <T extends @Nullable Object> Mono<T> from(Publisher<? extends T> source) {
+                  return new Mono<>();
+                }
+              }
+              Function<Publisher<?>, Object> assigned = Mono::from;
+              static void register(Function<Publisher<?>, Object> adapter) {}
+              static <Unused> void registerGeneric(Function<Publisher<?>, Object> adapter) {}
+              static class Adapter {
+                Adapter(Function<Publisher<?>, Object> adapter) {}
+              }
+              void inlineReference() { register(Mono::from); }
+              void parenthesizedReference() { register((Mono::from)); }
+              void constructorArgument() { new Adapter(Mono::from); }
+              void explicitTypeArgument() { register(Mono::<@Nullable Object>from); }
+              void lambda() { register(source -> Mono.from(source)); }
+              void assignedReference() {
+                Function<Publisher<?>, Object> adapter = Mono::from;
+                register(adapter);
+              }
+              void genericEnclosingCall() { registerGeneric(Mono::from); }
+              void explicitEnclosingTypeArgument() { Repro.<Object>registerGeneric(Mono::from); }
+            }
+            """
+                .formatted(publisherDeclaration))
+        .doTest();
+  }
+
+  @Test
+  public void genericMethodReferenceInferenceAgainstKnownTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+              static class Factory {
+                <T extends @Nullable Object> Box<T> box(T value) { return new Box<>(); }
+              }
+              static <T extends @Nullable Object> Box<T> box(T value) { return new Box<>(); }
+              static <T> Box<T> nonNullBox(T value) { return new Box<>(); }
+              @SafeVarargs
+              static <T extends @Nullable Object> Box<T> varargsBox(T... values) {
+                return new Box<>();
+              }
+              static void acceptsNonNull(Function<String, Box<String>> function) {}
+              static void acceptsNullable(
+                  Function<@Nullable String, Box<@Nullable String>> function) {}
+              static void acceptsBoth(Function<String, Box<String>> first,
+                  Function<@Nullable String, Box<@Nullable String>> second) {}
+              static void acceptsUnbound(
+                  BiFunction<Factory, @Nullable String, Box<@Nullable String>> function) {}
+              static void acceptsArray(
+                  Function<@Nullable String[], Box<@Nullable String>> function) {}
+              static void acceptsIncompatible(Function<@Nullable String, Box<String>> function) {}
+              void nonNullInputAndReturn() { acceptsNonNull(Test::box); }
+              void nullableInputAndReturn() { acceptsNullable(Test::box); }
+              void nonNullBoundWithNonNullInput() { acceptsNonNull(Test::nonNullBox); }
+              void boundReference(Factory factory) { acceptsNullable(factory::box); }
+              void unboundReference() { acceptsUnbound(Factory::box); }
+              void variableArityReference() { acceptsNullable(Test::varargsBox); }
+              void fixedArityReference() { acceptsArray(Test::varargsBox); }
+              void referencesAreInferredSeparately() {
+                acceptsBoth(Test::box, Test::box);
+              }
+              void incompatibleInputAndReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                acceptsIncompatible(Test::box);
+              }
+              void nonNullBoundWithNullableInput() {
+                // BUG: Diagnostic contains: inference failure: type variable T is constrained to be @Nullable
+                acceptsNullable(Test::nonNullBox);
+              }
+              void explicitTypeArgumentIsPreserved() {
+                // BUG: Diagnostic contains: referenced method
+                acceptsNullable(Test::<String>box);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void voidCompatibleLambdaDiscardsNullableGenericResult() {
     makeHelper()
         .addSourceLines(
