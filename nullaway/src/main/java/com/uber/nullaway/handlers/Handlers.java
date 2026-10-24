@@ -84,7 +84,10 @@ public class Handlers {
     }
     handlerListBuilder.add(new ContractCheckHandler(config));
     handlerListBuilder.add(new LombokHandler(config));
-    handlerListBuilder.add(new FluentFutureHandler(config));
+    // JSpecify mode gets the lambda return nullability from generic method inference instead.
+    if (!config.isJSpecifyMode()) {
+      handlerListBuilder.add(new FluentFutureHandler(config));
+    }
     handlerListBuilder.add(new JakartaPersistenceHandler());
     handlerListBuilder.add(new SpringHandler());
     CompositeHandler mainHandler = new CompositeHandler(handlerListBuilder.build());
