@@ -44,14 +44,14 @@
       "minimumReleaseAge": null
     },
     {
-      "description": "The errorProne entry in gradle/libs.versions.toml is the Error Prone release NullAway builds and tests against, and it tracks the newest one. It needs a group of its own because group:monorepos, which config:best-practices pulls in through config:recommended, otherwise collects every com.google.errorprone dependency into one error-prone-monorepo PR, pinned catalog entries included.",
+      "description": "The errorProne entry in gradle/libs.versions.toml is the Error Prone release that the test task runs on and that checks this build's own sources, and it tracks the newest one. It needs a group of its own because group:monorepos, which config:best-practices pulls in through config:recommended, otherwise collects every com.google.errorprone dependency into one error-prone-monorepo PR, pinned catalog entries included.",
       "matchJsonata": [
         "sharedVariableName in ['errorProne', 'libs.versions.errorProne']"
       ],
       "groupName": "libs.versions.errorProne"
     },
     {
-      "description": "The errorProneOldest entry in gradle/libs.versions.toml is the oldest Error Prone release NullAway supports: README.md gives 2.36.0 as the minimum, and testErrorProneOldest runs the test suite against it. Raising that floor is a decision rather than maintenance, so this entry takes 2.36.x patch releases only. This rule and the errorProne, errorProneJdk17 and guava rules match on sharedVariableName, the version-catalog alias Renovate records for a dependency, because the three Error Prone entries resolve to the same com.google.errorprone artifacts and no other stable field distinguishes them. Each rule also accepts a libs.versions.-prefixed spelling as insurance. Renovate reports the bare alias for every entry here, because it strips that prefix while more than one dependency shares a catalog entry; an entry that build.gradle reads through an ext property would keep the prefix if a refactor left a single dependency on it. Renaming an alias would therefore drop its pin without failing the validator, so the lint workflow checks the names separately. Each bound is written as a Gradle range. Renovate's gradle versioning has no '<' range syntax, so a bound of '< 2.37' in either allowedVersions or matchCurrentVersion parses as nothing and holds nothing back.",
+      "description": "The errorProneOldest entry in gradle/libs.versions.toml is the oldest Error Prone release NullAway supports: README.md gives 2.36.0 as the minimum, every module compiles against it, and testErrorProneOldest runs the test suite on it. Raising that floor is a decision rather than maintenance, so this entry takes 2.36.x patch releases only. This rule and the errorProne, errorProneJdk17 and guava rules match on sharedVariableName, the version-catalog alias Renovate records for a dependency, because the three Error Prone entries resolve to the same com.google.errorprone artifacts and no other stable field distinguishes them. Each rule also accepts a libs.versions.-prefixed spelling as insurance. Renovate reports the bare alias for every entry here, because it strips that prefix while more than one dependency shares a catalog entry; an entry that build.gradle reads through an ext property would keep the prefix if a refactor left a single dependency on it. Renaming an alias would therefore drop its pin without failing the validator, so the lint workflow checks the names separately. Each bound is written as a Gradle range. Renovate's gradle versioning has no '<' range syntax, so a bound of '< 2.37' in either allowedVersions or matchCurrentVersion parses as nothing and holds nothing back.",
       "matchJsonata": [
         "sharedVariableName in ['errorProneOldest', 'libs.versions.errorProneOldest']"
       ],
@@ -59,7 +59,7 @@
       "allowedVersions": "[,2.37)"
     },
     {
-      "description": "The errorProneJdk17 entry in gradle/libs.versions.toml holds the newest Error Prone that runs on JDK 17, because 2.43.0 and later require JDK 21 (#1401). The testJdk17 task puts its jars in front of the test classpath. This entry takes 2.42.x patch releases only.",
+      "description": "The errorProneJdk17 entry in gradle/libs.versions.toml holds the newest Error Prone that runs on JDK 17, because 2.43.0 and later require JDK 21 (#1401). The testJdk17 task runs the tests on it. This entry takes 2.42.x patch releases only.",
       "matchJsonata": [
         "sharedVariableName in ['errorProneJdk17', 'libs.versions.errorProneJdk17']"
       ],
@@ -75,7 +75,7 @@
       "allowedVersions": "[,32)"
     },
     {
-      "description": "The errorProneLatestSnapshot configuration in nullaway/build.gradle asks for 1.0-HEAD-SNAPSHOT, the marker that resolves to the current Error Prone snapshot in the Sonatype snapshot repository. Renovate reads the marker as version 1.0 and offers every release above it, and replacing it would break testErrorProneLatestSnapshot.",
+      "description": "nullaway/build.gradle pins the testErrorProneLatestSnapshot classpath to 1.0-HEAD-SNAPSHOT, the marker that resolves to the current Error Prone snapshot in the Sonatype snapshot repository. Renovate reads the marker as version 1.0 and offers every release above it, and replacing it would break testErrorProneLatestSnapshot.",
       "matchCurrentValue": "1.0-HEAD-SNAPSHOT",
       "enabled": false
     },

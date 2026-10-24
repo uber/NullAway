@@ -67,7 +67,17 @@ if (currentJavaVersion == JavaVersion.VERSION_21) {
 subprojects { project ->
     project.apply plugin: "net.ltgt.errorprone"
     project.dependencies {
+        // Error Prone checks this build's own sources with the newest release
         errorprone libs.error.prone.core
+    }
+    // Every source set compiles against the oldest supported Error Prone, so a use of a newer API fails to compile.
+    // Tests run on the newest release; testErrorProneOldest, testJdk17 and testErrorProneLatestSnapshot run on others.
+    project.plugins.withId("java") {
+        project.sourceSets.configureEach { sourceSet ->
+            project.configurations.named(sourceSet.compileClasspathConfigurationName) {
+                com.uber.nullaway.gradle.ErrorProneVersions.pin(it, oldestErrorProneVersion)
+            }
+        }
     }
     project.tasks.withType(JavaCompile) {
         dependsOn(installGitHooks)
