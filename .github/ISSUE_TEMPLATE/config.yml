@@ -4,3 +4,6 @@ contact_links:
   - name: Usage questions and support
     url: https://discord.gg/QH2F779
     about: Ask the NullAway community for help with setup, configuration, and usage.
+  - name: Configuration guide
+    url: https://github.com/uber/NullAway/wiki/Configuration
+    about: Look up NullAway options such as AnnotatedPackages, OnlyNullMarked, and JSpecifyMode.

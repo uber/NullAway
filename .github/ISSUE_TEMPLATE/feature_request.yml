@@ -5,23 +5,16 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for helping improve NullAway! Please search [existing issues](https://github.com/uber/NullAway/issues) before submitting a request.
+        Thanks for helping improve NullAway! Please search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue) before submitting a request.
         For large features, please discuss the proposal in an issue before investing in an implementation, as described in our [contributing guide](https://github.com/uber/NullAway/blob/master/CONTRIBUTING.md).
+        Before requesting support for an annotation or a JSpecify feature, check [Supported annotations](https://github.com/uber/NullAway/wiki/Supported-Annotations) and [JSpecify support](https://github.com/uber/NullAway/wiki/JSpecify-Support).
         For usage questions, you can ask in the [NullAway Discord server](https://discord.gg/QH2F779).
 
   - type: textarea
     id: problem
     attributes:
       label: Problem or use case
-      description: Describe the limitation you are facing and how it affects your use of NullAway.
-    validations:
-      required: true
-
-  - type: textarea
-    id: solution
-    attributes:
-      label: Proposed solution
-      description: Describe the behavior you would like, such as support for a Java language construct, a nullness annotation, a library, or a configuration option.
+      description: Describe what you are trying to do and what NullAway does today that prevents it. If you tried an existing option and it did not help, say what happened.
     validations:
       required: true
 
@@ -29,15 +22,23 @@ body:
     id: example
     attributes:
       label: Example and expected behavior
-      description: If applicable, include a small Java example with nullness annotations and explain which diagnostics NullAway should or should not report. For build integrations, include example configuration instead.
+      description: A small Java example with nullness annotations, what NullAway reports for it today, and what it should report instead. Put Java code in a ```java fenced block. For build integrations, include example configuration instead.
+    validations:
+      required: true
+
+  - type: textarea
+    id: solution
+    attributes:
+      label: Proposed solution
+      description: If you have an idea how NullAway could support this, such as a new configuration option or support for an annotation or a library, describe it here.
     validations:
       required: false
 
   - type: textarea
     id: alternatives
     attributes:
-      label: Alternatives considered
-      description: Describe any existing configuration options, library models, suppressions, or other workarounds you considered and why they are insufficient.
+      label: Current workarounds
+      description: Describe any configuration options, library models, suppressions, or other workarounds you use today and why they are not enough.
     validations:
       required: false
 

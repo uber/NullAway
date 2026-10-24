@@ -5,40 +5,57 @@ body:
   - type: markdown
     attributes:
       value: |
-        Thanks for using NullAway! Before filing, please search [existing issues](https://github.com/uber/NullAway/issues) to avoid duplicates.
+        Thanks for using NullAway! Before filing, please search [existing issues, including closed ones](https://github.com/uber/NullAway/issues?q=is%3Aissue), and link the closest related issue under "Additional context", if any.
         For help with configuration, see the [configuration guide](https://github.com/uber/NullAway/wiki/Configuration) or ask in the [NullAway Discord server](https://discord.gg/QH2F779).
 
-  - type: input
-    id: nullaway_version
+  - type: dropdown
+    id: kind
     attributes:
-      label: NullAway version
-      description: Include the full version number (major, minor, and patch), or the commit if using an unreleased build.
+      label: Kind of problem
+      description: |
+        Some missed errors are by design and listed in [Deliberate unsoundness](https://github.com/uber/NullAway/wiki/Deliberate-Unsoundness). [Error messages](https://github.com/uber/NullAway/wiki/Error-Messages) explains each diagnostic and how to address it.
+      options:
+        - False positive (NullAway reports an error on correct code)
+        - False negative (NullAway misses a nullness error)
+        - Crash (NullAway throws an exception)
+        - Other
     validations:
       required: true
 
-  - type: input
-    id: error_prone_version
+  - type: textarea
+    id: reproduction
     attributes:
-      label: Error Prone version
-      description: The version of error_prone_core used by your build.
+      label: Minimal reproducer
+      description: |
+        A small Java sample or test case, with imports and nullness annotations, that shows the problem when compiled with NullAway. Put the code in a ```java fenced block, and compile it once more after your last edit. If it needs a third-party library, name the library and its version.
+        You can instead link to a small reproducer repository and give the command to run.
+      placeholder: |
+        ```java
+        import org.jspecify.annotations.NullMarked;
+        import org.jspecify.annotations.Nullable;
+
+        @NullMarked
+        class Repro {
+          ...
+        }
+        ```
     validations:
       required: true
 
-  - type: input
-    id: java_version
+  - type: textarea
+    id: actual
     attributes:
-      label: JDK version
-      description: Include the JDK version used to compile the affected code, and the Java source or release level if different.
-      placeholder: "e.g. javac 21.0.6, compiling with --release 17"
+      label: Actual behavior
+      description: Paste the NullAway diagnostics or the stack trace as text, not as a screenshot. For a false negative, write "no error reported". No Markdown code fences are needed.
+      render: text
     validations:
       required: true
 
-  - type: input
-    id: build_tool
+  - type: textarea
+    id: expected
     attributes:
-      label: Build tool and version
-      description: Include relevant plugin versions, such as the Gradle Error Prone or NullAway plugin, and whether this is an Android build.
-      placeholder: "e.g. Gradle, Maven, Bazel, or direct javac invocation"
+      label: Expected behavior
+      description: Which diagnostic should or should not be reported, and on which expression, for example "no error on `x.foo()`". If the expectation comes from the JSpecify specification or the NullAway docs, link the section.
     validations:
       required: true
 
@@ -48,49 +65,65 @@ body:
       label: Describe the bug
       description: Explain what went wrong, such as an unexpected warning, a missing nullness error, or a compiler crash.
     validations:
-      required: true
-
-  - type: textarea
-    id: reproduction
-    attributes:
-      label: Steps to reproduce
-      description: |
-        A minimal Java code sample or test case that reproduces the issue is preferred. Include imports and nullness annotations, or link to a small reproducer repository and give the command to run it.
-        If you cannot provide a reproducer, describe the steps and include a stack trace or diagnostics below; a stack trace alone may not provide enough context.
-    validations:
-      required: true
+      required: false
 
   - type: textarea
     id: configuration
     attributes:
       label: NullAway configuration
       description: |
-        Include your NullAway compiler options and relevant build configuration, especially AnnotatedPackages or OnlyNullMarked, JSpecifyMode, custom nullness annotations, and library models if used.
-        Remove secrets and unrelated build configuration.
+        Include your NullAway compiler options, especially JSpecifyMode, AnnotatedPackages or OnlyNullMarked, custom nullness annotations, and library models if used. The options are described in [Configuration](https://github.com/uber/NullAway/wiki/Configuration).
+        You may replace internal package names. Remove secrets and unrelated build configuration if including a build file.
     validations:
       required: true
 
-  - type: textarea
-    id: expected
+  - type: input
+    id: nullaway_version
     attributes:
-      label: Expected behavior
-      description: Explain which diagnostics should or should not be reported, or what should happen instead.
+      label: NullAway version
+      description: Include the full version number (major, minor, and patch), or the commit if using an unreleased build.
+      placeholder: "e.g. 0.14.2"
     validations:
       required: true
 
-  - type: textarea
-    id: diagnostics
+  - type: input
+    id: error_prone_version
     attributes:
-      label: Actual diagnostics or stack trace
-      description: Paste compiler diagnostics, a stack trace, or relevant build output as text, if available. No Markdown code fences are needed.
-      render: text
+      label: Error Prone version
+      description: The version of error_prone_core used by your build.
+      placeholder: "e.g. 2.50.0"
+    validations:
+      required: true
+
+  - type: input
+    id: java_version
+    attributes:
+      label: JDK version
+      description: Include the JDK version used to compile the affected code, and the Java source or release level if different. See [Compatibility](https://github.com/uber/NullAway/wiki/Compatibility) for the supported JDK and Error Prone versions.
+      placeholder: "e.g. javac 21.0.6, compiling with --release 17"
+    validations:
+      required: true
+
+  - type: input
+    id: build_tool
+    attributes:
+      label: Build tool and plugin versions
+      description: Include relevant plugin versions, such as the Gradle Error Prone or NullAway plugin, and whether this is an Android build.
+      placeholder: "e.g. Gradle with net.ltgt.errorprone 5.1.1, Android"
     validations:
       required: false
+
+  - type: checkboxes
+    id: latest_release
+    attributes:
+      label: Latest release
+      options:
+        - label: I reproduced this with the latest NullAway release
 
   - type: textarea
     id: additional
     attributes:
       label: Additional context
-      description: Include any relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression. If you tested a newer release or main branch build, note the result here.
+      description: Include related issues, relevant dependencies, annotation processors, workarounds, or the last working NullAway version if this is a regression.
     validations:
       required: false
