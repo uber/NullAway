@@ -151,24 +151,43 @@ jobs:
       # Each project builds at a pinned commit, so a change upstream cannot fail an unrelated
       # NullAway PR. Renovate moves sha to the tip of branch; .github/third-party/README.md explains
       # how to patch a project whose fix upstream has not merged yet.
+      # build runs in the project checkout, with use-snapshot.gradle.kts copied there and
+      # NULLAWAY_VERSION set to the snapshot that publishToMavenLocal installed. A Gradle build takes
+      # the snapshot through the init script; a Maven build passes NULLAWAY_VERSION to the property
+      # its pom.xml reads the NullAway version from. Renovate's regex expects project, url, branch,
+      # and sha in that order, so build goes after sha.
       matrix:
         include:
           - project: caffeine
             url: https://github.com/ben-manes/caffeine.git
             branch: master
             sha: b9e876532a618690936c933f593911d0e3a9ce63
+            build: JAVA_VERSION=26 ./gradlew --init-script use-snapshot.gradle.kts assemble
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
             branch: main
             sha: 0c575d443dbdff69349a2369f40491c002dc2c96
+            build: ./gradlew --init-script use-snapshot.gradle.kts assemble
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
             branch: main
             sha: 21b4a5fac91d0c4e684cedba0c0ce1ceb8809315
+            build: ./gradlew --init-script use-snapshot.gradle.kts assemble
           - project: spring-boot
             url: https://github.com/spring-projects/spring-boot.git
             branch: main
             sha: 0d10cba89be586300791948e5608807882edb278
+            build: ./gradlew --init-script use-snapshot.gradle.kts assemble
+          - project: reactor-core
+            url: https://github.com/reactor/reactor-core.git
+            branch: main
+            sha: 3b41346f849a1c9f6646376bb7852b99d085b6a2
+            build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
+          - project: spring-batch
+            url: https://github.com/spring-projects/spring-batch.git
+            branch: main
+            sha: 76750dd772401ba5039c54c4e1d584ef500f2f32
+            build: ./mvnw -B -ntp -nsu -Dnullaway.version="$NULLAWAY_VERSION" -Dspring-javaformat.skip=true test-compile
     permissions:
       contents: read
     runs-on: ubuntu-latest
@@ -206,13 +225,13 @@ jobs:
       - name: Run ${{ matrix.project }} build
         env:
           PROJECT: ${{ matrix.project }}
+          BUILD: ${{ matrix.build }}
         run: |
           cp .github/workflows/use-snapshot.gradle.kts "/tmp/$PROJECT"
+          NULLAWAY_VERSION="$(sed -n 's/^VERSION_NAME=//p' gradle.properties)"
+          export NULLAWAY_VERSION
           cd "/tmp/$PROJECT"
-          if [[ "$PROJECT" == "caffeine" ]]; then
-            export JAVA_VERSION=26
-          fi
-          ./gradlew --init-script use-snapshot.gradle.kts assemble
+          eval "$BUILD"
   publish-snapshot:
     name: Publish snapshot to Maven Central
     needs:
