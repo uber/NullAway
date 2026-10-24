@@ -23,6 +23,7 @@
 package com.uber.nullaway;
 
 import static com.uber.nullaway.NullAwayTestDataConstants.UTIL_SOURCE;
+import static com.uber.nullaway.generics.JSpecifyJavacConfig.withJSpecifyModeArgs;
 
 import java.util.Arrays;
 import org.junit.Test;
@@ -1806,6 +1807,125 @@ public class CoreTests extends NullAwayTestsBase {
                 Integer y = null;
                 // BUG: Diagnostic contains: unboxing of a @Nullable expression
                 foo(y);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * A {@code @Nullable} annotation on a primitive-typed method, field, or parameter does not make
+   * its value nullable, since a primitive value cannot be null; the same uses of a {@code @Nullable
+   * Integer} or {@code @Nullable int[]} are still reported. Passing, returning, or assigning the
+   * value of such a method or field used to be reported as a {@code @Nullable} expression (issue
+   * #662).
+   */
+  @Test
+  public void nullableAnnotationOnPrimitiveDoesNotMakeValueNullable() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            class Test {
+              @Nullable int primitiveMethod() { return 0; }
+              @Nullable Integer boxedMethod() { return null; }
+              @Nullable int primitiveField;
+              @Nullable Integer boxedField;
+              @Nullable int[] arrayMethod() { return null; }
+              Object objectField = new Object();
+              void takeInt(int i) {}
+              void takeObject(Object o) {}
+              void arguments() {
+                takeInt(primitiveMethod());
+                takeInt(primitiveField);
+                takeObject(primitiveMethod());
+                takeObject(primitiveField);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'boxedMethod()'
+                takeObject(boxedMethod());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'boxedField'
+                takeObject(boxedField);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'arrayMethod()'
+                takeObject(arrayMethod());
+              }
+              void primitiveParameter(@Nullable int p) {
+                takeObject(p);
+              }
+              void boxedParameter(@Nullable Integer p) {
+                // BUG: Diagnostic contains: passing @Nullable parameter 'p'
+                takeObject(p);
+              }
+              Object returnPrimitive() {
+                return primitiveMethod();
+              }
+              Object returnBoxed() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                return boxedMethod();
+              }
+              void assignPrimitive() {
+                objectField = primitiveField;
+              }
+              void assignBoxed() {
+                // BUG: Diagnostic contains: assigning @Nullable expression
+                objectField = boxedField;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void jspecifyNullableOnPrimitiveDoesNotMakeValueNullableInJSpecifyMode() {
+    makeTestHelperWithArgs(
+            withJSpecifyModeArgs(
+                Arrays.asList(
+                    "-d",
+                    temporaryFolder.getRoot().getAbsolutePath(),
+                    "-XepOpt:NullAway:AnnotatedPackages=com.uber")))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            @SuppressWarnings("JSpecifyUnrecognizedAnnotationLocation")
+            class Test {
+              @Nullable int primitiveMethod() { return 0; }
+              @Nullable Integer boxedMethod() { return null; }
+              @Nullable int primitiveField;
+              void takeInt(int i) {}
+              void takeObject(Object o) {}
+              void arguments() {
+                takeInt(primitiveMethod());
+                takeInt(primitiveField);
+                takeObject(primitiveMethod());
+                // BUG: Diagnostic contains: passing @Nullable parameter 'boxedMethod()'
+                takeObject(boxedMethod());
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void castToNonNullOfNullableAnnotatedPrimitiveIsReported() {
+    defaultCompilationHelper
+        .addSourceLines("Util.java", UTIL_SOURCE)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import javax.annotation.Nullable;
+            import static com.uber.nullaway.testdata.Util.castToNonNull;
+            class Test {
+              @Nullable int primitiveMethod() { return 0; }
+              @Nullable Integer boxedMethod() { return null; }
+              Object castPrimitive() {
+                // BUG: Diagnostic contains: passing known @NonNull parameter 'primitiveMethod()'
+                return castToNonNull(primitiveMethod());
+              }
+              Object castBoxed() {
+                return castToNonNull(boxedMethod());
               }
             }
             """)
