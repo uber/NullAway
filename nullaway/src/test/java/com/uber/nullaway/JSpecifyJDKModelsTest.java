@@ -235,6 +235,31 @@ public class JSpecifyJDKModelsTest extends NullAwayTestsBase {
   }
 
   @Test
+  public void supplierGetWithNullableTypeArgumentIsNullable() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <R> void nullableTypeArgument(Supplier<@Nullable R> supplier) {
+                Object foo = supplier.get();
+                // BUG: Diagnostic contains: dereferenced expression 'foo' is @Nullable
+                foo.toString();
+              }
+              static <R> void nonNullTypeArgument(Supplier<R> supplier) {
+                Object foo = supplier.get();
+                foo.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void biConsumerNullableUpperBound() {
     makeHelper()
         .addSourceLines(
