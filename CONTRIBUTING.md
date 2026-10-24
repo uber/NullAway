@@ -73,7 +73,7 @@ The console lists each live mutant under its file and line, with the line's sour
 Third-party projects in CI
 --------------------------
 
-CI builds caffeine, spring-framework, junit-framework, and spring-boot with your NullAway changes. If a new check reports a false positive in one of them, fix it upstream and add the fix as a patch, as described in [.github/third-party/README.md](.github/third-party/README.md).
+CI builds caffeine, spring-framework, junit-framework, spring-boot, reactor-core, and spring-batch with your NullAway changes. If a new check reports a false positive in one of them, fix it upstream and add the fix as a patch, as described in [.github/third-party/README.md](.github/third-party/README.md).
 
 Guiding Principles
 ------------------
