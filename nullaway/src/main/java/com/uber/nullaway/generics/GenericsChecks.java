@@ -1636,6 +1636,7 @@ public final class GenericsChecks {
                 unused ->
                     PolyNullInference.createContext(
                         methodSymbol,
+                        invocationTree,
                         methodType,
                         locations,
                         getSyntheticNullableAnnotType(state),
@@ -3897,6 +3898,7 @@ public final class GenericsChecks {
     PolyNullInferenceContext inferenceContext =
         PolyNullInference.createContext(
             methodSymbol,
+            invocationTree,
             substitutedMethodType,
             locations,
             getSyntheticNullableAnnotType(state),

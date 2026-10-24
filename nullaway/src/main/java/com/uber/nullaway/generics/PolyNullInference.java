@@ -14,6 +14,7 @@ import com.uber.nullaway.LibraryModels.PolyNullLocation;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Parameter;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Position;
 import com.uber.nullaway.LibraryModels.PolyNullLocation.Return;
+import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.librarymodel.NestedTypePathUpdater;
 import java.util.ArrayList;
@@ -43,7 +44,7 @@ final class PolyNullInference {
       ImmutableList<PolyNullLocation> locations,
       Type.TypeVar inferenceVariable) {
 
-    /** Returns whether the overlay contains at least one modeled parameter location. */
+    /** Returns whether at least one modeled parameter location applies to the call. */
     boolean hasInputLocations() {
       return locations.stream().anyMatch(location -> location.position() instanceof Parameter);
     }
@@ -119,15 +120,23 @@ final class PolyNullInference {
    * locations.
    *
    * <p>Locations whose parameter index or type path does not exist in the method type are skipped.
-   * The returned context's {@code locations()} contains only locations that were replaced.
+   * The returned context's {@code locations()} contains only locations that were replaced, and a
+   * top-level location on the varargs array of a call that passes its elements individually. That
+   * array is created by javac and is non-null, so the location constrains nothing, and the overlay
+   * keeps the array type for the elements to be checked against its component type.
    */
   @SuppressWarnings({"ReferenceEquality", "TypeEquals"}) // deliberate reference equality checks
   static PolyNullInferenceContext createContext(
       Symbol.MethodSymbol methodSymbol,
+      MethodInvocationTree invocationTree,
       Type.MethodType methodType,
       ImmutableSet<PolyNullLocation> locations,
       Type nullableAnnotationType,
       VisitorState state) {
+    int individuallyPassedVarargsIndex =
+        methodSymbol.isVarArgs() && NullabilityUtil.isVarArgsCall(invocationTree)
+            ? methodType.argtypes.size() - 1
+            : -1;
     Map<Integer, java.util.List<PolyNullLocation>> locationsByParameter = new LinkedHashMap<>();
     ImmutableList.Builder<PolyNullLocation> appliedLocations = ImmutableList.builder();
     Type.TypeVar inferenceVariable =
@@ -149,6 +158,10 @@ final class PolyNullInference {
       Type updated = remaining.head;
       for (PolyNullLocation location :
           locationsByParameter.getOrDefault(parameterIndex, java.util.List.of())) {
+        if (parameterIndex == individuallyPassedVarargsIndex && location.typePath().isEmpty()) {
+          appliedLocations.add(location);
+          continue;
+        }
         Type replaced =
             NestedTypePathUpdater.replaceType(updated, location.typePath(), inferenceVariable);
         if (replaced != updated) {

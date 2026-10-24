@@ -62,6 +62,12 @@ public final class PolyNullMethods {
     return linked;
   }
 
+  /** Returns nullable contents, with nullness linked to the varargs array. */
+  public static List</* @PolyNull */ @Nullable Object> varargsContents(
+      Object /* @PolyNull */... values) {
+    return java.util.Collections.singletonList(null);
+  }
+
   /** Returns nullable contents, with a PolyNull model that has no input to infer from. */
   public static List</* @PolyNull */ @Nullable Object> outputOnly() {
     return java.util.Collections.singletonList(null);
