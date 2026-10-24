@@ -29,39 +29,6 @@ import org.jspecify.annotations.Nullable;
 public class TypeSubstitutionUtils {
 
   /**
-   * Reads root nullability, including the structural representation used for intersections. An
-   * intersection permits null only when every explicit component permits null; its implicit Object
-   * component is not an additional source-level non-null constraint.
-   */
-  public static boolean hasNullableRoot(Type type, Config config) {
-    if (type instanceof Type.IntersectionClassType intersection) {
-      for (Type component : intersection.getExplicitComponents()) {
-        if (!hasNullableRoot(component, config)) {
-          return false;
-        }
-      }
-      return true;
-    }
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
-  }
-
-  /**
-   * Returns whether explicit non-null evidence qualifies the root. One explicitly non-null
-   * intersection component excludes null; a merely unannotated component is not an explicit marker.
-   */
-  static boolean hasExplicitNonNullRoot(Type type, Config config) {
-    if (type instanceof Type.IntersectionClassType intersection) {
-      for (Type component : intersection.getExplicitComponents()) {
-        if (hasExplicitNonNullRoot(component, config)) {
-          return true;
-        }
-      }
-      return false;
-    }
-    return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config);
-  }
-
-  /**
    * Rebuilds a detached intersection with its original symbol and complete component list,
    * including implicit Object for interface-only intersections. Metadata cloning asserts on JDK 17
    * and loses the intersection representation on newer javac versions.
@@ -695,9 +662,9 @@ public class TypeSubstitutionUtils {
     /** Returns a synthetic root nullness annotation for {@code type}, if one is present. */
     private Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(Type type) {
       if (type instanceof Type.IntersectionClassType intersection) {
-        boolean nullable = hasNullableRoot(intersection, config);
+        boolean nullable = GenericsUtils.isAnnotatedAsNullable(intersection, config);
         for (Type component : intersection.getExplicitComponents()) {
-          if (hasNullableRoot(component, config) == nullable) {
+          if (GenericsUtils.isAnnotatedAsNullable(component, config) == nullable) {
             Attribute.TypeCompound annotation = getDirectSyntheticNullnessAnnotation(component);
             if (annotation != null) {
               return annotation;
@@ -741,9 +708,9 @@ public class TypeSubstitutionUtils {
      */
     private Type updateDirectNullabilityAnnotationsForType(Type t, Type other) {
       if (other instanceof Type.IntersectionClassType intersection) {
-        boolean nullable = hasNullableRoot(intersection, config);
+        boolean nullable = GenericsUtils.isAnnotatedAsNullable(intersection, config);
         for (Type component : intersection.getExplicitComponents()) {
-          if (hasNullableRoot(component, config) == nullable) {
+          if (GenericsUtils.isAnnotatedAsNullable(component, config) == nullable) {
             Type updated = updateDirectNullabilityAnnotationsForType(t, component);
             if (updated != t) {
               return updated;
@@ -766,7 +733,10 @@ public class TypeSubstitutionUtils {
       return t;
     }
 
-    /** Applies the annotation's type using the same structural representation as inferred roots. */
+    /**
+     * Replaces the type's top-level annotations with {@code annot}, preserving its Java type
+     * structure via {@link TypeSubstitutionUtils#typeWithAnnot(Type, Type)}.
+     */
     private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
       Type annotType = annot.type;
       return TypeSubstitutionUtils.typeWithAnnot(t, annotType);
@@ -839,7 +809,7 @@ public class TypeSubstitutionUtils {
    * @return the type without the {@code @Nullable} annotation
    */
   public static Type removeNullableAnnotation(Type argumentType, Config config) {
-    Verify.verify(hasNullableRoot(argumentType, config));
+    Verify.verify(GenericsUtils.isAnnotatedAsNullable(argumentType, config));
     return withoutNullableRootAnnotations(argumentType, config);
   }
 

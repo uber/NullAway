@@ -503,7 +503,7 @@ public final class ConstraintSolverImpl implements ConstraintSolver {
 
   /** Returns whether a type is explicitly nullable or is the null type. */
   private boolean isKnownNullable(Type t) {
-    return t instanceof NullType || TypeSubstitutionUtils.hasNullableRoot(t, config);
+    return t instanceof NullType || GenericsUtils.isAnnotatedAsNullable(t, config);
   }
 
   /**
