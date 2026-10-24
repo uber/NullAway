@@ -688,7 +688,7 @@ public class TypeSubstitutionUtils {
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
     }
 
-    /** Returns a synthetic root nullness annotation, including structural intersection roots. */
+    /** Returns a synthetic root nullness annotation for {@code type}, if one is present. */
     private Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(Type type) {
       if (type instanceof Type.IntersectionClassType intersection) {
         boolean nullable = hasNullableRoot(intersection, config);
