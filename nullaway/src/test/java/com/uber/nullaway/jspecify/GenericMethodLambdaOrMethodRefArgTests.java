@@ -9,6 +9,9 @@ import org.junit.Test;
 
 public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
 
+  // Integration control for fresh-variable bound rebinding in ConstraintSolverImpl: lambda member
+  // lookup must retain both the modeled bound and B<Integer>. It does not isolate typeWithAnnot's
+  // intersection branch; the separate-inference test below exercises the metadata-cloning crash.
   @Test
   public void modeledIntersectionBoundPreservesLambdaMemberType() {
     makeHelper()

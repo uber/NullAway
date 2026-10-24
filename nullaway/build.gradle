@@ -73,7 +73,6 @@ dependencies {
 
     testImplementation project(":annotations")
     testImplementation libs.junit4
-    testImplementation libs.test.parameter.injector
     testImplementation libs.error.prone.core
     testImplementation(libs.error.prone.test.helpers) {
         exclude group: "junit", module: "junit"
@@ -121,10 +120,6 @@ dependencies {
     // without this, some other version of the JetBrains annotations gets pulled in via transitive dependencies
     errorProneJdk17 libs.jetbrains.annotations
     errorProneOldest libs.jetbrains.annotations
-}
-
-tasks.named('compileTestJava', JavaCompile) {
-    options.compilerArgs += ['-parameters']
 }
 
 repositories {

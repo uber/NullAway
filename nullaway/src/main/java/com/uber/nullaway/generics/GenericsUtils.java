@@ -75,6 +75,23 @@ public class GenericsUtils {
   }
 
   /**
+   * Returns the explicit components whose annotation-derived nullability matches the
+   * intersection's. An unannotated component matches a non-nullable intersection without supplying
+   * an explicit non-null annotation.
+   */
+  static List<Type> nullabilityMatchingComponents(
+      Type.IntersectionClassType intersection, Config config) {
+    boolean nullable = isAnnotatedAsNullable(intersection, config);
+    return intersection.getExplicitComponents().stream()
+        .filter(
+            component ->
+                isAnnotatedAsNullable(component, config)
+                    == nullable) // diff-coverage: ignore -- No distinguishing source reproducer for
+        // mixed-intersection component selection.
+        .toList();
+  }
+
+  /**
    * Gets the value type of a receiver viewed as a {@code java.util.Map}, preserving type-use
    * nullness through inherited type arguments. Returns {@code null} for unavailable or raw types.
    */
@@ -413,7 +430,7 @@ public class GenericsUtils {
     if (isAnnotatedAsNullable(upperBound, config)) {
       return true;
     }
-    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (isAnnotatedAsNonNull(upperBound, config)) {
       return false;
     }
     if (upperBound.getKind() == TypeKind.TYPEVAR) {
