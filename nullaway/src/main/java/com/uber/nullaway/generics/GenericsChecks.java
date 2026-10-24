@@ -345,7 +345,7 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns which class type parameters permit nullable arguments, including intersection bounds.
+   * Returns which class type parameters permit nullable arguments.
    */
   private boolean[] getTypeParamsWithNullableUpperBound(Type type) {
     Symbol.TypeSymbol tsym = type.tsym;
