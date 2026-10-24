@@ -28,6 +28,9 @@ import javax.lang.model.element.Name;
  * ignored (due to a bug) before PR #765. This handler offers the best possible support for these
  * cases, at least until our generics support is mature enough to handle them.
  *
+ * <p>The handler is not registered in JSpecify mode, where generic method inference decides whether
+ * the lambda may return {@code null}.
+ *
  * <p>Note: Package {@code com.uber.nullaway.handlers.temporary} is meant for this sort of temporary
  * workaround handler, to be removed as future NullAway features make them unnecessary. This is a
  * hack, but the best of a bunch of bad options.
