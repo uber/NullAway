@@ -352,6 +352,57 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                   value.hashCode();
                 }
               }
+              interface Sink<E extends @Nullable Object> {
+                void accept(E e);
+              }
+              <T extends @Nullable Object> void typeVariableElementPassedAsTypeVariable(
+                  List<T> list, List<? extends T> wildcardList, Sink<T> sink) {
+                for (T value : list) {
+                  sink.accept(value);
+                }
+                for (T value : wildcardList) {
+                  sink.accept(value);
+                }
+                for (var value : list) {
+                  sink.accept(value);
+                }
+              }
+              static class Box<E extends @Nullable Object> {
+                Box(E e) {}
+                static <E extends @Nullable Object> Box<E> of(E e) {
+                  return new Box<>(e);
+                }
+              }
+              <T extends @Nullable Object> void typeVariableElementInfersTypeVariableTypeArgument(
+                  List<T> list) {
+                for (T value : list) {
+                  Box<T> constructed = new Box<>(value);
+                  Box<T> fromFactory = Box.of(value);
+                }
+              }
+              abstract static class Seq<T extends @Nullable Object> implements Iterable<T> {
+                abstract Seq<T> prepend(T t);
+                Seq<T> reverse(Seq<T> empty) {
+                  Seq<T> result = empty;
+                  for (T value : this) {
+                    result = result.prepend(value);
+                  }
+                  return result;
+                }
+              }
+              <T extends @Nullable Object> void typeVariableElementStoredInTypeVariableArray(
+                  List<T> list, T[] array) {
+                for (T value : list) {
+                  array[0] = value;
+                }
+              }
+              <T extends @Nullable Object> void nullableTypeVariableElementPassedAsTypeVariable(
+                  List<@Nullable T> list, Sink<T> sink) {
+                for (T value : list) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                  sink.accept(value);
+                }
+              }
               <T> void testNonNullTypeVariableUpperBound(
                   List<T> nonNullTypeVariableList,
                   List<? extends T> nonNullWildcardTypeVariableList) {
@@ -392,6 +443,72 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                 for (int x : nullableWildcardList) {}
                 // BUG: Diagnostic contains: unboxing of a @Nullable value
                 for (int x : nullableTypeVariableList) {}
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Without {@code JSpecifyExperimental}, an enhanced-for element of type {@code T} is non-null in
+   * dataflow, as in 0.14.0, while unboxing it is still reported.
+   */
+  @Test
+  public void typeVariableEnhancedForLoopWithoutJSpecifyExperimental() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                JSpecifyJavacConfig.JSPECIFY_MODE_FLAG,
+                JSpecifyJavacConfig.ADD_TYPE_ANNOTATIONS_FLAG,
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface Sink<E extends @Nullable Object> {
+                void accept(E e);
+              }
+              static class Box<E extends @Nullable Object> {
+                Box(E e) {}
+                static <E extends @Nullable Object> Box<E> of(E e) {
+                  return new Box<>(e);
+                }
+              }
+              <T extends @Nullable Object> void dereference(List<T> list) {
+                for (T value : list) {
+                  value.hashCode();
+                }
+              }
+              <T extends @Nullable Object> void passAsTypeVariable(List<T> list, Sink<T> sink) {
+                for (T value : list) {
+                  sink.accept(value);
+                }
+              }
+              <T extends @Nullable Object> void inferTypeVariableTypeArgument(List<T> list) {
+                for (T value : list) {
+                  Box<T> constructed = new Box<>(value);
+                  Box<T> fromFactory = Box.of(value);
+                }
+              }
+              <T extends @Nullable Object> void storeInTypeVariableArray(List<T> list, T[] array) {
+                for (T value : list) {
+                  array[0] = value;
+                }
+              }
+              <T extends @Nullable Object> void passNullableElement(
+                  List<@Nullable T> list, Sink<T> sink) {
+                for (T value : list) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                  sink.accept(value);
+                }
+              }
+              <T extends @Nullable Integer> void unbox(List<T> list) {
+                // BUG: Diagnostic contains: unboxing of a @Nullable value
+                for (int x : list) {}
               }
             }
             """)

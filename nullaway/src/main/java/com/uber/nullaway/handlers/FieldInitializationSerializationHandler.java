@@ -83,7 +83,7 @@ public class FieldInitializationSerializationHandler implements Handler {
     }
     String fieldName = field.getSimpleName().toString();
     boolean leavesNonNullAtExitPoint =
-        analysis.getNonnullFieldsOfReceiverAtExit(pathToMethod, state.context).stream()
+        analysis.getInitializedFieldsOfReceiverAtExit(pathToMethod, state.context).stream()
             .anyMatch(element -> element.getSimpleName().toString().equals(fieldName));
     if (!leavesNonNullAtExitPoint) {
       // Method does not keep the field @NonNull at exit point and fails the post condition to be an

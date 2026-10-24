@@ -19,6 +19,7 @@ import com.uber.nullaway.MethodParameterNullness;
 import com.uber.nullaway.NullabilityUtil;
 import com.uber.nullaway.Nullness;
 import com.uber.nullaway.generics.GenericsChecks;
+import com.uber.nullaway.generics.GenericsUtils;
 import com.uber.nullaway.generics.TypeSubstitutionUtils;
 import com.uber.nullaway.handlers.Handler;
 import java.util.List;
@@ -142,8 +143,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
           // Get the Nullness if the Annotation is directly written with the parameter
           fiArgumentNullness.setParameterNullness(i, NULLABLE);
         } else if (config.isJSpecifyMode()
-            && Nullness.hasNullableAnnotation(
-                overridenMethodParamTypeList.get(i).getAnnotationMirrors().stream(), config)) {
+            && GenericsUtils.isAnnotatedAsNullable(overridenMethodParamTypeList.get(i), config)) {
           // Get the Nullness if the Annotation is indirectly applied through a generic type if we
           // are in JSpecify mode
           fiArgumentNullness.setParameterNullness(i, NULLABLE);

@@ -339,6 +339,19 @@ public class NullnessStore implements Store<NullnessStore> {
   }
 
   /**
+   * Returns the fields of the receiver that hold a value their declared type admits: a non-null
+   * value, or a {@link Nullness#NO_CHANGE} value, which a field typed by the same type variable
+   * accepts.
+   *
+   * @return the initialized receiver fields
+   */
+  public Set<Element> getInitializedReceiverFields() {
+    Set<Element> result = getReceiverFields(Nullness.NONNULL);
+    result.addAll(getReceiverFields(Nullness.NO_CHANGE));
+    return result;
+  }
+
+  /**
    * Return all the static fields in the store that are Non-Null.
    *
    * @return Set of static fields (represented as {@code Element}s) that are non-null

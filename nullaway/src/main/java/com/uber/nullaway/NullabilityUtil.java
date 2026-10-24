@@ -529,13 +529,13 @@ public class NullabilityUtil {
    *
    * @param nullness The nullness value.
    * @return true if the nullness value represents a {@code Nullable} value. To be more specific, it
-   *     returns true if the nullness value is either {@link Nullness#NULL} or {@link
-   *     Nullness#NULLABLE}.
+   *     returns true if the nullness value is {@link Nullness#NULL}, {@link Nullness#NULLABLE}, or
+   *     {@link Nullness#NO_CHANGE}.
    */
   public static boolean nullnessToBool(Nullness nullness) {
     return switch (nullness) {
       case BOTTOM, NONNULL -> false;
-      case NULL, NULLABLE -> true;
+      case NULL, NULLABLE, NO_CHANGE -> true;
     };
   }
 

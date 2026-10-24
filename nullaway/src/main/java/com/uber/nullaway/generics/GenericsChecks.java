@@ -36,7 +36,6 @@ import com.sun.source.tree.VariableTree;
 import com.sun.source.tree.WildcardTree;
 import com.sun.source.util.TreePath;
 import com.sun.source.util.TreePathScanner;
-import com.sun.tools.javac.code.Attribute;
 import com.sun.tools.javac.code.BoundKind;
 import com.sun.tools.javac.code.Symbol;
 import com.sun.tools.javac.code.Symtab;
@@ -345,6 +344,7 @@ public final class GenericsChecks {
     }
   }
 
+  /** Returns which class type parameters permit nullable arguments. */
   private boolean[] getTypeParamsWithNullableUpperBound(Type type) {
     Symbol.TypeSymbol tsym = type.tsym;
     com.sun.tools.javac.util.List<Type> baseTypeArgs = tsym.type.getTypeArguments();
@@ -352,9 +352,7 @@ public final class GenericsChecks {
     for (int i = 0; i < baseTypeArgs.size(); i++) {
       Type typeVariable = baseTypeArgs.get(i);
       Type upperBound = typeVariable.getUpperBound();
-      com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-          upperBound.getAnnotationMirrors();
-      if (Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+      if (GenericsUtils.isAnnotatedAsNullable(upperBound, config)
           || handler.onOverrideClassTypeVariableUpperBound(type.tsym.toString(), i)) {
         result[i] = true;
       }
@@ -405,10 +403,8 @@ public final class GenericsChecks {
       if (nullableTypeArguments.containsKey(i)) {
         Type typeVariable = baseTypeVariables.get(i);
         Type upperBound = typeVariable.getUpperBound();
-        com.sun.tools.javac.util.List<Attribute.TypeCompound> annotationMirrors =
-            upperBound.getAnnotationMirrors();
         boolean hasNullableAnnotation =
-            Nullness.hasNullableAnnotation(annotationMirrors.stream(), config)
+            GenericsUtils.isAnnotatedAsNullable(upperBound, config)
                 || handler.onOverrideClassTypeVariableUpperBound(baseType.tsym.toString(), i);
         // if type variable's upper bound does not have @Nullable annotation then the instantiation
         // is invalid
@@ -1214,7 +1210,8 @@ public final class GenericsChecks {
    * @param state visitor state whose path points to {@code expression}
    * @param calledFromDataflow whether this method was called as part of dataflow analysis
    * @return the element nullness, or {@link Nullness#NONNULL} if the element type cannot be
-   *     resolved
+   *     resolved; {@link Nullness#NO_CHANGE} for an element whose type is, or is bounded by, a type
+   *     variable with a nullable upper bound
    */
   public Nullness getEnhancedForLoopElementNullness(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
@@ -2374,7 +2371,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns {@code type} with its top-level nullness updated to {@code nullness}.
+   * Returns {@code type} with its top-level nullness updated to {@code nullness}. A {@link
+   * Nullness#NO_CHANGE} value of a type variable or capture type takes the nullness of that type,
+   * so it is left unannotated.
    *
    * @param state the current visitor state
    * @param type the type to update
@@ -2382,7 +2381,8 @@ public final class GenericsChecks {
    * @return the updated type
    */
   Type updateTypeWithNullness(VisitorState state, Type type, Nullness nullness) {
-    if (NullabilityUtil.nullnessToBool(nullness)) {
+    if (NullabilityUtil.nullnessToBool(nullness)
+        && !(nullness.equals(Nullness.NO_CHANGE) && type instanceof Type.TypeVar)) {
       // refine to @Nullable
       if (isNullableAnnotated(type)) {
         return type;
@@ -3206,10 +3206,10 @@ public final class GenericsChecks {
       return true;
     }
     Type upperBound = substitutedTypeVar.getUpperBound();
-    if (Nullness.hasNullableAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isAnnotatedAsNullable(upperBound, config)) {
       return true;
     }
-    if (Nullness.hasNonNullAnnotation(upperBound.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(upperBound, config)) {
       return false;
     }
     // Member-type substitution (asMemberOf) can strip type-use @Nullable from a concrete method
@@ -3223,10 +3223,10 @@ public final class GenericsChecks {
     List<Symbol.TypeVariableSymbol> originalTypeParams = overriddenMethod.getTypeParameters();
     Type originalBound =
         (Type) ((TypeVariable) originalTypeParams.get(typeVarIndex).asType()).getUpperBound();
-    if (Nullness.hasNullableAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isAnnotatedAsNullable(originalBound, config)) {
       return true;
     }
-    if (Nullness.hasNonNullAnnotation(originalBound.getAnnotationMirrors().stream(), config)) {
+    if (GenericsUtils.isAnnotatedAsNonNull(originalBound, config)) {
       return false;
     }
     // Bound may still be a free type variable (e.g. subclass keeps the enclosing type parameter).
@@ -3455,7 +3455,9 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return nullness of the resolved invocation return type, or {@code NONNULL} when neither
-   *     generic substitution nor a PolyNull model can affect it
+   *     generic substitution nor a PolyNull model can affect it; {@link Nullness#NO_CHANGE} for a
+   *     wildcard such as {@code ? extends T} whose bound is a type variable with a nullable upper
+   *     bound
    */
   public Nullness getGenericReturnNullnessAtInvocation(
       Symbol.MethodSymbol invokedMethodSymbol,
@@ -4354,8 +4356,7 @@ public final class GenericsChecks {
    * @return Returns the Nullness of the type based on the Nullability annotation.
    */
   private static Nullness getTypeNullness(Type type, Config config) {
-    boolean hasNullableAnnotation =
-        Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    boolean hasNullableAnnotation = GenericsUtils.isAnnotatedAsNullable(type, config);
     if (hasNullableAnnotation) {
       return Nullness.NULLABLE;
     }
@@ -4370,7 +4371,8 @@ public final class GenericsChecks {
    *
    * @param type type from which a value is read
    * @param state visitor state
-   * @return nullness of a value read from {@code type}
+   * @return nullness of a value read from {@code type}; {@link Nullness#NO_CHANGE} for a wildcard
+   *     whose effective upper bound is a type variable with a nullable upper bound
    */
   private Nullness getTypeNullnessForRead(Type type, VisitorState state) {
     return getTypeNullnessForRead(
@@ -4392,9 +4394,9 @@ public final class GenericsChecks {
    */
   public static NullnessHint getTypeNullnessHint(
       Type type, VisitorState state, Config config, Handler handler) {
-    if (getTypeNullnessForRead(
+    if (!getTypeNullnessForRead(
             type, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ false)
-        .equals(Nullness.NULLABLE)) {
+        .equals(Nullness.NONNULL)) {
       return NullnessHint.HINT_NULLABLE;
     }
     if (type instanceof Type.TypeVar typeVar
@@ -4415,7 +4417,9 @@ public final class GenericsChecks {
    * @param handler NullAway extension handler
    * @param followUnsubstitutedTypeVarUpperBound whether to use the upper bound when {@code type} is
    *     an unsubstituted type variable
-   * @return nullness of a value read from {@code type}
+   * @return nullness of a value read from {@code type}; {@link Nullness#NO_CHANGE} when the value
+   *     can be null only because a type variable reached through the bounds has a nullable upper
+   *     bound
    */
   private static Nullness getTypeNullnessForRead(
       Type type,
@@ -4443,9 +4447,15 @@ public final class GenericsChecks {
     }
     if (followUnsubstitutedTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
       Type upperBound = typeVar.getUpperBound();
-      if (upperBound != null) {
-        return getTypeNullnessForRead(
-            upperBound, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ true);
+      if (upperBound != null
+          && !getTypeNullnessForRead(
+                  upperBound,
+                  state,
+                  config,
+                  handler,
+                  /* followUnsubstitutedTypeVarUpperBound= */ true)
+              .equals(Nullness.NONNULL)) {
+        return Nullness.NO_CHANGE;
       }
     }
     return Nullness.NONNULL;
@@ -4543,7 +4553,7 @@ public final class GenericsChecks {
   }
 
   public boolean isNullableAnnotated(Type type) {
-    return Nullness.hasNullableAnnotation(type.getAnnotationMirrors().stream(), config);
+    return GenericsUtils.isAnnotatedAsNullable(type, config);
   }
 
   /**

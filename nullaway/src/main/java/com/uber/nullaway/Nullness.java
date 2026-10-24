@@ -40,13 +40,28 @@ public enum Nullness implements AbstractValue<Nullness> {
    * <pre>
    *        Nullable
    *       /        \
-   *   Null          Non-null
-   *        \      /
+   *      |      No-change
+   *   Null          |
+   *      |      Non-null
+   *       \        /
    *         Bottom
    * </pre>
    */
   NULLABLE("Nullable"),
   NULL("Null"),
+  /**
+   * A value read through a type variable {@code T} with a nullable upper bound, such as the result
+   * of {@code Box<? extends T>.get()} or an enhanced-for element of type {@code T}, which is null
+   * only when {@code T} is instantiated with a nullable type argument. This is the JSpecify {@code
+   * NO_CHANGE} nullness operator applied to {@code T}. Such a value is treated as nullable, except
+   * that it may be passed, returned, or stored where an unannotated {@code T} is expected, it
+   * initializes a field of type {@code T}, and generic method inference takes {@code T} from it. A
+   * parameter of type {@code T} is {@link #NONNULL}, not {@code NO_CHANGE}.
+   *
+   * @see <a href="https://jspecify.dev/docs/spec/#nullness-operator">JSpecify: nullness
+   *     operator</a>
+   */
+  NO_CHANGE("No-change"),
   NONNULL("Non-null"),
   BOTTOM("Bottom");
 
@@ -91,6 +106,9 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (other == BOTTOM) {
       return this;
     }
+    if (isNoChangeOrNonNull(this) && isNoChangeOrNonNull(other)) {
+      return NO_CHANGE;
+    }
     // They disagree, and neither is bottom.
     return NULLABLE;
   }
@@ -106,8 +124,20 @@ public enum Nullness implements AbstractValue<Nullness> {
     if (other == NULLABLE) {
       return this;
     }
+    if (isNoChangeOrNonNull(this) && isNoChangeOrNonNull(other)) {
+      return NONNULL;
+    }
+    // Not a lattice meet: Null and No-change are incomparable, but a no-change value may be null,
+    // so an equality test against null refines it to Null rather than to Bottom.
+    if ((this == NULL && other == NO_CHANGE) || (this == NO_CHANGE && other == NULL)) {
+      return NULL;
+    }
     // They disagree, and neither is nullable.
     return BOTTOM;
+  }
+
+  private static boolean isNoChangeOrNonNull(Nullness nullness) {
+    return nullness == NO_CHANGE || nullness == NONNULL;
   }
 
   /**
@@ -133,7 +163,7 @@ public enum Nullness implements AbstractValue<Nullness> {
    */
   public Nullness deducedValueWhenNotEqual() {
     return switch (this) {
-      case NULLABLE, NONNULL -> NULLABLE;
+      case NULLABLE, NO_CHANGE, NONNULL -> NULLABLE;
       case NULL -> NONNULL;
       case BOTTOM -> BOTTOM;
     };

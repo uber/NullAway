@@ -9,6 +9,47 @@ import org.junit.Test;
 public class StreamNullabilityPropagatorTests extends NullAwayTestsBase {
 
   @Test
+  public void filterRefinesIntersectionElementType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.List;
+            import java.util.Objects;
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+
+              static List<Integer> hashCodes(@Nullable A a, B b) {
+                return Stream.of(a, b).filter(Objects::nonNull).map(x -> x.hashCode()).toList();
+              }
+
+              static int hash(I i) {
+                return i.hashCode();
+              }
+
+              static List<Integer> hashCodesByReferenceMissingFilter(@Nullable A a, B b) {
+                // BUG: Diagnostic contains: parameter i of referenced method is @NonNull
+                return Stream.of(a, b).map(Test::hash).toList();
+              }
+
+              static List<Integer> hashCodesMissingFilter(@Nullable A a, B b) {
+                // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                return Stream.of(a, b).map(x -> x.hashCode()).toList();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void filterRefinesStreamElementType() {
     makeHelper()
         .addSourceLines(
