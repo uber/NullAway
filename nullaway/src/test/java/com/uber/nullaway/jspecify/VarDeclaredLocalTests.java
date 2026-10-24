@@ -352,6 +352,57 @@ public class VarDeclaredLocalTests extends NullAwayTestsBase {
                   value.hashCode();
                 }
               }
+              interface Sink<E extends @Nullable Object> {
+                void accept(E e);
+              }
+              <T extends @Nullable Object> void typeVariableElementPassedAsTypeVariable(
+                  List<T> list, List<? extends T> wildcardList, Sink<T> sink) {
+                for (T value : list) {
+                  sink.accept(value);
+                }
+                for (T value : wildcardList) {
+                  sink.accept(value);
+                }
+                for (var value : list) {
+                  sink.accept(value);
+                }
+              }
+              static class Box<E extends @Nullable Object> {
+                Box(E e) {}
+                static <E extends @Nullable Object> Box<E> of(E e) {
+                  return new Box<>(e);
+                }
+              }
+              <T extends @Nullable Object> void typeVariableElementInfersTypeVariableTypeArgument(
+                  List<T> list) {
+                for (T value : list) {
+                  Box<T> constructed = new Box<>(value);
+                  Box<T> fromFactory = Box.of(value);
+                }
+              }
+              abstract static class Seq<T extends @Nullable Object> implements Iterable<T> {
+                abstract Seq<T> prepend(T t);
+                Seq<T> reverse(Seq<T> empty) {
+                  Seq<T> result = empty;
+                  for (T value : this) {
+                    result = result.prepend(value);
+                  }
+                  return result;
+                }
+              }
+              <T extends @Nullable Object> void typeVariableElementStoredInTypeVariableArray(
+                  List<T> list, T[] array) {
+                for (T value : list) {
+                  array[0] = value;
+                }
+              }
+              <T extends @Nullable Object> void nullableTypeVariableElementPassedAsTypeVariable(
+                  List<@Nullable T> list, Sink<T> sink) {
+                for (T value : list) {
+                  // BUG: Diagnostic contains: passing @Nullable parameter 'value'
+                  sink.accept(value);
+                }
+              }
               <T> void testNonNullTypeVariableUpperBound(
                   List<T> nonNullTypeVariableList,
                   List<? extends T> nonNullWildcardTypeVariableList) {

@@ -172,7 +172,9 @@ public class ContractCheckHandler implements Handler {
           for (TreePath expressionPath : allPossiblyReturnedExpressions) {
             Nullness nullness =
                 nullnessAnalysis.getNullnessForContractDataflow(expressionPath, state.context);
-            if (nullness == Nullness.NULLABLE || nullness == Nullness.NULL) {
+            if (nullness == Nullness.NULLABLE
+                || nullness == Nullness.NULL
+                || nullness == Nullness.NO_CHANGE) {
               if (nullnessAnalysis.isUnreachableForContractDataflow(
                   expressionPath, state.context)) {
                 // The contract antecedent makes this branch unreachable.

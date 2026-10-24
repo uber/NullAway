@@ -1204,7 +1204,7 @@ public class AccessPathNullnessPropagation
           // PolyNull inference accounts for nullable lambda and method-reference results that
           // are not reflected in javac's type arguments for the callback. A non-null result
           // guarantees that the key is mapped to a non-null value after the call.
-          if (!genericReturnIsNullable(node)) {
+          if (genericReturnNullness(node).equals(NONNULL)) {
             bothUpdates.set(getAccessPath, NONNULL);
           }
           return;
@@ -1255,8 +1255,8 @@ public class AccessPathNullnessPropagation
       MethodInvocationNode node,
       TransferInput<Nullness, NullnessStore> input,
       NullnessHint returnValueNullnessHint) {
-    // NULLABLE is our default
     Nullness nullness;
+    Nullness enhancedForLoopElementNullness = enhancedForLoopElementNullness(node);
     if (node != null && returnValueNullnessHint == NullnessHint.FORCE_NONNULL) {
       // A handler says this is definitely non-null; trust it. Note that FORCE_NONNULL is quite
       // dangerous, since it
@@ -1268,31 +1268,38 @@ public class AccessPathNullnessPropagation
       // we have a model saying return value is nullable.
       // still, rely on dataflow fact if there is one available
       nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
-    } else if (node != null && enhancedForLoopElementIsNullable(node)) {
+    } else if (!enhancedForLoopElementNullness.equals(NONNULL)) {
       // The CFG represents a read from an Iterable in an enhanced-for loop as a synthetic call to
-      // Iterator.next(); treat it as nullable
-      nullness = NULLABLE;
-    } else if (node == null
-        || methodReturnsNonNull.test(node)
-        || (!Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)
-            && !genericReturnIsNullable(node))) {
+      // Iterator.next(); use the nullness of the element type
+      nullness = enhancedForLoopElementNullness;
+    } else if (node == null || methodReturnsNonNull.test(node)) {
       // definite non-null return
       nullness = NONNULL;
     } else {
-      // rely on dataflow, assuming nullable if no fact
-      nullness = input.getRegularStore().valueOfMethodCall(node, state, NULLABLE, apContext);
+      Nullness declaredNullness =
+          Nullness.hasNullableAnnotation((Symbol) node.getTarget().getMethod(), config)
+              ? NULLABLE
+              : genericReturnNullness(node);
+      // rely on dataflow, assuming the declared nullness if no fact
+      nullness =
+          declaredNullness.equals(NONNULL)
+              ? NONNULL
+              : input.getRegularStore().valueOfMethodCall(node, state, declaredNullness, apContext);
     }
     return nullness;
   }
 
-  /** Returns whether {@code node} reads a nullable element for an enhanced-for loop. */
-  private boolean enhancedForLoopElementIsNullable(MethodInvocationNode node) {
+  /**
+   * Returns the nullness of the element that {@code node} reads for an enhanced-for loop, or {@link
+   * Nullness#NONNULL} if {@code node} is not such a read.
+   */
+  private Nullness enhancedForLoopElementNullness(MethodInvocationNode node) {
     if (!config.isJSpecifyMode()) {
-      return false;
+      return NONNULL;
     }
     ExpressionTree iterableExpression = node.getIterableExpression();
     if (iterableExpression == null) {
-      return false;
+      return NONNULL;
     }
     TreePath loopPath = node.getTreePath();
     while (!(loopPath.getLeaf() instanceof EnhancedForLoopTree enhancedForLoop)
@@ -1304,10 +1311,8 @@ public class AccessPathNullnessPropagation
               iterableExpression);
     }
     TreePath expressionPath = new TreePath(loopPath, iterableExpression);
-    Nullness elementNullness =
-        genericsChecks.getEnhancedForLoopElementNullness(
-            iterableExpression, state.withPath(expressionPath), /* calledFromDataflow= */ true);
-    return elementNullness.equals(NULLABLE);
+    return genericsChecks.getEnhancedForLoopElementNullness(
+        iterableExpression, state.withPath(expressionPath), /* calledFromDataflow= */ true);
   }
 
   /**
@@ -1340,7 +1345,7 @@ public class AccessPathNullnessPropagation
    * @return nullability of the return type in the context of the type of the receiver argument at
    *     {@code node}
    */
-  private boolean genericReturnIsNullable(MethodInvocationNode node) {
+  private Nullness genericReturnNullness(MethodInvocationNode node) {
     if (node != null && config.isJSpecifyMode()) {
       MethodInvocationTree tree = node.getTree();
       if (tree != null) {
@@ -1349,13 +1354,11 @@ public class AccessPathNullnessPropagation
         // compilation unit; it's important to pass a `VisitorState` with an updated path here.  See
         // https://github.com/uber/NullAway/issues/1680
         VisitorState stateWithUpdatedPath = state.withPath(pathToInvocation);
-        Nullness nullness =
-            genericsChecks.getGenericReturnNullnessAtInvocation(
-                ASTHelpers.getSymbol(tree), tree, pathToInvocation, stateWithUpdatedPath, true);
-        return nullness.equals(NULLABLE);
+        return genericsChecks.getGenericReturnNullnessAtInvocation(
+            ASTHelpers.getSymbol(tree), tree, pathToInvocation, stateWithUpdatedPath, true);
       }
     }
-    return false;
+    return NONNULL;
   }
 
   @Override

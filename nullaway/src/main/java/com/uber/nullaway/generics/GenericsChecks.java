@@ -1210,7 +1210,8 @@ public final class GenericsChecks {
    * @param state visitor state whose path points to {@code expression}
    * @param calledFromDataflow whether this method was called as part of dataflow analysis
    * @return the element nullness, or {@link Nullness#NONNULL} if the element type cannot be
-   *     resolved
+   *     resolved; {@link Nullness#NO_CHANGE} for an element whose type is, or is bounded by, a type
+   *     variable with a nullable upper bound
    */
   public Nullness getEnhancedForLoopElementNullness(
       ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
@@ -2370,7 +2371,9 @@ public final class GenericsChecks {
   }
 
   /**
-   * Returns {@code type} with its top-level nullness updated to {@code nullness}.
+   * Returns {@code type} with its top-level nullness updated to {@code nullness}. A {@link
+   * Nullness#NO_CHANGE} value of a type variable or capture type takes the nullness of that type,
+   * so it is left unannotated.
    *
    * @param state the current visitor state
    * @param type the type to update
@@ -2378,7 +2381,8 @@ public final class GenericsChecks {
    * @return the updated type
    */
   Type updateTypeWithNullness(VisitorState state, Type type, Nullness nullness) {
-    if (NullabilityUtil.nullnessToBool(nullness)) {
+    if (NullabilityUtil.nullnessToBool(nullness)
+        && !(nullness.equals(Nullness.NO_CHANGE) && type instanceof Type.TypeVar)) {
       // refine to @Nullable
       if (isNullableAnnotated(type)) {
         return type;
@@ -3451,7 +3455,9 @@ public final class GenericsChecks {
    * @param state the visitor state
    * @param calledFromDataflow whether this method is being called from dataflow analysis
    * @return nullness of the resolved invocation return type, or {@code NONNULL} when neither
-   *     generic substitution nor a PolyNull model can affect it
+   *     generic substitution nor a PolyNull model can affect it; {@link Nullness#NO_CHANGE} for a
+   *     wildcard such as {@code ? extends T} whose bound is a type variable with a nullable upper
+   *     bound
    */
   public Nullness getGenericReturnNullnessAtInvocation(
       Symbol.MethodSymbol invokedMethodSymbol,
@@ -4365,7 +4371,8 @@ public final class GenericsChecks {
    *
    * @param type type from which a value is read
    * @param state visitor state
-   * @return nullness of a value read from {@code type}
+   * @return nullness of a value read from {@code type}; {@link Nullness#NO_CHANGE} for a wildcard
+   *     whose effective upper bound is a type variable with a nullable upper bound
    */
   private Nullness getTypeNullnessForRead(Type type, VisitorState state) {
     return getTypeNullnessForRead(
@@ -4387,9 +4394,9 @@ public final class GenericsChecks {
    */
   public static NullnessHint getTypeNullnessHint(
       Type type, VisitorState state, Config config, Handler handler) {
-    if (getTypeNullnessForRead(
+    if (!getTypeNullnessForRead(
             type, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ false)
-        .equals(Nullness.NULLABLE)) {
+        .equals(Nullness.NONNULL)) {
       return NullnessHint.HINT_NULLABLE;
     }
     if (type instanceof Type.TypeVar typeVar
@@ -4410,7 +4417,9 @@ public final class GenericsChecks {
    * @param handler NullAway extension handler
    * @param followUnsubstitutedTypeVarUpperBound whether to use the upper bound when {@code type} is
    *     an unsubstituted type variable
-   * @return nullness of a value read from {@code type}
+   * @return nullness of a value read from {@code type}; {@link Nullness#NO_CHANGE} when the value
+   *     can be null only because a type variable reached through the bounds has a nullable upper
+   *     bound
    */
   private static Nullness getTypeNullnessForRead(
       Type type,
@@ -4438,9 +4447,15 @@ public final class GenericsChecks {
     }
     if (followUnsubstitutedTypeVarUpperBound && type instanceof Type.TypeVar typeVar) {
       Type upperBound = typeVar.getUpperBound();
-      if (upperBound != null) {
-        return getTypeNullnessForRead(
-            upperBound, state, config, handler, /* followUnsubstitutedTypeVarUpperBound= */ true);
+      if (upperBound != null
+          && !getTypeNullnessForRead(
+                  upperBound,
+                  state,
+                  config,
+                  handler,
+                  /* followUnsubstitutedTypeVarUpperBound= */ true)
+              .equals(Nullness.NONNULL)) {
+        return Nullness.NO_CHANGE;
       }
     }
     return Nullness.NONNULL;
