@@ -483,10 +483,14 @@ public class TypeSubstitutionUtils {
         ListBuffer<Type> components = new ListBuffer<>();
         boolean changed = false;
         for (Type component : updated.getComponents()) {
-          Type corresponding =
-              other instanceof Type.IntersectionClassType source
-                  ? intersectionComponent(source, component.tsym)
-                  : component.tsym.equals(other.tsym) ? other : null;
+          Type corresponding;
+          if (other instanceof Type.IntersectionClassType source) {
+            corresponding = intersectionComponent(source, component.tsym);
+          } else if (component.tsym.equals(other.tsym)) {
+            corresponding = other;
+          } else {
+            corresponding = null;
+          }
           Type restored = corresponding == null ? component : visit(component, corresponding);
           components.append(restored);
           changed |= restored != component;
@@ -688,7 +692,7 @@ public class TypeSubstitutionUtils {
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
     }
 
-    /** Returns a synthetic root nullness annotation, including structural intersection roots. */
+    /** Returns a synthetic root nullness annotation for {@code type}, if one is present. */
     private Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(Type type) {
       if (type instanceof Type.IntersectionClassType intersection) {
         boolean nullable = hasNullableRoot(intersection, config);
