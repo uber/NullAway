@@ -12,6 +12,19 @@
     "every 2 weeks on Monday"
   ],
   "minimumReleaseAge": "7 days",
+  "customManagers": [
+    {
+      "customType": "regex",
+      "description": "The compile-other-projects job in continuous-integration.yml builds each third-party project at the commit in its sha field. This manager moves sha to the tip of the branch field, using url to find the repository. It matches project, url, branch, and sha only as consecutive lines in that order, so other fields of a matrix entry, such as build, go after sha.",
+      "managerFilePatterns": [
+        "/^\\.github/workflows/continuous-integration\\.yml$/"
+      ],
+      "matchStrings": [
+        "- project: (?<depName>\\S+)\\s+url: (?<packageName>\\S+)\\s+branch: (?<currentValue>\\S+)\\s+sha: (?<currentDigest>[0-9a-f]{40})"
+      ],
+      "datasourceTemplate": "git-refs"
+    }
+  ],
   "packageRules": [
     {
       "description": "A major update lands on the dependency dashboard for manual review instead of opening a PR. The rule matches every manager, so a major GitHub Actions or Gradle plugin bump goes to the dashboard too.",
@@ -79,6 +92,21 @@
         "com.android.support{/,}**"
       ],
       "enabled": false
+    },
+    {
+      "description": "The third-party projects that compile-other-projects builds move together in one weekly PR. A git-refs digest carries no release timestamp, so minimumReleaseAge would hold it back forever. updateNotScheduled is off so that the open PR keeps Monday's commits rather than moving to every new upstream commit and rerunning CI. The PR is where a patch in .github/third-party stops applying or turns out to be upstream already; .github/third-party/README.md says what to do then.",
+      "groupName": "third-party projects built in CI",
+      "matchManagers": [
+        "custom.regex"
+      ],
+      "matchDatasources": [
+        "git-refs"
+      ],
+      "schedule": [
+        "before 6am on Monday"
+      ],
+      "minimumReleaseAge": null,
+      "updateNotScheduled": false
     },
     {
       "description": "actions/* and github/* are maintained by GitHub and can update together. GitHub publishes them, so they skip the seven-day cooldown; an action from any other publisher waits it out.",

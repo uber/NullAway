@@ -95,6 +95,62 @@ public class GenericLambdaTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void parenthesizedPolyExpressionAssignedToFieldUsesAnnotatedTypeVar() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.function.Function;
+            @NullMarked
+            class Test {
+              static class Box<T extends @Nullable CharSequence> {
+                @Nullable Function<@Nullable T, T> field;
+              }
+              static String requireNonNull(String s) {
+                return s;
+              }
+              static @Nullable String acceptNullable(@Nullable String s) {
+                return s;
+              }
+              void assignLambda(Box<String> box) {
+                box.field = (t -> {
+                  // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
+                  t.length();
+                  return "";
+                });
+              }
+              void assignDoublyParenthesizedLambda(Box<String> box) {
+                box.field = ((t -> {
+                  // BUG: Diagnostic contains: dereferenced expression 't' is @Nullable
+                  t.length();
+                  return "";
+                }));
+              }
+              void assignMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                box.field = Test::requireNonNull;
+              }
+              void assignParenthesizedMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: parameter s of referenced method is @NonNull
+                box.field = (Test::requireNonNull);
+              }
+              void assignNullableReturningMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                box.field = Test::acceptNullable;
+              }
+              void assignParenthesizedNullableReturningMethodRef(Box<String> box) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                box.field = (Test::acceptNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaReturnedUsesAnnotatedTypeVar() {
     makeHelper()
         .addSourceLines(
@@ -149,6 +205,132 @@ public class GenericLambdaTests extends NullAwayTestsBase {
                     (@Nullable String t) -> {
                       return "hello";
                     });
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedLambdaParameterTypeArguments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            import java.util.function.BiConsumer;
+            import java.util.function.Consumer;
+            @NullMarked
+            class Test {
+              interface NullableElementsFi {
+                void apply(List<@Nullable String> list);
+              }
+              interface NonNullElementsFi {
+                void apply(List<String> list);
+              }
+              interface RawListFi {
+                @SuppressWarnings("rawtypes")
+                void apply(List list);
+              }
+              static void take(Consumer<List<@Nullable String>> consumer) {}
+              @SuppressWarnings("rawtypes")
+              void testRaw() {
+                Consumer rawTarget = (Object o) -> {};
+                RawListFi rawParameter = (List list) -> {};
+              }
+              void test() {
+                // BUG: Diagnostic contains: Parameter has type List<String>, but overridden method has parameter type List<@Nullable String>
+                NullableElementsFi nonNullElements = (List<String> list) -> {};
+                NullableElementsFi nullableElements = (List<@Nullable String> list) -> {};
+                NullableElementsFi implicit = list -> {};
+                // BUG: Diagnostic contains: Parameter has type List<@Nullable String>, but overridden method has parameter type List<String>
+                NonNullElementsFi invariant = (List<@Nullable String> list) -> {};
+                // BUG: Diagnostic contains: Parameter has type List<String>, but overridden method has parameter type List<@Nullable String>
+                Consumer<List<@Nullable String>> local = (List<String> list) -> {};
+                Consumer<List<@Nullable String>> localMatching = (List<@Nullable String> list) -> {};
+                // BUG: Diagnostic contains: Parameter has type List<String>, but overridden method has parameter type List<@Nullable String>
+                Consumer<? super List<@Nullable String>> wildcard = (List<String> list) -> {};
+                Consumer<? super List<@Nullable String>> wildcardMatching = (List<@Nullable String> list) -> {};
+                // BUG: Diagnostic contains: Parameter has type List<String>, but overridden method has parameter type List<@Nullable String>
+                Consumer<? extends List<@Nullable String>> extendsWildcard = (List<String> list) -> {};
+                Consumer<? extends List<@Nullable String>> extendsMatching = (List<@Nullable String> list) -> {};
+                BiConsumer<List<String>, List<@Nullable String>> second =
+                    // BUG: Diagnostic contains: Parameter has type List<String>, but overridden method has parameter type List<@Nullable String>
+                    (List<String> first, List<String> list) -> {};
+                BiConsumer<List<String>, List<@Nullable String>> bothMatching =
+                    (List<String> first, List<@Nullable String> list) -> {};
+                // BUG: Diagnostic contains: Parameter has type List<String>, but overridden method has parameter type List<@Nullable String>
+                take((List<String> list) -> {});
+                take((List<@Nullable String> list) -> {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedLambdaParameterTypeArgumentsInferGenericMethodTypeArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            import java.util.function.Consumer;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> void take(Consumer<List<T>> consumer) {}
+              static <T> void takeNonNull(Consumer<List<T>> consumer) {}
+              static <T extends @Nullable Object> void takeWith(List<T> list, Consumer<List<T>> consumer) {}
+              static <T extends @Nullable Object> void takeValue(T value, Consumer<T> consumer) {}
+              void test(List<@Nullable String> nullableElements, List<String> nonNullElements) {
+                take((List<@Nullable String> list) -> {});
+                take((List<String> list) -> {});
+                // BUG: Diagnostic contains: Parameter has type List<@Nullable String>, but overridden method has parameter type List<String>
+                takeNonNull((List<@Nullable String> list) -> {});
+                takeWith(nullableElements, (List<@Nullable String> list) -> {});
+                takeWith(nonNullElements, (List<String> list) -> {});
+                // BUG: Diagnostic contains: Parameter has type List<@Nullable String>, but overridden method has parameter type List<String>
+                takeWith(nonNullElements, (List<@Nullable String> list) -> {});
+                // BUG: Diagnostic contains: parameter s is @NonNull, but parameter in functional interface method
+                takeValue(null, (String s) -> {});
+              }
+              interface RawListFi {
+                @SuppressWarnings("rawtypes")
+                void apply(List list);
+              }
+              static <T> void takeRaw(T value, RawListFi consumer) {}
+              @SuppressWarnings("rawtypes")
+              void testRaw() {
+                takeRaw("", (List list) -> {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void explicitlyTypedLambdaParameterTypeArgumentsOutsideJSpecifyMode() {
+    makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              interface NullableElementsFi {
+                void apply(List<@Nullable String> list);
+              }
+              void test() {
+                NullableElementsFi nonNullElements = (List<String> list) -> {};
               }
             }
             """)

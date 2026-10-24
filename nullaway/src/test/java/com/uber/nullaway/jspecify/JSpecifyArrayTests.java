@@ -696,6 +696,33 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void explicitlyTypedLambdaParameterType() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              interface NullableElementsFi {
+                void apply(@Nullable Integer[] p);
+              }
+              interface NonNullElementsFi {
+                void apply(Integer[] p);
+              }
+              void test() {
+                // BUG: Diagnostic contains: Parameter has type Integer [], but overridden method has parameter type @Nullable Integer []
+                NullableElementsFi nonNullElements = (Integer[] p) -> {};
+                NullableElementsFi nullableElements = (@Nullable Integer[] p) -> {};
+                NullableElementsFi implicit = p -> {};
+                NonNullElementsFi contravariant = (@Nullable Integer[] p) -> {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void ternaryOperator() {
     makeHelper()
         .addSourceLines(
@@ -948,6 +975,41 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void indexUnderCastToItsOwnTypeIsTheSameIndex() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static @Nullable String[] fizz = {"1"};
+              static String intLiteralIndex() {
+                if (fizz[0] != null) {
+                  return fizz[(int) (0)].toString();
+                }
+                return "";
+              }
+              static String intVariableIndex(int i) {
+                if (fizz[i] != null) {
+                  return fizz[(int) (i)].toString();
+                }
+                return "";
+              }
+              static String narrowedLongIndex(long l) {
+                // (int) l converts l, so fizz[(int) l] has no access path
+                if (fizz[(int) l] != null) {
+                  // BUG: Diagnostic contains: dereferenced expression 'fizz[(int) l]' is @Nullable
+                  return fizz[(int) l].toString();
+                }
+                return "";
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void typeUseAndDeclarationAnnotationOnArray() {
     makeHelper()
         .addSourceLines(
@@ -1022,6 +1084,45 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
             class Test {
                void f(Integer[] array) {
                  for (int x : array) {}
+               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboxArrayElement() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+               void f(@Nullable Integer[] array) {
+                 for (int i = 0; i < array.length; i++) {
+                   // BUG: Diagnostic contains: unboxing of a @Nullable expression 'array[i]'
+                   int x = array[i];
+                 }
+               }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboxArrayElementNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+               void f(Integer[] array) {
+                 for (int i = 0; i < array.length; i++) {
+                   int x = array[i];
+                 }
                }
             }
             """)

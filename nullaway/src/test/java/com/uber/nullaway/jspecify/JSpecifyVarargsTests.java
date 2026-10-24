@@ -504,10 +504,6 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
         .doTest();
   }
 
-  /**
-   * This test is a WIP for restrictive annotations on varargs. More assertions still need to be
-   * written, and more support needs to be implemented.
-   */
   @Test
   public void testVarargsRestrictive() {
     makeTestHelperWithArgs(
@@ -566,6 +562,36 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
                 // BUG: Diagnostic contains: passing @Nullable parameter 'x'
                 Unannotated.takesVarargsTypeUseOnElements(x);
                 Unannotated.takesVarargsTypeUseOnElements(y);
+              }
+              public void testTypeUseOnBoth() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsTypeUseOnBoth(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsTypeUseOnBoth(y);
+              }
+              public void testBothOnArray() {
+                Object x = null;
+                Object[] y = null;
+                Unannotated.takesVarargsBothOnArray(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsBothOnArray(y);
+              }
+              public void testBothOnElements() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsBothOnElements(x);
+                Unannotated.takesVarargsBothOnElements(y);
+              }
+              public void testBothOnBoth() {
+                Object x = null;
+                Object[] y = null;
+                // BUG: Diagnostic contains: passing @Nullable parameter 'x'
+                Unannotated.takesVarargsBothOnBoth(x);
+                // BUG: Diagnostic contains: passing @Nullable parameter 'y'
+                Unannotated.takesVarargsBothOnBoth(y);
               }
             }
             """)
@@ -767,6 +793,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               }
               void test() {
                 RestrictiveVarargsFi fi =
+                    // BUG: Diagnostic contains: Parameter has type Object [], but overridden method has parameter type @Nullable Object []
                     (Object[] inputs) -> {
                       inputs.toString();
                     };

@@ -185,7 +185,7 @@ public class ConditionalExprTests extends NullAwayTestsBase {
                 var inferredFromInitializer = flag ? box(null) : box("fallback");
                 // TODO: we should infer Box<@Nullable Object> (or something like that) as the type
                 // of inferredFromInitializer, but currently we do not.  When we do, the next line
-                // should cause a NullAway warning.  Related to https://github.com/uber/NullAway/issues/1633
+                // should cause a NullAway warning.  See https://github.com/uber/NullAway/issues/2038
                 inferredFromInitializer.get().hashCode();
                 Box<@Nullable String> explicitNullableTarget =
                     flag ? box(null) : box("fallback");
@@ -274,6 +274,10 @@ public class ConditionalExprTests extends NullAwayTestsBase {
               }
               void test(boolean flag) {
                 var inferredFromInitializer = flag ? new Box<>(null) : new Box<>("fallback");
+                // TODO: we should infer Box<@Nullable Object> (or something like that) as the type
+                // of inferredFromInitializer, but currently we do not.  When we do, the next line
+                // should cause a NullAway warning.  See https://github.com/uber/NullAway/issues/2038
+                inferredFromInitializer.get().hashCode();
                 Box<@Nullable String> explicitNullableTarget =
                     flag ? new Box<>(null) : new Box<>("fallback");
                 Box<String> explicitNonNullTarget =

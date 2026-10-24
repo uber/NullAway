@@ -256,6 +256,38 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supplierMethodRefInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                static interface Supplier<T extends @Nullable Object> {
+                    T get();
+                }
+                static <R> void invoke(Supplier<@Nullable R> supplier) {}
+                static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {
+                    return supplier.get();
+                }
+                static @Nullable Object returnsNull() {
+                    return null;
+                }
+                static void test() {
+                    // legal, should infer R -> @Nullable Object
+                    invoke(Test::returnsNull);
+                    // legal, should infer R -> @Nullable Object
+                    Object x = invokeWithReturn(Test::returnsNull);
+                    // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                    x.hashCode();
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaConditionalExprBody() {
     makeHelper()
         .addSourceLines(
@@ -434,6 +466,648 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
               }
               private <T> @Nullable T create(Function<Foo, @Nullable T> factory) {
                 return factory.apply(new Foo() {});
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void issue1808ClassCastStreamPipeline() {
+    makeHelper()
+        .addSourceLines(
+            "Tester.java",
+            """
+            import java.io.Serializable;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            public class Tester {
+              public static void main(String[] args) {
+                List<Serializable> list = List.of("Hello", 100);
+                List<String> stringsLongerThanThree = list.stream()
+                    .filter(String.class::isInstance)
+                    .map(String.class::cast)
+                    .filter(s -> s.length() > 3)
+                    .toList();
+                System.out.println(stringsLongerThanThree);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefUsesInferredNullableParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> String applyTo(T value, Function<T, String> f) {
+                return f.apply(value);
+              }
+
+              void test(Object nonNull, @Nullable Object nullable) {
+                applyTo(nonNull, String.class::cast);
+                // The inferred T permits null, but the function promises a non-null String.
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.Function.apply(@Nullable Object) returns @NonNull
+                applyTo(nullable, String.class::cast);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundGetOrDefaultMethodRefInfersNonNullReturn() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Lookup<R extends @Nullable Object> {
+                R apply(Map<String, String> map, @Nullable Object key, String defaultValue);
+              }
+
+              static <R extends @Nullable Object> R lookup(
+                  Lookup<R> f, Map<String, String> map, @Nullable Object key, String defaultValue) {
+                return f.apply(map, key, defaultValue);
+              }
+
+              String test(Map<String, String> map, @Nullable Object key) {
+                // Both mapped values and the default are non-null; the key may be null.
+                return lookup(Map::getOrDefault, map, key, "fallback");
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void boundGetOrDefaultMethodRefReturnNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.HashMap;
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Values<V extends @Nullable Object, K> extends HashMap<K, V> {}
+              static <T> T identity(T value) { return value; }
+
+              BiFunction<String, String, String> nonNull(Map<String, String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inherited(Values<String, String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inferredReceiver(Map<String, String> map) {
+                return identity(map)::getOrDefault;
+              }
+              BiFunction<String, String, String> nullableValues(Map<String, @Nullable String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inheritedNullableValues(
+                  Values<@Nullable String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, String> inferredNullableReceiver(
+                  Map<String, @Nullable String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return identity(map)::getOrDefault;
+              }
+              BiFunction<String, @Nullable String, String> nullableDefault(Map<String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, @Nullable String> nullableResult(
+                  Map<String, @Nullable String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, @Nullable String, @Nullable String> nullableDefaultAndResult(
+                  Map<String, String> map) {
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, Object> wildcardValues(Map<String, ? super String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              BiFunction<String, String, Object> rawMap(Map map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundGetOrDefaultMethodRefReturnNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Lookup<V extends @Nullable Object, D extends @Nullable Object,
+                  R extends @Nullable Object> {
+                R apply(Map<String, V> map, String key, D defaultValue);
+              }
+              Lookup<String, String, String> nonNull() {
+                return Map::getOrDefault;
+              }
+              Lookup<@Nullable String, String, String> nullableValues() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+              Lookup<String, @Nullable String, String> nullableDefault() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+              Lookup<@Nullable String, String, @Nullable String> nullableResult() {
+                return Map::getOrDefault;
+              }
+              Lookup<String, @Nullable String, @Nullable String> nullableDefaultAndResult() {
+                return Map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultMethodRefsWithNullableDeclarationDefault() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import javax.annotation.Nullable;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface BoundLookup { String apply(String key, @Nullable String defaultValue); }
+              interface UnboundLookup {
+                String apply(Map<String, String> map, String key, @Nullable String defaultValue);
+              }
+
+              BoundLookup bound(Map<String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+
+              UnboundLookup unbound() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return Map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultMethodRefWithTypeVariableInputs() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <V extends String> BiFunction<String, V, String> nonNullBound(Map<String, V> map) {
+                return map::getOrDefault;
+              }
+              <V extends @Nullable String> BiFunction<String, @NonNull V, String> nonNullUses(
+                  Map<String, @NonNull V> map) {
+                return map::getOrDefault;
+              }
+              <V extends @Nullable String> BiFunction<String, @NonNull V, String> unresolvedValues(
+                  Map<String, V> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+              <V extends @Nullable String> void readUnresolvedValues(
+                  Map<String, V> map, @NonNull V defaultValue) {
+                // Direct reads of a bare V retain their existing non-null treatment.
+                map.getOrDefault("key", defaultValue).length();
+              }
+              <D extends @Nullable String> BiFunction<String, D, String> unresolvedDefault(
+                  Map<String, String> map) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return map::getOrDefault;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void getOrDefaultMethodRefsInferNullableReturns() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Map;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              interface Lookup<R extends @Nullable Object> {
+                R apply(Map<String, @Nullable String> map, String key, String defaultValue);
+              }
+              static <R extends @Nullable Object> R unbound(
+                  Lookup<R> f, Map<String, @Nullable String> map) {
+                return f.apply(map, "key", "fallback");
+              }
+              static <R extends @Nullable Object> R bound(BiFunction<String, String, R> f) {
+                return f.apply("key", "fallback");
+              }
+              void test(Map<String, @Nullable String> nullableMap, Map<String, String> nonNullMap) {
+                // BUG: Diagnostic contains: dereferenced expression
+                unbound(Map::getOrDefault, nullableMap).length();
+                // BUG: Diagnostic contains: dereferenced expression
+                bound(nullableMap::getOrDefault).length();
+                bound(nonNullMap::getOrDefault).length();
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void objectsToStringMethodRefReturnFollowsDefaultNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Objects;
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              BiFunction<@Nullable Object, String, String> nonNullDefault() {
+                return Objects::toString;
+              }
+
+              BiFunction<@Nullable Object, @Nullable String, String> nullableDefault() {
+                // Objects.toString(null, null) returns null.
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.BiFunction.apply(@Nullable Object,@Nullable String) returns @NonNull
+                return Objects::toString;
+              }
+
+              BiFunction<@Nullable Object, @Nullable String, @Nullable String> nullableResult() {
+                return Objects::toString;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastStreamPipelineInfersNullableElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Stream<@Nullable Object> input) {
+                // Class.cast preserves a null element; no expected return type supplies R.
+                input.map(String.class::cast)
+                    // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                    .filter(s -> s.length() > 3);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastStreamPipelineInfersNullableWildcardElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              void test(Stream<? extends @Nullable Object> input) {
+                input.map(String.class::cast)
+                    // BUG: Diagnostic contains: dereferenced expression 's' is @Nullable
+                    .filter(s -> s.length() > 3);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastStreamPipelineInfersNonNullWildcardElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              void test(Stream<? extends Object> input) {
+                input.map(String.class::cast).filter(s -> s.length() > 3);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Pins the existing conservative behavior for raw functional-interface targets. */
+  @Test
+  public void classCastMethodRefWithRawTarget() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              @SuppressWarnings("rawtypes")
+              Function rawFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /** Pins the existing conservative behavior for varargs functional-interface methods. */
+  @Test
+  public void classCastMethodRefWithVarargsFunctionalInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Caster { String apply(Object... values); }
+
+              Caster varargsFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method Test.Caster.apply(Object []) returns @NonNull
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void modeledConstructorReferenceProducesNonNullStreamElements() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.uber.lib.unannotated.ConditionalReturns;
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Stream<ConditionalReturns> test(Stream<@Nullable Object> input) {
+                // Constructor allocations remain non-null even with a nullable library model.
+                return input.map(ConditionalReturns::new);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void closerRegisterMethodReferenceFollowsArgumentNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import com.google.common.io.Closer;
+            import java.io.Closeable;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Function<Closeable, Closeable> nonNullInput(Closer closer) {
+                return closer::register;
+              }
+
+              Function<@Nullable Closeable, Closeable> nullableInput(Closer closer) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return closer::register;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void optionalOrElseMethodReferenceFollowsArgumentNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.Optional;
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Function<String, String> nonNullInput(Optional<String> optional) {
+                return optional::orElse;
+              }
+
+              Function<@Nullable String, String> nullableInput(Optional<String> optional) {
+                // BUG: Diagnostic contains: referenced method returns @Nullable
+                return optional::orElse;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithNullableDeclarationParameter() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import javax.annotation.Nullable;
+            import org.jspecify.annotations.NullMarked;
+
+            @NullMarked
+            class Test {
+              interface Caster { String apply(@Nullable Object value); }
+              interface NullableResult { @Nullable String apply(@Nullable Object value); }
+
+              Caster invalidFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method Test.Caster.apply(Object) returns @NonNull
+                return String.class::cast;
+              }
+
+              NullableResult nullableResult() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithUnresolvedArgumentNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <T extends @Nullable Object> Function<T, String> invalidFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.Function.apply(T) returns @NonNull
+                return String.class::cast;
+              }
+
+              <T extends @Nullable Object> Function<T, @Nullable String> nullableFunction() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithNonNullTypeVariableArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.Function;
+            import org.jspecify.annotations.NonNull;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              <T> Function<T, String> nonNullBound() {
+                return String.class::cast;
+              }
+
+              <T extends @Nullable Object> Function<@NonNull T, String> nonNullUse() {
+                return String.class::cast;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void classCastMethodRefWithNonNullArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.BiFunction;
+            import java.util.function.Function;
+            import java.util.stream.Stream;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              Stream<String> methodReference(Stream<Object> input) {
+                return input.map(String.class::cast);
+              }
+
+              Stream<String> lambda(Stream<Object> input) {
+                return input.map(value -> String.class.cast(value));
+              }
+
+              Stream<@Nullable String> nullableMethodReference(
+                  Stream<@Nullable Object> input) {
+                return input.map(String.class::cast);
+              }
+
+              Function<Object, String> nonNullFunction() {
+                return String.class::cast;
+              }
+
+              Function<@Nullable Object, @Nullable String> nullableFunction() {
+                return String.class::cast;
+              }
+
+              Function<@Nullable Object, String> invalidFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.Function.apply(@Nullable Object) returns @NonNull
+                return String.class::cast;
+              }
+
+              BiFunction<Class<String>, Object, String> unboundNonNullFunction() {
+                return Class::cast;
+              }
+
+              BiFunction<Class<String>, @Nullable Object, @Nullable String>
+                  unboundNullableFunction() {
+                return Class::cast;
+              }
+
+              BiFunction<Class<String>, @Nullable Object, String> invalidUnboundFunction() {
+                // BUG: Diagnostic contains: referenced method returns @Nullable, but functional interface method java.util.function.BiFunction.apply(Class<String>,@Nullable Object) returns @NonNull
+                return Class::cast;
               }
             }
             """)
@@ -949,6 +1623,74 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
                 twoConsume(Util::takeIntAndStrings, i, sNullable);
                 twoConsume(Util::takeIntAndNullableStrings, i, sNonNull);
                 twoConsume(Util::takeIntAndNullableStrings, i, sNullable);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundVarargsMethodRefWithNoVarargsArguments() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import java.util.function.BiFunction;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Receiver {
+                String join(String prefix, String... values) { return prefix; }
+              }
+
+              static <R extends @Nullable Object> R invoke(
+                  BiFunction<Receiver, String, R> f, Receiver receiver) {
+                return f.apply(receiver, "prefix");
+              }
+
+              String test(Receiver receiver) {
+                // The first function parameter is the receiver, leaving zero varargs arguments.
+                return invoke(Receiver::join, receiver);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void unboundVarargsMethodRefWithArrayArgument() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+
+            @NullMarked
+            class Test {
+              static class Receiver {
+                String join(String prefix, String... values) { return prefix; }
+              }
+              interface Joiner<V extends @Nullable Object, R extends @Nullable Object> {
+                R apply(Receiver receiver, String prefix, V values);
+              }
+
+              static <V extends @Nullable Object, R extends @Nullable Object> R invoke(
+                  Joiner<V, R> f, Receiver receiver, V values) {
+                return f.apply(receiver, "prefix", values);
+              }
+
+              String test(Receiver receiver, String[] values) {
+                // Fixed-arity adaptation passes the third function parameter as the varargs array.
+                return invoke(Receiver::join, receiver, values);
+              }
+
+              String nullableArray(Receiver receiver, String @Nullable [] values) {
+                // The referenced method declares a non-null varargs array parameter.
+                // BUG: Diagnostic contains: passing @Nullable parameter 'values' where @NonNull is required
+                return invoke(Receiver::join, receiver, values);
               }
             }
             """)

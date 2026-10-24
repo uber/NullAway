@@ -27,7 +27,6 @@ import static com.uber.nullaway.NullabilityUtil.getAnnotationValueArray;
 
 import com.google.errorprone.VisitorState;
 import com.google.errorprone.util.ASTHelpers;
-import com.sun.source.tree.LiteralTree;
 import com.sun.source.tree.MethodTree;
 import com.sun.source.tree.ReturnTree;
 import com.sun.source.tree.Tree;
@@ -199,24 +198,18 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
     nonNullFieldsInPath.addAll(nonNullStaticFieldsInPath);
     boolean allFieldsAreNonNull = nonNullFieldsInPath.containsAll(fieldNames);
 
-    // Whether the return true expression evaluates to a boolean literal or not.  If null, then not
-    // a boolean literal.
-    Boolean expressionAsBoolean = null;
-    if (ASTHelpers.stripParentheses(returnTree.getExpression())
-        instanceof LiteralTree expressionAsLiteral) {
-      if (expressionAsLiteral.getValue() instanceof Boolean) {
-        expressionAsBoolean = (Boolean) expressionAsLiteral.getValue();
-      }
-    }
+    // The value of the returned expression when it is a boolean constant expression, such as a
+    // literal, a cast of one, or a constant field; null otherwise.
+    Boolean expressionAsBoolean = ASTHelpers.constValue(returnTree.getExpression(), Boolean.class);
 
     /*
-     * Identify whether the expression is a boolean literal and whether
-     * it evaluates to the correct literal.
+     * Identify whether the expression is a boolean constant and whether
+     * it evaluates to the correct constant.
      * - If result param in annotation is set to true, then expression should return true.
      * - If result param in annotation is set to false, then expression should return false.
      */
-    boolean isBooleanLiteral = expressionAsBoolean != null;
-    boolean evaluatesToNonNullLiteral =
+    boolean isBooleanConstant = expressionAsBoolean != null;
+    boolean evaluatesToNonNullConstant =
         expressionAsBoolean != null && (trueIfNonNull == expressionAsBoolean);
 
     /*
@@ -227,14 +220,14 @@ public class EnsuresNonNullIfHandler extends AbstractFieldContractHandler {
      * - Semantics are valid
      *
      * If fields in path aren't verified:
-     * - If the literal boolean is the opposite of the configured non-null boolean, semantics
+     * - If the boolean constant is the opposite of the configured non-null boolean, semantics
      * are then correct, as the method correctly returns in case the semantics don't hold.
      * - Otherwise, semantics are wrong, as the method incorrectly returns.
-     * - If the expression isn't a literal boolean, then semantics are wrong, as we
+     * - If the expression isn't a boolean constant, then semantics are wrong, as we
      * assume it is possible that the configured non-null boolean can be returned.
      */
     if (!allFieldsAreNonNull) {
-      if (evaluatesToNonNullLiteral || !isBooleanLiteral) {
+      if (evaluatesToNonNullConstant || !isBooleanConstant) {
         fieldNames.removeAll(nonNullFieldsInPath);
         String message =
             String.format(

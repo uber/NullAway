@@ -1810,6 +1810,41 @@ public class FrameworkTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void streamFilterReturningFalseCastToBooleanRefinesTheMappedElement() {
+    streamChainCompilesCleanly(
+        "s.filter(b -> { if (b.get() == null) { return (boolean) (false); } return true; })"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamFilterReturningTrueCastToBooleanDoesNotRefineTheMappedElement() {
+    streamChainReportsNullableGet(
+        "s.filter(b -> { if (b.get() == null) { return (boolean) (true); } return true; })"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamFilterReturningAFalseConstantRefinesTheMappedElement() {
+    streamChainCompilesCleanly(
+        "s.filter(b -> { if (b.get() == null) { return REJECT; } return true; })"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
+  public void streamFilterReturningANonFinalFalseFieldDoesNotRefineTheMappedElement() {
+    streamChainReportsNullableGet(
+        "s.filter(b -> { if (b.get() == null) { return mayReject; } return true; })"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
+  public void observableFilterReturningFalseCastToBooleanRefinesTheMappedElement() {
+    streamChainCompilesCleanly(
+        "o.filter(b -> { if (b.get() == null) { return (boolean) (false); } return true; })"
+            + ".map(b -> b.get().length())");
+  }
+
+  @Test
   public void streamFilterCallInParenthesesWithoutANullCheckDoesNotRefineTheChainedMap() {
     streamChainReportsNullableGet("(s.filter(b -> true)).map(b -> b.get().length())");
   }
@@ -1837,7 +1872,8 @@ public class FrameworkTests extends NullAwayTestsBase {
   /**
    * Checks that NullAway reports nothing on {@code chain}, an expression over {@code s}, a {@code
    * Stream<B>}, and {@code o}, an RxJava {@code Observable<B>}, where {@code B.get()} is
-   * {@code @Nullable}.
+   * {@code @Nullable}. {@code chain} may also read {@code REJECT}, a constant {@code false}, and
+   * {@code mayReject}, a non-final field initialized to {@code false}.
    */
   private void streamChainCompilesCleanly(String chain) {
     compileStreamChain("", chain);
@@ -1867,6 +1903,8 @@ public class FrameworkTests extends NullAwayTestsBase {
             import java.util.stream.Stream;
             import javax.annotation.Nullable;
             class Test {
+              static final boolean REJECT = false;
+              static boolean mayReject = false;
               static class B {
                 @Nullable String v;
                 @Nullable String get() { return v; }
