@@ -81,11 +81,7 @@ public class GenericsUtils {
       Type.IntersectionClassType intersection, Config config) {
     boolean nullable = isAnnotatedAsNullable(intersection, config);
     return intersection.getExplicitComponents().stream()
-        .filter(
-            component ->
-                isAnnotatedAsNullable(component, config)
-                    == nullable) // diff-coverage: ignore -- No distinguishing source reproducer for
-        // mixed-intersection component selection.
+        .filter(component -> isAnnotatedAsNullable(component, config) == nullable)
         .toList();
   }
 

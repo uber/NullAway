@@ -45,6 +45,41 @@ public class GenericMethodTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nullCheckedIntersectionInstantiationIsNonNull() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              interface I {}
+              interface J {}
+              static final class A implements I, J {}
+              static final class B implements I, J {}
+              static <E extends @Nullable Object> E first(E a, E b) { return a; }
+              static <E extends @Nullable Object> E id(E value) { return value; }
+
+              static void rejectsNullableIntersection(@Nullable A a, B b) {
+                var value = first(a, b);
+                // BUG: Diagnostic contains: dereferenced expression
+                id(value).hashCode();
+              }
+
+              static void acceptsNullCheckedIntersection(@Nullable A a, B b) {
+                var value = first(a, b);
+                if (value != null) {
+                  id(value).hashCode();
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void sourceWrittenAllNullableIntersectionBounds() {
     makeHelper()
         .addSourceLines(
