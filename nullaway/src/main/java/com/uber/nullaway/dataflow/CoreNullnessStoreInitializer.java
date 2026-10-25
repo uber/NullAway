@@ -4,7 +4,6 @@ import static com.uber.nullaway.NullabilityUtil.castToNonNull;
 import static com.uber.nullaway.Nullness.NONNULL;
 import static com.uber.nullaway.Nullness.NULLABLE;
 
-import com.google.errorprone.util.ASTHelpers;
 import com.sun.source.tree.ClassTree;
 import com.sun.source.tree.LambdaExpressionTree;
 import com.sun.source.tree.VariableTree;
@@ -122,11 +121,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
      * analysis. By the time this method is called during the setup for the lambda's analysis, the
      * inferred type for the lambda argument will have already been computed and stored.
      */
-    Type lambdaType = castToNonNull(ASTHelpers.getType(code));
-    Type inferredType = genericsChecks.getInferredPolyExpressionType(code);
-    if (inferredType != null) {
-      lambdaType = inferredType;
-    }
+    Type lambdaType = castToNonNull(genericsChecks.getPolyExpressionType(code));
 
     // This obtains the types of the functional interface method parameters with preserved
     // annotations in case of generic type arguments.  Only used in JSpecify mode.
