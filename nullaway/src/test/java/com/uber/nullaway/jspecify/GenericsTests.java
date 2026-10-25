@@ -2332,8 +2332,9 @@ public class GenericsTests extends NullAwayTestsBase {
   }
 
   /**
-   * Type-argument nullness of an override is compared only against a marked overridden method; an
-   * unmarked one leaves it unspecified, as for arguments passed to an unmarked method.
+   * Type-argument nullness of an override is compared only against a marked overridden method; the
+   * type arguments of an unmarked one have unspecified nullness, as for the parameters of an
+   * unmarked method a call passes arguments to.
    */
   @Test
   public void overrideTypeArgumentNullnessCheckedOnlyAgainstMarkedMethod() {
