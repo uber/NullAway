@@ -137,7 +137,7 @@ import org.jspecify.annotations.Nullable;
  * may be null is annotated with {@link Nullable}, and then checks the following rules:
  *
  * <ul>
- *   <li>no assignment of a nullable expression into a non-null field
+ *   <li>no assignment of a nullable expression into a non-null field or parameter
  *   <li>no passing a nullable expression into a non-null parameter
  *   <li>no returning a nullable expression from a method with non-null return type
  *   <li>no field access or method invocation on an expression that is nullable
@@ -593,24 +593,13 @@ public class NullAway extends BugChecker
     }
     Type lhsType = ASTHelpers.getType(tree.getVariable());
     if (lhsType != null && lhsType.isPrimitive()) {
+      // For primitive assignments, we only need to do the unboxing check
       doUnboxingCheck(state, tree.getExpression());
-    }
-    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
-    if (assigned instanceof Symbol.MethodSymbol) {
-      // javac generates an AssignmentTree for setting an annotation attribute value.  E.g., for
-      // `@SuppressWarnings("foo")`, javac generates an AssignmentTree of the form `value() =
-      // "foo"`, where the LHS is a MethodSymbol.  We don't want to analyze these.
       return Description.NO_MATCH;
-    }
-    if (assigned != null && codeAnnotationInfo.isSymbolUnannotated(assigned, config, handler)) {
-      // assigning to symbol that is unannotated
-      return Description.NO_MATCH;
-    }
-    // generics check
-    if (lhsType != null && config.isJSpecifyMode()) {
-      genericsChecks.checkTypeParameterNullnessForAssignability(tree, state);
     }
 
+    // do nested checks that are required for all assignments
+    // first, arrays
     if (config.isJSpecifyMode() && tree.getVariable() instanceof ArrayAccessTree arrayAccess) {
       // check for a write of a @Nullable value into @NonNull array contents
       ExpressionTree arrayExpr = arrayAccess.getExpression();
@@ -623,37 +612,85 @@ public class NullAway extends BugChecker
         String message = "Writing @Nullable expression into array with @NonNull contents.";
         ErrorMessage errorMessage =
             new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
-        return errorBuilder.createErrorDescription(
-            errorMessage,
-            buildDescription(tree),
-            state,
-            ASTHelpers.getSymbol(arrayExpr),
-            expression);
+        state.reportMatch(
+            errorBuilder.createErrorDescription(
+                errorMessage,
+                buildDescription(tree),
+                state,
+                ASTHelpers.getSymbol(arrayExpr),
+                expression));
       }
     }
 
-    if (assigned == null || assigned.getKind() != ElementKind.FIELD) {
-      // not a field of nullable type
+    // generics check; skip for assignments to unannotated fields
+    Symbol assigned = ASTHelpers.getSymbol(tree.getVariable());
+    boolean assigningToUnannotatedField =
+        assigned != null
+            && assigned.getKind() == ElementKind.FIELD
+            && codeAnnotationInfo.isSymbolUnannotated(assigned, config, handler);
+    if (lhsType != null && config.isJSpecifyMode() && !assigningToUnannotatedField) {
+      genericsChecks.checkTypeParameterNullnessForAssignability(tree, state);
+    }
+
+    // now do the top-level checks
+    if (assigned == null) {
+      return Description.NO_MATCH;
+    }
+    if (assigned instanceof Symbol.MethodSymbol) {
+      // javac generates an AssignmentTree for setting an annotation attribute value.  E.g., for
+      // `@SuppressWarnings("foo")`, javac generates an AssignmentTree of the form `value() =
+      // "foo"`, where the LHS is a MethodSymbol.  We don't want to analyze these.
+      return Description.NO_MATCH;
+    }
+    if (assigningToUnannotatedField) {
+      return Description.NO_MATCH;
+    }
+    // we only care about assignments to parameters or fields; track which one in a boolean
+    boolean assigningToParameter;
+    if (assigned.getKind() == ElementKind.PARAMETER) {
+      assigningToParameter = true;
+    } else if (assigned.getKind() == ElementKind.FIELD) {
+      assigningToParameter = false;
+    } else {
       return Description.NO_MATCH;
     }
 
-    if (Nullness.hasNullableAnnotation(assigned, config)
-        || handler.onOverrideFieldNullability(assigned)) {
-      // field already annotated
-      return Description.NO_MATCH;
+    boolean assignedLocationIsNonNull;
+    if (assigningToParameter) {
+      assignedLocationIsNonNull =
+          ParameterNullness.getDeclaredNullness(
+                  (VarSymbol) assigned, state, genericsChecks, handler, config)
+              .equals(Nullness.NONNULL);
+    } else { // field assignment
+      assignedLocationIsNonNull =
+          !(Nullness.hasNullableAnnotation(assigned, config)
+              || handler.onOverrideFieldNullability(assigned));
     }
-    ExpressionTree expression = tree.getExpression();
-    if (mayBeNullExpr(state, expression)) {
-      String message = "assigning @Nullable expression to @NonNull field";
-      return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message),
-          expression,
-          buildDescription(tree),
-          state,
-          ASTHelpers.getSymbol(tree.getVariable()),
-          expression);
+
+    if (assignedLocationIsNonNull) {
+      ExpressionTree expression = tree.getExpression();
+      if (mayBeNullExpr(state, expression)) {
+        MessageTypes messageType;
+        String errorMessage;
+        if (assigningToParameter) {
+          messageType = MessageTypes.ASSIGN_PARAM_NULLABLE;
+          errorMessage = "assigning @Nullable expression to @NonNull parameter";
+        } else { // field
+          messageType = MessageTypes.ASSIGN_FIELD_NULLABLE;
+          errorMessage = "assigning @Nullable expression to @NonNull field";
+        }
+        return errorBuilder.createErrorDescriptionForNullAssignment(
+            new ErrorMessage(messageType, errorMessage),
+            expression,
+            buildDescription(tree),
+            state,
+            assigned,
+            expression);
+      }
     }
-    handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
+    if (!assigningToParameter && assignedLocationIsNonNull) {
+      handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
+    }
     return Description.NO_MATCH;
   }
 

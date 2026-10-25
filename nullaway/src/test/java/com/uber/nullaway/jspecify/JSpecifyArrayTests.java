@@ -1266,6 +1266,48 @@ public class JSpecifyArrayTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void arrayWriteChecksTopLevelAndNestedNullness() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static class Box<T extends @Nullable Object> {}
+
+              void rejectsTopLevelAndNestedMismatch(
+                  Box<String>[] target, @Nullable Box<@Nullable String> value) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                // incompatible types
+                target[0] = value;
+              }
+              void rejectsOnlyNestedMismatch(Box<String>[] target, Box<@Nullable String> value) {
+                // BUG: Diagnostic contains: incompatible types
+                target[0] = value;
+              }
+              void rejectsOnlyTopLevelMismatch(Box<String>[] target, @Nullable Box<String> value) {
+                // BUG: Diagnostic contains: Writing @Nullable expression into array with @NonNull contents
+                target[0] = value;
+              }
+              void nullableElementsStillRejectNestedMismatch(
+                  @Nullable Box<String>[] target, @Nullable Box<@Nullable String> value) {
+                // BUG: Diagnostic contains: incompatible types
+                target[0] = value;
+              }
+              void acceptsCompatibleAssignment(
+                  Box<@Nullable String>[] target, Box<@Nullable String> value) {
+                target[0] = value;
+              }
+              void acceptsNullableElement(@Nullable Box<String>[] target, @Nullable Box<String> value) {
+                target[0] = value;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void nullableTypeArgumentStoredInWildcardArraySlot() {
     makeHelper()
         .addSourceLines(

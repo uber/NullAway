@@ -353,6 +353,7 @@ public class ErrorBuilder {
           RETURN_NULLABLE,
           PASS_NULLABLE,
           ASSIGN_FIELD_NULLABLE,
+          ASSIGN_PARAM_NULLABLE,
           SWITCH_EXPRESSION_NULLABLE,
           UNBOX_NULLABLE -> {
         if (config.getCastToNonNullMethod() != null && canBeCastToNonNull(suggestTree)) {
@@ -384,7 +385,7 @@ public class ErrorBuilder {
   /**
    * create an error description for a generalized @Nullable value to @NonNull location assignment.
    *
-   * <p>This includes: field assignments, method arguments and method returns
+   * <p>This includes: field and parameter assignments, method arguments and method returns
    *
    * @param errorMessage the error message object.
    * @param suggestTreeIfCastToNonNull the location at which a fix suggestion should be made if a
