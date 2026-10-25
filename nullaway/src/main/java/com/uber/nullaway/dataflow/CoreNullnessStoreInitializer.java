@@ -159,12 +159,12 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       // we treat lambda parameters differently; they "inherit" the nullability of the
       // corresponding functional interface parameter, unless they are explicitly annotated.
       //
-      // We look for explicit @Nullable annotations on the symbol.  In JDK 27+, sometimes
-      // javac will add a @Nullable annotation to the Type of element based on its own generic
-      // inference.  We don't want to consider that here (it is handled in the type stored in
-      // fiArgumentNullness), so we only look at the annotations directly on element
+      // Read declaration and root type-use annotations written on the parameter, skipping
+      // element.asType(). In JDK 27+, javac can add an inferred @Nullable to that type; inherited
+      // nullness is already handled by fiArgumentNullness.
       if (Nullness.hasNullableAnnotation(
-          NullabilityUtil.getAllAnnotations((Symbol) element), config)) {
+          NullabilityUtil.getExplicitLambdaParameterAnnotations((Symbol.VarSymbol) element),
+          config)) {
         assumed = NULLABLE;
       } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation

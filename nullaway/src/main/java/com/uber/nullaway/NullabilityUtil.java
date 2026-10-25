@@ -196,6 +196,22 @@ public class NullabilityUtil {
   }
 
   /**
+   * Gets declaration and root type-use annotations written on a lambda parameter. Read the raw
+   * attributes from the parameter itself, since javac does not put them on the synthetic method
+   * owning a lambda in an initializer block. Avoid the parameter's type, which can carry
+   * annotations inferred by javac rather than written on the parameter.
+   *
+   * @param symbol the lambda parameter symbol
+   * @return the annotations explicitly written on the parameter's declaration or root type
+   */
+  public static Stream<? extends AnnotationMirror> getExplicitLambdaParameterAnnotations(
+      Symbol.VarSymbol symbol) {
+    return Stream.concat(
+        symbol.getAnnotationMirrors().stream(),
+        symbol.getRawTypeAttributes().stream().filter(t -> isDirectTypeUseAnnotation(t, symbol)));
+  }
+
+  /**
    * Check if any direct annotation a symbol matches a given predicate. Includes code for backward
    * compatibility with older JDKs where javac did not place type-use annotations on Symbols from
    * bytecodes.
