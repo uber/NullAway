@@ -161,7 +161,7 @@ jobs:
           - project: caffeine
             url: https://github.com/ben-manes/caffeine.git
             branch: master
-            sha: b9e876532a618690936c933f593911d0e3a9ce63
+            sha: c717630d481486ed57fc391ee977fbe602247634
             build: JAVA_VERSION=26 ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
