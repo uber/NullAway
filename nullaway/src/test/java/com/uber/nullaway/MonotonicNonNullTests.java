@@ -300,4 +300,43 @@ public class MonotonicNonNullTests extends NullAwayTestsBase {
             """)
         .doTest();
   }
+
+  @Test
+  public void monotonicNonNullDeclFieldNeedsNoInitialization() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.checkerframework.checker.nullness.compatqual.MonotonicNonNullDecl;
+            class Test {
+              @MonotonicNonNullDecl Object f;
+              Test() {}
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void monotonicNonNullDeclFieldIsNullableBeforeAssignment() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.checkerframework.checker.nullness.compatqual.MonotonicNonNullDecl;
+            class Test {
+              @MonotonicNonNullDecl Object f;
+              void testPositive() {
+                // BUG: Diagnostic contains: dereferenced expression 'f' is @Nullable
+                f.toString();
+              }
+              void testNegative() {
+                f = new Object();
+                f.toString();
+              }
+            }
+            """)
+        .doTest();
+  }
 }

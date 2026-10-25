@@ -184,12 +184,20 @@ public final class GenericsChecks {
    */
   private final Set<MethodInvocationTree> nestedNullabilityRepairInProgress = new LinkedHashSet<>();
 
-  public @Nullable Type getInferredPolyExpressionType(Tree tree) {
+  /**
+   * Returns the stored NullAway-inferred type of a lambda or method reference when available,
+   * otherwise its javac-attributed type.
+   *
+   * @param tree the lambda or method reference
+   * @return the expression's type, or {@code null} if neither inference nor javac provides one
+   */
+  public @Nullable Type getPolyExpressionType(Tree tree) {
     Preconditions.checkArgument(
         tree instanceof LambdaExpressionTree || tree instanceof MemberReferenceTree,
         "Expected lambda or method reference tree but got: %s",
         tree.getKind());
-    return inferredPolyExpressionTypes.get(tree);
+    Type inferredType = inferredPolyExpressionTypes.get(tree);
+    return inferredType != null ? inferredType : ASTHelpers.getType(tree);
   }
 
   /**
@@ -1208,16 +1216,17 @@ public final class GenericsChecks {
   }
 
   /**
-   * Gets the nullness of the element read from an enhanced-for expression during dataflow.
+   * Gets the nullness of the element read from an enhanced-for expression.
    *
    * @param expression expression iterated over by the enhanced-for loop
    * @param state visitor state whose path points to {@code expression}
+   * @param calledFromDataflow whether this method was called as part of dataflow analysis
    * @return the element nullness, or {@link Nullness#NONNULL} if the element type cannot be
    *     resolved
    */
-  public Nullness getEnhancedForLoopElementNullness(ExpressionTree expression, VisitorState state) {
-    Type elementType =
-        getEnhancedForLoopElementType(expression, state, /* calledFromDataflow= */ true);
+  public Nullness getEnhancedForLoopElementNullness(
+      ExpressionTree expression, VisitorState state, boolean calledFromDataflow) {
+    Type elementType = getEnhancedForLoopElementType(expression, state, calledFromDataflow);
     if (!config.handleWildcardGenerics()
         && elementType != null
         && GenericsUtils.asWildcard(elementType) != null) {
@@ -1636,6 +1645,7 @@ public final class GenericsChecks {
                 unused ->
                     PolyNullInference.createContext(
                         methodSymbol,
+                        invocationTree,
                         methodType,
                         locations,
                         getSyntheticNullableAnnotType(state),
@@ -3054,7 +3064,7 @@ public final class GenericsChecks {
     if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.EXPLICIT) {
       return;
     }
-    Type targetType = getTreeType(tree, state);
+    Type targetType = typeOrNullIfRawNonArray(getPolyExpressionType(tree));
     if (targetType == null) {
       return;
     }
@@ -3898,6 +3908,7 @@ public final class GenericsChecks {
     PolyNullInferenceContext inferenceContext =
         PolyNullInference.createContext(
             methodSymbol,
+            invocationTree,
             substitutedMethodType,
             locations,
             getSyntheticNullableAnnotType(state),

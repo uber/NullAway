@@ -345,6 +345,38 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void supplierMethodRefInference() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            import org.jspecify.annotations.*;
+            @NullMarked
+            class Test {
+                static interface Supplier<T extends @Nullable Object> {
+                    T get();
+                }
+                static <R> void invoke(Supplier<@Nullable R> supplier) {}
+                static <R extends @Nullable Object> R invokeWithReturn(Supplier<R> supplier) {
+                    return supplier.get();
+                }
+                static @Nullable Object returnsNull() {
+                    return null;
+                }
+                static void test() {
+                    // legal, should infer R -> @Nullable Object
+                    invoke(Test::returnsNull);
+                    // legal, should infer R -> @Nullable Object
+                    Object x = invokeWithReturn(Test::returnsNull);
+                    // BUG: Diagnostic contains: dereferenced expression 'x' is @Nullable
+                    x.hashCode();
+                }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void lambdaConditionalExprBody() {
     makeHelper()
         .addSourceLines(

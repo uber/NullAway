@@ -212,10 +212,7 @@ public class ContractHandler implements Handler {
       // The parameter type may be a type variable instantiated with a @Nullable type argument at
       // this use site, e.g. Function<@Nullable String, String>; ask GenericsChecks about it.
       GenericsChecks genericsChecks = analysis.getGenericsChecks();
-      Type functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(tree);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(tree);
-      }
+      Type functionalInterfaceType = genericsChecks.getPolyExpressionType(tree);
       return genericsChecks
           .getGenericMethodParameterNullness(
               paramIndex, funcInterfaceMethod, functionalInterfaceType, state)

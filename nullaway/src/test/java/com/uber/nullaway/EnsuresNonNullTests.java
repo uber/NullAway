@@ -200,6 +200,104 @@ public class EnsuresNonNullTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void throwingGuardMakesFieldNonNullAfterTheCall() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Reader.java",
+            readerWithThrowingGuard(
+                "com.uber.nullaway.annotations.EnsuresNonNull",
+                """
+                checkOpen();
+                return seq.charAt(pos++);
+                """))
+        .doTest();
+  }
+
+  @Test
+  public void throwingGuardWithCheckerFrameworkAnnotationMakesFieldNonNullAfterTheCall() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Reader.java",
+            readerWithThrowingGuard(
+                "org.checkerframework.checker.nullness.qual.EnsuresNonNull",
+                """
+                checkOpen();
+                return seq.charAt(pos++);
+                """))
+        .doTest();
+  }
+
+  @Test
+  public void fieldStaysNullableWithoutACallToTheThrowingGuard() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Reader.java",
+            readerWithThrowingGuard(
+                "com.uber.nullaway.annotations.EnsuresNonNull",
+                """
+                // BUG: Diagnostic contains: dereferenced expression 'seq' is @Nullable
+                return seq.charAt(pos++);
+                """))
+        .doTest();
+  }
+
+  @Test
+  public void throwingGuardThatLeavesFieldNullOnNormalExitIsReported() {
+    defaultCompilationHelper
+        .addSourceLines(
+            "Reader.java",
+            """
+            package com.uber;
+            import java.io.IOException;
+            import javax.annotation.Nullable;
+            import com.uber.nullaway.annotations.EnsuresNonNull;
+            class Reader {
+              @Nullable private CharSequence seq;
+              @EnsuresNonNull("this.seq")
+              // BUG: Diagnostic contains: fails to ensure the following fields are non-null at exit: [seq]
+              private void checkOpen() throws IOException {
+                if (seq != null) {
+                  throw new IOException("Already open.");
+                }
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  /**
+   * Returns the source of a class whose {@code checkOpen()} guard declares that it ensures {@code
+   * this.seq} is non-null, and does so by throwing rather than by assigning {@code seq}, as in
+   * issue #115.
+   *
+   * @param ensuresNonNullAnnotation fully qualified name of the {@code EnsuresNonNull} annotation
+   *     to import
+   * @param readBody body of {@code read()}, which dereferences {@code seq}
+   */
+  private static String readerWithThrowingGuard(String ensuresNonNullAnnotation, String readBody) {
+    return """
+        package com.uber;
+        import java.io.IOException;
+        import javax.annotation.Nullable;
+        import %s;
+        class Reader {
+          private int pos;
+          @Nullable private CharSequence seq;
+          @EnsuresNonNull("this.seq")
+          private void checkOpen() throws IOException {
+            if (seq == null) {
+              throw new IOException("Not open.");
+            }
+          }
+          public int read() throws IOException {
+        %s
+          }
+        }
+        """
+        .formatted(ensuresNonNullAnnotation, readBody);
+  }
+
+  @Test
   public void supportEnsuresNonNullOverridingTest() {
     defaultCompilationHelper
         .addSourceLines(

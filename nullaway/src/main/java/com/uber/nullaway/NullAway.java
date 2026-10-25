@@ -971,10 +971,7 @@ public class NullAway extends BugChecker
     if (memberReferenceTree != null || lambdaExpressionTree != null) {
       Tree polyExprTree =
           castToNonNull(memberReferenceTree != null ? memberReferenceTree : lambdaExpressionTree);
-      functionalInterfaceType = genericsChecks.getInferredPolyExpressionType(polyExprTree);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(polyExprTree);
-      }
+      functionalInterfaceType = genericsChecks.getPolyExpressionType(polyExprTree);
     }
 
     Type.MethodType jspecifyMemberReferenceMethodType = null;
@@ -1353,11 +1350,7 @@ public class NullAway extends BugChecker
     if (getMethodReturnNullness(methodSymbol, state, Nullness.NULLABLE).equals(Nullness.NULLABLE)) {
       return Description.NO_MATCH;
     } else if (config.isJSpecifyMode() && lambdaTree != null) {
-      Type lambdaType = ASTHelpers.getType(lambdaTree);
-      Type inferredType = genericsChecks.getInferredPolyExpressionType(lambdaTree);
-      if (inferredType != null) {
-        lambdaType = inferredType;
-      }
+      Type lambdaType = genericsChecks.getPolyExpressionType(lambdaTree);
       if (genericsChecks
               .getGenericMethodReturnTypeNullness(methodSymbol, lambdaType, state)
               .equals(Nullness.NULLABLE)
@@ -1477,11 +1470,7 @@ public class NullAway extends BugChecker
       VisitorState state) {
     ResolvedMethodReference resolvedReference = null;
     if (memberReferenceTree != null) {
-      Type functionalInterfaceType =
-          genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-      if (functionalInterfaceType == null) {
-        functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-      }
+      Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
       if (functionalInterfaceType != null) { // diff-coverage: ignore -- Unattributed javac tree.
         resolvedReference =
             genericsChecks.resolveMemberReference(
@@ -1508,11 +1497,7 @@ public class NullAway extends BugChecker
             || getComputedNullness(memberReferenceTree).equals(Nullness.NULLABLE))) {
       String message;
       if (memberReferenceTree != null) {
-        Type functionalInterfaceType =
-            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-        if (functionalInterfaceType == null) {
-          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-        }
+        Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
         message =
             "referenced method returns @Nullable, but functional interface method "
                 + ASTHelpers.enclosingClass(overriddenMethod)
@@ -1602,11 +1587,7 @@ public class NullAway extends BugChecker
       if (memberReferenceTree != null) {
         // For a method reference, we get generic type arguments from javac's inferred type for the
         // tree, which properly preserves type-use annotations
-        Type functionalInterfaceType =
-            genericsChecks.getInferredPolyExpressionType(memberReferenceTree);
-        if (functionalInterfaceType == null) {
-          functionalInterfaceType = ASTHelpers.getType(memberReferenceTree);
-        }
+        Type functionalInterfaceType = genericsChecks.getPolyExpressionType(memberReferenceTree);
         return genericsChecks
                 .getGenericMethodReturnTypeNullness(
                     overriddenMethod, functionalInterfaceType, state)
@@ -2329,16 +2310,26 @@ public class NullAway extends BugChecker
       return Description.NO_MATCH;
     }
     Type expressionType = ASTHelpers.getType(expr);
+    boolean elementNullable;
     if (expressionType != null && expressionType.getKind() == TypeKind.ARRAY) {
       Symbol arraySymbol = ASTHelpers.getSymbol(expr);
-      if (arraySymbol != null && isArrayElementNullable(arraySymbol, config)) {
-        // A nullable element is being unboxed to a primitive. This is unsafe.
-        ErrorMessage errorMessageUnbox =
-            new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
-        state.reportMatch(
-            errorBuilder.createErrorDescription(
-                errorMessageUnbox, buildDescription(loopVariable), state, null));
-      }
+      elementNullable = arraySymbol != null && isArrayElementNullable(arraySymbol, config);
+    } else {
+      elementNullable =
+          genericsChecks
+              .getEnhancedForLoopElementNullness(
+                  expr,
+                  state.withPath(new TreePath(state.getPath(), expr)),
+                  /* calledFromDataflow= */ false)
+              .equals(Nullness.NULLABLE);
+    }
+    if (elementNullable) {
+      // A nullable element is being unboxed to a primitive. This is unsafe.
+      ErrorMessage errorMessageUnbox =
+          new ErrorMessage(MessageTypes.UNBOX_NULLABLE, "unboxing of a @Nullable value");
+      state.reportMatch(
+          errorBuilder.createErrorDescription(
+              errorMessageUnbox, buildDescription(loopVariable), state, null));
     }
 
     return Description.NO_MATCH;
@@ -3094,6 +3085,11 @@ public class NullAway extends BugChecker
 
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
     expr = NullabilityUtil.stripParensAndCasts(expr);
+    Type exprType = ASTHelpers.getType(expr);
+    if (exprType != null && exprType.isPrimitive()) {
+      // A value of a primitive type is never null, whatever annotation its declaration carries
+      return false;
+    }
     if (ASTHelpers.constValue(expr) != null) {
       // This should include literals such as "true" or a string
       // obviously not null
