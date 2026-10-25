@@ -58,8 +58,7 @@ public class GenericsUtils {
 
   /**
    * Returns whether {@code type} is explicitly annotated as non-null. For an intersection, one
-   * explicitly non-null component suffices; a merely unannotated component is not an explicit
-   * marker.
+   * explicitly non-null component suffices.
    */
   static boolean isAnnotatedAsNonNull(Type type, Config config) {
     if (type instanceof Type.IntersectionClassType intersection) {
