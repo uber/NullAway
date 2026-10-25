@@ -1315,7 +1315,7 @@ public class NullAway extends BugChecker
    * Checks that if a returned expression is {@code @Nullable}, the enclosing method does not have a
    * {@code @NonNull} return type. Also performs an unboxing check on the returned expression.
    * Finally, in JSpecify mode, also checks that the nullability of generic type arguments of the
-   * returned expression's type match the method return type.
+   * returned expression's type match the method return type, unless the method is unannotated.
    *
    * @param retExpr the expression being returned
    * @param methodSymbol symbol for the enclosing method
@@ -1345,8 +1345,12 @@ public class NullAway extends BugChecker
     }
 
     // Check generic type arguments for returned expression here, since we need to check the type
-    // arguments regardless of the top-level nullability of the return type
-    genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
+    // arguments regardless of the top-level nullability of the return type.  Type arguments of an
+    // unannotated method's return type are unspecified, so they are not compared, just as the
+    // arguments of a call to an unannotated method are not checked
+    if (!codeAnnotationInfo.isSymbolUnannotated(methodSymbol, config, handler)) {
+      genericsChecks.checkTypeParameterNullnessForFunctionReturnType(retExpr, methodSymbol, state);
+    }
 
     // Now, perform the check for returning @Nullable from @NonNull.  First, we check if the return
     // type is @Nullable, and if so, bail out.

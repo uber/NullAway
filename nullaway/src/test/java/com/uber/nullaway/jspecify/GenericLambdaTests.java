@@ -452,14 +452,25 @@ public class GenericLambdaTests extends NullAwayTestsBase {
   }
 
   @Test
-  public void lambdaReturnTypeArgumentsAreCheckedAgainstUnmarkedInterface() {
+  public void lambdaReturnTypeArgumentsAreCheckedOnlyAgainstMarkedInterface() {
     makeHelper()
         .addSourceLines(
-            "ListSupplier.java",
+            "UnmarkedListSupplier.java",
             """
             package com.example.unmarked;
             import java.util.List;
-            public interface ListSupplier {
+            public interface UnmarkedListSupplier {
+              List<String> get();
+            }
+            """)
+        .addSourceLines(
+            "MarkedListSupplier.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            public interface MarkedListSupplier {
               List<String> get();
             }
             """)
@@ -467,22 +478,28 @@ public class GenericLambdaTests extends NullAwayTestsBase {
             "Test.java",
             """
             package com.uber;
-            import com.example.unmarked.ListSupplier;
+            import com.example.unmarked.UnmarkedListSupplier;
             import java.util.List;
             import org.jspecify.annotations.NullMarked;
             import org.jspecify.annotations.Nullable;
             @NullMarked
             class Test {
-              void expressionBodyNullableElements(List<@Nullable String> l) {
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
-                ListSupplier s = () -> l;
+              void expressionBodyToUnmarkedInterface(List<@Nullable String> l) {
+                UnmarkedListSupplier s = () -> l;
               }
-              void blockBodyNullableElements(List<@Nullable String> l) {
-                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
-                ListSupplier s = () -> { return l; };
+              void blockBodyToUnmarkedInterface(List<@Nullable String> l) {
+                UnmarkedListSupplier s = () -> { return l; };
               }
-              void expressionBodyNonNullElements(List<String> l) {
-                ListSupplier s = () -> l;
+              void expressionBodyToMarkedInterface(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                MarkedListSupplier s = () -> l;
+              }
+              void blockBodyToMarkedInterface(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                MarkedListSupplier s = () -> { return l; };
+              }
+              void matchingTypeArgumentsToMarkedInterface(List<String> l) {
+                MarkedListSupplier s = () -> l;
               }
             }
             """)
