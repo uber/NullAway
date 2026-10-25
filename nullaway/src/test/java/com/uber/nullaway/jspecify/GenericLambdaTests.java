@@ -314,6 +314,42 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Type-argument nullness of an explicit lambda parameter is compared only against a marked
+   * functional interface method, as for the parameters of an overriding method.
+   */
+  @Test
+  public void explicitlyTypedLambdaParameterTypeArgumentsCheckedOnlyAgainstMarkedInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              interface UnmarkedFi {
+                void apply(List<String> list);
+              }
+              interface MarkedFi {
+                void apply(List<String> list);
+              }
+              void unmarked() {
+                UnmarkedFi nullableElements = (List<@Nullable String> list) -> {};
+              }
+              void marked() {
+                // BUG: Diagnostic contains: Parameter has type List<@Nullable String>, but overridden method has parameter type List<String>
+                MarkedFi nullableElements = (List<@Nullable String> list) -> {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void explicitlyTypedLambdaParameterTypeArgumentsOutsideJSpecifyMode() {
     makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"))

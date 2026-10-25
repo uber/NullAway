@@ -2331,6 +2331,81 @@ public class GenericsTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Type-argument nullness of an override is compared only against a marked overridden method; an
+   * unmarked one leaves it unspecified, as for arguments passed to an unmarked method.
+   */
+  @Test
+  public void overrideTypeArgumentNullnessCheckedOnlyAgainstMarkedMethod() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              interface UnmarkedListSupplier {
+                List<String> get();
+              }
+              @NullUnmarked
+              interface UnmarkedListConsumer {
+                void accept(List<String> list);
+              }
+              interface MarkedListSupplier {
+                List<String> get();
+              }
+              interface MarkedListConsumer {
+                void accept(List<String> list);
+              }
+              static class UnmarkedReturn implements UnmarkedListSupplier {
+                @Override
+                public List<@Nullable String> get() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class UnmarkedParameter implements UnmarkedListConsumer {
+                @Override
+                public void accept(List<@Nullable String> list) {}
+              }
+              static UnmarkedListSupplier unmarkedAnonymousReturn() {
+                return new UnmarkedListSupplier() {
+                  @Override
+                  public List<@Nullable String> get() {
+                    throw new UnsupportedOperationException();
+                  }
+                };
+              }
+              static class MarkedReturn implements MarkedListSupplier {
+                @Override
+                // BUG: Diagnostic contains: Method returns List<@Nullable String>, but overridden method returns List<String>
+                public List<@Nullable String> get() {
+                  throw new UnsupportedOperationException();
+                }
+              }
+              static class MarkedParameter implements MarkedListConsumer {
+                @Override
+                // BUG: Diagnostic contains: Parameter has type List<@Nullable String>, but overridden method has parameter type List<String>
+                public void accept(List<@Nullable String> list) {}
+              }
+              static MarkedListSupplier markedAnonymousReturn() {
+                return new MarkedListSupplier() {
+                  @Override
+                  // BUG: Diagnostic contains: Method returns List<@Nullable String>, but overridden method returns List<String>
+                  public List<@Nullable String> get() {
+                    throw new UnsupportedOperationException();
+                  }
+                };
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void passAnnotatedLambdaOrMethodRefToUnannotatedCode() {
     makeHelper()
