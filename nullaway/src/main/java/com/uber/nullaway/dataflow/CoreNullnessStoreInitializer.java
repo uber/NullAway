@@ -164,7 +164,7 @@ class CoreNullnessStoreInitializer extends NullnessStoreInitializer {
       // inference.  We don't want to consider that here (it is handled in the type stored in
       // fiArgumentNullness), so we only look at the annotations directly on element
       if (Nullness.hasNullableAnnotation(
-          ((Symbol) element).getAnnotationMirrors().stream(), config)) {
+          NullabilityUtil.getAllAnnotations((Symbol) element), config)) {
         assumed = NULLABLE;
       } else if (!NullabilityUtil.lambdaParamIsImplicitlyTyped(variableTree)) {
         // the parameter has a declared type with no @Nullable annotation
