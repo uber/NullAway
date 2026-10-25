@@ -42,8 +42,7 @@ public class GenericsUtils {
 
   /**
    * Returns whether {@code type} is annotated as nullable. For an intersection, every explicit
-   * component must be annotated as nullable; its implicit Object component is not an additional
-   * source-level non-null constraint.
+   * component must be annotated as nullable.
    */
   public static boolean isAnnotatedAsNullable(Type type, Config config) {
     if (type instanceof Type.IntersectionClassType intersection) {
