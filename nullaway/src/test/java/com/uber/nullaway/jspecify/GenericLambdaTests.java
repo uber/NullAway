@@ -473,6 +473,10 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               interface UnmarkedSupplier {
                 List<String> get();
               }
+              @NullUnmarked
+              interface UnmarkedFn<T> {
+                void apply(T t);
+              }
               interface MarkedConsumer {
                 void apply(List<String> list);
               }
@@ -485,6 +489,7 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               }
               static void useUnmarkedConsumer(UnmarkedConsumer c) {}
               static void useUnmarkedSupplier(UnmarkedSupplier s) {}
+              static void useUnmarkedFn(UnmarkedFn<List<String>> f) {}
               static void useMarkedConsumer(MarkedConsumer c) {}
               static void useMarkedSupplier(MarkedSupplier s) {}
               static void useJdkConsumer(Consumer<List<String>> c) {}
@@ -494,6 +499,9 @@ public class GenericLambdaTests extends NullAwayTestsBase {
               }
               void unmarkedReturn() {
                 useUnmarkedSupplier(Test::returnNullableElements);
+              }
+              void unmarkedGenericParameter() {
+                useUnmarkedFn(Test::takeNullableElements);
               }
               void markedParameter() {
                 // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>, but parameter in functional interface method has type List<String>

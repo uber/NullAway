@@ -2915,11 +2915,10 @@ public final class GenericsChecks {
               if (actualParameterWithoutParentheses
                   instanceof MemberReferenceTree memberReferenceTree) {
                 // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types. So, do explicit type checks based on the return and
-                // parameter types of the referenced method. Type arguments of an unmarked
-                // functional
-                // interface method have unspecified nullness and are not checked, as for the
-                // arguments of a call to an unmarked method.
+                // nullability of nested types. So, do explicit type checks based on the return
+                // and parameter types of the referenced method. Type arguments of an unmarked
+                // functional interface method have unspecified nullness and are not checked, as
+                // for the arguments of a call to an unmarked method.
                 if (!CodeAnnotationInfo.instance(state.context)
                     .isSymbolUnannotated(
                         NullabilityUtil.getFunctionalInterfaceMethod(
