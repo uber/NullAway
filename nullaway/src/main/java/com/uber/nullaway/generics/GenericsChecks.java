@@ -2976,6 +2976,15 @@ public final class GenericsChecks {
     Type targetType = castToNonNull(getPolyExpressionType(tree));
     Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
     inferMethodReferenceTypeArguments(tree, groundTargetType, state);
+    // Type arguments of an unmarked functional interface method have unspecified nullness,
+    // as for the arguments of a call to an unmarked method.
+    if (CodeAnnotationInfo.instance(state.context)
+        .isSymbolUnannotated(
+            NullabilityUtil.getFunctionalInterfaceMethod(tree, state.getTypes()),
+            config,
+            handler)) {
+      return;
+    }
     // javac's expression type may omit nested nullability from the referenced signature.
     GenericsUtils.processMethodRefTypeRelations(
         this,
@@ -3055,6 +3064,10 @@ public final class GenericsChecks {
    * Checks that type parameter nullability is consistent between an overriding method and the
    * corresponding overridden method.
    *
+   * <p>Nothing is checked when the overridden method is in {@code @NullUnmarked} or unannotated
+   * code: nullness of its type arguments and type-variable bounds is unspecified, as for the
+   * arguments of a call to such a method.
+   *
    * @param tree A method tree to check
    * @param overridingMethod A symbol of the overriding method
    * @param overriddenMethod A symbol of the overridden method
@@ -3068,7 +3081,9 @@ public final class GenericsChecks {
       Symbol.MethodSymbol overriddenMethod,
       Type overriddenMethodType,
       VisitorState state) {
-    if (!analysis.getConfig().isJSpecifyMode()) {
+    if (!analysis.getConfig().isJSpecifyMode()
+        || CodeAnnotationInfo.instance(state.context)
+            .isSymbolUnannotated(overriddenMethod, config, handler)) {
       return;
     }
     checkTypeParameterNullnessForOverridingMethodReturnType(tree, overriddenMethodType, state);
@@ -3082,7 +3097,8 @@ public final class GenericsChecks {
    * an explicitly typed lambda against the functional interface method, as for the parameters of an
    * overriding method (see {@link #checkTypeParameterNullnessForOverridingMethodParameterType}). An
    * implicitly typed parameter takes its type from the functional interface method, so it is not
-   * checked. Only called in JSpecify mode.
+   * checked, and neither is a parameter of a lambda whose functional interface method is in
+   * {@code @NullUnmarked} or unannotated code. Only called in JSpecify mode.
    *
    * @param tree the lambda
    * @param fiMethod the functional interface method the lambda implements
@@ -3090,7 +3106,9 @@ public final class GenericsChecks {
    */
   public void checkTypeParameterNullnessForExplicitLambdaParameters(
       LambdaExpressionTree tree, Symbol.MethodSymbol fiMethod, VisitorState state) {
-    if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.EXPLICIT) {
+    if (((JCTree.JCLambda) tree).paramKind != JCTree.JCLambda.ParameterKind.EXPLICIT
+        || CodeAnnotationInfo.instance(state.context)
+            .isSymbolUnannotated(fiMethod, config, handler)) {
       return;
     }
     Type targetType = typeOrNullIfRawNonArray(getPolyExpressionType(tree));
@@ -3168,10 +3186,6 @@ public final class GenericsChecks {
    * have been instantiated (e.g. {@code <T extends X>} on {@code Foo<X>} becomes {@code <T
    * extends @Nullable Object>} when overriding in a {@code Foo<@Nullable Object>} subtype).
    *
-   * <p>Overrides of methods from {@code @NullUnmarked} / unannotated code are skipped: method
-   * type-variable bound nullness is not specified there, and treating unmarked bounds as nullable
-   * would false-positive against typical {@code <T>} overrides in marked code.
-   *
    * @param tree tree for the overriding method
    * @param overridingMethod symbol of the overriding method
    * @param overriddenMethod symbol of the overridden method
@@ -3185,10 +3199,6 @@ public final class GenericsChecks {
       Symbol.MethodSymbol overriddenMethod,
       Type overriddenMethodType,
       VisitorState state) {
-    if (CodeAnnotationInfo.instance(state.context)
-        .isSymbolUnannotated(overriddenMethod, config, handler)) {
-      return;
-    }
     // Generic methods are Type.ForAll; non-generic overridden methods have no method type vars.
     if (!(overriddenMethodType instanceof Type.ForAll forAll)) {
       return;

@@ -314,6 +314,42 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Type-argument nullness of an explicit lambda parameter is compared only against a marked
+   * functional interface method, as for the parameters of an overriding method.
+   */
+  @Test
+  public void explicitlyTypedLambdaParameterTypeArgumentsCheckedOnlyAgainstMarkedInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              interface UnmarkedFi {
+                void apply(List<String> list);
+              }
+              interface MarkedFi {
+                void apply(List<String> list);
+              }
+              void unmarked() {
+                UnmarkedFi nullableElements = (List<@Nullable String> list) -> {};
+              }
+              void marked() {
+                // BUG: Diagnostic contains: Parameter has type List<@Nullable String>, but overridden method has parameter type List<String>
+                MarkedFi nullableElements = (List<@Nullable String> list) -> {};
+              }
+            }
+            """)
+        .doTest();
+  }
+
   @Test
   public void explicitlyTypedLambdaParameterTypeArgumentsOutsideJSpecifyMode() {
     makeTestHelperWithArgs(Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber"))
@@ -445,9 +481,155 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Type-argument nullness of a method reference passed as an argument is compared only against a
+   * marked functional interface method, as the arguments of a call to an unmarked method are not
+   * checked. JDK functional interfaces are still checked.
+   */
+  @Test
+  public void methodReferenceArgumentTypeArgumentsCheckedOnlyAgainstMarkedInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Supplier;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              interface UnmarkedConsumer {
+                void apply(List<String> list);
+              }
+              @NullUnmarked
+              interface UnmarkedSupplier {
+                List<String> get();
+              }
+              @NullUnmarked
+              interface UnmarkedFn<T> {
+                void apply(T t);
+              }
+              interface MarkedConsumer {
+                void apply(List<String> list);
+              }
+              interface MarkedSupplier {
+                List<String> get();
+              }
+              static void takeNullableElements(List<@Nullable String> list) {}
+              static List<@Nullable String> returnNullableElements() {
+                throw new RuntimeException();
+              }
+              static void useUnmarkedConsumer(UnmarkedConsumer c) {}
+              static void useUnmarkedSupplier(UnmarkedSupplier s) {}
+              static void useUnmarkedFn(UnmarkedFn<List<String>> f) {}
+              static void useMarkedConsumer(MarkedConsumer c) {}
+              static void useMarkedSupplier(MarkedSupplier s) {}
+              static void useJdkConsumer(Consumer<List<String>> c) {}
+              static void useJdkSupplier(Supplier<List<String>> s) {}
+              void unmarkedParameter() {
+                useUnmarkedConsumer(Test::takeNullableElements);
+              }
+              void unmarkedReturn() {
+                useUnmarkedSupplier(Test::returnNullableElements);
+              }
+              void unmarkedGenericParameter() {
+                useUnmarkedFn(Test::takeNullableElements);
+              }
+              void assignUnmarkedParameter() {
+                UnmarkedConsumer c = Test::takeNullableElements;
+              }
+              void assignUnmarkedReturn() {
+                UnmarkedSupplier s = Test::returnNullableElements;
+              }
+              UnmarkedConsumer returnUnmarkedParameter() {
+                return Test::takeNullableElements;
+              }
+              UnmarkedSupplier returnUnmarkedReturn() {
+                return Test::returnNullableElements;
+              }
+              void markedParameter() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>, but parameter in functional interface method has type List<String>
+                useMarkedConsumer(Test::takeNullableElements);
+              }
+              void markedReturn() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>, but functional interface method
+                useMarkedSupplier(Test::returnNullableElements);
+              }
+              void jdkParameter() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>, but parameter in functional interface method has type List<String>
+                useJdkConsumer(Test::takeNullableElements);
+              }
+              void jdkReturn() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>, but functional interface method
+                useJdkSupplier(Test::returnNullableElements);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
+  }
+
+  @Test
+  public void lambdaReturnTypeArgumentsAreCheckedOnlyAgainstMarkedInterface() {
+    makeHelper()
+        .addSourceLines(
+            "UnmarkedListSupplier.java",
+            """
+            package com.example.unmarked;
+            import java.util.List;
+            public interface UnmarkedListSupplier {
+              List<String> get();
+            }
+            """)
+        .addSourceLines(
+            "MarkedListSupplier.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            public interface MarkedListSupplier {
+              List<String> get();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.example.unmarked.UnmarkedListSupplier;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void expressionBodyToUnmarkedInterface(List<@Nullable String> l) {
+                UnmarkedListSupplier s = () -> l;
+              }
+              void blockBodyToUnmarkedInterface(List<@Nullable String> l) {
+                UnmarkedListSupplier s = () -> { return l; };
+              }
+              void expressionBodyToMarkedInterface(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                MarkedListSupplier s = () -> l;
+              }
+              void blockBodyToMarkedInterface(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                MarkedListSupplier s = () -> { return l; };
+              }
+              void matchingTypeArgumentsToMarkedInterface(List<String> l) {
+                MarkedListSupplier s = () -> l;
+              }
+            }
+            """)
+        .doTest();
   }
 }

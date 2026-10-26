@@ -793,7 +793,6 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               }
               void test() {
                 RestrictiveVarargsFi fi =
-                    // BUG: Diagnostic contains: Parameter has type Object [], but overridden method has parameter type @Nullable Object []
                     (Object[] inputs) -> {
                       inputs.toString();
                     };
@@ -828,7 +827,7 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
               static void takeNullableElements(@Nullable Object... inputs) {}
               void test() {
                 NullableElementsFi compatibleElementsRef = Test::takeNullableElements;
-                // BUG: Diagnostic contains: mismatched type parameter nullability
+                // Nested element nullness is unspecified for the unmarked interface method.
                 NullableElementsFi elementsRef = Test::take;
                 // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
                 NullableArrayFi arrayRef = Test::take;

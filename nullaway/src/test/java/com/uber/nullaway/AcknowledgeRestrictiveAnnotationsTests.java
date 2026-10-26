@@ -313,6 +313,79 @@ public class AcknowledgeRestrictiveAnnotationsTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void lambdaReturnPlusRestrictiveNonNullReturnPositive() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated",
+                "-XepOpt:NullAway:AcknowledgeRestrictiveAnnotations=true"))
+        .addSourceLines(
+            "NonNullReturnFI.java",
+            """
+            package com.uber.lib.unannotated;
+            import javax.annotation.Nonnull;
+            public interface NonNullReturnFI {
+              @Nonnull Object get();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.NonNullReturnFI;
+            public class Test {
+              void expressionBody() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                NonNullReturnFI f = () -> null;
+              }
+              void blockBody() {
+                // BUG: Diagnostic contains: returning @Nullable expression
+                NonNullReturnFI f = () -> { return null; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void lambdaReturnPlusRestrictiveNonNullReturnNegative() {
+    makeTestHelperWithArgs(
+            Arrays.asList(
+                "-d",
+                temporaryFolder.getRoot().getAbsolutePath(),
+                "-XepOpt:NullAway:AnnotatedPackages=com.uber",
+                "-XepOpt:NullAway:UnannotatedSubPackages=com.uber.lib.unannotated"))
+        .addSourceLines(
+            "NonNullReturnFI.java",
+            """
+            package com.uber.lib.unannotated;
+            import javax.annotation.Nonnull;
+            public interface NonNullReturnFI {
+              @Nonnull Object get();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.uber.lib.unannotated.NonNullReturnFI;
+            public class Test {
+              void expressionBody() {
+                // no error since AcknowledgeRestrictiveAnnotations disabled
+                NonNullReturnFI f = () -> null;
+              }
+              void blockBody() {
+                // no error since AcknowledgeRestrictiveAnnotations disabled
+                NonNullReturnFI f = () -> { return null; };
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void explicitlyTypedLambdaPlusRestrictivePositive() {
     makeTestHelperWithArgs(
             Arrays.asList(
