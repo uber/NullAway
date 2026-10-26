@@ -1671,8 +1671,9 @@ public final class GenericsChecks {
           PolyNullInference.substituteInferenceVariables(
               polyNullContext, inferenceVariables, state, config);
     }
-    // first, handle the call result flow
-    if (typeFromAssignmentContext != null) {
+    // First, handle the call result flow. A TypeKind.VOID type can arise here due to
+    // void-compatible expression lambda; do not generate constraints for that case
+    if (typeFromAssignmentContext != null && typeFromAssignmentContext.getKind() != TypeKind.VOID) {
       Type callResultType =
           (callTree instanceof MethodInvocationTree)
               ? methodTypeForSite.getReturnType()
@@ -2914,27 +2915,36 @@ public final class GenericsChecks {
               ExpressionTree actualParameterWithoutParentheses = actualParameterAndState.expr();
               if (actualParameterWithoutParentheses
                   instanceof MemberReferenceTree memberReferenceTree) {
-                Type groundFormalParameter =
-                    GenericsUtils.groundTargetType(formalParameter, state, config, handler);
                 // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types. So, do explicit type checks based on the return and
-                // parameter types of the referenced method
-                GenericsUtils.processMethodRefTypeRelations(
-                    this,
-                    groundFormalParameter,
-                    memberReferenceTree,
-                    actualParameterAndState.state(),
-                    (subtype, supertype, relationKind) -> {
-                      if (!subtypeParameterNullability(supertype, subtype, state)) {
-                        if (relationKind == MethodRefTypeRelationKind.RETURN) {
-                          reportInvalidMethodReferenceReturnTypeError(
-                              memberReferenceTree, supertype, subtype, state);
-                        } else {
-                          reportInvalidMethodReferenceParameterTypeError(
-                              memberReferenceTree, subtype, supertype, state);
+                // nullability of nested types. So, do explicit type checks based on the return
+                // and parameter types of the referenced method. Type arguments of an unmarked
+                // functional interface method have unspecified nullness and are not checked, as
+                // for the arguments of a call to an unmarked method.
+                if (!CodeAnnotationInfo.instance(state.context)
+                    .isSymbolUnannotated(
+                        NullabilityUtil.getFunctionalInterfaceMethod(
+                            memberReferenceTree, state.getTypes()),
+                        config,
+                        handler)) {
+                  Type groundFormalParameter =
+                      GenericsUtils.groundTargetType(formalParameter, state, config, handler);
+                  GenericsUtils.processMethodRefTypeRelations(
+                      this,
+                      groundFormalParameter,
+                      memberReferenceTree,
+                      actualParameterAndState.state(),
+                      (subtype, supertype, relationKind) -> {
+                        if (!subtypeParameterNullability(supertype, subtype, state)) {
+                          if (relationKind == MethodRefTypeRelationKind.RETURN) {
+                            reportInvalidMethodReferenceReturnTypeError(
+                                memberReferenceTree, supertype, subtype, state);
+                          } else {
+                            reportInvalidMethodReferenceParameterTypeError(
+                                memberReferenceTree, subtype, supertype, state);
+                          }
                         }
-                      }
-                    });
+                      });
+                }
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
                 return;

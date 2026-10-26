@@ -161,22 +161,22 @@ jobs:
           - project: caffeine
             url: https://github.com/ben-manes/caffeine.git
             branch: master
-            sha: c717630d481486ed57fc391ee977fbe602247634
+            sha: 10646b00c14a7837fe16a16a2a7b1f82e5fa3155
             build: JAVA_VERSION=26 ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-framework
             url: https://github.com/spring-projects/spring-framework.git
             branch: main
-            sha: 0c575d443dbdff69349a2369f40491c002dc2c96
+            sha: 5651ee2f97edc64ca480c2764ca990516446e321
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: junit-framework
             url: https://github.com/junit-team/junit-framework.git
             branch: main
-            sha: 21b4a5fac91d0c4e684cedba0c0ce1ceb8809315
+            sha: bf8b0f4821e5445d5d2c0f1296d523853f1b6ddb
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: spring-boot
             url: https://github.com/spring-projects/spring-boot.git
             branch: main
-            sha: 0d10cba89be586300791948e5608807882edb278
+            sha: 11778bdc24f72f208f532eba8185311473908019
             build: ./gradlew --init-script use-snapshot.gradle.kts compileAllJava
           - project: reactor-core
             url: https://github.com/reactor/reactor-core.git
