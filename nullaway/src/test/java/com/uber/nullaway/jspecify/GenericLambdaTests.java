@@ -445,6 +445,85 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         .doTest();
   }
 
+  /**
+   * Type-argument nullness of a method reference passed as an argument is compared only against a
+   * marked functional interface method, as the arguments of a call to an unmarked method are not
+   * checked. JDK functional interfaces are still checked.
+   */
+  @Test
+  public void methodReferenceArgumentTypeArgumentsCheckedOnlyAgainstMarkedInterface() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.NullUnmarked;
+            import org.jspecify.annotations.Nullable;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Supplier;
+            @NullMarked
+            class Test {
+              @NullUnmarked
+              interface UnmarkedConsumer {
+                void apply(List<String> list);
+              }
+              @NullUnmarked
+              interface UnmarkedSupplier {
+                List<String> get();
+              }
+              @NullUnmarked
+              interface UnmarkedFn<T> {
+                void apply(T t);
+              }
+              interface MarkedConsumer {
+                void apply(List<String> list);
+              }
+              interface MarkedSupplier {
+                List<String> get();
+              }
+              static void takeNullableElements(List<@Nullable String> list) {}
+              static List<@Nullable String> returnNullableElements() {
+                throw new RuntimeException();
+              }
+              static void useUnmarkedConsumer(UnmarkedConsumer c) {}
+              static void useUnmarkedSupplier(UnmarkedSupplier s) {}
+              static void useUnmarkedFn(UnmarkedFn<List<String>> f) {}
+              static void useMarkedConsumer(MarkedConsumer c) {}
+              static void useMarkedSupplier(MarkedSupplier s) {}
+              static void useJdkConsumer(Consumer<List<String>> c) {}
+              static void useJdkSupplier(Supplier<List<String>> s) {}
+              void unmarkedParameter() {
+                useUnmarkedConsumer(Test::takeNullableElements);
+              }
+              void unmarkedReturn() {
+                useUnmarkedSupplier(Test::returnNullableElements);
+              }
+              void unmarkedGenericParameter() {
+                useUnmarkedFn(Test::takeNullableElements);
+              }
+              void markedParameter() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>, but parameter in functional interface method has type List<String>
+                useMarkedConsumer(Test::takeNullableElements);
+              }
+              void markedReturn() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>, but functional interface method
+                useMarkedSupplier(Test::returnNullableElements);
+              }
+              void jdkParameter() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<@Nullable String>, but parameter in functional interface method has type List<String>
+                useJdkConsumer(Test::takeNullableElements);
+              }
+              void jdkReturn() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>, but functional interface method
+                useJdkSupplier(Test::returnNullableElements);
+              }
+            }
+            """)
+        .doTest();
+  }
+
   private CompilationTestHelper makeHelper() {
     return makeTestHelperWithArgs(
         JSpecifyJavacConfig.withJSpecifyModeArgs(
