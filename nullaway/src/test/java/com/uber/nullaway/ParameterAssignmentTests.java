@@ -60,6 +60,37 @@ public class ParameterAssignmentTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void nestedParameterNullness() {
+    makeTestHelperWithArgs(JSpecifyJavacConfig.withJSpecifyModeArgs(defaultArgs()))
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void typeArgumentMismatchIsReported(List<String> p, List<@Nullable String> q) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                p = q;
+              }
+              void matchingTypeArgumentsAreAllowed(List<@Nullable String> p, List<@Nullable String> q) {
+                p = q;
+              }
+              void arrayElementMismatchIsReported(String[] p, @Nullable String[] q) {
+                // BUG: Diagnostic contains: incompatible types: @Nullable String [] cannot be converted to String []
+                p = q;
+              }
+              void matchingArrayElementTypesAreAllowed(@Nullable String[] p, @Nullable String[] q) {
+                p = q;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void explicitlyTypedLambdaParameters() {
     defaultCompilationHelper
         .addSourceLines(
