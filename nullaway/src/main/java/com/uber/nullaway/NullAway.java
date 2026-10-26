@@ -619,16 +619,14 @@ public class NullAway extends BugChecker
           pathWithLeaf(pathWithLeaf(state.getPath(), arrayAccess), arrayExpr);
       Type arrayType = genericsChecks.getTreeType(arrayExpr, state.withPath(pathToArrayExpr));
       boolean isElementNullable = isArrayElementNullable(arrayType, config);
-      if (!isElementNullable && mayBeNullExpr(state, expression)) {
-        String message = "Writing @Nullable expression into array with @NonNull contents.";
-        ErrorMessage errorMessage =
-            new ErrorMessage(MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY, message);
-        return errorBuilder.createErrorDescription(
-            errorMessage,
-            buildDescription(tree),
-            state,
-            ASTHelpers.getSymbol(arrayExpr),
-            expression);
+      if (!checkTopLevelNullnessCompatibility(
+          expression,
+          isElementNullable ? Nullness.NULLABLE : Nullness.NONNULL,
+          MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY,
+          tree,
+          ASTHelpers.getSymbol(arrayExpr),
+          state)) {
+        return Description.NO_MATCH;
       }
     }
 
@@ -642,18 +640,15 @@ public class NullAway extends BugChecker
       // field already annotated
       return Description.NO_MATCH;
     }
-    ExpressionTree expression = tree.getExpression();
-    if (mayBeNullExpr(state, expression)) {
-      String message = "assigning @Nullable expression to @NonNull field";
-      return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(MessageTypes.ASSIGN_FIELD_NULLABLE, message),
-          expression,
-          buildDescription(tree),
-          state,
-          ASTHelpers.getSymbol(tree.getVariable()),
-          expression);
+    if (checkTopLevelNullnessCompatibility(
+        tree.getExpression(),
+        Nullness.NONNULL,
+        MessageTypes.ASSIGN_FIELD_NULLABLE,
+        tree,
+        assigned,
+        state)) {
+      handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     }
-    handler.onNonNullFieldAssignment(assigned, getNullnessAnalysis(state), state);
     return Description.NO_MATCH;
   }
 
@@ -1319,8 +1314,7 @@ public class NullAway extends BugChecker
    * @param lambdaTree if return is inside a lambda, the tree for the lambda, otherwise {@code null}
    * @param errorTree tree on which to report an error if needed
    * @param state the visitor state
-   * @return {@link Description} of the returning {@code @Nullable} from {@code @NonNull} method
-   *     error if one is to be reported, otherwise {@link Description#NO_MATCH}
+   * @return {@link Description#NO_MATCH}; diagnostics are reported directly through {@code state}
    */
   private Description checkReturnExpression(
       ExpressionTree retExpr,
@@ -1365,18 +1359,8 @@ public class NullAway extends BugChecker
       }
     }
 
-    // Return type is @NonNull.  Check if the expression is @Nullable
-    if (mayBeNullExpr(state, retExpr)) {
-      return errorBuilder.createErrorDescriptionForNullAssignment(
-          new ErrorMessage(
-              MessageTypes.RETURN_NULLABLE,
-              "returning @Nullable expression from method with @NonNull return type"),
-          retExpr,
-          buildDescription(errorTree),
-          state,
-          methodSymbol,
-          retExpr);
-    }
+    checkTopLevelNullnessCompatibility(
+        retExpr, Nullness.NONNULL, MessageTypes.RETURN_NULLABLE, errorTree, methodSymbol, state);
     return Description.NO_MATCH;
   }
 
@@ -1974,16 +1958,12 @@ public class NullAway extends BugChecker
     }
     ExpressionTree initializer = tree.getInitializer();
     if (initializer != null) {
-      if (getFieldInitializationSkipResult(state, symbol, null) != Handler.FieldSkipResult.YES) {
-        if (mayBeNullExpr(state, initializer)) {
-          ErrorMessage errorMessage =
-              new ErrorMessage(
-                  MessageTypes.ASSIGN_FIELD_NULLABLE,
-                  "assigning @Nullable expression to @NonNull field");
-          return errorBuilder.createErrorDescriptionForNullAssignment(
-              errorMessage, initializer, buildDescription(tree), state, symbol, initializer);
-        }
-      }
+      Nullness targetNullness =
+          getFieldInitializationSkipResult(state, symbol, null) == Handler.FieldSkipResult.YES
+              ? Nullness.NULLABLE
+              : Nullness.NONNULL;
+      checkTopLevelNullnessCompatibility(
+          initializer, targetNullness, MessageTypes.ASSIGN_FIELD_NULLABLE, tree, symbol, state);
     }
     return Description.NO_MATCH;
   }
@@ -2487,25 +2467,16 @@ public class NullAway extends BugChecker
                 Objects.equals(Nullness.NONNULL, finalArgumentNullness.getVarargsArrayNullness());
           }
           if (!argIsNonNull) {
-            // argument can be @Nullable, so nothing to check
+            // Preserve the fast path for nullable and unannotated parameters.
             return;
           }
-          boolean mayActualBeNull = mayBeNullExpr(state, actual);
-          if (mayActualBeNull) {
-            String message =
-                "passing @Nullable parameter '"
-                    + state.getSourceForNode(actual)
-                    + "' where @NonNull is required";
-            ErrorMessage errorMessage = new ErrorMessage(MessageTypes.PASS_NULLABLE, message);
-            state.reportMatch(
-                errorBuilder.createErrorDescriptionForNullAssignment(
-                    errorMessage,
-                    actual,
-                    buildDescription(actual),
-                    state,
-                    formalParams.get(argPos),
-                    actual));
-          }
+          checkTopLevelNullnessCompatibility(
+              actual,
+              Nullness.NONNULL,
+              MessageTypes.PASS_NULLABLE,
+              actual,
+              formalParams.get(argPos),
+              state);
         });
     // Check for @NonNull being passed to castToNonNull (if configured)
     return checkCastToNonNullTakesNullable(tree, state, methodSymbol, actualParams);
@@ -3086,23 +3057,95 @@ public class NullAway extends BugChecker
         .anyMatch(excludedClassAnnotations::contains);
   }
 
+  /**
+   * Checks top-level compatibility with a resolved destination contract and reports an error for an
+   * incompatible pseudo-assignment. Context-specific generic inference and nested type checks are
+   * performed independently by the caller. Locals and reassigned parameter variables have inferred
+   * top-level nullness and do not require this check.
+   *
+   * <p>Returns whether the assignment is compatible, even if its diagnostic is suppressed. This
+   * distinction matters for handlers that are notified only of successful nonnull field writes.
+   *
+   * @param expression expression being assigned, passed, or returned
+   * @param targetNullness destination's nullness after applying context-specific rules and handlers
+   * @param messageType diagnostic identifying the pseudo-assignment context
+   * @param errorTree tree on which to report the diagnostic
+   * @param target destination symbol, or the array symbol for an array-element write
+   * @param state visitor state at the pseudo-assignment
+   * @return whether the top-level nullness is compatible
+   */
+  private boolean checkTopLevelNullnessCompatibility(
+      ExpressionTree expression,
+      Nullness targetNullness,
+      MessageTypes messageType,
+      Tree errorTree,
+      @Nullable Symbol target,
+      VisitorState state) {
+    if (targetNullness != Nullness.NONNULL) {
+      return true;
+    }
+    Nullness expressionNullness = getExpressionNullness(state, expression);
+    if (expressionNullness == null // diff-coverage: ignore -- Preserve missing-dataflow fallback.
+        || !NullabilityUtil.nullnessToBool(expressionNullness)) {
+      return true;
+    }
+    String message =
+        switch (messageType) { // diff-coverage: ignore -- Private callers use only four cases.
+          case ASSIGN_FIELD_NULLABLE -> "assigning @Nullable expression to @NonNull field";
+          case RETURN_NULLABLE ->
+              "returning @Nullable expression from method with @NonNull return type";
+          case PASS_NULLABLE ->
+              "passing @Nullable parameter '"
+                  + state.getSourceForNode(expression)
+                  + "' where @NonNull is required";
+          case ASSIGN_NULLABLE_TO_NONNULL_ARRAY ->
+              "Writing @Nullable expression into array with @NonNull contents.";
+          default ->
+              throw new AssertionError(messageType); // diff-coverage: ignore -- Private callers.
+        };
+    ErrorMessage errorMessage = new ErrorMessage(messageType, message);
+    Description description =
+        messageType == MessageTypes.ASSIGN_NULLABLE_TO_NONNULL_ARRAY
+            ? errorBuilder.createErrorDescription(
+                errorMessage, buildDescription(errorTree), state, target, expression)
+            : errorBuilder.createErrorDescriptionForNullAssignment(
+                errorMessage, expression, buildDescription(errorTree), state, target, expression);
+    state.reportMatch(description);
+    return false;
+  }
+
+  /** Returns whether the effective nullness of an expression permits null. */
   private boolean mayBeNullExpr(VisitorState state, ExpressionTree expr) {
+    Nullness nullness = getExpressionNullness(state, expr);
+    return nullness != null && NullabilityUtil.nullnessToBool(nullness);
+  }
+
+  /**
+   * Returns the expression nullness used by the checker, retaining the dataflow value rather than
+   * reducing it to a boolean. Fast paths and handler overrides preserve the checker's permissive
+   * treatment of unannotated code, so {@code NONNULL} here is not necessarily a dataflow proof.
+   *
+   * <p>Returns {@code null} when dataflow has no value for an expression that requires analysis.
+   * Callers retain the existing permissive behavior for such expressions. Dataflow is queried only
+   * when the syntactic, declaration, and handler checks cannot rule out null.
+   */
+  private @Nullable Nullness getExpressionNullness(VisitorState state, ExpressionTree expr) {
     expr = NullabilityUtil.stripParensAndCasts(expr);
     Type exprType = ASTHelpers.getType(expr);
     if (exprType != null && exprType.isPrimitive()) {
       // A value of a primitive type is never null, whatever annotation its declaration carries
-      return false;
+      return Nullness.NONNULL;
     }
     if (ASTHelpers.constValue(expr) != null) {
       // This should include literals such as "true" or a string
       // obviously not null
-      return false;
+      return Nullness.NONNULL;
     }
     // return early for expressions that no handler overrides and will not need dataflow analysis
     switch (expr.getKind()) {
       case NULL_LITERAL -> {
         // obviously null
-        return true;
+        return Nullness.NULL;
       }
       case NEW_CLASS,
           NEW_ARRAY,
@@ -3156,7 +3199,7 @@ public class NullAway extends BugChecker
           RIGHT_SHIFT,
           UNSIGNED_RIGHT_SHIFT -> {
         // clearly not null
-        return false;
+        return Nullness.NONNULL;
       }
       default -> {}
     }
@@ -3215,7 +3258,7 @@ public class NullAway extends BugChecker
               "whoops, better handle " + expr.getKind() + " " + state.getSourceForNode(expr));
     }
     exprMayBeNull = handler.onOverrideMayBeNullExpr(this, expr, exprSymbol, state, exprMayBeNull);
-    return exprMayBeNull && nullnessFromDataflow(state, expr);
+    return exprMayBeNull ? getExpressionNullnessFromDataflow(state, expr) : Nullness.NONNULL;
   }
 
   private boolean mayBeNullMethodCall(
@@ -3247,6 +3290,14 @@ public class NullAway extends BugChecker
     return false;
   }
 
+  /** Returns the expression's dataflow nullness, or {@code null} if no value is available. */
+  private @Nullable Nullness getExpressionNullnessFromDataflow(
+      VisitorState state, ExpressionTree expr) {
+    return getNullnessAnalysis(state)
+        .getNullness(new TreePath(state.getPath(), expr), state.context);
+  }
+
+  /** Returns whether an expression's dataflow nullness permits null. */
   public boolean nullnessFromDataflow(VisitorState state, ExpressionTree expr) {
     Nullness nullness =
         getNullnessAnalysis(state).getNullness(new TreePath(state.getPath(), expr), state.context);

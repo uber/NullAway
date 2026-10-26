@@ -880,6 +880,14 @@ public class SerializationTest extends NullAwayTestsBase {
                  // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
                  foo = bar;
                }
+               void nullableWriteFollowedByNullCheck(@Nullable Object value) {
+                 // The null check makes foo nonnull at exit, but the write itself is nullable.
+                 // BUG: Diagnostic contains: assigning @Nullable expression to @NonNull field
+                 foo = value;
+                 if (foo == null) {
+                   throw new IllegalArgumentException();
+                 }
+               }
             }
             """)
         .setExpectedOutputs(

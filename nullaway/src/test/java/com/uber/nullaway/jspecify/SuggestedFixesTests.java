@@ -15,7 +15,8 @@ public class SuggestedFixesTests {
 
   @Rule public TemporaryFolder temporaryFolder = new TemporaryFolder();
 
-  private BugCheckerRefactoringTestHelper makeTestHelper() {
+  /** Creates a helper with optional flags in addition to JSpecify and suppression suggestions. */
+  private BugCheckerRefactoringTestHelper makeTestHelper(String... extraArgs) {
     List<String> args =
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             List.of(
@@ -24,7 +25,7 @@ public class SuggestedFixesTests {
                 "-XepOpt:NullAway:AnnotatedPackages=com.uber",
                 "-XepOpt:NullAway:SuggestSuppressions=true"));
     return BugCheckerRefactoringTestHelper.newInstance(NullAway.class, getClass())
-        .setArgs(ImmutableList.copyOf(args));
+        .setArgs(ImmutableList.<String>builder().addAll(args).add(extraArgs).build());
   }
 
   @Test
@@ -52,6 +53,41 @@ public class SuggestedFixesTests {
               void test() {
                 Object[] arr = new Object[1];
                 arr[0] = null;
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void suggestArraySuppressionWithCastToNonNullConfigured() {
+    makeTestHelper("-XepOpt:NullAway:CastToNonNullMethod=com.uber.Test.castToNonNull")
+        .addInputLines(
+            "Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static Object castToNonNull(@Nullable Object value) {
+                return new Object();
+              }
+              void test(Object[] array, @Nullable Object value) {
+                array[0] = value;
+              }
+            }
+            """)
+        .addOutputLines(
+            "out/Test.java",
+            """
+            package com.uber;
+            import org.jspecify.annotations.Nullable;
+            class Test {
+              static Object castToNonNull(@Nullable Object value) {
+                return new Object();
+              }
+              @SuppressWarnings("NullAway")
+              void test(Object[] array, @Nullable Object value) {
+                array[0] = value;
               }
             }
             """)
