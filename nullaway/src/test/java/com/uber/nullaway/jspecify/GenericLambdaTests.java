@@ -529,4 +529,59 @@ public class GenericLambdaTests extends NullAwayTestsBase {
         JSpecifyJavacConfig.withJSpecifyModeArgs(
             Arrays.asList("-XepOpt:NullAway:AnnotatedPackages=com.uber")));
   }
+
+  @Test
+  public void lambdaReturnTypeArgumentsAreCheckedOnlyAgainstMarkedInterface() {
+    makeHelper()
+        .addSourceLines(
+            "UnmarkedListSupplier.java",
+            """
+            package com.example.unmarked;
+            import java.util.List;
+            public interface UnmarkedListSupplier {
+              List<String> get();
+            }
+            """)
+        .addSourceLines(
+            "MarkedListSupplier.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            @NullMarked
+            public interface MarkedListSupplier {
+              List<String> get();
+            }
+            """)
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import com.example.unmarked.UnmarkedListSupplier;
+            import java.util.List;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              void expressionBodyToUnmarkedInterface(List<@Nullable String> l) {
+                UnmarkedListSupplier s = () -> l;
+              }
+              void blockBodyToUnmarkedInterface(List<@Nullable String> l) {
+                UnmarkedListSupplier s = () -> { return l; };
+              }
+              void expressionBodyToMarkedInterface(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                MarkedListSupplier s = () -> l;
+              }
+              void blockBodyToMarkedInterface(List<@Nullable String> l) {
+                // BUG: Diagnostic contains: incompatible types: List<@Nullable String> cannot be converted to List<String>
+                MarkedListSupplier s = () -> { return l; };
+              }
+              void matchingTypeArgumentsToMarkedInterface(List<String> l) {
+                MarkedListSupplier s = () -> l;
+              }
+            }
+            """)
+        .doTest();
+  }
 }
