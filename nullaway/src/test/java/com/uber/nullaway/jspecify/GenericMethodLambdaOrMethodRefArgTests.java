@@ -123,6 +123,158 @@ public class GenericMethodLambdaOrMethodRefArgTests extends NullAwayTestsBase {
   }
 
   @Test
+  public void genericMethodReferenceInferenceAcrossContexts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.List;
+            import java.util.function.Function;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static <T extends @Nullable Object> List<T> identity(List<T> values) {
+                return values;
+              }
+              static void acceptNullable(
+                  Function<List<@Nullable String>, List<@Nullable String>> function) {}
+              static void acceptIncompatible(
+                  Function<List<@Nullable String>, List<String>> function) {}
+              static class Adapter {
+                Adapter(Function<List<@Nullable String>, List<String>> function) {}
+              }
+
+              Function<List<String>, List<String>> nonNullField = Test::identity;
+              Function<List<@Nullable String>, List<@Nullable String>> nullableField = Test::identity;
+              // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+              Function<List<@Nullable String>, List<String>> incompatibleField = Test::identity;
+
+              void nonNullLocal() {
+                Function<List<String>, List<String>> function = Test::identity;
+              }
+              void nullableLocal() {
+                Function<List<@Nullable String>, List<@Nullable String>> function = Test::identity;
+              }
+              void incompatibleLocal() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                Function<List<@Nullable String>, List<String>> function = Test::identity;
+              }
+              void nullableAssignment() {
+                nullableField = (Test::identity);
+              }
+              void incompatibleAssignment() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                incompatibleField = (Test::identity);
+              }
+              Function<List<String>, List<String>> nonNullReturn() {
+                return Test::identity;
+              }
+              Function<List<@Nullable String>, List<@Nullable String>> nullableReturn() {
+                return (Test::identity);
+              }
+              Function<List<@Nullable String>, List<String>> incompatibleReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                return (Test::identity);
+              }
+              static <T> Function<List<@Nullable T>, List<@Nullable T>> nullableTypeVariableReturn() {
+                return Test::identity;
+              }
+              static <T> Function<List<@Nullable T>, List<T>> incompatibleTypeVariableReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                return Test::identity;
+              }
+              Supplier<Function<List<@Nullable String>, List<@Nullable String>>> nullableLambdaReturn() {
+                return () -> Test::identity;
+              }
+              Supplier<Function<List<@Nullable String>, List<String>>> incompatibleLambdaReturn() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                return () -> Test::identity;
+              }
+              void nullableArgument() {
+                acceptNullable(Test::identity);
+              }
+              void incompatibleArgument() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                acceptIncompatible(Test::identity);
+              }
+              void incompatibleConstructorArgument() {
+                // BUG: Diagnostic contains: inference failure: type variable T constrained to be both
+                new Adapter(Test::identity);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
+  public void nonGenericMethodReferenceNestedNullabilityAcrossContexts() {
+    makeHelper()
+        .addSourceLines(
+            "Test.java",
+            """
+            package com.uber;
+            import java.util.ArrayList;
+            import java.util.List;
+            import java.util.function.Consumer;
+            import java.util.function.Supplier;
+            import org.jspecify.annotations.NullMarked;
+            import org.jspecify.annotations.Nullable;
+            @NullMarked
+            class Test {
+              static List<@Nullable String> nullableValues() { return new ArrayList<>(); }
+              static void nonNullValues(List<String> values) {}
+              static void acceptNullableSupplier(Supplier<List<@Nullable String>> supplier) {}
+              static void acceptNonNullSupplier(Supplier<List<String>> supplier) {}
+              static void acceptNullableConsumer(Consumer<List<@Nullable String>> consumer) {}
+              static void acceptNonNullConsumer(Consumer<List<String>> consumer) {}
+
+              void compatibleLocals() {
+                Supplier<List<@Nullable String>> supplier = Test::nullableValues;
+                Consumer<List<String>> consumer = Test::nonNullValues;
+              }
+              void incompatibleSupplierLocal() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                Supplier<List<String>> supplier = Test::nullableValues;
+              }
+              void incompatibleConsumerLocal() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<String>
+                Consumer<List<@Nullable String>> consumer = Test::nonNullValues;
+              }
+              Supplier<List<@Nullable String>> compatibleSupplierReturn() {
+                return Test::nullableValues;
+              }
+              Supplier<List<String>> incompatibleSupplierReturn() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                return Test::nullableValues;
+              }
+              Consumer<List<String>> compatibleConsumerReturn() {
+                return Test::nonNullValues;
+              }
+              Consumer<List<@Nullable String>> incompatibleConsumerReturn() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<String>
+                return Test::nonNullValues;
+              }
+              void compatibleArguments() {
+                acceptNullableSupplier(Test::nullableValues);
+                acceptNonNullConsumer(Test::nonNullValues);
+              }
+              void incompatibleSupplierArgument() {
+                // BUG: Diagnostic contains: referenced method returns List<@Nullable String>
+                acceptNonNullSupplier(Test::nullableValues);
+              }
+              void incompatibleConsumerArgument() {
+                // BUG: Diagnostic contains: parameter type of referenced method is List<String>
+                acceptNullableConsumer(Test::nonNullValues);
+              }
+            }
+            """)
+        .doTest();
+  }
+
+  @Test
   public void voidCompatibleLambdaDiscardsNullableGenericResult() {
     makeHelper()
         .addSourceLines(

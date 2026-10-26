@@ -2910,35 +2910,10 @@ public final class GenericsChecks {
               }
 
               TreePath pathToParam = pathWithLeaf(state.getPath(), currentActualParam);
-              NullabilityUtil.ExprTreeAndState actualParameterAndState =
-                  NullabilityUtil.stripParensAndUpdateTreePath(
-                      currentActualParam, state.withPath(pathToParam));
-              ExpressionTree actualParameterWithoutParentheses = actualParameterAndState.expr();
-              if (actualParameterWithoutParentheses
-                  instanceof MemberReferenceTree memberReferenceTree) {
-                Type groundFormalParameter =
-                    GenericsUtils.groundTargetType(formalParameter, state, config, handler);
-                inferMethodReferenceTypeArguments(
-                    memberReferenceTree, groundFormalParameter, actualParameterAndState.state());
-                // the type of the method reference tree provided by javac may not capture
-                // nullability of nested types. So, do explicit type checks based on the return and
-                // parameter types of the referenced method
-                GenericsUtils.processMethodRefTypeRelations(
-                    this,
-                    groundFormalParameter,
-                    memberReferenceTree,
-                    actualParameterAndState.state(),
-                    (subtype, supertype, relationKind) -> {
-                      if (!subtypeParameterNullability(supertype, subtype, state)) {
-                        if (relationKind == MethodRefTypeRelationKind.RETURN) {
-                          reportInvalidMethodReferenceReturnTypeError(
-                              memberReferenceTree, supertype, subtype, state);
-                        } else {
-                          reportInvalidMethodReferenceParameterTypeError(
-                              memberReferenceTree, subtype, supertype, state);
-                        }
-                      }
-                    });
+              ExpressionTree actualParameterWithoutParentheses =
+                  ASTHelpers.stripParentheses(currentActualParam);
+              if (actualParameterWithoutParentheses instanceof MemberReferenceTree) {
+                // The reference itself checks its signature against this target when visited.
                 maybeStorePolyExpressionTypeFromTarget(
                     actualParameterWithoutParentheses, formalParameter, state);
                 return;
@@ -2990,12 +2965,41 @@ public final class GenericsChecks {
   }
 
   /**
+   * Infers omitted method-reference type arguments and checks nested parameter and return
+   * nullability against the functional-interface target. Called when visiting the reference, after
+   * its parent has supplied the target type and completed any joint generic call inference.
+   *
+   * @param tree the method reference
+   * @param state visitor state whose path ends at the reference
+   */
+  public void checkMethodReference(MemberReferenceTree tree, VisitorState state) {
+    Type targetType = castToNonNull(getPolyExpressionType(tree));
+    Type groundTargetType = GenericsUtils.groundTargetType(targetType, state, config, handler);
+    inferMethodReferenceTypeArguments(tree, groundTargetType, state);
+    // javac's expression type may omit nested nullability from the referenced signature.
+    GenericsUtils.processMethodRefTypeRelations(
+        this,
+        groundTargetType,
+        tree,
+        state,
+        (subtype, supertype, relationKind) -> {
+          if (!subtypeParameterNullability(supertype, subtype, state)) {
+            if (relationKind == MethodRefTypeRelationKind.RETURN) {
+              reportInvalidMethodReferenceReturnTypeError(tree, supertype, subtype, state);
+            } else {
+              reportInvalidMethodReferenceParameterTypeError(tree, subtype, supertype, state);
+            }
+          }
+        });
+  }
+
+  /**
    * Infers a generic method reference's type argument nullability from its known target type before
-   * checking argument compatibility. References already handled by enclosing generic call inference
+   * checking target compatibility. References already handled by enclosing generic call inference
    * retain that joint solution. Resolving a reference while generating constraints only reads
    * cached solutions, so it cannot recursively start this inference.
    *
-   * <p>Called only during invocation checking, after dataflow and speculative inference, so the
+   * <p>Called only while visiting the reference, after dataflow and speculative inference, so the
    * result can be cached for subsequent method-reference checks.
    */
   private void inferMethodReferenceTypeArguments(

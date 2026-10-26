@@ -825,7 +825,10 @@ public class JSpecifyVarargsTests extends NullAwayTestsBase {
                 void apply(Object @Nullable ... inputs);
               }
               static void take(Object... inputs) {}
+              static void takeNullableElements(@Nullable Object... inputs) {}
               void test() {
+                NullableElementsFi compatibleElementsRef = Test::takeNullableElements;
+                // BUG: Diagnostic contains: mismatched type parameter nullability
                 NullableElementsFi elementsRef = Test::take;
                 // BUG: Diagnostic contains: parameter inputs of referenced method is @NonNull
                 NullableArrayFi arrayRef = Test::take;
