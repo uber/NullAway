@@ -1,6 +1,5 @@
 package com.uber.nullaway.generics;
 
-import static com.google.common.truth.Truth.assertThat;
 import static com.google.errorprone.BugPattern.SeverityLevel.SUGGESTION;
 import static com.google.errorprone.matchers.Description.NO_MATCH;
 
@@ -17,9 +16,11 @@ import com.sun.tools.javac.code.Type;
 import com.sun.tools.javac.util.List;
 import com.uber.nullaway.Config;
 import com.uber.nullaway.NullAway;
-import com.uber.nullaway.Nullness;
+import com.uber.nullaway.handlers.Handler;
+import java.util.LinkedHashMap;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.lang.model.element.ElementKind;
 import org.junit.Test;
 import org.junit.runner.RunWith;
@@ -30,8 +31,8 @@ import org.junit.runners.JUnit4;
  *
  * <p>WARNING: These tests depend on javac internal APIs and its representation of intersection
  * types, wildcard captures, and type-use annotations. If a javac implementation change breaks a
- * test, recheck how the fixture types are obtained before changing the asserted nullability
- * behavior. These tests deliberately avoid assertions about object identity or component order.
+ * test, recheck how the fixture types are obtained before changing the expected nullability
+ * behavior. These tests deliberately avoid checks of object identity or component order.
  */
 @RunWith(JUnit4.class)
 public class IntersectionTypeSubstitutionTests {
@@ -43,6 +44,7 @@ public class IntersectionTypeSubstitutionTests {
         class Test<S extends B & A<@Nullable String>,
                    T extends @Nullable C<@NonNull String> & A<@NonNull String> & B> {
           S source;
+          // BUG: Diagnostic contains: reordered: result=unannotated, A.argument=@Nullable, original.A.argument=@NonNull, B=unannotated, C=@Nullable, C.argument=@NonNull, original.C=@Nullable, source.A.argument=@Nullable; inputs: source=unannotated->unannotated, target=unannotated->unannotated
           T reordered;
         }
         """);
@@ -54,18 +56,21 @@ public class IntersectionTypeSubstitutionTests {
         """
         class Test<T extends B & A<@NonNull String>> {
           A<@Nullable String> source;
+          // BUG: Diagnostic contains: ordinary: result=unannotated, A.argument=@Nullable, original.A.argument=@NonNull, B=unannotated, source.A.argument=@Nullable; inputs: source=unannotated->unannotated, target=unannotated->unannotated
           T ordinary;
         }
         """);
   }
 
   @Test
-  public void mixedIntersectionDoesNotLeakComponentRootNullabilityOntoOrdinaryTarget() {
+  public void mixedIntersectionDoesNotLeakComponentTopLevelNullabilityOntoOrdinaryTarget() {
     compile(
         """
         class Test<S extends @Nullable A<@Nullable String> & B> {
           S source;
-          A<@NonNull String> mixedRoot;
+          // BUG: Diagnostic contains: mixedTopLevel: result=unannotated, result.argument=@Nullable, original.argument=@NonNull, source.A=@Nullable, source.A.argument=@Nullable; inputs: source=unannotated->unannotated, target=unannotated->unannotated
+          A<@NonNull String> mixedTopLevel;
+          // BUG: Diagnostic contains: unmatched: result=@NonNull, result.argument=@NonNull, source.A.argument=@Nullable; inputs: source=unannotated->unannotated, target=@NonNull->@NonNull
           @NonNull C<@NonNull String> unmatched;
         }
         """);
@@ -77,7 +82,10 @@ public class IntersectionTypeSubstitutionTests {
         """
         class Test<S extends A<@Nullable String> & B> {
           S source;
-          Box<? extends A<String>> synthetic;
+          // BUG: Diagnostic contains: nullableCapture: result=unannotated, wildcard.argument=@Nullable, original.upperBound=unannotated, original.wildcard=unannotated, original.wildcard.argument=unannotated, upperBound=@Nullable, source.A.argument=@Nullable; inputs: source=@Nullable->@Nullable, target=unannotated->unannotated
+          Box<? extends A<String>> nullableCapture;
+          // BUG: Diagnostic contains: nonNullCapture: result=unannotated, wildcard.argument=@Nullable, original.upperBound=unannotated, original.wildcard=unannotated, original.wildcard.argument=unannotated, upperBound=@NonNull, source.A.argument=@Nullable; inputs: source=@NonNull->@NonNull, target=unannotated->unannotated
+          Box<? extends A<String>> nonNullCapture;
         }
         """);
   }
@@ -88,14 +96,29 @@ public class IntersectionTypeSubstitutionTests {
         """
         class Test<S extends @Nullable A<@Nullable String> & @NonNull B> {
           S source;
+          // BUG: Diagnostic contains: mixedSynthetic: result=unannotated, wildcard.argument=@Nullable, original.upperBound=unannotated, original.wildcard=unannotated, original.wildcard.argument=unannotated, upperBound=@NonNull, source.A.argument=@Nullable; inputs: source=@NonNull->@NonNull, target=unannotated->unannotated
           Box<? extends A<String>> mixedSynthetic;
+          // BUG: Diagnostic contains: explicitCapture: result=@NonNull, upperBound=unannotated, wildcard.argument=@Nullable, source.B=@NonNull, original.capture=unannotated, original.upperBound=unannotated, source.A.argument=@Nullable; inputs: source=@NonNull->@NonNull, target=unannotated->unannotated
+          Box<? extends A<String>> explicitCapture;
         }
         """);
   }
 
-  /**
-   * Compiles one focused case; the checker asserts the contract while javac types are available.
-   */
+  @Test
+  public void explicitDeclarationBoundNarrowsNullableComputedIntersection() {
+    compile(
+        """
+        @org.jspecify.annotations.NullMarked
+        class Holder<T extends @NonNull A<@Nullable String> & B> {}
+        class Test<S extends @NonNull A<@Nullable String> & B> {
+          S source;
+          // BUG: Diagnostic contains: narrowedCapture: result=@NonNull, computed=@Nullable, original.upperBound=@NonNull, source.A.argument=@Nullable; inputs: source=@NonNull->@NonNull, target=@Nullable->@Nullable
+          Holder<?> narrowedCapture;
+        }
+        """);
+  }
+
+  /** Compiles one rule with expected diagnostics beside every checked fixture field. */
   private void compile(String source) {
     CompilationTestHelper.newInstance(IntersectionRestorationChecker.class, getClass())
         .addSourceLines(
@@ -112,14 +135,21 @@ public class IntersectionTypeSubstitutionTests {
         .doTest();
   }
 
-  /**
-   * Calls only public restoration helpers and checks annotation semantics, never identity/layout.
-   */
+  /** Reports observable nullability from public restoration helpers, never identity or layout. */
   @BugPattern(summary = "Checks public intersection restoration contracts", severity = SUGGESTION)
   public static final class IntersectionRestorationChecker extends BugChecker
       implements BugChecker.VariableTreeMatcher {
     private static final Set<String> CASES =
-        Set.of("reordered", "ordinary", "mixedRoot", "unmatched", "synthetic", "mixedSynthetic");
+        Set.of(
+            "reordered",
+            "ordinary",
+            "mixedTopLevel",
+            "unmatched",
+            "nullableCapture",
+            "nonNullCapture",
+            "mixedSynthetic",
+            "explicitCapture",
+            "narrowedCapture");
     private final Config config =
         new NullAway(
                 ErrorProneFlags.fromMap(
@@ -129,62 +159,55 @@ public class IntersectionTypeSubstitutionTests {
                         "NullAway:HandleWildcardGenerics", "true")))
             .getConfig();
 
-    /** Filters fixture fields and local variables before extracting any test-specific types. */
+    /** Reports a diagnostic for each checked field so an unvisited fixture cannot silently pass. */
     @Override
     public Description matchVariable(VariableTree tree, VisitorState state) {
       Symbol.VarSymbol symbol = ASTHelpers.getSymbol(tree);
-      if (symbol == null
-          || symbol.getKind() != ElementKind.FIELD
-          || !CASES.contains(tree.getName().toString())) {
+      String name = tree.getName().toString();
+      if (symbol == null || symbol.getKind() != ElementKind.FIELD || !CASES.contains(name)) {
         return NO_MATCH;
       }
       Type source = sourceField(symbol);
       Type target = symbol.type;
-      switch (tree.getName().toString()) {
+      Map<String, String> observations = new LinkedHashMap<>();
+      StringBuilder inputs = new StringBuilder();
+      switch (name) {
         case "reordered", "ordinary" -> {
           target = ((Type.TypeVar) target).getUpperBound();
-          Type result = restore(source, target);
-          assertThat(nullable(result)).isFalse();
-          assertThat(nullable(argument(component(result, "A")))).isTrue();
-          assertThat(nonNull(argument(component(target, "A")))).isTrue();
-          assertThat(nullable(component(result, "B"))).isFalse();
-          if (tree.getName().contentEquals("reordered")) {
-            assertThat(nullable(component(result, "C"))).isTrue();
-            assertThat(nonNull(argument(component(result, "C")))).isTrue();
-            assertThat(nullable(component(target, "C"))).isTrue();
+          Type result = restore(source, target, inputs);
+          observe(observations, "result", result);
+          observe(observations, "A.argument", argument(component(result, "A")));
+          observe(observations, "original.A.argument", argument(component(target, "A")));
+          observe(observations, "B", component(result, "B"));
+          if (name.equals("reordered")) {
+            observe(observations, "C", component(result, "C"));
+            observe(observations, "C.argument", argument(component(result, "C")));
+            observe(observations, "original.C", component(target, "C"));
           }
         }
-        case "mixedRoot" -> {
-          Type result = restore(source, target);
-          assertThat(nullable(result)).isFalse();
-          assertThat(nonNull(result)).isFalse();
-          assertThat(nullable(argument(result))).isTrue();
-          assertThat(nonNull(argument(target))).isTrue();
-          assertThat(nullable(component(source, "A"))).isTrue();
+        case "mixedTopLevel" -> {
+          Type result = restore(source, target, inputs);
+          observe(observations, "result", result);
+          observe(observations, "result.argument", argument(result));
+          observe(observations, "original.argument", argument(target));
+          observe(observations, "source.A", component(source, "A"));
         }
         case "unmatched" -> {
-          Type result = restore(source, target);
-          assertThat(nullable(result)).isFalse();
-          assertThat(nonNull(result)).isTrue();
-          assertThat(nonNull(argument(result))).isTrue();
+          Type result = restore(source, target, inputs);
+          observe(observations, "result", result);
+          observe(observations, "result.argument", argument(result));
         }
-        case "synthetic" -> {
-          Type.CapturedType captured = capture(target, state);
-          Type nullableSource =
-              TypeSubstitutionUtils.typeWithAnnot(
-                  source, GenericsChecks.getSyntheticNullableAnnotType(state));
-          Type.CapturedType nullableResult = restoreCapture(nullableSource, captured);
-          assertThat(nullable(nullableResult.getUpperBound())).isTrue();
-          Type nonNullSource =
-              TypeSubstitutionUtils.typeWithAnnot(
-                  source, GenericsChecks.getSyntheticNonNullAnnotType(state));
-          Type.CapturedType nonNullResult = restoreCapture(nonNullSource, captured);
-          assertThat(nullable(nonNullResult.getUpperBound())).isFalse();
-          assertThat(nonNull(nonNullResult.getUpperBound())).isTrue();
-          assertThat(nullable(source)).isFalse();
+        case "nullableCapture", "nonNullCapture" -> {
+          Type annotation =
+              name.equals("nullableCapture")
+                  ? GenericsChecks.getSyntheticNullableAnnotType(state)
+                  : GenericsChecks.getSyntheticNonNullAnnotType(state);
+          Type annotatedSource = TypeSubstitutionUtils.typeWithAnnot(source, annotation);
+          Type.CapturedType result =
+              restoreCapture(annotatedSource, capture(target, state), observations, inputs);
+          observe(observations, "upperBound", result.getUpperBound());
         }
         case "mixedSynthetic" -> {
-          Type.CapturedType captured = capture(target, state);
           // Synthetic annotations have no source spelling; reuse attributed, named components.
           Type mixed =
               state
@@ -197,53 +220,77 @@ public class IntersectionTypeSubstitutionTests {
                           TypeSubstitutionUtils.typeWithAnnot(
                               component(source, "B"),
                               GenericsChecks.getSyntheticNonNullAnnotType(state))));
-          Type.CapturedType inferred = restoreCapture(mixed, captured);
-          assertThat(nullable(inferred.getUpperBound())).isFalse();
-          assertThat(nonNull(inferred.getUpperBound())).isTrue();
-          // Explicit annotations project onto the capture, not its structural upper bound.
-          Type.CapturedType explicit = (Type.CapturedType) restore(source, captured);
-          assertThat(nonNull(explicit)).isTrue();
-          assertThat(nonNull(explicit.getUpperBound())).isFalse();
-          assertThat(nullable(explicit.getUpperBound())).isFalse();
-          assertThat(nullable(argument(explicit.wildcard.type))).isTrue();
-          assertThat(nonNull(component(source, "B"))).isTrue();
-          assertThat(nonNull(captured)).isFalse();
-          assertThat(nonNull(captured.getUpperBound())).isFalse();
+          Type.CapturedType result =
+              restoreCapture(mixed, capture(target, state), observations, inputs);
+          observe(observations, "upperBound", result.getUpperBound());
         }
-        default -> throw new AssertionError("Unrecognized case");
+        case "narrowedCapture" -> {
+          Type.CapturedType original = capture(target, state);
+          // Deliberately construct a conflicting computed bound: ordinary javac capture conversion
+          // generally retains the declaration annotations, so source alone does not isolate this
+          // guard.
+          Type computed =
+              TypeSubstitutionUtils.typeWithAnnot(
+                  original.getUpperBound(), GenericsChecks.getSyntheticNullableAnnotType(state));
+          Type.CapturedType nullableCapture =
+              TypeMetadataBuilder.TYPE_METADATA_BUILDER.createDetachedCapturedType(
+                  original, original.wildcard, computed);
+          String sourceBefore = nullness(source);
+          String computedBefore = nullness(computed);
+          Type result =
+              GenericsUtils.effectiveWildcardUpperBound(
+                  nullableCapture, state, config, new Handler() {});
+          observe(observations, "result", result);
+          observe(observations, "computed", computed);
+          observe(observations, "original.upperBound", original.getUpperBound());
+          inputs.append("source=").append(sourceBefore).append("->").append(nullness(source));
+          inputs.append(", target=").append(computedBefore).append("->").append(nullness(computed));
+        }
+        case "explicitCapture" -> {
+          Type.CapturedType captured = capture(target, state);
+          Type.CapturedType result = (Type.CapturedType) restore(source, captured, inputs);
+          observe(observations, "result", result);
+          observe(observations, "upperBound", result.getUpperBound());
+          observe(observations, "wildcard.argument", argument(result.wildcard.type));
+          observe(observations, "source.B", component(source, "B"));
+          observe(observations, "original.capture", captured);
+          observe(observations, "original.upperBound", captured.getUpperBound());
+        }
+        default -> throw new AssertionError("Unrecognized case: " + name);
       }
-      assertThat(nullable(argument(component(source, "A")))).isTrue();
-      return NO_MATCH;
+      observe(observations, "source.A.argument", argument(component(source, "A")));
+      String values =
+          observations.entrySet().stream()
+              .map(entry -> entry.getKey() + "=" + entry.getValue())
+              .collect(Collectors.joining(", "));
+      return buildDescription(tree)
+          .setMessage(name + ": " + values + "; inputs: " + inputs)
+          .build();
     }
 
-    /**
-     * Restores annotations and verifies that neither input's observable root nullability changes.
-     */
-    private Type restore(Type source, Type target) {
-      boolean sourceNullable = nullable(source);
-      boolean targetNullable = nullable(target);
-      boolean sourceNonNull = nonNull(source);
-      boolean targetNonNull = nonNull(target);
+    /** Restores annotations and records input top-level nullability before and after the call. */
+    private Type restore(Type source, Type target, StringBuilder inputs) {
+      String sourceBefore = nullness(source);
+      String targetBefore = nullness(target);
       Type result =
           TypeSubstitutionUtils.restoreExplicitNullabilityAnnotations(source, target, config);
-      assertThat(nullable(source)).isEqualTo(sourceNullable);
-      assertThat(nullable(target)).isEqualTo(targetNullable);
-      assertThat(nonNull(source)).isEqualTo(sourceNonNull);
-      assertThat(nonNull(target)).isEqualTo(targetNonNull);
+      inputs.append("source=").append(sourceBefore).append("->").append(nullness(source));
+      inputs.append(", target=").append(targetBefore).append("->").append(nullness(target));
       return result;
     }
 
-    /** Checks synthetic capture semantics and preservation of the original bound annotations. */
-    private Type.CapturedType restoreCapture(Type source, Type.CapturedType target) {
-      Type.CapturedType result = (Type.CapturedType) restore(source, target);
-      assertThat(nullable(result)).isFalse();
-      assertThat(nonNull(result)).isFalse();
-      assertThat(nullable(argument(result.wildcard.type))).isTrue();
-      assertThat(nullable(target.getUpperBound())).isFalse();
-      assertThat(nonNull(target.getUpperBound())).isFalse();
-      assertThat(nullable(target.wildcard.type)).isFalse();
-      assertThat(nonNull(target.wildcard.type)).isFalse();
-      assertThat(nullable(argument(target.wildcard.type))).isFalse();
+    /** Records capture nullability and the original bound annotations alongside the result. */
+    private Type.CapturedType restoreCapture(
+        Type source,
+        Type.CapturedType target,
+        Map<String, String> observations,
+        StringBuilder inputs) {
+      Type.CapturedType result = (Type.CapturedType) restore(source, target, inputs);
+      observe(observations, "result", result);
+      observe(observations, "wildcard.argument", argument(result.wildcard.type));
+      observe(observations, "original.upperBound", target.getUpperBound());
+      observe(observations, "original.wildcard", target.wildcard.type);
+      observe(observations, "original.wildcard.argument", argument(target.wildcard.type));
       return result;
     }
 
@@ -266,7 +313,7 @@ public class IntersectionTypeSubstitutionTests {
       throw new AssertionError("Missing source field");
     }
 
-    /** Finds a semantic component by name, without assertions about ordering or implicit Object. */
+    /** Finds a semantic component by name, independent of ordering or an implicit Object. */
     private static Type component(Type type, String name) {
       List<Type> components =
           type instanceof Type.IntersectionClassType intersection
@@ -285,14 +332,17 @@ public class IntersectionTypeSubstitutionTests {
       return type.getTypeArguments().head;
     }
 
-    /** Queries root nullability, including intersections' component-based semantics. */
-    private boolean nullable(Type type) {
-      return GenericsUtils.isAnnotatedAsNullable(type, config);
+    /** Records a checked type's top-level nullness under its semantic role in the fixture. */
+    private void observe(Map<String, String> observations, String label, Type type) {
+      observations.put(label, nullness(type));
     }
 
-    /** Queries explicit non-null annotations on an ordinary type or nested argument. */
-    private boolean nonNull(Type type) {
-      return Nullness.hasNonNullAnnotation(type.getAnnotationMirrors().stream(), config);
+    /** Describes top-level nullness, including annotations on intersection components. */
+    private String nullness(Type type) {
+      if (GenericsUtils.isAnnotatedAsNullable(type, config)) {
+        return "@Nullable";
+      }
+      return GenericsUtils.isAnnotatedAsNonNull(type, config) ? "@NonNull" : "unannotated";
     }
   }
 }

@@ -670,7 +670,7 @@ public class TypeSubstitutionUtils {
       return replaceCapturedTypeWildcard((Type.CapturedType) updated, updatedWildcard);
     }
 
-    /** Returns a synthetic root nullness annotation for {@code type}, if one is present. */
+    /** Returns a synthetic top-level nullness annotation for {@code type}, if one is present. */
     private Attribute.@Nullable TypeCompound getDirectSyntheticNullnessAnnotation(Type type) {
       if (type instanceof Type.IntersectionClassType source) {
         for (Type component : GenericsUtils.nullabilityMatchingComponents(source, config)) {
@@ -739,8 +739,8 @@ public class TypeSubstitutionUtils {
     }
 
     /**
-     * Replaces the type's top-level annotations with {@code annot}, preserving its Java type
-     * structure via {@link TypeSubstitutionUtils#typeWithAnnot(Type, Type)}.
+     * Replaces the type's top-level annotations with an annotation of type {@code annot.type} via
+     * {@link TypeSubstitutionUtils#typeWithAnnot(Type, Type)}.
      */
     private static Type typeWithAnnot(Type t, Attribute.TypeCompound annot) {
       Type annotType = annot.type;
@@ -787,9 +787,9 @@ public class TypeSubstitutionUtils {
   }
 
   /**
-   * Replaces root annotations without changing a type's Java shape. Intersection root annotations
-   * are represented on components of a new intersection, never on a metadata clone of the
-   * intersection itself.
+   * Returns {@code t} with its top-level annotations replaced by one annotation of type {@code
+   * annotType}. For an intersection, returns a new intersection in which every component, including
+   * an implicit {@code Object}, carries that annotation.
    */
   public static Type typeWithAnnot(Type t, Type annotType) {
     if (t instanceof Type.IntersectionClassType intersection) {
@@ -816,17 +816,18 @@ public class TypeSubstitutionUtils {
    */
   public static Type removeNullableAnnotation(Type argumentType, Config config) {
     Verify.verify(GenericsUtils.isAnnotatedAsNullable(argumentType, config));
-    return withoutNullableRootAnnotations(argumentType, config);
+    return withoutTopLevelNullableAnnotations(argumentType, config);
   }
 
   /**
-   * Removes nullable root annotations if present, preserving structure and unrelated annotations.
+   * Returns {@code type} without its top-level nullable annotations. For an intersection, removes
+   * them from every component.
    */
-  private static Type withoutNullableRootAnnotations(Type type, Config config) {
+  private static Type withoutTopLevelNullableAnnotations(Type type, Config config) {
     if (type instanceof Type.IntersectionClassType intersection) {
       ListBuffer<Type> components = new ListBuffer<>();
       for (Type component : intersection.getComponents()) {
-        components.append(withoutNullableRootAnnotations(component, config));
+        components.append(withoutTopLevelNullableAnnotations(component, config));
       }
       return rebuildIntersection(intersection, components.toList());
     }
